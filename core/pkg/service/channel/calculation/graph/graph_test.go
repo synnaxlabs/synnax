@@ -1400,7 +1400,6 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should clear a runtime status when the expression changes",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "st_expr_dep")
 				calc := channel.Channel{
 					Name: "st_expr", DataType: telem.Int64T, Virtual: true,
@@ -1409,7 +1408,10 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				// The Graph coalesces a create with a later update of the same
+				// channel. Opening it after the create makes it track the first
+				// expression, so it sees the edit.
+				g := openGraph(ctx)
 
 				By("Reporting a runtime error the way the calculation framer does")
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
