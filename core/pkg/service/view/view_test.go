@@ -105,11 +105,10 @@ var _ = Describe("View", func() {
 						Base: view.Base{Name: "Bad"},
 						Sort: new(view.Sort("random")),
 					}}
-					err := w.Create(ctx, &s)
-					Expect(err).To(MatchError(validate.ErrValidation))
-					Expect(err).To(MatchError(ContainSubstring(
-						"sort: invalid sort: random",
-					)))
+					Expect(w.Create(ctx, &s)).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("sort: invalid sort: random")),
+					))
 				},
 			)
 			It("Should reject a view with no name", func(ctx SpecContext) {

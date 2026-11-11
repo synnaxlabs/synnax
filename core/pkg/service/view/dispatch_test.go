@@ -139,14 +139,11 @@ var _ = Describe("Dispatch", func() {
 
 		DescribeTable(
 			"Should refuse an invalid edit",
-			func(
-				ctx SpecContext,
-				act view.Action,
-				matcher string,
-			) {
-				err := apply(ctx, act)
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(ContainSubstring(matcher)))
+			func(ctx SpecContext, act view.Action, matcher string) {
+				Expect(apply(ctx, act)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(matcher)),
+				))
 				Expect(retrieve(ctx)).To(Equal(v))
 			},
 			Entry("of the sort", set("sort", "random"), "sort: invalid sort: random"),
