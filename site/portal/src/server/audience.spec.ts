@@ -232,6 +232,45 @@ describe("audience", () => {
       expect(requests()).not.toContain(`DELETE ${ADDRESS}`);
     });
 
+    const BROADCAST = {
+      name: "v0.61.0",
+      from: "Ada <ada@synnaxlabs.com>",
+      subject: "Synnax v0.61",
+      html: "<p>Hi</p>",
+      text: "Hi",
+    };
+    const broadcasts =
+      (...sent: Array<{ name: string; status: string }>) =>
+      (url: URL): Response =>
+        Response.json({
+          object: "list",
+          has_more: url.searchParams.get("after") == null,
+          data:
+            url.searchParams.get("after") == null
+              ? [{ id: "b_old", name: "v0.60.0", status: "sent" }]
+              : sent.map((b, i) => ({ id: `b_${i}`, ...b })),
+        });
+
+    it("should send a broadcast to everyone on the list", async () => {
+      routes["GET /broadcasts"] = broadcasts({ name: "v0.61.0", status: "draft" });
+      routes["POST /broadcasts"] = () => Response.json({ id: "b_new" });
+      await resend("re_key").send(BROADCAST);
+      const [, init] = fetch.mock.calls.at(-1) ?? [];
+      expect(JSON.parse(init?.body as string)).toMatchObject({
+        ...BROADCAST,
+        segment_id: "seg_all",
+        send: true,
+      });
+    });
+
+    it("should refuse a broadcast whose name was sent before", async () => {
+      routes["GET /broadcasts"] = broadcasts({ name: "v0.61.0", status: "sent" });
+      await expect(resend("re_key").send(BROADCAST)).rejects.toThrow(
+        "audience: v0.61.0 was sent before",
+      );
+      expect(requests()).not.toContain("POST /broadcasts");
+    });
+
     it("should retry a request after the time Resend asks for", async () => {
       routes["GET /segments/seg_accounts/contacts"] = held();
       fetch.mockImplementationOnce(async () =>

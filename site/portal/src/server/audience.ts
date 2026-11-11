@@ -82,8 +82,28 @@ interface Reply {
 
 const PAGE = 100;
 
+/** Broadcast is one email to everyone on the list who did not unsubscribe. */
+export interface Broadcast {
+  /** name tells broadcasts apart, such as "v0.61.0". */
+  name: string;
+  from: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/** Broadcaster is a list that can send broadcasts. */
+export interface Broadcaster extends Audience {
+  /**
+   * send mails `broadcast` to everyone on the list. Throws, and sends nothing, when a
+   * broadcast of the same name was sent before. Not safe to call concurrently: two
+   * overlapping sends of one name can both pass that check.
+   */
+  send: (broadcast: Broadcast) => Promise<void>;
+}
+
 /** resend keeps the list in Resend. It throws when a segment in SEGMENTS is missing. */
-export const resend = (apiKey: string): Audience => {
+export const resend = (apiKey: string): Broadcaster => {
   const client = new Resend(apiKey);
   // Resend answers 429 when a team passes its request rate.
   const retried = async <R extends Reply>(request: () => Promise<R>): Promise<R> => {
@@ -133,6 +153,17 @@ export const resend = (apiKey: string): Audience => {
       if (!page.has_more || after == null) return emails;
     }
   };
+  const sent = async (name: string): Promise<boolean> => {
+    let after: string | undefined;
+    for (;;) {
+      const page = await call(
+        async () => await client.broadcasts.list({ limit: PAGE, after }),
+      );
+      if (page.data.some((b) => b.name === name && b.status !== "draft")) return true;
+      after = page.data.at(-1)?.id;
+      if (!page.has_more || after == null) return false;
+    }
+  };
   return {
     everyone: async () => await members("everyone"),
     accounts: async () => await members("accounts"),
@@ -170,6 +201,19 @@ export const resend = (apiKey: string): Audience => {
         await call(
           async () => await client.contacts.segments.remove({ email, segmentId }),
         );
+    },
+    send: async (broadcast) => {
+      if (await sent(broadcast.name))
+        throw new Error(`audience: ${broadcast.name} was sent before`);
+      const { everyone } = await segments();
+      await call(
+        async () =>
+          await client.broadcasts.create({
+            ...broadcast,
+            segmentId: everyone,
+            send: true,
+          }),
+      );
     },
   };
 };
