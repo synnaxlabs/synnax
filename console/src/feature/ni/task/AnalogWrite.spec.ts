@@ -25,7 +25,11 @@ import {
   findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { isSelectButtonSelected, uniqueName } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  isSelectButtonSelected,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -443,6 +447,29 @@ describe("AnalogWrite ports", () => {
     await waitFor(() => expect(max.value).toBe("0.02"));
     expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
     expect(max.getAttribute("aria-invalid")).not.toBe("true");
+  });
+
+  it("should keep the range of a scaled channel switched to current", async () => {
+    const hardware = createHardware();
+    hardware.analogOutputs[0].types.push("ao_current");
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    const scaled = createChannel("ao_voltage", 0, {
+      minVal: 0,
+      maxVal: 100,
+      customScale: {
+        type: "linear",
+        slope: 10,
+        yIntercept: 0,
+        preScaledUnits: "Volts",
+        scaledUnits: "Volts",
+      },
+    });
+    await renderAnalogWrite(createConfig([scaled], dev.key));
+    fireEvent.click(await findChannelListItem("cmd_ao_voltage_0"));
+    await selectFromDropdown("Voltage", "Current");
+    await findDialogTriggerByText("Current");
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("100");
   });
 
   it("should deploy a channel on a port that does not report its types", async () => {

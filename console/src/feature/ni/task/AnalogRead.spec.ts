@@ -601,6 +601,30 @@ describe("AnalogRead ports", () => {
     expect(fieldInvalid("Maximum value")).toBe(false);
   });
 
+  it("should keep the range of a scaled channel switched to current", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    await screen.findByText("Shunt resistance");
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("100");
+  });
+
   it("should give a new channel the current range of the channel it copies", async () => {
     const dev = await createCurrentDevice();
     await renderWith([

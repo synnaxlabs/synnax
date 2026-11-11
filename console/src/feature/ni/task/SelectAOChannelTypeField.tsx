@@ -49,7 +49,10 @@ interface SelectAOChannelTypeFieldProps extends Pick<
   "inputProps"
 > {
   path: deep.Path<AOChannel>;
-  /** The hardware of the channel's device. A switch to current takes its range. */
+  /**
+   * The hardware of the channel's device. An unscaled switch to current takes its
+   * widest current range.
+   */
   hardware?: ni.Hardware;
 }
 
@@ -67,9 +70,12 @@ export const SelectAOChannelTypeField = ({
       const next = createAOChannel(value);
       const prevParent = get(path).value;
       const schema = AO_CHANNEL_SCHEMAS[value];
-      const range = defaultAORange(value, hardware);
+      const merged = deep.overrideValidItems(next, prevParent, schema);
+      // A custom scale gives the range in scaled units, not in device units.
+      const unscaled = "customScale" in merged && merged.customScale.type === "none";
+      const range = unscaled ? defaultAORange(value, hardware) : undefined;
       set(path, {
-        ...deep.overrideValidItems(next, prevParent, schema),
+        ...merged,
         ...(range != null && { minVal: range.lower, maxVal: range.upper }),
         type: next.type,
       } as AOChannel);
