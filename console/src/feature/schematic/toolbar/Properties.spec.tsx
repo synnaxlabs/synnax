@@ -286,6 +286,16 @@ describe("Schematic toolbar Properties", () => {
       });
     });
 
+    it("hides the label section when every labeled symbol is locked", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: ["g1", "n1", "n2"] },
+      });
+      await screen.findByText("Align");
+      expect(screen.queryByText("Wrap width")).toBeNull();
+    });
+
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,

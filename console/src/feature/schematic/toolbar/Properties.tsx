@@ -226,7 +226,7 @@ const MultiConfig = ({
   const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
-  for (const cfg of configByKey.values()) {
+  for (const cfg of editableByKey.values()) {
     if (!("label" in cfg)) continue;
     firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
