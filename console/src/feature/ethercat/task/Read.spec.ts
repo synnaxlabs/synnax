@@ -1838,6 +1838,23 @@ describe("Read", () => {
     );
   });
 
+  it("should create the task from a slave with a channel for each input of its catalog", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, STRAIN_ENTRY], outputs: [] },
+      settings: createSettingsDescription(),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(
+      tsk.config.channels.map((ch) => ch.type === "entry" && [ch.index, ch.subIndex]),
+    ).toEqual([[STRAIN_ENTRY.index, STRAIN_ENTRY.subIndex]]);
+  });
+
   it("should calibrate the inputs of a slave that the task starts from", async () => {
     const slave = await createCalibratedSlave();
     const tsk = await createWithHook(

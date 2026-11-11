@@ -10,7 +10,12 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
+import {
+  check,
+  fill,
+  findInput,
+  sameAddress,
+} from "@/feature/ethercat/device/settings";
 import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
@@ -107,15 +112,10 @@ const validateEntries = <C extends Channel>(
 };
 
 /**
- * Retrieves the slaves the channels use and checks the entries of the enabled channels.
- * @returns the slaves, their rack, and the enabled channels of each slave.
- * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, an input that only another program reads, or an
- * entry another channel uses.
- */
-/**
  * @returns a channel from create for each usable entry on the side of the slave with
- * the key, or the empty channel on the slave when it has none.
+ * the key, or the empty channel on the slave when it has none. When the catalog of the
+ * slave describes some of the entries, only those get a channel, so status entries stay
+ * out of the task.
  */
 export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
@@ -125,10 +125,22 @@ export const createSlaveChannels = async <C extends Channel>(
   empty: C,
 ): Promise<C[]> => {
   const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const entries = usableEntries(slave.properties, pdoType);
+  const usable = usableEntries(slave.properties, pdoType);
+  const described = usable.filter(
+    (entry) => findInput(slave.properties.settings, entry) != null,
+  );
+  const entries = described.length > 0 ? described : usable;
   if (entries.length === 0) return [{ ...empty, device: key }];
   return entries.map((entry) => create(slave, entry));
 };
+
+/**
+ * Retrieves the slaves the channels use and checks the entries of the enabled channels.
+ * @returns the slaves, their rack, and the enabled channels of each slave.
+ * @throws {Error} if the slaves are on different networks, or if an enabled channel has
+ * no entry, an entry its slave lacks, an input that only another program reads, or an
+ * entry another channel uses.
+ */
 
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
