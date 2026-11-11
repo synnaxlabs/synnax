@@ -540,6 +540,7 @@ var _ = Describe("MigrateStalenessConfig", func() {
 		Entry("zero", 0.0, 5*telem.Second),
 		Entry("negative", -2.0, 5*telem.Second),
 		Entry("below a nanosecond", 1e-10, 5*telem.Second),
+		Entry("negative infinite", math.Inf(-1), 5*telem.Second),
 		Entry("NaN", math.NaN(), 5*telem.Second),
 		Entry("too large", 1e12, maxSpan),
 		Entry("infinite", math.Inf(1), maxSpan),

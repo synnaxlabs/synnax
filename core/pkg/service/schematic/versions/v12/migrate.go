@@ -274,7 +274,7 @@ func MigrateStalenessConfig(
 const defaultStalenessTimeout = 5 * telem.Second
 
 func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
-	if math.IsNaN(seconds) {
+	if math.IsNaN(seconds) || seconds <= 0 {
 		return defaultStalenessTimeout
 	}
 	if span := migrateSpan(seconds, telem.Second); span > 0 {
