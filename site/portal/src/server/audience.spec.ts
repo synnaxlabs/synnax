@@ -17,16 +17,17 @@ const GRACE = { name: "Grace Hopper", email: "grace@example.com" };
 
 describe("audience", () => {
   describe("sync", () => {
+    const SUBSCRIBED = { unsubscribed: false, everyone: true, account: true };
+
     it("should add every account to the list in lowercase", async () => {
       const audience = memory();
       expect(await sync(directory({ people: { a: ADA, g: GRACE } }), audience)).toEqual(
         { added: 2, removed: 0 },
       );
-      expect([...audience.list].sort()).toEqual([
-        "ada@example.com",
-        "grace@example.com",
-      ]);
-      expect(audience.synced).toEqual(audience.list);
+      expect(Object.fromEntries(audience.contacts)).toEqual({
+        "ada@example.com": SUBSCRIBED,
+        "grace@example.com": SUBSCRIBED,
+      });
     });
 
     it("should leave an address added by hand as it is", async () => {
@@ -35,24 +36,41 @@ describe("audience", () => {
         added: 0,
         removed: 0,
       });
-      expect(audience.synced.size).toBe(0);
+      expect(audience.contacts.get("ada@example.com")?.account).toBe(false);
     });
 
     it("should keep a hand-added address after its account is deleted", async () => {
       const audience = memory(["ada@example.com"]);
       await sync(directory({ people: { a: ADA } }), audience);
       await sync(directory(), audience);
-      expect([...audience.list]).toEqual(["ada@example.com"]);
+      expect([...audience.contacts.keys()]).toEqual(["ada@example.com"]);
     });
 
-    it("should remove the address of a deleted account", async () => {
+    it("should delete the address of a deleted account", async () => {
       const audience = memory();
       await sync(directory({ people: { a: ADA, g: GRACE } }), audience);
       expect(await sync(directory({ people: { g: GRACE } }), audience)).toEqual({
         added: 0,
         removed: 1,
       });
-      expect([...audience.list]).toEqual(["grace@example.com"]);
+      expect([...audience.contacts.keys()]).toEqual(["grace@example.com"]);
+    });
+
+    it("should keep an unsubscribe when an account leaves and comes back", async () => {
+      const audience = memory();
+      await sync(directory({ people: { a: ADA } }), audience);
+      audience.contacts.set("ada@example.com", { ...SUBSCRIBED, unsubscribed: true });
+      await sync(directory(), audience);
+      expect(audience.contacts.get("ada@example.com")).toEqual({
+        unsubscribed: true,
+        everyone: false,
+        account: false,
+      });
+      await sync(directory({ people: { a: ADA } }), audience);
+      expect(audience.contacts.get("ada@example.com")).toEqual({
+        ...SUBSCRIBED,
+        unsubscribed: true,
+      });
     });
 
     it("should move an account to its new address", async () => {
@@ -62,18 +80,17 @@ describe("audience", () => {
         directory({ people: { a: { ...ADA, email: "ada@acme.co" } } }),
         audience,
       );
-      expect([...audience.list]).toEqual(["ada@acme.co"]);
+      expect([...audience.contacts.keys()]).toEqual(["ada@acme.co"]);
     });
 
     it("should skip an account with no address", async () => {
       const audience = memory();
       await sync(directory({ people: { a: { ...ADA, email: "" } } }), audience);
-      expect(audience.list.size).toBe(0);
+      expect(audience.contacts.size).toBe(0);
     });
   });
 
   describe("resend", () => {
-    const API = "https://api.resend.com";
     const SEGMENTS = {
       object: "list",
       has_more: false,
@@ -82,22 +99,39 @@ describe("audience", () => {
         { id: "seg_accounts", name: "Portal accounts" },
       ],
     };
+    const ADDRESS = "/contacts/ada@example.com";
+    const ok = (): Response => Response.json({ object: "contact", id: "id_ada" });
+    const contact = (unsubscribed: boolean) => (): Response =>
+      Response.json({ object: "contact", id: "id_ada", unsubscribed, properties: {} });
+    const refused =
+      (name: string, status: number, headers = {}) =>
+      (): Response =>
+        Response.json(
+          { name, message: `${name} message`, statusCode: status },
+          {
+            status,
+            headers,
+          },
+        );
+
+    // routes answers a request by its method and path, as `GET /segments`.
+    let routes: Record<string, (url: URL) => Response>;
     // The Resend SDK always calls fetch with a string URL.
     let fetch: Mock<(url: string, init?: RequestInit) => Promise<Response>>;
-
-    const contacts = (emails: string[], more: boolean): Response =>
-      Response.json({
-        object: "list",
-        has_more: more,
-        data: emails.map((email) => ({ id: `id_${email}`, email })),
-      });
+    const requests = (): string[] =>
+      fetch.mock.calls.map(
+        ([url, init]) => `${init?.method ?? "GET"} ${new URL(url).pathname}`,
+      );
 
     beforeEach(() => {
-      fetch = vi.fn(async (url: string) =>
-        url === `${API}/segments`
-          ? Response.json(SEGMENTS)
-          : Response.json({ object: "contact", id: "id_new" }),
-      );
+      routes = { "GET /segments": () => Response.json(SEGMENTS) };
+      fetch = vi.fn(async (url: string, init?: RequestInit) => {
+        const parsed = new URL(url);
+        const route = `${init?.method ?? "GET"} ${parsed.pathname}`;
+        const answer = routes[route];
+        if (answer == null) throw new Error(`no route for ${route}`);
+        return answer(parsed);
+      });
       vi.stubGlobal("fetch", fetch);
       vi.spyOn(console, "error").mockImplementation(() => {});
     });
@@ -108,68 +142,89 @@ describe("audience", () => {
     });
 
     it("should read every page of a segment in lowercase", async () => {
-      fetch.mockImplementation(async (url) => {
-        const { pathname, searchParams } = new URL(url);
-        if (pathname === "/segments") return Response.json(SEGMENTS);
-        expect(pathname).toBe("/segments/seg_all/contacts");
-        return searchParams.get("after") == null
-          ? contacts(["Ada@Example.com"], true)
-          : contacts(["grace@example.com"], false);
-      });
+      routes["GET /segments/seg_all/contacts"] = (url) =>
+        Response.json({
+          object: "list",
+          has_more: url.searchParams.get("after") == null,
+          data:
+            url.searchParams.get("after") == null
+              ? [{ id: "id_ada", email: "Ada@Example.com" }]
+              : [{ id: "id_grace", email: "grace@example.com" }],
+        });
       expect(await resend("re_key").everyone()).toEqual(
         new Set(["ada@example.com", "grace@example.com"]),
       );
-      expect(new URL(fetch.mock.calls[2][0]).searchParams.get("after")).toBe(
-        "id_Ada@Example.com",
-      );
+      expect(new URL(fetch.mock.calls[2][0]).searchParams.get("after")).toBe("id_ada");
     });
 
-    it("should add an address to both segments", async () => {
+    it("should create a new address in both segments", async () => {
+      routes[`GET ${ADDRESS}`] = refused("not_found", 404);
+      routes["POST /contacts"] = ok;
       await resend("re_key").add("ada@example.com");
-      const [url, init] = fetch.mock.calls[1];
-      expect(url).toBe(`${API}/contacts`);
+      const [, init] = fetch.mock.calls[2];
       expect(JSON.parse(init?.body as string)).toMatchObject({
         email: "ada@example.com",
         segments: [{ id: "seg_all" }, { id: "seg_accounts" }],
       });
     });
 
-    it("should remove an address", async () => {
-      await resend("re_key").remove("ada@example.com");
-      const [url, init] = fetch.mock.calls[0];
-      expect(url).toBe(`${API}/contacts/ada@example.com`);
-      expect(init?.method).toBe("DELETE");
+    it("should put a known address back in both segments", async () => {
+      routes[`GET ${ADDRESS}`] = contact(true);
+      routes[`POST ${ADDRESS}/segments/seg_all`] = ok;
+      routes[`POST ${ADDRESS}/segments/seg_accounts`] = ok;
+      await resend("re_key").add("ada@example.com");
+      expect(requests()).toEqual([
+        "GET /segments",
+        `GET ${ADDRESS}`,
+        `POST ${ADDRESS}/segments/seg_all`,
+        `POST ${ADDRESS}/segments/seg_accounts`,
+      ]);
     });
 
-    it("should retry a request that Resend refused for its rate", async () => {
-      fetch.mockResolvedValueOnce(
-        Response.json(
-          {
-            name: "rate_limit_exceeded",
-            message: "Too many requests",
-            statusCode: 429,
-          },
-          { status: 429, headers: { "retry-after": "0" } },
-        ),
+    it("should delete an address that did not unsubscribe", async () => {
+      routes[`GET ${ADDRESS}`] = contact(false);
+      routes[`DELETE ${ADDRESS}`] = ok;
+      await resend("re_key").remove("ada@example.com");
+      expect(requests()).toEqual([`GET ${ADDRESS}`, `DELETE ${ADDRESS}`]);
+    });
+
+    it("should keep an unsubscribed address outside the segments", async () => {
+      routes[`GET ${ADDRESS}`] = contact(true);
+      routes[`DELETE ${ADDRESS}/segments/seg_all`] = ok;
+      routes[`DELETE ${ADDRESS}/segments/seg_accounts`] = ok;
+      await resend("re_key").remove("ada@example.com");
+      expect(requests()).toEqual([
+        `GET ${ADDRESS}`,
+        "GET /segments",
+        `DELETE ${ADDRESS}/segments/seg_all`,
+        `DELETE ${ADDRESS}/segments/seg_accounts`,
+      ]);
+    });
+
+    it("should retry a request after the time Resend asks for", async () => {
+      routes[`GET ${ADDRESS}`] = contact(false);
+      routes[`DELETE ${ADDRESS}`] = ok;
+      fetch.mockImplementationOnce(async () =>
+        refused("rate_limit_exceeded", 429, { "retry-after": "0.01" })(),
       );
       await resend("re_key").remove("ada@example.com");
-      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(requests()).toEqual([
+        `GET ${ADDRESS}`,
+        `GET ${ADDRESS}`,
+        `DELETE ${ADDRESS}`,
+      ]);
     });
 
     it("should throw when Resend refuses a request", async () => {
-      fetch.mockResolvedValue(
-        Response.json(
-          { name: "restricted_api_key", message: "Key cannot read", statusCode: 401 },
-          { status: 401 },
-        ),
-      );
+      routes[`GET ${ADDRESS}`] = refused("restricted_api_key", 401);
       await expect(resend("re_key").remove("ada@example.com")).rejects.toThrow(
-        "audience: Key cannot read",
+        "audience: restricted_api_key message",
       );
     });
 
     it("should throw when a segment is missing", async () => {
-      fetch.mockResolvedValue(Response.json({ ...SEGMENTS, data: [SEGMENTS.data[0]] }));
+      routes["GET /segments"] = () =>
+        Response.json({ ...SEGMENTS, data: [SEGMENTS.data[0]] });
       await expect(resend("re_key").accounts()).rejects.toThrow(
         "audience: no Resend segment Portal accounts",
       );

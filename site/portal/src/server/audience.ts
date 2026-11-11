@@ -21,9 +21,16 @@ export interface Audience {
   everyone: () => Promise<Set<string>>;
   /** accounts returns the addresses the portal added for its accounts. */
   accounts: () => Promise<Set<string>>;
-  /** add puts the address of an account on the list. */
+  /**
+   * add puts the address of an account on the list. An address that Resend already
+   * keeps holds on to its unsubscribe.
+   */
   add: (email: string) => Promise<void>;
-  /** remove takes the address of a deleted account off the list. */
+  /**
+   * remove takes the address of a deleted account off the list. It deletes the contact,
+   * except one that unsubscribed: Resend keeps that one outside every segment, so a
+   * later add cannot undo the unsubscribe.
+   */
   remove: (email: string) => Promise<void>;
 }
 
@@ -79,19 +86,31 @@ const PAGE = 100;
 export const resend = (apiKey: string): Audience => {
   const client = new Resend(apiKey);
   // Resend answers 429 when a team passes its request rate.
-  const call = async <R extends Reply>(
-    request: () => Promise<R>,
-  ): Promise<NonNullable<R["data"]>> => {
+  const retried = async <R extends Reply>(request: () => Promise<R>): Promise<R> => {
     for (;;) {
-      const { data, error, headers } = await request();
-      if (error == null && data != null) return data;
-      if (error?.name !== "rate_limit_exceeded")
-        throw new Error(`audience: ${error?.message ?? "Resend sent no data"}`);
-      await sleep.sleep(TimeSpan.seconds(Number(headers?.["retry-after"] ?? 1)));
+      const reply = await request();
+      if (reply.error?.name !== "rate_limit_exceeded") return reply;
+      const seconds = Number(reply.headers?.["retry-after"]);
+      await sleep.sleep(
+        TimeSpan.seconds(Number.isFinite(seconds) && seconds > 0 ? seconds : 1),
+      );
     }
   };
+  const unwrap = <R extends Reply>({ data, error }: R): NonNullable<R["data"]> => {
+    if (error == null && data != null) return data;
+    throw new Error(`audience: ${error?.message ?? "Resend sent no data"}`);
+  };
+  const call = async <R extends Reply>(
+    request: () => Promise<R>,
+  ): Promise<NonNullable<R["data"]>> => unwrap(await retried(request));
+  const find = async (email: string): Promise<{ unsubscribed: boolean } | null> => {
+    const reply = await retried(async () => await client.contacts.get({ email }));
+    return reply.error?.name === "not_found" ? null : unwrap(reply);
+  };
   const lookup = async (): Promise<Segments> => {
-    const { data } = await call(async () => await client.segments.list());
+    const { data } = await call(
+      async () => await client.segments.list({ limit: PAGE }),
+    );
     const id = (name: string): string => {
       const segment = data.find((s) => s.name === name);
       if (segment == null) throw new Error(`audience: no Resend segment ${name}`);
@@ -119,16 +138,31 @@ export const resend = (apiKey: string): Audience => {
     accounts: async () => await members("accounts"),
     add: async (email) => {
       const { everyone, accounts } = await segments();
-      await call(
-        async () =>
-          await client.contacts.create({
-            email,
-            segments: [{ id: everyone }, { id: accounts }],
-          }),
-      );
+      if ((await find(email)) == null) {
+        await call(
+          async () =>
+            await client.contacts.create({
+              email,
+              segments: [{ id: everyone }, { id: accounts }],
+            }),
+        );
+        return;
+      }
+      for (const segmentId of [everyone, accounts])
+        await call(
+          async () => await client.contacts.segments.add({ email, segmentId }),
+        );
     },
     remove: async (email) => {
-      await call(async () => await client.contacts.remove({ email }));
+      if ((await find(email))?.unsubscribed !== true) {
+        await call(async () => await client.contacts.remove({ email }));
+        return;
+      }
+      const { everyone, accounts } = await segments();
+      for (const segmentId of [everyone, accounts])
+        await call(
+          async () => await client.contacts.segments.remove({ email, segmentId }),
+        );
     },
   };
 };
@@ -141,27 +175,42 @@ export const log = (): Audience => ({
   remove: async (email) => console.info("audience remove skipped", { email }),
 });
 
+/** Contact is one address that a {@link memory} audience keeps. */
+export interface Contact {
+  unsubscribed: boolean;
+  /** everyone is true when the address gets release notes. */
+  everyone: boolean;
+  /** account is true when the portal added the address for an account. */
+  account: boolean;
+}
+
 /**
- * memory keeps the list in sets instead of Resend. `everyone` starts with the addresses
- * added by hand. For tests.
+ * memory keeps the list in a map instead of Resend, with the same rules. It starts with
+ * the addresses added by hand. For tests.
  */
 export const memory = (
   hand: string[] = [],
-): Audience & { list: Set<string>; synced: Set<string> } => {
-  const list = new Set(hand);
-  const synced = new Set<string>();
+): Audience & { contacts: Map<string, Contact> } => {
+  const contacts = new Map<string, Contact>(
+    hand.map((email) => [
+      email,
+      { unsubscribed: false, everyone: true, account: false },
+    ]),
+  );
+  const members = (key: "everyone" | "account"): Set<string> =>
+    new Set([...contacts].filter(([, c]) => c[key]).map(([email]) => email));
   return {
-    list,
-    synced,
-    everyone: async () => new Set(list),
-    accounts: async () => new Set(synced),
+    contacts,
+    everyone: async () => members("everyone"),
+    accounts: async () => members("account"),
     add: async (email) => {
-      list.add(email);
-      synced.add(email);
+      const unsubscribed = contacts.get(email)?.unsubscribed ?? false;
+      contacts.set(email, { unsubscribed, everyone: true, account: true });
     },
     remove: async (email) => {
-      list.delete(email);
-      synced.delete(email);
+      if (contacts.get(email)?.unsubscribed === true)
+        contacts.set(email, { unsubscribed: true, everyone: false, account: false });
+      else contacts.delete(email);
     },
   };
 };

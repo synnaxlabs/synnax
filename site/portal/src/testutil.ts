@@ -19,7 +19,7 @@ import {
   memory as analytics,
   type Session,
 } from "@/server/analytics";
-import { type Audience, memory as audience } from "@/server/audience";
+import { type Audience, type Contact, memory as audience } from "@/server/audience";
 import {
   type Activation,
   activation,
@@ -52,7 +52,7 @@ export interface Harness {
   store: Memory;
   directory: Directory & Records;
   mail: Mailer & { sent: Message[] };
-  audience: Audience & { list: Set<string>; synced: Set<string> };
+  audience: Audience & { contacts: Map<string, Contact> };
   slack: Slack & { posted: Note[] };
   analytics: Analytics & { recorded: Session[]; captured: Capture[] };
   /** signIn makes later sessions resolve as the user, or as nobody for null. */

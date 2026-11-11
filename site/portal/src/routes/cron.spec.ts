@@ -320,12 +320,12 @@ describe("GET /api/cron/audience", () => {
 
   it("should refuse a call without the cron secret", async () => {
     expect((await get()).status).toBe(401);
-    expect(h.audience.list.size).toBe(0);
+    expect(h.audience.contacts.size).toBe(0);
   });
 
   it("should add every account to the release notes list", async () => {
     const res = await get(`Bearer ${CRON_SECRET}`);
     expect(await body(res)).toEqual({ added: 1, removed: 0 });
-    expect([...h.audience.list]).toEqual(["ada@acme.com"]);
+    expect([...h.audience.contacts.keys()]).toEqual(["ada@acme.com"]);
   });
 });
