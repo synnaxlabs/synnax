@@ -286,12 +286,12 @@ func migrateOnClickDelay(ms float64) telem.TimeSpan {
 	return migrateSpan(ms, telem.Millisecond)
 }
 
+// maxSpan is the largest span a JavaScript number holds exactly, so a client can send
+// a migrated span back to the Core unchanged.
+const maxSpan telem.TimeSpan = 1<<53 - 1
+
 func migrateSpan(v float64, unit telem.TimeSpan) telem.TimeSpan {
-	ns := math.Round(v * float64(unit))
-	if ns >= math.MaxInt64 {
-		return telem.TimeSpanMax
-	}
-	return telem.TimeSpan(ns)
+	return telem.TimeSpan(min(math.Round(v*float64(unit)), float64(maxSpan)))
 }
 
 func migratePixels(v float64, def uint16) uint16 {

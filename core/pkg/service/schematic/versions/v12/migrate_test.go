@@ -12,6 +12,7 @@ package v12_test
 import (
 	"encoding/json/v2"
 	"math"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -77,6 +78,9 @@ func migrateStoredConfig(ctx SpecContext, cfg v10.ElementConfigVariant) v12.Node
 		Configs: map[string]v11.ElementConfig{"n1": {Variant: cfg}},
 	}).Configs["n1"]
 }
+
+// maxSpan is the largest span a JavaScript number holds exactly.
+const maxSpan = telem.TimeSpan(1<<53 - 1)
 
 var _ = Describe("MigrateNumericTelemConfig", func() {
 	DescribeTable("Should round and clamp the precision", func(
@@ -536,9 +540,32 @@ var _ = Describe("MigrateStalenessConfig", func() {
 		Entry("zero", 0.0, 5*telem.Second),
 		Entry("negative", -2.0, 5*telem.Second),
 		Entry("NaN", math.NaN(), 5*telem.Second),
-		Entry("too large", 1e12, telem.TimeSpanMax),
-		Entry("infinite", math.Inf(1), telem.TimeSpanMax),
+		Entry("too large", 1e12, maxSpan),
+		Entry("infinite", math.Inf(1), maxSpan),
 	)
+
+	It("Should clamp to a span that survives a JavaScript number", func(
+		ctx SpecContext,
+	) {
+		cfg := MustSucceed(v12.MigrateStalenessConfig(
+			ctx,
+			v11.StalenessConfig{StalenessTimeout: math.Inf(1)},
+		))
+		var wire struct {
+			StalenessTimeout string `json:"staleness_timeout"`
+		}
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(cfg)), &wire)).To(Succeed())
+		// The TypeScript client holds the span as a float64 and sends it as a number.
+		asNumber := MustSucceed(strconv.ParseFloat(wire.StalenessTimeout, 64))
+		var back v12.StalenessConfig
+		Expect(json.Unmarshal(
+			MustSucceed(
+				json.Marshal(map[string]float64{"staleness_timeout": asNumber}),
+			),
+			&back,
+		)).To(Succeed())
+		Expect(back.StalenessTimeout).To(Equal(cfg.StalenessTimeout))
+	})
 
 	It("Should keep the staleness color", func(ctx SpecContext) {
 		stale := color.Color{R: 255, A: 1}
@@ -567,7 +594,7 @@ var _ = Describe("MigrateToggleConfig", func() {
 		Entry("zero", 0.0, telem.TimeSpan(0)),
 		Entry("negative", -10.0, telem.TimeSpan(0)),
 		Entry("NaN", math.NaN(), telem.TimeSpan(0)),
-		Entry("too large", 1e15, telem.TimeSpanMax),
+		Entry("too large", 1e15, maxSpan),
 	)
 })
 
