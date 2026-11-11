@@ -12,7 +12,7 @@ import "@/platform/multiedit/Sections.css";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
-import { type color, type notation, TimeSpan } from "@synnaxlabs/x";
+import { type color, notation, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -69,17 +69,22 @@ export interface NumberFormatSectionProps {
 
 /** Edits the notation and precision of several elements. */
 export const NumberFormatSection = ({
-  notation = "standard",
+  notation: selected = "standard",
   precision = 2,
   onNotationChange,
   onPrecisionChange,
 }: NumberFormatSectionProps): ReactElement => (
   <Form.Section title="Number format">
     <Input.Item label="Notation" align="start" padHelpText={false}>
-      <Notation.Select value={notation} onChange={onNotationChange} />
+      <Notation.Select value={selected} onChange={onNotationChange} />
     </Input.Item>
     <Input.Item label="Precision" align="start" padHelpText={false}>
-      <Notation.Precision value={precision} onChange={onPrecisionChange} />
+      <Input.Numeric
+        value={precision}
+        onChange={onPrecisionChange}
+        integer
+        bounds={notation.PRECISION_BOUNDS}
+      />
     </Input.Item>
   </Form.Section>
 );

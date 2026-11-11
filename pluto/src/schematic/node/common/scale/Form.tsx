@@ -17,7 +17,7 @@ import {
   deep,
   type direction,
   location,
-  type notation,
+  notation,
   primitive,
 } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -40,7 +40,16 @@ const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 1, upper: 100 },
 };
 
-const PrecisionInput = Component.renderProp(Notation.Precision);
+const PrecisionInput = Component.renderProp(
+  ({ value, onChange }: Input.Control<number>): ReactElement => (
+    <Input.Numeric
+      value={value}
+      onChange={onChange}
+      integer
+      bounds={notation.PRECISION_BOUNDS}
+    />
+  ),
+);
 
 const NotationSelect = Component.renderProp(
   ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (

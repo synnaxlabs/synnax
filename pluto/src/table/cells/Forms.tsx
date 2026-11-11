@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep, type notation } from "@synnaxlabs/x";
+import { color, deep, notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -67,9 +67,11 @@ const TelemForm = () => {
           />
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
-          <Notation.Precision
+          <Input.Numeric
             value={value.precision ?? 2}
             onChange={(precision) => onChange({ ...value, precision })}
+            integer
+            bounds={notation.PRECISION_BOUNDS}
           />
         </Input.Item>
       </Form.Section>
