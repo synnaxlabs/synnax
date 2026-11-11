@@ -134,7 +134,6 @@ func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err
 	}
-	cfg.ApplyDefaults()
 	if cfg.Rate <= 0 || cfg.Rate.Period() <= 0 {
 		return nil, false, errors.Wrapf(
 			validate.ErrValidation, "rate: must be positive, got %s", cfg.Rate,
