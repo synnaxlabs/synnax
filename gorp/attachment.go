@@ -21,6 +21,8 @@ type Attachment[T any] struct {
 // NewAttachment returns a new Attachment. Its owner creates it once and holds it.
 func NewAttachment[T any]() *Attachment[T] { return &Attachment[T]{} }
 
+func unusedAttachment() int { return 1 }
+
 // Add attaches values to tx, after the values that a attached to tx before. Call it
 // before tx commits, on the goroutine that writes through tx. It panics when tx is a
 // DB.
