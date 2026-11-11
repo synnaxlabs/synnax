@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { connection, type Synnax as Client } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
-import { render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -121,6 +121,57 @@ describe("Synnax.Provider", () => {
       .map((w) => w?.params.token);
     expect(tokens).not.toContain(first);
     unmount();
+  });
+
+  describe("status", () => {
+    const CONNECTED: connection.Status = {
+      ...connection.DEFAULT_STATUS,
+      variant: "success",
+      message: "Connected",
+    };
+    const createStatusWrapper = () => {
+      const control: { set: (status: connection.Status) => void } = { set: () => {} };
+      const Holder = ({ children }: PropsWithChildren): ReactElement => {
+        const [status, setStatus] = useState(connection.DEFAULT_STATUS);
+        control.set = setStatus;
+        return (
+          <Synnax.TestProvider client={null} status={status}>
+            {children}
+          </Synnax.TestProvider>
+        );
+      };
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <AetherProvider>
+          <Holder>{children}</Holder>
+        </AetherProvider>
+      );
+      return { control, wrapper };
+    };
+
+    it("should not re-render a reader of the client when the status changes", () => {
+      const { control, wrapper } = createStatusWrapper();
+      let renders = 0;
+      const { unmount } = renderHook(
+        () => {
+          renders += 1;
+          return Synnax.use();
+        },
+        { wrapper },
+      );
+      const before = renders;
+      act(() => control.set(CONNECTED));
+      expect(renders).toEqual(before);
+      unmount();
+    });
+
+    it("should re-render a reader of the status when the status changes", () => {
+      const { control, wrapper } = createStatusWrapper();
+      const { result, unmount } = renderHook(Synnax.useConnectionStatus, { wrapper });
+      expect(result.current).toBe(connection.DEFAULT_STATUS);
+      act(() => control.set(CONNECTED));
+      expect(result.current).toBe(CONNECTED);
+      unmount();
+    });
   });
 
   it("should keep its client when the error handler changes", () => {
