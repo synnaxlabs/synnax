@@ -591,27 +591,8 @@ func typeDefBaseToPython(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type. Collection elements are resolved via typeToPython, which
-	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
-	// special-cases distinct bases and would yield Any for a struct element.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return fmt.Sprintf("list[%s]", elemType)
-	}
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -1651,6 +1632,35 @@ func boundedArgToPython(
 	)
 }
 
+// collectionToPython returns the Python type of an array (list[...], or a Tuple when
+// fixed-size) or a map (dict[...]), and false when typeRef is neither.
+func collectionToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
+		), true
+	}
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) == 0 {
+		return "", false
+	}
+	elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+	if typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", elemType), true
+	}
+	data.imports.addTyping("Tuple")
+	elements := make([]string, *typeRef.ArraySize)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", ")), true
+}
+
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. It returns the name to reference, which is an alias when the
@@ -1717,29 +1727,14 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type. The bare element type is returned (not list[...]); field
-	// processing wraps array-typed fields in list[...] itself off the element type,
-	// so wrapping here would double-wrap. Alias contexts that need list[...] use
-	// typeDefBaseToPython / typeRefToPythonAlias instead.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return elemType
+	// A variable-length array renders as its bare element type, since processField
+	// wraps an array field in list[...] itself.
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
+		typeRef.ArraySize == nil {
+		return boundedArgToPython(typeRef.TypeArgs[0], table, data)
 	}
-
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 
 	// Try to resolve the type
@@ -1832,22 +1827,8 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
-	// builtin generics that do not resolve to a struct, so handle them here rather
-	// than falling through to the scalar/struct path below.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
-		typeRef.ArraySize == nil {
-		return fmt.Sprintf(
-			"list[%s]",
-			boundedArgToPython(typeRef.TypeArgs[0], table, data),
-		)
-	}
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		return fmt.Sprintf(
-			"dict[%s, %s]",
-			boundedArgToPython(typeRef.TypeArgs[0], table, data),
-			boundedArgToPython(typeRef.TypeArgs[1], table, data),
-		)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
