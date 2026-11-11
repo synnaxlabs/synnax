@@ -772,6 +772,19 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(cell("Sample rate").placeholder).toBe("250");
     });
 
+    it("should show the shortest form of a float that the slave holds", async () => {
+      const settings = createSettingsDescription();
+      settings.device[0] = {
+        ...settings.device[0],
+        name: "Excitation voltage",
+        dataType: "float32",
+        options: undefined,
+        value: Math.fround(3.3),
+      };
+      await setup({ settings });
+      expect(cell("Excitation voltage").placeholder).toBe("3.3");
+    });
+
     it("should prompt for a setting whose held value has no option", async () => {
       const settings = createSettingsDescription();
       settings.device[0].value = 0;
