@@ -77,7 +77,7 @@ const validateEntries = <C extends Channel>(
         const step =
           slave.properties.settings?.mode?.onlyReadBy == null
             ? "Pick another entry."
-            : "In Configure, switch the slave to Synnax only.";
+            : "In Configure, switch the slave to Synnax.";
         throw new Error(
           `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
             `reads. ${step}`,

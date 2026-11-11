@@ -1057,7 +1057,7 @@ protected:
 };
 
 /// @brief it should warn about a slave that sends data that only DewesoftX reads, and
-/// say how to fix it.
+/// advise the switch.
 TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
     this->start(true);
     const auto status = this->scan_status();
@@ -1065,9 +1065,7 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "On EtherCAT bus 1 IN, the device sends data that only DewesoftX reads. In "
-        "Configure, switch the device to Synnax only, or connect Synnax to EtherCAT bus "
-        "2 IN."
+        "Synnax cannot read its data. In Configure, switch the device to Synnax."
     );
 }
 
@@ -1083,8 +1081,7 @@ TEST_F(EtherCATScanModeTest, OffersOnlyTheSwitchForASingleBusSlave) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "The device sends data that only DewesoftX reads. In Configure, switch the "
-        "device to Synnax only."
+        "Synnax cannot read its data. In Configure, switch the device to Synnax."
     );
 }
 
@@ -1104,11 +1101,7 @@ TEST_F(EtherCATScanModeTest, AsksForBus1ForAStandaloneSlaveOnBus2) {
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Connect Synnax to EtherCAT bus 1 IN");
-    EXPECT_EQ(
-        status.description,
-        "The device runs Synnax only, which uses EtherCAT bus 1 IN. Synnax is on bus 2 "
-        "IN."
-    );
+    EXPECT_EQ(status.description, "");
 }
 
 /// @brief it should ask for a power restart of a slave that holds Synnax only but still
@@ -1117,27 +1110,29 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     this->start(false);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Waiting for a power restart");
-    EXPECT_EQ(
-        status.description,
-        "The device runs Synnax only after a power restart. Until then, it sends data "
-        "that only DewesoftX reads."
-    );
+    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(status.description, "");
+}
+
+/// @brief it should ask for bus 1 before the power restart of a switched slave on bus
+/// 2.
+TEST_F(EtherCATScanModeTest, AsksForBus1BeforeThePowerRestartOnBus2) {
+    this->start(false);
+    this->set_mode({{"bus", 2}});
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(status.description, "First, connect Synnax to EtherCAT bus 1 IN.");
 }
 
 /// @brief it should not advise a switch for a slave whose mode the scan did not read.
-TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherBusWithoutAMode) {
+TEST_F(EtherCATScanModeTest, AdvisesNoSwitchWithoutAMode) {
     this->start(true);
     this->props.settings.value().erase("mode");
     this->serve();
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Set up for DewesoftX");
-    EXPECT_EQ(
-        status.description,
-        "The device sends data that only DewesoftX reads. Connect Synnax to the bus "
-        "that DewesoftX does not use."
-    );
+    EXPECT_EQ(status.description, "Synnax cannot read its data.");
 }
 
 /// @brief it should not warn about a slave in dual mode on bus 2, the bus that
@@ -1180,8 +1175,7 @@ TEST_F(EtherCATScanModeTest, AddsAFailedSettingsReadToTheSetupWarning) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "The device sends data that only DewesoftX reads. Connect Synnax to the bus "
-        "that DewesoftX does not use. Failed to read the settings: "
+        "Synnax cannot read its data. Failed to read the settings: "
         "failed to read 0x8020:09: Object does not exist in the object dictionary. The "
         "Driver tries again while no task uses the port."
     );

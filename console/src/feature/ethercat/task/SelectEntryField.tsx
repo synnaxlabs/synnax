@@ -54,9 +54,7 @@ export const SelectEntryField = ({
   let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
   else if (reader != null)
-    emptyContent =
-      `This slave sends data that only ${reader} reads. In Configure, switch it to ` +
-      "Synnax only.";
+    emptyContent = `Set up for ${reader}. In Configure, switch it to Synnax.`;
   const unresolvedProps =
     ch.type === "unresolved"
       ? {

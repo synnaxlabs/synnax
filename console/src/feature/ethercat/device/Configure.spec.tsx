@@ -467,10 +467,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         importFile("stg.xml", ESI);
         await screen.findByText("Imported 1 startup parameter for IOLITEr 6xSTG");
         expect(
-          screen.getByText(
-            "Left out 0x8020:09, which holds the mode of the device. The Driver " +
-              "does not write the mode each time the network starts.",
-          ),
+          screen.getByText("Left out the mode of the device at 0x8020:09."),
         ).toBeTruthy();
         await save();
         await waitFor(async () =>
@@ -818,45 +815,22 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
       expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
-      expect(findButton("Switch to Synnax only")).toBeTruthy();
-      expect(screen.getByText("Synnax and DewesoftX")).toBeTruthy();
+      expect(screen.getByText("Synnax cannot read its data.")).toBeTruthy();
+      expect(findButton("Switch to Synnax")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
     });
 
-    it("should offer only the switch for a card with one bus", async () => {
+    it("should hide the settings of a card that DewesoftX sets up", async () => {
       await setup({
-        settings: {
-          ...createSettingsDescription(),
-          mode: {
-            index: 0x8020,
-            subIndex: 7,
-            value: 1,
-            shared: true,
-            onlyReadBy: "DewesoftX",
-            switch: [
-              { index: 0x8020, subIndex: 7, dataType: "uint16", value: 0, name: "" },
-            ],
-          },
-        },
+        settings: createDewesoftXSettings(true, 2),
         inputs: [STRAIN_ENTRY],
       });
-      expect(
-        await screen.findByText(/^The device sends data that only DewesoftX reads\./),
-      ).toBeTruthy();
-      expect(findButton("Switch to Synnax only")).toBeTruthy();
-      expect(screen.queryByText("Synnax and DewesoftX")).toBeNull();
-    });
-
-    it("should say how to run DewesoftX too for a dual card on bus 1", async () => {
-      await setup({ settings: createDewesoftXSettings(true), inputs: [STRAIN_ENTRY] });
       expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
       expect(
-        screen.getByText(
-          "In dual mode, EtherCAT bus 1 IN is for DewesoftX. To run DewesoftX at the " +
-            "same time, connect DewesoftX to bus 1 IN and Synnax to bus 2 IN.",
-        ),
+        screen.getByText("Synnax reads its data, but cannot change its settings."),
       ).toBeTruthy();
-      expect(findButton("Switch to Synnax only")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      expect(findButton("Switch to Synnax")).toBeTruthy();
     });
 
     it("should ask for bus 1 for a standalone card on bus 2", async () => {
@@ -867,7 +841,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(
         await screen.findByText("Connect Synnax to EtherCAT bus 1 IN"),
       ).toBeTruthy();
-      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 
     /** Opens a card that sends data only DewesoftX reads and clicks the switch. */
@@ -886,14 +860,14 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         ...answer,
         type: "set_standalone",
       });
-      fireEvent.click(findButton("Switch to Synnax only"));
+      fireEvent.click(findButton("Switch to Synnax"));
       expect(await driver.answered).toMatchObject({ args: { device: slave.key } });
     };
 
     it("should ask for a power restart once the card switches", async () => {
       await clickSwitch();
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
-      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 
     it("should show why the card did not switch", async () => {
@@ -908,7 +882,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
-      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 
     it("should offer no switch for a card whose mode the scan did not read", async () => {
@@ -917,22 +891,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
       expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
-      expect(screen.getByText(/^Connect Synnax to EtherCAT bus 2 IN/)).toBeTruthy();
-      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
-    });
-
-    it("should hide the settings of a card that DewesoftX sets up", async () => {
-      await setup({
-        settings: createDewesoftXSettings(true, 2),
-        inputs: [STRAIN_ENTRY],
-      });
-      expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
-      expect(
-        screen.getByText(/^DewesoftX sets up the device\. Synnax uses its data/),
-      ).toBeTruthy();
-      expect(screen.queryByText(/^In dual mode, EtherCAT bus 1 IN/)).toBeNull();
-      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
-      expect(findButton("Switch to Synnax only")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 
     it("should ask for bus 1 and a power restart once a card on bus 2 switches", async () => {
@@ -947,13 +906,11 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         config: {},
       });
       const driver = await answerNextCommand(client, scan, { type: "set_standalone" });
-      fireEvent.click(findButton("Switch to Synnax only"));
+      fireEvent.click(findButton("Switch to Synnax"));
       await driver.answered;
+      expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
       expect(
-        await screen.findByText(
-          "Connect Synnax to EtherCAT bus 1 IN. The device runs Synnax only after a " +
-            "power restart.",
-        ),
+        screen.getByText("First, connect Synnax to EtherCAT bus 1 IN."),
       ).toBeTruthy();
     });
   });

@@ -704,9 +704,8 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
         if (started)
             this->stop_locked();
         else if (err.matches(errors::PDO_NOT_MAPPED))
-            err.data += " The process image does not change while the network runs. "
-                        "Stop every task on " +
-                        this->network_name + ", then start them again.";
+            err.data += " Stop every task on " + this->network_name +
+                        ", then start them again.";
         return {{}, err};
     }
     // A reader that the running bus cannot map must leave the slaves as they are.

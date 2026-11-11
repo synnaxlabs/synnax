@@ -136,9 +136,8 @@ no_slaves_error(API &api, const std::string &iface, const std::string &name) {
     return x::errors::Error(
         errors::REPLIES_BLOCKED,
         found + std::format(
-                    "The DewesoftX \"EthercatDAQ Filter\" is on this adapter. After "
-                    "DewesoftX starts, the filter blocks EtherCAT replies, also "
-                    "after DewesoftX closes. Clear it in the properties of \"{}\" "
+                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
+                    "EtherCAT replies. Clear it in the properties of \"{}\" "
                     "(Settings > Network & internet > Advanced network settings > "
                     "More network adapter options, then right-click the adapter > "
                     "Properties).",

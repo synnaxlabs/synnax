@@ -137,27 +137,16 @@ bool set_setup_status(const slave::Properties &props, synnax::device::Status &st
                           mode.at("switch").empty();
     if (reader.empty()) reader = mode.value("only_read_by", "");
     if (switched) {
-        status.message = "Waiting for a power restart";
-        status.description = "The device runs Synnax only after a power restart. Until "
-                             "then, it sends data that only " +
-                             reader + " reads.";
+        status.message = "Restart the power of the device";
+        if (bus == 2)
+            status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
     } else if (!reader.empty()) {
         status.message = "Set up for " + reader;
-        status.description = bus == 1 ? "On EtherCAT bus 1 IN, the device"
-                                      : "The device";
-        status.description += " sends data that only " + reader + " reads. ";
-        if (mode.empty())
-            status.description += "Connect Synnax to the bus that " + reader +
-                                  " does not use.";
-        else if (bus == 0)
-            status.description += "In Configure, switch the device to Synnax only.";
-        else
-            status.description += "In Configure, switch the device to Synnax only, or "
-                                  "connect Synnax to EtherCAT bus 2 IN.";
+        status.description = "Synnax cannot read its data.";
+        if (!mode.empty())
+            status.description += " In Configure, switch the device to Synnax.";
     } else if (bus == 2 && !mode.value("shared", false)) {
         status.message = "Connect Synnax to EtherCAT bus 1 IN";
-        status.description = "The device runs Synnax only, which uses EtherCAT bus 1 "
-                             "IN. Synnax is on bus 2 IN.";
     } else
         return false;
     status.variant = synnax::status::VARIANT_WARNING;

@@ -57,19 +57,17 @@ describe("of", () => {
     expect(of(props(createSettingsDescription()))).toEqual({ kind: "synnax" });
   });
 
-  it("should offer bus 2 for a dual card on bus 1 that sends DewesoftX data", () => {
+  it("should find a dual card that sends DewesoftX data set up for DewesoftX", () => {
     expect(of(props(createDewesoftXSettings(true)))).toEqual({
       kind: "other",
       reader: "DewesoftX",
-      secondBus: true,
     });
   });
 
-  it("should offer no second bus for a card with one bus", () => {
+  it("should find a card whose held mode only DewesoftX reads set up for it", () => {
     expect(of(props(SINGLE_BUS_SETTINGS, [STRAIN_ENTRY]))).toEqual({
       kind: "other",
       reader: "DewesoftX",
-      secondBus: false,
     });
   });
 
@@ -80,11 +78,10 @@ describe("of", () => {
     });
   });
 
-  it("should offer bus 2 for a card with an unread mode that sends DewesoftX data", () => {
+  it("should find a card with an unread mode that sends DewesoftX data set up for it", () => {
     expect(of(props({ ...createDewesoftXSettings(true), mode: undefined }))).toEqual({
       kind: "other",
       reader: "DewesoftX",
-      secondBus: true,
     });
   });
 
@@ -116,11 +113,7 @@ describe("of", () => {
 
   it("should name the reader of the marked entries for a mode without names", () => {
     const settings = withoutNames(createDewesoftXSettings(true));
-    expect(of(props(settings))).toEqual({
-      kind: "other",
-      reader: "DewesoftX",
-      secondBus: true,
-    });
+    expect(of(props(settings))).toEqual({ kind: "other", reader: "DewesoftX" });
     expect(of(props(settings, [STRAIN_ENTRY]))).toEqual({
       kind: "shared",
       reader: "DewesoftX",

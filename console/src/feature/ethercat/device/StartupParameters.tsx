@@ -167,8 +167,7 @@ const describeImport = ({
   const notes: string[] = [];
   if (modeCommands.length > 0)
     notes.push(
-      `Left out ${ethercat.formatAddress(modeCommands[0])}, which holds the mode of ` +
-        "the device. The Driver does not write the mode each time the network starts.",
+      `Left out the mode of the device at ${ethercat.formatAddress(modeCommands[0])}.`,
     );
   if (unwritableCount > 0)
     notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);

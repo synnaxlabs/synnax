@@ -399,8 +399,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     EXPECT_EQ(
         err.data,
         "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
-        "is on this adapter. After DewesoftX starts, the filter blocks EtherCAT "
-        "replies, also after DewesoftX closes. Clear it in the properties of "
+        "on this adapter blocks EtherCAT replies. Clear it in the properties of "
         "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
         "More network adapter options, then right-click the adapter > Properties)."
     );
@@ -416,9 +415,8 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "this adapter. After DewesoftX starts, the filter blocks EtherCAT replies, "
-        "also after DewesoftX closes. Clear it in the properties of \"eth0\" "
+        "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" on "
+        "this adapter blocks EtherCAT replies. Clear it in the properties of \"eth0\" "
         "(Settings > Network & internet > Advanced network settings > More network "
         "adapter options, then right-click the adapter > Properties)."
     );

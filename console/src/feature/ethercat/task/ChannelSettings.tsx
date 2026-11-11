@@ -64,9 +64,7 @@ export const ChannelSettings = ({
     return (
       <PForm.Section title="Settings">
         <Text.Text level="small" color={9}>
-          {caseconv.capitalize(reader)} sets up the device, so Synnax does not change
-          the settings of this input. To set them in Synnax, open Configure on the
-          device and switch it to Synnax only.
+          {caseconv.capitalize(reader)} sets the settings of this device.
         </Text.Text>
       </PForm.Section>
     );

@@ -13,8 +13,7 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
 /**
  * How the scan found a slave set up:
  * - synnax: Synnax alone sets it up, or its catalog describes no mode.
- * - other: it sends data that only reader reads. secondBus is whether Synnax can read
- *   it on EtherCAT bus 2 IN while reader sets it up.
+ * - other: it sends data that only reader reads.
  * - shared: reader sets it up, and Synnax uses its data.
  * - bus: it runs Synnax only, which uses bus 1 IN, but Synnax is on bus 2 IN.
  * - switched: it holds Synnax only, but it sends data that only reader reads until its
@@ -23,7 +22,7 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
 export type Setup =
   | { kind: "synnax" }
   | { kind: "bus" }
-  | { kind: "other"; reader: string; secondBus: boolean }
+  | { kind: "other"; reader: string }
   | { kind: "shared"; reader: string }
   | { kind: "switched"; reader: string };
 
@@ -83,16 +82,7 @@ export const of = (props: SlaveProperties): Setup => {
   if (sent != null && mode?.switch.length === 0)
     return { kind: "switched", reader: sent.reader };
   const onlyReader = sent?.reader ?? mode?.onlyReadBy;
-  // A Driver that names the software gives the bus of each slave with two buses. An
-  // older Driver gives neither, and a sent entry that only another program reads shows
-  // bus 1 IN.
-  const named = mode?.sharedWith != null || mode?.onlyReadBy != null;
-  if (onlyReader != null)
-    return {
-      kind: "other",
-      reader: onlyReader,
-      secondBus: mode?.bus == null ? !named && sent != null : mode.bus === 1,
-    };
+  if (onlyReader != null) return { kind: "other", reader: onlyReader };
   const reader = setUpBy(props);
   if (reader != null) return { kind: "shared", reader };
   if (mode?.bus === 2) return { kind: "bus" };
