@@ -39,8 +39,8 @@ import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "r
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
+import { Core } from "@/platform/core";
 import { Session } from "@/session";
-import { STORE_CHECKS } from "@/testutil/store";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
@@ -202,25 +202,29 @@ export interface ConsoleTestProviderOptions {
 }
 
 /**
- * Builds the console test store the same way the app builds its store: the full root
- * reducer wired through drift's middleware, but with a NoopRuntime in place of the
- * Tauri runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels
- * exactly as they do in production. Async because Drift.configureStore awaits runtime
- * setup. This is the one console store — every render helper below is backed by it.
+ * Builds the console test store with the app's createStore, but with a NoopRuntime in
+ * place of the Tauri runtime and no persistence. Window actions (Drift.focusWindow,
+ * createWindow) resolve their labels exactly as they do in production. This is the one
+ * console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;
-  return await Drift.configureStore({
+  return await Session.createStore({
     runtime: new Drift.NoopRuntime(windowLabel),
-    reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    middleware: (getDefault) =>
-      getDefault(STORE_CHECKS).concat(...Session.BASE_MIDDLEWARE),
+    enablePersistence: false,
     enablePrerender: false,
   });
 };
 
 export type TestStore = Awaited<ReturnType<typeof createTestStore>>;
+
+/** @returns the range the session added under key, or undefined. */
+export const selectRange = (
+  state: Session.Range.StoreState,
+  key: string,
+): Session.Range.State | undefined =>
+  state[Session.Range.SLICE_NAME].ranges.find((r) => r.key === key);
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 
@@ -452,7 +456,7 @@ export const renderWithStatus = async (
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const connParams = Session.Core.useSelectConnParams();
+  const connParams = Core.useConnParams();
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
