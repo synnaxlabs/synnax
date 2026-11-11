@@ -40,9 +40,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // Set creates the secret, or replaces the secret with the same key. For a stored
 // secret, value is the plain text, which Set encrypts and must not be empty. For a file
 // secret, value must be empty. A replace must keep the source of the secret. Set gives
-// a
-// secret without a key a new one, and sets Updated. The commit carries a create action
-// that holds the secret without its value.
+// a secret without a key a new one, and sets Updated. The commit carries a create
+// action that holds the secret without its value.
 func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
