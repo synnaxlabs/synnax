@@ -2836,6 +2836,27 @@ ChannelStatus = status.Status<nil>
 			)
 
 			It(
+				"Should require a field typed by a fixed-size array type parameter",
+				func() {
+					source := `
+					@py output "out"
+
+					Bounded struct<T extends uint8[2]> {
+						pair T
+					}
+
+					Defaulted struct<T = uint8[2]> {
+						pair T
+					}
+				`
+					resp := MustGenerate(source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("pair: T\n").
+						ToNotContain("default_factory=list")
+				},
+			)
+
+			It(
 				"Should default a fixed-size array field to a tuple",
 				func() {
 					source := `
