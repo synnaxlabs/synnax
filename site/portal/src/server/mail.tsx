@@ -65,7 +65,7 @@ const FONT =
   "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, " +
   "sans-serif";
 
-export const TEXT: CSSProperties = {
+const TEXT: CSSProperties = {
   margin: "0 0 16px",
   fontSize: 14,
   lineHeight: "22px",
@@ -74,8 +74,7 @@ export const TEXT: CSSProperties = {
 
 const FOOTER: CSSProperties = { ...TEXT, margin: 0, fontSize: 12, color: COLOR.muted };
 
-/** HEADING styles the first heading of an email. */
-export const HEADING: CSSProperties = {
+const HEADING: CSSProperties = {
   margin: "0 0 16px",
   fontSize: 20,
   lineHeight: "28px",
@@ -83,28 +82,29 @@ export const HEADING: CSSProperties = {
   color: COLOR.heading,
 };
 
-export interface FrameProps {
+export interface PageProps {
   subject: string;
   /** preview is the line inboxes show after the subject. */
   preview: string;
-  /** origin is the portal's URL, which the logo and the footer link point to. */
-  origin: string;
-  /** reason tells the reader why they get the email. */
-  reason: ReactNode;
+  /** width is the widest the column gets, in pixels. */
+  width: number;
+  /** padding is the space around the column. */
+  padding: string;
+  /** children are the table rows of the column. */
   children: ReactNode;
 }
 
 /**
- * Frame lays out one email: the logo, a card that holds `children`, and a footer. Mail
+ * Page lays out the document of one email: a centered column of table rows. Mail
  * clients drop most CSS, so the layout is tables with inline styles.
  */
-export const Frame = ({
+export const Page = ({
   subject,
   preview,
-  origin,
-  reason,
+  width,
+  padding,
   children,
-}: FrameProps): ReactElement => (
+}: PageProps): ReactElement => (
   <html lang="en">
     <head>
       <meta httpEquiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -124,50 +124,15 @@ export const Frame = ({
       >
         <tbody>
           <tr>
-            <td align="center" style={{ padding: "40px 16px" }}>
+            <td align="center" style={{ padding }}>
               <table
                 role="presentation"
                 width="100%"
                 cellPadding={0}
                 cellSpacing={0}
-                style={{ maxWidth: 560 }}
+                style={{ maxWidth: width }}
               >
-                <tbody>
-                  <tr>
-                    <td style={{ padding: "0 0 24px" }}>
-                      <img
-                        src={`${origin}/email/logo.png`}
-                        width={100}
-                        height={28}
-                        alt="Synnax"
-                        style={{ display: "block", border: 0 }}
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      style={{
-                        padding: 32,
-                        background: COLOR.card,
-                        border: `1px solid ${COLOR.border}`,
-                        borderRadius: 8,
-                      }}
-                    >
-                      {children}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "24px 0 0" }}>
-                      <p style={{ ...FOOTER, margin: "0 0 4px" }}>{reason}</p>
-                      <p style={FOOTER}>
-                        Synnax Labs ·{" "}
-                        <a href={origin} style={{ color: COLOR.muted }}>
-                          {new URL(origin).host}
-                        </a>
-                      </p>
-                    </td>
-                  </tr>
-                </tbody>
+                <tbody>{children}</tbody>
               </table>
             </td>
           </tr>
@@ -177,6 +142,28 @@ export const Frame = ({
   </html>
 );
 
+export interface FooterProps {
+  /** origin is the portal's URL, which the footer links to. */
+  origin: string;
+  /** reason tells the reader why they get the email. */
+  reason: ReactNode;
+}
+
+/** Footer is the last row of an email: why the reader gets it, and who sent it. */
+export const Footer = ({ origin, reason }: FooterProps): ReactElement => (
+  <tr>
+    <td style={{ padding: "24px 0 0" }}>
+      <p style={{ ...FOOTER, margin: "0 0 4px" }}>{reason}</p>
+      <p style={FOOTER}>
+        Synnax Labs ·{" "}
+        <a href={origin} style={{ color: COLOR.muted }}>
+          {new URL(origin).host}
+        </a>
+      </p>
+    </td>
+  </tr>
+);
+
 const Email = ({
   notice,
   origin,
@@ -184,21 +171,44 @@ const Email = ({
   notice: Notice;
   origin: string;
 }): ReactElement => (
-  <Frame
+  <Page
     subject={notice.subject}
     preview={notice.paragraphs[0]}
-    origin={origin}
-    reason={notice.reason}
+    width={560}
+    padding="40px 16px"
   >
-    <h1 style={HEADING}>{notice.heading}</h1>
-    {notice.paragraphs.map((p) => (
-      <p key={p} style={TEXT}>
-        {p}
-      </p>
-    ))}
-    <Facts facts={notice.facts} />
-    <Button label={notice.action.label} href={`${origin}${notice.action.href}`} />
-  </Frame>
+    <tr>
+      <td style={{ padding: "0 0 24px" }}>
+        <img
+          src={`${origin}/email/logo.png`}
+          width={100}
+          height={28}
+          alt="Synnax"
+          style={{ display: "block", border: 0 }}
+        />
+      </td>
+    </tr>
+    <tr>
+      <td
+        style={{
+          padding: 32,
+          background: COLOR.card,
+          border: `1px solid ${COLOR.border}`,
+          borderRadius: 8,
+        }}
+      >
+        <h1 style={HEADING}>{notice.heading}</h1>
+        {notice.paragraphs.map((p) => (
+          <p key={p} style={TEXT}>
+            {p}
+          </p>
+        ))}
+        <Facts facts={notice.facts} />
+        <Button label={notice.action.label} href={`${origin}${notice.action.href}`} />
+      </td>
+    </tr>
+    <Footer origin={origin} reason={notice.reason} />
+  </Page>
 );
 
 const Facts = ({ facts }: { facts: Fact[] }): ReactElement => (

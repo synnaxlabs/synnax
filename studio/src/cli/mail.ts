@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -14,26 +15,21 @@ import { parseArgs } from "node:util";
 
 import { z } from "zod";
 
-import {
-  bucket,
-  CDN,
-  OUT_ROOT,
-  ROOT,
-  run,
-  select,
-  versionsZ,
-  VIDEO_VERSIONS,
-} from "@/cli/common";
+import { bucket, CDN, OUT_ROOT, ROOT, run, select } from "@/cli/common";
 import { versionOf } from "@/cli/hash";
-import { type MailCopy, runMailCopies } from "@/cli/pipeline";
-import { type Entry, stillKey, videoKey } from "@/manifest";
+import { type MailHero, runMailHeroes, runMailShot } from "@/cli/pipeline";
+import { type Entry, stillKey } from "@/manifest";
+import { type Region } from "@/remotion/Mail";
 
-const usage = `usage: pnpm mail <id>[@seconds]... [options]
-Makes the mail copy of each docs video or hero still that a release notes letter shows:
-its light render as a window on the docs hero gradient, as a 2x JPEG. A video needs
-[seconds], the time of the frame to show. Uploads each copy to the docs CDN and writes
-its URL to the portal's letter images. Reads the media from the CDN, so run pnpm upload
-first. Requires DO_SPACES_KEY and DO_SPACES_SECRET.
+const usage = `usage: pnpm mail <id>[@seconds[:x,y,width]]... [options]
+Makes the mail copies of the docs media that a release notes letter shows, as 2x JPEGs.
+A hero still becomes a window on the docs hero gradient: give its id alone. A video
+becomes a sharp shot of one frame: give the time of the frame, and optionally the region
+to show, in pixels of the 1920 px wide docs video (the whole frame by default). Shots
+render from the light capture in out/<id>/light, so run
+pnpm run batch <id> --force --keep-frames first. Uploads each copy to the docs CDN and
+writes its URL to the portal's letter images. Requires DO_SPACES_KEY and
+DO_SPACES_SECRET.
 Options:
   --dry-run   write the copies to out/mail/ without uploading`;
 
@@ -44,18 +40,78 @@ const stillZ = z.object({
   stills: z.object({ window: z.unknown() }),
 });
 
-/** sourceOf returns the CDN URL of the light render that an entry's mail copy shows. */
-const sourceOf = async ({ id, stills, themed }: Entry): Promise<string> => {
-  if (stills != null) {
-    const regions = await readFile(path.resolve(ROOT, stills.regions), "utf8");
-    const { version } = stillZ.parse(JSON.parse(regions));
-    return `${CDN}/${stillKey(id, `${version}/window-light.webp`)}`;
+const ARG = /^([^@]+)(?:@(\d+(?:\.\d+)?)(?::(\d+),(\d+),(\d+))?)?$/;
+
+interface Copy {
+  id: string;
+  seconds: number | null;
+  region: Region;
+}
+
+const parseCopy = (arg: string): Copy => {
+  const m = ARG.exec(arg);
+  if (m == null) throw new Error(`${arg} is not <id>[@seconds[:x,y,width]]`);
+  const [, id, seconds, x = "0", y = "0", width = "1920"] = m;
+  return {
+    id,
+    seconds: seconds == null ? null : Number(seconds),
+    region: { x: Number(x), y: Number(y), width: Number(width) },
+  };
+};
+
+/** heroSource returns the CDN URL of the light render of a still. */
+const heroSource = async ({ id, stills }: Entry): Promise<string> => {
+  if (stills == null) throw new Error(`${id} is a video. Give the time of a frame`);
+  const regions = await readFile(path.resolve(ROOT, stills.regions), "utf8");
+  const { version } = stillZ.parse(JSON.parse(regions));
+  return `${CDN}/${stillKey(id, `${version}/window-light.webp`)}`;
+};
+
+const outputOf = async (id: string): Promise<string> => {
+  const output = path.join(OUT_ROOT, "mail", `${id}.jpg`);
+  await mkdir(path.dirname(output), { recursive: true });
+  return output;
+};
+
+const renderHeroes = async (entries: Entry[]): Promise<void> => {
+  if (entries.length === 0) return;
+  const dir = await mkdtemp(path.join(tmpdir(), "studio-mail-"));
+  try {
+    const heroes: MailHero[] = [];
+    for (const [i, entry] of entries.entries()) {
+      const url = await heroSource(entry);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${url} answered ${res.status}`);
+      const source = `${i}${path.extname(url)}`;
+      await writeFile(path.join(dir, source), Buffer.from(await res.arrayBuffer()));
+      heroes.push({ source, output: await outputOf(entry.id) });
+    }
+    await runMailHeroes(dir, heroes);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-  const versions = versionsZ.parse(JSON.parse(await readFile(VIDEO_VERSIONS, "utf8")));
-  const version = versions[id];
-  if (version == null)
-    throw new Error(`${id} is not on the CDN. Run pnpm upload first`);
-  return `${CDN}/${videoKey(id, version, themed === false ? null : "light")}`;
+};
+
+const renderShot = async (
+  entry: Entry,
+  seconds: number,
+  region: Region,
+): Promise<void> => {
+  if (entry.stills != null)
+    throw new Error(`${entry.id} is a still. Give its id without a time`);
+  const captureDir = path.join(OUT_ROOT, entry.id, "light");
+  if (!existsSync(path.join(captureDir, "frames")))
+    throw new Error(
+      `${entry.id} has no capture. ` +
+        `Run pnpm run batch ${entry.id} --force --keep-frames`,
+    );
+  await runMailShot({
+    captureDir,
+    target: entry.target,
+    seconds,
+    region,
+    output: await outputOf(entry.id),
+  });
 };
 
 const main = async (): Promise<void> => {
@@ -70,42 +126,25 @@ const main = async (): Promise<void> => {
     console.log(usage);
     return;
   }
-  const times = new Map(
-    positionals.map((arg) => {
-      const [id, seconds] = arg.split("@");
-      return [id, seconds == null ? null : z.coerce.number().parse(seconds)];
-    }),
-  );
-  const entries = await select([...times.keys()].join(","), true);
-  const dir = await mkdtemp(path.join(tmpdir(), "studio-mail-"));
-  const copies: MailCopy[] = [];
-  try {
-    for (const [i, entry] of entries.entries()) {
-      const url = await sourceOf(entry);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`${url} answered ${res.status}`);
-      const seconds = times.get(entry.id) ?? null;
-      if ((entry.stills == null) !== (seconds != null))
-        throw new Error(`${entry.id}: give a time for a video, and none for a still`);
-      const source = `${i}${path.extname(url)}`;
-      await writeFile(path.join(dir, source), Buffer.from(await res.arrayBuffer()));
-      const output = path.join(OUT_ROOT, "mail", `${entry.id}.jpg`);
-      await mkdir(path.dirname(output), { recursive: true });
-      copies.push({ source, seconds, output });
-    }
-    await runMailCopies(dir, copies);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
+  const copies = new Map(positionals.map(parseCopy).map((c) => [c.id, c]));
+  const entries = await select([...copies.keys()].join(","), true);
+  const heroes: Entry[] = [];
+  for (const entry of entries) {
+    const { seconds, region } = copies.get(entry.id) as Copy;
+    if (seconds == null) heroes.push(entry);
+    else await renderShot(entry, seconds, region);
   }
+  await renderHeroes(heroes);
+  const outputs = await Promise.all(entries.map(async ({ id }) => await outputOf(id)));
   if (values["dry-run"]) {
-    for (const { output } of copies) console.log(path.relative(ROOT, output));
+    for (const output of outputs) console.log(path.relative(ROOT, output));
     return;
   }
   const put = await bucket();
   const images = z
     .record(z.string(), z.string())
     .parse(JSON.parse(await readFile(IMAGES, "utf8")));
-  for (const [i, { output }] of copies.entries()) {
+  for (const [i, output] of outputs.entries()) {
     const { id } = entries[i];
     const version = versionOf({ "mail.jpg": await readFile(output) });
     const key = `docs/${id}/mail/${version}.jpg`;

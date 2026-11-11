@@ -8,34 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement } from "react";
-import { AbsoluteFill, Img, OffthreadVideo, staticFile } from "remotion";
+import { AbsoluteFill, Img, staticFile } from "remotion";
 
-export type MailProps = {
-  /** source is the file, in the public dir, that the window shows. */
+import { StudioVideo, type StudioVideoProps } from "@/remotion/StudioVideo";
+
+/** HERO is the size of a letter's hero image in CSS pixels. */
+export const HERO = { width: 576, height: 320 };
+
+/** SHOT is the size of a letter's feature image in CSS pixels. */
+export const SHOT = { width: 512, height: 288 };
+
+export type HeroProps = {
+  /** source is the still, in the public dir, that the window shows. */
   source: string;
-  video: boolean;
-  /** frames is the length of the composition, which ends on the frame to show. */
-  frames: number;
-  fps: number;
 };
 
-/** WIDTH and HEIGHT are the size of a mail copy in CSS pixels. */
-export const WIDTH = 496;
-export const HEIGHT = 310;
-
 // The docs hero lays out its window in pixels of a 792 px wide hero.
-const PX = WIDTH / 792;
-const FROM = "#3774d0";
-const TO = "#a855f7";
+const PX = HERO.width / 792;
+const FROM = "#7c3aed";
+const TO = "#ff007b";
 
 const glow = (color: string, percent: number): string =>
   `color-mix(in oklab, ${color} ${percent}%, transparent)`;
 
 /**
- * Mail draws a still or a video frame as a window on the deep docs hero gradient, run
- * off the right and the bottom as in the docs `bleed` layout.
+ * Hero draws a still as a window on the deep docs hero gradient, run off the right and
+ * the bottom as in the docs `bleed` layout.
  */
-export const Mail = ({ source, video }: MailProps): ReactElement => (
+export const Hero = ({ source }: HeroProps): ReactElement => (
   <AbsoluteFill
     style={{
       background: [
@@ -48,24 +48,49 @@ export const Mail = ({ source, video }: MailProps): ReactElement => (
     <div
       style={{
         position: "absolute",
-        top: 50 * PX,
-        left: 56 * PX,
-        width: 960 * PX,
+        top: 64 * PX,
+        left: 76 * PX,
+        width: 880 * PX,
         overflow: "hidden",
         borderRadius: 12 * 0.75 * PX,
         boxShadow:
           "0 0 0 1px rgb(255 255 255 / 18%), 0 24px 56px -20px rgb(10 12 40 / 40%)",
       }}
     >
-      {video ? (
-        <OffthreadVideo
-          src={staticFile(source)}
-          muted
-          style={{ display: "block", width: "100%" }}
-        />
-      ) : (
-        <Img src={staticFile(source)} style={{ display: "block", width: "100%" }} />
-      )}
+      <Img src={staticFile(source)} style={{ display: "block", width: "100%" }} />
     </div>
   </AbsoluteFill>
 );
+
+/** Region is a box in pixels of the full-size directed frame. */
+export interface Region {
+  x: number;
+  y: number;
+  width: number;
+}
+
+export type ShotProps = StudioVideoProps & { region: Region };
+
+/** Shot draws a region of a directed video frame, at the full capture resolution. */
+export const Shot = ({ region, ...props }: ShotProps): ReactElement => {
+  const { width, height, dsf } = props.meta;
+  const scale = SHOT.width / region.width;
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          width: width * dsf,
+          height: height * dsf,
+          transform: [
+            `translate(${-region.x * scale}px, ${-region.y * scale}px)`,
+            `scale(${scale})`,
+          ].join(" "),
+          transformOrigin: "0 0",
+        }}
+      >
+        <StudioVideo {...props} />
+      </div>
+    </AbsoluteFill>
+  );
+};
