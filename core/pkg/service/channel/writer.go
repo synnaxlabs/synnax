@@ -315,9 +315,9 @@ func (w Writer) usedIndexes(
 	}
 	var users []Channel
 	if err := w.svc.table.NewRetrieve().
+		Where(w.svc.index.Filter(indexes.Slice()...)).
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return !c.IsIndex && indexes.Contains(c.Index()) &&
-				!exclude.Contains(c.Key()), nil
+			return !exclude.Contains(c.Key()), nil
 		})).
 		Entries(&users).
 		Exec(ctx, w.tx); err != nil {
