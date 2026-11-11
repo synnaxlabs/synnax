@@ -53,7 +53,7 @@ describe("error", () => {
       [ControlError.TYPE, new ControlError("message"), ControlError],
       [UnauthorizedError.TYPE, new UnauthorizedError("message"), UnauthorizedError],
       [ContiguityError.TYPE, new ContiguityError("message"), ContiguityError],
-      [LicenseError.TYPE, new LicenseError("message"), ContiguityError],
+      [LicenseError.TYPE, new LicenseError("message"), LicenseError],
       [
         MissingLicenseError.TYPE,
         new MissingLicenseError("message"),

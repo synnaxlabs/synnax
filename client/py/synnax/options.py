@@ -10,7 +10,6 @@
 from pydantic import BaseModel
 
 
-# The connection options of a client.
 class Options(BaseModel):
     """Options class for the Synnax py."""
 

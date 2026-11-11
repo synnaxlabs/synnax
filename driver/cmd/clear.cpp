@@ -14,7 +14,6 @@
 #include "driver/rack/rack.h"
 
 namespace driver::cmd::sub {
-/// @brief clears the persisted state of the rack.
 int clear(x::args::Parser &args) {
     if (const auto err = rack::Config::clear_persisted_state(args); err) {
         LOG(ERROR) << "failed to clear persisted state: " << err;

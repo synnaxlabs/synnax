@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type log, type project } from "@synnaxlabs/client";
-import { compare } from "@synnaxlabs/x";
-import { verbs } from "@synnaxlabs/x";
+import { compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
