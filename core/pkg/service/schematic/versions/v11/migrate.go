@@ -59,11 +59,11 @@ func MigrateNumericTelemConfig(
 // maxPrecision is the most significant digits a float64 holds.
 const maxPrecision = 17
 
-func migratePrecision(p float64) uint8 {
+func migratePrecision(p float64) *uint8 {
 	if math.IsNaN(p) {
-		return 0
+		return new(uint8(0))
 	}
-	return uint8(min(max(math.Round(p), 0), maxPrecision))
+	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
 }
 
 // MembersMigration sets the group of each stored schematic from the ontology edge that

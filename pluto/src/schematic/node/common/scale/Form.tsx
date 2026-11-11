@@ -41,9 +41,9 @@ const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 const PrecisionInput = Component.renderProp(
-  ({ value, onChange }: Input.Control<number>): ReactElement => (
+  ({ value, onChange }: Input.Control<number | undefined>): ReactElement => (
     <Input.Numeric
-      value={value}
+      value={value ?? 2}
       onChange={onChange}
       integer
       bounds={notation.PRECISION_BOUNDS}

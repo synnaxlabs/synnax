@@ -1031,7 +1031,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Uint8(uint8(v.Precision))
+		if v.Precision != nil {
+			w.Bool(true)
+			w.Uint8(uint8(*v.Precision))
+		} else {
+			w.Bool(false)
+		}
 		w.String(string(v.Notation))
 		w.Float64(float64(v.StalenessTimeout))
 		if v.StalenessColor != nil {
@@ -2799,8 +2804,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.RollingAverage = &hv
 			}
 		}
-		if v.Precision, err = r.Uint8(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv uint8
+				if hv, err = r.Uint8(); err != nil {
+					return err
+				}
+				v.Precision = &hv
+			}
 		}
 		{
 			rawV, err := r.String()
@@ -4089,7 +4104,12 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Uint8(uint8(v.Precision))
+		if v.Precision != nil {
+			w.Bool(true)
+			w.Uint8(uint8(*v.Precision))
+		} else {
+			w.Bool(false)
+		}
 		w.String(string(v.Notation))
 		w.Float64(float64(v.StalenessTimeout))
 		if v.StalenessColor != nil {
@@ -5822,8 +5842,18 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.RollingAverage = &hv
 			}
 		}
-		if v.Precision, err = r.Uint8(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv uint8
+				if hv, err = r.Uint8(); err != nil {
+					return err
+				}
+				v.Precision = &hv
+			}
 		}
 		{
 			rawV, err := r.String()
@@ -6079,14 +6109,18 @@ func (ntc NumericTelemConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Uint8(uint8(ntc.Precision))
+	if ntc.Precision != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*ntc.Precision))
+	} else {
+		w.Bool(false)
+	}
 	w.String(string(ntc.Notation))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (ntc *NumericTelemConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -6117,8 +6151,18 @@ func (ntc *NumericTelemConfig) DecodeOrc(r *orc.Reader) error {
 			ntc.RollingAverage = &hv
 		}
 	}
-	if ntc.Precision, err = r.Uint8(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			ntc.Precision = &hv
+		}
 	}
 	{
 		rawV, err := r.String()
@@ -6144,7 +6188,12 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Uint8(uint8(sic.Precision))
+	if sic.Precision != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*sic.Precision))
+	} else {
+		w.Bool(false)
+	}
 	w.String(string(sic.Notation))
 	w.Float64(float64(sic.StalenessTimeout))
 	if sic.StalenessColor != nil {
@@ -6224,8 +6273,18 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			sic.RollingAverage = &hv
 		}
 	}
-	if sic.Precision, err = r.Uint8(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			sic.Precision = &hv
+		}
 	}
 	{
 		rawV, err := r.String()

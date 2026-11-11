@@ -26,7 +26,7 @@ const CONFIG_Z = schematic.nodeConfigZ;
 interface FormWrapperProps {
   values: schematic.NodeConfig;
   children: ReactElement;
-  onPrecisionChange?: (precision: number) => void;
+  onPrecisionChange?: (precision: number | undefined) => void;
 }
 
 const FormWrapper = ({
@@ -128,7 +128,36 @@ describe("box border radius", () => {
   });
 });
 
+const precisionInput = (container: HTMLElement): HTMLInputElement => {
+  const item = Array.from(container.querySelectorAll(".lyra-input__item")).find(
+    (el) => el.querySelector("label")?.textContent?.trim() === "Precision",
+  );
+  const input = item?.querySelector("input");
+  assert(input != null);
+  return input;
+};
+
 describe("precision", () => {
+  it("should show 2 places when the precision is absent", () => {
+    const { container } = render(
+      <FormWrapper values={Node.createConfig({ variant: "scale" })}>
+        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+      </FormWrapper>,
+    );
+    expect(precisionInput(container).value).toBe("2");
+  });
+
+  it("should show an explicit precision of 0", () => {
+    const { container } = render(
+      <FormWrapper
+        values={{ ...Node.createConfig({ variant: "scale" }), precision: 0 }}
+      >
+        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+      </FormWrapper>,
+    );
+    expect(precisionInput(container).value).toBe("0");
+  });
+
   it("should round a typed fraction to a whole number", () => {
     const onPrecisionChange = vi.fn();
     const { getByText } = render(

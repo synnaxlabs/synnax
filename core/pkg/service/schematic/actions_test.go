@@ -970,7 +970,14 @@ var _ = Describe("Payload decoding", func() {
 		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
 			"config": {"variant": "value", "precision": 0}}}`)
 		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
-		Expect(cfg.Precision).To(BeZero())
+		Expect(cfg.Precision).To(HaveValue(BeZero()))
+	})
+
+	It("Should leave an omitted precision absent", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value"}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Precision).To(BeNil())
 	})
 
 	DescribeTable("Should reject a precision that is not a byte", func(p string) {

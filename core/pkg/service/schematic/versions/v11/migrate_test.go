@@ -29,7 +29,7 @@ var _ = Describe("MigrateNumericTelemConfig", func() {
 			ctx,
 			v10.NumericTelemConfig{Precision: in},
 		))
-		Expect(cfg.Precision).To(Equal(out))
+		Expect(cfg.Precision).To(HaveValue(Equal(out)))
 	},
 		Entry("zero", 0.0, uint8(0)),
 		Entry("whole", 4.0, uint8(4)),
@@ -52,7 +52,7 @@ var _ = Describe("MigrateSchematic", func() {
 			}},
 		}))
 		value := out.Configs["n1"].Variant.(v11.ValueElementConfig)
-		Expect(value.Precision).To(BeZero())
+		Expect(value.Precision).To(HaveValue(BeZero()))
 	})
 
 	It("Should keep the precision of a gauge", func(ctx SpecContext) {
@@ -64,7 +64,7 @@ var _ = Describe("MigrateSchematic", func() {
 			}},
 		}))
 		gauge := out.Configs["n1"].Variant.(v11.GaugeElementConfig)
-		Expect(gauge.Precision).To(BeEquivalentTo(3))
+		Expect(gauge.Precision).To(HaveValue(BeEquivalentTo(3)))
 	})
 
 	It("Should keep the precision of a tank", func(ctx SpecContext) {
@@ -74,7 +74,7 @@ var _ = Describe("MigrateSchematic", func() {
 			},
 		}))
 		tank := out.Configs["n1"].Variant.(v11.TankElementConfig)
-		Expect(tank.Precision).To(BeEquivalentTo(4))
+		Expect(tank.Precision).To(HaveValue(BeEquivalentTo(4)))
 	})
 
 	It("Should keep the precision of a scale", func(ctx SpecContext) {
@@ -88,6 +88,6 @@ var _ = Describe("MigrateSchematic", func() {
 			}},
 		}))
 		scale := out.Configs["n1"].Variant.(v11.ScaleElementConfig)
-		Expect(scale.Precision).To(BeEquivalentTo(5))
+		Expect(scale.Precision).To(HaveValue(BeEquivalentTo(5)))
 	})
 })

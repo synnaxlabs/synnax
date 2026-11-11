@@ -102,7 +102,7 @@ var (
 	fullyPopulatedNumericTelemConfig = v11.NumericTelemConfig{
 		Channel:        new(channel.Key(2)),
 		RollingAverage: new(int32(3)),
-		Precision:      4,
+		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
 	}
 	fullyPopulatedStalenessConfig = v11.StalenessConfig{
@@ -118,7 +118,7 @@ var (
 	fullyPopulatedScaleIndicatorConfig = v11.ScaleIndicatorConfig{
 		Channel:          new(channel.Key(2)),
 		RollingAverage:   new(int32(3)),
-		Precision:        4,
+		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: 5.5,
 		StalenessColor: new(color.Color{
@@ -795,7 +795,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:    fullyPopulatedLabeledConfig,
 				Channel:          new(channel.Key(2)),
 				RollingAverage:   new(int32(3)),
-				Precision:        4,
+				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: 5.5,
 				StalenessColor: new(color.Color{
@@ -1465,7 +1465,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:    fullyPopulatedLabeledConfig,
 				Channel:          new(channel.Key(2)),
 				RollingAverage:   new(int32(3)),
-				Precision:        4,
+				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: 5.5,
 				StalenessColor: new(color.Color{
@@ -1579,7 +1579,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v11.NumericTelemConfig{
 				Channel:        nil,
 				RollingAverage: nil,
-				Precision:      0,
+				Precision:      nil,
 				Notation:       notation.Notation(""),
 			}),
 		)
@@ -1599,7 +1599,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v11.ScaleIndicatorConfig{
 				Channel:          nil,
 				RollingAverage:   nil,
-				Precision:        0,
+				Precision:        nil,
 				Notation:         notation.Notation(""),
 				StalenessTimeout: 0,
 				StalenessColor:   nil,
@@ -3048,7 +3048,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig:    fullyPopulatedLabeledConfig,
 			Channel:          new(channel.Key(2)),
 			RollingAverage:   new(int32(3)),
-			Precision:        4,
+			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: 5.5,
 			StalenessColor: new(color.Color{
@@ -4505,7 +4505,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:    fullyPopulatedLabeledConfig,
 			Channel:          new(channel.Key(2)),
 			RollingAverage:   new(int32(3)),
-			Precision:        4,
+			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: 5.5,
 			StalenessColor: new(color.Color{
@@ -4671,7 +4671,7 @@ func FuzzDecodeNumericTelemConfig(f *testing.F) {
 		seed := v11.NumericTelemConfig{
 			Channel:        nil,
 			RollingAverage: nil,
-			Precision:      0,
+			Precision:      nil,
 			Notation:       notation.Notation(""),
 		}
 		w := orc.NewWriter(0)
@@ -4715,7 +4715,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 		seed := v11.ScaleIndicatorConfig{
 			Channel:          nil,
 			RollingAverage:   nil,
-			Precision:        0,
+			Precision:        nil,
 			Notation:         notation.Notation(""),
 			StalenessTimeout: 0,
 			StalenessColor:   nil,

@@ -47,8 +47,10 @@ ScaledConfig = v9.ScaledConfig
 StalenessConfig = v9.StalenessConfig
 
 NumericTelemConfig struct extends v9.NumericTelemConfig {
-    precision uint8 = 2 {
-        @doc value "is the number of decimal places shown."
+    precision uint8? {
+        @doc value """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
     }
 }
 

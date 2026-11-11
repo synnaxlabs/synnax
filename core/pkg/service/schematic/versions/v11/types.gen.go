@@ -147,17 +147,14 @@ type NumericTelemConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision uint8 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NumericTelemConfig) ApplyDefaults() {
-	if n.Precision == 0 {
-		n.Precision = 2
-	}
 	if n.Notation == "" {
 		n.Notation = "standard"
 	}
@@ -165,7 +162,6 @@ func (n *NumericTelemConfig) ApplyDefaults() {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (n *NumericTelemConfig) SetDefaults() {
-	n.Precision = 2
 	n.Notation = "standard"
 }
 
@@ -174,7 +170,9 @@ func (n *NumericTelemConfig) SetDefaults() {
 func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
-	v.LessThanEq("precision", n.Precision, 17)
+	if n.Precision != nil {
+		v.LessThanEq("precision", *n.Precision, 17)
+	}
 	return v.Error()
 }
 
@@ -3377,8 +3375,8 @@ type TankNodeConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision uint8 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -3426,7 +3424,6 @@ func (TankNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Precision = 2
 	t.Notation = "standard"
 	t.StalenessTimeout = 5
 	t.Bounds.Upper = 100
@@ -3447,9 +3444,6 @@ func (t *TankNodeConfig) SetDefaults() {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankNodeConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
 	if t.Notation == "" {
 		t.Notation = "standard"
 	}
@@ -3509,7 +3503,9 @@ func (t TankNodeConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
-	v.LessThanEq("precision", t.Precision, 17)
+	if t.Precision != nil {
+		v.LessThanEq("precision", *t.Precision, 17)
+	}
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -8872,8 +8868,8 @@ type TankElementConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision uint8 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -8921,7 +8917,6 @@ func (TankElementConfig) isElementConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankElementConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Precision = 2
 	t.Notation = "standard"
 	t.StalenessTimeout = 5
 	t.Bounds.Upper = 100
@@ -8942,9 +8937,6 @@ func (t *TankElementConfig) SetDefaults() {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankElementConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
 	if t.Notation == "" {
 		t.Notation = "standard"
 	}
@@ -9004,7 +8996,9 @@ func (t TankElementConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
-	v.LessThanEq("precision", t.Precision, 17)
+	if t.Precision != nil {
+		v.LessThanEq("precision", *t.Precision, 17)
+	}
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
