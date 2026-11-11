@@ -14,6 +14,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
+import { Section } from "@/platform/section";
 import { type BindChannelsProps } from "@/platform/task/BindChannels";
 import {
   ChannelList as Base,
@@ -28,12 +29,12 @@ interface HeaderProps {
 }
 
 export const Header = ({ title = "Channels", actions }: HeaderProps) => (
-  <PHeader.Header>
+  <Section.Header>
     <PHeader.Title weight={500} color={10}>
       {title}
     </PHeader.Title>
     {actions != null && <PHeader.Actions>{actions}</PHeader.Actions>}
-  </PHeader.Header>
+  </Section.Header>
 );
 
 const HEADER = <Header />;

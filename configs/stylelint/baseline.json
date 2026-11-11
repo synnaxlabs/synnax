@@ -119,7 +119,6 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/Form.css": ["lyra-header"],
     "console/src/platform/task/views/GroupTree.css": [
       "lyra--selected",
       "lyra-btn",
