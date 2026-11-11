@@ -169,6 +169,12 @@ var _ = Describe("Service", func() {
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
+		It("Should reject a scan config with a zero rate", func(ctx SpecContext) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": 0,
+			})).Error().To(MatchError(ContainSubstring("rate: must be positive")))
+		})
+
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
 				Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{

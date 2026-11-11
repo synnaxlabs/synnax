@@ -223,9 +223,10 @@ func createIndexed(
 	return index, data
 }
 
-// newTask stores and returns a task of typ holding cfg with its defaults applied, as
-// the task config store fills absent fields. It skips task.Writer, which writes a
-// status of its own, so a spec sees only the statuses the factory writes.
+// newTask stores and returns a task of typ holding cfg. Each zero field of a struct cfg
+// takes its schema default, as an absent field does, so a spec that tests an explicit
+// zero passes a map. It skips task.Writer, which writes a status of its own, so a spec
+// sees only the statuses the factory writes.
 func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	GinkgoHelper()
 	if cfg != nil {
