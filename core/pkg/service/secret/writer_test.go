@@ -215,6 +215,18 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	DescribeTable("IsFileName",
+		func(name string, expected bool) {
+			Expect(secret.IsFileName(name)).To(Equal(expected))
+		},
+		Entry("a file name", "key.pem", true),
+		Entry("the folder itself", ".", false),
+		Entry("the parent folder", "..", false),
+		Entry("a forward slash", "a/key.pem", false),
+		Entry("a backslash", `a\key.pem`, false),
+		Entry("a Windows drive", "C:key.pem", false),
+	)
+
 	Describe("Delete", func() {
 		It("Should delete the secret", func(ctx SpecContext) {
 			s := e.createStored(ctx, "Password", "hunter2")
