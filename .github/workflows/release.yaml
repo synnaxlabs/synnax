@@ -267,6 +267,7 @@ jobs:
   build-console:
     name: Build Console
     needs: [resolve, draft-console]
+    if: ${{ !cancelled() && needs.draft-console.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -303,6 +304,7 @@ jobs:
   publish-console:
     name: Publish Console
     needs: [resolve, build-console]
+    if: ${{ !cancelled() && needs.build-console.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -353,6 +355,7 @@ jobs:
   build-driver:
     name: Build Driver
     needs: [resolve, draft-driver]
+    if: ${{ !cancelled() && needs.draft-driver.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -388,6 +391,7 @@ jobs:
   publish-driver:
     name: Publish Driver
     needs: [resolve, build-driver]
+    if: ${{ !cancelled() && needs.build-driver.result == 'success' }}
     permissions:
       actions: read
       contents: write
