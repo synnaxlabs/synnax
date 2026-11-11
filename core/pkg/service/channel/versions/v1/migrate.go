@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/set"
 )
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateChannel)
@@ -31,7 +32,8 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ch
 })
 
 // IndexGroupMigration moves the index of each grouped calculated channel into the
-// group of that channel when the index has no group.
+// group of that channel when the index has no group and no other kind of channel uses
+// it.
 var IndexGroupMigration = migrate.New("v61_calculated_index_group", migrateIndexGroups)
 
 func migrateIndexGroups(
@@ -39,31 +41,30 @@ func migrateIndexGroups(
 	tx gorp.Tx,
 	_ alamos.Instrumentation,
 ) error {
-	var calculated []Channel
+	var channels []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return c.IsCalculated() && c.LocalIndex != 0 && c.Group != nil, nil
-		})).
-		Entries(&calculated).
-		Exec(ctx, tx); err != nil || len(calculated) == 0 {
-		return err
-	}
-	owners := make(map[Key]Channel, len(calculated))
-	for _, c := range calculated {
-		owners[c.Index()] = c
-	}
-	var indexes []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			_, ok := owners[c.Key()]
-			return ok && c.Group == nil, nil
-		})).
-		Entries(&indexes).
+		Entries(&channels).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	for i := range indexes {
-		indexes[i].Group = owners[indexes[i].Key()].Group
+	var (
+		groups = make(map[Key]*groupv1.Key)
+		shared = set.New[Key]()
+	)
+	for _, c := range channels {
+		switch {
+		case c.IsCalculated() && c.LocalIndex != 0 && c.Group != nil:
+			groups[c.Index()] = c.Group
+		case !c.IsCalculated() && !c.IsIndex && c.LocalIndex != 0:
+			shared.Add(c.Index())
+		}
 	}
-	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, indexes...)
+	var moved []Channel
+	for _, c := range channels {
+		if g, ok := groups[c.Key()]; ok && c.Group == nil && !shared.Contains(c.Key()) {
+			c.Group = g
+			moved = append(moved, c)
+		}
+	}
+	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, moved...)
 }

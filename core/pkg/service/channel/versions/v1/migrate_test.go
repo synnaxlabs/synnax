@@ -78,6 +78,9 @@ var _ = Describe("IndexGroupMigration", func() {
 				free("renamed_time", 7, 7, "", nil),
 				free("d", 8, 7, "return w", &g),
 				free("e_time", 9, 9, "", nil),
+				free("f_time", 10, 10, "", nil),
+				free("f", 11, 10, "return v", &g),
+				free("data", 12, 10, "", nil),
 			)).To(Succeed())
 			expectGroups := func() {
 				GinkgoHelper()
@@ -86,6 +89,7 @@ var _ = Describe("IndexGroupMigration", func() {
 				Expect(groupOf(ctx, 5)).To(BeNil())
 				Expect(groupOf(ctx, 7)).To(HaveValue(Equal(g)))
 				Expect(groupOf(ctx, 9)).To(BeNil())
+				Expect(groupOf(ctx, 10)).To(BeNil())
 			}
 			migrate(ctx, "first")
 			expectGroups()
