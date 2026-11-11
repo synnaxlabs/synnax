@@ -73,50 +73,49 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			References:         readConfigReferences(),
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_read",
-			Migrations:         []gorp.Migration{v2.ReadMigration},
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			PatchEntry:         (*ReadConfig).Patch,
-			HashEntry:          (*ReadConfig).HashContent,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			References:      readConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_read",
+			Migrations:      []gorp.Migration{v2.ReadMigration},
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
+			ValidateEntry:   validateReadConfig,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			References:         writeConfigReferences(),
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			PatchEntry:         (*WriteConfig).Patch,
-			HashEntry:          (*WriteConfig).HashContent,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "opc_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
@@ -131,4 +130,15 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
+}
+
+// validateReadConfig skips the stream rate rule under array sampling, which reads at
+// the sample rate alone.
+func validateReadConfig(c *ReadConfig) error {
+	v := validate.New("opcua.ReadConfig")
+	v.Exec(c.Validate)
+	if _, array := c.Sampling.Variant.(ArraySampling); !array {
+		v.GreaterThan("stream_rate", c.StreamRate, 0)
+	}
+	return v.Error()
 }

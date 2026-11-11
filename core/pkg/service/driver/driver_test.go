@@ -2120,8 +2120,8 @@ var _ = Describe("Driver", func() {
 			renamedAt := telem.Now()
 			Eventually(func(g Gomega) {
 				var stat rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](key.ResourceID())).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
@@ -2142,8 +2142,8 @@ var _ = Describe("Driver", func() {
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {
 					var stat rack.Status
-					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](key.ResourceID())).
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
@@ -2168,12 +2168,13 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				g.Expect(statuses[0].Variant).To(Equal(status.VariantSuccess))
+				g.Expect(statuses[0].Details.Running).To(BeTrue())
 			}).Should(Succeed())
 		})
 
@@ -2194,8 +2195,8 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2204,8 +2205,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2229,8 +2230,8 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2240,16 +2241,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []rack.Status
-			Expect(statusSvc.NewRetrieve[struct{}]().
-				Where(status.MatchOwners[struct{}](owner)).
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+				Where(status.MatchOwners[rack.StatusDetails](owner)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))

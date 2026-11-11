@@ -22,7 +22,9 @@ func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -50,7 +52,9 @@ func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	case "node_name":
 		return patch.Value(&wc.BaseChannel.NodeName, c.Next())
 	case "data_type":
-		return patch.Value(&wc.BaseChannel.DataType, c.Next())
+		return patch.Defaulted(&wc.BaseChannel.DataType, c.Next(), func(def *WriteChannel) {
+			wc.BaseChannel.DataType = def.BaseChannel.DataType
+		})
 	case "cmd_channel":
 		return patch.Value(&wc.CmdChannel, c.Next())
 	default:

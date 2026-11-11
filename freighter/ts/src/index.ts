@@ -12,6 +12,7 @@ export {
   FreighterError,
   ReceiveOverflow,
   StreamClosed,
+  Timeout,
   Unreachable,
 } from "@/errors";
 export {
