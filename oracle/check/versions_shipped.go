@@ -32,10 +32,12 @@ type Release struct {
 
 // checkShipped fails on every version file whose stored types no longer decode the
 // data a stable release wrote. It compares filled-in shapes, so a type may move to
-// another file or chain, and an enum or union may gain members.
+// another file or chain, and an enum or union may gain members. resolver resolves the
+// current chains, and is nil when there are none.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
+	chains map[string]versions.Chain,
 	resolver *versions.Resolver,
 	release Release,
 ) {
@@ -65,7 +67,7 @@ func checkShipped(
 					),
 				})
 			}
-			current, ok := resolver.Chains()[livePath]
+			current, ok := chains[livePath]
 			if !ok || !slices.Contains(current.Numbers, n) {
 				fail("is gone")
 				continue

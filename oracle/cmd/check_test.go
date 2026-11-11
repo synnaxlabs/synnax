@@ -109,9 +109,11 @@ var _ = Describe("check command flag paths", func() {
 
 	Describe("with a well-formed schema", func() {
 		BeforeEach(func() {
-			_, cleanup = setupMiniRepo(map[string]string{
+			var repoDir string
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 			})
+			releaseMiniRepo(repoDir)
 		})
 
 		It("rejects an invalid --format value", func() {
@@ -276,6 +278,15 @@ var _ = Describe("check against the shipped release", func() {
 			writeChain(keyedChannel)
 			Expect(failGate(check.FailureCodes["versions"], "--gates=versions")).To(
 				ContainSubstring("which core/v0.1.0 shipped"),
+			)
+		})
+
+		It("Should fail a release whose version files are all gone", func() {
+			git("tag", "core/v0.1.0")
+			Expect(os.RemoveAll(filepath.Join(repoDir, "schemas/synnax/versions"))).
+				To(Succeed())
+			Expect(failGate(check.FailureCodes["versions"], "--gates=versions")).To(
+				ContainSubstring("channel v0 is gone, which core/v0.1.0"),
 			)
 		})
 

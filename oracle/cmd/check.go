@@ -153,7 +153,7 @@ func runCheck(cmd *cobra.Command, _ []string) (err error) {
 	}
 
 	var shipped *check.Release
-	if wantedGates.has("versions") && len(result.Chains) > 0 {
+	if wantedGates.has("versions") {
 		var release check.Release
 		if release, err = extractRelease(ctx, repoRoot); err != nil {
 			return err

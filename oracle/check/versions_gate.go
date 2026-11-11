@@ -50,14 +50,14 @@ func (g versionsGate) Run(
 		return r
 	}
 	chains, resolver := res.Chains, res.Versions
+	if env.Shipped != nil {
+		checkShipped(ctx, &r, chains, resolver, *env.Shipped)
+	}
 	if len(chains) == 0 || resolver == nil {
 		return r
 	}
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
 		checkChain(ctx, &r, res, env, resolver, chains[livePath])
-	}
-	if env.Shipped != nil {
-		checkShipped(ctx, &r, resolver, *env.Shipped)
 	}
 	return r
 }
