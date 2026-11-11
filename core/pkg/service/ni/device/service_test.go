@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -517,6 +519,60 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
+		})
+	})
+
+	Describe("Migration", func() {
+		It("Should require an identity update before a migrated physical device is "+
+			"configured", func(ctx SpecContext) {
+			mDB := DeferClose(gorp.Wrap(memkv.New()))
+			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
+			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))
+			mRole := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: mDB}))
+			mRack := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:         mDB,
+				HostKey:    1,
+				Status:     mStat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, mDB, mRole)),
+			}))
+			MustOpen(chassis.OpenService(ctx, chassis.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			old := v0.Device{
+				Key:    uuid.New(),
+				Rack:   mRack.EmbeddedKey,
+				Name:   "PXI-6255",
+				Serial: "01A",
+				Model:  "PXI-6255",
+			}
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: mDB}))
+			Expect(gorp.NewCreate[v0.Key, v0.Device]().Entry(&old).Exec(ctx, mDB)).
+				To(Succeed())
+			mSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			apply := func(update device.Update) error {
+				return mDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return mSvc.NewWriter(tx).Apply(ctx, old.Key, update)
+				})
+			}
+			configure := device.Update{Variant: device.ConfigurationUpdate{
+				Configuration: device.Configuration{Name: "Renamed"},
+			}}
+			Expect(apply(configure)).
+				To(MatchError(ContainSubstring("resource_name: required")))
+			Expect(apply(device.Update{Variant: device.IdentityUpdate{
+				Identity: device.Identity{
+					Rack:         old.Rack,
+					Serial:       old.Serial,
+					ResourceName: "Mod1",
+					Model:        old.Model,
+				},
+			}})).To(Succeed())
+			Expect(apply(configure)).To(Succeed())
 		})
 	})
 
