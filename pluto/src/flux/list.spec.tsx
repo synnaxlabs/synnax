@@ -18,7 +18,7 @@ import {
 import { List } from "@synnaxlabs/lyra/list";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { type ReactElement, useEffect } from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
@@ -26,6 +26,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
+const SynnaxWrapper = wrapper;
 const ranges = (c: typeof client) => c.ranges;
 
 // The Core tokenizes a search term on punctuation, so a term must be one word.
@@ -118,6 +119,109 @@ describe("useList", () => {
     await client.ranges.rename(a.key, "a2");
     await screen.findByText("a2");
     expect(renders.get(b.key)).toBe(rendersOfB);
+  });
+
+  describe("getItem", () => {
+    // The Core alone checks a name pattern, so the list fetches again on each change.
+    const byPattern = () =>
+      ({
+        where: { and: [{ labels: [lbl.key] }, { name: { regex: "." } }] },
+        order: { field: "name" },
+      }) as const;
+
+    interface FrameControl {
+      getItem?: Flux.UseListReturn<ranger.Key, ranger.Range>["getItem"];
+      hide: (key: ranger.Key | null) => void;
+    }
+
+    const createFrameWrapper = (query: ranger.RetrieveRequest) => {
+      const control: FrameControl = { hide: () => {} };
+      const Frame = ({ children }: PropsWithChildren): ReactElement => {
+        const [hidden, setHidden] = useState<ranger.Key | null>(null);
+        control.hide = setHidden;
+        const { data, getItem, subscribe, more } = Flux.useList(ranges, {
+          name: "ranges",
+          query,
+          filter: hidden == null ? undefined : (r) => r.key !== hidden,
+        });
+        control.getItem = getItem;
+        useEffect(more, [more]);
+        return (
+          <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+            {children}
+          </List.Frame>
+        );
+      };
+      const frameWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <SynnaxWrapper>
+          <Frame>{children}</Frame>
+        </SynnaxWrapper>
+      );
+      return { control, frameWrapper };
+    };
+
+    it("should render again only the reader of the renamed record", async () => {
+      const a = await create("a");
+      const b = await create("b");
+      const { control, frameWrapper } = createFrameWrapper(byPattern());
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders += 1;
+          return List.useItem<ranger.Key, ranger.Range>(b.key);
+        },
+        { wrapper: frameWrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("b"));
+      const send = spyOnSend(client);
+      const before = renders;
+      await client.ranges.rename(a.key, "a2");
+      await waitFor(() => expect(control.getItem?.(a.key)?.name).toEqual("a2"));
+      // The Core alone can place the renamed range, so the list fetches again.
+      await waitFor(() => expect(listReads(send)).toHaveLength(1));
+      const read = send.mock.calls.findIndex((call) => listReads(send)[0] === call);
+      await send.mock.results[read].value;
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(renders).toEqual(before);
+      await client.ranges.rename(b.key, "b2");
+      await waitFor(() => expect(result.current?.name).toEqual("b2"));
+      send.mockRestore();
+    });
+
+    it("should keep its identity through changes and searches", async () => {
+      const name = randomWord();
+      const match = await create(name);
+      const b = await create("b");
+      await waitForIndex(name);
+      const { result } = renderHook(
+        () =>
+          Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+        { wrapper },
+      );
+      const { getItem } = result.current;
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([b.key, match.key]));
+      await client.ranges.rename(b.key, "b2");
+      await waitFor(() => expect(getItem(b.key)?.name).toEqual("b2"));
+      act(() => result.current.search(name));
+      await waitFor(() => expect(result.current.data).toEqual([match.key]));
+      act(() => result.current.search(""));
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      expect(result.current.getItem).toBe(getItem);
+    });
+
+    it("should have its readers read again when the filter changes", async () => {
+      await create("a");
+      const b = await create("b");
+      const { control, frameWrapper } = createFrameWrapper(byName());
+      const { result } = renderHook(
+        () => List.useItem<ranger.Key, ranger.Range>(b.key),
+        { wrapper: frameWrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("b"));
+      act(() => control.hide(b.key));
+      expect(result.current).toBeUndefined();
+    });
   });
 
   it("should place a created record in order", async () => {
@@ -226,6 +330,29 @@ describe("useList", () => {
     expect(result.current.answered).toBe(true);
     release();
     await waitFor(() => expect(result.current.data).toEqual([match.key]));
+  });
+
+  it("should report the search term that its records answer", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await create("other");
+    await waitForIndex(name);
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    act(() => result.current.search(name));
+    expect(result.current.searchTerm).toEqual("");
+    await responded;
+    expect(result.current.data).toHaveLength(2);
+    expect(result.current.searchTerm).toEqual("");
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+    expect(result.current.searchTerm).toEqual(name);
   });
 
   it("should hide the records the filter rejects", async () => {
