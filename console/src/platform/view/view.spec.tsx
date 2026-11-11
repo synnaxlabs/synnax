@@ -47,7 +47,7 @@ const Inner = (): ReactElement => {
     query: { where },
   });
   return (
-    <View.Form {...listProps} onWhereChange={setWhere}>
+    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
         <View.FilterMenu>
           <Menu.Item itemKey="only">Filter Option</Menu.Item>

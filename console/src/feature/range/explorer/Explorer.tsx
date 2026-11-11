@@ -156,6 +156,7 @@ const Internal = () => {
       more={handleMore}
       search={handleSearch}
       onWhereChange={handleWhereChange}
+      itemHeight={40}
     >
       <View.Toolbar>
         <View.FilterMenu>
