@@ -344,7 +344,10 @@ export interface MailShot {
   target?: string;
   /** seconds is the time of the video frame to show. */
   seconds: number;
-  /** region is the box to show, in pixels of the rendered video. Null shows it all. */
+  /**
+   * region is the box to show, in pixels of the rendered video. Null shows the full
+   * width from the top.
+   */
   region: Region | null;
   /** output is where the JPEG goes. */
   output: string;
