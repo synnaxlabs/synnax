@@ -709,33 +709,37 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
 
-    def test_configure_rejects_rack_other_than_rack_of_device(
+    def test_configure_puts_task_on_rack_of_device_over_set_rack(
         self, client: sy.Synnax
     ) -> None:
-        """Should raise when the caller sets a rack other than the rack of the device
-        of a task."""
-        dev = client.devices.create(_device(client.racks.create(name="a").key))
+        """Should configure a task onto the rack of its device when the caller sets
+        another rack."""
         rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
         tsk = sy.Task(
             name="test",
             type="modbus_read",
-            rack=rack.key,
+            rack=client.racks.create(name=str(uuid4())).key,
             config={"device": dev.key},
         )
-        with pytest.raises(sy.ValidationError, match="must be on the rack"):
-            client.tasks.configure(tsk)
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
-    def test_configure_rejects_rack_change_away_from_device(
+    def test_configure_moves_stale_task_to_rack_of_moved_device(
         self, client: sy.Synnax
     ) -> None:
-        """Should raise when the caller moves a configured task off the rack of its
-        device."""
+        """Should configure a task object that holds an old rack onto the rack that
+        its device moved to."""
         dev = client.devices.create(_device(client.racks.create(name="a").key))
         tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
         client.tasks.configure(tsk)
-        tsk.rack = client.racks.create(name=str(uuid4())).key
-        with pytest.raises(sy.ValidationError, match="must be on the rack"):
-            client.tasks.configure(tsk)
+        rack = client.racks.create(name=str(uuid4()))
+        client.devices.dispatch(
+            dev.key, sy.device.set_rack(sy.device.SetRackPayload(rack=rack.key))
+        )
+        client.tasks.configure(client.tasks.retrieve(key=tsk.key))
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_moves_task_off_a_wrong_rack(self, client: sy.Synnax) -> None:
         """Should move a stored task that is not on the rack of its device onto that

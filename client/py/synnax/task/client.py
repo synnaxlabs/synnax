@@ -506,17 +506,17 @@ class Client:
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command. A task that names devices, in its
-        config or its channels, goes on their rack and moves with them. A task that
-        names no device stays on the rack that the caller sets or the cluster stores,
-        or goes on the embedded rack when it has none. Configure creates a task that
-        does not exist yet, and sets the name, rack, and config of a task that does.
+        config or its channels, goes on their rack, whatever rack it holds. A task
+        that names no device goes on its rack, or on the embedded rack when it has
+        none. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
-        :raises ValidationError: If the devices are on different racks, if the caller
-            sets a rack other than theirs, if the task exists and the config has a
-            field that its type does not declare, or if the task is a snapshot.
+        :raises ValidationError: If the devices are on different racks, if the task
+            exists and the config has a field that its type does not declare, or if
+            the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
@@ -528,15 +528,7 @@ class Client:
                     f"The devices {devices} of task {pld.name} must be on one rack, "
                     f"but they are on the racks {sorted(racks)}"
                 )
-            rack = racks.pop()
-            # A rack that the cluster stores is not a choice of the caller.
-            chosen = pld.rack != 0 and not (stored and stored[0].rack == pld.rack)
-            if chosen and pld.rack != rack:
-                raise exceptions.ValidationError(
-                    f"Task {pld.name} must be on the rack {rack} of its devices, not "
-                    f"on the rack {pld.rack}"
-                )
-            pld.rack = rack
+            pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
         if not stored:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
