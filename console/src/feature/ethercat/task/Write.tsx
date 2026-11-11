@@ -24,6 +24,7 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
+  createSlaveChannels,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
   retrieveByName,
@@ -138,9 +139,23 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
+  client,
+  deviceKey,
+  config,
+}) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (config == null) cfg.channels = [createWriteChannel([])];
+  if (config == null)
+    cfg.channels =
+      deviceKey == null
+        ? [createWriteChannel([])]
+        : await createSlaveChannels(
+            client,
+            deviceKey,
+            "outputs",
+            createEntryWriteChannel,
+            createWriteChannel([]),
+          );
   return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
 };
 

@@ -436,6 +436,37 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
+  describe("a slave whose inputs only DewesoftX reads", () => {
+    const renderPicker = async (shared: boolean) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: { inputs: [STRAIN_SAMPLE_ENTRY], outputs: [] },
+        settings: createDewesoftXSettings(shared),
+      });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
+      });
+      fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
+      fireEvent.click(await screen.findByText("Select entry"));
+    };
+
+    it("should point to the switch to Synnax", async () => {
+      await renderPicker(true);
+      expect(
+        await screen.findByText(
+          "Set up for DewesoftX. In Configure, switch it to Synnax.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should not point to a switch that the slave does not have", async () => {
+      await renderPicker(false);
+      expect(await screen.findByText("Set up for DewesoftX.")).toBeTruthy();
+    });
+  });
+
   it("should add a channel for every unused input of a slave from the context menu", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),

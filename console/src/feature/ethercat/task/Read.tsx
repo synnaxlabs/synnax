@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query, type Synnax } from "@synnaxlabs/client";
+import { type channel, query } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -26,6 +26,7 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
+  createSlaveChannels,
   fillStartupParameters,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
@@ -48,7 +49,6 @@ import {
   readDataType,
   readNameSuffix,
   type ReadSchemas,
-  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -156,17 +156,6 @@ const Form: FC = () => {
   );
 };
 
-/** @returns a channel for each input of the slave, or one empty channel without any. */
-const createSlaveChannels = async (
-  client: Synnax,
-  key: string,
-): Promise<ReadChannel[]> => {
-  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const inputs = usableEntries(slave.properties, "inputs");
-  if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
-  return inputs.map((entry) => createEntryReadChannel(key, entry));
-};
-
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
   client,
   deviceKey,
@@ -177,7 +166,13 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
     cfg.channels =
       deviceKey == null
         ? [createReadChannel([])]
-        : await createSlaveChannels(client, deviceKey);
+        : await createSlaveChannels(
+            client,
+            deviceKey,
+            "inputs",
+            createEntryReadChannel,
+            createReadChannel([]),
+          );
   return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
 };
 
