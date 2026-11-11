@@ -117,8 +117,8 @@ class _Decorator(Protocol):
 
 def trace(env: Environment, *, key: str | None = None) -> _Decorator:
     """
-    Trace the given method on the class. This method can only be used on a class that
-    implements the Traceable protocol. Supports both sync and async methods. An
+    Trace the given method on the class. The class must have an `instrumentation`
+    attribute of type Instrumentation. Supports both sync and async methods. An
     exception raised by the method is recorded on the span and then re-raised.
 
     :param key: The key of the span. Defaults to the name of the method.
