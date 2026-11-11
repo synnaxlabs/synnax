@@ -82,8 +82,11 @@ Certificate union on source secret.Source extends Base {
         certificate_path string   {
             @doc value "is the path of the certificate on the computer that uses it."
         }
-        private_key_path string?  {
-            @doc value "is the path of the private key, when there is one."
+        private_key_file string?  {
+            @doc value """
+                is the name of the private key file in the secrets folder of the rack,
+                when there is one.
+            """
         }
         details          Details? {
             @doc value "describes the leaf, as the file browser read it."
