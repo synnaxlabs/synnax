@@ -162,6 +162,16 @@ void add_settings_error(const std::string &error, synnax::device::Status &status
     status.variant = synnax::status::VARIANT_WARNING;
 }
 
+/// @brief whether the Core holds a device that a scan found on the network.
+bool holds_devices_on(const common::ScannerContext &ctx, const std::string &network) {
+    if (ctx.devices == nullptr) return false;
+    return std::ranges::any_of(*ctx.devices, [&network](const auto &entry) {
+        const auto &props = entry.second.properties;
+        const auto it = props.find("network");
+        return it != props.end() && it->second == network;
+    });
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -192,6 +202,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
 
     std::set<std::string> failures;
+    std::vector<std::pair<std::string, std::string>> blocked;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -199,7 +210,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto &key = master_info.key;
         if (const auto it = this->next_probes.find(key);
             it != this->next_probes.end() && scan_ctx.count < it->second.due) {
-            if (!it->second.failure.empty()) failures.insert(it->second.failure);
+            if (!it->second.failure.empty())
+                blocked.emplace_back(key, it->second.failure);
             continue;
         }
         const auto due = this->next_rediscoveries.find(key);
@@ -214,7 +226,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             auto &probe = this->next_probes[key];
             probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
             probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data : "";
-            if (!probe.failure.empty()) failures.insert(probe.failure);
+            if (!probe.failure.empty()) blocked.emplace_back(key, probe.failure);
             continue;
         }
         this->next_probes.erase(key);
@@ -242,6 +254,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
     }
 
+    // A filter on an adapter with no devices can hide a bus only when no adapter shows
+    // a device, or when the Core holds devices from the adapter.
+    for (const auto &[key, failure]: blocked)
+        if (devices.empty() || holds_devices_on(scan_ctx, key))
+            failures.insert(failure);
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)

@@ -323,6 +323,67 @@ TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan
     ASSERT_NIL_P(this->scanner->scan({.count = 12}));
 }
 
+/// @brief scans an adapter with a filter and no devices, and an adapter with one
+/// device.
+class EtherCATScanFilterTest : public EtherCATScanTest {
+protected:
+    const x::errors::Error blocked = x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        "No EtherCAT slaves found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
+        "on this adapter."
+    );
+    std::unique_ptr<Scanner> scanner;
+
+    void SetUp() override {
+        EtherCATScanTest::SetUp();
+        auto filtered = std::make_shared<testutil::Master>();
+        filtered->inject_scan_error(this->blocked);
+        auto bus = std::make_shared<testutil::Master>();
+        bus->add_slave(
+            slave::Properties{
+                .position = 1,
+                .vendor_id = 0x2,
+                .serial = 1,
+                .name = "EL3102"
+            }
+        );
+        auto manager = std::make_unique<testutil::Manager>();
+        manager->configure("eth0", filtered);
+        manager->configure("eth1", bus);
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            synnax::task::Task{
+                .rack = this->rack.key,
+                .name = "EtherCAT Scanner",
+                .type = SCAN_TASK_TYPE,
+                .internal = true,
+            },
+            ScanTaskConfig{},
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+        );
+    }
+};
+
+/// @brief it should not report the filter of an adapter with no devices while another
+/// adapter shows devices.
+TEST_F(EtherCATScanFilterTest, IgnoresTheFilterOfAnAdapterWithNoDevices) {
+    const auto [devices, err] = this->scanner->scan({});
+    ASSERT_NIL(err);
+    EXPECT_EQ(devices.size(), 1);
+}
+
+/// @brief it should report the filter of an adapter that the Core holds devices from.
+TEST_F(EtherCATScanFilterTest, ReportsTheFilterOfAnAdapterThatHadDevices) {
+    const std::unordered_map<std::string, synnax::device::Device> saved{
+        {"saved",
+         synnax::device::Device{.key = "saved", .properties = {{"network", "eth0"}}}},
+    };
+    const auto [devices, err] = this->scanner->scan({.devices = &saved});
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, this->blocked.data);
+    EXPECT_EQ(devices.size(), 1);
+}
+
 /// @brief it should return a partial scan error for an interface it cannot open, then
 /// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
