@@ -81,7 +81,8 @@ while [ -n "$PICKS" ]; do
         fi
     done
 done
-# A commit counts as reverted only when a revert of it is not itself reverted.
+# A commit counts as reverted only when a revert of it is not itself reverted. A picked
+# revert of a source cancels that source.
 SOURCES=$(awk '
     function reverted(x, i) {
         if (x in memo) return memo[x]
@@ -99,7 +100,7 @@ SOURCES=$(awk '
     END {
         for (i in picks) {
             split(picks[i], f, " ")
-            if (!reverted(f[2]) && !reverted(f[3])) print f[4]
+            if (!reverted(f[2]) && !reverted(f[3]) && !reverted(f[4])) print f[4]
         }
     }' <<< "$LINKS" | sort -u | tr '\n' ' ')
 

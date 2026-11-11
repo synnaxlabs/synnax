@@ -390,3 +390,15 @@ class TestCherryPicks:
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a leak by @someone in {PULL}/12" in notes
+
+    def test_keeps_a_fix_whose_revert_from_main_was_picked(self, train: Train) -> None:
+        train.git("checkout", "-q", "-b", "later", "main")
+        train.git("revert", "--no-edit", train.stall)
+        revert = train.git("rev-parse", "HEAD")
+        train.git("checkout", "-q", "release/core-0.60")
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("cherry-pick", "-x", revert)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(f"api */commits/{revert}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"* Fix a stall by @someone in {PULL}/11" in notes
