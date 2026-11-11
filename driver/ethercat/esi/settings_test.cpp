@@ -125,6 +125,17 @@ TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
     EXPECT_EQ(setting(input_2, 34)["value"], 0.0);
 }
 
+/// @brief it should give each setting of the whole 6xSTG the value that the card holds.
+TEST(ReadSettings, Gives6xSTGDeviceSettingsTheValuesOfTheCard) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &sample_rate = settings.value()["device"][0];
+    EXPECT_EQ(sample_rate["sub_index"], 1);
+    EXPECT_EQ(sample_rate["value"], 12);
+}
+
 /// @brief it should leave out a setting at a sub-index that the card does not have,
 /// with the rule that names it, and keep the other settings and the mode.
 TEST(ReadSettings, LeavesOutASettingAtASubIndexTheCardDoesNotHave) {

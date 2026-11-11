@@ -755,6 +755,23 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
     });
 
+    it("should show the value that the slave holds for a setting not set", async () => {
+      const settings = createSettingsDescription();
+      settings.device[0].value = 12;
+      await setup({ settings, startupParameters: [SAMPLE_RATE] });
+      fireEvent.click(screen.getByRole("button", { name: "Clear 1 kS/s" }));
+      expect(screen.getByRole("button", { name: "Sample rate" }).textContent).toBe(
+        "1 kS/s",
+      );
+    });
+
+    it("should prompt for a setting whose held value has no option", async () => {
+      const settings = createSettingsDescription();
+      settings.device[0].value = 0;
+      await setup({ settings });
+      expect(await screen.findByText("Select sample rate")).toBeTruthy();
+    });
+
     it("should keep an acronym in the name of a setting in its placeholder", async () => {
       const settings = createSettingsDescription();
       settings.device[0].name = "Sample rate (DC sync)";

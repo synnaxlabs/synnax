@@ -360,6 +360,7 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     };
     x::errors::Error err;
     if (ends(err, resolve_all(result["device"], read))) return {std::nullopt, err};
+    if (ends(err, read_values(result["device"], read))) return {std::nullopt, err};
     prune(result["device"]);
     if (it->contains("channels") &&
         ends(err, read_channels((*it)["channels"], read, result["channels"])))
