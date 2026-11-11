@@ -151,6 +151,13 @@ describe("Secret.Field", () => {
     await findDialogTriggerByText("Secret not found");
   });
 
+  it("shows that the secret is unavailable to a user who cannot retrieve it", async () => {
+    const s = await createSecret(client, created);
+    await renderField(s.key, await createTestClientWithGrants(client));
+    await findDialogTriggerByText("Unavailable secret");
+    expect(screen.queryByText(s.name)).toBeNull();
+  });
+
   it("sets the value to the key of the picked secret", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();

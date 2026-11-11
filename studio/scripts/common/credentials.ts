@@ -11,13 +11,13 @@ import { type Locator } from "playwright";
 
 import { capture } from "@/index";
 
-/** openCredentials opens the credentials dialog of `item` and zooms on it. */
+/** openCredentials opens the sign-in dialog of `item` and zooms on it. */
 export const openCredentials = async (
   session: capture.CaptureSession,
   item: Locator,
 ): Promise<Locator> => {
   const { page } = session;
-  await capture.contextMenu(session, item, "Manage credentials");
+  await capture.contextMenu(session, item, "Manage sign-in");
   const modal = page.locator(capture.MODAL).first();
   await session.waitFor(modal.getByPlaceholder("Key name", { exact: true }));
   await session.hold(600);
