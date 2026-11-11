@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
@@ -953,13 +954,12 @@ func processField(
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: optionalInPython(field),
-		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
 		fd.Alias = wireName
 	}
 
-	baseType := typeToPython(field.Type, table, data)
+	fd.PyType = typeToPython(field.Type, table, data)
 	validateDomain := field.Domains["validate"]
 	fieldConstraints := collectValidation(
 		validateDomain,
@@ -993,31 +993,21 @@ func processField(
 	// A type never sends an excluded field, so it cannot require one.
 	excludedRequired := isExcluded && requiredInPython(field, table)
 
-	if fd.IsArray {
-		fd.PyType = fmt.Sprintf("list[%s]", baseType)
-	} else {
-		fd.PyType = baseType
-	}
-
 	// Optional (?) fields become T | None in Python (no pointer distinction). A field
 	// typed as an optional type parameter (e.g. details Details, where Details?) is
 	// likewise optional: an unspecialized struct may omit it. A required collection
 	// defaults an absent value to its empty form, so it is always present and
 	// iterable; the server omits a nil ("not loaded") collection from the wire, so
-	// the default is what fills it. CollectionKind sees through aliases and
-	// type-parameter constraints so an alias- or type-parameter-typed collection is
-	// defaulted too.
+	// the default is what fills it. A fixed-size array has no empty form, so it stays
+	// required. CollectionKind sees through aliases and type-parameter constraints so
+	// an alias- or type-parameter-typed collection is defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType = fd.PyType + " | None"
-	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
-		if kind == "Array" {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-		} else {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
-		}
+	} else if factory, ok := emptyFactory(field.Type, table); ok {
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, factory)
 	}
 
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
@@ -1035,8 +1025,22 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		field.Type.TypeParam.Optional {
 		return false
 	}
-	_, isCollection := resolution.CollectionKind(field.Type, table)
-	return !isCollection
+	_, hasEmpty := emptyFactory(field.Type, table)
+	return !hasEmpty
+}
+
+// emptyFactory returns the factory of the empty value that a missing collection
+// defaults to. A fixed-size array has no empty value, so it has no factory.
+func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
+	kind, isCollection := resolution.CollectionKind(typeRef, table)
+	switch {
+	case !isCollection, kind == "Array" && arrays.Size(typeRef, table) != nil:
+		return "", false
+	case kind == "Array":
+		return "list", true
+	default:
+		return "dict", true
+	}
 }
 
 // optionalInPython reports whether field is optional in Python. `@py optional` makes a
@@ -1284,7 +1288,13 @@ func collectValidation(
 			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
-			if len(defaultVal.Elements) == 0 {
+			// Tuples are immutable, so they take a plain default.
+			if arrays.Size(typeRef, table) != nil {
+				constraints = append(
+					constraints,
+					"default="+pyDefaultLiteral(typeRef, *defaultVal, table, data),
+				)
+			} else if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
 				constraints = append(
@@ -1359,7 +1369,13 @@ func pyDefaultLiteral(
 		for _, el := range val.Elements {
 			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
 		}
-		return "[" + strings.Join(parts, ", ") + "]"
+		if arrays.Size(typeRef, table) == nil {
+			return "[" + strings.Join(parts, ", ") + "]"
+		}
+		if len(parts) == 1 {
+			return "(" + parts[0] + ",)"
+		}
+		return "(" + strings.Join(parts, ", ") + ")"
 	case resolution.ValueKindStruct:
 		if kind, _ := resolution.CollectionKind(
 			typeRef,
@@ -1727,12 +1743,6 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// A variable-length array renders as its bare element type, since processField
-	// wraps an array field in list[...] itself.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
-		typeRef.ArraySize == nil {
-		return boundedArgToPython(typeRef.TypeArgs[0], table, data)
-	}
 	if pyType, ok := collectionToPython(typeRef, table, data); ok {
 		return pyType
 	}
@@ -2239,7 +2249,6 @@ type fieldData struct {
 	PyType     string
 	Default    string
 	IsOptional bool
-	IsArray    bool
 }
 
 type enumData struct {
