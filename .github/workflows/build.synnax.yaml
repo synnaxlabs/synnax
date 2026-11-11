@@ -1122,10 +1122,12 @@ jobs:
   docker:
     name: Build Docker image
     needs: [setup, build, republish]
-    # A release builds the image alone, with no platform, so build and republish skip.
-    if:
+    # A release builds the image alone from the Console and Driver releases, with no
+    # platform, so build and republish skip.
+    if: >-
       ${{ !cancelled() && inputs.docker && needs.setup.result == 'success' &&
-      !contains(needs.*.result, 'failure') }}
+      (needs.setup.outputs.matrix == '[]' && !inputs.driver && !inputs.console ||
+      needs.build.result == 'success' && needs.republish.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1222,6 +1224,31 @@ jobs:
           echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
           "$GITHUB_OUTPUT"
 
+      # A rerun after a newer Core release must not move the channel back. A candidate
+      # ranks below its stable version, and latest counts only stable versions.
+      - name: Resolve the channel
+        id: channel
+        env:
+          CHANNEL: ${{ inputs.docker_channel }}
+          VERSION: ${{ needs.setup.outputs.VERSION }}
+        run: |
+          if [ -n "$CHANNEL" ]; then
+            rank='s#.*core/v([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([0-9]+))?$#\1 \2 \3 \5#p'
+            highest=$(git ls-remote --tags --refs origin 'refs/tags/core/v*' \
+              | sed -nE "$rank" \
+              | awk -v channel="$CHANNEL" '$4 == "" { $4 = 999999 }
+                  channel == "latest" && $4 != 999999 { next }
+                  { print }' \
+              | sort -k1,1n -k2,2n -k3,3n -k4,4n | tail -n 1)
+            ours=$(sed -nE "$rank" <<< "core/v$VERSION" \
+              | awk '$4 == "" { $4 = 999999 } { print }')
+            if [ "$highest" != "$ours" ]; then
+              echo "core $VERSION is not the newest, so $CHANNEL stays put"
+              CHANNEL=
+            fi
+          fi
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker images
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -1233,8 +1260,8 @@ jobs:
             ${{ inputs.release_tag == '' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
             ${{ inputs.release_tag != '' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
             ${{ inputs.release_tag != '' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.docker_channel != '' && format('ghcr.io/synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
-            ${{ inputs.docker_channel != '' && format('synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
+            ${{ steps.channel.outputs.channel != '' && format('ghcr.io/synnaxlabs/synnax:{0}', steps.channel.outputs.channel) || '' }}
+            ${{ steps.channel.outputs.channel != '' && format('synnaxlabs/synnax:{0}', steps.channel.outputs.channel) || '' }}
           cache-from:
             type=gha,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full'
             || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}

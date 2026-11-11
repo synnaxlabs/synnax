@@ -761,8 +761,8 @@ jobs:
             ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
         run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
-  # No job needs the image, so a failed push blocks only the image. It builds from the
-  # Console and Driver releases, so a rerun of this job alone has every input.
+  # No job needs the image, so a failed push blocks only the image. A rerun of this job
+  # alone has every input, and it moves latest or next only to the newest Core.
   publish-core-image:
     name: Publish Core image
     needs: [resolve, publish-core]
