@@ -50,6 +50,20 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "non-boolean conditions are deprecated, use an explicit comparison like x != 0",
 	}
+	// UnitCalculation indicates a calculation with variables in another unit than the
+	// place it goes to.
+	UnitCalculation = diagnostics.Kind{
+		Code:     "ARC2006",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "%s a calculation with %s",
+	}
+	// UnitTruncation indicates an integer that converts to a larger unit, which
+	// truncates it.
+	UnitTruncation = diagnostics.Kind{
+		Code:     "ARC2007",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "unit conversion from %s to %s truncates an integer toward zero",
+	}
 
 	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
@@ -107,6 +121,8 @@ var (
 var All = []diagnostics.Kind{
 	NaNComparison,
 	TruthyCondition,
+	UnitCalculation,
+	UnitTruncation,
 	FuncArgMissing,
 	FuncArgType,
 	FuncArgExtra,

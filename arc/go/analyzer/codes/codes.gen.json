@@ -7,6 +7,14 @@
     "severity": "warning",
     "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
   },
+  "ARC2006": {
+    "severity": "error",
+    "message": "%s a calculation with %s"
+  },
+  "ARC2007": {
+    "severity": "warning",
+    "message": "unit conversion from %s to %s truncates an integer toward zero"
+  },
   "ARC3001": {
     "severity": "error",
     "message": "missing required argument for parameter '%s' of func '%s'"

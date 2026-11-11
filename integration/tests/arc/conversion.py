@@ -340,6 +340,159 @@ flow_trigger -> f64(in_i32) -> flow_num_i32_to_f64
 flow_trigger -> i32(in_f64) -> flow_num_f64_to_i32
 flow_trigger -> f32(in_f64) -> flow_num_f64_to_f32
 flow_trigger -> i32(in_f64) + 100 -> flow_num_arith
+
+// ──────────────────────── Unit conversion ────────────────────────
+// A value written to a variable of another unit of the same dimension converts. Each
+// variable then goes to a channel, which has no unit.
+sequence unit_main {
+    lit := 1min
+    flow_up := 1min
+    flow_down := 1s
+    assign_up := 1min
+    assign_down := 1s
+    typed i64 ms := 1s
+    truncated := 5min
+    pressure := 1.0bar
+    live := 1min
+    src_s := 120s
+    src_min := 2min
+    src_short := 90s
+    src_kpa := 250.0kPa
+    src_live := 60s
+    stage convert {
+        120s -> lit
+        src_s -> flow_up
+        src_min -> flow_down
+        assign_up = src_s
+        assign_down = src_min
+        src_min -> typed
+        src_short -> truncated
+        src_kpa -> pressure
+        unit_live_in -> src_live
+        src_live -> live
+        lit -> unit_lit
+        flow_up -> unit_flow_up
+        flow_down -> unit_flow_down
+        assign_up -> unit_assign_up
+        assign_down -> unit_assign_down
+        typed -> unit_typed
+        truncated -> unit_truncated
+        pressure -> unit_pressure
+        live -> unit_live
+        flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
+        1 -> unit_ready
+    }
+}
+start_conversion_cmd => unit_main
+// A variable converts to the unit of a function input.
+unit_bar := 1.0bar
+func unit_to_psi(x f64 psi) f64 {
+    return x
+}
+flow_trigger -> unit_to_psi(x=unit_bar) -> unit_fn_psi
+// So does a variable that is assigned again, in the stage above.
+func unit_to_ms(x i64 ms) i64 {
+    return x
+}
+"""
+
+# Every line with a comment is an error or a warning that the compiler gives in one
+# pass, and [1 fix] or [2 fix] gives its number of quick fixes. UNIT_ERRORS holds the
+# text that the Core must report for them.
+UNIT_ERRORS_SOURCE = """
+import time
+
+// ─────────────── top-level variables ───────────────
+t := 120s
+u := 500ms
+p := 100psi
+twice := t + t
+typed i64 ns := t + t                             // [2 fix] typed variable
+
+func show(x i64 ns) str {
+    return f"x={x}"
+}
+
+// ─────────────── flow ───────────────
+time.wait(t * 2) -> "wait" -> unit_log            // [1 fix] calculation
+time.interval(t + u) -> "interval" -> unit_log    // [2 fix] two variables
+time.wait(twice * 2) -> "chain" -> unit_log       // [1 fix] calculated variable
+time.wait(p) -> "pressure" -> unit_log            // pressure into a timer
+time.interval(1s) -> show(x=t * 2) -> unit_log    // [1 fix] into a function
+
+// ─────────────── function body ───────────────
+func hold() {d i64 ns} i64 {
+    return d
+}
+
+func in_body() i64 {
+    local := 5s
+    return hold(local)                            // another unit into a function
+}
+
+// ─────────────── sequence and stage ───────────────
+sequence main {
+    d := 1min
+    span := 90s
+    whole := 120s
+    n := 5
+
+    stage write {
+        whole * 60 -> d                           // [2 fix] into a variable
+        span * 60 -> d                            // [1 fix] 90 s is not a whole min
+        d = span * 2                              // [1 fix] 90 s is not a whole min
+        p -> d                                    // another dimension
+        d = p                                     // another dimension
+        5psi -> d                                 // another dimension
+        2.5 -> n                                  // float into an integer
+        whole -> d                                // [2 fix] warning, truncation
+        span -> d                                 // [1 fix] warning, truncation
+        time.wait(span / 2) => next               // [1 fix] in a stage
+    }
+
+    stage done {
+        "done" -> unit_log
+    }
+}
+
+start_conversion_cmd => main
+"""
+
+# The text that the Core must report for UNIT_ERRORS_SOURCE, in the order of its lines.
+UNIT_ERRORS = [
+    "'typed' is in ns and cannot take a calculation with 't', which is in s",
+    "'time.wait' cannot take a calculation with 't', which is in s",
+    "'time.interval' cannot take a calculation with 't', which is in s, and 'u', "
+    "which is in ms",
+    "'time.wait' cannot take a calculation with 'twice', which is in s",
+    "expected i64 ns, got i64 psi",
+    "'show' cannot take a calculation with 't', which is in s",
+    "type mismatch in argument 'd' of 'hold': expected i64 ns, got i64 s",
+    "'d' is in min and cannot take a calculation with 'span', which is in s",
+    "incompatible dimensions: cannot write psi to 'd' (min)",
+    "incompatible dimensions: cannot assign psi to 'd' (min)",
+    "does not match channel n value type",
+    "unit conversion from s to min truncates an integer toward zero",
+    "'time.wait' cannot take a calculation with 'span', which is in s",
+    "hint: change `t := 120s` to `t i64 ns := 120s`",
+    "hint: change `u := 500ms` to `u i64 ns := 500ms`",
+    "hint: change `span := 90s` to `span i64 ns := 90s`",
+    "hint: change `d := 1min` to `d i64 s := 1min`",
+    "'d' is in min and cannot take a calculation with 'whole', which is in s",
+    "hint: change `whole := 120s` to `whole i64 min := 120s`",
+    "hint: change `typed i64 ns := t + t` to `typed i64 s := t + t`",
+]
+
+# The compiler reports a literal that does not divide in a later pass, so it has its
+# own Arc.
+UNIT_FRACTION_SOURCE = """
+sequence main {
+    d := 1min
+    stage write {
+        20ms -> d
+    }
+}
+start_conversion_cmd => main
 """
 
 INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -371,6 +524,7 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_spec_half_u16", sy.DataType.UINT16),
     ("in_spec_neg_i16", sy.DataType.INT16),
     ("in_spec_cast_wide_i16", sy.DataType.INT64),
+    ("unit_live_in", sy.DataType.INT64),
 ]
 
 
@@ -824,6 +978,20 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("flow_num_f64_to_i32", sy.DataType.INT32),
     ("flow_num_f64_to_f32", sy.DataType.FLOAT32),
     ("flow_num_arith", sy.DataType.INT32),
+    # Unit conversion
+    ("unit_lit", sy.DataType.INT64),
+    ("unit_flow_up", sy.DataType.INT64),
+    ("unit_flow_down", sy.DataType.INT64),
+    ("unit_assign_up", sy.DataType.INT64),
+    ("unit_assign_down", sy.DataType.INT64),
+    ("unit_typed", sy.DataType.INT64),
+    ("unit_truncated", sy.DataType.INT64),
+    ("unit_pressure", sy.DataType.FLOAT64),
+    ("unit_live", sy.DataType.INT64),
+    ("unit_ready", sy.DataType.UINT8),
+    ("unit_fn_psi", sy.DataType.FLOAT64),
+    ("unit_fn_live", sy.DataType.INT64),
+    ("unit_log", sy.DataType.STRING),
     # Narrow integer types, widened to i64 in Arc
     *(
         (name, sy.DataType.INT64)
@@ -883,6 +1051,8 @@ class Conversion(ArcCase):
         self._test_f64()
         self._test_flow_context()
         self._test_narrow()
+        self._test_units()
+        self._test_unit_errors()
 
     def _test_32(self) -> None:
         self.log("=== i32 = 42, u32 = 42 ===")
@@ -994,3 +1164,36 @@ class Conversion(ArcCase):
         self.wait_for_eq("flow_num_f64_to_i32", 3)
         self.wait_for_near("flow_num_f64_to_f32", 3.5, tolerance=1e-5)
         self.wait_for_eq("flow_num_arith", 103)
+
+    def _test_units(self) -> None:
+        self.log("=== Unit conversion ===")
+        self.wait_for_eq("unit_ready", 1)
+        self.wait_for_eq("unit_lit", 2)
+        self.wait_for_eq("unit_flow_up", 2)
+        self.wait_for_eq("unit_flow_down", 120)
+        self.wait_for_eq("unit_assign_up", 2)
+        self.wait_for_eq("unit_assign_down", 120)
+        self.wait_for_eq("unit_typed", 120_000)
+        self.wait_for_eq("unit_truncated", 1)
+        self.wait_for_near("unit_pressure", 2.5, tolerance=1e-9)
+        self.wait_for_eq("unit_live", 1)
+        self.log("Writing 180 s to the source variable")
+        self.writer.write("unit_live_in", 180)
+        self.wait_for_eq("unit_live", 3)
+        self.writer.write("flow_trigger", 1)
+        self.wait_for_near("unit_fn_psi", 14.5038, tolerance=1e-3)
+        self.wait_for_eq("unit_fn_live", 180_000)
+
+    def _test_unit_errors(self) -> None:
+        self.log("=== Unit conversion errors ===")
+        self._assert_configure_error(
+            UNIT_ERRORS_SOURCE,
+            name_prefix="UnitErrors",
+            substr=UNIT_ERRORS[0],
+            expect=UNIT_ERRORS[1:],
+        )
+        self._assert_configure_error(
+            UNIT_FRACTION_SOURCE,
+            name_prefix="UnitFraction",
+            substr="value has fractional part",
+        )

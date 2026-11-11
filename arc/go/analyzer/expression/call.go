@@ -143,10 +143,15 @@ func checkArgType[T antlr.ParserRuleContext](
 		argType = argType.UnwrapChan()
 	}
 	paramType := param.Type
+	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err != nil &&
+		ReportCalculation(ctx, arg.Expr, paramType, "'"+fnName+"' cannot take", nil) {
+		return
+	}
 	if init := convertedInitializer(ctx, arg.Expr, paramType, argType); init != nil {
 		if _, err := literal.ParseConst(init, paramType); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, arg.AST).
-				WithCode(codes.FuncArgType).WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(
+				codes.FuncArgType.Wrap(err, arg.AST).WithNote("signature: " + signature),
+			)
 			return
 		}
 		argType.Unit, paramType.Unit = nil, nil

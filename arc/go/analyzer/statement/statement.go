@@ -12,6 +12,8 @@
 package statement
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -290,7 +292,7 @@ func analyzeVariableDeclaration(
 func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	name string,
-	expression parser.IExpressionContext,
+	expr parser.IExpressionContext,
 	typeCtx parser.ITypeContext,
 ) types.Type {
 	if typeCtx != nil {
@@ -299,9 +301,19 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return types.Type{}
 		}
-		if expression != nil {
-			exprType := atypes.InferFromExpression(ctx.Child(expression))
+		if expr != nil {
+			exprType := atypes.InferFromExpression(ctx.Child(expr))
 			if exprType.IsValid() && varType.IsValid() {
+				// A variable outside a function body holds its value in its unit.
+				if _, fnErr := ctx.Scope.ClosestAncestorOfKind(
+					symbol.KindFunction,
+				); fnErr != nil && varType.Unit != nil && expression.ReportCalculation(
+					ctx, expr, varType, fmt.Sprintf(
+						"'%s' is in %s and cannot take", name, varType.Unit.Name,
+					), declaredSink(ctx, name, varType, expr),
+				) {
+					return types.Type{}
+				}
 				// Check magnitude safety for unit conversions (warnings only)
 				if varType.Unit != nil && exprType.Unit != nil {
 					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
@@ -322,7 +334,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 						return types.Type{}
 					}
 				} else {
-					isLiteral := isLiteralExpression(ctx.Child(expression))
+					isLiteral := isLiteralExpression(ctx.Child(expr))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, varType, exprType, ctx.AST)) ||
 						(!isLiteral && !assignable(varType, exprType)) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -339,8 +351,8 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		}
 		return varType
 	}
-	if expression != nil {
-		return atypes.InferFromExpression(ctx.Child(expression))
+	if expr != nil {
+		return atypes.InferFromExpression(ctx.Child(expr))
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "no type declaration found"))
 	return types.Type{}
@@ -351,6 +363,23 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 func assignable(target, value types.Type) bool {
 	return types.StructuralMatch(target.UnwrapChan(), value.UnwrapChan()) &&
 		atypes.Compatible(target, value)
+}
+
+// declaredSink returns the Sink of the declaration that ctx analyzes.
+func declaredSink[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	name string,
+	t types.Type,
+	init parser.IExpressionContext,
+) *expression.Sink {
+	_, stateful := any(ctx.AST).(parser.IStatefulVariableContext)
+	return &expression.Sink{
+		Name:     name,
+		Type:     t,
+		AST:      ctx.AST,
+		Init:     init,
+		Stateful: stateful,
+	}
 }
 
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
@@ -1457,8 +1486,23 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	// Check magnitude safety for unit conversions (warnings only)
-	if varType.Unit != nil && exprType.Unit != nil {
+	if varScope.Reassigned && varType.Unit != nil && expression.ReportCalculation(
+		ctx, expr, varType,
+		fmt.Sprintf("'%s' is in %s and cannot take", name, varType.Unit.Name),
+		expression.SinkOf(varScope),
+	) {
+		return
+	}
+	// Lowering converts a variable assigned to a variable of another unit.
+	head, tail := parser.ExpressionNameParts(expr)
+	converted := head != "" && varScope.Reassigned &&
+		types.UnitsConvertible(exprType.Unit, varType.Unit)
+	if converted {
+		if src, srcErr := ctx.Scope.ResolveMember(ctx, head, tail); srcErr == nil {
+			expression.WarnTruncation(ctx, ctx.AST, src, varScope)
+		}
+	} else if varType.Unit != nil && exprType.Unit != nil {
+		// Check magnitude safety for unit conversions (warnings only)
 		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
 	}
 
@@ -1493,9 +1537,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	if exprType.Unwrap().Kind == types.KindVariable ||
 		varType.Unwrap().Kind == types.KindVariable {
 		check := atypes.Check
-		// Lowering converts a variable assigned to a variable of another unit.
-		if head, _ := parser.ExpressionNameParts(expr); head != "" &&
-			varScope.Reassigned && types.UnitsConvertible(exprType.Unit, varType.Unit) {
+		if converted {
 			check = atypes.CheckConverted
 		}
 		if err := check(

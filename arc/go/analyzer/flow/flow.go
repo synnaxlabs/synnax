@@ -428,6 +428,14 @@ func analyzeIdentifier(
 			))
 			return
 		}
+		if expr := prevNode.Expression(); expr != nil && sym.IsValueVariable() &&
+			chanValueType.Unit != nil && expression.ReportCalculation(
+			ctx, expr, chanValueType,
+			fmt.Sprintf("'%s' is in %s and cannot take", name, chanValueType.Unit.Name),
+			expression.SinkOf(sym),
+		) {
+			return
+		}
 		if srcType.IsValid() {
 			// A literal takes the type of the variable it is written to.
 			expected, actual, check := srcType, chanValueType, atypes.Check
@@ -437,6 +445,14 @@ func analyzeIdentifier(
 				if prevNode.Identifier() != nil &&
 					types.UnitsConvertible(actual.Unit, expected.Unit) {
 					check = atypes.CheckConverted
+					head, tail := parser.IdentifierParts(prevNode.Identifier())
+					if src, srcErr := ctx.Scope.ResolveMember(
+						ctx,
+						head,
+						tail,
+					); srcErr == nil {
+						expression.WarnTruncation(ctx, ctx.AST, src, sym)
+					}
 				}
 			}
 			if err = check(

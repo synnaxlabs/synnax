@@ -54,6 +54,33 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  code="ARC2006"
+  severity="error"
+  message={[
+    "'<f>' cannot take a calculation with '<v>', which is in <unit>",
+    "'<w>' is in <unit> and cannot take a calculation with '<v>', which is in <unit>",
+  ]}
+>
+  <Problem.Cause>
+    A calculation has a variable in another unit than the input or the variable it goes
+    to. A calculation does not convert between units.
+  </Problem.Cause>
+  <Problem.Fix>Declare the variable in the unit of the input.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  code="ARC2007"
+  severity="warning"
+  message="unit conversion from <unit> to <unit> truncates an integer toward zero"
+>
+  <Problem.Cause>
+    An integer variable goes to a variable in a larger unit, such as `s` to `min`, and
+    loses its fraction.
+  </Problem.Cause>
+  <Problem.Fix>Declare the two variables in the same unit.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>
   <Problem.Cause>The call has no argument for a required parameter.</Problem.Cause>
   <Problem.Fix>Add the argument. The note shows the signature.</Problem.Fix>
@@ -64,9 +91,7 @@ In the messages below, `<name>` stands for a value that changes.
   message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
 >
   <Problem.Cause>An argument has the wrong type.</Problem.Cause>
-  <Problem.Fix>
-    Convert the value. For a duration in a variable, declare the variable as `i64 ns`.
-  </Problem.Fix>
+  <Problem.Fix>Convert the value.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item {...Arc.diagnostic("ARC3003", ["<f>", "<n>"])}>

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -25,9 +26,11 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	xdiagnostics "github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // findNodeByKey finds a node by key and asserts it exists
@@ -574,6 +577,156 @@ var _ = Describe("Text", func() {
 			),
 			Entry("a reassigned source",
 				"d := 1min\nother := 120s", "180s -> other\nother -> d", "s", "min"),
+		)
+
+		DescribeTable("Should warn when a converted write truncates an integer",
+			func(ctx SpecContext, declarations, write string, warns bool) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				truncates := ContainSubstring("truncates an integer toward zero")
+				if warns {
+					Expect(diagnostics.String()).To(truncates)
+				} else {
+					Expect(diagnostics.String()).ToNot(truncates)
+				}
+			},
+			Entry("a flow to a larger unit",
+				"d := 1min\nother := 120s", `other -> d`, true),
+			Entry("an assignment to a larger unit",
+				"d := 1min\nother := 120s", `d = other`, true),
+			Entry("a flow to a smaller unit",
+				"d := 1min\nother := 120s", `d -> other`, false),
+			Entry("an assignment to a smaller unit",
+				"d := 1min\nother := 120s", `other = d`, false),
+			Entry("a float", "d := 1.0bar\nother := 250.0kPa", `other -> d`, false),
+			Entry("a literal", "d := 1min", `120s -> d`, false),
+		)
+
+		DescribeTable("Should reject a calculation with variables in another unit",
+			func(ctx SpecContext, statement, message string, hints ...string) {
+				source := "import time\nsequence main {\nd := 1min\nt := 120s\n" +
+					"u f64 ms $= 5.0s\nc := t + t\nstage s1 {\n" + statement + "\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitCalculation
+					},
+				)
+				Expect(found).To(HaveLen(1), diagnostics.String())
+				Expect(found[0].Message).To(Equal(message))
+				Expect(lo.Map(
+					found[0].Notes,
+					func(n protocol.DiagnosticRelatedInformation, _ int) string {
+						return n.Message
+					},
+				)).To(ConsistOf(lo.ToAnySlice(hints)...))
+			},
+			Entry("an input",
+				`count_ch -> time.wait(t * 2) -> flag_ch`,
+				"'time.wait' cannot take a calculation with 't', which is in s",
+				"hint: change `t := 120s` to `t i64 ns := 120s`"),
+			Entry(
+				"an input with two variables",
+				`count_ch -> time.wait(t * i64(u)) -> flag_ch`,
+				"'time.wait' cannot take a calculation with 't', which is in s, and 'u', "+
+					"which is in ms",
+				"hint: change `t := 120s` to `t i64 ns := 120s`",
+				"hint: change `u f64 ms $= 5.0s` to `u f64 ns $= 5.0s`",
+			),
+			Entry("a flow into a variable",
+				`t * 60 -> d`,
+				"'d' is in min and cannot take a calculation with 't', which is in s",
+				"hint: change `t := 120s` to `t i64 min := 120s`",
+				"hint: change `d := 1min` to `d i64 s := 1min`"),
+			Entry("an assignment",
+				`d = t * 60`,
+				"'d' is in min and cannot take a calculation with 't', which is in s",
+				"hint: change `t := 120s` to `t i64 min := 120s`",
+				"hint: change `d := 1min` to `d i64 s := 1min`"),
+			Entry("a variable that is set from a calculation",
+				`count_ch -> time.wait(c * 2) -> flag_ch`,
+				"'time.wait' cannot take a calculation with 'c', which is in s",
+				"hint: change `t := 120s` to `t i64 ns := 120s`"),
+			Entry("a typed declaration",
+				"x i64 ns := t + t\ncount_ch -> time.wait(x) -> flag_ch",
+				"'x' is in ns and cannot take a calculation with 't', which is in s",
+				"hint: change `t := 120s` to `t i64 ns := 120s`",
+				"hint: change `x i64 ns := t + t` to `x i64 s := t + t`"),
+			Entry(
+				"a literal that does not divide into the new unit",
+				"span := 90s\nspan * 60 -> d\ncount_ch -> time.wait(1s) -> flag_ch",
+				"'d' is in min and cannot take a calculation with 'span', which is in s",
+				"hint: change `d := 1min` to `d i64 s := 1min`",
+			),
+		)
+
+		DescribeTable("Should accept a calculation in the unit of its target",
+			func(ctx SpecContext, statement string) {
+				source := "import time\nsequence main {\nd := 1min\nn i64 ns := 5s\n" +
+					"stage s1 {\n" + statement + "\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("literals", `count_ch -> time.wait(10ms + 10ms) -> flag_ch`),
+			Entry("a variable in the unit of the input",
+				`count_ch -> time.wait(n * 2) -> flag_ch`),
+			Entry("a variable in the unit of the variable written",
+				"d * 2 -> d\ncount_ch -> time.wait(n) -> flag_ch"),
+		)
+
+		DescribeTable("Should give the hints for a write that truncates an integer",
+			func(ctx SpecContext, declarations, write string, hints ...string) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitTruncation
+					},
+				)
+				Expect(found).To(HaveLen(1), diagnostics.String())
+				Expect(lo.Map(
+					found[0].Notes,
+					func(n protocol.DiagnosticRelatedInformation, _ int) string {
+						return n.Message
+					},
+				)).To(Equal(hints))
+			},
+			Entry("a source that divides",
+				"d := 1min\nother := 120s", `other -> d`,
+				"hint: change `d := 1min` to `d i64 s := 1min`",
+				"hint: change `other := 120s` to `other i64 min := 120s`"),
+			Entry("a source that does not divide",
+				"d := 1min\nother := 90s", `d = other`,
+				"hint: change `d := 1min` to `d i64 s := 1min`"),
+			Entry("a stateful sink",
+				"d $= 1min\nother := 120s", `other -> d`,
+				"hint: change `d $= 1min` to `d i64 s $= 1min`",
+				"hint: change `other := 120s` to `other i64 min := 120s`"),
 		)
 
 		DescribeTable("Should not convert a write that needs no conversion",
