@@ -27,8 +27,9 @@ A hero still becomes a window on the docs hero gradient: give its id alone. A vi
 becomes a sharp shot of one frame: give the time of the frame, and optionally the region
 to show, in pixels of the docs video (by default, the full width from the top). Shots
 render from the light capture in out/<id>/light, so run
-pnpm run batch <id> --force --keep-frames first. Uploads each copy to the docs CDN and writes its URL to the portal's letter
-images. Requires DO_SPACES_KEY and DO_SPACES_SECRET.
+pnpm run batch <id> --force --keep-frames first. Uploads each copy to the docs CDN and
+writes its URL to the portal's letter images. Requires DO_SPACES_KEY and
+DO_SPACES_SECRET.
 Options:
   --dry-run   write the copies to out/mail/ without uploading`;
 
