@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
@@ -215,6 +216,8 @@ func asInt64(v any) (int64, bool) {
 	case uint32:
 		return int64(n), true
 	case uint64:
+		return int64(n), true
+	case telem.TimeSpan:
 		return int64(n), true
 	}
 	return 0, false

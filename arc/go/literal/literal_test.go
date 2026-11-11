@@ -12,6 +12,7 @@ package literal_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -288,6 +289,35 @@ var _ = Describe("Literal Parser", func() {
 				Expect(parsed.Value).To(Equal(telem.Microsecond))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
+		})
+
+		Context("With a type variable target", func() {
+			DescribeTable(
+				"Should give the kind of the constraint",
+				func(text string, constraint types.Type, expected any) {
+					lit := getLiteral(text)
+					name := lit.NumericLiteral().IDENTIFIER().GetText()
+					target := types.Variable("lit", &constraint)
+					target.Unit = MustBeOk(units.Resolve(name))
+					Expect(
+						MustSucceed(literal.Parse(lit, target)).Value,
+					).To(Equal(expected))
+				},
+				Entry("integer", "10khz", types.IntegerConstraint(), int64(10)),
+				Entry(
+					"integer duration",
+					"5s",
+					types.IntegerConstraint(),
+					telem.TimeSpan(5),
+				),
+				Entry(
+					"exact integer float",
+					"2.0khz",
+					types.ExactIntegerFloatConstraint(),
+					float64(2),
+				),
+				Entry("float", "14.7psi", types.FloatConstraint(), 14.7),
+			)
 		})
 
 		Context("With target type kind (no unit)", func() {

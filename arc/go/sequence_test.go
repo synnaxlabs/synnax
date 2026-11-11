@@ -5684,6 +5684,112 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf20ms(ctx, h)
 		})
 
+		// expectWaitOf checks that "done" is logged after span and not before it.
+		expectWaitOf := func(ctx SpecContext, h *runtimeHarness, span telem.TimeSpan) {
+			GinkgoHelper()
+			unit := span / 20
+			advance(h, ctx, unit)
+			advance(h, ctx, 12*unit)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(BeEmpty(), "short of the duration")
+			advance(h, ctx, 30*unit)
+			advance(h, ctx, 30*unit)
+			out, _ = h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+		}
+		spans := []TableEntry{
+			Entry("nanoseconds", `20000000ns`, 20*telem.Millisecond),
+			Entry("microseconds", `20000us`, 20*telem.Millisecond),
+			Entry("milliseconds", `20ms`, 20*telem.Millisecond),
+			Entry("seconds", `2s`, 2*telem.Second),
+			Entry("minutes", `1min`, telem.Minute),
+			Entry("typed nanoseconds", `i64 ns := 2s`, 2*telem.Second),
+			Entry("typed seconds", `i64 s := 2s`, 2*telem.Second),
+			Entry("typed seconds from milliseconds", `i64 s := 2000ms`, 2*telem.Second),
+		}
+		// declare builds the declaration of d from a literal or a type with a literal.
+		declare := func(entry string) string {
+			if strings.Contains(entry, ":=") {
+				return "d " + entry
+			}
+			return "d := " + entry
+		}
+
+		DescribeTable("Waits for a duration held in a top-level variable",
+			func(ctx SpecContext, entry string, span telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declare(entry)+`
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf(ctx, h, span)
+			},
+			spans,
+		)
+
+		DescribeTable("Waits for a duration held in a sequence variable",
+			func(ctx SpecContext, entry string, span telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    `+declare(entry)+`
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf(ctx, h, span)
+			},
+			spans,
+		)
+
+		DescribeTable("Fires an interval at a period held in a variable",
+			func(ctx SpecContext, entry string, period telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declare(entry)+`
+				stage main {
+				    x u8 := 3
+				    time.interval(period=d) -> `+`f"v={x}"`+` -> log
+				}
+				1 -> main`, resolver, digests...)
+				defer h.Close(ctx)
+				for elapsed := telem.TimeSpan(0); elapsed <= 5*period/2; elapsed += period / 4 {
+					advance(h, ctx, elapsed)
+				}
+				out, _ := h.Flush()
+				Expect(
+					countOf(out, 101, "v=3"),
+				).To(Equal(3), "fires at 0, 1, and 2 periods")
+			},
+			spans,
+		)
+
+		It(
+			"Converts a variable to the unit of a function input",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+				p := 1.0bar
+				func show(x f64 psi) str {
+				    return `+`f"psi={x:.3f}"`+`
+				}
+				raw -> show(x=p) -> log`, resolver, digests...)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"psi=14.504"}))
+			},
+		)
+
 		It("Fires an interval at a computed period", func(ctx SpecContext) {
 			h := newRuntimeHarness(ctx, `
 				import time

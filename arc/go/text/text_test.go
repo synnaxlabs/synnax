@@ -459,6 +459,78 @@ var _ = Describe("Text", func() {
 			},
 		)
 
+		DescribeTable("Should convert a variable to the unit of the input",
+			func(ctx SpecContext, declaration string, expected telem.TimeSpan) {
+				source := declaration + "\ncount_ch -> wait(duration=d) -> flag_ch"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				duration := MustBeOk(
+					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				)
+				Expect(duration.Type).To(Equal(types.TimeSpan()))
+				Expect(duration.Value).To(Equal(expected))
+			},
+			Entry("inferred seconds", `d := 5s`, 5*telem.Second),
+			Entry("inferred milliseconds", `d := 500ms`, 500*telem.Millisecond),
+			Entry("typed milliseconds from seconds", `d i64 ms := 5s`, 5*telem.Second),
+			Entry("typed nanoseconds", `d i64 ns := 5s`, 5*telem.Second),
+			Entry("negated", `d := -5s`, -5*telem.Second),
+		)
+
+		It("Should reject a variable of another dimension as an input", func(
+			ctx SpecContext,
+		) {
+			source := "p := 100psi\ncount_ch -> wait(duration=p) -> flag_ch"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(
+				diagnostics.String(),
+			).To(ContainSubstring("expected i64 ns, got i64 psi"))
+		})
+
+		DescribeTable("Should reject a variable that does not convert to the input",
+			func(ctx SpecContext, source, message string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a fractional value in the unit of the input", `
+			d := 1500us
+			func hold(x i64 ms) i64 {
+			    return x
+			}
+			count_ch -> hold(x=d) -> count_ch`, "fractional part"),
+			Entry("another kind", `
+			d := 5s
+			func hold(x f64 ns) f64 {
+			    return x
+			}
+			count_ch -> hold(x=d) -> flag_ch`, "expected f64, got i64"),
+			Entry("a reassigned variable", `
+			sequence main {
+			    d := 5s
+			    stage s1 {
+			        d = 6s
+			        count_ch -> wait(duration=d) -> flag_ch
+			    }
+			}`, "expected i64 ns, got i64 s"),
+		)
+
 		It("Should sample a computed config input per fire", func(ctx SpecContext) {
 			source := `count_ch -> wait(duration=1s+1s) -> flag_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

@@ -19,3 +19,8 @@ func UnitsAssignable(a, b *Unit) bool {
 	}
 	return a.Equal(*b)
 }
+
+// UnitsConvertible reports whether a and b are different units of the same dimensions.
+func UnitsConvertible(a, b *Unit) bool {
+	return a != nil && b != nil && !a.Equal(*b) && a.Dimensions.Equal(b.Dimensions)
+}

@@ -34,6 +34,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
@@ -154,6 +155,16 @@ func (s *Symbol) IsReactive() bool {
 // IsLiteral reports whether s is a value variable holding a literal, not a channel.
 func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
+// Initializer returns the initializer expression of s, or nil if it has none.
+func (s *Symbol) Initializer() parser.IExpressionContext {
+	if d, ok := s.AST.(interface {
+		Expression() parser.IExpressionContext
+	}); ok {
+		return d.Expression()
+	}
+	return nil
 }
 
 // IsComputed reports whether s is a flow-level value variable whose initializer

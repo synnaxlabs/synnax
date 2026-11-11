@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
@@ -2233,12 +2234,33 @@ func extractInputValues(
 		if head, tail := parser.ExpressionNameParts(expr); head != "" {
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
+				convertible := types.UnitsConvertible(sym.Type.Unit, paramType.Unit)
 				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 					t := sym.Type.UnwrapChan()
+					// A register holds its value in the unit of the variable.
+					if convertible {
+						ctx.Diagnostics.Add(diagnostics.Errorf(
+							expr,
+							"type mismatch in argument '%s' of '%s': expected %v, got %v",
+							paramName,
+							fnSym.Name,
+							paramType,
+							t,
+						).WithCode(codes.FuncArgType))
+						return nil, paramType, false
+					}
 					return varValue(sym), types.VarRef(t, rn.Key), true
 				}
 				if !sym.Reassigned && sym.DefaultValue != nil {
-					return sym.DefaultValue, paramType, true
+					if !convertible {
+						return sym.DefaultValue, paramType, true
+					}
+					parsed, err := literal.ParseConst(sym.Initializer(), paramType)
+					if err != nil {
+						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+						return nil, paramType, false
+					}
+					return parsed.Value, paramType, true
 				}
 			}
 			if err == nil && sym.Type.Kind == types.KindChan {

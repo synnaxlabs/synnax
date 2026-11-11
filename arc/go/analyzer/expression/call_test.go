@@ -72,6 +72,13 @@ var _ = Describe("AnalyzeCall", func() {
 				func add() {x i32, y i32} i32 { return x + y }
 				func main() { result := add(5, "hello") }
 			`, "argument 'y' of 'add'"),
+			Entry("variable of another unit in a function body", `
+				func hold() {d i64 ns} i64 { return d }
+				func main() {
+					t := 5s
+					result := hold(t)
+				}
+			`, "argument 'd' of 'hold'"),
 			Entry("i32 variable to f32 parameter", `
 				func process() {x f32} f32 { return x * 2.0 }
 				func main() {

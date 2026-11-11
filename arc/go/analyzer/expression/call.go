@@ -17,6 +17,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -141,7 +142,16 @@ func checkArgType[T antlr.ParserRuleContext](
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}
-	if err := atypes.Check(ctx.Constraints, param.Type, argType, arg.AST,
+	paramType := param.Type
+	if init := convertedInitializer(ctx, arg.Expr, paramType, argType); init != nil {
+		if _, err := literal.ParseConst(init, paramType); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, arg.AST).
+				WithCode(codes.FuncArgType).WithNote("signature: " + signature))
+			return
+		}
+		argType.Unit, paramType.Unit = nil, nil
+	}
+	if err := atypes.Check(ctx.Constraints, paramType, argType, arg.AST,
 		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
 		d := codes.FuncArgType.Wrap(err, arg.AST)
 		if cast, ok := atypes.CastOf(err); ok {
@@ -149,6 +159,33 @@ func checkArgType[T antlr.ParserRuleContext](
 		}
 		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
 	}
+}
+
+// convertedInitializer returns the literal that sets the variable expr names when a
+// flow call converts it to the unit of param, and nil otherwise.
+func convertedInitializer[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	param, arg types.Type,
+) parser.IExpressionContext {
+	if !types.UnitsConvertible(arg.Unit, param.Unit) {
+		return nil
+	}
+	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
+		return nil
+	}
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return nil
+	}
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	if err != nil || !sym.IsValueVariable() {
+		return nil
+	}
+	if init := sym.Initializer(); init != nil && parser.IsLiteral(init) {
+		return init
+	}
+	return nil
 }
 
 // computedArgType returns the output type of the node registered for a computed

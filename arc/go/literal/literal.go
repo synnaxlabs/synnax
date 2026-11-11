@@ -173,6 +173,15 @@ func parseNumericWithUnit(
 		return ParsedValue{}, errors.Newf("unknown unit: %s", unitName)
 	}
 
+	// An untyped integer literal resolves to i64, and any other untyped literal to f64.
+	if targetType.Kind == types.KindVariable {
+		kind := types.KindF64
+		if c := targetType.Constraint; c != nil && c.Kind == types.KindIntegerConstant {
+			kind = types.KindI64
+		}
+		targetType = types.Type{Kind: kind, Unit: targetType.Unit}
+	}
+
 	// If target type has a unit, convert to target unit's scale
 	// Example: 300ms with target TimeSpan() (ns) → 300 * (1e-3 / 1e-9) = 300,000,000
 	if targetType.Unit != nil {
