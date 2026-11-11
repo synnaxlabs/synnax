@@ -32,7 +32,6 @@ func (s Scope) IsZero() bool {
 func (s Scope) String() string { return s.stringWithPrefix("") }
 
 // stringWithPrefix returns the tree representation with each line indented by prefix.
-// Exported so parent printers in successor versions can nest it.
 func (s Scope) stringWithPrefix(prefix string) string {
 	var b strings.Builder
 	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))

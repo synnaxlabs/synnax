@@ -876,7 +876,7 @@ func formatImportBlock(names []string) string {
 
 // buildAutoImportEdit returns the AdditionalTextEdits that import
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
-// semantics; this wrapper exists for callers that still hold a *Document
+// semantics; this wrapper exists for callers that still hold a *document
 // rather than snapshotted fields.
 func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(

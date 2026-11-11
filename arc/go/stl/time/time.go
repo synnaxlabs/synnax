@@ -367,8 +367,6 @@ type interval struct {
 	guard     spanGuard
 }
 
-func (i *interval) init(_ node.Context) {}
-
 func (i *interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
 	// A non-positive period would keep the deadline permanently in the past,
@@ -419,8 +417,6 @@ type wait struct {
 	guard     spanGuard
 }
 
-func (w *wait) init(_ node.Context) {}
-
 func (w *wait) Next(ctx node.Context) {
 	if w.fired {
 		return
@@ -463,8 +459,6 @@ func (w *wait) Reset(ctx node.Context) {
 type now struct {
 	*node.State
 }
-
-func (n *now) init(_ node.Context) {}
 
 func (n *now) Next(ctx node.Context) {
 	ts := ctx.Now
