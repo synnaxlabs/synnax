@@ -31,3 +31,50 @@ var _ = Describe("UnitsAssignable", func() {
 		Entry("psi + bar (mismatch)", psi, bar, false),
 	)
 })
+
+var _ = Describe("UnitsConvertible", func() {
+	ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+	psi := &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+
+	DescribeTable("unit conversion",
+		func(a, b *types.Unit, want bool) {
+			Expect(types.UnitsConvertible(a, b)).To(Equal(want))
+		},
+		Entry("s to ns", s, ns, true),
+		Entry("ns to s", ns, s, true),
+		Entry("the same unit", ns, ns, false),
+		Entry("another dimension", psi, ns, false),
+		Entry("no unit on the source", (*types.Unit)(nil), ns, false),
+		Entry("no unit on the target", s, (*types.Unit)(nil), false),
+	)
+})
+
+var _ = Describe("InputScale", func() {
+	withUnit := func(t types.Type, name string, scale float64) types.Type {
+		t.Unit = &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}
+		return t
+	}
+	seconds := withUnit(types.I64(), "s", 1e9)
+
+	DescribeTable("scale of an input",
+		func(t types.Type, want float64) {
+			Expect(types.InputScale(t)).To(Equal(want))
+		},
+		Entry("s variable into an ns input",
+			withUnit(types.VarRef(seconds, "v"), "ns", 1), 1e9),
+		Entry(
+			"ns variable into an s input",
+			withUnit(
+				types.VarRef(withUnit(types.I64(), "ns", 1), "v"),
+				"s",
+				1e9,
+			),
+			1e-9,
+		),
+		Entry("var ref with no unit of its own", types.VarRef(seconds, "v"), 1.0),
+		Entry("variable with no unit",
+			withUnit(types.VarRef(types.I64(), "v"), "ns", 1), 1.0),
+		Entry("not a var ref", seconds, 1.0),
+	)
+})

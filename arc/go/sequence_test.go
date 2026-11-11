@@ -5773,6 +5773,68 @@ var _ = Describe("Sequence", func() {
 			spans,
 		)
 
+		It("Fires an interval at the period of a reassigned variable", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				stage main {
+				    d := 2s
+				    time.interval(d) -> "tick" -> log
+				    raw -> sequence {
+				        1s -> d
+				    }
+				}
+				1 -> main`, resolver, digests...)
+			defer h.Close(ctx)
+			// ticksUntil advances in quarter seconds to end and returns the fire times.
+			elapsed := telem.TimeSpan(0)
+			ticksUntil := func(end telem.TimeSpan) []telem.TimeSpan {
+				var fires []telem.TimeSpan
+				for ; elapsed <= end; elapsed += 250 * telem.Millisecond {
+					advance(h, ctx, elapsed)
+					out, _ := h.Flush()
+					for range drainStrings(out, 101) {
+						fires = append(fires, elapsed)
+					}
+				}
+				return fires
+			}
+			Expect(ticksUntil(5 * telem.Second)).To(Equal([]telem.TimeSpan{
+				0, 2 * telem.Second, 4 * telem.Second,
+			}))
+			h.Ingest(100, telem.NewSeriesV[int64](1))
+			// The 1 s period is overdue at the write, so the interval fires at once.
+			Expect(ticksUntil(9 * telem.Second)).To(Equal([]telem.TimeSpan{
+				5250 * telem.Millisecond,
+				6 * telem.Second,
+				7 * telem.Second,
+				8 * telem.Second,
+				9 * telem.Second,
+			}))
+		})
+
+		It("Waits for the duration of a reassigned variable", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    d := 60000ms
+				    stage shorten {
+				        20ms -> d
+				        d < 1000 => next
+				    }
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 2*telem.Millisecond)
+			expectWaitOf(ctx, h, 20*telem.Millisecond)
+		})
+
 		It(
 			"Converts a variable to the unit of a function input",
 			func(ctx SpecContext) {

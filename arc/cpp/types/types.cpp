@@ -315,4 +315,11 @@ to_sample_value(const x::json::json &value, const Type &type) {
     return std::nullopt;
 }
 
+double input_scale(const Type &type) {
+    if (type.kind != Kind::VarRef || !type.unit.has_value() || !type.elem.has_value() ||
+        !type.elem->unit.has_value())
+        return 1;
+    return type.elem->unit->scale / type.unit->scale;
+}
+
 }

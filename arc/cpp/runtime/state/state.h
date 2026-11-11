@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -56,6 +58,15 @@ struct Config {
 };
 
 class State;
+
+/// @brief multiplies v by scale. A whole scale keeps an integer exact.
+template<typename T>
+T scale_input(const T v, const double scale) {
+    if (std::trunc(scale) == scale &&
+        scale <= static_cast<double>(std::numeric_limits<T>::max()))
+        return v * static_cast<T>(scale);
+    return static_cast<T>(static_cast<double>(v) * scale);
+}
 
 class Node {
     friend class State;
@@ -257,9 +268,9 @@ public:
     [[nodiscard]] T numeric_input(const std::string &name) const {
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
-        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
-            return s->at<T>(-1);
         const auto &p = this->params[i];
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
+            return scale_input(s->at<T>(-1), types::input_scale(p.type));
         if (const auto v = types::to_sample_value(p.value, p.type))
             return x::telem::cast<T>(*v);
         return 0;

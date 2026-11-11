@@ -19,4 +19,8 @@ using ChannelKey = std::uint32_t;
 /// @brief Converts a JSON value to a SampleValue based on the given type.
 std::optional<x::telem::SampleValue>
 to_sample_value(const x::json::json &value, const Type &type);
+
+/// @brief returns what to multiply a variable by to get the unit of the input that
+/// reads it. A variable in s read by an input in ns gives 1e9.
+double input_scale(const Type &type);
 }

@@ -159,6 +159,22 @@ sequence main_seq_var {
     }
 }
 start_wait_seq_var_cmd => main_seq_var
+// A duration held in a variable that is assigned again.
+sequence main_reassign {
+    hold := 60s
+    stage shorten {
+        1s -> hold
+        hold < 60 => next
+    }
+    stage stage1 {
+        1 -> toggle_cmd_reassign
+        time.wait(hold) => stage2
+    }
+    stage stage2 {
+        0 -> toggle_cmd_reassign
+    }
+}
+start_wait_reassign_cmd => main_reassign
 """
 
 # How far a measured wait can be under or over its duration (seconds). See the
@@ -416,6 +432,7 @@ WAIT_CASES = (
     ("start_wait_var_s_cmd", "toggle_cmd_var_s", "s variable", 1.0),
     ("start_wait_var_ns_cmd", "toggle_cmd_var_ns", "ns variable", 1.0),
     ("start_wait_seq_var_cmd", "toggle_cmd_seq_var", "sequence variable", 1.0),
+    ("start_wait_reassign_cmd", "toggle_cmd_reassign", "reassigned variable", 1.0),
     ("start_wait_cmd", "toggle_cmd", "standalone", 3.0),
     ("start_wait_mod_cmd", "toggle_cmd_mod", "module", 3.0),
 )
@@ -462,6 +479,7 @@ class StlTime(ArcCase):
         "toggle_cmd_var_s",
         "toggle_cmd_var_ns",
         "toggle_cmd_seq_var",
+        "toggle_cmd_reassign",
     ]
 
     def setup(self) -> None:

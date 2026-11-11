@@ -20,6 +20,15 @@ func UnitsAssignable(a, b *Unit) bool {
 	return a.Equal(*b)
 }
 
+// InputScale returns what to multiply a variable by to get the unit of the input that
+// reads it. A variable in s read by an input in ns gives 1e9.
+func InputScale(t Type) float64 {
+	if t.Kind != KindVarRef || t.Unit == nil || t.Elem == nil || t.Elem.Unit == nil {
+		return 1
+	}
+	return t.Elem.Unit.Scale / t.Unit.Scale
+}
+
 // UnitsConvertible reports whether a and b are different units of the same dimensions.
 func UnitsConvertible(a, b *Unit) bool {
 	return a != nil && b != nil && !a.Equal(*b) && a.Dimensions.Equal(b.Dimensions)

@@ -441,13 +441,22 @@ func (s *State) NumericInput[T telem.NumericSample](name string) T {
 	if err != nil {
 		return 0
 	}
+	p := s.params[i]
 	if ref := s.RefInput(i); ref.Len() > 0 {
-		return ref.ValueAt[T](-1)
+		return scaleInput(ref.ValueAt[T](-1), types.InputScale(p.Type))
 	}
-	if p := s.params[i]; p.Value != nil {
+	if p.Value != nil {
 		return telem.CastNumeric[T](types.DecodeValue(p.Value, p.Type))
 	}
 	return 0
+}
+
+// scaleInput multiplies v by scale. A whole scale keeps an integer exact.
+func scaleInput[T telem.NumericSample](v T, scale float64) T {
+	if whole := T(scale); float64(whole) == scale {
+		return v * whole
+	}
+	return T(float64(v) * scale)
 }
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,

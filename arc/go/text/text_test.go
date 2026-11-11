@@ -521,15 +521,46 @@ var _ = Describe("Text", func() {
 			    return x
 			}
 			count_ch -> hold(x=d) -> flag_ch`, "expected f64, got i64"),
-			Entry("a reassigned variable", `
+			Entry("a reassigned variable into a function", `
+			func hold(x i64 ns) i64 {
+			    return x
+			}
+			sequence main {
+			    d := 5s
+			    stage s1 {
+			        d = 6s
+			        count_ch -> hold(x=d) -> count_ch
+			    }
+			}`, "expected i64 ns, got i64 s"),
+		)
+
+		It("Should stamp both units on a reassigned variable of another unit", func(
+			ctx SpecContext,
+		) {
+			source := `
 			sequence main {
 			    d := 5s
 			    stage s1 {
 			        d = 6s
 			        count_ch -> wait(duration=d) -> flag_ch
 			    }
-			}`, "expected i64 ns, got i64 s"),
-		)
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+			Expect(duration.Type.Unit.Name).To(Equal("ns"))
+			Expect(duration.Type.Elem.Unit.Name).To(Equal("s"))
+			Expect(types.InputScale(duration.Type)).To(Equal(1e9))
+			Expect(duration.Value).To(Equal(5 * telem.Second))
+		})
 
 		It("Should sample a computed config input per fire", func(ctx SpecContext) {
 			source := `count_ch -> wait(duration=1s+1s) -> flag_ch`

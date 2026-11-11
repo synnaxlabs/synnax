@@ -2804,6 +2804,67 @@ var _ = Describe("ProgramState", func() {
 				To(Equal(uint8(9)))
 		})
 
+		Describe("A variable of another unit", func() {
+			unit := func(name string, scale float64) *types.Unit {
+				return &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}
+			}
+			// build binds "span" of c to variable v, in the units from and to.
+			build := func(elem types.Type, from, to *types.Unit, initial any) *node.ProgramState {
+				elem.Unit = from
+				ref := types.VarRef(elem, "v")
+				ref.Unit = to
+				v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: elem},
+				}}
+				c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+					{Name: "span", Type: ref, Value: initial},
+				}}
+				return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+			}
+
+			It("Should convert the latest value to the unit of the input", func() {
+				s := build(
+					types.I64(),
+					unit("s", 1e9),
+					unit("ns", 1),
+					int64(5_000_000_000),
+				)
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](5, 2)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(2_000_000_000)))
+			})
+
+			It("Should read the declared initial in the unit of the input", func() {
+				s := build(
+					types.I64(),
+					unit("s", 1e9),
+					unit("ns", 1),
+					int64(5_000_000_000),
+				)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(5_000_000_000)))
+			})
+
+			It("Should keep a large integer exact", func() {
+				s := build(types.I64(), unit("s", 1e9), unit("ns", 1), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](9_007_199_255)
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(9_007_199_255_000_000_000)))
+			})
+
+			It("Should convert to a larger unit", func() {
+				s := build(types.I64(), unit("ns", 1), unit("s", 1e9), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3_000_000_000)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3)))
+			})
+
+			It("Should convert a float", func() {
+				s := build(types.F64(), unit("ms", 1e6), unit("s", 1e9), 0.0)
+				*s.Node("v").Output(0) = telem.NewSeriesV(1500.0)
+				Expect(s.Node("c").NumericInput[float64]("span")).To(Equal(1.5))
+			})
+		})
+
 		It("Should return zero for an unknown input", func() {
 			Expect(build().Node("c").NumericInput[uint8]("nope")).To(BeZero())
 		})

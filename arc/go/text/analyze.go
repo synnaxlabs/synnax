@@ -2237,8 +2237,12 @@ func extractInputValues(
 				convertible := types.UnitsConvertible(sym.Type.Unit, paramType.Unit)
 				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 					t := sym.Type.UnwrapChan()
-					// A register holds its value in the unit of the variable.
-					if convertible {
+					ref := types.VarRef(t, rn.Key)
+					if !convertible {
+						return varValue(sym), ref, true
+					}
+					// Only a native node converts a register to the unit of its input.
+					if fnSym.Exec != symbol.ExecFlow {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
 							expr,
 							"type mismatch in argument '%s' of '%s': expected %v, got %v",
@@ -2249,7 +2253,13 @@ func extractInputValues(
 						).WithCode(codes.FuncArgType))
 						return nil, paramType, false
 					}
-					return varValue(sym), types.VarRef(t, rn.Key), true
+					ref.Unit = paramType.Unit
+					parsed, err := literal.ParseConst(sym.Initializer(), paramType)
+					if err != nil {
+						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+						return nil, paramType, false
+					}
+					return parsed.Value, ref, true
 				}
 				if !sym.Reassigned && sym.DefaultValue != nil {
 					if !convertible {
