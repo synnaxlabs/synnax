@@ -50,7 +50,9 @@ Every release, candidates included, runs only from `main` or a release branch,
 `release/<console|core|driver>-X.Y`; Desktop also allows `release/desktop-X.Y`. Desktop
 takes a minor or major bump from `main` and only a patch bump from its release branch,
 once `X.Y` has a stable tag. Any other branch fails. The Console, Core, and Driver fail
-when the tag they count from names `HEAD`, so no commit ships twice.
+when any stable tag of the product names `HEAD`, so no commit ships twice. A release
+branch fails when it does not hold the newest tag of the product on `X.Y`, so no patch
+drops an earlier fix.
 
 The branch sets the version of the Console, Core, Driver, and packages. A release of the
 Console, Core, or Driver from `main` is always the next minor: when the newest stable
@@ -58,7 +60,8 @@ tag is `X.Y.Z`, it is `X.(Y+1).0`, and its candidates are `X.(Y+1).0-rc.N`. A pa
 `main` is not possible. Release branches exist only for patches: when train `X.Y` needs
 one, `release/<product>-X.Y` is cut from the `X.Y.0` tag, and the fix lands on `main`
 first, then is cherry-picked by PR onto the branch. A release from the branch is always
-the next patch on `X.Y`, or `X.Y.0` when the train has no tag.
+the next patch on `X.Y`, or `X.Y.0` when the product has no tag on a train that another
+product opened from `main`. A branch never opens a train.
 
 Packages share the Core's minor, since the TypeScript and Python clients connect only to
 a Core with the same major.minor. From `main`, packages release only in the same run as
