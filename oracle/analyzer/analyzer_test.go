@@ -3970,8 +3970,7 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Config").Form.(resolution.StructForm)
 			for _, name := range []string{"name", "box", "lookup"} {
-				field, ok := form.Field(name)
-				Expect(ok).To(BeTrue())
+				field := MustBeOk(form.Field(name))
 				Expect(field.Optional).To(BeTrue(), name)
 			}
 		})
