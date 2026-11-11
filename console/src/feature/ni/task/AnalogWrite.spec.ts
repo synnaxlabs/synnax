@@ -120,6 +120,22 @@ describe("AnalogWrite", () => {
     expect(isSelectButtonSelected("Sine")).toBe(false);
   });
 
+  it("should create a function generator at 1 Hz", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
+    fireEvent.click(await findChannelListItem("0"));
+    const input = await screen.findByLabelText<HTMLInputElement>("Frequency");
+    expect(input.value).toBe("1");
+  });
+
+  it("should name the frequency field when the frequency is not positive", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
+    fireEvent.click(await findChannelListItem("0"));
+    const input = await screen.findByLabelText<HTMLInputElement>("Frequency");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(await screen.findByText("Frequency must be greater than 0 Hz")).toBeTruthy();
+  });
+
   it("should swap the channel to the newly selected type", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)]));
     fireEvent.click(await findChannelListItem("cmd_ao_voltage_2"));

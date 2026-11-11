@@ -4041,6 +4041,7 @@ func (a *AOFuncGenChannel) SetDefaults() {
 func (a AOFuncGenChannel) Validate() error {
 	v := validate.New("AOFuncGenChannel")
 	v.Ternaryf("wave_type", !a.WaveType.IsValid(), "invalid wave_type: %v", a.WaveType)
+	v.GreaterThan("frequency", a.Frequency, 0)
 	return v.Error()
 }
 
