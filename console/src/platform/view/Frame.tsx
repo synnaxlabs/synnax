@@ -328,13 +328,7 @@ const Strip = ({
       onContextMenu={onContextMenu}
     >
       {data.map((key) => (
-        <Item
-          key={key}
-          itemKey={key}
-          icon={icon}
-          pills={pills}
-          onAnchorChange={onAnchorChange}
-        />
+        <Item key={key} itemKey={key} icon={icon} onAnchorChange={onAnchorChange} />
       ))}
       {sentinelRef != null && (
         <div ref={sentinelRef} className={CSS.BE("view", "sentinel")} aria-hidden />
@@ -343,16 +337,11 @@ const Strip = ({
   );
 };
 
-interface ItemProps extends Pick<StripProps, "icon" | "pills" | "onAnchorChange"> {
+interface ItemProps extends Pick<StripProps, "icon" | "onAnchorChange"> {
   itemKey: view.Key;
 }
 
-const Item = ({
-  itemKey,
-  icon,
-  pills,
-  onAnchorChange,
-}: ItemProps): ReactElement | null => {
+const Item = ({ itemKey, icon, onAnchorChange }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
   const canRename = Access.useUpdateGranted(view.resourceID(itemKey));
@@ -361,8 +350,7 @@ const Item = ({
   if (item == null) return null;
   const { name } = item;
   return (
-    // A pill keeps the icon at the size of a small strip's icon.
-    <Tabs.Tab ref={handleRef} itemKey={itemKey} level={pills ? "small" : undefined}>
+    <Tabs.Tab ref={handleRef} itemKey={itemKey}>
       {item.static === true
         ? Icon.resolve(icon)
         : Appearance.renderIcon({

@@ -374,7 +374,7 @@
 }
 
 /* A text tab keeps the height its size gives it, with an even gap between its icon and
-   its name. */
+   its name. Its icon keeps the small text size. */
 .lyra-tabs__selector--text {
     --pluto-tabs-selected-text-color: var(--pluto-text-color);
 
@@ -392,6 +392,7 @@
         & > .lyra-icon {
             flex-shrink: 0;
             color: var(--pluto-gray-l9);
+            font-size: var(--pluto-small-size);
         }
 
         &.lyra--selected {

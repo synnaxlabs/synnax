@@ -116,5 +116,12 @@ describe("Tabs", () => {
       const { icon } = await renderTabs("text");
       expect(computed(icon("Tab A"), "color")).toBe(resolve("var(--pluto-gray-l9)"));
     });
+
+    it("should draw a tab's icon at the small text size", async () => {
+      const { icon } = await renderTabs("text");
+      expect(computed(icon("Tab B"), "height")).toBe(
+        resolve("var(--pluto-small-size)", "height"),
+      );
+    });
   });
 });
