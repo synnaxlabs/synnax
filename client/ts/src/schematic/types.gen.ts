@@ -108,7 +108,7 @@ export const labelConfigZ = z.object({
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  maxInlineSize: zod.uint16.default(150),
+  maxInlineSize: zod.uint16.min(1).default(150),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });

@@ -199,7 +199,10 @@ LabelConfig struct {
         @doc value "is the axis along which the label text flows."
     }
     max_inline_size uint16 = 150 {
-        @doc value "is the maximum inline size of the label in pixels before wrapping."
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."

@@ -255,6 +255,7 @@ func (l LabelConfig) Validate() error {
 	v.Ternaryf("orientation", !l.Orientation.IsValid(), "invalid orientation: %v", l.Orientation)
 	v.Ternaryf("direction", !l.Direction.IsValid(), "invalid direction: %v", l.Direction)
 	v.Ternaryf("align", !l.Align.IsValid(), "invalid align: %v", l.Align)
+	v.GreaterThanEq("max_inline_size", l.MaxInlineSize, 1)
 	return v.Error()
 }
 

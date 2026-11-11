@@ -1099,6 +1099,17 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
 	})
 
+	DescribeTable("Should validate a wrap width against its bounds",
+		func(width int, matcher OmegaMatcher) {
+			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
+				"b1", "config": {"variant": "button", "label": {"label": "P1",
+				"max_inline_size": %d}}}}`, width))
+			Expect(a.SetConfig.Config.Validate()).To(matcher)
+		},
+		Entry("at 0", 0, MatchError(ContainSubstring("max_inline_size"))),
+		Entry("at 1", 1, Succeed()),
+	)
+
 	It("Should keep an empty string the payload carries", func() {
 		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
 			"config": {"variant": "value", "units": ""}}}`)

@@ -151,7 +151,7 @@ class LabelConfig(BaseModel):
     level: text.Level = "h5"
     orientation: spatial.Location = "top"
     direction: spatial.Direction = "x"
-    max_inline_size: int = Field(default=150, ge=0, le=65535)
+    max_inline_size: int = Field(default=150, ge=1, le=65535)
     align: FlexAlignment = "center"
 
 
