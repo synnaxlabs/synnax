@@ -179,6 +179,102 @@ Channel = Ref
 			Expect(messages()).To(BeEmpty())
 		})
 
+		DescribeTable("Should pass a generic instance with the same filled-in shape",
+			func(shipped, current string) {
+				write(releaseRoot, v0Path, shipped)
+				write(root, v0Path, current)
+				Expect(messages()).To(BeEmpty())
+			},
+			Entry("a struct that becomes an alias of a generic instance", `
+Inner struct {
+    value uint8
+}
+
+Channel struct {
+    payload Inner
+
+    @go marshal
+}
+`, `
+Real struct<T> {
+    value T
+}
+
+Inner = Real<uint8>
+
+Channel struct {
+    payload Inner
+
+    @go marshal
+}
+`),
+			Entry("a stored root that becomes an alias of a generic instance", `
+Channel struct {
+    value uint8
+
+    @go marshal
+}
+`, `
+Real struct<T> {
+    value T
+
+    @go marshal
+}
+
+Channel = Real<uint8>
+`),
+			Entry("a nested generic instance that becomes a struct", `
+Wrap struct<T> {
+    item T
+}
+
+Box struct<T> {
+    value T
+}
+
+Channel struct {
+    payload Wrap<Box<uint8>>
+
+    @go marshal
+}
+`, `
+Wrap struct<T> {
+    item T
+}
+
+Item struct {
+    value uint8
+}
+
+Channel struct {
+    payload Wrap<Item>
+
+    @go marshal
+}
+`),
+			Entry("an omitted type argument that becomes its default", `
+Bounds struct<T = float64> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds
+
+    @go marshal
+}
+`, `
+Bounds struct<T> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds<float64>
+
+    @go marshal
+}
+`),
+		)
+
 		It("Should pass a shipped type that only omitted fields reach", func() {
 			write(root, v0Path, `
 Status struct {
@@ -634,9 +730,111 @@ Channel struct {
 }
 `)
 			Expect(messages()).To(ConsistOf(
-				shapeChange("Channel.bounds", "changes from float64 to float32"),
+				shapeChange("Channel.bounds.lower", "changes from float64 to float32"),
 			))
 		})
+
+		DescribeTable("Should fail a generic instance with a new filled-in shape",
+			func(shipped, current, rel, reason string) {
+				write(releaseRoot, v0Path, shipped)
+				write(root, v0Path, current)
+				Expect(messages()).To(ConsistOf(shapeChange(rel, reason)))
+			},
+			Entry("an alias whose type argument changes the shape", `
+Inner struct {
+    value uint8
+}
+
+Channel struct {
+    payload Inner
+
+    @go marshal
+}
+`, `
+Real struct<T> {
+    value T
+}
+
+Inner = Real<uint16>
+
+Channel struct {
+    payload Inner
+
+    @go marshal
+}
+`, "Channel.payload.value", "changes from uint8 to uint16"),
+			Entry("a nested generic instance with a new argument", `
+Wrap struct<T> {
+    item T
+}
+
+Box struct<T> {
+    value T
+}
+
+Channel struct {
+    payload Wrap<Box<uint8>>
+
+    @go marshal
+}
+`, `
+Wrap struct<T> {
+    item T
+}
+
+Box struct<T> {
+    value T
+}
+
+Channel struct {
+    payload Wrap<Box<uint16>>
+
+    @go marshal
+}
+`, "Channel.payload.item.value", "changes from uint8 to uint16"),
+			Entry("an omitted type argument whose default differs", `
+Bounds struct<T> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds<float64>
+
+    @go marshal
+}
+`, `
+Bounds struct<T = float32> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds
+
+    @go marshal
+}
+`, "Channel.bounds.lower", "changes from float64 to float32"),
+			Entry("a union base with a new type argument", `
+Head struct<T> {
+    unit T
+}
+
+Channel union on type extends Head<uint8> {
+    none {}
+
+    @go marshal
+}
+`, `
+Head struct<T> {
+    unit T
+}
+
+Channel union on type extends Head<uint16> {
+    none {}
+
+    @go marshal
+}
+`, "Channel.none.unit", "changes from uint8 to uint16"),
+		)
 
 		It("Should fail a removed stored type that only an omitted field reaches",
 			func() {
@@ -797,7 +995,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.mode: changes from resolution.DistinctForm to resolution.EnumForm"),
+`, "Channel.mode: changes from uint8 to an enum"),
 			Entry("a distinct type with a new base", `
 Mode uint8
 
@@ -869,7 +1067,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.labels: changes its type arguments"),
+`, "Channel.labels: changes from Map to Array"),
 			Entry("a fixed array with a new size", `
 Channel struct {
     bytes uint8[4]
@@ -908,7 +1106,7 @@ Box struct<T> {
 
     @go marshal
 }
-`, "Box.value: changes between a type parameter and a concrete type"),
+`, "Box.value: changes from type parameter 1 to string"),
 			Entry("a generic type that swaps its type parameters", `
 Pair struct<A, B> {
     a A
@@ -923,7 +1121,7 @@ Pair struct<A, B> {
 
     @go marshal
 }
-`, "Pair.a: changes its type parameter"),
+`, "Pair.a: changes from type parameter 1 to type parameter 2"),
 			Entry("a generic alias that binds a concrete type", `
 Inner struct<T> {
     value T
@@ -948,7 +1146,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.payload: changes between a type parameter and a concrete type"),
+`, "Channel.payload.value: changes from uint8 to string"),
 			Entry("a generic alias that swaps its type parameters", `
 Pair struct<A, B> {
     a A
@@ -975,7 +1173,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.pair: changes its type parameter"),
+`, "Channel.pair.a: changes from string to uint8"),
 			Entry("a generic alias on one side that binds a concrete type", `
 Inner struct<T> {
     value T
@@ -998,7 +1196,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.payload: changes from uint8 to string"),
+`, "Channel.payload.value: changes from uint8 to string"),
 			Entry("a generic alias on one side that swaps its type parameters", `
 Inner struct<A, B> {
     a A
@@ -1023,7 +1221,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.payload: changes from uint8 to string"),
+`, "Channel.payload.a: changes from uint8 to string"),
 			Entry("a stored root replaced by an alias with a new shape", `
 Channel struct {
     value uint8
@@ -1036,7 +1234,7 @@ Real struct<T> {
 }
 
 Channel = Real<string>
-`, "Channel: changes its type arguments"),
+`, "Channel.value: changes from uint8 to string"),
 			Entry("a field that drops its nil type argument", `
 Status struct<D> {
     details D?
@@ -1057,7 +1255,7 @@ Channel struct {
 
     @go marshal
 }
-`, "Channel.status: changes from nil to string"),
+`, "Channel.status.details: changes from nil to string"),
 			Entry("an enum that changes between int and string members", `
 Level enum {
     a = 1
@@ -1150,7 +1348,7 @@ Scale union on type extends Base {
 
     @go marshal
 }
-`, "Scale: changes its bases"),
+`, "Scale.none: stored fields change from [] to [unit]"),
 			Entry("a union whose base gains a field", `
 Base struct {
     unit string
@@ -1172,7 +1370,7 @@ Scale union on type extends Base {
 
     @go marshal
 }
-`, "Scale: stored fields change from [unit] to [unit offset]"),
+`, "Scale.none: stored fields change from [unit] to [unit offset]"),
 			Entry("a union variant that becomes named", `
 Scale union on type {
     linear {

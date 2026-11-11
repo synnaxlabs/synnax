@@ -31,7 +31,7 @@ type Release struct {
 }
 
 // checkShipped fails on every version file whose stored types no longer decode the
-// data a stable release wrote. It compares resolved shapes, so a type may move to
+// data a stable release wrote. It compares filled-in shapes, so a type may move to
 // another file or chain, and an enum or union may gain members.
 func checkShipped(
 	ctx context.Context,
@@ -116,7 +116,7 @@ func compareStored(
 			removed = append(removed, t)
 			continue
 		}
-		if reason := s.typ(t.Name, t, n); reason != "" {
+		if reason := s.root(t, n); reason != "" {
 			fail("changes the stored shape of %s (%s)", t.Name, reason)
 		}
 	}

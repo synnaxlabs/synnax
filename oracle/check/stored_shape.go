@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -20,7 +22,8 @@ import (
 )
 
 // shapes compares what a stored type decodes in an old table with what it decodes in a
-// new one. Type names, namespaces, docs, rules, and codec markers do not count: only
+// new one. It fills in each generic type with its type arguments, defaults included,
+// and looks through aliases and distinct types, so only the filled-in shape counts:
 // stored field names and order, field types, optionality, keys, defaults, and enum and
 // union members. Struct fields encode by position, so their order counts. Enum members
 // and union variants encode by value and name, so the new side may add them.
@@ -29,8 +32,6 @@ type shapes struct {
 	visiting set.Set[string]
 	// covered holds every old type a comparison reached.
 	covered set.Set[string]
-	// oldParams and newParams are the type parameters of the types being compared.
-	oldParams, newParams []resolution.TypeParam
 }
 
 func newShapes(old, new *resolution.Table) shapes {
@@ -42,77 +43,129 @@ func newShapes(old, new *resolution.Table) shapes {
 	}
 }
 
-// typ returns why data that old wrote no longer decodes as new, or "" when it does. at
-// names the position in the stored type for the reason.
-func (s shapes) typ(at string, old, new resolution.Type) string {
-	key := old.QualifiedName + "|" + new.QualifiedName
+// root returns why data that old wrote no longer decodes as new, or "" when it does. A
+// type parameter with no default binds to the same placeholder on both sides.
+func (s shapes) root(old, new resolution.Type) string {
+	oldArgs, newArgs := placeholders(old), placeholders(new)
+	if len(oldArgs) != len(newArgs) {
+		return old.Name + ": changes its type parameters"
+	}
+	return s.ref(
+		old.Name,
+		resolution.TypeRef{Name: old.QualifiedName, TypeArgs: oldArgs},
+		resolution.TypeRef{Name: new.QualifiedName, TypeArgs: newArgs},
+	)
+}
+
+// placeholders returns one argument for each leading type parameter of t that has no
+// default. TypeArgMap gives the rest their defaults.
+func placeholders(t resolution.Type) []resolution.TypeRef {
+	var args []resolution.TypeRef
+	for i, p := range resolution.TypeParams(t.Form) {
+		if p.HasDefault() {
+			break
+		}
+		args = append(args, resolution.TypeRef{
+			TypeParam: &resolution.TypeParam{Name: strconv.Itoa(i + 1)},
+		})
+	}
+	return args
+}
+
+// ref compares the instances that two filled-in references stand for. at names the
+// position in the stored type for the reason.
+func (s shapes) ref(at string, old, new resolution.TypeRef) string {
+	oldType, old, oldOK := s.instance(old, s.old)
+	newType, new, newOK := s.instance(new, s.new)
+	if !oldOK || !newOK {
+		if oldOK || newOK || describeRef(old) != describeRef(new) {
+			return fmt.Sprintf(
+				"%s: changes from %s to %s", at, describe(oldType, old, oldOK),
+				describe(newType, new, newOK),
+			)
+		}
+		return ""
+	}
+	if (old.ArraySize == nil) != (new.ArraySize == nil) ||
+		(old.ArraySize != nil && *old.ArraySize != *new.ArraySize) {
+		return at + ": changes its array size"
+	}
+	if oldKind, newKind := kind(oldType), kind(newType); oldKind != newKind {
+		return fmt.Sprintf("%s: changes from %s to %s", at, oldKind, newKind)
+	}
+	key := refKey(old) + "|" + refKey(new)
 	if s.visiting.Contains(key) {
 		return ""
 	}
 	s.visiting.Add(key)
 	defer s.visiting.Remove(key)
-	s.covered.Add(old.QualifiedName)
-	// A stored root has no type arguments to bind, so it resolves a one-sided alias
-	// only when neither side declares type parameters.
-	if isAlias(old) != isAlias(new) &&
-		len(resolution.TypeParams(old.Form)) == 0 &&
-		len(resolution.TypeParams(new.Form)) == 0 {
-		if reason, ok := s.dealiased(
+	switch o := oldType.Form.(type) {
+	case resolution.StructForm:
+		s.coverBases(oldType)
+		return s.fields(
 			at,
-			resolution.TypeRef{Name: old.QualifiedName},
-			resolution.TypeRef{Name: new.QualifiedName},
-		); ok {
-			return reason
+			instanceFields(oldType, old, s.old),
+			instanceFields(newType, new, s.new),
+		)
+	case resolution.EnumForm:
+		return enumMembers(at, o, newType.Form.(resolution.EnumForm))
+	case resolution.UnionForm:
+		return s.union(at, oldType, newType)
+	case resolution.BuiltinGenericForm:
+		if len(old.TypeArgs) != len(new.TypeArgs) {
+			return at + ": changes its type arguments"
 		}
-	}
-	if reflect.TypeOf(old.Form) != reflect.TypeOf(new.Form) {
-		return fmt.Sprintf("%s: changes from %T to %T", at, old.Form, new.Form)
-	}
-	s.oldParams = resolution.TypeParams(old.Form)
-	s.newParams = resolution.TypeParams(new.Form)
-	if len(s.oldParams) != len(s.newParams) {
-		return at + ": changes its type parameters"
-	}
-	// A reference that omits a defaulted argument stores the default.
-	for i, op := range s.oldParams {
-		np := s.newParams[i]
-		if op.Optional != np.Optional || op.HasDefault() != np.HasDefault() {
-			return at + ": changes the default of type parameter " + op.Name
-		}
-		if op.HasDefault() {
-			if reason := s.ref(at, *op.Default, *np.Default); reason != "" {
+		for i := range old.TypeArgs {
+			if reason := s.ref(at, old.TypeArgs[i], new.TypeArgs[i]); reason != "" {
 				return reason
 			}
 		}
 	}
-	switch o := old.Form.(type) {
-	case resolution.StructForm:
-		return s.fields(at, old, new)
-	case resolution.EnumForm:
-		return enumMembers(at, o, new.Form.(resolution.EnumForm))
-	case resolution.UnionForm:
-		return s.union(at, old, new)
-	case resolution.AliasForm:
-		return s.ref(at, o.Target, new.Form.(resolution.AliasForm).Target)
-	case resolution.DistinctForm:
-		return s.ref(at, o.Base, new.Form.(resolution.DistinctForm).Base)
-	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
-		if old.QualifiedName != new.QualifiedName {
-			return fmt.Sprintf(
-				"%s: changes from %s to %s", at, old.QualifiedName, new.QualifiedName,
-			)
-		}
-	default:
-		return fmt.Sprintf("%s: has an unknown form %T", at, old.Form)
-	}
 	return ""
 }
 
-// fields compares the stored fields of two structs, bases included.
-func (s shapes) fields(at string, old, new resolution.Type) string {
-	s.coverBases(old)
-	oldFields := storedFields(resolution.UnifiedFields(old, s.old))
-	newFields := storedFields(resolution.UnifiedFields(new, s.new))
+// instance follows ref through aliases and distinct types to the type that stores its
+// data, and returns that type with the filled-in reference to it. ok is false when ref
+// is a placeholder or nil, which no table holds.
+func (s shapes) instance(
+	ref resolution.TypeRef, table *resolution.Table,
+) (resolution.Type, resolution.TypeRef, bool) {
+	for {
+		if ref.IsTypeParam() || ref.Name == "nil" {
+			return resolution.Type{}, ref, false
+		}
+		t, target, ok := resolution.Dealias(ref, table)
+		if !ok {
+			panic("unresolved type in an analyzed table: " + ref.Name)
+		}
+		if table == s.old {
+			s.covered.Add(t.QualifiedName)
+		}
+		distinct, ok := t.Form.(resolution.DistinctForm)
+		if !ok {
+			return t, target, true
+		}
+		ref = resolution.SubstituteTypeRef(
+			distinct.Base, resolution.TypeArgMap(distinct.TypeParams, target.TypeArgs),
+		)
+	}
+}
+
+// instanceFields returns the stored fields of the struct t with the type arguments of
+// ref filled in.
+func instanceFields(
+	t resolution.Type, ref resolution.TypeRef, table *resolution.Table,
+) []resolution.Field {
+	args := resolution.TypeArgMap(resolution.TypeParams(t.Form), ref.TypeArgs)
+	fields := storedFields(resolution.UnifiedFields(t, table))
+	for i := range fields {
+		fields[i].Type = resolution.SubstituteTypeRef(fields[i].Type, args)
+	}
+	return fields
+}
+
+// fields compares two filled-in stored field lists.
+func (s shapes) fields(at string, oldFields, newFields []resolution.Field) string {
 	if !slices.EqualFunc(oldFields, newFields, func(a, b resolution.Field) bool {
 		return a.Name == b.Name
 	}) {
@@ -139,7 +192,7 @@ func (s shapes) fields(at string, old, new resolution.Type) string {
 	return ""
 }
 
-// coverBases marks the bases of old as covered, since fields compares their fields.
+// coverBases marks the bases of old as covered, since UnifiedFields flattens them.
 func (s shapes) coverBases(old resolution.Type) {
 	for _, ext := range old.Form.(resolution.StructForm).Extends {
 		s.covered.Add(ext.Name)
@@ -148,7 +201,18 @@ func (s shapes) coverBases(old resolution.Type) {
 			continue
 		}
 		s.covered.Add(base.QualifiedName)
-		s.coverBases(base)
+		if _, isStruct := base.Form.(resolution.StructForm); isStruct {
+			s.coverBases(base)
+		}
+	}
+}
+
+// cover marks the old struct that ref stands for, and its bases, as covered.
+func (s shapes) cover(ref resolution.TypeRef) {
+	if t, _, ok := s.instance(ref, s.old); ok {
+		if _, isStruct := t.Form.(resolution.StructForm); isStruct {
+			s.coverBases(t)
+		}
 	}
 }
 
@@ -166,13 +230,8 @@ func (s shapes) union(at string, oldType, newType resolution.Type) string {
 			return reason
 		}
 	}
-	if len(old.Extends) != len(new.Extends) {
-		return at + ": changes its bases"
-	}
-	for i := range old.Extends {
-		if reason := s.ref(at, old.Extends[i], new.Extends[i]); reason != "" {
-			return reason
-		}
+	for _, ext := range old.Extends {
+		s.cover(ext)
 	}
 	for _, ov := range old.Variants {
 		variantAt := at + "." + ov.Name
@@ -183,94 +242,63 @@ func (s shapes) union(at string, oldType, newType resolution.Type) string {
 		if ov.Inline != nv.Inline {
 			return variantAt + ": changes between inline and named"
 		}
-		// A variant can drop fields that the union's bases give it.
-		oldFields := fieldNames(storedFields(
-			resolution.UnifiedVariantFields(oldType, ov, s.old),
-		))
-		newFields := fieldNames(storedFields(
-			resolution.UnifiedVariantFields(newType, nv, s.new),
-		))
-		if !slices.Equal(oldFields, newFields) {
-			return fmt.Sprintf(
-				"%s: stored fields change from %v to %v",
-				variantAt,
-				oldFields,
-				newFields,
-			)
-		}
-		if reason := s.ref(variantAt, ov.Type, nv.Type); reason != "" {
+		s.cover(ov.Type)
+		if reason := s.fields(
+			variantAt,
+			storedFields(resolution.UnifiedVariantFields(oldType, ov, s.old)),
+			storedFields(resolution.UnifiedVariantFields(newType, nv, s.new)),
+		); reason != "" {
 			return reason
 		}
 	}
 	return ""
 }
 
-func (s shapes) ref(at string, old, new resolution.TypeRef) string {
-	if len(old.TypeArgs) != len(new.TypeArgs) {
-		return at + ": changes its type arguments"
+// kind names the form of t, or the type itself for a primitive or a built-in generic.
+func kind(t resolution.Type) string {
+	switch t.Form.(type) {
+	case resolution.StructForm:
+		return "a struct"
+	case resolution.EnumForm:
+		return "an enum"
+	case resolution.UnionForm:
+		return "a union"
+	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
+		return t.QualifiedName
 	}
-	for i := range old.TypeArgs {
-		if reason := s.ref(at, old.TypeArgs[i], new.TypeArgs[i]); reason != "" {
-			return reason
-		}
-	}
-	if (old.ArraySize == nil) != (new.ArraySize == nil) ||
-		(old.ArraySize != nil && *old.ArraySize != *new.ArraySize) {
-		return at + ": changes its array size"
-	}
-	if old.IsTypeParam() != new.IsTypeParam() {
-		return at + ": changes between a type parameter and a concrete type"
-	}
-	if old.IsTypeParam() {
-		if paramIndex(s.oldParams, old) != paramIndex(s.newParams, new) {
-			return at + ": changes its type parameter"
-		}
-		return ""
-	}
-	// The analyzer fills an omitted type argument with nil, which no table holds.
-	if old.Name == "nil" || new.Name == "nil" {
-		if old.Name != new.Name {
-			return fmt.Sprintf("%s: changes from %s to %s", at, old.Name, new.Name)
-		}
-		return ""
-	}
-	oldType, newType := s.old.MustGet(old.Name), s.new.MustGet(new.Name)
-	if isAlias(oldType) != isAlias(newType) {
-		if reason, ok := s.dealiased(at, old, new); ok {
-			return reason
-		}
-	}
-	return s.typ(at, oldType, newType)
+	panic(fmt.Sprintf("unknown type form %T", t.Form))
 }
 
-// dealiased compares what old and new stand for once both resolve through aliases,
-// since an alias stores what its target stores. ok is false when either side does not
-// resolve to a type.
-func (s shapes) dealiased(at string, old, new resolution.TypeRef) (string, bool) {
-	_, oldTarget, oldOK := resolution.Dealias(old, s.old)
-	_, newTarget, newOK := resolution.Dealias(new, s.new)
-	if !oldOK || !newOK {
-		return "", false
+// describe names a resolved type by its kind, or a placeholder or nil by its reference.
+func describe(t resolution.Type, ref resolution.TypeRef, resolved bool) string {
+	if resolved {
+		return kind(t)
 	}
-	return s.ref(at, oldTarget, newTarget), true
+	return describeRef(ref)
 }
 
-func isAlias(t resolution.Type) bool {
-	_, ok := t.Form.(resolution.AliasForm)
-	return ok
+func describeRef(ref resolution.TypeRef) string {
+	if ref.IsTypeParam() {
+		return "type parameter " + ref.TypeParam.Name
+	}
+	return ref.Name
 }
 
-// paramIndex returns the position of the type parameter that ref holds in params.
-// Stored data binds parameters by position. It panics when params does not declare the
-// parameter.
-func paramIndex(params []resolution.TypeParam, ref resolution.TypeRef) int {
-	i := slices.IndexFunc(params, func(p resolution.TypeParam) bool {
-		return p.Name == ref.TypeParam.Name
-	})
-	if i < 0 {
-		panic("type parameter not in scope: " + ref.TypeParam.Name)
+// refKey renders a filled-in reference, to detect a comparison that recurses.
+func refKey(ref resolution.TypeRef) string {
+	var b strings.Builder
+	b.WriteString(describeRef(ref))
+	if len(ref.TypeArgs) > 0 {
+		args := make([]string, len(ref.TypeArgs))
+		for i, arg := range ref.TypeArgs {
+			args[i] = refKey(arg)
+		}
+		b.WriteString("<" + strings.Join(args, ",") + ">")
 	}
-	return i
+	if ref.ArraySize != nil {
+		fmt.Fprintf(&b, "[%d]", *ref.ArraySize)
+	}
+	return b.String()
 }
 
 // enumMembers requires every old member in new with the same value. Stored data holds

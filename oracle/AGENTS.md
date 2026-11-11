@@ -89,11 +89,13 @@ or generator logic and schemas disagree.
   dependency type such a definer reaches through its pins, at its current version, has
   the same `@validate` and `@default` in its live file and its version file), and
   shipped versions (each stored type of a version file the shipped release holds must
-  still decode the data that release wrote). The shipped check compares resolved shapes
-  across pins: stored field names and order, field types, optionality, `@key`, defaults,
-  and enum and union members. A type may move to another file or chain, and an enum or
-  union may gain members. Docs, rules, codec markers, and omit-transient types may
-  change.
+  still decode the data that release wrote). The shipped check fills in each generic
+  type with its type arguments (defaults included) through aliases, distinct types, and
+  bases, then compares the filled-in shapes across pins: stored field names and order,
+  field types, optionality, `@key`, defaults, and enum and union members. A type may
+  move to another file or chain or become an alias with the same filled-in shape, and an
+  enum or union may gain members. Docs, rules, codec markers, and omit-transient types
+  may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
