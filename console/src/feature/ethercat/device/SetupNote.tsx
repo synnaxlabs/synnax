@@ -18,6 +18,9 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { useResultSlave, useSetStandalone } from "@/feature/ethercat/device/queries";
 import { canSwitch, confirmsSwitch, of } from "@/feature/ethercat/device/setup";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { Docs } from "@/platform/docs";
+
+const SETUP_DOCS = "hardware/ethercat/dewesoft#set-up-a-module-in-synnax";
 
 interface NoteBodyProps {
   variant: "warning" | "info";
@@ -87,6 +90,7 @@ const ReaderNote = ({
   } = useSetStandalone({
     afterSuccess: onSwitched,
   });
+  const openDocs = Docs.useOpen(SETUP_DOCS);
   const action = canSwitch(slave.properties) ? (
     <Button.Button
       size="small"
@@ -105,6 +109,10 @@ const ReaderNote = ({
       }
       action={action}
     >
+      <Button.Button variant="text" size="small" onClick={openDocs}>
+        What does this mean?
+        <Icon.OpenExternal />
+      </Button.Button>
       {variant === "error" && (
         <Text.Text level="small" status="error">
           {result.description ?? result.message}

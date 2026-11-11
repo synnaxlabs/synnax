@@ -865,6 +865,22 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(findButton("Switch to Synnax")).toBeTruthy();
     });
 
+    it("should open the setup docs from the note of a card that DewesoftX sets up", async () => {
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      await setup({
+        settings: createDewesoftXSettings(true, 2),
+        inputs: [STRAIN_ENTRY],
+      });
+      await screen.findByText("DewesoftX sets up this device");
+      fireEvent.click(findButton("What does this mean?"));
+      expect(open).toHaveBeenCalledWith(
+        "https://docs.synnaxlabs.com/reference/hardware/ethercat/dewesoft#set-up-a-module-in-synnax",
+        "_blank",
+        "noopener,noreferrer",
+      );
+      open.mockRestore();
+    });
+
     it("should ask for bus 1 for a standalone card on bus 2", async () => {
       await setup({
         settings: createDewesoftXSettings(false, 2),
