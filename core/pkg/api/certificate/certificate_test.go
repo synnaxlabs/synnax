@@ -154,19 +154,19 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
-				keyPath := "/etc/plant/key.pem"
+				keyFile := "key.pem"
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:          secret.SourceFile,
 						Name:            "Plant",
 						CertificatePath: "/etc/plant/cert.pem",
-						PrivateKeyPath:  &keyPath,
+						PrivateKeyFile:  &keyFile,
 						Details:         &certificate.Details{Subject: "CN=plant"},
 					}}},
 				))
 				file := retrieveCertificate(ctx, res.Certificates[0].Base().Key).
 					Variant.(certificate.FileCertificate)
-				Expect(*file.PrivateKeyPath).To(Equal(keyPath))
+				Expect(*file.PrivateKeyFile).To(Equal(keyFile))
 				Expect(file.Details.Subject).To(Equal("CN=plant"))
 			},
 		)

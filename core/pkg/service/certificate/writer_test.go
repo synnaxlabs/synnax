@@ -226,22 +226,37 @@ var _ = Describe("Writer", func() {
 				To(MatchError(ContainSubstring("source: required")))
 		})
 		DescribeTable("Should reject an invalid file certificate",
-			func(ctx SpecContext, path string, privateKey []byte, msg string) {
+			func(
+				ctx SpecContext,
+				path string,
+				keyFile *string,
+				privateKey []byte,
+				msg string,
+			) {
 				c := certificate.Certificate{Variant: certificate.FileCertificate{
 					Base:            certificate.Base{Name: "Plant"},
 					CertificatePath: path,
+					PrivateKeyFile:  keyFile,
 				}}
 				Expect(e.write(ctx, func(w certificate.Writer) error {
 					return w.Set(ctx, &c, privateKey)
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("no path", "", nil, "certificate_path: required"),
+			Entry("no path", "", nil, nil, "certificate_path: required"),
 			Entry(
 				"a private key",
 				"/c.pem",
+				nil,
 				[]byte("key"),
 				"private_key_pem: must be empty for a file certificate",
+			),
+			Entry(
+				"a private key file that is a path",
+				"/c.pem",
+				new("/etc/ssl/private/other.key"),
+				nil,
+				"private_key_file: must be a file name, not a path",
 			),
 		)
 
