@@ -146,7 +146,7 @@ class TestMain:
         repo.tag(f"{product}/v0.59.0")
         error = repo.resolve_error(product)
         assert f"{product}/v0.59.0 already names HEAD" in error
-        assert f"release/{product}-0.59" in error
+        assert f"leave {product} out of the run" in error
 
     def test_should_fail_without_a_stable_tag(self, tmp_path: Path) -> None:
         repo = Repo(tmp_path)
@@ -190,14 +190,18 @@ class TestReleaseBranch:
         out = repo.resolve("driver", ref="release/core-0.58")
         assert out["version"] == "0.58.3"
 
-    def test_should_never_reuse_a_shipped_version(self, repo: Repo) -> None:
+    @pytest.mark.parametrize("prerelease", [False, True])
+    def test_should_reject_a_released_commit(
+        self, repo: Repo, prerelease: bool
+    ) -> None:
         repo.branch(self.REF, "console/v0.58.2")
-        assert repo.resolve("console", ref=self.REF)["version"] == "0.58.3"
-        out = repo.resolve("console", ref=self.REF, prerelease=True)
-        assert out["version"] == "0.58.3-rc.1"
+        result = repo.run("console", prerelease, self.REF, "", "")
+        assert result.returncode != 0
+        assert "console/v0.58.2 already names HEAD" in result.stderr
 
     def test_should_count_up_branch_candidates(self, repo: Repo) -> None:
         repo.branch(self.REF, "console/v0.58.2")
+        repo.commit("hotfix")
         repo.tag("console/v0.58.3-rc.1")
         out = repo.resolve("console", ref=self.REF, prerelease=True)
         assert out["version"] == "0.58.3-rc.2"
@@ -277,6 +281,13 @@ class TestDesktop:
         repo.commit("hotfix")
         out = repo.resolve("desktop", ref="release/desktop-1.0", bump="patch")
         assert out["version"] == "1.0.1"
+
+    def test_should_reject_a_desktop_branch_without_a_tag(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.0.0")
+        repo.branch("release/desktop-2.0")
+        repo.commit("work")
+        error = repo.resolve_error("desktop", ref="release/desktop-2.0", bump="patch")
+        assert "no stable desktop tag exists on 2.0" in error
 
     @pytest.mark.parametrize("bump", ["minor", "major"])
     def test_should_patch_only_from_a_desktop_release_branch(

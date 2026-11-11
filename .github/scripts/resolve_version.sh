@@ -17,8 +17,8 @@
 # release/<console|core|driver>-X.Y, or release/desktop-X.Y for Desktop.
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
-# tag, and fails when that tag names HEAD. A release branch resolves the next patch on
-# X.Y, or X.Y.0 when the train has no tag.
+# tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the train has no
+# tag. Both fail when the tag they count from names HEAD.
 #
 # ts and py share the Core's minor, since the clients connect only to a Core with the
 # same major.minor. From main, they release only with the Core: core is the stable
@@ -28,8 +28,9 @@
 # release branch cut at a run's commit finishes that run's publish.
 #
 # Desktop: main takes a minor or major bump on the highest Desktop tag reachable from
-# HEAD. release/desktop-X.Y takes only a patch, the next one on X.Y. The first Desktop
-# release must be a major bump from 0.0.0, so it outranks the 1.0.0 candidates.
+# HEAD. release/desktop-X.Y takes only a patch, the next one on X.Y, and needs a stable
+# tag on X.Y. The first Desktop release must be a major bump from 0.0.0, so it outranks
+# the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
 # rule caps every product but Desktop at one minor ahead of the Core's newest stable.
@@ -109,22 +110,19 @@ case "$PRODUCT" in
                 echo "no stable $PRODUCT tag exists" >&2
                 exit 1
             fi
-            if [[ ! $PRODUCT =~ ^(ts|py)$ ]] \
-                && [ "$(git rev-parse "$PRODUCT/v$BASE^{commit}")" \
-                    = "$(git rev-parse HEAD)" ]; then
-                echo "$PRODUCT/v$BASE already names HEAD. Rerun the failed jobs, or" \
-                    "release from release/$PRODUCT-${BASE%.*}" >&2
-                exit 1
-            fi
             IFS=. read -r MAJOR MINOR _ <<< "$BASE"
             NEXT="$MAJOR.$((MINOR + 1)).0"
         fi
-        # A package tag at HEAD keeps its version, so a rerun finishes the publish.
-        if [[ $PRODUCT =~ ^(ts|py)$ ]] && [ "$PRERELEASE" != true ] \
-            && [ -n "$CURRENT" ] \
-            && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
-                = "$(git rev-parse HEAD)" ]; then
-            NEXT=$CURRENT
+        # A package tag at HEAD keeps its version, so a rerun finishes the publish. Any
+        # other product would release the same commit twice.
+        if [ -n "$CURRENT" ] && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
+            = "$(git rev-parse HEAD)" ]; then
+            if [[ ! $PRODUCT =~ ^(ts|py)$ ]]; then
+                echo "$PRODUCT/v$CURRENT already names HEAD. Rerun the failed jobs, or" \
+                    "leave $PRODUCT out of the run" >&2
+                exit 1
+            fi
+            if [ "$PRERELEASE" != true ]; then NEXT=$CURRENT; fi
         fi
         ;;
     desktop)
@@ -139,6 +137,11 @@ case "$PRODUCT" in
         fi
         if [ -z "$TRAIN" ] && [ "$BUMP" = patch ]; then
             echo "desktop releases patches only from release/desktop-X.Y" >&2
+            exit 1
+        fi
+        if [ -n "$TRAIN" ] \
+            && [ -z "$(git tag --list "desktop/v$TRAIN.*" | highest desktop)" ]; then
+            echo "no stable desktop tag exists on $TRAIN; open a train from main" >&2
             exit 1
         fi
         BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
