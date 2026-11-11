@@ -674,9 +674,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		Entry("setpoint", v11.SetpointNodeConfig{OnClickDelay: 250}),
 		Entry(
 			"valve",
-			v11.ValveNodeConfig{ToggleSymbolConfig: v10.ToggleSymbolConfig{
-				ToggleConfig: v10.ToggleConfig{OnClickDelay: 250},
-			}},
+			v11.ValveNodeConfig{OnClickDelay: 250},
 		),
 	)
 
