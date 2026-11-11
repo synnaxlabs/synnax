@@ -244,7 +244,7 @@ describe("View", () => {
     expect(stored.map(({ icon }) => icon)).toEqual(["valve"]);
   });
 
-  it("shows an empty name error at the field and keeps the create button enabled", async () => {
+  it("shows an empty name error at the field and keeps create enabled", async () => {
     await renderHarness();
     await openCreateModal();
     const create = getCreateButton();
