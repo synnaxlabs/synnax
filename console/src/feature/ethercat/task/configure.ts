@@ -73,11 +73,16 @@ const validateEntries = <C extends Channel>(
             "Pick an entry.",
         );
       const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
-      if (reader != null)
+      if (reader != null) {
+        const step =
+          slave.properties.settings?.mode?.onlyReadBy == null
+            ? "Pick another entry."
+            : "In Configure, switch the slave to Synnax only.";
         throw new Error(
           `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-            "reads. Open the device settings of the slave to change its setup.",
+            `reads. ${step}`,
         );
+      }
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
       if (

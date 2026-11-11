@@ -191,6 +191,7 @@ export const createSettingsDescription = (): Description => {
  */
 export const createDewesoftXSettings = (
   shared: boolean,
+  bus: 1 | 2 = 1,
 ): NonNullable<SlaveProperties["settings"]> => {
   const description = createSettingsDescription();
   return {
@@ -209,6 +210,8 @@ export const createDewesoftXSettings = (
       subIndex: 9,
       value: shared ? 1 : 0,
       shared,
+      ...(shared ? { sharedWith: "DewesoftX" } : {}),
+      bus,
       switch: shared
         ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
         : [],

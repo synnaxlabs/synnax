@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   addressKey,
   type Channel,
@@ -44,9 +45,18 @@ export const SelectEntryField = ({
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
-  const emptyContent = primitive.isZero(ch.device)
-    ? "Select a slave device first."
-    : `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
+  const reader =
+    slave == null || entries.length > 0
+      ? null
+      : (slave.properties.pdos[pdoType]
+          .map((e) => onlyReaderOf(slave.properties, e))
+          .find((r) => r != null) ?? null);
+  let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
+  if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
+  else if (reader != null)
+    emptyContent =
+      `This slave sends data that only ${reader} reads. In Configure, switch it to ` +
+      "Synnax only.";
   const unresolvedProps =
     ch.type === "unresolved"
       ? {

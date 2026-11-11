@@ -25,6 +25,11 @@ export interface ConfigureProps extends ConfigureParams {
   onBack?: () => void;
   /** Creates a read task for the device. Adds a "Save and create read task" action. */
   onCreateTask?: (deviceKey: device.Key) => void;
+  /**
+   * Creates a write task for the device. Adds a "Save and create write task" action to
+   * a device with outputs.
+   */
+  onCreateWriteTask?: (deviceKey: device.Key) => void;
 }
 
 /**

@@ -290,6 +290,7 @@ export const Configure = ({
   close,
   onBack,
   onCreateTask,
+  onCreateWriteTask,
 }: Device.ConfigureProps): ReactElement => {
   const { form, saveAsync, variant } = useForm({
     query: { key: deviceKey },
@@ -310,6 +311,7 @@ export const Configure = ({
     Form.useFieldValue(path.properties.settings, { ctx: form, optional: true })?.mode
       ?.opMode ?? null;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
+  const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =
     given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
@@ -329,7 +331,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask: boolean) => {
+  const save = async (createTask?: (deviceKey: string) => void) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -340,7 +342,7 @@ export const Configure = ({
     if (choice != null && mode == null) setChoice(choose(modes, choice.index));
     if (!(await saveAsync())) return;
     if (!opened.configured) capture("device_configured", { make: MAKE });
-    if (createTask) onCreateTask?.(deviceKey);
+    createTask?.(deviceKey);
     close();
   };
   let help: HelpProps;
@@ -448,17 +450,27 @@ export const Configure = ({
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
-          {onCreateTask != null && !opened.configured && (
+          {onCreateTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(true)}
+              onClick={() => void save(onCreateTask)}
             >
               Save and create read task
             </Button.Button>
           )}
+          {onCreateWriteTask != null &&
+            !opened.configured &&
+            pdos.outputs.length > 0 && (
+              <Button.Button
+                status={status.keepVariants(variant, "loading")}
+                onClick={() => void save(onCreateWriteTask)}
+              >
+                Save and create write task
+              </Button.Button>
+            )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
-            onClick={() => void save(false)}
+            onClick={() => void save()}
             variant="filled"
             trigger={Triggers.SAVE}
             triggerIndicator

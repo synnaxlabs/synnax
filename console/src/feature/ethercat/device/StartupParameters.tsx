@@ -15,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, type xy } from "@synnaxlabs/x";
+import { caseconv, DataType, deep, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -25,6 +25,7 @@ import {
   type StartupCommands,
 } from "@/feature/ethercat/device/esi";
 import { sameAddress, visibleFields } from "@/feature/ethercat/device/settings";
+import { setUpBy } from "@/feature/ethercat/device/setup";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Runtime } from "@/platform/runtime";
 
@@ -168,7 +169,7 @@ const describeImport = ({
   if (modeCommands.length > 0)
     notes.push(
       `Left out ${ethercat.formatAddress(modeCommands[0])}, which holds the mode of ` +
-        "the device. Synnax sets the mode.",
+        "the device. The Driver does not write the mode each time the network starts.",
     );
   if (unwritableCount > 0)
     notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
@@ -188,7 +189,9 @@ export const StartupParameters = (): ReactElement => {
   const { value: parameters, onChange } = Form.useField(PATH);
   const { get } = Form.useContext();
   const statuses = Form.useStatuses(PATH);
-  const fields = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.device;
+  const properties = Form.useFieldValue(PROPERTIES);
+  const fields = properties.settings?.device;
+  const setBy = setUpBy(properties);
   const shown = fields == null ? [] : visibleFields(fields, parameters);
   const [result, setResult] = useState<status.Status | null>(null);
   const handleImport = async () => {
@@ -280,6 +283,12 @@ export const StartupParameters = (): ReactElement => {
         The Driver writes these CoE values to the device each time the network starts,
         before the device exchanges data.
       </Text.Text>
+      {setBy != null && (
+        <Text.Text level="small" status="warning">
+          {caseconv.capitalize(setBy)} sets up the device, so the Driver does not write
+          these values. To write them, switch the device to Synnax only.
+        </Text.Text>
+      )}
     </>
   );
 };

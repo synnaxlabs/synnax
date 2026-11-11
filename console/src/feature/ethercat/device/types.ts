@@ -60,6 +60,12 @@ const modeZ = z.object({
   value: z.number(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),
+  /** The software that sets up the slave while Synnax still reads its data. */
+  sharedWith: z.string().optional(),
+  /** The software that sets up the slave and alone reads the data that it sends. */
+  onlyReadBy: z.string().optional(),
+  /** The EtherCAT bus of the slave that Synnax is on, when the slave has two. */
+  bus: z.union([z.literal(1), z.literal(2)]).optional(),
   /** The sync mode that the mode needs. */
   opMode: opModeChoiceZ.optional(),
   /** The writes that make the slave standalone. Empty when it is. */

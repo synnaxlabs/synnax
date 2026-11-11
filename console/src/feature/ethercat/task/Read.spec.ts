@@ -1494,7 +1494,7 @@ describe("Read", () => {
       statuses,
       new RegExp(
         `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
-          "reads\\. Open the device settings of the slave to change its setup\\.$",
+          "reads\\. Pick another entry\\.$",
       ),
     );
   });
