@@ -4118,6 +4118,40 @@ Node union on variant {
 				).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 			},
 		)
+
+		It(
+			"Should accept a fixed-size array default of the array's size",
+			func(ctx SpecContext) {
+				def := defaultOf(ctx, "coords float64[3] = [1.5, 2.5, 3.5]")
+				Expect(def.Elements).To(HaveLen(3))
+			},
+		)
+
+		DescribeTable(
+			"Should reject a fixed-size array default of another size",
+			func(ctx SpecContext, fieldDecl, msg string) {
+				source := "Pair = uint8[2]\n\nItem struct {\n\t" + fieldDecl + "\n}\n"
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry(
+				"fewer elements",
+				"coords float64[3] = [1.5]",
+				`default of field "coords" in "Item" has 1 elements, but its type `+
+					"holds exactly 3",
+			),
+			Entry(
+				"no elements",
+				"coords float64[3] = []",
+				"has 0 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an alias",
+				"pair Pair = [1, 2, 3]",
+				"has 3 elements, but its type holds exactly 2",
+			),
+		)
 	})
 
 	Describe("Identifier Defaults", func() {

@@ -161,6 +161,28 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 	})
 }
 
+// checkArrayDefaultSize enforces that the default of a fixed-size array field has
+// exactly as many elements as the array.
+func checkArrayDefaultSize(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		if f.Default.Kind != resolution.ValueKindArray {
+			return
+		}
+		size, ok := resolution.ArraySize(f.Type, c.table)
+		if !ok || int64(len(f.Default.Elements)) == size {
+			return
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default of field %q in %q has %d elements, but its type holds exactly %d",
+			f.Name,
+			typ.Name,
+			len(f.Default.Elements),
+			size,
+		))
+	})
+}
+
 // forEachDefaultedField calls fn for every field carrying a default on every struct
 // declared in the namespace under analysis.
 func forEachDefaultedField(c *analysisCtx, fn func(resolution.Type, resolution.Field)) {
