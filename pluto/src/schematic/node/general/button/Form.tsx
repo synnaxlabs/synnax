@@ -17,7 +17,6 @@ import { type ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
@@ -71,9 +70,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
-          <Form.SizeField
-            onChange={(size, { set }) => set(path.level, SIZE_LEVELS[size])}
-          />
+          <Form.ScaledSizeField />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

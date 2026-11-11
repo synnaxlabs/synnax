@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/x/encoding/orc"
+	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 // MigrateSchematic lifts a v11 schematic into v12. Each edge takes the variant, stroke
@@ -117,7 +118,10 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 
 // MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
-// width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig.
+// width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
+// button, input, select, or setpoint keeps its rendered text size. A button takes a
+// label wrap width of 0, because a button rendered without wrapping whatever width it
+// stored.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -128,9 +132,21 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 		n := out.Variant.(BoxNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
 		out.Variant = n
+	case v11.ButtonNodeConfig:
+		n := out.Variant.(ButtonNodeConfig)
+		n.Label.MaxInlineSize = 0
+		n.Level = renderedLevel(o.Size)
+		if o.Level != nil && o.Level.IsValid() {
+			n.Level = *o.Level
+		}
+		out.Variant = n
 	case v11.CircleNodeConfig:
 		n := out.Variant.(CircleNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v11.InputNodeConfig:
+		n := out.Variant.(InputNodeConfig)
+		n.Level = renderedLevel(o.Size)
 		out.Variant = n
 	case v11.LineNodeConfig:
 		n := out.Variant.(LineNodeConfig)
@@ -139,6 +155,14 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	case v11.PolygonNodeConfig:
 		n := out.Variant.(PolygonNodeConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v11.SelectNodeConfig:
+		n := out.Variant.(SelectNodeConfig)
+		n.Level = renderedLevel(o.Size)
+		out.Variant = n
+	case v11.SetpointNodeConfig:
+		n := out.Variant.(SetpointNodeConfig)
+		n.Level = renderedLevel(o.Size)
 		out.Variant = n
 	case v11.TankNodeConfig:
 		// A tank declares its numeric fields inline, so the generated copy skips the
@@ -184,4 +208,21 @@ func migrateStrokeWidth(w float64) uint8 {
 		return 0
 	}
 	return uint8(min(max(math.Round(w), 1), 20))
+}
+
+// renderedLevel returns the text level a v11 symbol of the given size rendered at when
+// it stored none.
+func renderedLevel(size ComponentSize) text.Level {
+	switch size {
+	case ComponentSizeTiny:
+		return text.LevelTiny
+	case ComponentSizeSmall:
+		return text.LevelSmall
+	case ComponentSizeLarge:
+		return text.LevelH5
+	case ComponentSizeHuge:
+		return text.LevelH2
+	default:
+		return text.LevelP
+	}
 }

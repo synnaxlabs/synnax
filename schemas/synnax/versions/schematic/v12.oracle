@@ -117,6 +117,11 @@ NodeConfig union on variant extends v10.NodeConfig {
             @doc value "is the border stroke width in pixels."
         }
     }
+    button {
+        level text.Level = text.LevelH4 {
+            @doc value "is the typography level of the button text."
+        }
+    }
     circle {
         stroke_width uint8 = 2 {
             @doc value "is the border stroke width in pixels."
@@ -130,6 +135,24 @@ NodeConfig union on variant extends v10.NodeConfig {
     polygon {
         stroke_width uint8 = 2 {
             @doc value "is the border stroke width in pixels."
+        }
+    }
+    input {
+        size
+        level text.Level = text.LevelH4 {
+            @doc value "is the typography level of the input text."
+        }
+    }
+    select {
+        size
+        level text.Level = text.LevelH4 {
+            @doc value "is the typography level of the select text."
+        }
+    }
+    setpoint {
+        size
+        level text.Level = text.LevelH4 {
+            @doc value "is the typography level of the setpoint text."
         }
     }
 }

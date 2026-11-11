@@ -21,9 +21,31 @@ import (
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	text "github.com/synnaxlabs/x/text/versions/v0"
 )
+
+func stored(raw msgpack.EncodedJSON) v10.ElementConfig {
+	GinkgoHelper()
+	return MustSucceed(v10.DecodeWithDefaults(raw))
+}
+
+func storedNode(raw msgpack.EncodedJSON) v11.NodeConfig {
+	GinkgoHelper()
+	var cfg v11.NodeConfig
+	Expect(json.Unmarshal(MustSucceed(json.Marshal(raw)), &cfg)).To(Succeed())
+	return cfg
+}
+
+func migrateConfig(ctx SpecContext, raw msgpack.EncodedJSON) v12.NodeConfigVariant {
+	GinkgoHelper()
+	out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+		Configs: map[string]v11.ElementConfig{"n1": stored(raw)},
+	}))
+	return out.Configs["n1"].Variant
+}
 
 // migrateStored writes old to an in-memory table, runs the v12 migration, and reads the
 // migrated schematic back.
@@ -44,6 +66,15 @@ func migrateStored(ctx SpecContext, old v11.Schematic) v12.Schematic {
 		Where(gorp.MatchKeys[v12.Key, v12.Schematic](old.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
+}
+
+// migrateStoredConfig runs migrateStored over a schematic holding cfg under n1 and
+// returns the migrated config.
+func migrateStoredConfig(ctx SpecContext, cfg v10.ElementConfigVariant) v12.NodeConfig {
+	GinkgoHelper()
+	return migrateStored(ctx, v11.Schematic{
+		Configs: map[string]v11.ElementConfig{"n1": {Variant: cfg}},
+	}).Configs["n1"]
 }
 
 var _ = Describe("MigrateNumericTelemConfig", func() {
@@ -141,6 +172,111 @@ var _ = Describe("MigrateSchematic", func() {
 		Entry("polygon too large",
 			v10.PolygonElementConfig{StrokeWidth: 1e9}, uint8(20)),
 	)
+
+
+	It("Should set a saved button's level and stop its wrapping", func(
+		ctx SpecContext,
+	) {
+		Expect(migrateConfig(ctx, msgpack.EncodedJSON{
+			"variant": "button",
+			"size":    "large",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		})).To(SatisfyAll(
+			HaveField("Level", Equal(text.LevelH5)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeZero()),
+		))
+	})
+
+	It("Should keep the wrap width of a saved field", func(ctx SpecContext) {
+		Expect(migrateConfig(ctx, msgpack.EncodedJSON{
+			"variant": "setpoint",
+			"size":    "small",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		})).To(SatisfyAll(
+			HaveField("Level", Equal(text.LevelSmall)),
+			HaveField(
+				"LabeledConfig.Label.MaxInlineSize",
+				BeEquivalentTo(80),
+			),
+		))
+	})
+
+	DescribeTable("Should stop the wrapping of a saved button",
+		func(ctx SpecContext, label map[string]any) {
+			button := migrateConfig(ctx, msgpack.EncodedJSON{
+				"variant": "button",
+				"label":   label,
+			}).(v12.ButtonNodeConfig)
+			Expect(button.Label.MaxInlineSize).To(BeZero())
+			Expect(button.Label.Label).To(Equal("Open"))
+		},
+		Entry("with the default", map[string]any{"label": "Open"}),
+		Entry("with a chosen width", map[string]any{
+			"label":           "Open",
+			"max_inline_size": 80.0,
+		}),
+	)
+
+	DescribeTable("Should keep the wrap width of a symbol that is not a button",
+		func(ctx SpecContext, label map[string]any, width float64) {
+			value := migrateConfig(ctx, msgpack.EncodedJSON{
+				"variant": "value",
+				"label":   label,
+			}).(v12.ValueNodeConfig)
+			Expect(value.Label.MaxInlineSize).To(BeEquivalentTo(width))
+		},
+		Entry("with the default", map[string]any{"label": "P1"}, 150.0),
+		Entry("with a chosen width", map[string]any{
+			"label":           "P1",
+			"max_inline_size": 80.0,
+		}, 80.0),
+	)
+
+	DescribeTable("Should keep the rendered text size of a saved symbol",
+		func(ctx SpecContext, size string, level text.Level) {
+			sized := func(variant string) v10.ElementConfig {
+				return stored(msgpack.EncodedJSON{"variant": variant, "size": size})
+			}
+			out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+				Configs: map[string]v11.ElementConfig{
+					"button":   sized("button"),
+					"input":    sized("input"),
+					"select":   sized("select"),
+					"setpoint": sized("setpoint"),
+				},
+			}))
+			c := out.Configs
+			Expect(c["button"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["input"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["select"].Variant).To(HaveField("Level", Equal(level)))
+			Expect(c["setpoint"].Variant).To(HaveField("Level", Equal(level)))
+		},
+		Entry("tiny", "tiny", text.LevelTiny),
+		Entry("small", "small", text.LevelSmall),
+		Entry("medium", "medium", text.LevelP),
+		Entry("large", "large", text.LevelH5),
+		Entry("huge", "huge", text.LevelH2),
+	)
+
+	It("Should keep a level that a saved button stores", func(ctx SpecContext) {
+		button := migrateConfig(ctx, msgpack.EncodedJSON{
+			"variant": "button",
+			"size":    "large",
+			"level":   "h3",
+		}).(v12.ButtonNodeConfig)
+		Expect(button.Level).To(Equal(text.LevelH3))
+	})
+
+	It("Should replace an invalid level that a saved button stores", func(
+		ctx SpecContext,
+	) {
+		button := migrateConfig(ctx, msgpack.EncodedJSON{
+			"variant": "button",
+			"size":    "large",
+			"level":   "",
+		}).(v12.ButtonNodeConfig)
+		Expect(button.Level).To(Equal(text.LevelH5))
+	})
 
 	It("Should move the style of an edge onto the edge", func(ctx SpecContext) {
 		stroke := color.Color{R: 255, A: 1}
@@ -256,6 +392,20 @@ var _ = Describe("MigrateNodeConfig", func() {
 		Expect(out.Variant).To(HaveField("Precision", HaveValue(BeEquivalentTo(3))))
 	})
 
+	DescribeTable("Should keep the wrap width of a labeled symbol",
+		func(ctx SpecContext, label msgpack.EncodedJSON, width float64) {
+			out := MustSucceed(v12.MigrateNodeConfig(ctx, storedNode(msgpack.EncodedJSON{
+				"variant": "value",
+				"label":   label,
+			})))
+			Expect(out.Variant).To(
+				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
+			)
+		},
+		Entry("absent", msgpack.EncodedJSON{"label": "P1"}, 150.0),
+		Entry("0", msgpack.EncodedJSON{"label": "P1", "max_inline_size": 0.0}, 0.0),
+	)
+
 	It("Should keep the other fields of a symbol", func(ctx SpecContext) {
 		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
 			Variant: v11.BoxNodeConfig{BorderRadius: 7, StrokeWidth: 4},
@@ -269,9 +419,7 @@ var _ = Describe("MigrateNodeConfig", func() {
 var _ = Describe("Stored migration", func() {
 	DescribeTable("Should keep a stroke width of 0 through storage and JSON",
 		func(ctx SpecContext, old v10.ElementConfigVariant) {
-			cfg := migrateStored(ctx, v11.Schematic{
-				Configs: map[string]v11.ElementConfig{"n1": {Variant: old}},
-			}).Configs["n1"]
+			cfg := migrateStoredConfig(ctx, old)
 			Expect(cfg.Variant).To(HaveField("StrokeWidth", BeZero()))
 			var decoded v12.NodeConfig
 			encoded := MustSucceed(json.Marshal(cfg))
@@ -281,6 +429,26 @@ var _ = Describe("Stored migration", func() {
 		Entry("box", v10.BoxElementConfig{}),
 		Entry("circle", v10.CircleElementConfig{}),
 		Entry("polygon", v10.PolygonElementConfig{}),
+	)
+
+	DescribeTable("Should keep a wrap width of 0 through storage and JSON",
+		func(ctx SpecContext, raw msgpack.EncodedJSON) {
+			cfg := migrateStoredConfig(ctx, stored(raw).Variant)
+			wrap := HaveField("LabeledConfig.Label.MaxInlineSize", BeZero())
+			Expect(cfg.Variant).To(wrap)
+			var decoded v12.NodeConfig
+			encoded := MustSucceed(json.Marshal(cfg))
+			Expect(json.Unmarshal(encoded, &decoded)).To(Succeed())
+			Expect(decoded.Variant).To(wrap)
+		},
+		Entry("a button with a wrap width", msgpack.EncodedJSON{
+			"variant": "button",
+			"label":   map[string]any{"label": "Open", "max_inline_size": 80.0},
+		}),
+		Entry("a value that does not wrap", msgpack.EncodedJSON{
+			"variant": "value",
+			"label":   map[string]any{"label": "P1", "max_inline_size": 0.0},
+		}),
 	)
 
 	It("Should move a stored edge config onto its edge", func(ctx SpecContext) {

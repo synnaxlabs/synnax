@@ -143,7 +143,7 @@ class LabelConfig(BaseModel):
         orientation: Is the placement of the label relative to the symbol.
         direction: Is the axis along which the label text flows.
         max_inline_size: Is the maximum inline size of the label in pixels before
-            wrapping.
+            wrapping. 0 means no wrapping.
         align: Is the alignment of the label text within its box.
     """
 
@@ -576,7 +576,7 @@ class ButtonNodeConfig(LabeledConfig):
 
     variant: Literal["button"] = "button"
     size: ComponentSize = "medium"
-    level: text.Level | None = None
+    level: text.Level = "h4"
     on_click_delay: float = 0
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     mode: ButtonMode = "fire"
@@ -616,6 +616,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["input"] = "input"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None
@@ -674,6 +675,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["select"] = "select"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     fill_color: color_.Color | None = None
@@ -700,6 +702,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["setpoint"] = "setpoint"
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     dimensions: spatial.Dimensions | None = None

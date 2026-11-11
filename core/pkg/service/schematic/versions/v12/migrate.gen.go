@@ -160,7 +160,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: ButtonNodeConfig{
 			LabeledConfig:  variant.LabeledConfig,
 			Size:           variant.Size,
-			Level:          variant.Level,
 			OnClickDelay:   variant.OnClickDelay,
 			CommandChannel: variant.CommandChannel,
 			Mode:           variant.Mode,

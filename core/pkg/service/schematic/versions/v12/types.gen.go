@@ -1238,7 +1238,7 @@ type ButtonNodeConfig struct {
 	// Size is the rendered size preset of the button.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	Level text.Level `json:"level" msgpack:"level"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// CommandChannel is the channel button presses are written to.
@@ -1257,6 +1257,7 @@ func (ButtonNodeConfig) isNodeConfigVariant() {}
 func (b *ButtonNodeConfig) SetDefaults() {
 	b.LabeledConfig.SetDefaults()
 	b.Size = ComponentSizeMedium
+	b.Level = text.LevelH4
 	b.Mode = ButtonModeFire
 }
 
@@ -1264,6 +1265,9 @@ func (b *ButtonNodeConfig) SetDefaults() {
 func (b *ButtonNodeConfig) ApplyDefaults() {
 	if b.Size == "" {
 		b.Size = ComponentSizeMedium
+	}
+	if b.Level == "" {
+		b.Level = text.LevelH4
 	}
 	if b.Mode == "" {
 		b.Mode = ButtonModeFire
@@ -1279,6 +1283,7 @@ func (b *ButtonNodeConfig) ApplyDefaults() {
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
+	v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", b.Level)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -1402,6 +1407,8 @@ type InputNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the input.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the input text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel submitted values are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the value the device holds.
@@ -1427,6 +1434,7 @@ func (i *InputNodeConfig) SetDefaults() {
 	i.LabeledConfig.SetDefaults()
 	i.StalenessConfig.SetDefaults()
 	i.Size = ComponentSizeMedium
+	i.Level = text.LevelH4
 	i.InlineSize = 150
 }
 
@@ -1434,6 +1442,9 @@ func (i *InputNodeConfig) SetDefaults() {
 func (i *InputNodeConfig) ApplyDefaults() {
 	if i.Size == "" {
 		i.Size = ComponentSizeMedium
+	}
+	if i.Level == "" {
+		i.Level = text.LevelH4
 	}
 	if i.InlineSize == 0 {
 		i.InlineSize = 150
@@ -1450,6 +1461,7 @@ func (i *InputNodeConfig) ApplyDefaults() {
 func (i InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
 	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
+	v.Ternaryf("level", !i.Level.IsValid(), "invalid level: %v", i.Level)
 	v.Exec(i.LabeledConfig.Validate)
 	if i.Control != nil {
 		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
@@ -1623,6 +1635,8 @@ type SelectNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the select.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the select text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel the selected value is written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the state the device holds.
@@ -1648,6 +1662,7 @@ func (s *SelectNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
 	s.Size = ComponentSizeMedium
+	s.Level = text.LevelH4
 	s.InlineSize = 100
 }
 
@@ -1655,6 +1670,9 @@ func (s *SelectNodeConfig) SetDefaults() {
 func (s *SelectNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
+	}
+	if s.Level == "" {
+		s.Level = text.LevelH4
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1671,6 +1689,7 @@ func (s *SelectNodeConfig) ApplyDefaults() {
 func (s SelectNodeConfig) Validate() error {
 	v := validate.New("SelectNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
@@ -1731,6 +1750,8 @@ type SetpointNodeConfig struct {
 	StalenessConfig
 	// Size is the rendered size preset of the setpoint.
 	Size ComponentSize `json:"size" msgpack:"size"`
+	// Level is the typography level of the setpoint text.
+	Level text.Level `json:"level" msgpack:"level"`
 	// CommandChannel is the channel submitted setpoints are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the value the device holds.
@@ -1758,6 +1779,7 @@ func (s *SetpointNodeConfig) SetDefaults() {
 	s.LabeledConfig.SetDefaults()
 	s.StalenessConfig.SetDefaults()
 	s.Size = ComponentSizeMedium
+	s.Level = text.LevelH4
 	s.InlineSize = 100
 }
 
@@ -1765,6 +1787,9 @@ func (s *SetpointNodeConfig) SetDefaults() {
 func (s *SetpointNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
+	}
+	if s.Level == "" {
+		s.Level = text.LevelH4
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1781,6 +1806,7 @@ func (s *SetpointNodeConfig) ApplyDefaults() {
 func (s SetpointNodeConfig) Validate() error {
 	v := validate.New("SetpointNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })

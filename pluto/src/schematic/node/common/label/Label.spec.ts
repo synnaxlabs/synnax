@@ -37,6 +37,14 @@ describe("Label.configZ", () => {
     expect(() => Label.configZ.parse({ orientation: "diagonal" })).toThrow();
   });
 
+  it("should fill the default wrap width when it is not set", () => {
+    expect(Label.configZ.parse({}).maxInlineSize).toBe(Label.DEFAULT_MAX_INLINE_SIZE);
+  });
+
+  it("should keep a wrap width of 0", () => {
+    expect(Label.configZ.parse({ maxInlineSize: 0 }).maxInlineSize).toBe(0);
+  });
+
   it("should reject non-numeric maxInlineSize", () => {
     expect(() => Label.configZ.parse({ maxInlineSize: "150px" })).toThrow();
   });

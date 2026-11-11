@@ -272,12 +272,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
-		if v.Level != nil {
-			w.Bool(true)
-			w.String(string(*v.Level))
-		} else {
-			w.Bool(false)
-		}
+		w.String(string(v.Level))
 		w.Float64(float64(v.OnClickDelay))
 		if v.CommandChannel != nil {
 			w.Bool(true)
@@ -369,6 +364,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -522,6 +518,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -590,6 +587,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
+		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -1461,21 +1459,11 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			v.Size = ComponentSize(rawV)
 		}
 		{
-			present, err := r.Bool()
+			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			if present {
-				var hv text.Level
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					hv = text.Level(rawV)
-				}
-				v.Level = &hv
-			}
+			v.Level = text.Level(rawV)
 		}
 		if v.OnClickDelay, err = r.Float64(); err != nil {
 			return err
@@ -1643,6 +1631,13 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -1921,6 +1916,13 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			v.Size = ComponentSize(rawV)
 		}
 		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
+		}
+		{
 			present, err := r.Bool()
 			if err != nil {
 				return err
@@ -2047,6 +2049,13 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Level = text.Level(rawV)
 		}
 		{
 			present, err := r.Bool()

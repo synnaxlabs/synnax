@@ -241,6 +241,18 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			To(Equal("Renamed"))
 	})
 
+	DescribeTable("Should set the wrap width of each symbol in a v10 envelope",
+		func(ctx SpecContext, key string, width float64) {
+			sch := decode(ctx, "testdata/import_v10_button.json")
+			Expect(sch.Configs[key].Variant).To(HaveField(
+				"LabeledConfig.Label.MaxInlineSize", Equal(width),
+			))
+		},
+		Entry("A button with no wrap width", "n1", 0.0),
+		Entry("A button with a wrap width", "n2", 0.0),
+		Entry("An input", "n3", 150.0),
+	)
+
 	It("Should reject a v8 envelope holding a config the union rejects", func(
 		ctx SpecContext,
 	) {
