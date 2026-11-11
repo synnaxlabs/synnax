@@ -150,6 +150,8 @@ interface NodeStore {
   subscribe: (listener: () => void, key: ranger.Key) => () => void;
   onExpand: (key: ranger.Key, expanded: boolean) => void;
   more: (key: ranger.Key) => void;
+  /** Gives each key new to the tree its state, before its item first renders. */
+  add: (nodes: Node[], expanded: ranger.Key[]) => void;
 }
 
 const [Context, useContext] = context.create<NodeStore>({
@@ -186,7 +188,17 @@ export const NodeProvider = ({
     subscribe,
     onExpand: (key, next) => actionsRef.current.onExpand(key, next),
     more: (key) => actionsRef.current.more(key),
+    add: (nodes, expanded) => {
+      const open = new Set(expanded);
+      nodes.forEach(({ key, depth, tail }) => {
+        if (!statesRef.current.has(key))
+          statesRef.current.set(key, { depth, expanded: open.has(key), tail });
+      });
+    },
   }));
+  // A new item reads its state as it mounts, so a key starts with its state when it
+  // first shows. A change to a known key waits for the commit, which tells its item.
+  store.add(nodes, expanded);
   useLayoutEffect(() => {
     const open = new Set(expanded);
     const prev = statesRef.current;
