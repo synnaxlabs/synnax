@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -2837,6 +2838,9 @@ var _ = Describe("Task", Ordered, func() {
 		// Every spec runs twice: once against a virtual write channel and once
 		// against a persisted channel with its own index, since competing
 		// writers must hold the index too and authority changes must cover it.
+		// now reads the clock the Arc runtime stamps from. Go's clock on Windows moves
+		// only on each system tick, so its stamps can trail ones the task committed.
+		now := func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) }
 		type writeCh struct {
 			ch  *channel.Channel
 			idx *channel.Channel
@@ -2854,7 +2858,7 @@ var _ = Describe("Task", Ordered, func() {
 			return frame.NewMulti(
 				[]channel.Key{c.idx.Key(), c.ch.Key()},
 				[]telem.Series{
-					telem.NewSeriesV(telem.Now()),
+					telem.NewSeriesV(now()),
 					telem.NewSeriesV(v),
 				},
 			)
@@ -2864,7 +2868,7 @@ var _ = Describe("Task", Ordered, func() {
 			GinkgoHelper()
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        keysOf(c),
-				Start:       telem.Now(),
+				Start:       now(),
 				Authorities: []control.Authority{a},
 				Sync:        new(true),
 			}))
@@ -2941,7 +2945,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(200),
 								},
@@ -2985,7 +2989,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(100),
 								},
@@ -3028,7 +3032,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(254),
 								},
@@ -3074,7 +3078,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c1),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(150),
 								},
@@ -3088,7 +3092,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c2),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(150),
 								},
@@ -3181,7 +3185,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{triggerCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3247,7 +3251,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{triggerCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3294,7 +3298,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(1),
 								},
@@ -3327,7 +3331,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{triggerCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3394,7 +3398,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  keysOf(c),
-								Start: telem.Now(),
+								Start: now(),
 								Authorities: []control.Authority{
 									control.Authority(1),
 								},
@@ -3418,7 +3422,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{startCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3437,7 +3441,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{releaseCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3501,7 +3505,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{triggerCh.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3544,7 +3548,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{startSignal.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3562,7 +3566,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{startSignal.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3578,7 +3582,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{stopSignal.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3621,7 +3625,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{startSignal.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
@@ -3639,7 +3643,7 @@ var _ = Describe("Task", Ordered, func() {
 							ctx,
 							framer.WriterConfig{
 								Keys:  channel.Keys{stopSignal.Key()},
-								Start: telem.Now(),
+								Start: now(),
 							},
 						))
 						Expect(
