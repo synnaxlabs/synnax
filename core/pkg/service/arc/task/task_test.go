@@ -2835,12 +2835,12 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Control Authority", func() {
-		// Every spec runs twice: once against a virtual write channel and once
-		// against a persisted channel with its own index, since competing
-		// writers must hold the index too and authority changes must cover it.
 		// now reads the clock the Arc runtime stamps from. Go's clock on Windows moves
 		// only on each system tick, so its stamps can trail ones the task committed.
 		now := func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) }
+		// Every spec runs twice: once against a virtual write channel and once
+		// against a persisted channel with its own index, since competing
+		// writers must hold the index too and authority changes must cover it.
 		type writeCh struct {
 			ch  *channel.Channel
 			idx *channel.Channel
