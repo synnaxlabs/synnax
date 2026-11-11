@@ -1002,6 +1002,8 @@ const std::string_view MISC_WAT = R"wat(
   (import "series" "not" (func $not (param i32) (result i32)))
   (import "series" "len" (func $len (param i32) (result i64)))
   (import "series" "slice" (func $slice (param i32 i32 i32) (result i32)))
+  (import "series" "index_from_i64" (func $index_from_i64 (param i64) (result i32)))
+  (import "series" "index_from_u64" (func $index_from_u64 (param i64) (result i32)))
   (import "series" "create_empty_i32" (func $create_empty_i32 (param i32) (result i32)))
   (import "series" "set_element_i32" (func $set_element_i32 (param i32 i32 i32) (result i32)))
   (import "series" "index_i32" (func $index_i32 (param i32 i32) (result i32)))
@@ -1024,6 +1026,10 @@ const std::string_view MISC_WAT = R"wat(
     (call $len (local.get 0)))
   (func (export "slice") (param i32 i32 i32) (result i32)
     (call $slice (local.get 0) (local.get 1) (local.get 2)))
+  (func (export "index_from_i64") (param i64) (result i32)
+    (call $index_from_i64 (local.get 0)))
+  (func (export "index_from_u64") (param i64) (result i32)
+    (call $index_from_u64 (local.get 0)))
   (func (export "create_empty_i32") (param i32) (result i32)
     (call $create_empty_i32 (local.get 0)))
   (func (export "set_element_i32") (param i32 i32 i32) (result i32)
@@ -1287,6 +1293,45 @@ TEST(SeriesModule, LenNullHandleReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
     auto result = f.get("len").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
     EXPECT_EQ(result[0].i64(), 0);
+}
+
+/// @brief it should return an index that fits in an i32.
+TEST(SeriesModule, IndexFromReturnsIndexInRange) {
+    Fixture f{std::string(MISC_WAT)};
+    for (const int64_t index:
+         {int64_t{0}, int64_t{-1}, int64_t{INT32_MAX}, int64_t{INT32_MIN}}) {
+        auto result = f.get("index_from_i64")
+                          .call(f.store, {wasmtime::Val(index)})
+                          .unwrap();
+        EXPECT_EQ(result[0].i32(), static_cast<int32_t>(index));
+    }
+    auto result = f.get("index_from_u64")
+                      .call(f.store, {wasmtime::Val(int64_t{INT32_MAX})})
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), INT32_MAX);
+}
+
+/// @brief it should trap for an i64 index that does not fit in an i32.
+TEST(SeriesModule, IndexFromI64OutOfRangeTraps) {
+    Fixture f{std::string(MISC_WAT)};
+    for (const int64_t index: {int64_t{INT32_MAX} + 1, int64_t{INT32_MIN} - 1})
+        expect_failure(
+            f.get("index_from_i64").call(f.store, {wasmtime::Val(index)}),
+            "index " + std::to_string(index) + " out of bounds for an i32 series index"
+        );
+}
+
+/// @brief it should read a u64 index as unsigned and trap when it does not fit.
+TEST(SeriesModule, IndexFromU64OutOfRangeTraps) {
+    Fixture f{std::string(MISC_WAT)};
+    expect_failure(
+        f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{-1})}),
+        "index 18446744073709551615 out of bounds for an i32 series index"
+    );
+    expect_failure(
+        f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{INT32_MAX} + 1)}),
+        "index 2147483648 out of bounds for an i32 series index"
+    );
 }
 
 TEST(SeriesModule, SliceExtractsSubrange) {

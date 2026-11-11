@@ -12,6 +12,7 @@ package statement_test
 import (
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -490,6 +491,15 @@ var _ = Describe("Statement", func() {
 			return ctx
 		}
 
+		inIndex := func(node antlr.Tree) bool {
+			for ; node != nil; node = node.GetParent() {
+				if _, ok := node.(parser.IIndexOrSliceContext); ok {
+					return true
+				}
+			}
+			return false
+		}
+
 		DescribeTable(
 			"Should give every numeric literal the element type",
 			func(specCtx SpecContext, code string, expected types.Type, count int) {
@@ -498,7 +508,7 @@ var _ = Describe("Statement", func() {
 				literals := 0
 				for node, t := range ctx.TypeMap {
 					lit, ok := node.(parser.ILiteralContext)
-					if !ok || lit.NumericLiteral() == nil {
+					if !ok || lit.NumericLiteral() == nil || inIndex(lit) {
 						continue
 					}
 					literals++
@@ -3102,6 +3112,25 @@ var _ = Describe("Statement", func() {
 					(*ctx.Diagnostics)[0].Message,
 				).To(ContainSubstring("indexed assignment only supported on series types"))
 			},
+		)
+
+		DescribeTable("should reject a non-integer index",
+			func(bCtx SpecContext, stmt string) {
+				block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				i f32 := 1.0
+				` + stmt + `
+			}`))
+				ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+				setupFunctionContext(ctx)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"series index must be an integer type, got f32",
+				))
+			},
+			Entry("indexed assignment", "data[i] = 10"),
+			Entry("indexed compound assignment", "data[i] += 10"),
 		)
 
 		It("should detect slice assignment (not supported)", func(bCtx SpecContext) {

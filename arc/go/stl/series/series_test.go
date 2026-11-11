@@ -11,6 +11,7 @@ package series_test
 
 import (
 	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1206,6 +1207,68 @@ var _ = Describe("Series", func() {
 			res := call(ctx, "len", testutil.U32(9999))
 			Expect(testutil.AsU64(res[0])).To(Equal(uint64(0)))
 		})
+	})
+
+	Describe("index_from", func() {
+		DescribeTable("should return an index that fits in an i32",
+			func(ctx SpecContext, fn string, index uint64, expected int32) {
+				Expect(
+					int32(testutil.AsU32(call(ctx, fn, index)[0])),
+				).To(Equal(expected))
+			},
+			Entry("i64 zero", "index_from_i64", testutil.I64(0), int32(0)),
+			Entry("i64 negative", "index_from_i64", testutil.I64(-1), int32(-1)),
+			Entry(
+				"i64 maximum",
+				"index_from_i64",
+				testutil.I64(math.MaxInt32),
+				int32(math.MaxInt32),
+			),
+			Entry(
+				"i64 minimum",
+				"index_from_i64",
+				testutil.I64(math.MinInt32),
+				int32(math.MinInt32),
+			),
+			Entry(
+				"u64 maximum",
+				"index_from_u64",
+				testutil.U64(math.MaxInt32),
+				int32(math.MaxInt32),
+			),
+		)
+
+		DescribeTable("should panic for an index that does not fit in an i32",
+			func(ctx SpecContext, fn string, index uint64, text string) {
+				Expect(func() { call(ctx, fn, index) }).To(PanicWith(ContainSubstring(
+					"index " + text + " out of bounds for an i32 series index",
+				)))
+			},
+			Entry(
+				"i64 above the range",
+				"index_from_i64",
+				testutil.I64(math.MaxInt32+1),
+				"2147483648",
+			),
+			Entry(
+				"i64 below the range",
+				"index_from_i64",
+				testutil.I64(math.MinInt32-1),
+				"-2147483649",
+			),
+			Entry(
+				"u64 above the range",
+				"index_from_u64",
+				testutil.U64(math.MaxInt32+1),
+				"2147483648",
+			),
+			Entry(
+				"u64 maximum",
+				"index_from_u64",
+				testutil.U64(math.MaxUint64),
+				"18446744073709551615",
+			),
+		)
 	})
 
 	Describe("slice", func() {

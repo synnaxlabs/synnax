@@ -403,12 +403,28 @@ func consumer() {v f32 bar} {}
 producer() -> consumer()
 """
 
+# A float series index is rejected at configure time.
+ARC_FLOAT_SERIES_INDEX = """
+func pick() f64 {
+    data series f64 := [1.0, 2.0, 3.0]
+    i f32 := 1.0
+    return data[i]
+}
+func consumer() {v f64} {}
+pick() -> consumer()
+"""
+
 
 TYPE_MISMATCH_CASES = [
     Case(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
         "does not match",
+    ),
+    Case(
+        "FloatSeriesIndex",
+        ARC_FLOAT_SERIES_INDEX,
+        "series index must be an integer type, got f32",
     ),
 ]
 

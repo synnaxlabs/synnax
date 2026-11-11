@@ -12,6 +12,7 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -300,6 +301,26 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 	return types.Type{}, nil
 }
 
+// CompileIndex compiles a series index or slice bound to the i32 that the series host
+// functions take. A value that does not fit in an i32 traps at run time.
+func CompileIndex[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) error {
+	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
+	if err != nil {
+		return err
+	}
+	if t.Kind == types.KindU32 {
+		ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32U)
+		t = types.I64()
+	}
+	if wasm.ConvertType(t) == wasm.I64 {
+		ctx.Resolver.EmitIndexFrom(ctx.Writer, ctx.WriterID, t)
+	}
+	return nil
+}
+
 func compileIndexOrSlice(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	indexOrSlice parser.IIndexOrSliceContext,
@@ -314,9 +335,7 @@ func compileIndexOrSlice(
 				"indexing is only supported on series types",
 			)
 		}
-		if _, err := Compile(
-			ctx.Child(expressions[0]).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, expressions[0]); err != nil {
 			return types.Type{}, err
 		}
 		t := operandType.Unwrap()
@@ -346,9 +365,7 @@ func compileIndexOrSlice(
 	}
 
 	if startExpr != nil {
-		if _, err := Compile(
-			ctx.Child(startExpr).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, startExpr); err != nil {
 			return types.Type{}, err
 		}
 	} else {
@@ -356,9 +373,7 @@ func compileIndexOrSlice(
 	}
 
 	if endExpr != nil {
-		if _, err := Compile(
-			ctx.Child(endExpr).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, endExpr); err != nil {
 			return types.Type{}, err
 		}
 	} else {

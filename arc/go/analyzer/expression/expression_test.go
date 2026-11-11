@@ -1164,6 +1164,49 @@ var _ = Describe("Expressions", func() {
 					x := arr[1:3]
 				}
 			`),
+			Entry("index with an i64 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx i64 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with a u8 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx u8 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with len", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					x := arr[len(arr) - 1]
+				}
+			`),
+		)
+
+		DescribeTable("should reject a non-integer index or slice bound",
+			func(ctx SpecContext, index, got string) {
+				expectFailure(ctx, fmt.Sprintf(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					f f64 := 1.0
+					g f32 := 1.0
+					b bool := true
+					s str := "a"
+					x := arr[%s]
+				}
+			`, index), nil, "series index must be an integer type, got "+got)
+			},
+			Entry("f64 variable", "f", "f64"),
+			Entry("f32 variable", "g", "f32"),
+			Entry("fractional literal", "1.5", ""),
+			Entry("integer-valued float literal", "1.0", ""),
+			Entry("bool", "b", "bool"),
+			Entry("string", "s", "str"),
+			Entry("slice start", "f:2", "f64"),
+			Entry("slice end", "0:g", "f32"),
 		)
 
 		It("Should reject index with undefined variable", func(ctx SpecContext) {
