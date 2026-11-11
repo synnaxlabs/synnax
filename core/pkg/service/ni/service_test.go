@@ -399,4 +399,19 @@ var _ = Describe("Service", func() {
 			"stream_rate: must be less than or equal to the sample rate",
 		),
 	)
+
+	DescribeTable("Should reject a write config whose state rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			for _, store := range []config.Store{svc.AnalogWrite, svc.DigitalWrite} {
+				Expect(store.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"state_rate": rate,
+				})).Error().To(
+					MatchError(ContainSubstring("state_rate: must be greater than 0")),
+					store.Type(),
+				)
+			}
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

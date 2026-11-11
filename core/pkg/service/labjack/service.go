@@ -106,6 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

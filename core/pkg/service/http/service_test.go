@@ -161,4 +161,14 @@ var _ = Describe("Service", func() {
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),
 	)
+
+	DescribeTable("Should reject a read config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

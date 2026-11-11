@@ -137,6 +137,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			) error {
 				return v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
+			ValidateEntry: (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

@@ -5181,6 +5181,7 @@ func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogWriteConfig) Validate() error {
 	v := validate.New("AnalogWriteConfig")
+	v.Exec(a.WriteConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5276,6 +5277,7 @@ func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (d DigitalWriteConfig) Validate() error {
 	v := validate.New("DigitalWriteConfig")
+	v.Exec(d.WriteConfig.Validate)
 	for i := range d.Channels {
 		v.Exec(func() error { return validate.PathedError(d.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

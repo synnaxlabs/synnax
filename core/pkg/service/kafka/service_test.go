@@ -186,13 +186,14 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	DescribeTable("Should reject a scan config whose rate is not positive",
-		func(ctx SpecContext, rate float64) {
+	DescribeTable("Should reject a scan config whose rate the Driver cannot run",
+		func(ctx SpecContext, rate float64, msg string) {
 			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 				"rate": rate,
-			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			})).Error().To(MatchError(ContainSubstring(msg)))
 		},
-		Entry("zero", 0.0),
-		Entry("negative", -1.0),
+		Entry("zero", 0.0, "rate: must be greater than 0"),
+		Entry("negative", -1.0, "rate: must be greater than 0"),
+		Entry("too high for a nonzero period", 1e12, "is too high"),
 	)
 })
