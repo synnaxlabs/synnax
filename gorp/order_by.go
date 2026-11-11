@@ -36,8 +36,8 @@ const (
 type OrderQuery[K Key, E Entry[K]] interface {
 	// walk yields the keys of the walk in order, each with a check that reports whether
 	// an entry read at the key still holds the value the walk found it at. It takes
-	// batch keys from the index at a time, or every key at once when batch is 0. A
-	// bounded keys limits the walk to those keys.
+	// batch keys from the index at a time, or every key at once when batch is 0. When
+	// keys is bounded, the walk yields only its keys.
 	walk(keys keyset.Set[K], batch int) iter.Seq2[K, func(e *E) bool]
 	// sort orders entries by the values they hold now, in the walk direction, and drops
 	// each entry that is not strictly past the walk's cursor.
@@ -73,8 +73,9 @@ func (q SortedQuery[K, E, V]) After(value V, key K) SortedQuery[K, E, V] {
 }
 
 // walk does not see uncommitted tx writes. Entries staged via a write tx (stageSet /
-// stageDelete) are invisible to ordered iteration; only SortedIndex.Filter merges the
-// per-tx delta. A failed populate leaves the index empty for the walk.
+// stageDelete) are invisible to ordered iteration; only SortedIndex.Filter and
+// FilterRange merge the per-tx delta. A failed populate leaves the index empty for the
+// walk.
 //
 //nolint:unused
 func (q SortedQuery[K, E, V]) walk(
