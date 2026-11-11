@@ -378,7 +378,7 @@ export const Configure = ({
                   <Text.Text level="small" color={9}>
                     A short prefix for every channel on this device.
                   </Text.Text>
-                  <Flex.Box x align="center">
+                  <Flex.Box x align="center" wrap>
                     <Icon.Bolt />
                     {strings.createShortIdentifiers(name ?? "").map((id) => (
                       <Button.Button
