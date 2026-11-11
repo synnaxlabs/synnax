@@ -270,6 +270,37 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain(`"regexp"`, `/gorp"`, "ErrNoOperator")
 		})
 
+		It("Should validate the enum values of a typed line", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					kinds Kind[]
+					first Kind
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"for i, v := range l {",
+					`errors.Wrapf(validate.ErrValidation, "invalid kinds %q", v),`,
+					"if !l.IsValid() {",
+					`errors.Wrapf(validate.ErrValidation, "invalid first %q", *l),`,
+					"fs = append(fs, MatchKinds(l...))",
+					"fs = append(fs, MatchFirst(*l))",
+				)
+		})
+
+		It("Should call the matcher that a typed line names", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					live bool { @go match MatchActive }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain("fs = append(fs, MatchActive(*l))").
+				ToNotContain("MatchLive")
+		})
+
 		It("Should reject a bare line that sets no operator", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
