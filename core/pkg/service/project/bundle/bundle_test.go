@@ -963,6 +963,36 @@ var _ = Describe("Decode", func() {
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
 		))
 	})
+
+	It("Should reject a member at a version newer than supported", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"manifest.json": bundleManifest("Future"),
+			"Metrics.json": []byte(
+				`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+			),
+		}
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Metrics.json")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+
+	It("Should reject a legacy member at a version newer than supported", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{
+			"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
+				"k1": {"key": "k1", "type": "log", "name": "Metrics"},
+			}),
+			"Metrics.json": legacyLogState(map[string]any{"version": 99}),
+		}
+		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Metrics.json")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
 })
 
 func legacyLayoutFile(layouts map[string]map[string]any) []byte {

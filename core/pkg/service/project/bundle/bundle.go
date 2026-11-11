@@ -426,13 +426,21 @@ type Bundle struct {
 	// bundle.
 	layout []byte
 	// legacyMembers are the members of a legacy bundle.
-	legacyMembers []legacy.Member
+	legacyMembers []legacyMember
 }
 
-// Decode reads the bundle in files. It needs no transaction, so a caller can run it
-// before taking the write lock. The manifest, or the extension-stripped fileName, names
-// the project. A root LAYOUT.json with no manifest is the legacy (version 0) format.
-// Invalid bundles return validation errors naming the offending file.
+type legacyMember struct {
+	path string
+	// layoutKey is the key mosaic tabs reference the member by.
+	layoutKey string
+	write     imex.Write
+}
+
+// Decode reads the bundle in files and migrates each member, except panels, to its
+// current shape. It needs no transaction, so a caller can run it before taking the
+// write lock. The manifest, or the extension-stripped fileName, names the project. A
+// root LAYOUT.json with no manifest is the legacy (version 0) format. Invalid bundles
+// return validation errors naming the offending file.
 func (s *Service) Decode(
 	ctx context.Context,
 	files zip.Files,
@@ -451,11 +459,23 @@ func (s *Service) Decode(
 		if err != nil {
 			return Bundle{}, err
 		}
-		return Bundle{
+		b := Bundle{
 			name:          filename.Stem(fileName),
 			layout:        layout,
-			legacyMembers: members,
-		}, nil
+			legacyMembers: make([]legacyMember, len(members)),
+		}
+		for i, m := range members {
+			write, err := s.cfg.ImEx.Decode(ctx, m.Env, m.Path)
+			if err != nil {
+				return Bundle{}, errors.Wrap(err, m.Path)
+			}
+			b.legacyMembers[i] = legacyMember{
+				path:      m.Path,
+				layoutKey: m.LayoutKey,
+				write:     write,
+			}
+		}
+		return b, nil
 	}
 	manifest, err := decodeManifest(manifestData, manifestFileName)
 	if err != nil {
@@ -468,6 +488,14 @@ func (s *Service) Decode(
 	members, err := s.bundleMembers(files)
 	if err != nil {
 		return Bundle{}, err
+	}
+	for i, m := range members {
+		if m.env.Type == string(resource.TypePanel) {
+			continue
+		}
+		if members[i].write, err = s.cfg.ImEx.Decode(ctx, m.env, m.path); err != nil {
+			return Bundle{}, errors.Wrap(err, m.path)
+		}
 	}
 	return Bundle{name: name, members: members}, nil
 }
@@ -497,10 +525,9 @@ func (s *Service) Import(
 		if m.env.Type == string(resource.TypePanel) {
 			continue
 		}
-		id, err := s.cfg.ImEx.Import(ctx, tx, m.env, imex.ImportOptions{
-			FileName: m.path,
-			Parent:   projID,
-			Group:    groups[path.Dir(m.path)],
+		id, err := m.write(ctx, tx, imex.ImportOptions{
+			Parent: projID,
+			Group:  groups[path.Dir(m.path)],
 		})
 		if err != nil {
 			return project.Project{}, errors.Wrap(err, m.path)
@@ -543,14 +570,11 @@ func (s *Service) importLegacy(
 	projID := project.ResourceID(proj.Key)
 	refs := make(map[string]resource.ID, len(b.legacyMembers))
 	for _, m := range b.legacyMembers {
-		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
-			FileName: m.Path,
-			Parent:   projID,
-		})
+		id, err := m.write(ctx, tx, imex.ImportOptions{Parent: projID})
 		if err != nil {
-			return project.Project{}, errors.Wrap(err, m.Path)
+			return project.Project{}, errors.Wrap(err, m.path)
 		}
-		refs[m.LayoutKey] = id
+		refs[m.layoutKey] = id
 	}
 	if err := legacy.CreatePanels(
 		ctx, tx, s.cfg.Panel, proj.Key, b.layout, refs,
@@ -564,6 +588,8 @@ type importMember struct {
 	path string
 	// env is the member's decoded envelope, its type resolved to a registration type.
 	env imex.Envelope
+	// write persists the member, and is nil for a panel.
+	write imex.Write
 }
 
 // decodeManifest reads and guards the bundle manifest: the type must be "project" and
