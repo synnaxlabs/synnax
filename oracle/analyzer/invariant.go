@@ -179,7 +179,11 @@ func checkArraySizes(
 ) {
 	switch val.Kind {
 	case resolution.ValueKindArray:
-		size, ok := resolution.ArraySize(ref, c.table)
+		sized := ref
+		if _, target, ok := resolution.Dealias(ref, c.table); ok {
+			sized = target
+		}
+		size, ok := resolution.ArraySize(sized, c.table)
 		if ok && int64(len(val.Elements)) != size {
 			c.diag.Add(diagnostics.Errorf(
 				nil,
@@ -203,18 +207,34 @@ func checkArraySizes(
 		if !ok {
 			return
 		}
-		form, isStruct := resolved.Form.(resolution.StructForm)
-		if !isStruct {
+		var fields []resolution.Field
+		switch form := resolved.Form.(type) {
+		case resolution.StructForm:
+			args := resolution.TypeArgMap(form.TypeParams, target.TypeArgs)
+			for _, field := range resolution.UnifiedFields(resolved, c.table) {
+				field.Type = resolution.SubstituteTypeRef(field.Type, args)
+				fields = append(fields, field)
+			}
+		case resolution.UnionForm:
+			disc, ok := lo.Find(val.Fields, func(fv resolution.StructFieldValue) bool {
+				return fv.Name == form.Discriminator
+			})
+			if !ok {
+				return
+			}
+			variant, ok := form.Variant(disc.Value.StringValue)
+			if !ok {
+				return
+			}
+			fields = resolution.UnifiedVariantFields(resolved, variant, c.table)
+		default:
 			return
 		}
-		args := resolution.TypeArgMap(form.TypeParams, target.TypeArgs)
-		fields := resolution.UnifiedFields(resolved, c.table)
 		for _, fv := range val.Fields {
 			if field, ok := lo.Find(fields, func(field resolution.Field) bool {
 				return field.Name == fv.Name
 			}); ok {
-				fieldType := resolution.SubstituteTypeRef(field.Type, args)
-				checkArraySizes(c, typ, f, fieldType, fv.Value)
+				checkArraySizes(c, typ, f, field.Type, fv.Value)
 			}
 		}
 	}

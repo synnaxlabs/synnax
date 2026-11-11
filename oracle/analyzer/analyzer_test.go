@@ -4179,16 +4179,41 @@ Node union on variant {
 					"Item struct {\n\tb Box<uint8[2]> = { v = [1] }\n}",
 				"has an array of 1 elements, but its type holds exactly 2",
 			),
+			Entry(
+				"a field of a union variant",
+				"Shape union on kind {\n\tline {\n\t\tends Pair\n\t}\n}\n\n"+
+					"Item struct {\n\tshape Shape = { kind = \"line\", ends = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias with a type argument",
+				"Wrap<T = uint8[2]> = T\n\n"+
+					"Item struct {\n\tw Wrap<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a generic alias with its default",
+				"Wrap<T = uint8[2]> = T\n\nItem struct {\n\tw Wrap = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
 		)
 
-		It(
-			"Should check a generic struct field against its type argument",
-			func(ctx SpecContext) {
-				source := "Box struct<T = uint8[2]> {\n\tv T\n}\n\n" +
-					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n"
+		DescribeTable(
+			"Should check a generic type against its type argument",
+			func(ctx SpecContext, source string) {
 				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
+			Entry(
+				"a struct",
+				"Box struct<T = uint8[2]> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n",
+			),
+			Entry(
+				"an alias",
+				"Wrap<T = uint8[2]> = T\n\n"+
+					"Item struct {\n\tw Wrap<uint8[3]> = [1, 2, 3]\n}\n",
+			),
 		)
 	})
 
