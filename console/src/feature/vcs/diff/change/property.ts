@@ -95,7 +95,7 @@ export const humanize = (field: string): string => {
 const CHANNEL_FIELD = /^(channel|channels|index)$|(_c|C)hannels?$/;
 
 /** Returns true if the field holds the key of a channel. */
-export const isChannelField = (field: string): boolean => CHANNEL_FIELD.test(field);
+const isChannelField = (field: string): boolean => CHANNEL_FIELD.test(field);
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   v != null && typeof v === "object" && !Array.isArray(v);

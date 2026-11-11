@@ -44,7 +44,7 @@ const INCOMING_PREFIX = "incoming:";
 const byName = (a: vcs.Change, b: vcs.Change): number => a.name.localeCompare(b.name);
 
 /** Returns the newest of the incoming commits, which the remote branch points at. */
-export const newestCommit = (commits: vcs.Commit[]): vcs.Commit | undefined =>
+const newestCommit = (commits: vcs.Commit[]): vcs.Commit | undefined =>
   commits.reduce<vcs.Commit | undefined>(
     (newest, c) => (newest == null || c.time.after(newest.time) ? c : newest),
     undefined,

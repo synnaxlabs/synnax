@@ -10,9 +10,6 @@
 export {
   type ActionsProps,
   Provider,
-  type ProviderProps,
-  TAB_TYPE,
-  type Target,
   useOpen,
   useShows,
 } from "@/feature/vcs/diff/Provider";
