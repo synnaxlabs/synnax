@@ -9,10 +9,13 @@
 
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import {
+  type bounds,
   box,
   DataType,
   dynamicWindow,
   id,
+  MultiSeries,
+  Series,
   sleep,
   staticWindow,
   TimeRange,
@@ -27,7 +30,9 @@ import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
@@ -201,6 +206,77 @@ describe("LinePlot", () => {
   });
 });
 
+describe("LinePlot with a tooltip", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
+    const s = new Series({
+      data: new Float32Array(data),
+      timeRange: new TimeRange(0, 1),
+    });
+    const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
+      s.bounds,
+      new MultiSeries([s]),
+    ]);
+    return {
+      type: telemTest.TestSource.TYPE,
+      props: { testId: source.id },
+      variant: "source",
+      valueType: "series",
+    };
+  };
+
+  it("should list the drawn point nearest the cursor", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    // 4000 samples at zero in [0, 4), then 10 in [100, 1000] that reduce to their
+    // extremes: 10 at 300 and -10 at 800. The line draws no sample of 7.
+    const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
+    const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
+      x: seriesSpec([...dense, ...sparse]),
+      y: seriesSpec([...dense.map(() => 0), 7, 7, 10, 7, 7, 7, 7, -10, 7, 7]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    stack.driver.update([...base, "tooltip"], tooltip.Tooltip.TYPE, {
+      position: { x: 500, y: 250 },
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("10");
+    expect(texts).not.toContain("7");
+  });
+});
+
 describe("LinePlot against a Core", () => {
   const synnax = createTestClient();
   const teardowns: (() => void)[] = [];
@@ -238,8 +314,6 @@ describe("LinePlot against a Core", () => {
   };
 
   const mount = (props: telem.ChannelDataProps) => {
-    const recorder = new canvasTest.Recorder();
-    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
     const stack = buildStack({
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
@@ -250,7 +324,7 @@ describe("LinePlot against a Core", () => {
         [line.Line.TYPE]: line.Line,
       },
       synnax: { props: TEST_CLIENT_PARAMS },
-      render: recorder,
+      render: true,
     });
     const gl = [...stack.basePath, "gl"];
     stack.driver.update(gl, lineTest.Host.TYPE, {});
@@ -270,23 +344,23 @@ describe("LinePlot against a Core", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base), recorder, setViewport };
+    return { plot: stack.driver.find<LinePlot>(base), setViewport };
   };
 
-  // Renders the plot, then returns the distance from each target to the drawn sample
-  // nearest it.
-  const gaps = (m: ReturnType<typeof mount>, targets: number[]): number[] => {
-    renderPlot(m.recorder);
-    return targets.map((t) => {
-      const [found] = m.plot.findByXValue(t);
+  // The distance from each target to the first drawn sample at or after it.
+  const gaps = (plot: LinePlot, targets: number[]): number[] =>
+    targets.map((t) => {
+      const [found] = plot.findByXValue(t);
       const x = found?.value.x ?? NaN;
-      return Number.isNaN(x) ? Infinity : Math.abs(x - t);
+      return Number.isNaN(x) ? Infinity : x - t;
     });
-  };
 
   it("should draw full detail tiles after a zoom", async () => {
     const { data, home } = await writeData();
-    const m = mount({ channel: data.key, window: staticWindow(home) });
+    const { plot, setViewport } = mount({
+      channel: data.key,
+      window: staticWindow(home),
+    });
     const homeSpan = Number(home.span.valueOf());
     const lower = Number(home.start.valueOf()) + homeSpan / 2;
     const targets = [0.1, 0.3, 0.5, 0.7, 0.9].map(
@@ -294,15 +368,15 @@ describe("LinePlot against a Core", () => {
     );
     // Home tiles hold one point every half second or so.
     await expect
-      .poll(() => Math.max(...gaps(m, targets)), { timeout: 10_000 })
+      .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
       .toBeLessThan(Number(TimeSpan.seconds(2).valueOf()));
-    expect(Math.max(...gaps(m, targets))).toBeGreaterThan(
+    expect(Math.max(...gaps(plot, targets))).toBeGreaterThan(
       Number(TimeSpan.milliseconds(50).valueOf()),
     );
     const zoom = Number(TimeSpan.seconds(2).valueOf()) / homeSpan;
-    m.setViewport(box.construct(0.5, 0, zoom, 1));
+    setViewport(box.construct(0.5, 0, zoom, 1));
     await expect
-      .poll(() => Math.max(...gaps(m, targets)), { timeout: 10_000 })
+      .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
       .toBeLessThan(Number(TimeSpan.milliseconds(20).valueOf()));
   });
 
@@ -317,7 +391,10 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const m = mount({ channel: data.key, window: dynamicWindow(TimeSpan.seconds(10)) });
+    const { plot } = mount({
+      channel: data.key,
+      window: dynamicWindow(TimeSpan.seconds(10)),
+    });
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -338,10 +415,7 @@ describe("LinePlot against a Core", () => {
         await sleep.sleep(TimeSpan.milliseconds(100));
       }
       const target = Number(last.valueOf());
-      // Until the last chunk draws, the sample nearest target lies 100 ms before it.
-      await expect
-        .poll(() => gaps(m, [target])[0], { timeout: 10_000 })
-        .toBeLessThan(Number(TimeSpan.milliseconds(50).valueOf()));
+      await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
     } finally {
       await writer.close();
     }

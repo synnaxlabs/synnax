@@ -139,8 +139,9 @@ describe("line", () => {
       const x = scale.Scale.scale<number>(100, 300).scale(0, 1);
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
+      m.line.findByXValue(props, 1);
       const read = { bounds: { lower: 100, upper: 300 } };
-      values.forEach((value) => expect(value.mock.calls).toEqual([[read]]));
+      values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
     });
 
     describe("zoom settle", () => {
@@ -646,28 +647,9 @@ describe("line", () => {
         { start: 0, end: 100 },
       );
 
-      // Renders the line across props, then finds the point nearest target.
-      const find = (m: ReturnType<typeof mount>, target: number, props = PROPS) => {
-        m.line.render(props);
-        return m.line.findByXValue(props, target).value;
-      };
-
       it("should return the sample under the target", () => {
-        expect(find(mount([X], [Y]), 3)).toEqual({ x: 3, y: 30 });
-      });
-
-      it("should return the sample nearest the target", () => {
         const m = mount([X], [Y]);
-        expect(find(m, 3.4)).toEqual({ x: 3, y: 30 });
-        expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
-      });
-
-      it("should return the nearest sample across domains and past either end", () => {
-        const m = mount([X1, X2], [Y1, Y2]);
-        expect(find(m, 3)).toEqual({ x: 2, y: 30 });
-        expect(find(m, 4)).toEqual({ x: 5, y: 40 });
-        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
-        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
+        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
       });
 
       it("should return the exact value of a float64 sample", () => {
@@ -675,20 +657,53 @@ describe("line", () => {
           data: new Float64Array([0.1, 0.2, 0.3]),
           timeRange: new TimeRange(0, 100),
         });
-        expect(find(mount([X1], [y]), 1)).toEqual({ x: 1, y: 0.2 });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value).toEqual({ x: 1, y: 0.2 });
       });
 
       it("should return a NaN sample under the target", () => {
         const y = series([0, NaN, 20], 0n, { start: 0, end: 100 });
-        const value = find(mount([X1], [y]), 1);
+        const m = mount([X1], [y]);
+        const { value } = m.line.findByXValue(PROPS, 1);
         expect(value.x).toBe(1);
         expect(value.y).toBeNaN();
       });
 
       it("should return a NaN x when no y sample shares the target's alignment", () => {
         const y = series([0, 10, 20], 5n, { start: 0, end: 100 });
-        expect(find(mount([X1], [y]), 1).x).toBeNaN();
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value.x).toBeNaN();
       });
+
+      it("should return a NaN y for a y series of another alignment multiple", () => {
+        const y = new Series({
+          data: new Float32Array([10, 20]),
+          alignment: 0n,
+          alignmentMultiple: 2n,
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
+      });
+    });
+
+    describe("findDrawnByXValue", () => {
+      const X = series(
+        Array.from({ length: 30 }, (_, i) => i),
+        0n,
+        { start: 0, end: 100 },
+      );
+      const Y = series(
+        Array.from({ length: 30 }, (_, i) => i * 10),
+        0n,
+        { start: 0, end: 100 },
+      );
+
+      // Renders the line across props, then finds the drawn point nearest target.
+      const find = (m: ReturnType<typeof mount>, target: number, props = PROPS) => {
+        m.line.render(props);
+        return m.line.findDrawnByXValue(props, target).value;
+      };
 
       // 4000 samples in [0, 4), then 10 in [100, 1000] that reduce as one group.
       const mountBursty = () => {
@@ -708,15 +723,23 @@ describe("line", () => {
         ),
       };
 
-      it("should return the drawn point nearest a sample that reduction drops", () => {
-        expect(find(mountBursty(), 500, BURSTY_PROPS)).toEqual({ x: 300, y: 10 });
+      it("should return no point before the line draws", () => {
+        expect(mount([X], [Y]).line.findDrawnByXValue(PROPS, 3).value.x).toBeNaN();
       });
 
-      it("should return the y bounds of every point the line drew", () => {
-        const m = mountBursty();
-        m.line.render(BURSTY_PROPS);
-        const { bounds } = m.line.findByXValue(BURSTY_PROPS, 2);
-        expect(bounds).toEqual({ lower: -10, upper: 10 });
+      it("should return the sample nearest the target", () => {
+        const m = mount([X], [Y]);
+        expect(find(m, 3)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.4)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
+      });
+
+      it("should return the nearest sample across domains and past either end", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        expect(find(m, 3)).toEqual({ x: 2, y: 30 });
+        expect(find(m, 4)).toEqual({ x: 5, y: 40 });
+        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
+        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
       });
 
       it("should skip an x sample that is NaN", () => {
@@ -724,14 +747,15 @@ describe("line", () => {
         expect(find(mount([x, X2], [Y1, Y2]), 1.9)).toEqual({ x: 1, y: 20 });
       });
 
-      it("should return a NaN y for a y series of another alignment multiple", () => {
-        const y = new Series({
-          data: new Float32Array([10, 20]),
-          alignment: 0n,
-          alignmentMultiple: 2n,
-          timeRange: new TimeRange(0, 100),
-        });
-        expect(find(mount([X1], [y]), 1).y).toBeNaN();
+      it("should return the drawn point nearest a sample that reduction drops", () => {
+        expect(find(mountBursty(), 500, BURSTY_PROPS)).toEqual({ x: 300, y: 10 });
+      });
+
+      it("should return the y bounds of every point the line drew", () => {
+        const m = mountBursty();
+        m.line.render(BURSTY_PROPS);
+        const { bounds } = m.line.findDrawnByXValue(BURSTY_PROPS, 2);
+        expect(bounds).toEqual({ lower: -10, upper: 10 });
       });
     });
   });
