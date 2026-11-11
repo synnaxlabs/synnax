@@ -40,6 +40,11 @@ export interface ChannelNameProps extends optional.Optional<
   /** The name deploying the task gives the channel; shown while the form has none. */
   defaultName?: string;
   /**
+   * Ends the name in the form when shown, as deploying the task ends it. A rename
+   * stores the name without it.
+   */
+  suffix?: string;
+  /**
    * Holds the name deploying the task gives the channel, shown until the channel
    * resolves. Required while the channel is 0, unless the channel is picked.
    */
@@ -57,9 +62,13 @@ export interface ChannelNameProps extends optional.Optional<
 
 const NO_CHANNEL = "No channel";
 
+/** @returns the name, ended in the suffix unless it already ends in it. */
+export const withSuffix = (name: string, suffix: string): string =>
+  name.endsWith(suffix) ? name : `${name}${suffix}`;
+
 interface NameProps extends Omit<
   ChannelNameProps,
-  "channel" | "defaultName" | "namePath" | "icon" | "skipped" | "picked"
+  "channel" | "defaultName" | "suffix" | "namePath" | "icon" | "skipped" | "picked"
 > {
   name: string;
   /** Takes a rename. Without it, the name is read only. */
@@ -85,15 +94,32 @@ const Name = ({ name, onRename, className, ...rest }: NameProps) => {
 interface StoredProps extends Omit<NameProps, "name" | "onRename"> {
   namePath: deep.Target<string | undefined>;
   defaultName?: string;
+  suffix?: string;
 }
 
 /** The name the form carries for a channel whose record isn't in hand. */
-const Stored = ({ namePath, defaultName = NO_CHANNEL, ...rest }: StoredProps) => {
+const Stored = ({
+  namePath,
+  defaultName = NO_CHANNEL,
+  suffix = "",
+  ...rest
+}: StoredProps) => {
   // Use optional values here because for some reason, the namePath is not always
   // populated.
   const field = Form.useField(namePath, { optional: true });
-  const name = primitive.isNonZero(field?.value) ? field.value : defaultName;
-  return <Name {...rest} name={name} onRename={field?.onChange} />;
+  const name = primitive.isNonZero(field?.value)
+    ? withSuffix(field.value, suffix)
+    : defaultName;
+  const handleRename =
+    field == null
+      ? undefined
+      : (renamed: string) =>
+          field.onChange(
+            suffix !== "" && renamed.endsWith(suffix) && renamed !== suffix
+              ? renamed.slice(0, -suffix.length)
+              : renamed,
+          );
+  return <Name {...rest} name={name} onRename={handleRename} />;
 };
 
 interface UnresolvedProps extends Omit<StoredProps, "namePath" | "defaultName"> {
@@ -101,11 +127,11 @@ interface UnresolvedProps extends Omit<StoredProps, "namePath" | "defaultName"> 
   defaultName: string;
 }
 
-const Unresolved = ({ namePath, defaultName, ...rest }: UnresolvedProps) =>
+const Unresolved = ({ namePath, defaultName, suffix, ...rest }: UnresolvedProps) =>
   namePath == null ? (
     <Name {...rest} name={defaultName} />
   ) : (
-    <Stored {...rest} namePath={namePath} defaultName={defaultName} />
+    <Stored {...rest} namePath={namePath} defaultName={defaultName} suffix={suffix} />
   );
 
 // A plain function, not a component, so a wrapping tooltip's handlers reach the DOM.
@@ -127,6 +153,7 @@ const Resolved = ({
   channel,
   namePath,
   defaultName = NO_CHANNEL,
+  suffix,
   icon,
   deploy,
   ...rest
@@ -142,7 +169,7 @@ const Resolved = ({
         : (name: string) => update({ key: channel, name });
     return lead(icon, <Name {...rest} name={result.data} onRename={handleRename} />);
   }
-  const unresolved = { ...rest, namePath, defaultName };
+  const unresolved = { ...rest, namePath, defaultName, suffix };
   if (isMissing(result))
     return (
       <Message
@@ -219,12 +246,13 @@ export const ChannelName = ({
   channel,
   namePath,
   defaultName,
+  suffix,
   icon,
   skipped = false,
   picked = false,
   ...rest
 }: ChannelNameProps): ReactElement => {
-  const named = { ...rest, namePath, defaultName, icon };
+  const named = { ...rest, namePath, defaultName, suffix, icon };
   if (channel !== 0)
     return <Resolved {...named} channel={channel} deploy={deployOf(skipped, picked)} />;
   if (picked) return lead(icon, <Name {...rest} name={NO_CHANNEL} color={8} />);

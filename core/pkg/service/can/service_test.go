@@ -96,5 +96,15 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
+
+		DescribeTable("Should reject a scan config whose rate is not positive",
+			func(ctx SpecContext, rate float64) {
+				Expect(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{
+					"rate": rate,
+				})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			},
+			Entry("zero", 0.0),
+			Entry("negative", -1.0),
+		)
 	})
 })

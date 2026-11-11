@@ -111,6 +111,14 @@ func (p *PollConfig) SetDefaults() {
 	p.Timeout = 1000000000
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PollConfig) Validate() error {
+	v := validate.New("PollConfig")
+	v.GreaterThan("rate", p.Rate, 0)
+	return v.Error()
+}
+
 // Checksum is the checksum that ends a sync and length frame.
 type Checksum string
 
@@ -482,6 +490,7 @@ func (s *StreamReadConfig) SetDefaults() {
 // schema constraints.
 func (s StreamReadConfig) Validate() error {
 	v := validate.New("StreamReadConfig")
+	v.Exec(s.PollConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(s.Framing.Validate(), "framing") })
 	return v.Error()
 }

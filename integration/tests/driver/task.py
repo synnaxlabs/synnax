@@ -115,6 +115,7 @@ def send_and_verify_commands(
     max_attempts: int = 3,
     timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     command_values: list[list[float]] | None = None,
+    state_keys: list[int] | None = None,
 ) -> None:
     """Open a streamer/writer pair, send two rounds of commands, and verify.
 
@@ -128,6 +129,9 @@ def send_and_verify_commands(
         command key. If None, defaults to [42+i, ...] and [100+i, ...].
     :param task_key: If set, also streams ``sy_status_set`` and fails if the driver
         emits any warning or error status for this task.
+    :param state_keys: The state channels of the commands, in the same order. If set,
+        each round also waits until every state reports its command. Each round must
+        change every value, because a Driver sends its last state again and again.
     """
     if command_values is None:
         command_values = [
@@ -159,40 +163,33 @@ def send_and_verify_commands(
                     enable_auto_commit=True,
                 )
                 try:
-                    expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[0], strict=True)
-                    }
-                    frame: dict[int, float | sy.TimeStamp] = {
-                        **expected,
-                        **{k: sy.TimeStamp.now() for k in index_keys},
-                    }
-                    writer.write(frame)
-                    assert_streamed_values(
-                        client,
-                        streamer,
-                        expected=expected,
-                        timeout=timeout_per_round,
-                        task_name=task_name,
-                    )
-
-                    expected = {
-                        key: float(v)
-                        for key, v in zip(cmd_keys, command_values[1], strict=True)
-                    }
-                    frame = {
-                        **expected,
-                        **{k: sy.TimeStamp.now() for k in index_keys},
-                    }
-                    writer.write(frame)
-                    assert_streamed_values(
-                        client,
-                        streamer,
-                        expected=expected,
-                        timeout=timeout_per_round,
-                        task_name=task_name,
-                    )
-
+                    for values in command_values:
+                        expected = {
+                            key: float(v)
+                            for key, v in zip(cmd_keys, values, strict=True)
+                        }
+                        sent = sy.TimeStamp.now()
+                        frame: dict[int, float | sy.TimeStamp] = {
+                            **expected,
+                            **dict.fromkeys(index_keys, sent),
+                        }
+                        writer.write(frame)
+                        assert_streamed_values(
+                            client,
+                            streamer,
+                            expected=expected,
+                            timeout=timeout_per_round,
+                            task_name=task_name,
+                        )
+                        if state_keys:
+                            _assert_states(
+                                client,
+                                states=state_keys,
+                                expected=values,
+                                since=sent,
+                                timeout=timeout_per_round,
+                                task_name=task_name,
+                            )
                     verified = True
                 except Exception as e:
                     last_err = e
@@ -220,6 +217,35 @@ def send_and_verify_commands(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
     )
+
+
+def _assert_states(
+    client: sy.Synnax,
+    *,
+    states: list[int],
+    expected: list[float],
+    since: sy.TimeStamp,
+    timeout: sy.TimeSpan,
+    task_name: str,
+) -> None:
+    """Wait until each state channel reports its expected value in a sample stamped
+    after since. A Driver sets a state only after the device takes the command.
+
+    :raises AssertionError: If a state channel does not report its value within
+        timeout.
+    """
+    last: dict[int, float] = {}
+
+    def written() -> bool | None:
+        frame = client.read(sy.TimeRange(since, sy.TimeStamp.MAX), states)
+        last.update({k: to_float(frame[k][-1]) for k in states if len(frame[k]) > 0})
+        done = all(last.get(k) == v for k, v in zip(states, expected, strict=True))
+        return True if done else None
+
+    if sy.poll(written, timeout=timeout, interval=0.1) is None:
+        prefix = f"{task_name}: " if task_name else ""
+        read = [last.get(k) for k in states]
+        raise AssertionError(f"{prefix}Expected the states {expected}, but read {read}")
 
 
 def cleanup_task(client: sy.Synnax, task: sy.task.Protocol) -> None:
@@ -813,6 +839,11 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Check that the device holds the last round of commands. Runs before the task
         stops, because a stopping task drops the commands it has not written."""
 
+    def _state_keys(self, task: TaskT) -> list[int]:
+        """Return the state channels of the commands, in the order of the command
+        channels. Empty when the task reports no states."""
+        return []
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
@@ -825,6 +856,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_name=self.tsk.name,
                 task_key=self.tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(self.tsk),
             )
             self.assert_written()
 
@@ -853,5 +885,6 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_name=self.tsk.name,
                 task_key=self.tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(self.tsk),
             )
             self.assert_written()

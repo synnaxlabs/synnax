@@ -128,21 +128,20 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 	return "", newFieldError("type", "file does not match any known resource format")
 }
 
-// Import routes envelope to its Importer, persists it on tx, and returns the created
-// resource's ID. The opts.FileName fallback is applied before routing; opts then
-// reaches the importer untouched. It returns a validation error scoped to "type" when
-// nothing is registered, and to "name" when the envelope is still nameless after the
-// fallback.
-func (s *Service) Import(
+// Decode routes envelope to its Importer, which decodes and migrates it with no
+// transaction, and returns the Write that persists it. A nameless envelope takes the
+// extension-stripped base of fileName as its name. It returns a validation error scoped
+// to "type" when nothing is registered, and to "name" when the envelope is still
+// nameless after the fallback.
+func (s *Service) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	envelope Envelope,
-	opts ImportOptions,
-) (resource.ID, error) {
+	fileName string,
+) (Write, error) {
 	if envelope.Type == "" {
 		typ, err := s.ResolveType(envelope)
 		if err != nil {
-			return resource.ID{}, err
+			return nil, err
 		}
 		envelope.Type = typ
 	}
@@ -150,19 +149,44 @@ func (s *Service) Import(
 	importer, ok := s.importers[envelope.Type]
 	s.mu.RUnlock()
 	if !ok {
-		return resource.ID{}, notFoundError(envelope.Type, "importer")
+		return nil, notFoundError(envelope.Type, "importer")
 	}
 	if envelope.Name == "" {
-		envelope.Name = filename.Stem(opts.FileName)
+		envelope.Name = filename.Stem(fileName)
 	}
 	if envelope.Name == "" {
-		return resource.ID{}, newFieldError("name", "name must be a non-empty string")
+		return nil, newFieldError("name", "name must be a non-empty string")
 	}
-	id, err := importer.Import(ctx, tx, envelope, opts)
+	write, err := importer.Decode(ctx, envelope)
 	if err != nil {
-		return resource.ID{}, errors.Wrap(err, "import envelope")
+		return nil, errors.Wrap(err, "import envelope")
 	}
-	return id, nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		opts ImportOptions,
+	) (resource.ID, error) {
+		id, err := write(ctx, tx, opts)
+		if err != nil {
+			return resource.ID{}, errors.Wrap(err, "import envelope")
+		}
+		return id, nil
+	}, nil
+}
+
+// Import decodes envelope as Decode does, with opts.FileName, then persists it on tx
+// and returns the created resource's ID.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	envelope Envelope,
+	opts ImportOptions,
+) (resource.ID, error) {
+	write, err := s.Decode(ctx, envelope, opts.FileName)
+	if err != nil {
+		return resource.ID{}, err
+	}
+	return write(ctx, tx, opts)
 }
 
 // Export routes resource to its Exporter, which reads it from snap, and returns the

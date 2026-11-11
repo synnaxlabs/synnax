@@ -63,6 +63,14 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/series_index",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/series_slice",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/stage_routing",
           "parameters": { "rack_key": [65537, 65538] }
         },

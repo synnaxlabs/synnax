@@ -48,13 +48,13 @@ describe("version Badge", () => {
   });
 
   it("should prompt to update when an update is available", async () => {
-    mockUpdater({ served: "1.4.2" });
+    mockUpdater({ served: "1.5.1" });
     await renderBadge();
     expect(await screen.findByText("Update available")).toBeTruthy();
   });
 
   it("should open the info modal when the update prompt is clicked", async () => {
-    mockUpdater({ version: "1.5.0", served: "1.4.2" });
+    mockUpdater({ version: "1.5.0", served: "1.5.1" });
     await renderBadge();
     fireEvent.click(await screen.findByText("Update available"));
     await waitFor(() => expect(screen.getByText("Console v1.5.0")).toBeTruthy());

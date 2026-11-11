@@ -221,6 +221,34 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It(
+			"Should migrate a legacy config while another transaction is open",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{
+					"type": "pagerduty_alert",
+					"name": "Locked PD Task",
+					"routingKey": "rk-locked"
+				}`), &env)).To(Succeed())
+				tx := db.OpenTx()
+				DeferCleanup(tx.Close)
+				writes := make(chan imex.Write, 1)
+				go func() {
+					defer GinkgoRecover()
+					writes <- MustSucceed(imexSvc.Decode(ctx, env, ""))
+				}()
+				var write imex.Write
+				Eventually(writes).Should(Receive(&write))
+				id := MustSucceed(write(ctx, tx, imex.ImportOptions{}))
+				var imported task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(uuid.MustParse(id.Key))).
+					Entry(&imported).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-locked"))
+			},
+		)
+
+		It(
 			"Should import a file stamped at the current version without rewriting",
 			func(ctx SpecContext) {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

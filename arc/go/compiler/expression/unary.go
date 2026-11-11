@@ -34,6 +34,7 @@ func compileUnary(
 			types.KindU32:
 			ctx.Writer.WriteI32Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
+			ctx.Writer.WriteNarrow(innerType)
 		case types.KindI64, types.KindU64:
 			ctx.Writer.WriteI64Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)

@@ -149,7 +149,9 @@ func (f *Framing) HashContent(h *content.Hash) {
 func (df *DelimiterFraming) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "delimiter":
-		return patch.Value(&df.Delimiter, c.Next())
+		return patch.Defaulted(&df.Delimiter, c.Next(), func(def *DelimiterFraming) {
+			df.Delimiter = def.Delimiter
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -164,7 +166,9 @@ func (df *DelimiterFraming) HashContent(h *content.Hash) {
 func (ff *FixedFraming) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "length":
-		return patch.Value(&ff.Length, c.Next())
+		return patch.Defaulted(&ff.Length, c.Next(), func(def *FixedFraming) {
+			ff.Length = def.Length
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -183,15 +187,23 @@ func (sf *SyncFraming) Patch(c patch.Cursor) error {
 	case "length_offset":
 		return patch.Value(&sf.LengthOffset, c.Next())
 	case "length_size":
-		return patch.Value(&sf.LengthSize, c.Next())
+		return patch.Defaulted(&sf.LengthSize, c.Next(), func(def *SyncFraming) {
+			sf.LengthSize = def.LengthSize
+		})
 	case "byte_order":
-		return patch.Value(&sf.ByteOrder, c.Next())
+		return patch.Defaulted(&sf.ByteOrder, c.Next(), func(def *SyncFraming) {
+			sf.ByteOrder = def.ByteOrder
+		})
 	case "length_adjustment":
 		return patch.Value(&sf.LengthAdjustment, c.Next())
 	case "checksum":
-		return patch.Value(&sf.Checksum, c.Next())
+		return patch.Defaulted(&sf.Checksum, c.Next(), func(def *SyncFraming) {
+			sf.Checksum = def.Checksum
+		})
 	case "checksum_byte_order":
-		return patch.Value(&sf.ChecksumByteOrder, c.Next())
+		return patch.Defaulted(&sf.ChecksumByteOrder, c.Next(), func(def *SyncFraming) {
+			sf.ChecksumByteOrder = def.ChecksumByteOrder
+		})
 	case "max_length":
 		return patch.Value(&sf.MaxLength, c.Next())
 	default:

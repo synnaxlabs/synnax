@@ -28,7 +28,9 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "rate":
-		return patch.Value(&rc.Rate, c.Next())
+		return patch.Defaulted(&rc.Rate, c.Next(), func(def *ReadConfig) {
+			rc.Rate = def.Rate
+		})
 	case "endpoints":
 		return patch.List(&rc.Endpoints, c.Next())
 	case "nan_fill_enabled":
@@ -57,7 +59,9 @@ func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&re.Key, c.Next())
 	case "method":
-		return patch.Value(&re.Method, c.Next())
+		return patch.Defaulted(&re.Method, c.Next(), func(def *ReadEndpoint) {
+			re.Method = def.Method
+		})
 	case "path":
 		return patch.Value(&re.Path, c.Next())
 	case "headers":
@@ -116,7 +120,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":

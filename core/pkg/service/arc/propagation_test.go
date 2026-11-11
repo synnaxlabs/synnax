@@ -385,14 +385,15 @@ var _ = Describe("Change propagation", Ordered, func() {
 				return stat
 			}
 		}
-		// settledVariant waits out the resync that creating an Arc schedules and
-		// returns the module's status variant once it holds still.
+		// settledVariant waits for the module's status and returns its variant once it
+		// holds still.
 		settledVariant := func(ctx SpecContext, key arc.Key) status.Variant {
 			GinkgoHelper()
 			variant := func() status.Variant { return moduleStatus(ctx, key)().Variant }
 			var settled status.Variant
 			Eventually(func(g Gomega) {
 				settled = variant()
+				g.Expect(settled).ToNot(BeEmpty())
 				g.Consistently(variant, 30*time.Millisecond, 5*time.Millisecond).
 					Should(Equal(settled))
 			}).Should(Succeed())
@@ -403,10 +404,11 @@ var _ = Describe("Change propagation", Ordered, func() {
 			ctx SpecContext,
 		) {
 			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
-			stat := moduleStatus(ctx, m.Base().Key)()
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Compiled"))
-			Expect(stat.Name).To(Equal("pt_m"))
+			Eventually(moduleStatus(ctx, m.Base().Key)).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Compiled"),
+				HaveField("Name", "pt_m"),
+			))
 		})
 
 		It("Should store an error status for a module that does not compile", func(
@@ -418,10 +420,11 @@ var _ = Describe("Change propagation", Ordered, func() {
 				"pt_m",
 				"export func f() i64 { return x }",
 			)
-			stat := moduleStatus(ctx, m.Base().Key)()
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("Failed to compile"))
-			Expect(stat.Description).To(ContainSubstring("x"))
+			Eventually(moduleStatus(ctx, m.Base().Key)).Should(SatisfyAll(
+				HaveField("Variant", status.VariantError),
+				HaveField("Message", "Failed to compile"),
+				HaveField("Description", ContainSubstring("x")),
+			))
 		})
 
 		It("Should update the status when an imported module breaks", func(
@@ -516,7 +519,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 			m := newModule(arc.Base{Name: "pt_m", Source: textSource(moduleV1)})
 			Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &m) })).
 				To(Succeed())
-			Expect(moduleStatus(ctx, m.Base().Key)().Key).ToNot(BeEmpty())
+			Eventually(
+				moduleStatus(ctx, m.Base().Key),
+			).ShouldNot(HaveField("Key", BeEmpty()))
 			Expect(write(ctx, func(w arc.Writer) error {
 				return w.Delete(ctx, m.Base().Key)
 			})).To(Succeed())

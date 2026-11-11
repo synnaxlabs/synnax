@@ -111,7 +111,7 @@ var _ = Describe("Service", func() {
 				ic, _ := createICD(ctx)
 				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 					"icd":     ic.Key.String(),
-					"framing": map[string]any{"type": "fixed", "length": 0},
+					"framing": map[string]any{"type": "fixed"},
 				}))
 				data := MustSucceed(svc.Write.Read(ctx, db, key))
 				Expect(
@@ -120,6 +120,16 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should reject a fixed framing with a zero length", func(ctx SpecContext) {
+			ic, _ := createICD(ctx)
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"icd":     ic.Key.String(),
+				"framing": map[string]any{"type": "fixed", "length": 0},
+			})).Error().To(MatchError(ContainSubstring(
+				"framing.length: must be greater than or equal to 1",
+			)))
+		})
+
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
@@ -127,5 +137,27 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
+
+		DescribeTable("Should reject a read config whose rate is not positive",
+			func(ctx SpecContext, rate float64) {
+				ic, _ := createICD(ctx)
+				Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+					"icd":  ic.Key.String(),
+					"rate": rate,
+				})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			},
+			Entry("zero", 0.0),
+			Entry("negative", -1.0),
+		)
+
+		DescribeTable("Should reject a scan config whose rate is not positive",
+			func(ctx SpecContext, rate float64) {
+				Expect(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{
+					"rate": rate,
+				})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			},
+			Entry("zero", 0.0),
+			Entry("negative", -1.0),
+		)
 	})
 })

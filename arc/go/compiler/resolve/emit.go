@@ -351,6 +351,38 @@ func (r *Resolver) EmitSeriesLen(w *wasm.Writer, wID int) {
 	r.EmitImportCall(w, wID, "series", "len", ct)
 }
 
+// IndexFromName returns the name of the module function that narrows a 64-bit series
+// index of type t to i32.
+func IndexFromName(t types.Type) string {
+	if t.Kind == types.KindU64 {
+		return "$index_from_u64"
+	}
+	return "$index_from_i64"
+}
+
+func indexFromType(t types.Type) types.Type {
+	return types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: t}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+}
+
+// EmitIndexFrom emits a call to the module function that narrows a 64-bit series index
+// of type t to i32.
+func (r *Resolver) EmitIndexFrom(w *wasm.Writer, wID int, t types.Type) {
+	r.EmitLocalCall(w, wID, IndexFromName(t), indexFromType(t))
+}
+
+// EmitSeriesIndexFrom emits a call to the host function that traps for a 64-bit index
+// of type t that does not fit in an i32.
+func (r *Resolver) EmitSeriesIndexFrom(w *wasm.Writer, wID int, t types.Type) {
+	name := "index_from_i64"
+	if t.Kind == types.KindU64 {
+		name = "index_from_u64"
+	}
+	r.EmitImportCall(w, wID, "series", name, indexFromType(t))
+}
+
 // EmitSeriesSlice emits a call to series.slice.
 func (r *Resolver) EmitSeriesSlice(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{

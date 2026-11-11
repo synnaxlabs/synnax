@@ -87,5 +87,17 @@ var _ = Describe("Service", func() {
 				"icd": uuid.New().String(),
 			})).Error().To(MatchError(ContainSubstring("does not exist")))
 		})
+
+		DescribeTable("Should reject a read config whose rate is not positive",
+			func(ctx SpecContext, rate float64) {
+				ic, _ := createICD(ctx)
+				Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+					"icd":  ic.Key.String(),
+					"rate": rate,
+				})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			},
+			Entry("zero", 0.0),
+			Entry("negative", -1.0),
+		)
 	})
 })

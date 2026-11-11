@@ -157,7 +157,7 @@ func (s *Service) attachStatuses(
 	snap gorp.Snapshot,
 	racks []rack.Rack,
 ) error {
-	statuses, err := s.status.Join[struct{}](
+	statuses, err := s.status.Join[rack.StatusDetails](
 		ctx,
 		snap,
 		rack.ResourceIDsFromRacks(racks),

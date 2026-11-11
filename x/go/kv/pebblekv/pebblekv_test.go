@@ -10,10 +10,15 @@
 package pebblekv_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/vfs"
+	"github.com/cockroachdb/pebble/v2/vfs/errorfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -34,10 +39,9 @@ var _ = Describe("PebbleKV", func() {
 			ShouldNotLeakGoroutines()
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
 			DeferCleanup(func() { Expect(os.RemoveAll(dbPath)).To(Succeed()) })
-			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{
-				Logger: pebblekv.NewNoopLogger(),
-			}))
-			db = DeferClose(pebblekv.Wrap(pdb))
+			logger := pebblekv.NewNoopLogger()
+			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{Logger: logger}))
+			db = DeferClose(pebblekv.Wrap(pdb, logger))
 		})
 
 		It("Should handle basic CRUD operations", func(ctx SpecContext) {
@@ -186,10 +190,12 @@ var _ = Describe("PebbleKV", func() {
 
 	Describe("OnApplied", func() {
 		It("Should call OnApplied after the commit applies", func(ctx SpecContext) {
-			pdb := MustSucceed(pebble.Open(GinkgoT().TempDir(), &pebble.Options{
-				Logger: pebblekv.NewNoopLogger(),
-			}))
-			db := DeferClose(pebblekv.Wrap(pdb))
+			logger := pebblekv.NewNoopLogger()
+			pdb := MustSucceed(pebble.Open(
+				GinkgoT().TempDir(),
+				&pebble.Options{Logger: logger},
+			))
+			db := DeferClose(pebblekv.Wrap(pdb, logger))
 			key := []byte("applied-key")
 			tx := db.OpenTx()
 			Expect(tx.Set(ctx, key, []byte("applied-value"))).To(Succeed())
@@ -204,4 +210,57 @@ var _ = Describe("PebbleKV", func() {
 			Expect(applied).To(BeTrue())
 		})
 	})
+
+	Describe("WAL sync", func() {
+		It("Should log a fatal error when the WAL sync fails", func(ctx SpecContext) {
+			walSync := &errorfs.Toggle{Injector: errorfs.InjectorFunc(failWALSync)}
+			logger := &fatalRecorder{}
+			pdb := MustSucceed(pebble.Open("", &pebble.Options{
+				FS:     errorfs.Wrap(vfs.NewMem(), walSync),
+				Logger: logger,
+			}))
+			db := pebblekv.Wrap(pdb, logger)
+			walSync.On()
+			Expect(
+				db.Set(ctx, []byte("key"), []byte("value")),
+			).To(MatchError(errorfs.ErrInjected))
+			Expect(
+				logger.messages(),
+			).To(ConsistOf("failed to sync the WAL: injected error"))
+			Expect(db.Close()).To(MatchError(errorfs.ErrInjected))
+		})
+	})
 })
+
+// failWALSync fails every sync of a Pebble WAL file.
+func failWALSync(op errorfs.Op) error {
+	if op.Kind == errorfs.OpFileSyncData && strings.HasSuffix(op.Path, ".log") {
+		return errorfs.ErrInjected
+	}
+	return nil
+}
+
+// fatalRecorder is a pebble.Logger that records the messages of Fatalf instead of
+// exiting.
+type fatalRecorder struct {
+	mu     sync.Mutex
+	fatals []string
+}
+
+var _ pebble.Logger = (*fatalRecorder)(nil)
+
+func (r *fatalRecorder) Infof(string, ...any) {}
+
+func (r *fatalRecorder) Errorf(string, ...any) {}
+
+func (r *fatalRecorder) Fatalf(format string, args ...any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.fatals = append(r.fatals, fmt.Sprintf(format, args...))
+}
+
+func (r *fatalRecorder) messages() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fatals
+}

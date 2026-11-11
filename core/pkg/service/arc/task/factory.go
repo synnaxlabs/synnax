@@ -58,7 +58,9 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an automation with its compiled Program by key.
+	// GetProgram retrieves an automation with its compiled Program by key. A configure
+	// calls it again, as channel.RetryChanged does, when it returns
+	// channel.ErrLookupsChanged.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -139,7 +141,9 @@ func (f *factory) ConfigureTask(
 		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
-	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
+	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
+		return f.cfg.GetProgram(ctx, cfg.ArcKey)
+	})
 	if err != nil {
 		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err

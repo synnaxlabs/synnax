@@ -80,6 +80,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/view/dispatch", dispatchReqZ, dispatchResZ),
       reduce: reduceAll,
       createOf,

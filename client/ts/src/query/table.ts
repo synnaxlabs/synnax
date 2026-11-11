@@ -13,13 +13,13 @@ import {
   deep,
   destructor,
   errors,
-  type record,
+  record,
   scheduler,
   state,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import type z from "zod";
+import z from "zod";
 
 import {
   AccessDeniedError,
@@ -102,6 +102,9 @@ export type Keyed<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
 > = Value & record.Keyed<Key>;
+
+/** Parses the key of a record and ignores its other fields. */
+export const keyedZ = z.object({ key: record.keyZ });
 
 /** Construction arguments for a {@link Table}. */
 export interface TableParams<
@@ -957,7 +960,8 @@ export interface ListenerSpec<
  * Declares that the channel broadcasts records to mirror into the table. By default the
  * parsed record keys itself (`changed.key`) and is stored as-is; `key` derives the
  * entry key, `value` transforms the record and may merge with the previous entry
- * (return null/undefined to skip the write).
+ * (return null/undefined to skip the write). Without `key`, a record that fails the
+ * schema is fetched again by its key.
  */
 export const createSetListener = <
   Z extends z.ZodType,
@@ -986,6 +990,14 @@ export const createSetListener = <
           ),
         );
       },
+      // A derived key can read fields that an invalid record lacks.
+      onInvalid:
+        opts.key != null
+          ? undefined
+          : (raw) => {
+              const keyed = keyedZ.safeParse(raw);
+              if (keyed.success) table.refetch([keyed.data.key as Key]);
+            },
     }),
   };
 };

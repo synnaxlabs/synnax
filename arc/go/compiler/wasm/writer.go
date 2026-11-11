@@ -153,6 +153,41 @@ func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
 	return nil
 }
 
+// WriteArithmetic writes the arithmetic operation op for operands of type t and wraps
+// the result to the width of t.
+func (e *Writer) WriteArithmetic(op string, t types.Type) error {
+	if err := e.WriteBinaryOpInferred(op, t); err != nil {
+		return err
+	}
+	e.WriteNarrow(t)
+	return nil
+}
+
+// WriteNarrow wraps the i32 on the stack to the width of t. It writes nothing unless t
+// is an 8-bit or 16-bit integer.
+func (e *Writer) WriteNarrow(t types.Type) {
+	switch t.Kind {
+	case types.KindU8:
+		e.WriteI32Const(math.MaxUint8)
+		e.WriteOpcode(OpI32And)
+	case types.KindU16:
+		e.WriteI32Const(math.MaxUint16)
+		e.WriteOpcode(OpI32And)
+	case types.KindI8:
+		e.writeSignExtend(24)
+	case types.KindI16:
+		e.writeSignExtend(16)
+	default:
+	}
+}
+
+func (e *Writer) writeSignExtend(shift int32) {
+	e.WriteI32Const(shift)
+	e.WriteOpcode(OpI32Shl)
+	e.WriteI32Const(shift)
+	e.WriteOpcode(OpI32ShrS)
+}
+
 // WriteBinaryOp writes a simple binary operation (no immediates)
 func (e *Writer) WriteBinaryOp(op Opcode) {
 	e.WriteOpcode(op)

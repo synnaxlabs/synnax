@@ -295,6 +295,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 	}
 	e := make([]E, 0, 1)
 	r.entries.bindMultiple(&e)
+	r.limit = 1
 	if err := r.execFilter(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
@@ -502,7 +503,7 @@ func storageOrder[K Key](keys []K, after *K) []K {
 	return sorted
 }
 
-func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
+func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err error) {
 	var (
 		validCount int
 		match      bool
@@ -538,8 +539,9 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 		}
 		if match {
 			validCount += 1
-			if r.limit == 0 || validCount <= r.limit {
-				r.entries.add(*v)
+			r.entries.add(*v)
+			if validCount == r.limit {
+				break
 			}
 		}
 	}
@@ -581,9 +583,8 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 	if r.limit > 0 {
 		batch = max(r.limit, minWalkBatch)
 	}
-	// One snapshot of the index finds each key once, so the walk keeps an entry that
-	// moved after the snapshot and sorts it into place at the end.
-	snapshot := r.HasFilterKeys() || batch == 0
+	// A walk with no limit keeps every match and sorts them into place at the end.
+	snapshot := batch == 0
 	for k, holds := range r.orderBy.walk(bounded, batch) {
 		// A commit between two batches can move a counted key ahead of the walk.
 		if counted.Contains(k) {

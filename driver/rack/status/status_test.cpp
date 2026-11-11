@@ -140,6 +140,25 @@ public:
     }
 };
 
+/// @brief a connectivity transport that reports a Core clock offset from this host.
+class SkewedCheckClient final : public synnax::connection::CheckClient {
+public:
+    /// @brief how far this host is ahead of the Core.
+    std::atomic<std::int64_t> skew = 0;
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::connectivity::CheckResponse, x::errors::Error>
+    send(const std::string &, google::protobuf::Empty &) override {
+        grpc::connectivity::CheckResponse res;
+        res.set_node_version("0.0.0");
+        res.set_node_time((x::telem::TimeStamp::now() -
+                           x::telem::TimeSpan(this->skew.load()))
+                              .nanoseconds());
+        return {res, x::errors::NIL};
+    }
+};
+
 /// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, Nominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -449,5 +468,105 @@ TEST(stateTests, ReportsHealth) {
     EXPECT_EQ(beat.message, "Driver 0.59.3 cannot work with Core 0.60.1");
     EXPECT_EQ(beat.description, "Install the Driver release that matches the Core.");
     EXPECT_EQ(beat.owner, synnax::rack::resource_id(rack.key));
+    EXPECT_TRUE(beat.details.running);
+}
+
+/// @brief it should warn while the clock skew to the Core exceeds the threshold, and
+/// return to its health once the skew is back under it.
+TEST(stateTests, WarnsOnClockSkew) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto check_transport = std::make_unique<SkewedCheckClient>();
+    auto *skewed = check_transport.get();
+    skewed->skew = (3 * x::telem::SECOND).nanoseconds();
+    client->connectivity = std::make_shared<synnax::connection::Checker>(
+        std::move(check_transport),
+        x::telem::HOUR,
+        "0.0.0",
+        "",
+        x::telem::SECOND
+    );
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::resource_id(rack.key)
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto warned = transport->last_beat();
+    EXPECT_EQ(warned.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(warned.message, "Clock out of sync with the Core");
+    EXPECT_NE(warned.description.find("ahead of the Core"), std::string::npos);
+    EXPECT_NE(warned.description.find("1s limit"), std::string::npos);
+    EXPECT_NE(warned.description.find("NTP"), std::string::npos);
+    EXPECT_TRUE(warned.details.running);
+    skewed->skew = 0;
+    client->connectivity->check();
+    const auto beats = transport->beats.load();
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        beats + 2,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto cleared = transport->last_beat();
+    EXPECT_EQ(cleared.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(cleared.message, "Driver is running");
+    EXPECT_EQ(cleared.description, "");
+}
+
+/// @brief it should say the clock is behind the Core when the skew is negative, and
+/// print the skew without rounding it to the limit.
+TEST(stateTests, WarnsWhenClockBehind) {
+    const auto health = with_clock_skew(
+        Health{},
+        synnax::connection::State{
+            .clock_skew = x::telem::TimeSpan::ZERO() - x::telem::SECOND -
+                          400 * x::telem::MICROSECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(health.message, "Clock out of sync with the Core");
+    EXPECT_EQ(
+        health.description,
+        "The clock of this host is 1s 400us behind the Core, more than the 1s limit. "
+        "Synchronize both clocks with NTP. See " +
+            CLOCK_TROUBLESHOOTING_URL + "."
+    );
+}
+
+/// @brief it should report a health that is not a success over a clock skew warning.
+TEST(stateTests, HealthOverridesClockSkew) {
+    const Health error{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+        .description = "Install the Driver release that matches the Core.",
+    };
+    const auto health = with_clock_skew(
+        error,
+        synnax::connection::State{
+            .clock_skew = 3 * x::telem::SECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, error.variant);
+    EXPECT_EQ(health.message, error.message);
+    EXPECT_EQ(health.description, error.description);
 }
 }

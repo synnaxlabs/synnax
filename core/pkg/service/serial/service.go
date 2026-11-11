@@ -72,16 +72,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "serial_read",
-			Ladder:             versions.ReadConfigLadder,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			PatchEntry:         (*ReadConfig).Patch,
-			HashEntry:          (*ReadConfig).HashContent,
-			References:         readConfigReferences(),
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "serial_read",
+			Ladder:          versions.ReadConfigLadder,
+			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
+			References:      readConfigReferences(),
+			ValidateEntry:   (*ReadConfig).Validate,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
@@ -95,16 +94,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "serial_write",
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			PatchEntry:         (*WriteConfig).Patch,
-			HashEntry:          (*WriteConfig).HashContent,
-			References:         writeConfigReferences(),
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "serial_write",
+			Ladder:          versions.WriteConfigLadder,
+			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
+			References:      writeConfigReferences(),
+			ValidateEntry:   (*WriteConfig).Validate,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
@@ -118,14 +116,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "serial_scan",
-			Ladder:             versions.ScanConfigLadder,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "serial_scan",
+			Ladder:          versions.ScanConfigLadder,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

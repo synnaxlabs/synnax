@@ -242,10 +242,16 @@ describe("queries", () => {
         return dev;
       };
 
-      it("should fetch the status after a status-free read", async () => {
+      it("should fetch the status after a status-free list read", async () => {
         const dev = await createDevice("status-free-read");
         const local = createTestClient();
-        await local.devices.retrieve(dev.key);
+        // A filter on more than the key reads past the table, so no status comes.
+        await local.devices.retrieve({
+          where: { key: { in: [dev.key] }, rack: { eq: dev.rack } },
+        });
+        expect(
+          local.devices.watch({ key: dev.key, includeStatus: true }).getCached(),
+        ).toBeUndefined();
         const { result } = await renderHookSuspended(
           () => Device.use({ key: dev.key }),
           { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
@@ -256,16 +262,20 @@ describe("queries", () => {
       it("should fetch the status after a device arrives on the stream", async () => {
         const dev = await createDevice("stream-cached");
         const local = createTestClient();
-        const stop = local.devices.watch(dev.key).onChange(() => {});
+        const stop = local.devices
+          .watch({ where: { key: { in: [dev.key] }, rack: { eq: dev.rack } } })
+          .onChange(() => {});
         await waitForStreamLive(local.connection);
-        // An edit that keeps the name and the parent writes no status.
+        // An edit to properties writes no status and fetches nothing.
         await client.devices.dispatch(
           dev.key,
-          device.set({ path: ["location"], value: "updated" }),
+          device.set({ path: ["properties", "edited"], value: true }),
         );
         await waitFor(() => {
           const cached = local.devices.watch(dev.key).getCached();
-          expect(query.isLive(cached) ? cached.location : undefined).toEqual("updated");
+          expect(query.isLive(cached) ? cached.properties.edited : undefined).toBe(
+            true,
+          );
         });
         expect(
           local.devices.watch({ key: dev.key, includeStatus: true }).getCached(),

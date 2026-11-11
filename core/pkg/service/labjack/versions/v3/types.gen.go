@@ -462,6 +462,7 @@ func (r ReadConfig) Validate() error {
 	if r.LjmScanBacklogWarnOnCount != nil {
 		v.GreaterThanEq("ljm_scan_backlog_warn_on_count", *r.LjmScanBacklogWarnOnCount, 1)
 	}
+	v.Exec(r.ReadConfig.Validate)
 	for i := range r.Channels {
 		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -517,5 +518,6 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (s ScanConfig) Validate() error {
 	v := validate.New("ScanConfig")
 	v.GreaterThanEq("tcp_scan_multiplier", s.TCPScanMultiplier, 1)
+	v.Exec(s.ScanConfig.Validate)
 	return v.Error()
 }

@@ -29,7 +29,16 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -58,6 +67,47 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+// The toolbar reads its next page when the end of the list scrolls into view. Other
+// spec files leave tasks on the Core, and the Core picks the key of an Arc's task, so
+// the task can sort past the first page.
+const listEnds = new Set<() => void>();
+
+class ListEndObserver {
+  private readonly reachEnd: () => void;
+
+  constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+    this.reachEnd = () => callback([{ isIntersecting: true }]);
+  }
+
+  observe(): void {
+    listEnds.add(this.reachEnd);
+  }
+
+  unobserve(): void {
+    listEnds.delete(this.reachEnd);
+  }
+
+  disconnect(): void {
+    listEnds.delete(this.reachEnd);
+  }
+}
+
+beforeAll(() => vi.stubGlobal("IntersectionObserver", ListEndObserver));
+
+// Scrolls to the end of the list until the row renders, as a user does. The list drops
+// a scroll that lands while it settles a read, and does not fetch again until its rows
+// change. A timer paces each scroll, so it runs only after the read settles.
+const findRow = async (name: string): Promise<HTMLElement> => {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const row = screen.queryByText(name);
+    if (row != null) return row;
+    listEnds.forEach((reachEnd) => reachEnd());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`no list item for ${name}`);
+};
 
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
@@ -154,6 +204,7 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
 
 // The task's status streams in after the list fetch, so wait for the item it gates.
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
+  await findRow(name);
   await openContextMenu(name);
   await screen.findByText(text);
 };
@@ -201,7 +252,7 @@ describe("task/Toolbar Arc rows", () => {
   it("shows an Arc that has a task with the Arc icon and its type", async () => {
     const { arc: a } = await createBoundArc();
     await renderToolbar();
-    const row = (await screen.findByText(a.name)).closest(".lyra-list__item");
+    const row = (await findRow(a.name)).closest(".lyra-list__item");
     assertDefined(row, `no list item for ${a.name}`);
     expect(row.querySelector(".lyra-icon--arc")).not.toBeNull();
     expect(row.textContent).toContain("Arc automation task");
@@ -212,14 +263,14 @@ describe("task/Toolbar Arc rows", () => {
     const unbound = await createArc();
     const { arc: bound } = await createBoundArc();
     await renderToolbar();
-    await screen.findByText(bound.name);
+    await findRow(bound.name);
     expect(screen.queryByText(unbound.name)).toBeNull();
   });
 
   it("opens the Arc editor on double click", async () => {
     const { arc: a } = await createBoundArc();
     const { created } = await renderToolbar();
-    await screen.findByText(a.name);
+    await findRow(a.name);
     fireEvent.doubleClick(screen.getByText(a.name));
     expect(await awaitArcTab(created)).toBe(a.key);
   });
@@ -229,7 +280,7 @@ describe("task/Toolbar Arc rows", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
       await renderToolbar();
-      await screen.findByText(a.name);
+      await findRow(a.name);
       const start = await waitFor(() => {
         const row = document.getElementById(t.key);
         if (row == null) throw new Error(`no list item for ${a.name}`);
@@ -246,8 +297,8 @@ describe("task/Toolbar Arc rows", () => {
     const { arc: started, task: t } = await createBoundArc();
     const { arc: opened } = await createBoundArc();
     const { created } = await renderToolbar();
-    await screen.findByText(started.name);
-    await screen.findByText(opened.name);
+    await findRow(started.name);
+    await findRow(opened.name);
     // The start button mounts only once the update permission resolves, so poll the
     // row for it instead of reading it off the first render.
     const start = await waitFor(() => {
@@ -303,7 +354,8 @@ describe("task/Toolbar Arc rows", () => {
   describe("selection with a task", () => {
     // A click can land before the list knows the row, so it repeats until the row
     // reads as selected. Control adds the row to the selection.
-    const selectRow = async (name: string, control: boolean): Promise<void> =>
+    const selectRow = async (name: string, control: boolean): Promise<void> => {
+      await findRow(name);
       await waitFor(() => {
         const row = screen.getByText(name).closest(".lyra-list__item");
         assertDefined(row, `no list item for ${name}`);
@@ -314,6 +366,7 @@ describe("task/Toolbar Arc rows", () => {
         }
         expect(row.getAttribute("aria-selected")).toBe("true");
       });
+    };
 
     const selectRows = async (first: string, ...others: string[]): Promise<void> => {
       await selectRow(first, false);

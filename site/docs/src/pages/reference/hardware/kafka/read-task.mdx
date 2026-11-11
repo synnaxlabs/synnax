@@ -153,12 +153,10 @@ The **Source** of a record sets the timestamps of its samples:
   value goes to the index channel of the record.
 
 Timestamps in an index channel must increase. A topic with more than one partition can
-deliver records out of time order, so the task handles an older timestamp by its source:
-
-- **Kafka timestamp** -> the task writes the record 1 ns after the last timestamp that
-  it wrote.
-- **Record value** -> the task skips the record and shows a
-  [skip warning](#skipped-of-records).
+deliver records out of time order, so the task skips a record that is not after the last
+timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
+timestamps only count milliseconds, so a record with a Kafka timestamp in the same
+millisecond as the last written timestamp goes 1 ns after it.
 
 In code, a record value timestamp is a field whose channel is the index channel, with a
 `time_format`. Put the key of that field in `index` on the record.

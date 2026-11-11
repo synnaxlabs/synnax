@@ -13,9 +13,9 @@ package icd
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the ICD table for references. Pass it as
@@ -124,8 +124,9 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, ICD] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *ICD) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return want.Contains(e.Name), nil
 		})
 	}
 }

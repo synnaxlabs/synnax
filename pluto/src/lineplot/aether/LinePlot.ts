@@ -98,6 +98,11 @@ export class LinePlot
     return this.axes.flatMap((xAxis) => xAxis.findByXDecimal(props, x)).flat();
   }
 
+  private findDrawnByXDecimal(x: number): FindResult[] {
+    const props = { ...this.state, plot: this.calculatePlot() };
+    return this.axes.flatMap((a) => a.findDrawnByXDecimal(props, x));
+  }
+
   findByXValue(x: number): FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((a) => a.findByXValue(props, x)).flat();
@@ -136,7 +141,8 @@ export class LinePlot
   }
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
-    const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
+    const findByXDecimal = this.findDrawnByXDecimal.bind(this);
+    const p = { findByXDecimal, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
 

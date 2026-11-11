@@ -17,6 +17,7 @@ import (
 	"reflect"
 
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
@@ -70,6 +71,14 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		r.SetDefaults()
 	}
 	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.PollConfig.Validate)
+	return v.Error()
 }
 
 // WriteConfig configures a UDP write task. Each message is sent as one datagram.

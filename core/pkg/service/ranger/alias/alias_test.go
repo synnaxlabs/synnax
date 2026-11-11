@@ -816,6 +816,17 @@ var _ = Describe("Alias", Ordered, func() {
 				To(Equal(map[channel.Key]string{ch.Key(): "child"}))
 		})
 
+		It("Should list only the aliases of the range", func(ctx SpecContext) {
+			listed, other := createChannel(ctx), createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			rng, sibling := createRange(ctx, tx, nil), createRange(ctx, tx, nil)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, rng, listed.Key(), "listed")).To(Succeed())
+			Expect(w.Set(ctx, sibling, other.Key(), "other")).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).List(ctx, rng)).
+				To(Equal(map[channel.Key]string{listed.Key(): "listed"}))
+		})
+
 		It("Should list the aliases on a range and its parent", func(ctx SpecContext) {
 			ch := createChannel(ctx)
 			tx := DeferClose(db.OpenTx())

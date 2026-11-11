@@ -76,8 +76,7 @@ class Client:
         name: str | None = None,
         color: color_.Crude | None = None,
     ) -> Label | list[Label]:
-        """Creates one or more labels. A label with the key of an existing label
-        replaces it.
+        """Creates one or more labels.
 
         :param labels: A single label or a list of them. When omitted, a label is
             created from the ``name`` and ``color`` keyword arguments.
@@ -85,7 +84,7 @@ class Client:
         :param color: The color of the label to create when ``labels`` is omitted.
         :returns: The created label, or a list of labels when ``labels`` is a list.
         :raises ValidationError: If ``labels`` is omitted and ``name`` or ``color`` is
-            too.
+            too, or if a label with a given key already exists.
         """
         is_single = not isinstance(labels, list)
         if labels is None:

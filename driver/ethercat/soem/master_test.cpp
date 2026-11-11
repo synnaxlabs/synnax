@@ -974,6 +974,7 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
         esi::read_settings(
             testutil::DEWESOFT,
             testutil::IOLITE_6XSTG,
+            slaves[1].properties.revision,
             slaves[1].properties.op_modes,
             testutil::read_of(testutil::stg_objects(0))
         )
@@ -983,13 +984,34 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     EXPECT_EQ(slaves[1].properties.settings, expected);
 }
 
-/// @brief it should report why the settings of a slave could not be read.
+/// @brief it should store the settings that the catalog describes for the revision of
+/// the slave.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_DIO;
+    slave.eep_rev = 0x00050000;
+    slave.name = "32xDO";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    const auto &device = slaves[0].properties.settings.value().at("device");
+    ASSERT_EQ(device.size(), 1);
+    EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
+}
+
+/// @brief it should report why a setting of a slave could not be read, and keep the
+/// other settings.
 TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
     auto stg = create_stg(ECT_MBXPROT_COE);
     stg.sdo_objects.erase({0x8050, 3});
     this->add_slave(stg);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[0].properties.settings.value().contains("mode"));
     EXPECT_EQ(
         slaves[0].status.settings_error,
         "failed to read 0x8050:03: Object does not exist in the object dictionary"

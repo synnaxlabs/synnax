@@ -553,6 +553,7 @@ void Master::read_settings(slave::DiscoveryResult &slave) {
     auto [settings, err] = esi::read_settings(
         props.vendor_id,
         props.product_code,
+        props.revision,
         props.op_modes,
         [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);

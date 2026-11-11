@@ -49,6 +49,14 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// storedDetails returns the details of a stored rack status. A stored status can hold
+// any details, and details without a running flag read as not running.
+func storedDetails(details any) StatusDetails {
+	fields, _ := details.(map[string]any)
+	running, _ := fields["running"].(bool)
+	return StatusDetails{Running: running}
+}
+
 // resolveStatus returns the status to persist for r. The owner selects the status, so a
 // provided key is ignored.
 func resolveStatus(r *Rack) *Status {
@@ -77,7 +85,6 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 		r.Status = resolveStatus(r)
 		return w.status.Set(ctx, r.Status)
 	}
-	// A stored status can hold any details, so they do not decode as StatusDetails.
 	var held []status.Status[any]
 	if err := w.statuses.NewRetrieve[any]().
 		Where(status.MatchOwners[any](r.ResourceID())).
@@ -99,6 +106,7 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 		Time:        h.Time,
 		Labels:      h.Labels,
 		Owner:       h.Owner,
+		Details:     storedDetails(h.Details),
 	}
 	if h.Name == r.Name {
 		return nil

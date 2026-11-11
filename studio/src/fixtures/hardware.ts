@@ -206,6 +206,7 @@ export const rackStatus = ({ key, name }: { key: rack.Key; name: string }) => ({
   name,
   variant: "success" as const,
   message: "Driver is running",
+  details: { running: true },
 });
 
 /** deviceStatus returns the status a Driver on `rackKey` writes for a found device. */

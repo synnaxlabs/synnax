@@ -427,10 +427,8 @@ func (r *reference[K, E, T]) Get(
 // Filter returns a Filter matching entries that hold any of targets. It sees the
 // changes staged in the transaction it runs in.
 func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
-	return indexFilter[K, E](r.store, func(e *E, values []T) bool {
-		return slices.ContainsFunc(r.targetsOf(e), func(t T) bool {
-			return slices.Contains(values, t)
-		})
+	return indexFilter[K, E](r.store, func(e *E, in func(T) bool) bool {
+		return slices.ContainsFunc(r.targetsOf(e), in)
 	}, targets)
 }
 

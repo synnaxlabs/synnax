@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 
 import {
-  AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -277,8 +277,8 @@ export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 /**
  * Opens change delivery in the background, since a streaming failure must never block
- * a read. Never rejects. A denial or a missing license belongs to the connection, which
- * reports it once, so only other failures go to report.
+ * a read. Never rejects. A rejected login or session, a denial, or a missing license
+ * belongs to the connection, which reports it once. Only other failures go to report.
  */
 export const startStreaming = async (
   hooks: SpaceHooks,
@@ -287,9 +287,9 @@ export const startStreaming = async (
   try {
     await hooks.ensureStreaming?.();
   } catch (exc) {
-    if (AccessDeniedError.matches(exc)) return;
-    // The connection opens the stream once a license applies, and the epoch bump that
-    // follows refetches maintained answers.
+    if (AuthError.matches(exc)) return;
+    // The connection opens the stream once a login succeeds or a license applies, and
+    // the epoch bump that follows refetches maintained answers.
     if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
     report(exc);
   }

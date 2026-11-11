@@ -1047,6 +1047,31 @@ var _ = Describe("Index", func() {
 				Expect(idsOf(res)).To(Equal([]int32{9, 2}))
 			})
 
+			It(
+				"Should stop a walk of a key filter at the limit",
+				func(ctx SpecContext) {
+					keys := make([]int32, 20)
+					for i := range keys {
+						keys[i] = int32(i)
+					}
+					matched := 0
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(gorp.And(
+							gorp.MatchKeys[int32, indexedEntry](keys...),
+							gorp.Match(func(gorp.Context, *indexedEntry) (bool, error) {
+								matched++
+								return true, nil
+							}),
+						)).
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+					Expect(scoresOf(res)).To(Equal([]int64{0, 10, 20}))
+					Expect(matched).To(Equal(3))
+				},
+			)
+
 			It("Should return every entry without a limit", func(ctx SpecContext) {
 				var res []indexedEntry
 				Expect(table.NewRetrieve().

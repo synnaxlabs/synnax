@@ -749,6 +749,15 @@ var _ = Describe("Expressions", func() {
 					result := identity(identity(identity(5)))
 				}
 			`),
+			Entry("a call added to a literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + identity(5.0)
+				}
+			`),
 		)
 
 		DescribeTable(
@@ -869,6 +878,49 @@ var _ = Describe("Expressions", func() {
 					return x()
 				}
 			`, "cannot call non-function"),
+			Entry("calling an integer literal", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := 1 + 2(identity(5))
+				}
+			`, "cannot call non-function 2"),
+			Entry("calling a float literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + 1.0(identity(5.0))
+				}
+			`, "cannot call non-function 1.0"),
+			Entry("calling a parenthesized expression", `
+				func testFunc() {
+					result := (1 + 2)(3)
+				}
+			`, "cannot call non-function (1+2)"),
+			Entry("calling a type cast", `
+				func testFunc() {
+					result := f32(1)(2)
+				}
+			`, "cannot call non-function f32(1)"),
+			Entry("calling the result of a call", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := identity(1)(2)
+				}
+			`, "cannot call non-function identity(1)"),
+			Entry("calling an indexed value", `
+				func testFunc() {
+					s series i32 := [1, 2, 3]
+					result := s[0](2)
+				}
+			`, "cannot call non-function s[0]"),
 		)
 
 		It(
@@ -1164,6 +1216,49 @@ var _ = Describe("Expressions", func() {
 					x := arr[1:3]
 				}
 			`),
+			Entry("index with an i64 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx i64 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with a u8 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx u8 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with len", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					x := arr[len(arr) - 1]
+				}
+			`),
+		)
+
+		DescribeTable("should reject a non-integer index or slice bound",
+			func(ctx SpecContext, index, got string) {
+				expectFailure(ctx, fmt.Sprintf(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					f f64 := 1.0
+					g f32 := 1.0
+					b bool := true
+					s str := "a"
+					x := arr[%s]
+				}
+			`, index), nil, "series index must be an integer type, got "+got)
+			},
+			Entry("f64 variable", "f", "f64"),
+			Entry("f32 variable", "g", "f32"),
+			Entry("fractional literal", "1.5", ""),
+			Entry("integer-valued float literal", "1.0", ""),
+			Entry("bool", "b", "bool"),
+			Entry("string", "s", "str"),
+			Entry("slice start", "f:2", "f64"),
+			Entry("slice end", "0:g", "f32"),
 		)
 
 		It("Should reject index with undefined variable", func(ctx SpecContext) {

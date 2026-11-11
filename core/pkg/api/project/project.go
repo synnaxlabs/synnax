@@ -195,17 +195,27 @@ type (
 	}
 )
 
-// Import imports a project bundle into a new project.
+// PrepareImport decodes the bundle in req. It returns a validation error for missing
+// params or an invalid bundle.
+func (s *Service) PrepareImport(
+	ctx context.Context,
+	req ImportRequest,
+) (bundle.Bundle, error) {
+	fileName, err := parseImportParams(ctx)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	return s.bundle.Decode(ctx, req, fileName)
+}
+
+// Import imports the bundle that PrepareImport decoded into a new project.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
-	req ImportRequest,
+	_ ImportRequest,
+	b bundle.Bundle,
 ) (ImportResponse, error) {
-	fileName, err := parseImportParams(ctx)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	p, err := s.bundle.Import(ctx, tx, req, fileName)
+	p, err := s.bundle.Import(ctx, tx, b)
 	if err != nil {
 		return ImportResponse{}, err
 	}

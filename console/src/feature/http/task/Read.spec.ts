@@ -623,13 +623,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -663,13 +668,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -703,14 +713,19 @@ describe("Read", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/first": { index: idxCh.key, channels: { "/temperature": firstCh.key } },
         "/second": { index: idxCh.key, channels: { "/temperature": secondCh.key } },
       },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const endpoint = (key: string, path: string) => ({
       ...http.readEndpointZ.parse({}),
       key,
@@ -759,14 +774,19 @@ describe("Read", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
         "/other": { index: idxCh.key, channels: { "/temperature": otherCh.key } },
       },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -817,13 +837,18 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
@@ -894,11 +919,16 @@ describe("Read", () => {
       dataType: "float64",
       index: idxCh.key,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
     };
-    await Device.setProperties(client, dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),

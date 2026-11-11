@@ -90,19 +90,33 @@ const Info = () => {
   const check = useCheck();
   const { download, start } = useDownload();
   const confirm = Modals.useConfirm();
+  const confirmed = async (found: Available): Promise<boolean> => {
+    switch (found.variant) {
+      case "upgrade":
+        return true;
+      case "downgrade":
+        return (
+          (await confirm({
+            message: `Downgrade Console ${found.update.currentVersion} to ${found.update.version}`,
+            description: "Downgrade only to match a Core that runs an older version.",
+            confirm: { label: "Downgrade", variant: "warning" },
+            title: "Downgrade Console",
+          })) === true
+        );
+      case "breaking":
+        return (
+          (await confirm({
+            message: `Console ${found.update.version} cannot work with Core ${found.coreVersion}`,
+            description:
+              "The Console cannot open the workspace of this Core until you update the Core to the same minor version.",
+            confirm: { label: "Update", variant: "warning" },
+            title: "Update Console",
+          })) === true
+        );
+    }
+  };
   const startAfterConfirm = async (found: Available): Promise<void> => {
-    if (
-      found.breaking &&
-      !(await confirm({
-        message: `Console ${found.update.version} cannot work with Core ${found.coreVersion}`,
-        description:
-          "The Console cannot open the workspace of this Core until you update the Core to the same minor version.",
-        confirm: { label: "Update", variant: "warning" },
-        title: "Update Console",
-      }))
-    )
-      return;
-    start(found.update);
+    if (await confirmed(found)) start(found.update);
   };
   const total = download.total.valueOf();
   const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
@@ -141,7 +155,7 @@ const Info = () => {
           </Flex.Box>
         </Flex.Box>
       );
-  else if (check.variant === "error")
+  else if (check.variant === "error" || check.variant === "blocked")
     updateContent = <Status.Summary level="h4" status={check.status} />;
   else if (check.variant === "success")
     if (check.available != null) {

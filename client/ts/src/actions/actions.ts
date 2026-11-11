@@ -130,11 +130,12 @@ export const applyField = <S extends object>(
   const result = applyPath(state, action, document);
   if (result.inverse.length === 0) return result;
   const draft = state as record.Unknown;
-  const next: unknown = zod.parse(fieldZ, snapshotDraft(draft[field]), {
-    label: field,
-  });
+  const value = snapshotDraft(draft[field]);
+  const next: unknown = zod.parse(fieldZ, value, { label: field });
   if (next === undefined) delete draft[field];
-  else draft[field] = next;
+  // The parse copies the field but shares its frozen values, so writing back an equal
+  // copy would leave a later action in the batch unable to edit them.
+  else if (!deep.equal(next, value)) draft[field] = next;
   return result;
 };
 

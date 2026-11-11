@@ -10,7 +10,7 @@
 import { type device, ethercat } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { descriptionZ } from "@/feature/ethercat/device/settings";
+import { type Address, descriptionZ } from "@/feature/ethercat/device/settings";
 
 export const MAKE = "ethercat";
 
@@ -66,6 +66,69 @@ const modeZ = z.object({
   switch: z.array(ethercat.startupParameterZ),
 });
 
+/** The Synnax channel that a slave maps for an input entry. */
+const readBindingZ = z.object({
+  index: z.number(),
+  subIndex: z.number(),
+  /** The channel holds the scaled samples of the entry. */
+  scaled: z.boolean().default(false),
+  channel: z.number(),
+});
+export interface ReadBinding extends z.infer<typeof readBindingZ> {}
+
+/** The Synnax channels that a slave maps for an output entry. 0 is no channel. */
+const writeBindingZ = z.object({
+  index: z.number(),
+  subIndex: z.number(),
+  command: z.number().default(0),
+  state: z.number().default(0),
+});
+export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
+
+/**
+ * Reads bindings stored as a map keyed by the address of the entry, such as 24592_1.
+ * prefix is the optional prefix of a key for the second channel of the entry. A key
+ * that names no address holds no binding and is dropped.
+ */
+const bindingMapZ = <B>(
+  prefix: string,
+  add: (bindings: B[], address: Address, prefixed: boolean, channel: number) => void,
+) => {
+  const keyPattern = new RegExp(`^(${prefix}_)?(\\d+)_(\\d+)$`);
+  return z.record(z.string(), z.number()).transform((map) => {
+    const bindings: B[] = [];
+    for (const [key, channel] of Object.entries(map)) {
+      const match = keyPattern.exec(key);
+      if (match == null) continue;
+      const address = { index: Number(match[2]), subIndex: Number(match[3]) };
+      add(bindings, address, match[1] != null, channel);
+    }
+    return bindings;
+  });
+};
+
+const readBindingsZ = z
+  .array(readBindingZ)
+  .or(
+    bindingMapZ<ReadBinding>("scaled", (bindings, address, scaled, channel) =>
+      bindings.push({ ...address, scaled, channel }),
+    ),
+  );
+
+const writeBindingsZ = z.array(writeBindingZ).or(
+  bindingMapZ<WriteBinding>("state", (bindings, address, state, channel) => {
+    let binding = bindings.find(
+      (b) => b.index === address.index && b.subIndex === address.subIndex,
+    );
+    if (binding == null) {
+      binding = { ...address, command: 0, state: 0 };
+      bindings.push(binding);
+    }
+    if (state) binding.state = channel;
+    else binding.command = channel;
+  }),
+);
+
 const ZERO_PDOS: PDOs = {
   inputs: [],
   outputs: [],
@@ -85,11 +148,11 @@ export const slavePropertiesZ = z.object({
   readIndex: z.number().default(0),
   writeStateIndex: z.number().default(0),
   read: z
-    .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
-    .default(() => ({ channels: {} })),
+    .object({ channels: readBindingsZ.default(() => []) })
+    .default(() => ({ channels: [] })),
   write: z
-    .object({ channels: z.record(z.string(), z.number()).default(() => ({})) })
-    .default(() => ({ channels: {} })),
+    .object({ channels: writeBindingsZ.default(() => []) })
+    .default(() => ({ channels: [] })),
   enabled: z.boolean().optional().default(true),
   opModes: z.array(opModeZ).default(() => []),
   /** The mode the Driver sets up. Unset means the Driver picks it. */
@@ -112,8 +175,8 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   pdos: ZERO_PDOS,
   readIndex: 0,
   writeStateIndex: 0,
-  read: { channels: {} },
-  write: { channels: {} },
+  read: { channels: [] },
+  write: { channels: [] },
   enabled: true,
   opModes: [],
   startupParameters: [],

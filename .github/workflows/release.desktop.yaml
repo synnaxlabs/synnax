@@ -19,13 +19,14 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Version bump
+        description:
+          Version bump (minor or major from main, patch from release/desktop-X.Y)
         type: choice
         options:
-          - patch
           - minor
           - major
-        default: patch
+          - patch
+        default: minor
       prerelease:
         description: Tag a release candidate (-rc.N)
         type: boolean
@@ -96,14 +97,23 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: desktop
+          ref: ${{ github.ref_name }}
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      # The bundled clients report their package version, so the Core and Driver carry
-      # it too and the client compatibility checks pass.
+      # The bundled Core, Driver, and clients all carry the newest stable Core version
+      # reachable from this commit, so the client compatibility checks pass.
       - name: Resolve Core version
         id: core
-        run: echo "version=$(jq -r .version client/ts/package.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(git tag --list --merged HEAD 'core/v*' \
+            | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
+          if [ -z "$version" ]; then
+            echo "no stable core tag is reachable from HEAD" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   draft:
     name: Draft Desktop
@@ -111,10 +121,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release

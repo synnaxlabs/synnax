@@ -23,11 +23,12 @@ import { type z } from "zod";
 
 import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
-import { Table } from "@/query/table";
+import { keyedZ, Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
 const STALE_AUTO_ADVANCE_CAP = 10;
+const ECHO_DEADLINE = TimeSpan.seconds(10);
 
 export interface StackEntry<Action> {
   /** Stays the same when the entry coalesces or is made again after a failed send. */
@@ -185,6 +186,11 @@ export interface ControllerParams<
    * means echoes may have been lost, and epoch 0 means the cache was reset.
    */
   onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
+  /**
+   * Subscribes to the change stream of the cache going down. No echo arrives until the
+   * next epoch.
+   */
+  onStreamDown: (callback: () => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
   /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
    *  of network concerns. */
@@ -224,6 +230,8 @@ interface Pending<Action> {
    * The actions the Core broadcasts for the dispatch. Undefined until it applies it.
    */
   echo?: Action[];
+  /** Fires when the echo is late. */
+  deadline?: ReturnType<typeof setTimeout>;
 }
 
 /** The dispatch state of a doc that has pending entries. */
@@ -296,17 +304,26 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private readonly docs: Table<Key, State>;
   private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
-    Omit<ControllerParams<Key, State, Action>, "store" | "onEpoch" | "encode">
+    Omit<
+      ControllerParams<Key, State, Action>,
+      "store" | "onEpoch" | "onStreamDown" | "encode"
+    >
   > &
     Pick<ControllerParams<Key, State, Action>, "encode">;
   // lastAppliedSeq tracks the highest broadcast sequence number applied for each key.
   // Echoes whose seq does not exceed this are stale and are dropped. A seq of 0 is
   // "unstamped" and always applies.
   private readonly lastAppliedSeq = new Map<Key, number>();
+  /** By doc, the dispatch keys of entries settled at their echo deadline. */
+  private readonly expired = new Map<Key, Set<string>>();
+  /** Docs to fetch again once they hold no pending entry. */
+  private readonly stale = new Set<Key>();
   private readonly rebases = new Map<Key, Rebase<State, Action>>();
   /** Callers of settled, waiting for a doc to hold no pending entry. */
   private readonly settling = new Map<Key, Array<() => void>>();
   private epoch = 0;
+  /** Whether the change stream is live, so echoes can arrive. */
+  private live = false;
   /** Whether this controller is writing the table, so its interceptor stays out. */
   private writing = false;
   // Monotonic counter ordering entry pushes against remote touches. Program
@@ -317,9 +334,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
-  // Documents fetched because a list may now admit them, each with whether a frame for
-  // it arrived during the fetch.
-  private readonly listing = new Map<Key, boolean>();
+  // Documents with a fetch in flight, each with whether a frame or a write for it came
+  // during the fetch.
+  private readonly fetching = new Map<Key, boolean>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -356,24 +373,38 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       apply: (key, doc) => this.overlay(key, doc),
     });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
+    opts.onStreamDown(() => {
+      this.live = false;
+      this.settleAnswered();
+    });
   }
 
   private drop(key: Key): void {
     this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
+    this.stale.delete(key);
     this.release(key);
   }
 
   private changeEpoch(epoch: number): void {
     this.epoch = epoch;
-    // Sequence numbers restart with the Core.
+    this.live = epoch !== 0;
+    // Sequence numbers restart with the Core, and no echo crosses an epoch. A new epoch
+    // fetches or discards every cached doc.
     this.lastAppliedSeq.clear();
+    this.expired.clear();
+    this.stale.clear();
     if (epoch === 0) {
       [...this.rebases.keys()].forEach((key) => this.release(key));
       this.undos.delete(() => true);
       return;
     }
     // The echoes of applied dispatches may have been lost in the gap.
+    this.settleAnswered();
+  }
+
+  /** Settles each entry that the Core applied, without its echo. */
+  private settleAnswered(): void {
     for (const [key, r] of [...this.rebases])
       for (const { dispatchKey, echo } of [...r.pending])
         if (echo != null) this.settle(key, r, dispatchKey, echo);
@@ -556,6 +587,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private set(key: Key, doc: State): void {
+    this.markFetch(key);
     this.writing = true;
     try {
       this.docs.set(key, doc);
@@ -588,7 +620,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Applies actions that the Core applied to the base, and removes the pending entry
-   * with the dispatch key. Returns whether an entry had the key, and the targets.
+   * with the dispatch key. When the base cannot hold the actions, it reports the error,
+   * keeps the base, and fetches the doc again. Returns whether an entry had the key,
+   * and the targets.
    */
   private settle(
     key: Key,
@@ -596,17 +630,28 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     dispatchKey: string,
     actions: Action[],
   ): { own: boolean; targets: readonly string[] } {
-    const { next, targets } = this.params.reduce(r.base, actions);
-    r.base = next;
     const i = r.pending.findIndex((p) => p.dispatchKey === dispatchKey);
+    let applied: ReturnType<Reducer<State, Action>> | null = null;
+    try {
+      applied = this.params.reduce(r.base, actions);
+    } catch (exc) {
+      this.params.onError(
+        new Error("failed to apply a dispatch that the Core applied", { cause: exc }),
+      );
+      this.refetch(key);
+    }
     // The doc already holds the first pending entry. It changes only when the echo
     // carries actions that the entry does not, such as fields the Core derives.
-    const held = i === 0 && deep.equal(r.pending[0].actions, actions);
-    if (i !== -1) r.pending.splice(i, 1);
-    if (held) this.docs.stampWrite(key);
-    else this.write(key, r);
+    const held =
+      applied != null && i === 0 && deep.equal(r.pending[0].actions, actions);
+    if (applied != null) r.base = applied.next;
+    if (i !== -1) clearTimeout(r.pending.splice(i, 1)[0].deadline);
+    if (held) {
+      this.markFetch(key);
+      this.docs.stampWrite(key);
+    } else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
-    return { own: i !== -1, targets };
+    return { own: i !== -1, targets: applied?.targets ?? [] };
   }
 
   /**
@@ -627,11 +672,44 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.echo = [...p.actions, ...added];
-    // No echo arrives in epoch 0, which has no change stream. The echo may also have
-    // been lost when the epoch changed during the send.
-    if (this.epoch === 0 || p.epoch !== this.epoch)
-      this.settle(key, r, dispatchKey, p.echo);
+    const echo = [...p.actions, ...added];
+    p.echo = echo;
+    // No echo arrives while the stream is down. The echo may also have been lost when
+    // the epoch changed during the send.
+    if (!this.live || p.epoch !== this.epoch) {
+      this.settle(key, r, dispatchKey, echo);
+      return;
+    }
+    p.deadline = setTimeout(
+      () => this.expire(key, r, dispatchKey, echo),
+      ECHO_DEADLINE.milliseconds,
+    );
+  }
+
+  /**
+   * Settles an entry whose echo is late, and fetches the doc again, since the stream
+   * may have lost other changes to it.
+   */
+  private expire(
+    key: Key,
+    r: Rebase<State, Action>,
+    dispatchKey: string,
+    echo: Action[],
+  ): void {
+    const expired = this.expired.get(key) ?? new Set<string>();
+    expired.add(dispatchKey);
+    this.expired.set(key, expired);
+    this.refetch(key);
+    this.settle(key, r, dispatchKey, echo);
+  }
+
+  /**
+   * Fetches the doc again, once it holds no pending entry: a fetched doc can already
+   * hold a pending entry, which would then apply twice.
+   */
+  private refetch(key: Key): void {
+    if (this.rebases.has(key)) this.stale.add(key);
+    else void this.fetch(key);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
@@ -961,8 +1039,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Resolves once the cached doc holds no dispatch that the Core has not echoed. An
-   * open transaction is pending until it commits or aborts.
+   * Resolves once the cached doc holds no dispatch that the Core has not echoed. A
+   * dispatch that the Core applied stops waiting for its echo when the change stream
+   * goes down, or when the echo is 10 seconds late. An open transaction is pending
+   * until it commits or aborts.
    */
   async settled(key: Key): Promise<void> {
     if (!this.rebases.has(key)) return;
@@ -974,7 +1054,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private release(key: Key): void {
+    this.rebases.get(key)?.pending.forEach(({ deadline }) => clearTimeout(deadline));
     this.rebases.delete(key);
+    if (this.stale.delete(key)) void this.fetch(key);
     const waiting = this.settling.get(key);
     if (waiting == null) return;
     this.settling.delete(key);
@@ -987,20 +1069,31 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * applies only when a create heads it. Otherwise the doc is fetched when the frame
    * changes a field that a list reads. A frame whose dispatch key matches a pending
    * entry is that entry's echo: it moves into the base, and the doc changes only if
-   * other frames came first. Any other frame applies to the base, under the pending
-   * entries, and marks its targets as remote-touched.
+   * other frames came first. An echo that comes after its deadline drops. Any other
+   * frame applies to the base, under the pending entries, and marks its targets as
+   * remote-touched. A frame that fails to apply reports the error and fetches the doc
+   * again.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
-    // Until the fetch caches the doc, a frame only marks that the Core may answer from
-    // before it.
-    if (this.listing.has(key) && this.docs.get(key) == null) {
-      this.listing.set(key, true);
+    this.markFetch(key);
+    // Until the fetch caches the doc, there is nothing to apply the frame to.
+    if (this.fetching.has(key) && this.docs.get(key) == null) return;
+    if (seq !== 0 && seq <= (this.lastAppliedSeq.get(key) ?? 0)) return;
+    try {
+      this.applyFrame(key, dispatchKey, actions);
+    } catch (exc) {
+      this.params.onError(new Error("failed to apply a remote frame", { cause: exc }));
+      this.refetch(key);
       return;
     }
-    if (seq !== 0) {
-      const last = this.lastAppliedSeq.get(key) ?? 0;
-      if (seq <= last) return;
-      this.lastAppliedSeq.set(key, seq);
+    if (seq !== 0) this.lastAppliedSeq.set(key, seq);
+  }
+
+  private applyFrame(key: Key, dispatchKey: string, actions: Action[]): void {
+    const expired = this.expired.get(key);
+    if (expired?.delete(dispatchKey) === true) {
+      if (expired.size === 0) this.expired.delete(key);
+      return;
     }
     const doc = this.docs.get(key);
     if (doc == null) {
@@ -1010,8 +1103,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         this.docs.set(key, this.params.reduce(created, actions.slice(1)).next);
         return;
       }
-      if (actions.some((action) => this.params.listed(action)))
-        void this.fetchListed(key);
+      if (actions.some((action) => this.params.listed(action))) void this.fetch(key);
       return;
     }
     const r = this.rebases.get(key);
@@ -1025,33 +1117,42 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (!own) this.markRemoteTouched(key, targets);
   }
 
+  // A fetch in flight may answer from before a frame or a write, so it runs again.
+  private markFetch(key: Key): void {
+    if (this.fetching.has(key)) this.fetching.set(key, true);
+  }
+
   /**
-   * Fetches a doc that a list may now admit. The Core may answer from before a frame
-   * that arrives during the fetch, so such a frame fetches the doc again. Never
+   * Fetches a doc until no frame or write for it comes during the fetch. A doc that
+   * holds a pending entry after a fetch is fetched again once it holds none. Never
    * rejects.
    */
-  private async fetchListed(key: Key): Promise<void> {
-    this.listing.set(key, false);
+  private async fetch(key: Key): Promise<void> {
+    if (this.fetching.has(key)) {
+      this.fetching.set(key, true);
+      return;
+    }
     try {
-      for (let refresh = false; ; refresh = true) {
-        await this.docs.retrieve([key], { refresh });
-        if (this.listing.get(key) !== true) return;
-        this.listing.set(key, false);
-      }
+      do {
+        this.fetching.set(key, false);
+        await this.docs.retrieve([key], { refresh: true });
+        if (this.rebases.has(key)) {
+          this.stale.add(key);
+          return;
+        }
+      } while (this.fetching.get(key) === true);
     } catch (exc) {
       // A deleted or denied doc joins no list, and the reconcile after a reconnect
-      // fetches lists again.
+      // fetches every doc again.
       if (
         NotFoundError.matches(exc) ||
         AccessDeniedError.matches(exc) ||
         isConnectionError(exc)
       )
         return;
-      this.params.onError(
-        new Error("failed to fetch a listed document", { cause: exc }),
-      );
+      this.params.onError(new Error("failed to fetch a document", { cause: exc }));
     } finally {
-      this.listing.delete(key);
+      this.fetching.delete(key);
     }
   }
 
@@ -1084,6 +1185,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         frames.forEach(({ key, seq, dispatchKey, actions }) =>
           this.applyRemote(key, seq, dispatchKey, actions),
         );
+      },
+      onInvalid: (raw) => {
+        const keyed = keyedZ.safeParse(raw);
+        if (keyed.success) this.refetch(keyed.data.key as Key);
       },
     };
   }

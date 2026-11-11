@@ -13,8 +13,11 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/observe"
+	"go.uber.org/zap"
 )
 
 // Commit is what one commit of a DB changed, with the values that callers attached to
@@ -43,6 +46,7 @@ func (db *DB) Observe() observe.Observable[Commit] { return &db.delivery }
 // delivery numbers the commits of a DB and delivers them to readers in commit order.
 type delivery struct {
 	observer observe.Observer[Commit]
+	ins      alamos.Instrumentation
 	// connected is the number of readers. A commit reads it under the write lock, where
 	// it must not wait for the lock of observer.
 	connected atomic.Int64
@@ -104,6 +108,7 @@ func (d *delivery) run(ctx context.Context, t ticket, state *txState) {
 		return
 	}
 	defer close(t.done)
+	start := time.Now()
 	if t.prev != nil {
 		<-t.prev
 	}
@@ -112,4 +117,10 @@ func (d *delivery) run(ctx context.Context, t ticket, state *txState) {
 		Changes:  state.changes.list(),
 		attached: state.attached,
 	})
+	if wait := time.Since(start); wait > waitWarning {
+		d.ins.L.Warn(
+			"gorp commit waited long for the readers of Observe",
+			zap.Duration("wait", wait),
+		)
+	}
 }

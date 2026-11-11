@@ -22,6 +22,8 @@ namespace driver::ethercat::testutil {
 constexpr uint32_t DEWESOFT = 0xDEBE50F7;
 /// @brief the product code of the IOLITE 6xSTG.
 constexpr uint32_t IOLITE_6XSTG = 252;
+/// @brief the product code that the IOLITE 32xDI, 32xDO, 8xDI-4xDO, and DIDO share.
+constexpr uint32_t IOLITE_DIO = 0xFB;
 
 /// @brief CoE objects keyed by index and sub-index.
 using Objects = std::map<std::pair<uint16_t, uint8_t>, uint32_t>;

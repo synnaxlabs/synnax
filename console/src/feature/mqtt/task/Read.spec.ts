@@ -1072,13 +1072,18 @@ describe("MQTT Read form", () => {
         dataType: "float64",
         index: idxCh.key,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         read: {
           "plant/oven": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
         },
       };
-      await Device.setProperties(client, dev);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createReadConfig(dev.key, [
         createReadEntry("e1", "plant/oven", {
           fields: [createReadField("f1", "/temperature")],
@@ -1149,11 +1154,16 @@ describe("MQTT Read form", () => {
         dataType: "float64",
         index: idxCh.key,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         read: { "plant/oven": { index: 0, channels: { "/existing": dataCh.key } } },
       };
-      await Device.setProperties(client, dev);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createReadConfig(dev.key, [
         createReadEntry("e1", "plant/oven", {
           fields: [createReadField("f1", "/temperature")],

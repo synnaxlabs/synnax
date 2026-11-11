@@ -62,10 +62,11 @@ describe("queries", () => {
       await waitFor(() => expect(result1.current).not.toBeNull());
       expect(result1.current?.status).toBeDefined();
       expect(result1.current?.status?.time.nanoseconds).toBeGreaterThan(0);
-      const rackStatus: rack.Status = status.create({
+      const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
         owner: rack.resourceID(testRack.key),
         variant: "success",
         message: "Rack is happy as a clam",
+        details: { running: true },
       });
       await act(async () => {
         await client.statuses.set(rackStatus);

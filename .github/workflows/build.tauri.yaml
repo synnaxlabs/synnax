@@ -197,6 +197,14 @@ jobs:
           cp "core-artifact/synnax-v${VERSION}${EXT}" "$SIDECAR"
           chmod +x "$SIDECAR"
 
+      # The Console's version guard reads the TypeScript client's version. Desktop
+      # checks against the Core it embeds.
+      - name: Stamp package versions
+        if: inputs.desktop || inputs.app_version != ''
+        env:
+          VERSION: ${{ inputs.desktop && inputs.version || inputs.app_version }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
+
       # Only the dependencies build here. The Console's own vite build runs inside
       # tauri build, where VITE_DESKTOP reaches it.
       - name: Build workspace packages

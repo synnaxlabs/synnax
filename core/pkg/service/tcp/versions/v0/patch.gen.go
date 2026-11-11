@@ -36,12 +36,18 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "messages":
 		return patch.Value(&rc.StreamReadConfig.ReadConfig.Messages, c.Next())
 	case "rate":
-		return patch.Value(&rc.StreamReadConfig.PollConfig.Rate, c.Next())
+		return patch.Defaulted(&rc.StreamReadConfig.PollConfig.Rate, c.Next(), func(def *ReadConfig) {
+			rc.StreamReadConfig.PollConfig.Rate = def.StreamReadConfig.PollConfig.Rate
+		})
 	case "timeout":
-		return patch.Value(&rc.StreamReadConfig.PollConfig.Timeout, c.Next())
+		return patch.Defaulted(&rc.StreamReadConfig.PollConfig.Timeout, c.Next(), func(def *ReadConfig) {
+			rc.StreamReadConfig.PollConfig.Timeout = def.StreamReadConfig.PollConfig.Timeout
+		})
 	case "framing":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&rc.StreamReadConfig.Framing, c)
+			return patch.Defaulted(&rc.StreamReadConfig.Framing, c, func(def *ReadConfig) {
+				rc.StreamReadConfig.Framing = def.StreamReadConfig.Framing
+			})
 		}
 		return rc.StreamReadConfig.Framing.Patch(c)
 	default:
@@ -77,7 +83,9 @@ func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -110,7 +118,9 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&wc.StreamWriteConfig.WriteConfig.Messages, c.Next())
 	case "framing":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&wc.StreamWriteConfig.Framing, c)
+			return patch.Defaulted(&wc.StreamWriteConfig.Framing, c, func(def *WriteConfig) {
+				wc.StreamWriteConfig.Framing = def.StreamWriteConfig.Framing
+			})
 		}
 		return wc.StreamWriteConfig.Framing.Patch(c)
 	default:

@@ -178,9 +178,7 @@ func compileIndexedAssignment(
 
 	// Step 2: Compile and push index expression
 	indexExpressions := indexOrSlice.AllExpression()
-	if _, err := expression.Compile(
-		ctx.Child(indexExpressions[0]).WithHint(types.I32()),
-	); err != nil {
+	if err := expression.CompileIndex(ctx, indexExpressions[0]); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
 
@@ -216,9 +214,7 @@ func compileIndexedCompoundAssignment(
 
 	// Step 1: Push handle and index for eventual set_element call
 	ctx.Writer.WriteLocalGet(scope.ID)
-	if _, err := expression.Compile(
-		ctx.Child(indexExprs[0]).WithHint(types.I32()),
-	); err != nil {
+	if err := expression.CompileIndex(ctx, indexExprs[0]); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
 	// Stack: [handle, index]
@@ -226,9 +222,7 @@ func compileIndexedCompoundAssignment(
 	// Step 2: Read current value via series_index(handle, index)
 	// We compile the index expression again (safe since index expressions are pure)
 	ctx.Writer.WriteLocalGet(scope.ID)
-	if _, err := expression.Compile(
-		ctx.Child(indexExprs[0]).WithHint(types.I32()),
-	); err != nil {
+	if err := expression.CompileIndex(ctx, indexExprs[0]); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
 	ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType)
@@ -252,7 +246,7 @@ func compileIndexedCompoundAssignment(
 	if elemType.Kind == types.KindString && op == "+" {
 		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
-		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
+		if err = ctx.Writer.WriteArithmetic(op, elemType); err != nil {
 			return err
 		}
 	}
@@ -351,7 +345,7 @@ func compileCompoundAssignment(
 	if varType.Kind == types.KindString && op == "+" {
 		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
-		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
+		if err = ctx.Writer.WriteArithmetic(op, varType); err != nil {
 			return err
 		}
 	}

@@ -441,4 +441,13 @@ TEST(ReadErrorTest, ReportsNoAnswerAsAReadError) {
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
     EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
 }
+
+/// @brief it should report a sub-index that the object does not have as a missing
+/// sub-index, not as a missing object.
+TEST(ReadErrorTest, ReportsAMissingSubIndex) {
+    const auto err = read_error(0x8040, 28, 0x06090011);
+    ASSERT_OCCURRED_AS(err, SUBINDEX_MISSING);
+    EXPECT_FALSE(err.matches(OBJECT_MISSING));
+    EXPECT_EQ(err.data, "failed to read 0x8040:1C: Subindex does not exist");
+}
 }

@@ -114,14 +114,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "can_scan",
-			Ladder:             versions.ScanConfigLadder,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "can_scan",
+			Ladder:          versions.ScanConfigLadder,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

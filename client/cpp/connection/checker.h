@@ -40,6 +40,8 @@ struct State {
     std::string node_version;
     x::telem::TimeSpan clock_skew = x::telem::TimeSpan::ZERO();
     bool clock_skew_exceeded = false;
+    /// @brief the largest clock skew that does not set clock_skew_exceeded.
+    x::telem::TimeSpan clock_skew_threshold = x::telem::TimeSpan::ZERO();
 };
 
 using CheckClient = freighter::

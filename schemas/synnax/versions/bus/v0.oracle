@@ -108,11 +108,12 @@ WriteConfig struct extends task.WriteConfig, icd.Reference {
 
 PollConfig struct {
     rate    telem.Rate = 1 {
-        @doc value """
+        @doc value   """
             is the rate, in Hertz, at which the task sends the query of each message
             that has one.
         """
-        @ts type   "number"
+        @ts type     "number"
+        @validate gt 0
     }
     timeout telem.TimeSpan = 1000000000 {
         @doc value "is how long the task waits for a reply before it counts a miss."

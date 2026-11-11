@@ -21,15 +21,48 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
-type RegisterValue = v2.RegisterValue
+type RegisterValue struct {
+	// DataType is the data type the register contents are interpreted as.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped. When
+	// absent, the device's byte order applies.
+	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	// When absent, the device's word order applies.
+	WordsSwapped *bool `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RegisterValue) ApplyDefaults() {
+	if r.DataType == "" {
+		r.DataType = "uint16"
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegisterValue) SetDefaults() {
+	r.DataType = "uint16"
+}
 
 // RegisterBit addresses one bit of a 16-bit register.
-type RegisterBit = v2.RegisterBit
+type RegisterBit struct {
+	// Bit is the bit index, from 0 (least significant) to 15.
+	Bit uint8 `json:"bit" msgpack:"bit"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RegisterBit) Validate() error {
+	v := validate.New("RegisterBit")
+	v.LessThanEq("bit", r.Bit, 15)
+	return v.Error()
+}
 
 // RegisterString interprets consecutive 16-bit registers as a fixed-length string.
 type RegisterString struct {
@@ -467,34 +500,216 @@ func (u *ReadChannel) SetBase(base BaseReadChannel) {
 // BaseWriteChannel carries the fields every Modbus write channel shares.
 type BaseWriteChannel = v2.BaseWriteChannel
 
-// WriteChannel is a single Modbus write channel. The type field selects the register
-// space the channel writes to and the fields that accompany it.
-type WriteChannel = v2.WriteChannel
-
-// WriteChannelVariant is implemented by every WriteChannel variant.
-type WriteChannelVariant = v2.WriteChannelVariant
-
 // WriteChannelType is the "type" value that selects a variant of WriteChannel.
-type WriteChannelType = v2.WriteChannelType
+type WriteChannelType string
 
 const (
 	// CoilWriteChannelType writes a single bit to a coil.
-	CoilWriteChannelType WriteChannelType = v2.CoilWriteChannelType
+	CoilWriteChannelType WriteChannelType = "coil"
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
-	HoldingRegisterWriteChannelType WriteChannelType = v2.HoldingRegisterWriteChannelType
+	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
 	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
-	HoldingRegisterBitWriteChannelType WriteChannelType = v2.HoldingRegisterBitWriteChannelType
+	HoldingRegisterBitWriteChannelType WriteChannelType = "holding_register_bit"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
+type WriteChannelVariant interface {
+	isWriteChannelVariant()
+}
+
 // CoilWriteChannel writes a single bit to a coil.
-type CoilWriteChannel = v2.CoilWriteChannel
+type CoilWriteChannel struct {
+	BaseWriteChannel
+}
+
+func (CoilWriteChannel) isWriteChannelVariant() {}
 
 // HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
-type HoldingRegisterWriteChannel = v2.HoldingRegisterWriteChannel
+type HoldingRegisterWriteChannel struct {
+	BaseWriteChannel
+	RegisterValue
+}
+
+func (HoldingRegisterWriteChannel) isWriteChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HoldingRegisterWriteChannel) SetDefaults() {
+	h.RegisterValue.SetDefaults()
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (h *HoldingRegisterWriteChannel) ApplyDefaults() {
+	h.RegisterValue.ApplyDefaults()
+}
 
 // HoldingRegisterBitWriteChannel writes one bit of a holding register.
-type HoldingRegisterBitWriteChannel = v2.HoldingRegisterBitWriteChannel
+type HoldingRegisterBitWriteChannel struct {
+	BaseWriteChannel
+	RegisterBit
+}
+
+func (HoldingRegisterBitWriteChannel) isWriteChannelVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HoldingRegisterBitWriteChannel) Validate() error {
+	v := validate.New("HoldingRegisterBitWriteChannel")
+	v.Exec(h.RegisterBit.Validate)
+	return v.Error()
+}
+
+// WriteChannel is a single Modbus write channel. The type field selects the register
+// space the channel writes to and the fields that accompany it.
+type WriteChannel struct {
+	Variant WriteChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CoilWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			CoilWriteChannel
+		}{Type: CoilWriteChannelType, CoilWriteChannel: v})
+	case HoldingRegisterWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterWriteChannel
+		}{Type: HoldingRegisterWriteChannelType, HoldingRegisterWriteChannel: v})
+	case HoldingRegisterBitWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterBitWriteChannel
+		}{Type: HoldingRegisterBitWriteChannelType, HoldingRegisterBitWriteChannel: v})
+	default:
+		return errors.Newf("WriteChannel: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteChannelType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CoilWriteChannelType:
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			CoilWriteChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CoilWriteChannel
+	case HoldingRegisterWriteChannelType:
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterWriteChannel
+		}
+		v.HoldingRegisterWriteChannel.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterWriteChannel
+	case HoldingRegisterBitWriteChannelType:
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterBitWriteChannel
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterBitWriteChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case CoilWriteChannel:
+		return CoilWriteChannelType
+	case HoldingRegisterWriteChannel:
+		return HoldingRegisterWriteChannelType
+	case HoldingRegisterBitWriteChannel:
+		return HoldingRegisterBitWriteChannelType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *WriteChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case HoldingRegisterWriteChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	switch variant := u.Variant.(type) {
+	case HoldingRegisterBitWriteChannel:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return variant.BaseWriteChannel
+	case HoldingRegisterBitWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case CoilWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case HoldingRegisterBitWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
+	}
+}
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig struct {
@@ -541,6 +756,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
 	for i := range r.Channels {
 		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -548,7 +764,28 @@ func (r ReadConfig) Validate() error {
 }
 
 // WriteConfig configures a Modbus write task.
-type WriteConfig = v2.WriteConfig
+type WriteConfig struct {
+	task.WriteConfig
+	// Channels are the channels the task drives.
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	for i := range w.Channels {
+		w.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v2.ScanConfig

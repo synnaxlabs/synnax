@@ -73,6 +73,16 @@ func (r *Resolver) RegisterLocal(name string, bodyIndex uint32) {
 	r.compiled[name] = compiledFunc{bodyIndex: bodyIndex}
 }
 
+// References reports whether a recorded call targets the local function name.
+func (r *Resolver) References(name string) bool {
+	for _, ref := range r.pending {
+		if ref.module == "" && ref.name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // TrackWriter registers a writer for patch tracking and returns its ID.
 func (r *Resolver) TrackWriter(w *wasm.Writer) int {
 	id := len(r.writers)

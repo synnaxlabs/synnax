@@ -163,8 +163,8 @@ func retrieveStatusTx(
 	key rack.Key,
 ) (rack.Status, error) {
 	var s rack.Status
-	if err := stat.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](key.ResourceID())).
+	if err := stat.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 		Entry(&s).
 		Exec(ctx, tx); err != nil {
 		return rack.Status{}, err
@@ -1110,6 +1110,7 @@ var _ = Describe("Rack", Ordered, func() {
 				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
 				live.Variant = status.VariantSuccess
 				live.Message = "Rack is connected"
+				live.Details = rack.StatusDetails{Running: true}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
 				expected := live
 				expected.Name = "connected rack"
@@ -1201,6 +1202,7 @@ var _ = Describe("Rack", Ordered, func() {
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
+						Details: rack.StatusDetails{Running: true},
 					})
 				})).To(Succeed())
 
@@ -1213,10 +1215,10 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
-		It(
-			"Should not mark a rack as dead when the Driver reports an error",
-			func(ctx SpecContext) {
-				const name = "error heartbeat rack"
+		DescribeTable(
+			"Should count a rack status as a heartbeat only when the Driver is running",
+			func(ctx SpecContext, variant status.Variant, running bool) {
+				name := CurrentSpecReport().LeafNodeText
 				var writes, alerts atomic.Int32
 				DeferCleanup(stat.Observe().OnChange(func(
 					_ context.Context,
@@ -1253,19 +1255,29 @@ var _ = Describe("Rack", Ordered, func() {
 							Owner:   new(r.ResourceID()),
 							Name:    r.Name,
 							Time:    now,
-							Variant: status.VariantError,
-							Message: "Driver 0.60.0 cannot work with Core 0.61.0",
+							Variant: variant,
+							Message: "Heartbeat",
+							Details: rack.StatusDetails{Running: running},
 						})
 					})).To(Succeed())
 				}
 
+				if !running {
+					Eventually(writes.Load).Should(BeEquivalentTo(1))
+					Eventually(alerts.Load).Should(BeEquivalentTo(1))
+					return
+				}
 				Consistently(func(g Gomega) {
 					g.Expect(writes.Load()).To(BeZero())
 					g.Expect(alerts.Load()).To(BeZero())
 					s := MustSucceed(retrieveStatusTx(ctx, stat, db, r.Key))
-					g.Expect(s.Variant).To(Equal(status.VariantError))
+					g.Expect(s.Variant).To(Equal(variant))
 				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
 			},
+			Entry("an error from a running Driver", status.VariantError, true),
+			Entry("a warning from a running Driver", status.VariantWarning, true),
+			Entry("a warning from the Core", status.VariantWarning, false),
+			Entry("a success without a running Driver", status.VariantSuccess, false),
 		)
 
 		It("Should write each outage once", func(ctx SpecContext) {
@@ -1372,6 +1384,7 @@ var _ = Describe("Rack", Ordered, func() {
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
+						Details: rack.StatusDetails{Running: true},
 					})
 				})).To(Succeed())
 

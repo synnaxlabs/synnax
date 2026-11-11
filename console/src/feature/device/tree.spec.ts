@@ -10,6 +10,7 @@
 import { device as deviceClient, NotFoundError, query } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -89,6 +90,36 @@ describe("device/tree", () => {
     await findTreeRow(chassis.name);
     expandTreeRow(chassis.name);
     expect(await findTreeRow(module.name)).toBeTruthy();
+  });
+
+  it("shows a status change of a device that a device holds", async () => {
+    const chassis = await createTestDevice(client);
+    const module = await client.devices.create({
+      key: uniqueName("module"),
+      name: uniqueName("module"),
+      rack: chassis.rack,
+      location: "slot1",
+      make: "make",
+      model: "model",
+      properties: {},
+      parent: chassis.key,
+    });
+    await renderDeviceTree(hostDevices(chassis));
+    await findTreeRow(chassis.name);
+    expandTreeRow(chassis.name);
+    const indicator = async () =>
+      (await findTreeRow(module.name)).querySelector(".pluto-device__status-indicator")
+        ?.outerHTML;
+    const before = await indicator();
+    expect(before).toBeDefined();
+    await client.statuses.set({
+      owner: deviceClient.resourceID(module.key),
+      name: "",
+      variant: "error",
+      message: uniqueName("message"),
+      time: TimeStamp.now(),
+    });
+    await waitFor(async () => expect(await indicator()).not.toBe(before));
   });
 
   it("renames a device from the context menu", async () => {

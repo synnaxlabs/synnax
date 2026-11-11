@@ -85,8 +85,8 @@ func newRackNeeds(r resource.ID) []need {
 func statusOf(ctx SpecContext, r rack.Rack) resource.ID {
 	GinkgoHelper()
 	var st rack.Status
-	Expect(svc.Status.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](r.ResourceID())).
+	Expect(svc.Status.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
 		Entry(&st).
 		Exec(ctx, db)).To(Succeed())
 	return st.ResourceID()
@@ -233,8 +233,8 @@ var _ = Describe("Create", func() {
 		))
 		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Existing"))
 		var st rack.Status
-		Expect(svc.Status.NewRetrieve[struct{}]().
-			Where(status.MatchOwners[struct{}](r.ResourceID())).
+		Expect(svc.Status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
 			Entry(&st).
 			Exec(ctx, db)).To(Succeed())
 		Expect(st.Message).To(Equal("Rack is running"))

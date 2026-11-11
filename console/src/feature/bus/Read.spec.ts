@@ -376,7 +376,7 @@ describe("bus read task", () => {
       const { container } = await renderBusTask(CAN.Task.Read, client, draft.key);
       await clickDeploy(container);
       const help = await screen.findByText("Select an ICD");
-      const item = help.closest<HTMLElement>(".pluto-input__item");
+      const item = help.closest<HTMLElement>(".lyra-input__item");
       assertDefined(item);
       expect(within(item).getByText("ICD")).toBeDefined();
     });

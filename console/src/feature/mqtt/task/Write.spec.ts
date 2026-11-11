@@ -671,11 +671,16 @@ describe("MQTT Write form", () => {
         dataType: "float64",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "spBv1.0/plant/line1//setpoint": storedCh.key },
       };
-      await Device.setProperties(client, dev);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [createTagTarget("s1", "setpoint")]);
       const draft = await createDraft(client, config);
       const { container } = await renderTaskFormTab(MQTT.Task.Write, {
@@ -748,11 +753,16 @@ describe("MQTT Write form", () => {
         dataType: "string",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "plant/stored": storedCh.key },
       };
-      await Device.setProperties(client, dev);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [
         createWriteTarget("t1", "plant/cmd", { channel: configuredCh.key }),
         createWriteTarget("t2", "plant/stored"),

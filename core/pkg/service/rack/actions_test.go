@@ -74,8 +74,8 @@ var _ = Describe("Actions", func() {
 		})).To(Succeed())
 		Expect(retrieve(ctx).Name).To(Equal("Renamed"))
 		var stat rack.Status
-		Expect(s.status.NewRetrieve[struct{}]().
-			Where(status.MatchOwners[struct{}](r.ResourceID())).
+		Expect(s.status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
 			Entry(&stat).
 			Exec(ctx, db)).To(Succeed())
 		Expect(stat.Name).To(Equal("Renamed"))

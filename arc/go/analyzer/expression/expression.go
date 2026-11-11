@@ -13,6 +13,7 @@ package expression
 
 import (
 	"math"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -497,13 +498,47 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	}
 }
 
+// AnalyzeIndex analyzes a series index or slice bound and reports an error if its type
+// is not an integer. A literal index takes the type i32.
+func AnalyzeIndex[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) {
+	exprCtx := ctx.Child(expr)
+	Analyze(exprCtx)
+	t := types.InferFromExpression(exprCtx).UnwrapChan()
+	if !t.IsValid() {
+		return
+	}
+	if !resolveConstraint(t).IsInteger() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			expr,
+			"series index must be an integer type, got %s",
+			t,
+		))
+		return
+	}
+	if t.Kind != basetypes.KindVariable || !parser.IsLiteral(expr) {
+		return
+	}
+	// The series host functions take an i32, so a literal index needs no conversion.
+	if err := ctx.Constraints.AddEquality(
+		t,
+		basetypes.I32(),
+		expr,
+		"series index",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+	}
+}
+
 func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		analyzePrimary(ctx.Child(primary))
 	}
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			Analyze(ctx.Child(expr))
+			AnalyzeIndex(ctx, expr)
 		}
 	}
 
@@ -520,12 +555,17 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if len(funcCalls) == 0 {
 		return
 	}
+	if call, callee := nonFunctionCall(ctx.AST); call != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			call,
+			"cannot call non-function %s",
+			callee,
+		))
+		return
+	}
 	primary := ctx.AST.PrimaryExpression()
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	if funcName == "" {
-		return
-	}
 	scope, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
@@ -548,6 +588,28 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)
+}
+
+// nonFunctionCall returns the first call in postfix whose callee is not a name, and the
+// callee's source text. Only a name can refer to a function. It returns nil when every
+// call is valid.
+func nonFunctionCall(
+	postfix parser.IPostfixExpressionContext,
+) (parser.IFunctionCallSuffixContext, string) {
+	named := parser.PrimaryName(postfix.PrimaryExpression()) != ""
+	var callee strings.Builder
+	for i, child := range postfix.GetChildren() {
+		rule, ok := child.(antlr.ParserRuleContext)
+		if !ok {
+			continue
+		}
+		if call, isCall := rule.(parser.IFunctionCallSuffixContext); isCall &&
+			(i != 1 || !named) {
+			return call, callee.String()
+		}
+		callee.WriteString(rule.GetText())
+	}
+	return nil, ""
 }
 
 // AnalyzeCallSite checks a call to callee and records the call edge. fnType may be a

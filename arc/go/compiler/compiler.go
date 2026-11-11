@@ -165,12 +165,16 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	for _, t := range batchTargets {
 		compiled = append(compiled, compileBatchWrapper(compCtx, t))
 	}
+	indexFunctions := compileIndexFunctions(compCtx, len(compiled))
 
 	resolver.FinalizeAndPatch(compCtx.Module)
 
 	for _, cf := range compiled {
 		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 		compCtx.Module.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
+	}
+	for _, cf := range indexFunctions {
+		compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 	}
 
 	compCtx.Module.EnableMemory()

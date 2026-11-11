@@ -230,4 +230,31 @@ var _ = Describe("Emit", func() {
 			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("not"))
 		})
 	})
+
+	Describe("EmitIndexFrom", func() {
+		DescribeTable("should call the module function for the index type",
+			func(t types.Type, name string) {
+				Expect(resolve.IndexFromName(t)).To(Equal(name))
+				resolver.EmitIndexFrom(writer, writerID, t)
+				Expect(resolver.References(name)).To(BeTrue())
+				resolver.RegisterLocal(name, 0)
+				Expect(resolver.Finalize(wasmModule)).To(HaveLen(1))
+				Expect(wasmModule.ImportCount()).To(BeZero())
+			},
+			Entry("i64", types.I64(), "$index_from_i64"),
+			Entry("u64", types.U64(), "$index_from_u64"),
+		)
+	})
+
+	Describe("EmitSeriesIndexFrom", func() {
+		DescribeTable("should import the host function for the index type",
+			func(ctx SpecContext, t types.Type, name string) {
+				resolver.EmitSeriesIndexFrom(writer, writerID, t)
+				resolver.Finalize(wasmModule)
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(name))
+			},
+			Entry("i64", types.I64(), "index_from_i64"),
+			Entry("u64", types.U64(), "index_from_u64"),
+		)
+	})
 })

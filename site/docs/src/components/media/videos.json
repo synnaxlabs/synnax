@@ -109,6 +109,7 @@
   "releases/0-60-0/change-symbol": "636626e9811d",
   "releases/0-60-0/line-plots": "d6ac5703fed7",
   "releases/0-60-0/table-reorder": "c9a9e20892ab",
+  "releases/0-61-0/arc-modules": "a5a84a772e5b",
   "releases/0-61-0/ethercat-sync": "b0d596491301",
   "releases/0-61-0/logs": "d520cc1efb06",
   "releases/0-61-0/mqtt": "b9a4d9672628"

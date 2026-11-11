@@ -160,16 +160,30 @@ describe("Version.Guard", () => {
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
   });
 
-  it("should offer the update of the Console that the Core serves", async () => {
+  it("should offer the update of the Console that a secure Core serves", async () => {
     mockUpdater({ version: "0.61.0", served: "0.60.2" });
-    await renderGuard(INCOMPATIBLE_STATUS);
+    await renderGuard(INCOMPATIBLE_STATUS, true);
     fireEvent.click(await screen.findByRole("button", { name: "Update Console" }));
     expect(await screen.findByText("Version 0.60.2 available")).toBeTruthy();
   });
 
+  it("should explain that it cannot downgrade over an insecure connection", async () => {
+    mockUpdater({ version: "0.61.0", served: "0.60.2" });
+    await renderGuard(INCOMPATIBLE_STATUS);
+    expect(
+      await screen.findByText("Cannot downgrade over an insecure connection"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Core 0.60.1 is older than Console 0.61.0. Install Console 0.60.1 by hand, or connect to the Core over TLS to downgrade.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
+  });
+
   it("should not offer an update when the Core serves none", async () => {
     const ipc = mockUpdater({ version: "0.61.0", served: null });
-    await renderGuard(INCOMPATIBLE_STATUS);
+    await renderGuard(INCOMPATIBLE_STATUS, true);
     await waitFor(() =>
       expect(callsOf(ipc, "updater_check").length).toBeGreaterThan(0),
     );
@@ -182,7 +196,7 @@ describe("Version.Guard", () => {
       update: [RESOURCE_ID],
     });
     const ipc = mockUpdater({ version: "0.61.0", served: null, latest: "0.61.3" });
-    await renderGuard(INCOMPATIBLE_STATUS, false, granted);
+    await renderGuard(INCOMPATIBLE_STATUS, true, granted);
     await waitFor(() =>
       expect(callsOf(ipc, "plugin:updater|check").length).toBeGreaterThan(0),
     );

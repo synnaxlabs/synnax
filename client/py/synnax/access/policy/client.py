@@ -28,6 +28,7 @@ from synnax.resource import ID
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
+from x.params import deprecate_positional
 
 
 class _CreateRequest(BaseModel):
@@ -131,6 +132,7 @@ class Client:
         one: Literal[False] = ...,
     ) -> list[Policy]: ...
 
+    @deprecate_positional("keys", "subjects", "internal")
     def retrieve(
         self,
         *,

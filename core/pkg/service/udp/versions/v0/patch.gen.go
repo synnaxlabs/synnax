@@ -36,9 +36,13 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "messages":
 		return patch.Value(&rc.ReadConfig.Messages, c.Next())
 	case "rate":
-		return patch.Value(&rc.PollConfig.Rate, c.Next())
+		return patch.Defaulted(&rc.PollConfig.Rate, c.Next(), func(def *ReadConfig) {
+			rc.PollConfig.Rate = def.PollConfig.Rate
+		})
 	case "timeout":
-		return patch.Value(&rc.PollConfig.Timeout, c.Next())
+		return patch.Defaulted(&rc.PollConfig.Timeout, c.Next(), func(def *ReadConfig) {
+			rc.PollConfig.Timeout = def.PollConfig.Timeout
+		})
 	default:
 		return c.UnknownField()
 	}

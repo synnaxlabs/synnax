@@ -41,7 +41,11 @@ const nameOf = (state?: Session.Range.State): string | undefined =>
   state == null || state.variant === "persisted" ? undefined : state.name;
 
 const preloadedFor = (ranges: Session.Range.State[]) => ({
-  [Session.Range.SLICE_NAME]: { version: 0 as const, ranges },
+  [Session.Range.SLICE_NAME]: {
+    version: 0 as const,
+    ranges,
+    staticKeysRewritten: false,
+  },
 });
 
 const renderRename = async (ranges: Session.Range.State[]) => {

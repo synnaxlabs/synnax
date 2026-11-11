@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, url, zod } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { createServer, type RequestListener, type Server } from "node:http";
+import { type AddressInfo } from "node:net";
+
+import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
+import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { HTTPClient, Unreachable } from "@/index";
+import { HTTPClient, Timeout, unaryWithBreaker, Unreachable } from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",
@@ -91,6 +94,80 @@ describe("http", () => {
     const send = c.send("/unreachable", {}, messageZ, messageZ);
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
+  });
+
+  describe("timeout", () => {
+    let server: Server;
+
+    const serve = async (
+      handler: RequestListener,
+      timeout: CrudeTimeSpan = TimeSpan.milliseconds(50),
+    ): Promise<HTTPClient> => {
+      server = createServer(handler);
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const { port } = server.address() as AddressInfo;
+      return new HTTPClient(
+        new url.URL({ host: "127.0.0.1", port }),
+        new binary.JSONCodec(),
+        false,
+        timeout,
+      );
+    };
+
+    afterEach(async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    test("rejects a send that the server never answers", async () => {
+      const c = await serve(() => {});
+      await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
+        /^\[freighter\] no response from http:\/\/127\.0\.0\.1:\d+\/stall within 50ms$/,
+      );
+    });
+
+    test("throws a timeout that the breaker does not retry", async () => {
+      let requests = 0;
+      const c = await serve(() => {
+        requests++;
+      });
+      const unary = unaryWithBreaker(c, {
+        maxRetries: 2,
+        baseInterval: TimeSpan.milliseconds(1),
+      });
+      const err = await unary
+        .send("/stall", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(Timeout.matches(err)).toBe(true);
+      expect(Unreachable.matches(err)).toBe(false);
+      expect((err as Error).cause).toMatchObject({ name: "TimeoutError" });
+      expect(requests).toBe(1);
+    });
+
+    test("rejects a send whose response body never ends", async () => {
+      const c = await serve((_, res) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.write("{");
+      });
+      await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
+        "no response from",
+      );
+    });
+
+    test.each([
+      ["a zero", TimeSpan.ZERO],
+      ["an infinite", Infinity],
+      ["a 30 day", TimeSpan.days(30)],
+      ["the largest", TimeSpan.MAX],
+    ])("sends with no limit for %s timeout", async (_, timeout) => {
+      const c = await serve((_, res) => {
+        setTimeout(() => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ id: 1 }));
+        }, 20);
+      }, timeout);
+      expect(await c.send("/slow", {}, messageZ, messageZ)).toEqual({ id: 1 });
+    });
   });
 
   describe("upload", () => {

@@ -33,8 +33,7 @@ import (
 )
 
 // testType is the task type the suite registers its store under. The record type
-// is the Arc task config, picked because it exercises both the ApplyDefaults and
-// Validate hooks.
+// is the Arc task config, picked because it has schema defaults and validation.
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
@@ -46,14 +45,13 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+				DB:            db,
+				Type:          testType,
+				Ladder:        arcversions.ConfigLadder,
+				SetEntryKey:   (*arctask.Config).SetKey,
+				PatchEntry:    (*arctask.Config).Patch,
+				HashEntry:     (*arctask.Config).HashContent,
+				ValidateEntry: (*arctask.Config).Validate,
 			},
 		))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
@@ -243,7 +241,7 @@ var _ = Describe("Service", func() {
 			Expect(MustSucceed(rec.Data())).To(Equal(data))
 		})
 
-		It("Should report a change when storing fills a default", func(
+		It("Should report a change when a removal leaves a default", func(
 			ctx SpecContext,
 		) {
 			key := createTask(ctx)
@@ -251,10 +249,23 @@ var _ = Describe("Service", func() {
 				ctx,
 				db,
 				key,
-				[]patch.Cursor{set([]string{"performance"}, "")},
+				[]patch.Cursor{MustSucceed(patch.Begin(patch.Remove{
+					Path: []string{"config"},
+					Key:  "performance",
+				})).Next()},
 			))
 			Expect(changed).To(BeTrue())
 			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
+		})
+
+		It("Should reject an empty performance", func(ctx SpecContext) {
+			key := createTask(ctx)
+			Expect(svc.Edit(
+				ctx,
+				db,
+				key,
+				[]patch.Cursor{set([]string{"performance"}, "")},
+			)).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should report a change when a value lacks a member", func(
@@ -592,6 +603,46 @@ var _ = Describe("Service", func() {
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
 		})
 
+		It("Should keep an explicit zero at the latest version", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.Normalize(ctx, db,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+			))
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
+		It("Should keep an explicit zero when the legacy version is the latest", func(
+			ctx SpecContext,
+		) {
+			latestLegacy := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					Type:          "latest_legacy_test",
+					Ladder:        arcversions.ConfigLadder,
+					LegacyVersion: arcversions.Latest,
+					SetEntryKey:   (*arctask.Config).SetKey,
+					PatchEntry:    (*arctask.Config).Patch,
+					HashEntry:     (*arctask.Config).HashContent,
+				},
+			))
+			out := MustSucceed(latestLegacy.Normalize(ctx, db,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+			))
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
+		It("Should fill the defaults of a legacy config", func(ctx SpecContext) {
+			out := MustSucceed(versioned.Normalize(ctx, db, 0, msgpack.EncodedJSON{
+				"module":      uuid.New().String(),
+				"performance": "",
+			}))
+			Expect(out).To(HaveKeyWithValue("performance", "auto"))
+		})
+
 		It("Should run the legacy rewrite on a version below the ladder's first", func(
 			ctx SpecContext,
 		) {
@@ -631,13 +682,12 @@ var _ = Describe("Service", func() {
 				reconciling = MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
-						DB:                 reconDB,
-						Type:               "reconcile_test",
-						Ladder:             arcversions.ConfigLadder,
-						SetEntryKey:        (*arctask.Config).SetKey,
-						PatchEntry:         (*arctask.Config).Patch,
-						HashEntry:          (*arctask.Config).HashContent,
-						ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+						DB:          reconDB,
+						Type:        "reconcile_test",
+						Ladder:      arcversions.ConfigLadder,
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
 						ReconcileEntry: func(
 							ctx context.Context,
 							tx gorp.Tx,
@@ -736,6 +786,95 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Decode", func() {
+		var (
+			decoding  *config.Service[arctask.Config]
+			reconcile func(context.Context, gorp.Tx, *arctask.Config) error
+		)
+		BeforeEach(func(ctx SpecContext) {
+			reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
+				Fail("ran the reconcile hook in Decode")
+				return nil
+			}
+			decoding = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					Type:          "decode_test",
+					Ladder:        arcversions.ConfigLadder,
+					LegacyVersion: 1,
+					SetEntryKey:   (*arctask.Config).SetKey,
+					PatchEntry:    (*arctask.Config).Patch,
+					HashEntry:     (*arctask.Config).HashContent,
+					ReconcileEntry: func(
+						ctx context.Context,
+						tx gorp.Tx,
+						c *arctask.Config,
+					) error {
+						return reconcile(ctx, tx, c)
+					},
+					Legacy: &legacy.Rewrite{
+						Post: func(cfg msgpack.EncodedJSON) {
+							legacy.RenameKey(cfg, "module", "arc_key")
+						},
+						Validate: func(cfg msgpack.EncodedJSON) error {
+							if _, ok := cfg["broken"]; ok {
+								return errors.New("broken legacy config")
+							}
+							return nil
+						},
+					},
+				},
+			))
+		})
+
+		It("Should defer reconciliation to Normalize", func(ctx SpecContext) {
+			arcKey := uuid.New()
+			decoded := MustSucceed(decoding.Decode(ctx, 0, msgpack.EncodedJSON{
+				"module": arcKey.String(),
+			}))
+			reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+				c.Performance = arctask.PerformanceHigh
+				return nil
+			}
+			out := MustSucceed(decoded.Normalize(ctx, db))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+			Expect(out).To(HaveKeyWithValue("performance", "high"))
+		})
+
+		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
+			Expect(decoding.Decode(
+				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
+			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"decode_test version %d is newer than this Core supports",
+				arcversions.Latest+1,
+			))))
+		})
+
+		It("Should reject a legacy config the rewrite does not accept", func(
+			ctx SpecContext,
+		) {
+			Expect(decoding.Decode(ctx, 0, msgpack.EncodedJSON{"broken": true})).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"decoding decode_test config: broken legacy config",
+				)),
+			))
+		})
+
+		It("Should reject data that does not decode at its version", func(
+			ctx SpecContext,
+		) {
+			Expect(decoding.Decode(
+				ctx, arcversions.Latest, msgpack.EncodedJSON{"arc_key": 12},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding decode_test config")),
+			))
+		})
+	})
+
 	Describe("Version", func() {
 		It("Should report the ladder's latest version", func() {
 			Expect(svc.Version()).To(Equal(arcversions.Latest))
@@ -829,13 +968,12 @@ var _ = Describe("With a detach reference", func() {
 		return MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 ldb,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				DB:          ldb,
+				Type:        testType,
+				Ladder:      arcversions.ConfigLadder,
+				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
 				References: []gorp.Reference[uuid.UUID, arctask.Config]{
 					reference(),
 				},

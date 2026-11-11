@@ -22,7 +22,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -72,45 +71,38 @@ const Create = ({
             showLabel={false}
             inputProps={NAME_INPUT_PROPS}
           />
-          {FLAGS.arcModules && (
-            <Form.Field path={path.type} label="Type" full="x">
-              {({ value, onChange }) => (
-                <Select.Buttons
-                  value={value}
-                  onChange={onChange}
-                  variant="card"
-                  full="x"
-                >
-                  <Select.Item itemKey="automation">
-                    <Icon.Tile size="large">
-                      <Icon.Arc />
-                    </Icon.Tile>
-                    <Flex.Box el="span" y gap="tiny">
-                      <Text.Text el="span" weight={500}>
-                        Automation
-                      </Text.Text>
-                      <Text.Text color={9} level="small">
-                        Runs as a task, such as a control sequence or an alarm
-                      </Text.Text>
-                    </Flex.Box>
-                  </Select.Item>
-                  <Select.Item itemKey="module">
-                    <Icon.Tile size="large">
-                      <Icon.Module />
-                    </Icon.Tile>
-                    <Flex.Box el="span" y gap="tiny">
-                      <Text.Text el="span" weight={500}>
-                        Module
-                      </Text.Text>
-                      <Text.Text color={9} level="small">
-                        Holds code that other Arcs import
-                      </Text.Text>
-                    </Flex.Box>
-                  </Select.Item>
-                </Select.Buttons>
-              )}
-            </Form.Field>
-          )}
+          <Form.Field path={path.type} label="Type" full="x">
+            {({ value, onChange }) => (
+              <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
+                <Select.Item itemKey="automation">
+                  <Icon.Tile size="large">
+                    <Icon.Arc />
+                  </Icon.Tile>
+                  <Flex.Box el="span" y gap="tiny">
+                    <Text.Text el="span" weight={500}>
+                      Automation
+                    </Text.Text>
+                    <Text.Text color={9} level="small">
+                      Runs as a task, such as a control sequence or an alarm
+                    </Text.Text>
+                  </Flex.Box>
+                </Select.Item>
+                <Select.Item itemKey="module">
+                  <Icon.Tile size="large">
+                    <Icon.Module />
+                  </Icon.Tile>
+                  <Flex.Box el="span" y gap="tiny">
+                    <Text.Text el="span" weight={500}>
+                      Module
+                    </Text.Text>
+                    <Text.Text color={9} level="small">
+                      Holds code that other Arcs import
+                    </Text.Text>
+                  </Flex.Box>
+                </Select.Item>
+              </Select.Buttons>
+            )}
+          </Form.Field>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>

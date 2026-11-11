@@ -826,6 +826,25 @@ var _ = Describe("Status", Ordered, func() {
 			})
 
 			It(
+				"Should not match a name that differs only in case",
+				func(ctx SpecContext) {
+					lower := newStatus("retrieve-a-lower")
+					lower.Name = "status a"
+					Expect(w.Set(ctx, &lower)).To(Succeed())
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchNames[any]("Status A")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(
+						statuses,
+					).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+				},
+			)
+
+			It(
 				"Should return empty when no statuses match name",
 				func(ctx SpecContext) {
 					var statuses []status.Status[any]

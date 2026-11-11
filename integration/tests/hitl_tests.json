@@ -7,11 +7,19 @@
     },
     {
       "sequence_name": "EtherCAT",
-      "tests": [{ "case": "hitl/ethercat" }, { "case": "hitl/ethercat_arc" }]
+      "tests": [
+        { "case": "hitl/ethercat" },
+        { "case": "hitl/ethercat_settings" },
+        { "case": "hitl/ethercat_arc" }
+      ]
     },
     {
       "sequence_name": "cRIO",
-      "tests": [{ "case": "hitl/crio_driver" }, { "case": "hitl/crio_arc" }]
+      "tests": [
+        { "case": "hitl/crio_driver" },
+        { "case": "hitl/crio_ni" },
+        { "case": "hitl/crio_arc" }
+      ]
     }
   ]
 }

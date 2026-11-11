@@ -23,6 +23,7 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  MissingCredentialsError,
   MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
@@ -370,13 +371,21 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
     retry: null,
   });
 
-const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  enterError(
+const reduceAuthFailure = (prev: Status, error: Error): Status => {
+  // a later login with nothing to send must not hide why the credentials went away
+  if (
+    MissingCredentialsError.matches(error) &&
+    prev.variant === "error" &&
+    prev.details.reason === "auth"
+  )
+    return prev;
+  return enterError(
     prev,
     AUTH_FAILED,
     { reason: "auth", error, authenticated: false, session: undefined, retry: null },
     error.message,
   );
+};
 
 const reduceCheckFailure = (
   prev: Status,

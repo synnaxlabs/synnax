@@ -892,6 +892,7 @@ var _ = Describe("Formatter", func() {
 		Entry("unclosed if", "if x > 0 { return 1", "if x > 0"),
 		Entry("extra bracket", "x := [1, 2]]", "x := [1, 2]"),
 		Entry("extra paren", "x := foo(1))", "x := foo(1)"),
+		Entry("extra paren before a comma in a stage", "stage s { x)), y }", "x))"),
 	)
 
 	DescribeTable(
@@ -1133,6 +1134,14 @@ var _ = Describe("Formatter", func() {
 		Entry("stage with nested if block, no trailing comma",
 			"stage check {\n    if x > 0 {\n        next success\n    }\n}",
 			"stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
+		Entry(
+			"call inputs keep their commas",
+			"sequence s { stage a { control.set_authority(value=220, channel=press_vlv_cmd) } }",
+			"sequence s {\n    stage a {\n        control.set_authority(value=220, channel=press_vlv_cmd)\n    }\n}\n",
+		),
+		Entry("flow call inputs keep their commas",
+			"stage s { x -> f(a=1, b=2) -> y }",
+			"stage s {\n    x -> f(a=1, b=2) -> y\n}\n"),
 	)
 
 	DescribeTable("Reactive Body Round-Trip",
@@ -1160,6 +1169,65 @@ var _ = Describe("Formatter", func() {
 		Entry(
 			"transitions in stage",
 			"sequence seq {\n    stage hold {\n        cond1 => next\n        cond2 => next\n    }\n}",
+		),
+		Entry(
+			"call inputs in a stage",
+			"sequence s { stage a { control.set_authority(value=220, channel=press_vlv_cmd) } }",
+		),
+		Entry("flow call inputs in a stage",
+			"stage s { x -> f(a=1, b=2) -> y }"),
+		Entry("call inputs in a stageless sequence",
+			"sequence s { x -> f(a=1, b=2) -> y }"),
+		Entry("series literal in a stage", "stage s { x := [1, 2, 3] }"),
+		Entry(
+			"bang-bang control docs example",
+			`import time
+
+func bang_bang(
+    low f64,
+    high f64,
+) {value f64} u8 {
+    on $= false
+    if value < low {
+        on = true
+    } else if value > high {
+        on = false
+    }
+    return u8(on)
+}
+
+sequence soak {
+    stage heat {
+        tank_temp -> bang_bang(low=48.0, high=52.0) -> heater_cmd
+        tank_temp > 80 => next
+        time.wait(duration=10min) => next
+    }
+    0 -> heater_cmd
+}
+
+start_cmd == 1 => soak
+`,
+		),
+		Entry(
+			"set_authority docs example",
+			`import control
+
+authority 100
+
+sequence fill {
+    stage pressurize {
+        control.set_authority(value=220, channel=press_vlv_cmd)
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    stage hold {
+        control.set_authority(value=100)
+        0 -> press_vlv_cmd
+    }
+}
+
+start_cmd == 1 => fill
+`,
 		),
 	)
 

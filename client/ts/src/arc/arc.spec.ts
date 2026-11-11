@@ -68,14 +68,17 @@ describe("arc", () => {
     });
 
     it("should store a module's compile status under its status key", async () => {
+      // The Core writes the status after the create commits, and the cached answer
+      // reaches it through the change stream.
+      await waitForStreamLive(client.connection);
       const created = await client.arcs.create({
         name: `status_module_${id.create()}`,
         type: "module",
         source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
       });
-      const stat = await client.arcs.status.retrieve(created.key);
-      expect(stat?.message).toEqual("Compiled");
-      expect(stat?.name).toEqual(created.name);
+      await expect
+        .poll(async () => await client.arcs.status.retrieve(created.key))
+        .toMatchObject({ message: "Compiled", name: created.name });
     });
 
     it("should throw a NotFoundError for a missing key in a key list", async () => {
