@@ -76,6 +76,8 @@ class Engine {
     /// @brief the network interface of the bus.
     std::string iface;
     std::shared_ptr<master::Master> master;
+    /// @brief what messages to the user call the network.
+    std::string network_name;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief the process data of the running bus. Written only while the bus is
@@ -386,6 +388,10 @@ public:
         const std::vector<Writer::Entry> &entries,
         x::telem::Rate execution_rate
     );
+
+    /// @brief returns the name that messages to the user give the network, as
+    /// master::Master::name() gave it when the engine was made.
+    [[nodiscard]] const std::string &name() const { return this->network_name; }
 
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }

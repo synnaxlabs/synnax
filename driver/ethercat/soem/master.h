@@ -150,6 +150,10 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
+    /// @brief returns the name that Windows shows for the adapter, or the interface
+    /// name when there is none.
+    [[nodiscard]] std::string name() const override;
+
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
     std::pair<size_t, x::errors::Error> count_slaves() override;

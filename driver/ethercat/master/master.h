@@ -98,6 +98,10 @@ class Master {
 public:
     virtual ~Master() = default;
 
+    /// @brief returns the name that messages to the user give the network, such as
+    /// "Ethernet 2" for a Windows adapter.
+    [[nodiscard]] virtual std::string name() const = 0;
+
     /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
     /// it found without a new discovery until deactivate().
     [[nodiscard]]

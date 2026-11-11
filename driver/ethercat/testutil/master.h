@@ -20,6 +20,7 @@
 #include <set>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -94,6 +95,8 @@ class Master final : public master::Master {
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
     std::condition_variable recorded_cv;
+    /// @brief what name() returns.
+    std::string network_name = "eth0";
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
@@ -322,6 +325,17 @@ public:
     size_t call_count(const std::string &method) const {
         std::lock_guard lock(this->mu);
         return std::count(this->calls.begin(), this->calls.end(), method);
+    }
+
+    /// @brief makes name() return name, which is "eth0" until then.
+    void set_name(std::string name) {
+        std::lock_guard lock(this->mu);
+        this->network_name = std::move(name);
+    }
+
+    [[nodiscard]] std::string name() const override {
+        std::lock_guard lock(this->mu);
+        return this->network_name;
     }
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {

@@ -45,7 +45,7 @@ uint64_t millihertz(const x::telem::Rate rate) {
 std::pair<uint64_t, x::errors::Error> bus_rate(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes,
-    const std::string &interface_name
+    const std::string &network
 ) {
     const uint64_t max = millihertz(MAX_CYCLE_RATE);
     uint64_t floor = millihertz(MIN_CYCLE_RATE);
@@ -59,7 +59,7 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
                 std::format(
                     "a write task on {} runs at {} Hz, above the maximum bus rate of "
                     "{} Hz",
-                    interface_name,
+                    network,
                     static_cast<double>(floor) / 1000,
                     MAX_CYCLE_RATE.hz()
                 )
@@ -78,7 +78,7 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
                     std::format(
                         "a read task on {} samples at {} Hz, but sample rates must be "
                         "a positive multiple of 0.001 Hz",
-                        interface_name,
+                        network,
                         rate.hz()
                     )
                 )
@@ -99,7 +99,7 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
                 "no bus rate at or below {} Hz on {} is a multiple of every read task "
                 "sample rate ({}). Choose sample rates with a smaller common multiple.",
                 MAX_CYCLE_RATE.hz(),
-                interface_name,
+                network,
                 rates
             )
         )
@@ -539,7 +539,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
     const std::vector<x::telem::Rate> &reads,
     const std::vector<x::telem::Rate> &writes
 ) const {
-    auto [mhz, err] = bus_rate(reads, writes, this->iface);
+    auto [mhz, err] = bus_rate(reads, writes, this->network_name);
     if (err || !this->running() || this->image.dc_sync.empty()) return {mhz, err};
     // The SYNC0 and SYNC1 cycles came from the bus period at activation.
     const auto fixed = this->cycle_mhz.load(std::memory_order_acquire);
@@ -553,7 +553,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
-                this->iface,
+                this->network_name,
                 static_cast<double>(fixed) / 1000
             )
         )
@@ -615,7 +615,10 @@ Engine::Engine(
     std::shared_ptr<master::Master> master,
     Config config
 ):
-    config(std::move(config)), iface(std::move(iface)), master(std::move(master)) {}
+    config(std::move(config)),
+    iface(std::move(iface)),
+    master(std::move(master)),
+    network_name(this->master->name()) {}
 
 Engine::~Engine() {
     std::lock_guard lock(this->mu);
@@ -778,7 +781,7 @@ x::errors::Error Engine::configure(
     if (this->running())
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
-            "a task uses " + this->iface + ". Stop the tasks that use it first"
+            "a task uses " + this->network_name + ". Stop the tasks that use it first"
         );
     const auto [slaves, err] = this->master->scan();
     if (err) return err;
@@ -791,7 +794,8 @@ x::errors::Error Engine::configure(
     if (found == slaves.end())
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
-            slave.name + " is not on " + this->iface + ". Check its power and cabling"
+            slave.name + " is not on " + this->network_name +
+                ". Check its power and cabling"
         );
     if (auto write_err = this->master->write(found->properties.position, parameters))
         return write_err;

@@ -15,6 +15,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -34,8 +35,12 @@ namespace {
 /// @brief the DC registers of a slave whose SYNC0 cycle is the 10 ms bus period.
 const dc::Registers SYNC0_AT_10MS{.assign_activate = 0x0300, .sync0_cycle = 10'000'000};
 
+/// @brief the SOEM interface of a Windows adapter.
+const std::string
+    NPF_INTERFACE = "\\Device\\NPF_{126D8109-3F4B-4C1A-9E6D-2B7A0C5D8E11}";
+
 /// @brief a loader for a network with no saved slave settings.
-const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+const SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &, const std::string &) {
     return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
 };
 const pdo::Entry IN_I16(0, 0x6000, 1, 16, true, x::telem::INT16_T);
@@ -1982,6 +1987,19 @@ TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
+/// @brief it should call the network by the name of its master, not by its interface.
+TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
+    this->master->set_name("Ethernet 2");
+    this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master);
+    EXPECT_EQ(this->engine->name(), "Ethernet 2");
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto err = this->engine->configure(io_slave(0), STANDALONE);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(err.data, "a task uses Ethernet 2. Stop the tasks that use it first");
+}
+
 /// @brief it should return the error of a write that the slave rejects.
 TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
     this->master->inject_write_error(
@@ -2052,5 +2070,33 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
     master->clear_injected_errors();
     master->add_slave(io_slave(0));
     EXPECT_EQ(ASSERT_NIL_P(pool.discover("eth0")).size(), 1);
+}
+
+/// @brief it should give the slave settings loader the interface and the name of its
+/// master.
+TEST(PoolTest, SlaveSettingsLoaderGetsTheNameOfTheNetwork) {
+    auto master = std::make_shared<testutil::Master>();
+    master->add_slave(io_slave(0));
+    master->set_name("Ethernet 2");
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NPF_INTERFACE, master);
+    std::vector<std::pair<std::string, std::string>> loads;
+    Pool pool(
+        std::move(manager),
+        [&loads](const std::string &network, const std::string &name) {
+            loads.emplace_back(network, name);
+            return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+        }
+    );
+    const auto engine = ASSERT_NIL_P(pool.acquire(NPF_INTERFACE));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    EXPECT_EQ(
+        loads,
+        (std::vector<std::pair<std::string, std::string>>{
+            {NPF_INTERFACE, "Ethernet 2"},
+        })
+    );
 }
 }

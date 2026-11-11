@@ -27,7 +27,8 @@
 namespace driver::ethercat {
 namespace {
 /// @brief a loader for a network with no saved slave settings.
-const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
+                                                 const std::string &) {
     return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
 };
 }
@@ -148,9 +149,11 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     EXPECT_FALSE(handled);
 }
 
-/// @brief it should report how many slaves a test command finds.
+/// @brief it should report how many slaves a test command finds, and call the network
+/// by the name of its master.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->set_name("Ethernet 2");
     mock_master->add_slave(
         slave::Properties{
             .position = 1,
@@ -201,7 +204,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 slaves on Ethernet 2");
 }
 
 /// @brief it should return a permission error from a scan, so the error reaches the
@@ -1134,16 +1137,18 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
 }
 
-/// @brief it should refuse to switch a device that is not on its network.
+/// @brief it should refuse to switch a device that is not on its network, and call
+/// the network by the name of its master.
 TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     this->start(true);
+    this->master->set_name("Ethernet 2");
     this->props.serial++;
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
         status.description,
-        "The device is not on eth0. Check its power and cabling."
+        "The device is not on Ethernet 2. Check its power and cabling."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

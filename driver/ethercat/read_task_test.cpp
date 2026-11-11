@@ -910,9 +910,11 @@ TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     read_task->exec(stop);
 }
 
-/// @brief it should fail to start, naming the slave, when a slave the task does not
-/// read has invalid properties on the task's network.
+/// @brief it should fail to start, naming the slave and the network by the name of its
+/// master, when a slave the task does not read has invalid properties on the task's
+/// network.
 TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
+    this->mock_master->set_name("Ethernet 2");
     auto invalid = this->create_configured_slave(NETWORK_INTERFACE, 1, nullptr);
     invalid.name = "EL3102";
     ASSERT_NIL(this->client->devices.create(invalid));
@@ -940,8 +942,8 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_EQ(
         status.description,
-        "EL3102 has invalid properties. Every slave on eth0 starts with the bus, so "
-        "fix them before you start the task.\nenabled: type must be boolean, but is "
+        "EL3102 has invalid properties. Every slave on Ethernet 2 starts with the bus, "
+        "so fix them before you start the task.\nenabled: type must be boolean, but is "
         "null"
     );
 }

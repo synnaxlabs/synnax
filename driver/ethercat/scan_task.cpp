@@ -11,6 +11,7 @@
 #include <cctype>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -412,7 +413,9 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->pool->discover(args.interface);
+    auto [engine, err] = this->pool->acquire(args.interface);
+    std::vector<slave::DiscoveryResult> slaves;
+    if (!err) std::tie(slaves, err) = engine->discover();
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
@@ -426,7 +429,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
             << " slaves on " << args.interface;
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
-                          args.interface;
+                          engine->name();
     this->ctx->set_status(task_status);
 }
 
@@ -480,7 +483,9 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         return generate_slave_key(s.properties, network) == key;
     });
     if (slave == slaves.end()) {
-        fail("The device is not on " + network + ". Check its power and cabling.");
+        fail(
+            "The device is not on " + engine->name() + ". Check its power and cabling."
+        );
         return;
     }
     const auto &props = slave->properties;

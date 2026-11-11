@@ -396,8 +396,8 @@ TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"Ethernet 2\". After DewesoftX starts, the filter blocks EtherCAT "
+        "no EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter. After DewesoftX starts, the filter blocks EtherCAT "
         "replies, also after DewesoftX closes. Clear it in the properties of "
         "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
         "More network adapter options, then right-click the adapter > Properties)."
@@ -415,10 +415,33 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     EXPECT_EQ(
         err.data,
         "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"eth0\". After DewesoftX starts, the filter blocks EtherCAT replies, "
-        "also after DewesoftX closes. Clear it in the properties of \"eth0\" (Settings "
-        "> Network & internet > Advanced network settings > More network adapter "
-        "options, then right-click the adapter > Properties)."
+        "this adapter. After DewesoftX starts, the filter blocks EtherCAT replies, "
+        "also after DewesoftX closes. Clear it in the properties of \"eth0\" "
+        "(Settings > Network & internet > Advanced network settings > More network "
+        "adapter options, then right-click the adapter > Properties)."
+    );
+}
+
+/// @brief it should take the Windows name of the adapter as its name, or the interface
+/// name when the adapter has none.
+TEST_F(SOEMMasterTest, NameIsTheWindowsNameOfTheAdapter) {
+    EXPECT_EQ(this->master->name(), "eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    EXPECT_EQ(this->master->name(), "Ethernet 2");
+}
+
+/// @brief it should call the interface by the Windows name of its adapter when it does
+/// not open.
+TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
+    this->add_default_slave();
+    this->mock->init_return = 0;
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    const auto err = this->master->scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
+        "with CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
 }
 
