@@ -140,7 +140,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	if next.IsCalculated() && !sameGroup(prev.Group, next.Group) {
+	// Opening the service clears the index of a calculated channel when it is missing.
+	if next.IsCalculated() && next.LocalIndex != 0 &&
+		!sameGroup(prev.Group, next.Group) {
 		if err = w.SetGroup(ctx, next.Group, next.Index()); err != nil {
 			return nil, err
 		}

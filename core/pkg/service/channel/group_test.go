@@ -156,6 +156,20 @@ var _ = Describe("Group", Ordered, func() {
 				Expect(retrieve(ctx, calc.Index()).Group).To(Equal(&g.Key))
 			},
 		)
+
+		It(
+			"Should move a calculated channel that has no index",
+			func(ctx SpecContext) {
+				calc := createCalculated(ctx, UniqueChannelName(), nil)
+				calc.LocalIndex = 0
+				Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).
+					Set(ctx, calc)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).SetGroup(ctx, &g.Key, calc.Key())
+				})).To(Succeed())
+				Expect(retrieve(ctx, calc.Key()).Group).To(Equal(&g.Key))
+			},
+		)
 	})
 
 	It(
