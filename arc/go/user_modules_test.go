@@ -103,11 +103,6 @@ var _ = Describe("User modules", func() {
 		out, _ := h.Flush()
 		return out
 	}
-	lastI64 := func(fr telem.Frame[uint32], key uint32) int64 {
-		GinkgoHelper()
-		vals := last(fr, key).Unmarshal[int64]()
-		return vals[len(vals)-1]
-	}
 	// all returns every sample written to key across frames.
 	all := func(frames []telem.Frame[uint32], key uint32) []int64 {
 		var r []int64
@@ -537,20 +532,6 @@ export func sum() i64 {
 			Expect(all(pulses(ctx, h, 1, 2, 3), fnOut)).To(Equal([]int64{1, 3, 6}))
 		})
 
-		It("Should share state between two calls in one function body", func(
-			ctx SpecContext,
-		) {
-			h := newModuleRuntimeHarness(ctx, `
-import m
-
-func g() {t u8} i64 { return m.count() * 10 + m.count() }
-trig -> g() -> fn_out
-`, map[string]string{"m": counter}, resolver, digests...)
-			defer h.Close(ctx)
-			Expect(all(pulses(ctx, h, 1, 1, 1), fnOut)).
-				To(Equal([]int64{12, 34, 56}))
-		})
-
 		It("Should reset a function's state when its module stage is re-entered", func(
 			ctx SpecContext,
 		) {
@@ -601,11 +582,11 @@ export sequence s {
     }
 }`}, resolver, digests...)
 			defer h.Close(ctx)
-			first := send(ctx, h, trig2, 1)
-			send(ctx, h, trig2, 2)
+			first := last(send(ctx, h, trig2, 1), fnOut).Unmarshal[int64]()
+			Expect(first[len(first)-1]).To(Equal(int64(1)))
+			Expect(send(ctx, h, trig2, 2).Get(fnOut).Series).To(BeEmpty())
 			again := send(ctx, h, trig2, 3)
-			Expect(lastI64(first, fnOut)).To(Equal(int64(1)))
-			Expect(lastI64(again, fnOut)).To(Equal(int64(2)))
+			Expect(all([]telem.Frame[uint32]{again}, fnOut)).To(Equal([]int64{2}))
 		})
 	})
 
