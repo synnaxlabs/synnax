@@ -885,6 +885,26 @@ func varReadRef(vn *ir.Node) nodeResult {
 	}
 }
 
+// buildScaleNode builds the node that converts a value of type from to the unit of to.
+func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
+	key := kg.generate("scale", "")
+	inputs := types.Params{{Name: ir.DefaultInputParam, Type: from}}
+	outputs := types.Params{{Name: ir.DefaultOutputParam, Type: to}}
+	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+		Key:      compiler.ScaleSyntheticPrefix + key,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: types.NewChannels(),
+	})
+	return newNodeResult(ir.Node{
+		Key:      key,
+		Type:     compiler.ScaleSyntheticPrefix + key,
+		Channels: types.NewChannels(),
+		Inputs:   inputs,
+		Outputs:  outputs,
+	}, ir.DefaultInputParam, ir.DefaultOutputParam)
+}
+
 // varFeederRef appends a fresh feeder param to vn and returns a reference
 // targeting it, so each write gets its own last-write-wins input.
 func varFeederRef(vn *ir.Node) nodeResult {
@@ -933,11 +953,27 @@ func lowerAssignment(
 		return nil, nil, false
 	}
 	ref := varFeederRef(e.register)
-	return []ir.Node{res.node}, []ir.Edge{{
-		Source: res.output,
+	nodes, source := []ir.Node{res.node}, res.output
+	var edges []ir.Edge
+	// Only a lone variable holds its value in its unit.
+	if head, _ := parser.ExpressionNameParts(expr); head != "" {
+		from := res.node.Outputs[0].Type
+		if types.UnitsConvertible(from.Unit, sym.Type.Unit) {
+			scale := buildScaleNode(from, sym.Type, kg)
+			nodes = append(nodes, scale.node)
+			edges = append(edges, ir.Edge{
+				Source: source,
+				Target: scale.input,
+				Kind:   ir.EdgeKindContinuous,
+			})
+			source = scale.output
+		}
+	}
+	return nodes, append(edges, ir.Edge{
+		Source: source,
 		Target: ref.input,
 		Kind:   ir.EdgeKindContinuous,
-	}}, true
+	}), true
 }
 
 // lowerRebind re-points a register: a constant feeder carrying the new source
@@ -1806,9 +1842,11 @@ func analyzeUnit(
 }
 
 type flowChainProcessor struct {
-	kg                 *keyGenerator
-	shell              *shellBuilder
-	prevNode           *ir.Node
+	kg       *keyGenerator
+	shell    *shellBuilder
+	prevNode *ir.Node
+	// prevIdentifier is set when the previous flow node is a lone name.
+	prevIdentifier     bool
 	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
@@ -2003,6 +2041,19 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 			))
 			return false
 		}
+		// A variable written to a variable of another unit converts on the way.
+		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
+			p.prevIdentifier && len(to) > 0 &&
+			types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			scale := buildScaleNode(from, to[0].Type, p.kg)
+			p.edges = append(p.edges, ir.Edge{
+				Source: p.prevOutput,
+				Target: scale.input,
+				Kind:   p.edgeKind(),
+			})
+			p.nodes = append(p.nodes, scale.node)
+			p.prevOutput = scale.output
+		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
 			Target: node.input,
@@ -2046,6 +2097,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.prevOutput = node.output
 	}
 	p.prevNode = &node.node
+	p.prevIdentifier = flowNode.Identifier() != nil
 	if node.node.Key != "" {
 		p.nodes = append(p.nodes, node.node)
 	}

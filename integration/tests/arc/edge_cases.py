@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
-from tests.driver.task import run_and_expect_rejection
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -691,31 +690,6 @@ class EdgeCases(ArcCase):
 
         self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01)
-
-    def _assert_configure_error(
-        self,
-        source: str,
-        *,
-        name_prefix: str,
-        substr: str,
-        expect: Sequence[str] = (),
-    ) -> None:
-        """Start an Arc expected to be rejected on deploy and verify the error."""
-        name = self.load_arc(source, name_prefix=name_prefix, start=False)
-        handle = next(h for h in self._arcs if h.name == name)
-        message = run_and_expect_rejection(
-            self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
-        )
-        if message is None:
-            self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
-        assert substr in message, (
-            f"[{name_prefix}] expected '{substr}' in error, got: {message}"
-        )
-        for expected in expect:
-            assert expected in message, (
-                f"[{name_prefix}] expected '{expected}' in error, got: {message}"
-            )
-        self.log(f"[{name_prefix}] Got expected error: {message}")
 
     def _verify_circular_cases(self) -> None:
         self.log("=== Circular dependency detection ===")

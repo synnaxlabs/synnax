@@ -1446,6 +1446,16 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 	varType := varScope.Type
+	if varScope.Reassigned && types.UnitsIncompatible(exprType.Unit, varType.Unit) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"incompatible dimensions: cannot assign %s to '%s' (%s)",
+			exprType.Unit.Name,
+			name,
+			varType.Unit.Name,
+		))
+		return
+	}
 
 	// Check magnitude safety for unit conversions (warnings only)
 	if varType.Unit != nil && exprType.Unit != nil {
@@ -1482,7 +1492,13 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	// A type variable, which a series holds in its element, binds through a constraint.
 	if exprType.Unwrap().Kind == types.KindVariable ||
 		varType.Unwrap().Kind == types.KindVariable {
-		if err := atypes.Check(
+		check := atypes.Check
+		// Lowering converts a variable assigned to a variable of another unit.
+		if head, _ := parser.ExpressionNameParts(expr); head != "" &&
+			varScope.Reassigned && types.UnitsConvertible(exprType.Unit, varType.Unit) {
+			check = atypes.CheckConverted
+		}
+		if err := check(
 			ctx.Constraints,
 			varType,
 			exprType,

@@ -32,6 +32,7 @@ package compiler
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -48,6 +49,10 @@ import (
 )
 
 const FmtStrSyntheticPrefix = "fmt$"
+
+// ScaleSyntheticPrefix marks a synthesized function that converts its input to the
+// unit of its output.
+const ScaleSyntheticPrefix = "scale$"
 
 type compiledFunction struct {
 	scopeName string
@@ -113,6 +118,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		}
 		if strings.HasPrefix(i.Key, ir.DispatcherSyntheticPrefix) {
 			cf, err := compileDispatcherSynthetic(compCtx, i, program.Functions)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
+		if strings.HasPrefix(i.Key, ScaleSyntheticPrefix) {
+			cf, err := compileScaleSynthetic(compCtx, i)
 			if err != nil {
 				return Output{}, err
 			}
@@ -310,6 +323,72 @@ func compileFmtStrSynthetic(
 		typeIdx:   typeIdx,
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// compileScaleSynthetic emits a WASM body that returns its one input in the unit of
+// its output. An integer truncates toward zero.
+func compileScaleSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+) (compiledFunction, error) {
+	if len(fn.Inputs) != 1 || len(fn.Outputs) != 1 {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s takes one input and one output", fn.Key,
+		)
+	}
+	in, out := fn.Inputs[0].Type, fn.Outputs[0].Type
+	if !types.UnitsConvertible(in.Unit, out.Unit) || in.Kind != out.Kind {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
+		)
+	}
+	ctx := rootCtx.WithNewWriter()
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.ConvertType(in)},
+		Results: []wasm.ValueType{wasm.ConvertType(out)},
+	})
+	ctx.Writer.WriteLocalGet(0)
+	up, down := in.Unit.Scale/out.Unit.Scale, out.Unit.Scale/in.Unit.Scale
+	var err error
+	switch {
+	case in.Kind == types.KindF64:
+		ctx.Writer.WriteF64Const(up)
+		err = ctx.Writer.WriteBinaryOpInferred("*", in)
+	case in.Kind == types.KindF32:
+		ctx.Writer.WriteF32Const(float32(up))
+		err = ctx.Writer.WriteBinaryOpInferred("*", in)
+	// A whole factor keeps an integer exact.
+	case up == math.Trunc(up):
+		err = writeIntegerOp(ctx.Writer, "*", in, int64(up))
+	case down == math.Trunc(down):
+		err = writeIntegerOp(ctx.Writer, "/", in, int64(down))
+	default:
+		if err = expression.EmitCast(ctx, in, types.F64()); err != nil {
+			return compiledFunction{}, err
+		}
+		ctx.Writer.WriteF64Const(up)
+		ctx.Writer.WriteBinaryOp(wasm.OpF64Mul)
+		err = expression.EmitCast(ctx, types.F64(), in)
+	}
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	return compiledFunction{
+		scopeName: fn.Key,
+		typeIdx:   typeIdx,
+		writer:    ctx.Writer,
+	}, nil
+}
+
+// writeIntegerOp applies op with the constant operand to the integer of type t on the
+// stack.
+func writeIntegerOp(w *wasm.Writer, op string, t types.Type, operand int64) error {
+	if t.Is64Bit() {
+		w.WriteI64Const(operand)
+	} else {
+		w.WriteI32Const(int32(operand))
+	}
+	return w.WriteBinaryOpInferred(op, t)
 }
 
 // compileDispatcherSynthetic emits a $sel-keyed if/else chain that calls exactly

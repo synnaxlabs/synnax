@@ -29,6 +29,11 @@ func InputScale(t Type) float64 {
 	return t.Elem.Unit.Scale / t.Unit.Scale
 }
 
+// UnitsIncompatible reports whether a and b are units of different dimensions.
+func UnitsIncompatible(a, b *Unit) bool {
+	return a != nil && b != nil && !a.Dimensions.Equal(b.Dimensions)
+}
+
 // UnitsConvertible reports whether a and b are different units of the same dimensions.
 func UnitsConvertible(a, b *Unit) bool {
 	return a != nil && b != nil && !a.Equal(*b) && a.Dimensions.Equal(b.Dimensions)

@@ -532,6 +532,90 @@ var _ = Describe("Text", func() {
 			Entry("a pressure", `d := 1.0bar`, `200.0kPa`, 2.0),
 		)
 
+		DescribeTable(
+			"Should convert a variable written to a variable of another unit",
+			func(ctx SpecContext, declarations, write, from, to string) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\ncount_ch -> f\"{d} {other}\" -> msg_ch\n}\n}"
+				resolver := append([]symbol.Symbol{{
+					Name: "msg_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+					ID:   950,
+				}}, varResolver...)
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				scale := findNodeByKey(inter.Nodes, "scale_0")
+				Expect(scale.Type).To(Equal(compiler.ScaleSyntheticPrefix + "scale_0"))
+				Expect(scale.Inputs[0].Type.Unit.Name).To(Equal(from))
+				Expect(scale.Outputs[0].Type.Unit.Name).To(Equal(to))
+				fn := MustBeOk(inter.Functions.Find(scale.Type))
+				Expect(fn.Inputs).To(Equal(scale.Inputs))
+				Expect(fn.Outputs).To(Equal(scale.Outputs))
+				register := findNodeByKey(inter.Nodes, "var_d_0")
+				Expect(register.Outputs[0].Type.Unit.Name).To(Equal(to))
+				Expect(hasEdge(inter, "scale_0", "var_d_0")).To(BeTrue())
+			},
+			Entry("a flow", "d := 1min\nother := 120s", `other -> d`, "s", "min"),
+			Entry("an assignment", "d := 1min\nother := 120s", `d = other`, "s", "min"),
+			Entry("typed variables",
+				"d i64 ms := 1s\nother i64 min := 2min", `other -> d`, "min", "ms"),
+			Entry(
+				"floats",
+				"d := 1.0bar\nother := 250.0kPa",
+				`other -> d`,
+				"kPa",
+				"bar",
+			),
+			Entry("a reassigned source",
+				"d := 1min\nother := 120s", "180s -> other\nother -> d", "s", "min"),
+		)
+
+		DescribeTable("Should not convert a write that needs no conversion",
+			func(ctx SpecContext, declarations, write string) {
+				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
+					"\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				for _, n := range inter.Nodes {
+					Expect(n.Type).ToNot(HavePrefix(compiler.ScaleSyntheticPrefix))
+				}
+			},
+			Entry("the same unit", "d := 1min\nother := 2min", `other -> d`),
+			Entry("no unit on the source", "d := 1min\nother := 2", `other -> d`),
+			Entry("no unit on the target", "d := 1\nother := 120s", `other -> d`),
+			Entry("a channel", "d := 1min", `count_ch -> d`),
+		)
+
+		DescribeTable("Should reject a write between two dimensions",
+			func(ctx SpecContext, write, message string) {
+				source := "sequence main {\nd := 1min\nother := 100psi\nstage s1 {\n" +
+					write + "\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a flow", `other -> d`,
+				"incompatible dimensions: cannot write psi to 'd' (min)"),
+			Entry("an assignment", `d = other`,
+				"incompatible dimensions: cannot assign psi to 'd' (min)"),
+		)
+
 		DescribeTable("Should reject a literal that does not fit the variable",
 			func(ctx SpecContext, declaration, write, message string) {
 				source := "sequence main {\n" + declaration + "\nstage s1 {\n" + write +

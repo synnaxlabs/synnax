@@ -21,6 +21,7 @@ wait for a status that reports the task running.
 """
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -31,6 +32,7 @@ from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
 from synnax.status import Variant
 from tests.driver.sim_daq_case import SimDaqCase
+from tests.driver.task import run_and_expect_rejection
 from x import random_name
 
 START_TIMEOUT_SECONDS = 30
@@ -259,6 +261,31 @@ class ArcCase(SimDaqCase, TestCase):
                     if status.details is not None and status.details.running:
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
+
+    def _assert_configure_error(
+        self,
+        source: str,
+        *,
+        name_prefix: str,
+        substr: str,
+        expect: Sequence[str] = (),
+    ) -> None:
+        """Start an Arc expected to be rejected on deploy and verify the error."""
+        name = self.load_arc(source, name_prefix=name_prefix, start=False)
+        handle = next(h for h in self._arcs if h.name == name)
+        message = run_and_expect_rejection(
+            self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
+        )
+        if message is None:
+            self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
+        assert substr in message, (
+            f"[{name_prefix}] expected '{substr}' in error, got: {message}"
+        )
+        for expected in expect:
+            assert expected in message, (
+                f"[{name_prefix}] expected '{expected}' in error, got: {message}"
+            )
+        self.log(f"[{name_prefix}] Got expected error: {message}")
 
     def _arc(self, name: str) -> ArcTaskHandle:
         for handle in self._arcs:

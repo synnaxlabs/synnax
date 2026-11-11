@@ -50,6 +50,23 @@ var _ = Describe("UnitsConvertible", func() {
 	)
 })
 
+var _ = Describe("UnitsIncompatible", func() {
+	ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+	psi := &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+
+	DescribeTable("unit dimensions",
+		func(a, b *types.Unit, want bool) {
+			Expect(types.UnitsIncompatible(a, b)).To(Equal(want))
+		},
+		Entry("another dimension", psi, ns, true),
+		Entry("the same dimension", s, ns, false),
+		Entry("the same unit", ns, ns, false),
+		Entry("no unit on the source", (*types.Unit)(nil), ns, false),
+		Entry("no unit on the target", psi, (*types.Unit)(nil), false),
+	)
+})
+
 var _ = Describe("InputScale", func() {
 	withUnit := func(t types.Type, name string, scale float64) types.Type {
 		t.Unit = &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}

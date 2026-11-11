@@ -5859,6 +5859,54 @@ var _ = Describe("Sequence", func() {
 			Expect(logged).ToNot(ContainElement("d=120"))
 		})
 
+		DescribeTable("Converts a variable written to a variable of another unit",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d := 1min
+				    other := 120s
+				    typed i64 ms := 2min
+				    p := 1.0bar
+				    p_kpa := 250.0kPa
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"d={d} other={other} typed={typed} p={p}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				var logged []string
+				for i := range 5 {
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+					out, _ := h.Flush()
+					logged = append(logged, drainStrings(out, 101)...)
+				}
+				Expect(logged).ToNot(BeEmpty())
+				Expect(logged[len(logged)-1]).To(Equal(expected))
+			},
+			Entry("a flow to a larger unit",
+				`other -> d`, "d=2 other=120 typed=120000 p=1"),
+			Entry("an assignment to a larger unit",
+				`d = other`, "d=2 other=120 typed=120000 p=1"),
+			Entry("a flow to a smaller unit",
+				`d -> other`, "d=1 other=60 typed=120000 p=1"),
+			Entry("an assignment to a smaller unit",
+				`other = d`, "d=1 other=60 typed=120000 p=1"),
+			Entry("a source that is assigned again",
+				"180s -> other\nother -> d", "d=3 other=180 typed=120000 p=1"),
+			Entry("an integer that truncates",
+				"90s -> other\nother -> d", "d=1 other=90 typed=120000 p=1"),
+			Entry("a typed source",
+				`typed -> d`, "d=2 other=120 typed=120000 p=1"),
+			Entry("a typed target",
+				`d -> typed`, "d=1 other=120 typed=60000 p=1"),
+			Entry("a float flow",
+				`p_kpa -> p`, "d=1 other=120 typed=120000 p=2.5"),
+			Entry("a float assignment",
+				`p = p_kpa`, "d=1 other=120 typed=120000 p=2.5"),
+		)
+
 		It(
 			"Converts a variable to the unit of a function input",
 			func(ctx SpecContext) {
