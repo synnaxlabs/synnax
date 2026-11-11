@@ -27,7 +27,7 @@ import (
 type shapes struct {
 	old, new *resolution.Table
 	visiting set.Set[string]
-	// oldParams and newParams are the type parameters of the struct being compared.
+	// oldParams and newParams are the type parameters of the types being compared.
 	oldParams, newParams []resolution.TypeParam
 }
 
@@ -46,6 +46,11 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	defer s.visiting.Remove(key)
 	if reflect.TypeOf(old.Form) != reflect.TypeOf(new.Form) {
 		return fmt.Sprintf("%s: changes from %T to %T", at, old.Form, new.Form)
+	}
+	s.oldParams = resolution.TypeParams(old.Form)
+	s.newParams = resolution.TypeParams(new.Form)
+	if len(s.oldParams) != len(s.newParams) {
+		return at + ": changes its type parameters"
 	}
 	switch o := old.Form.(type) {
 	case resolution.StructForm:
@@ -72,11 +77,6 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 
 // fields compares the stored fields of two structs, bases included.
 func (s shapes) fields(at string, old, new resolution.Type) string {
-	s.oldParams = old.Form.(resolution.StructForm).TypeParams
-	s.newParams = new.Form.(resolution.StructForm).TypeParams
-	if len(s.oldParams) != len(s.newParams) {
-		return at + ": changes its type parameters"
-	}
 	oldFields := storedFields(resolution.UnifiedFields(old, s.old))
 	newFields := storedFields(resolution.UnifiedFields(new, s.new))
 	if !slices.EqualFunc(oldFields, newFields, func(a, b resolution.Field) bool {
@@ -154,32 +154,36 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		(old.ArraySize != nil && *old.ArraySize != *new.ArraySize) {
 		return at + ": changes its array size"
 	}
-	if old.IsTypeParam() || new.IsTypeParam() {
+	if old.IsTypeParam() != new.IsTypeParam() {
+		return at + ": changes between a type parameter and a concrete type"
+	}
+	if old.IsTypeParam() {
 		if paramIndex(s.oldParams, old) != paramIndex(s.newParams, new) {
 			return at + ": changes its type parameter"
 		}
 		return ""
 	}
-	oldType, oldOK := s.old.Get(old.Name)
-	newType, newOK := s.new.Get(new.Name)
-	if !oldOK || !newOK {
-		if oldOK != newOK || old.Name != new.Name {
+	// The analyzer fills an omitted type argument with nil, which no table holds.
+	if old.Name == "nil" || new.Name == "nil" {
+		if old.Name != new.Name {
 			return fmt.Sprintf("%s: changes from %s to %s", at, old.Name, new.Name)
 		}
 		return ""
 	}
-	return s.typ(at, oldType, newType)
+	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
 }
 
-// paramIndex returns the position of the type parameter that ref holds in params, or
-// -1 when ref holds a concrete type. Stored data binds parameters by position.
+// paramIndex returns the position of the type parameter that ref holds in params.
+// Stored data binds parameters by position. It panics when params does not declare the
+// parameter.
 func paramIndex(params []resolution.TypeParam, ref resolution.TypeRef) int {
-	if !ref.IsTypeParam() {
-		return -1
-	}
-	return slices.IndexFunc(params, func(p resolution.TypeParam) bool {
+	i := slices.IndexFunc(params, func(p resolution.TypeParam) bool {
 		return p.Name == ref.TypeParam.Name
 	})
+	if i < 0 {
+		panic("type parameter not in scope: " + ref.TypeParam.Name)
+	}
+	return i
 }
 
 // enumMembers requires every old member in new with the same value. Stored data holds

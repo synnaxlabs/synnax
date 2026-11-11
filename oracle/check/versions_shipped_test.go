@@ -710,7 +710,7 @@ Box struct<T> {
 
     @go marshal
 }
-`, "Box.value: changes its type parameter"),
+`, "Box.value: changes between a type parameter and a concrete type"),
 			Entry("a generic type that swaps its type parameters", `
 Pair struct<A, B> {
     a A
@@ -726,6 +726,58 @@ Pair struct<A, B> {
     @go marshal
 }
 `, "Pair.a: changes its type parameter"),
+			Entry("a generic alias that binds a concrete type", `
+Inner struct<T> {
+    value T
+}
+
+Payload<T> = Inner<T>
+
+Channel struct {
+    payload Payload<uint8>
+
+    @go marshal
+}
+`, `
+Inner struct<T> {
+    value T
+}
+
+Payload<T> = Inner<string>
+
+Channel struct {
+    payload Payload<uint8>
+
+    @go marshal
+}
+`, "Channel.payload: changes between a type parameter and a concrete type"),
+			Entry("a generic alias that swaps its type parameters", `
+Pair struct<A, B> {
+    a A
+    b B
+}
+
+Swapped<A, B> = Pair<A, B>
+
+Channel struct {
+    pair Swapped<string, uint8>
+
+    @go marshal
+}
+`, `
+Pair struct<A, B> {
+    a A
+    b B
+}
+
+Swapped<A, B> = Pair<B, A>
+
+Channel struct {
+    pair Swapped<string, uint8>
+
+    @go marshal
+}
+`, "Channel.pair: changes its type parameter"),
 			Entry("a field that drops its nil type argument", `
 Status struct<D> {
     details D?
