@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -166,7 +167,29 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
+		now:     telem.Now(),
 	}
+}
+
+// Derive fills the fields of ranges that the Core derives on read and does not store,
+// reading the ranges nested in each one through snap.
+func (s *Service) Derive(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	ranges []Range,
+) error {
+	keys := make([]Key, len(ranges))
+	for i, r := range ranges {
+		keys[i] = r.Key
+	}
+	parents, err := s.indexes.parent.Referenced(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i := range ranges {
+		ranges[i].HasChildren = parents.Contains(ranges[i].Key)
+	}
+	return nil
 }
 
 // RetrieveParentKey returns the parent range key for the given range key. Returns

@@ -162,6 +162,9 @@ func (s *Service) Retrieve(
 	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if err = s.internal.Derive(ctx, snap, res.Ranges); err != nil {
+		return RetrieveResponse{}, err
+	}
 	return res, nil
 }
 

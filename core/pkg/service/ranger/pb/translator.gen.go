@@ -19,9 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
@@ -32,10 +34,11 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 		return nil, err
 	}
 	pb := &Range{
-		Name:      r.Name,
-		Key:       r.Key.String(),
-		TimeRange: timeRangeVal,
-		Labels:    lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
+		Name:        r.Name,
+		HasChildren: r.HasChildren,
+		Key:         r.Key.String(),
+		TimeRange:   timeRangeVal,
+		Labels:      lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() }),
 	}
 	if r.Color != nil {
 		var err error
@@ -87,6 +90,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		return ranger.Range{}, err
 	}
 	r.Name = pb.Name
+	r.HasChildren = pb.HasChildren
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
@@ -254,6 +258,23 @@ func WhereToPB(r ranger.Where) (*Where, error) {
 	if r.Parents != nil {
 		pb.Parents = &KeyList{Values: lo.Map(r.Parents, func(u ranger.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
+	if r.Nested != nil {
+		pb.Nested = r.Nested
+	}
+	if r.Labeled != nil {
+		pb.Labeled = r.Labeled
+	}
+	if r.Stages != nil {
+		vals, err := lo.MapErr(r.Stages, func(v ranger.Stage, _ int) (Stage, error) { return StageToPB(v) })
+		if err != nil {
+			return nil, err
+		}
+		pb.Stages = &StageList{Values: vals}
+	}
+	if r.Recent != nil {
+		v := int64(*r.Recent)
+		pb.Recent = &v
+	}
 	return pb, nil
 }
 
@@ -339,6 +360,23 @@ func WhereFromPB(pb *Where) (ranger.Where, error) {
 		}
 		r.Parents = xpb.ListValues(vals)
 	}
+	if pb.Nested != nil {
+		r.Nested = pb.Nested
+	}
+	if pb.Labeled != nil {
+		r.Labeled = pb.Labeled
+	}
+	if pb.Stages != nil {
+		vals, err := lo.MapErr(pb.Stages.Values, func(v Stage, _ int) (ranger.Stage, error) { return StageFromPB(v) })
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Stages = xpb.ListValues(vals)
+	}
+	if pb.Recent != nil {
+		v := telem.TimeSpan(*pb.Recent)
+		r.Recent = &v
+	}
 	return r, nil
 }
 
@@ -366,4 +404,32 @@ func WheresFromPB(pbs []*Where) ([]ranger.Where, error) {
 		}
 	}
 	return result, nil
+}
+
+// StageToPB converts ranger.Stage to Stage.
+func StageToPB(v ranger.Stage) (Stage, error) {
+	switch v {
+	case ranger.StageToDo:
+		return Stage_STAGE_TO_DO, nil
+	case ranger.StageInProgress:
+		return Stage_STAGE_IN_PROGRESS, nil
+	case ranger.StageCompleted:
+		return Stage_STAGE_COMPLETED, nil
+	default:
+		return 0, errors.Newf("unrecognized ranger.Stage value: %v", v)
+	}
+}
+
+// StageFromPB converts Stage to ranger.Stage.
+func StageFromPB(v Stage) (ranger.Stage, error) {
+	switch v {
+	case Stage_STAGE_TO_DO:
+		return ranger.StageToDo, nil
+	case Stage_STAGE_IN_PROGRESS:
+		return ranger.StageInProgress, nil
+	case Stage_STAGE_COMPLETED:
+		return ranger.StageCompleted, nil
+	default:
+		return ranger.Stage(""), errors.Newf("unrecognized Stage value: %v", v)
+	}
 }

@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import ranger, status
 from synnax.resource import ID
-from x import filter
+from x import color as color_, filter
 
 TYPE_RANGE: Literal["range"] = "range"
 
@@ -31,6 +31,24 @@ ORDER_FIELD_NAME: Literal["name"] = "name"
 
 
 OrderField = Literal["name"]
+
+SORT_NEWEST: Literal["newest"] = "newest"
+
+SORT_OLDEST: Literal["oldest"] = "oldest"
+
+SORT_NAME: Literal["name"] = "name"
+
+
+Sort = Literal["newest", "oldest", "name"]
+
+LAYOUT_TREE: Literal["tree"] = "tree"
+
+LAYOUT_LIST: Literal["list"] = "list"
+
+LAYOUT_TIMELINE: Literal["timeline"] = "timeline"
+
+
+Layout = Literal["tree", "list", "timeline"]
 
 Key: TypeAlias = UUID
 
@@ -53,10 +71,15 @@ class Base(BaseModel):
     Attributes:
         key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
+        icon: Is the key of the icon that marks the view in lists. When null, the
+            Console draws its default view icon.
+        color: Is the color of the view's icon. When null, the theme picks it.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
+    icon: str | None = None
+    color: color_.Color | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -118,6 +141,8 @@ class RangeView(Base):
 
     type: Literal["range"] = "range"
     where: ranger.Where | None = None
+    sort: Sort | None = None
+    layout: Layout | None = None
 
 
 class StatusView(Base):

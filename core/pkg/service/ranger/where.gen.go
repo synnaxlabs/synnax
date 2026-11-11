@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -94,6 +95,27 @@ func MatchWhere(w Where) (Filter, error) {
 	}
 	if l := w.Parents; l != nil {
 		fs = append(fs, MatchParents(l...))
+	}
+	if l := w.Nested; l != nil {
+		fs = append(fs, MatchHasParent(*l))
+	}
+	if l := w.Labeled; l != nil {
+		fs = append(fs, MatchHasLabels(*l))
+	}
+	if l := w.Stages; l != nil {
+		for i, v := range l {
+			if !v.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid stages %q", v),
+					"stages",
+					strconv.Itoa(i),
+				)
+			}
+		}
+		fs = append(fs, MatchStages(l...))
+	}
+	if l := w.Recent; l != nil {
+		fs = append(fs, MatchRecent(*l))
 	}
 	return And(fs...), nil
 }

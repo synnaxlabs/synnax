@@ -122,6 +122,25 @@ func (w Writer) validate(v View) error {
 	var err error
 	switch variant := v.Variant.(type) {
 	case RangeView:
+		if variant.Sort != nil {
+			vld.Ternaryf(
+				"sort",
+				!variant.Sort.IsValid(),
+				"invalid sort %q",
+				*variant.Sort,
+			)
+		}
+		if variant.Layout != nil {
+			vld.Ternaryf(
+				"layout",
+				!variant.Layout.IsValid(),
+				"invalid layout %q",
+				*variant.Layout,
+			)
+		}
+		if err := vld.Error(); err != nil {
+			return err
+		}
 		if variant.Where != nil {
 			_, err = ranger.MatchWhere(*variant.Where)
 		}

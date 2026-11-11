@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -98,6 +99,64 @@ var _ = Describe("Dispatch", func() {
 			Variant: &filter.Set[status.Variant]{In: []status.Variant{"bogus"}},
 		}), `where.variant.in.0: invalid variant "bogus"`),
 	)
+
+	Describe("Range view", func() {
+		BeforeEach(func(ctx SpecContext) {
+			v = rangeView("Ranges")
+			Expect(write(ctx, func(w view.Writer) error { return w.Create(ctx, &v) })).
+				To(Succeed())
+		})
+
+		It(
+			"Should store the edited icon, color, sort, and layout",
+			func(ctx SpecContext) {
+				c := MustSucceed(color.FromHex("#ff0000"))
+				Expect(apply(
+					ctx,
+					set("icon", "star"),
+					set("color", c),
+					set("sort", view.SortOldest),
+					set("layout", view.LayoutTimeline),
+				)).To(Succeed())
+				Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.RangeView{
+					Base: view.Base{
+						Key:   v.GorpKey(),
+						Name:  "Ranges",
+						Icon:  new("star"),
+						Color: &c,
+					},
+					Sort:   new(view.SortOldest),
+					Layout: new(view.LayoutTimeline),
+				}}))
+			},
+		)
+
+		It("Should clear a sort set to null", func(ctx SpecContext) {
+			Expect(apply(ctx, set("sort", view.SortName))).To(Succeed())
+			Expect(apply(ctx, set("sort", nil))).To(Succeed())
+			Expect(retrieve(ctx)).To(Equal(v))
+		})
+
+		DescribeTable(
+			"Should refuse an invalid edit",
+			func(
+				ctx SpecContext,
+				act view.Action,
+				matcher string,
+			) {
+				err := apply(ctx, act)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(ContainSubstring(matcher)))
+				Expect(retrieve(ctx)).To(Equal(v))
+			},
+			Entry("of the sort", set("sort", "random"), `sort: invalid sort "random"`),
+			Entry(
+				"of the layout",
+				set("layout", "grid"),
+				`layout: invalid layout "grid"`,
+			),
+		)
+	})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {
 		rec := record()

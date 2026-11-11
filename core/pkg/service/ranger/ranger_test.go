@@ -56,6 +56,62 @@ var _ = Describe("Ranger", func() {
 		})
 	})
 
+	Describe("Derive", func() {
+		var parent, child, leaf ranger.Range
+		BeforeEach(func(ctx SpecContext) {
+			tr := telem.SecondTS.SpanRange(telem.Second)
+			parent = ranger.Range{Name: "Parent", TimeRange: tr}
+			Expect(w.Create(ctx, &parent)).To(Succeed())
+			child = ranger.Range{Name: "Child", TimeRange: tr, Parent: &parent.Key}
+			Expect(w.Create(ctx, &child)).To(Succeed())
+			leaf = ranger.Range{Name: "Leaf", TimeRange: tr}
+			Expect(w.Create(ctx, &leaf)).To(Succeed())
+		})
+		hasChildren := func(ctx SpecContext, snap gorp.Snapshot) map[string]bool {
+			GinkgoHelper()
+			ranges := []ranger.Range{parent, child, leaf}
+			Expect(svc.Derive(ctx, snap, ranges)).To(Succeed())
+			return lo.SliceToMap(ranges, func(r ranger.Range) (string, bool) {
+				return r.Name, r.HasChildren
+			})
+		}
+
+		It("Should mark the ranges that have nested ranges", func(ctx SpecContext) {
+			Expect(hasChildren(ctx, tx)).To(Equal(map[string]bool{
+				"Parent": true,
+				"Child":  false,
+				"Leaf":   false,
+			}))
+		})
+
+		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
+			Expect(w.Apply(ctx, child.Key, ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"parent"},
+				Value: leaf.Key,
+			}))).To(Succeed())
+			Expect(hasChildren(ctx, tx)).To(Equal(map[string]bool{
+				"Parent": false,
+				"Child":  false,
+				"Leaf":   true,
+			}))
+		})
+
+		It("Should not store the derived field", func(ctx SpecContext) {
+			stored := ranger.Range{
+				Name:        "Stored",
+				TimeRange:   telem.SecondTS.SpanRange(telem.Second),
+				HasChildren: true,
+			}
+			Expect(w.Create(ctx, &stored)).To(Succeed())
+			var res ranger.Range
+			Expect(svc.NewRetrieve().
+				Where(ranger.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.HasChildren).To(BeFalse())
+		})
+	})
+
 	Describe("RetrieveParentKey", func() {
 		It("Should get the parent of the range through a snapshot", func(
 			ctx SpecContext,

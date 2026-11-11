@@ -23,6 +23,18 @@ type Range = versions.Range
 // Where is a filter that selects ranges.
 type Where = versions.Where
 
+// Stage is where a range stands against the current time.
+type Stage = versions.Stage
+
+const (
+	// StageToDo is a range that has not started.
+	StageToDo Stage = versions.StageToDo
+	// StageInProgress is a range that has started and not ended.
+	StageInProgress Stage = versions.StageInProgress
+	// StageCompleted is a range that has ended.
+	StageCompleted Stage = versions.StageCompleted
+)
+
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = versions.Ref

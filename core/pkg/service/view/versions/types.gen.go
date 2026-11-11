@@ -11,31 +11,55 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v3"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = v2.Key
+type Key = v3.Key
 
 // Type names the resource that a view lists.
-type Type = v2.Type
+type Type = v3.Type
 
 const (
-	TypeRange  Type = v2.TypeRange
-	TypeStatus Type = v2.TypeStatus
+	TypeRange  Type = v3.TypeRange
+	TypeStatus Type = v3.TypeStatus
+)
+
+// Sort is the order of the ranges in a range view.
+type Sort = v3.Sort
+
+const (
+	// SortNewest puts the range that starts latest first.
+	SortNewest Sort = v3.SortNewest
+	// SortOldest puts the range that starts earliest first.
+	SortOldest Sort = v3.SortOldest
+	// SortName puts the ranges in order of name.
+	SortName Sort = v3.SortName
+)
+
+// Layout is how a range view shows its ranges.
+type Layout = v3.Layout
+
+const (
+	// LayoutTree shows each range under the range it is nested in.
+	LayoutTree Layout = v3.LayoutTree
+	// LayoutList shows the ranges in one flat list.
+	LayoutList Layout = v3.LayoutList
+	// LayoutTimeline shows the ranges as lanes over a time axis.
+	LayoutTimeline Layout = v3.LayoutTimeline
 )
 
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its where.
-type View = v2.View
+type View = v3.View
 
 // ViewVariant is implemented by every View variant.
-type ViewVariant = v2.ViewVariant
+type ViewVariant = v3.ViewVariant
 
 // RangeView is a saved view of ranges.
-type RangeView = v2.RangeView
+type RangeView = v3.RangeView
 
 // StatusView is a saved view of statuses.
-type StatusView = v2.StatusView
+type StatusView = v3.StatusView
 
 // Base carries the fields shared by every view variant.
-type Base = v2.Base
+type Base = v3.Base
