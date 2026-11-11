@@ -18,6 +18,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -185,11 +186,17 @@ type Codec struct {
 type Option func(*Codec)
 
 // WithDecodeLimit makes Decode and DecodeStream reject a frame whose series hold more
-// than limit bytes once decoded. A boolean sample counts one byte. The codec checks
-// each series before it allocates the series.
+// than limit bytes once decoded. A boolean sample counts one byte, and each series also
+// counts SeriesOverhead. The codec checks each series before it allocates the series.
 func WithDecodeLimit(limit int64) Option {
 	return func(c *Codec) { c.decodeLimit = limit }
 }
+
+// SeriesOverhead is the bytes that each decoded series counts against the decode limit
+// in addition to its samples.
+const SeriesOverhead = int64(
+	unsafe.Sizeof(telem.Series{}) + unsafe.Sizeof(channel.Key(0)),
+)
 
 var byteOrder = telem.ByteOrder
 
@@ -845,7 +852,8 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		if !dataType.IsVariable() && dataType != telem.BooleanT {
 			size = int64(dataType.Density().Size(size))
 		}
-		if decoded += size; c.decodeLimit > 0 && decoded > c.decodeLimit {
+		decoded += size + SeriesOverhead
+		if c.decodeLimit > 0 && decoded > c.decodeLimit {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"frame decodes to more than the limit of %d bytes",

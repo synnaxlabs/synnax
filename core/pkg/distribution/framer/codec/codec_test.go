@@ -547,7 +547,7 @@ var _ = Describe("Codec", func() {
 				return codec.NewStatic(
 					channel.Keys{1, 2}[:channels],
 					[]telem.DataType{telem.BooleanT, telem.BooleanT}[:channels],
-					codec.WithDecodeLimit(1<<20),
+					codec.WithDecodeLimit(1<<20+codec.SeriesOverhead),
 				)
 			}
 
@@ -572,7 +572,7 @@ var _ = Describe("Codec", func() {
 					dec := codec.NewStatic(
 						channel.Keys{1},
 						[]telem.DataType{dataType},
-						codec.WithDecodeLimit(int64(fits.Size())),
+						codec.WithDecodeLimit(int64(fits.Size())+codec.SeriesOverhead),
 					)
 					MustSucceed(dec.Decode(
 						MustSucceed(enc.Encode(ctx, frame.NewUnary(1, fits))),
@@ -600,6 +600,34 @@ var _ = Describe("Codec", func() {
 			) {
 				encoded := encode(ctx, booleans(1<<19), booleans(1<<19+1))
 				Expect(decoder(2).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should count a fixed overhead for each series", func(
+				ctx SpecContext,
+			) {
+				dataTypes := []telem.DataType{
+					telem.BooleanT,
+					telem.BooleanT,
+					telem.BooleanT,
+					telem.BooleanT,
+				}
+				all := channel.Keys{1, 2, 3, 4}
+				encoded := MustSucceed(codec.NewStatic(all, dataTypes).Encode(
+					ctx,
+					frame.NewMulti(
+						channel.Keys{1, 2, 3},
+						[]telem.Series{booleans(0), booleans(0), booleans(0)},
+					),
+				))
+				newDecoder := func(limit int64) *codec.Codec {
+					return codec.NewStatic(all, dataTypes, codec.WithDecodeLimit(limit))
+				}
+				decoded := MustSucceed(
+					newDecoder(3 * codec.SeriesOverhead).Decode(encoded),
+				)
+				Expect(decoded.Count()).To(Equal(3))
+				Expect(newDecoder(3*codec.SeriesOverhead - 1).Decode(encoded)).Error().
 					To(MatchError(validate.ErrValidation))
 			})
 

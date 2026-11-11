@@ -232,9 +232,10 @@ var _ = Describe("FramerCodec", func() {
 				Config:  apiframer.WriterConfig{Keys: channel.Keys{ch.Key()}},
 			})
 			Eventually(received).Should(Receive(BeNil()))
-			send(write(1 << 10))
+			fits := int(router.StreamMessageSizeLimit() - codec.SeriesOverhead)
+			send(write(fits))
 			Eventually(received).Should(Receive(BeNil()))
-			send(write(1<<10 + 1))
+			send(write(fits + 1))
 			Eventually(received).Should(Receive(MatchError(freighter.ErrStreamClosed)))
 		})
 	})
