@@ -11,6 +11,9 @@ package unary
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
@@ -20,8 +23,11 @@ import (
 
 // TruncateToIndex truncates each domain to the samples that its index has timestamps
 // for, and logs each truncation. A crash between the saves of a channel and its index
-// leaves such domains. TruncateToIndex must run before any writer or iterator opens on
-// the DB. It does nothing for an index channel.
+// leaves such domains. Before each truncation, it copies the cut bytes to a new
+// .truncated file in the channel directory that the log names, and never overwrites an
+// existing file. When the copy fails, it returns the error and does not truncate.
+// TruncateToIndex must run before any writer or iterator opens on the DB. It does
+// nothing for an index channel.
 func (db *DB) TruncateToIndex(ctx context.Context) error {
 	if db.cfg.Channel.IsIndex {
 		return nil
@@ -47,12 +53,11 @@ func (db *DB) TruncateToIndex(ctx context.Context) error {
 		) (telem.Size, telem.TimeStamp, error) {
 			return 0, ts, nil
 		}
-		if err = db.domain.Delete(
-			ctx,
-			c.start.Range(c.domain.End),
-			cutStart,
-			keepEnd,
-		); err != nil {
+		var file string
+		if file, err = db.quarantine(ctx, c); err == nil {
+			err = db.domain.Delete(ctx, c.start.Range(c.domain.End), cutStart, keepEnd)
+		}
+		if err != nil {
 			return db.wrapError(errors.Wrapf(err, "domain %v", c.domain))
 		}
 		db.cfg.L.Warn(
@@ -60,10 +65,67 @@ func (db *DB) TruncateToIndex(ctx context.Context) error {
 			zap.Stringer("channel", db.cfg.Channel),
 			zap.Stringer("domain", c.domain),
 			zap.Int64("dropped_samples", c.dropped),
+			zap.String("quarantine", file),
 		)
 	}
 	db.resolver.invalidate()
 	return nil
+}
+
+// quarantine copies the bytes of c to a new file and returns the name of the file.
+func (db *DB) quarantine(ctx context.Context, c cut) (string, error) {
+	name, err := db.freeQuarantineFile(c)
+	if err != nil {
+		return "", err
+	}
+	if err = db.copyCut(ctx, c, name); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// freeQuarantineFile returns the first name for c that no file in the channel directory
+// has: <start>-<end>.truncated, then <start>-<end>.1.truncated, and so on.
+func (db *DB) freeQuarantineFile(c cut) (string, error) {
+	base := fmt.Sprintf("%d-%d", c.start, c.domain.End)
+	name := base + ".truncated"
+	for n := 1; ; n++ {
+		_, err := db.cfg.FS.Stat(name)
+		if os.IsNotExist(err) {
+			return name, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		name = fmt.Sprintf("%s.%d.truncated", base, n)
+	}
+}
+
+func (db *DB) copyCut(ctx context.Context, c cut, name string) (err error) {
+	iter := db.domain.OpenIterator(domain.IterRange(c.domain))
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	if !iter.SeekFirst(ctx) || iter.TimeRange() != c.domain {
+		return errors.Newf("domain %v not found", c.domain)
+	}
+	r, err := iter.OpenReader(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	f, err := db.cfg.FS.Open(name, os.O_CREATE|os.O_WRONLY)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = errors.Combine(err, f.Close()); err != nil {
+			err = errors.Combine(err, db.cfg.FS.Remove(name))
+		}
+	}()
+	tail := io.NewSectionReader(r, int64(c.offset), int64(r.Size()-c.offset))
+	if _, err = io.Copy(f, tail); err != nil {
+		return err
+	}
+	return f.Sync()
 }
 
 // cut is the tail of a domain that its index has no timestamps for.

@@ -10,6 +10,10 @@
 package unary_test
 
 import (
+	"fmt"
+	"io"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -103,6 +107,104 @@ var _ = Describe("TruncateToIndex", func() {
 				),
 			)
 
+			readData := func(name string) []byte {
+				GinkgoHelper()
+				f := MustSucceed(MustSucceed(fs.Sub("data")).Open(name, os.O_RDONLY))
+				defer func() { Expect(f.Close()).To(Succeed()) }()
+				return MustSucceed(io.ReadAll(f))
+			}
+			// quarantined returns the contents of the file that holds the bytes cut
+			// from the domain that ends at end, from start on.
+			quarantined := func(start, end telem.TimeStamp) []byte {
+				GinkgoHelper()
+				return readData(fmt.Sprintf("%d-%d.truncated", start, end))
+			}
+
+			DescribeTable("Should copy the samples it cuts to a file",
+				func(ctx SpecContext, data, cut telem.Series) {
+					dataDB := openData(ctx, data)
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+					Expect(quarantined(14*telem.SecondTS, 15*telem.SecondTS+1)).
+						To(Equal(cut.Data))
+				},
+				Entry("fixed-density data",
+					telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6),
+					telem.NewSeriesV[int64](5, 6),
+				),
+				Entry("variable-density data",
+					telem.NewSeriesV("a", "b", "c", "d", "e", "f"),
+					telem.NewSeriesV("e", "f"),
+				),
+			)
+
+			It("Should copy a domain that it removes to a file", func(ctx SpecContext) {
+				dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3))
+				Expect(indexDB.Delete(ctx, tr)).To(Succeed())
+				Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+				Expect(quarantined(10*telem.SecondTS, 12*telem.SecondTS+1)).
+					To(Equal(telem.NewSeriesV[int64](1, 2, 3).Data))
+			})
+
+			It("Should not overwrite an earlier file for the same cut",
+				func(ctx SpecContext) {
+					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					name := fmt.Sprintf(
+						"%d-%d",
+						14*telem.SecondTS,
+						15*telem.SecondTS+1,
+					)
+					f := MustSucceed(MustSucceed(fs.Sub("data")).Open(
+						name+".truncated",
+						os.O_CREATE|os.O_WRONLY,
+					))
+					Expect(f.Write([]byte("earlier"))).To(Equal(7))
+					Expect(f.Close()).To(Succeed())
+					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+					Expect(readData(name + ".truncated")).To(Equal([]byte("earlier")))
+					Expect(readData(name + ".1.truncated")).
+						To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+				},
+			)
+
+			DescribeTable("Should not truncate when the copy fails",
+				func(ctx SpecContext, fault FaultyFSOption) {
+					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					fs.SetOptions(fault)
+					Expect(dataDB.TruncateToIndex(ctx)).To(MatchError(ErrFault))
+					fs.SetOptions()
+					Expect(ReadUnary(ctx, dataDB, tr)).Error().
+						To(MatchError(index.ErrDiscontinuous))
+					Expect(MustSucceed(fs.Sub("data")).Exists(fmt.Sprintf(
+						"%d-%d.truncated",
+						14*telem.SecondTS,
+						15*telem.SecondTS+1,
+					))).To(BeFalse())
+				},
+				Entry("on open", WithFailOpen(fmt.Sprintf(
+					"%d-%d.truncated",
+					14*telem.SecondTS,
+					15*telem.SecondTS+1,
+				))),
+				Entry("on stat", WithFailStat(fmt.Sprintf(
+					"%d-%d.truncated",
+					14*telem.SecondTS,
+					15*telem.SecondTS+1,
+				))),
+				Entry("on write", WithFailWrite()),
+			)
+
 			It("Should name the channel and the domain when it fails",
 				func(ctx SpecContext) {
 					written := openData(ctx, telem.NewSeriesV("a", "b", "c", "d"))
@@ -137,13 +239,15 @@ var _ = Describe("TruncateToIndex", func() {
 					ctx,
 					(12 * telem.SecondTS).Range(20*telem.SecondTS),
 				)).To(Succeed())
-				fs.SetOptions(WithFailWrite(), WithFailWriteAt())
+				fs.SetOptions(WithFailWriteAt())
 				err := dataDB.TruncateToIndex(ctx)
 				Expect(err).To(MatchError(ErrFault))
 				Expect(err).To(MatchError(ContainSubstring(
 					"domain " + (10 * telem.SecondTS).Range(13*telem.SecondTS+1).
 						String(),
 				)))
+				Expect(quarantined(12*telem.SecondTS, 13*telem.SecondTS+1)).
+					To(Equal(telem.NewSeriesV[int64](3, 4).Data))
 			})
 
 			It("Should name the domain when reading the index fails",
