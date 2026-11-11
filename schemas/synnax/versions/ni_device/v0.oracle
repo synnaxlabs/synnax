@@ -76,7 +76,8 @@ Device struct {
         @doc value "is the key of the rack the device is connected to."
     }
     name           string          {
-        @doc value "is a human-readable name for the device."
+        @doc value         "is a human-readable name for the device."
+        @validate required
     }
     serial         string          {
         @doc value """

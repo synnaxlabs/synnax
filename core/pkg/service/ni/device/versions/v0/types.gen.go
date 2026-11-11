@@ -18,6 +18,7 @@ import (
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key uniquely identifies an NI device.
@@ -92,4 +93,12 @@ type Device struct {
 	DigitalOutput OutputPorts `json:"digital_output" msgpack:"digital_output"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	v.NotEmptyString("name", d.Name)
+	return v.Error()
 }
