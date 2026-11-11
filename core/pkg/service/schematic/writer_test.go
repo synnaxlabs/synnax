@@ -186,6 +186,151 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved).To(HaveLen(2))
 		})
 	})
+	Describe("Replace", func() {
+		retrieve := func(ctx SpecContext, tx gorp.Tx, key schematic.Key) schematic.Schematic {
+			GinkgoHelper()
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It(
+			"Should store the schematic in place of the one with its key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := schematic.Schematic{
+					Key:     stored.Key,
+					Project: &proj.Key,
+					Name:    "replaced",
+					Nodes:   []schematic.Node{{Key: "n1"}},
+				}
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(next))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				rec := &Recorder[schematic.Key, schematic.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				tx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("Schematic.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no schematic has the key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				missing := schematic.Schematic{
+					Key:     uuid.New(),
+					Project: &proj.Key,
+					Name:    "missing",
+				}
+				Expect(svc.NewWriter(tx).Replace(ctx, missing)).
+					To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(missing.Key)).
+					Entry(&schematic.Schematic{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
+			"Should return a validation error and keep the stored schematic",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := stored
+				next.Name = ""
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("name: required")),
+				))
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+			},
+		)
+
+		It("Should refuse to replace a snapshot", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			rng := createRange(ctx, tx)
+			s := schematic.Schematic{Project: &proj.Key, Name: "source"}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			var snap schematic.Schematic
+			Expect(
+				svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
+			).To(Succeed())
+			next := snap
+			next.Name = "replaced"
+			next.Snapshot = false
+			Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot replace snapshot %s:snap",
+					snap.Key,
+				)),
+			))
+			Expect(retrieve(ctx, tx, snap.Key)).To(Equal(snap))
+		})
+
+		DescribeTable("Should check a zero scale against the stored schematic",
+			func(ctx SpecContext, storedScale string, matcher OmegaMatcher) {
+				decode := func(scale string) schematic.Schematic {
+					GinkgoHelper()
+					var s schematic.Schematic
+					Expect(json.Unmarshal([]byte(
+						`{"name":"valves","nodes":[{"key":"v1"}],"configs":{"v1":`+
+							`{"variant":"valve"`+scale+`}}}`,
+					), &s)).To(Succeed())
+					s.Project = &proj.Key
+					return s
+				}
+				tx := DeferClose(db.OpenTx())
+				stored := decode(storedScale)
+				stored.Key = uuid.New()
+				Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
+					Entry(&stored).
+					Exec(ctx, tx)).To(Succeed())
+				next := decode(`,"scale":0`)
+				next.Key = stored.Key
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(matcher)
+			},
+			Entry("stored zero scale stays", `,"scale":0`, Succeed()),
+			Entry(
+				"new zero scale is rejected",
+				"",
+				SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				),
+			),
+		)
+	})
 	Describe("Apply of a project move", func() {
 		It(
 			"Should reject moving a range's snapshot into a project",

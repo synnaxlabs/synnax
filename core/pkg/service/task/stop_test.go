@@ -12,18 +12,22 @@ package task_test
 import (
 	"context"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -199,5 +203,65 @@ var _ = Describe("Stopper", func() {
 			Expect(withTimeout(10*time.Second).Stop(reqCtx, []task.Key{t.Key})).
 				To(MatchError(context.Canceled))
 		})
+	})
+
+	Describe("Restart", func() {
+		var (
+			node testutil.Node
+			svc  *service.Layer
+		)
+		BeforeEach(func(ctx SpecContext) {
+			node = testutil.NewNode(ctx)
+			svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+		})
+		// openStreamer streams the command channel and returns once it is subscribed.
+		openStreamer := func(ctx context.Context) confluence.Outlet[framer.StreamerResponse] {
+			GinkgoHelper()
+			streamer := MustSucceed(svc.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        channel.Keys{svc.Task.CommandChannelKey()},
+				SendOpenAck: true,
+			}))
+			requests, responses := confluence.Attach(streamer, 2)
+			sCtx, cancel := signal.Isolated()
+			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+			DeferCleanup(func() {
+				requests.Close()
+				confluence.Drain(responses)
+				Expect(closeStreamer.Close()).To(Succeed())
+			})
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(responses.Outlet()).Should(Receive())
+			return responses
+		}
+		It(
+			"Should send a start at the config hash of each task",
+			func(ctx SpecContext) {
+				responses := openStreamer(ctx)
+				stopper := MustSucceed(task.NewStopper(task.StopperConfig{
+					DB:     node.DB,
+					Task:   svc.Task,
+					Status: svc.Status,
+					Framer: svc.Framer,
+				}))
+				tasks := []task.Task{
+					{Key: uuid.New(), ConfigHash: "hash-a"},
+					{Key: uuid.New(), ConfigHash: "hash-b"},
+				}
+				Expect(stopper.Restart(ctx, tasks)).To(Succeed())
+				var res framer.StreamerResponse
+				Eventually(responses.Outlet()).Should(Receive(&res))
+				cmds := MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[task.Command]())
+				start := func(t task.Task) OmegaMatcher {
+					return SatisfyAll(
+						HaveField("Task", t.Key),
+						HaveField("Type", "start"),
+						HaveField("ConfigHash", t.ConfigHash),
+						HaveField("Key", Not(BeEmpty())),
+					)
+				}
+				Expect(cmds).To(HaveExactElements(start(tasks[0]), start(tasks[1])))
+				Expect(cmds[0].Key).ToNot(Equal(cmds[1].Key))
+			},
+		)
 	})
 })

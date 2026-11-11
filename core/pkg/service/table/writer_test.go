@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
@@ -213,6 +214,96 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
 				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
+	})
+
+	Describe("Replace", func() {
+		replace := func(ctx SpecContext, t table.Table) error {
+			return db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Replace(ctx, t)
+			})
+		}
+
+		It(
+			"Should store the table in place of the one with its key",
+			func(ctx SpecContext) {
+				stored := seed(ctx)
+				next := table.Table{
+					Key:     stored.Key,
+					Project: &proj.Key,
+					Name:    "replaced",
+					Rows:    []table.Row{{Key: "r1", Size: 40, Cells: []string{"c"}}},
+					Columns: []table.Column{{Key: "c2", Size: 90}},
+					Cells:   map[string]table.CellConfig{"c": textCfg("C")},
+				}
+				Expect(replace(ctx, next)).To(Succeed())
+				Expect(retrieve(ctx, stored.Key)).To(Equal(next))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := seed(ctx)
+				rec := &Recorder[table.Key, table.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				tx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(table.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("Table.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no table has the key",
+			func(ctx SpecContext) {
+				missing := table.Table{
+					Key:     uuid.New(),
+					Project: &proj.Key,
+					Name:    "missing",
+				}
+				Expect(replace(ctx, missing)).To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(table.MatchKeys(missing.Key)).
+					Entry(&table.Table{}).
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		DescribeTable(
+			"Should return a validation error and keep the stored table",
+			func(ctx SpecContext, change func(*table.Table), msg string) {
+				stored := seed(ctx)
+				next := stored
+				change(&next)
+				Expect(replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+				Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+			},
+			Entry("empty name", func(t *table.Table) { t.Name = "" }, "name: required"),
+			Entry("duplicate row key", func(t *table.Table) {
+				t.Rows = []table.Row{{Key: "r0", Size: 30}, {Key: "r0", Size: 30}}
+			}, `duplicate row key "r0"`),
+			Entry(
+				"no owner",
+				func(t *table.Table) { t.Project = nil },
+				"project: must "+
+					"belong to exactly one of a project and a range",
+			),
+		)
 	})
 
 	Describe("Dispatch", func() {

@@ -218,6 +218,102 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved).To(HaveLen(2))
 		})
 	})
+	Describe("Replace", func() {
+		retrieve := func(ctx SpecContext, tx gorp.Tx, key log.Key) log.Log {
+			GinkgoHelper()
+			var res log.Log
+			Expect(svc.NewRetrieve().
+				Where(log.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It(
+			"Should store the log in place of the one with its key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := defaults.Fill(log.Log{Project: &proj.Key, Name: "stored"})
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := defaults.Fill(log.Log{
+					Key:      stored.Key,
+					Project:  &proj.Key,
+					Name:     "replaced",
+					Channels: []log.ChannelEntry{{Channel: ch1}},
+				})
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(next))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := defaults.Fill(log.Log{Project: &proj.Key, Name: "stored"})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				rec := &Recorder[log.Key, log.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				tx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(log.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("Log.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no log has the key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				missing := defaults.Fill(
+					log.Log{Key: uuid.New(), Project: &proj.Key, Name: "missing"},
+				)
+				Expect(svc.NewWriter(tx).Replace(ctx, missing)).
+					To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(log.MatchKeys(missing.Key)).
+					Entry(&log.Log{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		DescribeTable(
+			"Should return a validation error and keep the stored log",
+			func(ctx SpecContext, change func(*log.Log), msg string) {
+				tx := DeferClose(db.OpenTx())
+				stored := defaults.Fill(log.Log{Project: &proj.Key, Name: "stored"})
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := stored
+				change(&next)
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+			},
+			Entry("empty name", func(l *log.Log) { l.Name = "" }, "name: required"),
+			Entry("two entries for one channel", func(l *log.Log) {
+				l.Channels = defaults.Fill(
+					[]log.ChannelEntry{{Channel: ch1}, {Channel: ch1}},
+				)
+			}, "channels.1.channel"),
+			Entry("no owner", func(l *log.Log) { l.Project = nil }, "project: must "+
+				"belong to exactly one of a project and a range"),
+		)
+	})
 	Describe("Apply of a project move", func() {
 		It("Should move the log into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())

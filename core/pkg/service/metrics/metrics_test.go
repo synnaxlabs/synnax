@@ -231,6 +231,19 @@ var _ = Describe("Metrics", func() {
 			},
 		)
 
+		It(
+			"Should return the key of the group that holds its channels",
+			func(ctx SpecContext) {
+				svc := DeferClose(open(ctx))
+				metricsGroup := MustSucceed(
+					groupSvc.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel),
+				)
+				Expect(svc.Group()).To(Equal(metricsGroup.Key))
+				Expect(retrieve(ctx, getNames(dist.Identity.HostKey)[1]).Group).
+					To(HaveValue(Equal(svc.Group())))
+			},
+		)
+
 		It("Should keep a channel in the group it was moved to", func(ctx SpecContext) {
 			names := getNames(dist.Identity.HostKey)
 			svc := open(ctx)
