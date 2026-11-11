@@ -11,6 +11,7 @@ import { resource } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Change } from "@/feature/vcs/diff/change";
+import { format } from "@/feature/vcs/diff/change/testutil";
 
 const DEVICE = "3c7d1f2a-9b4e-4f6a-8c21-5e0d7b9a1f34";
 
@@ -24,7 +25,7 @@ const NAMES = new Map([
 const name: Change.Name = (id) => NAMES.get(resource.idToString(id));
 
 const lines = (before: unknown, after: unknown, opts?: Change.DiffOptions) =>
-  Change.diffProperties(before, after, { name, ...opts }).map(Change.format);
+  Change.diffProperties(before, after, { name, ...opts }).map(format);
 
 describe("Change", () => {
   describe("humanize", () => {
@@ -132,7 +133,7 @@ describe("Change", () => {
       expect(property.after).toEqual([
         { text: "NI 9237 strain module", resource: { type: "device", key: DEVICE } },
       ]);
-      expect(Change.format(property)).toBe("Device: Empty -> NI 9237 strain module");
+      expect(format(property)).toBe("Device: Empty -> NI 9237 strain module");
     });
 
     it("should show a rack key as the rack name", () => {
@@ -223,7 +224,7 @@ describe("Change", () => {
           },
           "added",
           { name, omit: ["key"] },
-        ).map(Change.format),
+        ).map(format),
       ).toEqual([
         "Name: Read",
         "Sample rate (Hz): 1000",

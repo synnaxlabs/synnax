@@ -372,22 +372,3 @@ const PATH_SEPARATOR = " › ";
 /** Joins the path of a property for display. */
 export const formatPath = ({ path }: Pick<Property, "path">): string =>
   path.join(PATH_SEPARATOR);
-
-/**
- * Formats a property as one line of text.
- * @example format({path: ["Sample rate"], kind: "changed", before: "1000", after:
- * "2500"}) === "Sample rate: 1000 -> 2500"
- */
-export const format = (property: Property): string => {
-  const path = formatPath(property);
-  const { before, after } = property;
-  switch (property.kind) {
-    case "added":
-      return after == null ? `${path}: added` : `${path}: ${text(after)}`;
-    case "removed":
-      return before == null ? `${path}: removed` : `${path}: ${text(before)}`;
-    case "changed":
-      if (before == null || after == null) return `${path}: changed`;
-      return `${path}: ${text(before)} -> ${text(after)}`;
-  }
-};

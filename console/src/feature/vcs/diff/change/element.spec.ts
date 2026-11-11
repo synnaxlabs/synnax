@@ -11,6 +11,7 @@ import { resource, schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Change } from "@/feature/vcs/diff/change";
+import { format } from "@/feature/vcs/diff/change/testutil";
 
 const NAMES = new Map([
   ["channel:1048577", "valve_state"],
@@ -130,7 +131,7 @@ describe("Change", () => {
         label: "Main fuel valve",
         kind: "changed",
       });
-      expect(element.properties.map(Change.format)).toEqual([
+      expect(element.properties.map(format)).toEqual([
         "Label: Fuel valve -> Main fuel valve",
         "State channel: valve_state -> valve_state_2",
       ]);
@@ -231,7 +232,7 @@ describe("Change", () => {
         label: "Electric from Fuel valve to Fuel pump",
         kind: "changed",
       });
-      expect(element.properties.map(Change.format)).toEqual([
+      expect(element.properties.map(format)).toEqual([
         "Target › Param: inlet -> bypass",
         "Variant: pipe -> electric",
       ]);
@@ -257,7 +258,7 @@ describe("Change", () => {
     it("should report a change to the schematic itself as a document change", () => {
       const result = diff(createSchematic({ name: "Engine v2" }));
       expect(result.elements).toEqual([]);
-      expect(result.document.map(Change.format)).toEqual(["Name: Engine -> Engine v2"]);
+      expect(result.document.map(format)).toEqual(["Name: Engine -> Engine v2"]);
     });
 
     it("should list added and changed symbols before removed ones", () => {
