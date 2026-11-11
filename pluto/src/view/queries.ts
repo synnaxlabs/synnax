@@ -48,7 +48,12 @@ export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
 
 export const formPath = deep.path<FormValues>();
 
-const ZERO_VALUES: FormValues = { name: "", type: "range" };
+const ZERO_VALUES: FormValues = {
+  name: "",
+  type: "range",
+  sort: "newest",
+  layout: "tree",
+};
 export type FormQuery = view.RetrieveSingleParams;
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
