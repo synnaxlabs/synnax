@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
@@ -198,33 +199,49 @@ func checkArraySizes(
 			checkArraySizes(c, typ, f, elem, el)
 		}
 	case resolution.ValueKindStruct:
-		resolved, _, ok := resolution.Dealias(ref, c.table)
+		resolved, target, ok := resolution.Dealias(ref, c.table)
 		if !ok {
 			return
 		}
-		if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+		form, isStruct := resolved.Form.(resolution.StructForm)
+		if !isStruct {
 			return
 		}
+		args := resolution.TypeArgMap(form.TypeParams, target.TypeArgs)
 		fields := resolution.UnifiedFields(resolved, c.table)
 		for _, fv := range val.Fields {
 			if field, ok := lo.Find(fields, func(field resolution.Field) bool {
 				return field.Name == fv.Name
 			}); ok {
-				checkArraySizes(c, typ, f, field.Type, fv.Value)
+				fieldType := resolution.SubstituteTypeRef(field.Type, args)
+				checkArraySizes(c, typ, f, fieldType, fv.Value)
 			}
 		}
 	}
 }
 
 // arrayElement returns the element type of the array that ref resolves to through
-// aliases and distinct bases.
+// type parameter constraints and defaults, aliases, and distinct bases.
 func arrayElement(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 ) (resolution.TypeRef, bool) {
-	visited := make(map[string]bool)
-	for !visited[ref.Name] {
-		visited[ref.Name] = true
+	visited := make(set.Set[string])
+	for !visited.Contains(ref.Name) {
+		visited.Add(ref.Name)
+		if ref.IsTypeParam() {
+			switch {
+			case ref.TypeParam == nil:
+				return resolution.TypeRef{}, false
+			case ref.TypeParam.Constraint != nil:
+				ref = *ref.TypeParam.Constraint
+			case ref.TypeParam.Default != nil:
+				ref = *ref.TypeParam.Default
+			default:
+				return resolution.TypeRef{}, false
+			}
+			continue
+		}
 		if ref.Name == "Array" {
 			if len(ref.TypeArgs) == 0 {
 				return resolution.TypeRef{}, false

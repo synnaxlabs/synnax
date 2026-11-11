@@ -4168,6 +4168,27 @@ Node union on variant {
 				"Item struct<T extends uint8[2]> {\n\tvalue T = [1]\n}",
 				"has an array of 1 elements, but its type holds exactly 2",
 			),
+			Entry(
+				"an element of a type parameter",
+				"Item struct<T extends Pair[]> {\n\tvalue T = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[2]> = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+		)
+
+		It(
+			"Should check a generic struct field against its type argument",
+			func(ctx SpecContext) {
+				source := "Box struct<T = uint8[2]> {\n\tv T\n}\n\n" +
+					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n"
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
 		)
 	})
 
