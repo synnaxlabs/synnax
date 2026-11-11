@@ -203,6 +203,8 @@ var _ = Describe("check against the shipped release", func() {
 		proc := exec.Command("git", append([]string{
 			"-c", "user.name=Test", "-c", "user.email=test@example.com",
 			"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
+			// Checkouts keep LF, as the Synnax repository's .gitattributes forces.
+			"-c", "core.autocrlf=false",
 		}, args...)...)
 		proc.Dir = repoDir
 		out, err := proc.CombinedOutput()
