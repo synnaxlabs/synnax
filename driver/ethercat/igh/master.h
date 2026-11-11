@@ -86,6 +86,11 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
+    /// @brief returns the key of the master, such as "igh:0".
+    [[nodiscard]] std::string name() const override {
+        return "igh:" + std::to_string(this->master_index);
+    }
+
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
     std::pair<size_t, x::errors::Error> count_slaves() override;

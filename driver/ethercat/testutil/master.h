@@ -20,6 +20,7 @@
 #include <set>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -41,6 +42,8 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
     std::unordered_map<uint16_t, std::string> dc_restore_errors;
+    /// @brief why each slave rejected a startup parameter.
+    std::unordered_map<uint16_t, std::string> startup_errors;
     std::set<uint16_t> lost_slaves;
     master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
@@ -94,6 +97,8 @@ class Master final : public master::Master {
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
     std::condition_variable recorded_cv;
+    /// @brief what name() returns.
+    std::string network_name = "eth0";
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
@@ -297,6 +302,13 @@ public:
         this->dc_restore_errors[position] = error;
     }
 
+    /// @brief makes check() report that the slave rejected a startup parameter, and
+    /// keep the slave out of OP, until the master deactivates.
+    void fail_startup(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->startup_errors[position] = error;
+    }
+
     /// @brief makes check() report a slave as not responding until lost is false.
     void set_slave_lost(const uint16_t position, const bool lost) {
         std::lock_guard lock(this->mu);
@@ -322,6 +334,17 @@ public:
     size_t call_count(const std::string &method) const {
         std::lock_guard lock(this->mu);
         return std::count(this->calls.begin(), this->calls.end(), method);
+    }
+
+    /// @brief makes name() return name, which is "eth0" until then.
+    void set_name(std::string name) {
+        std::lock_guard lock(this->mu);
+        this->network_name = std::move(name);
+    }
+
+    [[nodiscard]] std::string name() const override {
+        std::lock_guard lock(this->mu);
+        return this->network_name;
     }
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
@@ -462,6 +485,7 @@ public:
         this->output_sz = 0;
         this->faults.clear();
         this->dc_restore_errors.clear();
+        this->startup_errors.clear();
         for (auto &slave: this->slave_list)
             slave.status.state = slave::State::INIT;
     }
@@ -559,15 +583,20 @@ public:
             const auto fault = this->faults.find(pos);
             const auto restore = this->dc_restore_errors.find(pos);
             const bool restore_failed = restore != this->dc_restore_errors.end();
+            const auto startup = this->startup_errors.find(pos);
+            const bool startup_failed = startup != this->startup_errors.end();
             health.push_back({
                 .position = pos,
                 .state = slave.status.state,
-                .faulted = fault != this->faults.end() || restore_failed,
+                .faulted = fault != this->faults.end() || restore_failed ||
+                           startup_failed,
                 .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
                 .dc_restore_error = restore_failed ? restore->second : "",
+                .startup_error = startup_failed ? startup->second : "",
             });
-            if (this->lost_slaves.contains(pos) || restore_failed) continue;
+            if (this->lost_slaves.contains(pos) || restore_failed || startup_failed)
+                continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&

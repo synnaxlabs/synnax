@@ -27,7 +27,8 @@
 namespace driver::ethercat {
 namespace {
 /// @brief a loader for a network with no saved slave settings.
-const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &) {
+const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
+                                                 const std::string &) {
     return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
 };
 }
@@ -148,9 +149,11 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     EXPECT_FALSE(handled);
 }
 
-/// @brief it should report how many slaves a test command finds.
+/// @brief it should report how many slaves a test command finds, and call the network
+/// by the name of its master.
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto mock_master = std::make_shared<testutil::Master>();
+    mock_master->set_name("Ethernet 2");
     mock_master->add_slave(
         slave::Properties{
             .position = 1,
@@ -201,7 +204,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 slaves on Ethernet 2");
 }
 
 /// @brief it should return a permission error from a scan, so the error reaches the
@@ -295,6 +298,31 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
+/// @brief it should report an interface whose replies a filter blocks on each scan, and
+/// still probe it only on every sixth scan.
+TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {
+    const auto blocked = x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
+    );
+    this->master->inject_scan_error(blocked);
+    for (std::size_t i = 0; i < 7; ++i) {
+        const auto [devices, err] = this->scanner->scan({.count = i});
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, blocked.data);
+        EXPECT_TRUE(devices.empty());
+    }
+    EXPECT_EQ(this->master->call_count("scan"), 2);
+    this->master->inject_scan_error(x::errors::NIL);
+    for (std::size_t i = 7; i < 12; ++i)
+        ASSERT_OCCURRED_AS_P(
+            this->scanner->scan({.count = i}),
+            common::PARTIAL_SCAN_ERROR
+        );
+    ASSERT_NIL_P(this->scanner->scan({.count = 12}));
+}
+
 /// @brief it should return a partial scan error for an interface it cannot open, then
 /// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
@@ -303,7 +331,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     );
     const auto [devices, err] = this->scanner->scan({});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, "cannot open eth0");
+    EXPECT_EQ(err.data, "Cannot open eth0.");
     EXPECT_TRUE(devices.empty());
     this->master->inject_scan_error(x::errors::NIL);
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
@@ -587,6 +615,31 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
         status.description,
         "The device reports an error without an error code. With IgH, the kernel "
         "log (dmesg) shows it."
+    );
+}
+
+/// @brief it should show the startup parameter that a slave rejected as a sentence.
+TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASentence) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_state(1, slave::State::PRE_OP);
+    this->master->fail_startup(
+        1,
+        "rejected startup parameter 0x8000:15 (Filter): Value of parameter written "
+        "too high"
+    );
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && !engine->health()[0].startup_error.empty()
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Error in PRE-OP");
+    EXPECT_EQ(
+        status.description,
+        "Rejected startup parameter 0x8000:15 (Filter): Value of parameter written too "
+        "high."
     );
 }
 
@@ -1175,7 +1228,10 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
-    EXPECT_EQ(status.description, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_EQ(
+        status.description,
+        "A task uses eth0. Stop the tasks that use it first."
+    );
     EXPECT_TRUE(this->master->written().empty());
 }
 
@@ -1192,16 +1248,18 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
 }
 
-/// @brief it should refuse to switch a device that is not on its network.
+/// @brief it should refuse to switch a device that is not on its network, and call
+/// the network by the name of its master.
 TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     this->start(true);
+    this->master->set_name("Ethernet 2");
     this->props.serial++;
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
         status.description,
-        "The device is not on eth0. Check its power and cabling."
+        "The device is not on Ethernet 2. Check its power and cabling."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

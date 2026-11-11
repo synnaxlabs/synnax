@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <cctype>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -78,7 +78,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
         if (!health.startup_error.empty())
-            status.description = health.startup_error;
+            status.description = errors::sentence(health.startup_error);
         else if (!health.al_status.empty())
             status.description = health.al_status;
         else
@@ -104,11 +104,7 @@ void set_invalid_properties_status(
 
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
-    auto sentence = error;
-    sentence[0] = static_cast<char>(
-        std::toupper(static_cast<unsigned char>(sentence[0]))
-    );
-    return sentence + ". " + get_pdo_error_guidance(error);
+    return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
@@ -222,8 +218,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     for (const auto &master_info: masters) {
         const auto &key = master_info.key;
         if (const auto it = this->next_probes.find(key);
-            it != this->next_probes.end() && scan_ctx.count < it->second)
+            it != this->next_probes.end() && scan_ctx.count < it->second.due) {
+            if (!it->second.failure.empty()) failures.insert(it->second.failure);
             continue;
+        }
         const auto due = this->next_rediscoveries.find(key);
         const bool scheduled = due != this->next_rediscoveries.end();
         const bool rediscover = scheduled && scan_ctx.count >= due->second;
@@ -233,7 +231,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
         if (err.matches(errors::NO_SLAVES_FOUND)) {
-            this->next_probes[key] = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            auto &probe = this->next_probes[key];
+            probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data : "";
+            if (!probe.failure.empty()) failures.insert(probe.failure);
             continue;
         }
         this->next_probes.erase(key);
@@ -264,7 +265,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
-        desc += (desc.empty() ? "" : "; ") + failure;
+        desc += (desc.empty() ? "" : " ") + errors::sentence(failure);
     return {devices, x::errors::Error(common::PARTIAL_SCAN_ERROR, desc)};
 }
 
@@ -435,7 +436,9 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->pool->discover(args.interface);
+    auto [engine, err] = this->pool->acquire(args.interface);
+    std::vector<slave::DiscoveryResult> slaves;
+    if (!err) std::tie(slaves, err) = engine->discover();
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
@@ -449,7 +452,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
             << " slaves on " << args.interface;
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
-                          args.interface;
+                          engine->name();
     this->ctx->set_status(task_status);
 }
 
@@ -503,7 +506,9 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         return generate_slave_key(s.properties, network) == key;
     });
     if (slave == slaves.end()) {
-        fail("The device is not on " + network + ". Check its power and cabling.");
+        fail(
+            "The device is not on " + engine->name() + ". Check its power and cabling."
+        );
         return;
     }
     const auto &props = slave->properties;

@@ -370,12 +370,12 @@ struct Status {
 /// message about one or more such slaves ends with it once.
 inline constexpr std::string_view DC_SYNC_ADVICE =
     "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
-    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
-    "settings. With no setting, the Driver uses the mode that the catalog gives for "
-    "the slave, else SM sync when the slave lists an SM mode, and its first DC mode "
-    "when it lists only DC modes. If the slave does not "
-    "list the mode it expects, change its mode with the configuration tool of its "
-    "vendor.";
+    "mode that the Driver did not set up. Right-click the device, select Configure, "
+    "and set its mode. With no mode set, the Driver uses the mode that the catalog "
+    "gives for the slave, else SM sync when the slave lists an SM mode, and its first "
+    "DC mode when it lists only DC modes. If the slave does not list the mode it "
+    "expects, Configure can switch some devices to Synnax only. For other devices, "
+    "change the mode with the configuration tool of the vendor.";
 
 /// @brief advice for a slave that reports an invalid input or output configuration.
 inline constexpr std::string_view MODE_RESTART_ADVICE =
