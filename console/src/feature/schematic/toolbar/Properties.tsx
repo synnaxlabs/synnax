@@ -571,14 +571,11 @@ const MultiConfig = ({
           <MultiEdit.SelectionColors refs={allRefs} onChange={handleSetColors} />
         </MultiEdit.ColorsSection>
       )}
-      {selection.has("label") && (
+      {firstNodeLabel != null && (
         <Form.Section title="Label">
           <Input.Item label="Wrap width">
             <Input.Numeric
-              value={
-                firstNodeLabel?.maxInlineSize ??
-                Schematic.Node.Label.DEFAULT_MAX_INLINE_SIZE
-              }
+              value={firstNodeLabel.maxInlineSize}
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
               endContent="px"
               bounds={Schematic.Node.Label.WRAP_WIDTH_BOUNDS}
@@ -588,26 +585,26 @@ const MultiConfig = ({
           </Input.Item>
           <Input.Item label="Size">
             <Select.Text.Level
-              value={firstNodeLabel?.level ?? "p"}
+              value={firstNodeLabel.level}
               onChange={(v: text.Level) => handleLabelProp("level", v)}
             />
           </Input.Item>
           <Input.Item label="Alignment">
             <Select.Flex.Alignment
-              value={firstNodeLabel?.align ?? "center"}
+              value={firstNodeLabel.align}
               onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
             />
           </Input.Item>
           <Input.Item label="Direction">
             <Direction.Select
-              value={firstNodeLabel?.direction ?? "x"}
+              value={firstNodeLabel.direction}
               onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
               yDirection="down"
             />
           </Input.Item>
           <Input.Item label="Location">
             <Schematic.Node.Orientation.Select
-              value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+              value={{ inner: "top", outer: firstNodeLabel.orientation }}
               onChange={(v) =>
                 v.outer !== "center" && handleLabelProp("orientation", v.outer)
               }
