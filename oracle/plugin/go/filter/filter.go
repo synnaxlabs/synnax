@@ -283,15 +283,10 @@ func generateFile(
 			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
 			// A `@go match` names a declared matcher that takes the line's value.
-			if match := plugindomain.GetStringFromField(
-				line,
-				"go",
-				"match",
-			); match != "" {
+			match := plugindomain.GetStringFromField(line, "go", "match")
+			if match != "" {
 				ld.Func = match
-			} else if funcs.Contains(
-				ld.Func,
-			) {
+			} else if funcs.Contains(ld.Func) {
 				return fail(
 					"typed line %s calls %s, which the generated code already "+
 						"declares; rename the line",
