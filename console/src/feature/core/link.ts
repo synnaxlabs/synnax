@@ -25,8 +25,7 @@ const SWAP_POLL_BREAKER_CONFIG: breaker.Config = {
 };
 
 // ConnectContext supplies connect with everything it needs to observe and mutate
-// connection state without binding to React. Production wires these to the Redux store
-// and the Synnax provider; tests inject controllable stubs.
+// connection state without binding to React.
 interface ConnectContext {
   getState: () => State;
   getClient: () => Client | null;

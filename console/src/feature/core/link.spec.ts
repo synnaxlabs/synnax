@@ -63,13 +63,20 @@ describe("useLink", () => {
   // holds for the same cluster.
   it("should switch to the Core that names the cluster", async () => {
     const here = createCore("Here", { clusterKey: "cluster-a" });
-    const there = createCore("There", { clusterKey: LIVE, host: "127.0.0.1" });
+    const there = createCore("There", { clusterKey: LIVE });
     const { result, store } = await renderLink([here, there], here.key);
     const prior = result.current.client;
     const next = await result.current.link(LIVE);
     expect(next).not.toBe(prior);
     expect(Session.Core.selectSelectedKey(store.getState())).toBe(there.key);
     await waitFor(() => expect(result.current.client).toBe(next));
+  });
+
+  it("should reject when the Core the link names cannot be reached", async () => {
+    const live = createCore("Live", { clusterKey: LIVE });
+    const dead = createCore("Dead", { clusterKey: "dead", port: 9999 });
+    const { result } = await renderLink([live, dead], live.key);
+    await expect(result.current.link("dead")).rejects.toThrow();
   });
 
   // A record's cached cluster is only as fresh as its last connection, so a link
