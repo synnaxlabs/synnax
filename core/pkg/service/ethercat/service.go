@@ -104,6 +104,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			) error {
 				return v3.ResolveReadConfig(ctx, snap, slaves, c)
 			},
+			ValidateEntry: func(c *ReadConfig) error {
+				v := validate.New("ethercat.ReadConfig")
+				v.Exec(c.Validate)
+				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.Read) {
 		return nil, err

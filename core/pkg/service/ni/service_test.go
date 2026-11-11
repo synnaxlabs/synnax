@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
@@ -361,5 +362,41 @@ var _ = Describe("Service", func() {
 		},
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),
+	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			for _, store := range []config.Store{
+				svc.AnalogRead,
+				svc.CounterRead,
+				svc.DigitalRead,
+			} {
+				Expect(store.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"sample_rate": sampleRate,
+					"stream_rate": streamRate,
+				})).Error().To(MatchError(ContainSubstring(msg)), store.Type())
+			}
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+		Entry(
+			"stream rate above the sample rate",
+			10.0,
+			20.0,
+			"stream_rate: must be less than or equal to the sample rate",
+		),
 	)
 })

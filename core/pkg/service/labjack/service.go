@@ -84,7 +84,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
-			ValidateEntry:   (*ReadConfig).Validate,
+			ValidateEntry: func(c *ReadConfig) error {
+				v := validate.New("labjack.ReadConfig")
+				v.Exec(c.Validate)
+				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.Read) {
 		return nil, err

@@ -183,6 +183,15 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
+}
+
 // WriteConfig configures an OPC UA write task.
 type WriteConfig struct {
 	task.WriteConfig

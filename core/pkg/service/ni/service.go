@@ -90,7 +90,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*AnalogReadConfig).SetKey,
 			PatchEntry:      (*AnalogReadConfig).Patch,
 			HashEntry:       (*AnalogReadConfig).HashContent,
-			ValidateEntry:   (*AnalogReadConfig).Validate,
+			ValidateEntry: func(c *AnalogReadConfig) error {
+				v := validate.New("ni.AnalogReadConfig")
+				v.Exec(c.Validate)
+				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.AnalogRead) {
 		return nil, err
@@ -126,7 +131,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*CounterReadConfig).SetKey,
 			PatchEntry:      (*CounterReadConfig).Patch,
 			HashEntry:       (*CounterReadConfig).HashContent,
-			ValidateEntry:   (*CounterReadConfig).Validate,
+			ValidateEntry: func(c *CounterReadConfig) error {
+				v := validate.New("ni.CounterReadConfig")
+				v.Exec(c.Validate)
+				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.CounterRead) {
 		return nil, err
@@ -144,7 +154,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*DigitalReadConfig).SetKey,
 			PatchEntry:      (*DigitalReadConfig).Patch,
 			HashEntry:       (*DigitalReadConfig).HashContent,
-			ValidateEntry:   (*DigitalReadConfig).Validate,
+			ValidateEntry: func(c *DigitalReadConfig) error {
+				v := validate.New("ni.DigitalReadConfig")
+				v.Exec(c.Validate)
+				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.DigitalRead) {
 		return nil, err

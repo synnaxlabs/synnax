@@ -84,6 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
+			ValidateEntry:   validateReadConfig,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -129,4 +130,16 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
+}
+
+// validateReadConfig skips the stream rate rule under array sampling, which reads at
+// the
+// sample rate alone.
+func validateReadConfig(c *ReadConfig) error {
+	v := validate.New("opcua.ReadConfig")
+	v.Exec(c.Validate)
+	if _, array := c.Sampling.Variant.(ArraySampling); !array {
+		config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+	}
+	return v.Error()
 }

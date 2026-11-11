@@ -6089,6 +6089,7 @@ func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogReadConfig) Validate() error {
 	v := validate.New("AnalogReadConfig")
+	v.Exec(a.ReadConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -6139,6 +6140,7 @@ func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (c CounterReadConfig) Validate() error {
 	v := validate.New("CounterReadConfig")
+	v.Exec(c.ReadConfig.Validate)
 	for i := range c.Channels {
 		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -6249,6 +6251,14 @@ func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		d.SetDefaults()
 	}
 	return dec.Decode((*plain)(d))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalReadConfig) Validate() error {
+	v := validate.New("DigitalReadConfig")
+	v.Exec(d.ReadConfig.Validate)
+	return v.Error()
 }
 
 // DigitalWriteConfig configures an NI digital write task.

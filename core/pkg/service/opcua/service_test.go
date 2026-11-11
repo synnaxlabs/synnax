@@ -179,4 +179,42 @@ var _ = Describe("Service", func() {
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),
 	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": sampleRate,
+				"stream_rate": streamRate,
+			})).Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+		Entry(
+			"stream rate above the sample rate",
+			10.0,
+			20.0,
+			"stream_rate: must be less than or equal to the sample rate",
+		),
+	)
+
+	It("Should accept a zero stream rate under array sampling", func(ctx SpecContext) {
+		Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			"sample_rate": 10,
+			"stream_rate": 0,
+			"sampling":    map[string]any{"type": "array", "size": 1},
+		})).Error().ToNot(HaveOccurred())
+	})
 })
