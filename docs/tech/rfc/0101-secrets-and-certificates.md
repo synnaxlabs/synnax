@@ -103,7 +103,7 @@ Certificate struct {
     pem              string = ""      // stored: the chain, leaf first
     private_key      secret.Key = ""  // stored: optional
     certificate_path string = ""      // file
-    private_key_path string = ""      // file: optional
+    private_key_file string = ""      // file: optional, in the secrets folder
     rack             rack.Key = 0     // file: the rack that reads the paths
     subject          string
     issuer           string
@@ -198,19 +198,22 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 A file item names the rack that reads it: a Driver's rack for OPC UA and HTTP, or the
 Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT, and PagerDuty.
-A file certificate names the paths of its certificate and key. A file secret names only
-a file in the rack's secrets folder. An admin sets the folder with `secrets_dir` in the
-Driver's config (`driver/rack/file.cpp`), or with `--secrets-dir` on the Core. With no
-folder set, a file secret fails at connect. The Core refuses a file name that is `.` or
-`..`, or that holds `/`, `\`, or `:` (a Windows drive), so a file secret cannot reach
-outside its folder. A secret's bytes go to a server that the user picks, such as a Kafka
-broker, so a path would let the user send any file that the reader can open, the secrets
-key included. TLS sends no private key, so a certificate's paths can point anywhere.
-Each integration's Core service refuses a device or task that names a file item of
-another rack, directly or through a certificate. A replace keeps the source of an item,
-so a stored secret never becomes a file. A replace of an item in use keeps its rack, or
-fails as a delete does. So an item has one file and one set of details. The reader opens
-the file at each connect, and the value never enters the store.
+A file certificate names the path of its certificate and the name of its key file in the
+rack's secrets folder. A file secret names only a file in that folder. An admin sets the
+folder with `secrets_dir` in the Driver's config (`driver/rack/file.cpp`), or with
+`--secrets-dir` on the Core. With no folder set, a file secret fails at connect. The
+Core refuses a file name that is `.` or `..`, or that holds `/`, `\`, or `:` (a Windows
+drive), so a file secret cannot reach outside its folder. The same rule holds for the
+key file of a certificate. A secret's bytes go to a server that the user picks, such as
+a Kafka broker, so a path would let the user send any file that the reader can open, the
+secrets key included. TLS sends no private key, but the reader signs with it, so a key
+path would let the user connect as any system whose key the reader can open. A
+certificate is public, so its path can point anywhere. Each integration's Core service
+refuses a device or task that names a file item of another rack, directly or through a
+certificate. A replace keeps the source of an item, so a stored secret never becomes a
+file. A replace of an item in use keeps its rack, or fails as a delete does. So an item
+has one file and one set of details. The reader opens the file at each connect, and the
+value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
@@ -290,9 +293,11 @@ the Core needs them before it opens its database.
 v0.60.1 shipped the OPC UA, HTTP, and PagerDuty fields. At first start, each
 integration's Go service migrates its own records. Each password, token, API key, and
 routing key becomes a secret named "<device name> <field>". Each OPC UA path pair
-becomes a file certificate, and each PEM pin a stored certificate. Kafka and MQTT have
-not shipped, so their fields change with no migration. The Core, the Driver, and the
-Console change in one release.
+becomes a file certificate whose key file is the last part of the old key path, and each
+PEM pin a stored certificate. A key outside the secrets folder then fails at connect,
+with an error that names the folder, until an admin moves the key or sets the folder.
+Kafka and MQTT have not shipped, so their fields change with no migration. The Core, the
+Driver, and the Console change in one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
@@ -373,9 +378,11 @@ the Driver change, so they are separate phases.
     KIP-993, lists the folders that an admin allows. Docker, Kubernetes, and Telegraf
     read secrets by name from a folder that the operator sets, and Vault Agent and the
     Kubernetes CSI driver write secrets into such a folder. Files for certificates only,
-    as in Node-RED, also closes the leak, but keeps every secret of a site in Synnax.
-    The trade is real: an admin must set the folder on each rack before a file secret
-    works.
+    as in Node-RED, also closes the leak, but keeps every secret of a site in Synnax. A
+    certificate's key file follows the same rule: the reader signs with the key, so a
+    key path would let a user connect as any system whose key the reader can open. The
+    trade is real: an admin must set the folder on each rack before a file secret works,
+    and must move each OPC UA key into it.
 
 ## 6 What this RFC does not cover
 
