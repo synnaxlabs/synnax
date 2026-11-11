@@ -159,14 +159,16 @@ Packages have no candidate channel: a candidate run never publishes them.
 
 Train rule: a product may bump to at most one minor ahead of the Core's latest stable,
 and the Core release fails unless the Console and Driver it embeds share its minor.
-Console and Driver open a train; the Core closes it. Every product and every package
-shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
-while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-Each language releases its packages together at one version, on the Core's minor. The
-C++ client and the C library are on no registry and ship with the Driver, so they carry
-the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog pins
-internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch
-mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
+Console and Driver open a train; the Core closes it. A Console or Driver run from `main`
+leaves out the packages, and the closing run releases only the Core and packages, since
+the Console and Driver would resolve a second minor ahead. Every product and every
+package shares the train's minor; patches are independent, so a Console hotfix ships as
+`0.59.1` while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client
+`0.59.x`. Each language releases its packages together at one version, on the Core's
+minor. The C++ client and the C library are on no registry and ship with the Driver, so
+they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog
+pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any
+patch mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
 `@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
 the catalog.
 

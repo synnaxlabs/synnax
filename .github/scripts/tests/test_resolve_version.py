@@ -208,11 +208,26 @@ class TestReleaseBranch:
         assert out["previous_tag"] == "console/v0.58.2"
 
     def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
+        repo.tag("console/v0.59.0")
+        repo.commit("more")
         repo.branch("release/core-0.59")
         out = repo.resolve("core", ref="release/core-0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "core/v0.58.2"
         assert out["latest"] == "true"
+
+    def test_should_reject_a_train_main_has_not_opened(self, repo: Repo) -> None:
+        repo.branch("release/console-0.59")
+        error = repo.resolve_error("console", ref="release/console-0.59")
+        assert "no stable release exists on 0.59" in error
+
+    def test_should_reject_an_older_tag_at_head(self, repo: Repo) -> None:
+        repo.tag("core/v0.59.0")
+        repo.branch("release/core-0.59")
+        repo.commit("hotfix")
+        repo.tag("core/v0.59.1")
+        repo.git("checkout", "-q", "main")
+        assert "core/v0.59.0 already names HEAD" in repo.resolve_error("core")
 
     def test_should_reject_a_branch_without_the_last_patch(self, repo: Repo) -> None:
         repo.branch("release/core-0.58", "core/v0.58.2")
@@ -298,6 +313,18 @@ class TestDesktop:
         repo.commit("work")
         error = repo.resolve_error("desktop", ref="release/desktop-2.0", bump="patch")
         assert "no stable desktop tag exists on 2.0" in error
+
+    def test_should_reject_a_desktop_branch_without_the_last_patch(
+        self, repo: Repo
+    ) -> None:
+        repo.tag("desktop/v1.0.0")
+        repo.branch("hotfix", "desktop/v1.0.0")
+        repo.commit("hotfix")
+        repo.tag("desktop/v1.0.1")
+        repo.branch("release/desktop-1.0", "desktop/v1.0.0")
+        repo.commit("other hotfix")
+        error = repo.resolve_error("desktop", ref="release/desktop-1.0", bump="patch")
+        assert "desktop/v1.0.1 is not on release/desktop-1.0" in error
 
     @pytest.mark.parametrize("bump", ["minor", "major"])
     def test_should_patch_only_from_a_desktop_release_branch(

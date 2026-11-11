@@ -31,11 +31,11 @@ on:
         type: boolean
         default: true
       typescript:
-        description: Publish the npm packages
+        description: Publish the npm packages (from main, only with the Core)
         type: boolean
         default: true
       python:
-        description: Publish the PyPI packages
+        description: Publish the PyPI packages (from main, only with the Core)
         type: boolean
         default: true
       prerelease:

@@ -17,9 +17,10 @@
 # release/<console|core|driver>-X.Y, or release/desktop-X.Y for Desktop.
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
-# tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the train has no
-# tag. Both fail when the tag they count from names HEAD, and a release branch fails
-# when it does not hold that tag.
+# tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the product has
+# no tag on a train that another product opened from main. Both fail when a stable tag
+# of the product names HEAD, and a release branch fails when it lacks the tag it counts
+# from.
 #
 # ts and py share the Core's minor, since the clients connect only to a Core with the
 # same major.minor. From main, they release only with the Core: core is the stable
@@ -29,9 +30,9 @@
 # release branch cut at a run's commit finishes that run's publish.
 #
 # Desktop: main takes a minor or major bump on the highest Desktop tag reachable from
-# HEAD. release/desktop-X.Y takes only a patch, the next one on X.Y, and needs a stable
-# tag on X.Y. The first Desktop release must be a major bump from 0.0.0, so it outranks
-# the 1.0.0 candidates.
+# HEAD. release/desktop-X.Y takes only a patch, the next one on X.Y, and needs the
+# newest stable tag on X.Y. The first Desktop release must be a major bump from 0.0.0,
+# so it outranks the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
 # rule caps every product but Desktop at one minor ahead of the Core's newest stable.
@@ -62,6 +63,17 @@ next_patch() {
     fi
     IFS=. read -r _ _ patch <<< "$current"
     echo "$1.$((patch + 1))"
+}
+
+# Fails when HEAD lacks the train's newest tag, CURRENT, since a patch built without it
+# would drop its fix.
+require_last_patch() {
+    if [ -n "$CURRENT" ] \
+        && ! git merge-base --is-ancestor "$PRODUCT/v$CURRENT" HEAD; then
+        echo "$PRODUCT/v$CURRENT is not on $REF. Release $PRODUCT from the branch" \
+            "that holds it" >&2
+        exit 1
+    fi
 }
 
 # Prints X.Y when the ref is a release branch of one of the products in pattern $1.
@@ -104,11 +116,11 @@ case "$PRODUCT" in
             BASE=$TRAIN
             CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
             NEXT=$(next_patch "$TRAIN")
-            # A patch built without the train's last patch would drop that fix.
-            if [ "$REF" != main ] && [ -n "$CURRENT" ] \
-                && ! git merge-base --is-ancestor "$PRODUCT/v$CURRENT" HEAD; then
-                echo "$PRODUCT/v$CURRENT is not on $REF. Release $PRODUCT from the" \
-                    "branch that holds it" >&2
+            if [ "$REF" != main ]; then require_last_patch; fi
+            if [ "$REF" != main ] && [ -z "$CURRENT" ] \
+                && [ -z "$(git tag --list "console/v$TRAIN.*" "core/v$TRAIN.*" \
+                    "driver/v$TRAIN.*" | highest '[a-z]+')" ]; then
+                echo "no stable release exists on $TRAIN; open a train from main" >&2
                 exit 1
             fi
         else
@@ -123,14 +135,20 @@ case "$PRODUCT" in
         fi
         # A package tag at HEAD keeps its version, so a rerun finishes the publish. Any
         # other product would release the same commit twice.
-        if [ -n "$CURRENT" ] && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
-            = "$(git rev-parse HEAD)" ]; then
-            if [[ ! $PRODUCT =~ ^(ts|py)$ ]]; then
-                echo "$PRODUCT/v$CURRENT already names HEAD. Rerun the failed jobs, or" \
-                    "leave $PRODUCT out of the run" >&2
+        if [[ $PRODUCT =~ ^(ts|py)$ ]]; then
+            if [ "$PRERELEASE" != true ] && [ -n "$CURRENT" ] \
+                && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
+                    = "$(git rev-parse HEAD)" ]; then
+                NEXT=$CURRENT
+            fi
+        else
+            SHIPPED=$(git tag --points-at HEAD --list "$PRODUCT/v*" \
+                | highest "$PRODUCT")
+            if [ -n "$SHIPPED" ]; then
+                echo "$PRODUCT/v$SHIPPED already names HEAD. Rerun the failed jobs," \
+                    "or leave $PRODUCT out of the run" >&2
                 exit 1
             fi
-            if [ "$PRERELEASE" != true ]; then NEXT=$CURRENT; fi
         fi
         ;;
     desktop)
@@ -147,10 +165,13 @@ case "$PRODUCT" in
             echo "desktop releases patches only from release/desktop-X.Y" >&2
             exit 1
         fi
-        if [ -n "$TRAIN" ] \
-            && [ -z "$(git tag --list "desktop/v$TRAIN.*" | highest desktop)" ]; then
-            echo "no stable desktop tag exists on $TRAIN; open a train from main" >&2
-            exit 1
+        if [ -n "$TRAIN" ]; then
+            CURRENT=$(git tag --list "desktop/v$TRAIN.*" | highest desktop)
+            if [ -z "$CURRENT" ]; then
+                echo "no stable desktop tag exists on $TRAIN; open a train from main" >&2
+                exit 1
+            fi
+            require_last_patch
         fi
         BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
         if [ -z "$BASE" ]; then
