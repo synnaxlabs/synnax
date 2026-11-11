@@ -690,8 +690,8 @@ describe("line", () => {
         expect(find(mount([X1], [y]), 1).x).toBeNaN();
       });
 
-      it("should return the drawn point nearest a sample that reduction drops", () => {
-        // 4000 samples in [0, 4), then 10 in [100, 1000] that reduce as one group.
+      // 4000 samples in [0, 4), then 10 in [100, 1000] that reduce as one group.
+      const mountBursty = () => {
         const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
         const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
         const x = series([...dense, ...sparse], 0n, { start: 0, end: 100 });
@@ -699,13 +699,29 @@ describe("line", () => {
           start: 0,
           end: 100,
         });
-        const props: LineProps = {
-          ...PROPS,
-          dataToDecimalScale: new scale.XY(
-            scale.Scale.scale<number>(0, 1000).scale(0, 1),
-          ),
-        };
-        expect(find(mount([x], [y]), 500, props)).toEqual({ x: 300, y: 10 });
+        return mount([x], [y]);
+      };
+      const BURSTY_PROPS: LineProps = {
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(0, 1000).scale(0, 1),
+        ),
+      };
+
+      it("should return the drawn point nearest a sample that reduction drops", () => {
+        expect(find(mountBursty(), 500, BURSTY_PROPS)).toEqual({ x: 300, y: 10 });
+      });
+
+      it("should return the y bounds of every point the line drew", () => {
+        const m = mountBursty();
+        m.line.render(BURSTY_PROPS);
+        const { bounds } = m.line.findByXValue(BURSTY_PROPS, 2);
+        expect(bounds).toEqual({ lower: -10, upper: 10 });
+      });
+
+      it("should skip an x sample that is NaN", () => {
+        const x = series([0, 1, NaN], 0n, { start: 0, end: 100 });
+        expect(find(mount([x, X2], [Y1, Y2]), 1.9)).toEqual({ x: 1, y: 20 });
       });
 
       it("should return a NaN y for a y series of another alignment multiple", () => {

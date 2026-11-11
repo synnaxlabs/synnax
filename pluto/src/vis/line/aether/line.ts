@@ -388,8 +388,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   /**
-   * @returns the point the line drew at its last render whose x is nearest target. The
-   * value of a point the line reduced has float32 precision.
+   * @returns the point the line drew at its last render whose x is nearest target, and
+   * the y bounds of every point drawn. The value of a point the line reduced has
+   * float32 precision.
    */
   findByXValue(props: LineProps, target: number): FindResult {
     const { key } = this;
@@ -402,14 +403,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
     };
-    const found = visible ? nearest(this.internal.drawn, target) : null;
+    const { drawn } = this.internal;
+    const found = visible ? nearest(drawn, target) : null;
     if (found == null) return result;
     const [{ x, y, xOffset, yOffset }, i] = found;
     result.value = {
       x: Number(x.at(xOffset + i, true)),
       y: Number(y.at(yOffset + i, true)),
     };
-    result.bounds = { ...y.bounds };
+    result.bounds = bounds.max(drawn.map((op) => op.y.bounds));
     result.position = props.dataToDecimalScale.pos(result.value);
     return result;
   }
@@ -514,7 +516,7 @@ const nearest = (
     for (const i of [after - 1, after]) {
       if (i < 0 || i >= count) continue;
       const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
-      if (d >= distance) continue;
+      if (Number.isNaN(d) || d >= distance) continue;
       found = [op, i];
       distance = d;
     }
