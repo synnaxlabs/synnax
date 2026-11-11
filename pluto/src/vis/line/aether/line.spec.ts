@@ -757,6 +757,32 @@ describe("line", () => {
         const { bounds } = m.line.findDrawnByXValue(BURSTY_PROPS, 2);
         expect(bounds).toEqual({ lower: -10, upper: 10 });
       });
+
+      it("should leave samples the line cut out of view out of the y bounds", () => {
+        // A spike of 1000 at sample 4500 lies past the samples that [0, 100] draws.
+        const length = 5000;
+        const x = series(
+          Array.from({ length }, (_, i) => i),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const y = series(
+          Array.from({ length }, (_, i) => (i === 4500 ? 1000 : i % 2)),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const m = mount([x], [y]);
+        m.xSource.sorted = true;
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(0, 100).scale(0, 1),
+          ),
+        };
+        m.line.render(props);
+        const { bounds } = m.line.findDrawnByXValue(props, 50);
+        expect(bounds).toEqual({ lower: 0, upper: 1 });
+      });
     });
   });
 
