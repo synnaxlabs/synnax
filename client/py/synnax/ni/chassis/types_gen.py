@@ -11,15 +11,90 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import rack as rack_, status as status_
 from synnax.resource import ID
+from x import filter
 
 Key: TypeAlias = UUID
+
+
+class Identity(BaseModel):
+    """Holds the chassis fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the chassis is connected to.
+        serial: Is the serial number of the chassis. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the chassis, a GUID that survives
+            renames.
+        model: Is the product name of the chassis.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    serial: str = ""
+    resource_name: str
+    model: str
+
+
+class Configuration(BaseModel):
+    """Holds the chassis fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the chassis.
+    """
+
+    name: str
+
+
+class Where(BaseModel):
+    """Is a filter that selects NI chassis.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        serial: Selects by serial.
+        resource_name: Selects by resource_name.
+        model: Selects by model.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    serial: filter.String | None = None
+    resource_name: filter.String | None = None
+    model: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "serial": filter.StringInput,
+        "resource_name": filter.StringInput,
+        "model": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
 
 
 class StatusDetails(BaseModel):
@@ -34,7 +109,57 @@ class StatusDetails(BaseModel):
     chassis: Key
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of chassis: the sort value and the key of a chassis.
+
+    Attributes:
+        key: Is the key of the chassis at the position.
+    """
+
+    key: Key
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a chassis.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
+
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve chassis.
+
+    Attributes:
+        where: Selects the chassis to retrieve. An absent where selects all of them.
+        search_term: Keeps the chassis that match the term, closest match first.
+        after: Starts the chassis strictly past this position in their order.
+        limit: Is the most chassis to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class Chassis(BaseModel):
@@ -62,6 +187,19 @@ class Chassis(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the chassis a RetrieveRequest selects.
+
+    Attributes:
+        chassis: Are the chassis the request selects.
+    """
+
+    chassis: list[Chassis] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="ni_chassis")

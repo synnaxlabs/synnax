@@ -57,6 +57,7 @@ var uncountable = set.New(
 	"deer",
 	"moose",
 	"aircraft",
+	"chassis",
 )
 
 // oEsWords are words ending in consonant+o that take -es.

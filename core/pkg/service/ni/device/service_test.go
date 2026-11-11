@@ -496,7 +496,7 @@ var _ = Describe("Service", func() {
 			create(ctx)
 			var got []device.Device
 			Expect(svc.NewRetrieve().
-				Where(device.MatchChassises(key)).
+				Where(device.MatchChassisList(key)).
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(1))

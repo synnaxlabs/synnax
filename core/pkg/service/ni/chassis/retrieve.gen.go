@@ -90,7 +90,7 @@ func (i indexes) references() []gorp.Reference[Key, Chassis] {
 	}
 }
 
-// MatchSearch matches the chassises whose text matches term.
+// MatchSearch matches the chassis whose text matches term.
 // The closest match comes first.
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Chassis] {
@@ -130,7 +130,7 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Chassis](f)
 }
 
-// Search filters the chassises to those whose text matches
+// Search filters the chassis to those whose text matches
 // term, closest match first. An empty term adds no filter.
 func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
@@ -140,7 +140,7 @@ func (r Retrieve) Search(term string) Retrieve {
 }
 
 // MatchKeys returns a filter that restricts results to
-// chassises whose key matches any of the provided
+// chassis whose key matches any of the provided
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
@@ -150,7 +150,7 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for chassises
+// MatchRacks returns a filter for chassis
 // whose Rack matches any of the provided
 // values.
 func MatchRacks(vals ...rack.Key) Filter {
@@ -160,7 +160,7 @@ func MatchRacks(vals ...rack.Key) Filter {
 }
 
 // MatchNames returns a filter for
-// chassises whose Name matches any of the
+// chassis whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Chassis] {
@@ -172,7 +172,7 @@ func MatchNames(vals ...string) Filter {
 }
 
 // MatchSerials returns a filter for
-// chassises whose Serial matches any of the
+// chassis whose Serial matches any of the
 // provided values.
 func MatchSerials(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Chassis] {
@@ -181,7 +181,7 @@ func MatchSerials(vals ...string) Filter {
 }
 
 // MatchResourceNames returns a filter for
-// chassises whose ResourceName matches any of the
+// chassis whose ResourceName matches any of the
 // provided values.
 func MatchResourceNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Chassis] {
@@ -190,7 +190,7 @@ func MatchResourceNames(vals ...string) Filter {
 }
 
 // MatchModels returns a filter for
-// chassises whose Model matches any of the
+// chassis whose Model matches any of the
 // provided values.
 func MatchModels(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Chassis] {
@@ -211,21 +211,21 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 }
 
 // Entry binds the provided chassis as the result container for the
-// query. If multiple chassises match, the first one is
+// query. If multiple chassis match, the first one is
 // used.
 func (r Retrieve) Entry(e *Chassis) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of chassises as the
+// Entries binds the provided slice of chassis as the
 // result container for the query.
 func (r Retrieve) Entries(es *[]Chassis) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
-// Limit sets the maximum number of chassises to return.
+// Limit sets the maximum number of chassis to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // After starts the query strictly past key in key order. It panics on a query with an
@@ -235,18 +235,25 @@ func (r Retrieve) After(key Key) Retrieve {
 	return r
 }
 
+// SkipMissingKeys makes Exec treat a key with no chassis as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+
 // Exec executes the query against snap. It panics when snap is nil.
 func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
 	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of chassises in snap that match
+// Count returns the number of chassis in snap that match
 // the query. It panics when snap is nil.
 func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
 	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any chassises in snap match the
+// Exists checks whether any chassis in snap match the
 // query. It panics when snap is nil.
 func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
 	return r.gorp.Exists(ctx, snap)

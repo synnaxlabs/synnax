@@ -201,10 +201,10 @@ func MatchModels(vals ...string) Filter {
 	}
 }
 
-// MatchChassises returns a filter for devices
+// MatchChassisList returns a filter for devices
 // whose Chassis matches any of the provided
 // values.
-func MatchChassises(vals ...chassis.Key) Filter {
+func MatchChassisList(vals ...chassis.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.chassis.Filter(vals...)
 	}
