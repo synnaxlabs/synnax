@@ -35,7 +35,7 @@ class OPCUAInvalidConfig(SimulatorCase):
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
         2. No enabled channels — all channels disabled.
-        3. Invalid rates — sample rate less than stream rate.
+        3. Invalid rates — sample rate less than stream rate, the Core refuses it.
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid node ID — node that doesn't exist on the server.
         6. Duplicate channel — two tasks using the same channel.
@@ -106,7 +106,8 @@ class OPCUAInvalidConfig(SimulatorCase):
         self._assert_deploy_fails(task, "no enabled channels")
 
     def test_invalid_rates(self) -> None:
-        """Configure a read task with sample rate less than stream rate."""
+        """Save a read task with sample rate less than stream rate. The Core refuses
+        it."""
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")
         idx = create_index(self.client, "opcua_inv_rate_idx")
         task = sy.opcua.ReadTask(
@@ -127,7 +128,11 @@ class OPCUAInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "invalid rates")
+        message = assert_create_refused(self.client, task, "invalid rates")
+        assert (
+            "stream_rate: must be less than or equal to the sample rate" in message
+        ), f"Refusal should name the stream rate, got {message!r}"
+        self.log(f"  Correctly refused (invalid rates): {message}")
 
     def test_nonexistent_channel_key(self) -> None:
         """Save a read task with a Synnax channel key that doesn't exist. The Core

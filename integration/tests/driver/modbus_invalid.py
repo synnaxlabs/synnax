@@ -35,8 +35,8 @@ class ModbusInvalidConfig(SimulatorCase):
 
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
-        2. Zero stream rate — heals to the schema default.
-        3. Invalid rates — sample rate less than stream rate.
+        2. Zero stream rate — the Core refuses it.
+        3. Invalid rates — sample rate less than stream rate, the Core refuses it.
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid address — register address the device doesn't serve.
         6. Duplicate channel — two tasks using the same channel.
@@ -84,12 +84,8 @@ class ModbusInvalidConfig(SimulatorCase):
         self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_zero_stream_rate(self) -> None:
-        """Configure a read task with a stream rate of zero.
-
-        A zero rate means unset, so the core heals it to the schema default
-        instead of rejecting the task.
-        """
-        self.log("Testing: Zero stream rate heals to the schema default")
+        """Save a read task with a stream rate of zero. The Core refuses it."""
+        self.log("Testing: Zero stream rate")
         idx = create_index(self.client, "modbus_inv_rate0_idx")
         task = sy.modbus.ReadTask(
             name="Modbus Zero Stream Rate Test",
@@ -109,20 +105,15 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self.client.tasks.configure(task)
-        try:
-            stored = self.client.tasks.retrieve(keys=[task.key])[0]
-            rate = stored.config.get("stream_rate", stored.config.get("streamRate"))
-            assert rate == 5, f"stream rate should heal to the default 5, got {rate}"
-            self.log(f"  Healed to default stream rate: {rate}")
-        finally:
-            cleanup_task(self.client, task)
+        message = assert_create_refused(self.client, task, "zero stream rate")
+        assert "stream_rate: must be greater than 0" in message, (
+            f"Refusal should name the stream rate, got {message!r}"
+        )
+        self.log(f"  Correctly refused (zero stream rate): {message}")
 
     def test_invalid_rates(self) -> None:
-        """Start a read task with sample rate less than stream rate.
-
-        The driver validates the rate relation when the task deploys.
-        """
+        """Save a read task with sample rate less than stream rate. The Core refuses
+        it."""
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")
         idx = create_index(self.client, "modbus_inv_rate_idx")
         task = sy.modbus.ReadTask(
@@ -143,7 +134,11 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "invalid rates")
+        message = assert_create_refused(self.client, task, "invalid rates")
+        assert (
+            "stream_rate: must be less than or equal to the sample rate" in message
+        ), f"Refusal should name the stream rate, got {message!r}"
+        self.log(f"  Correctly refused (invalid rates): {message}")
 
     def test_nonexistent_channel_key(self) -> None:
         """Save a read task with a Synnax channel key that doesn't exist. The Core
