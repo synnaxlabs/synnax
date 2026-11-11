@@ -310,7 +310,7 @@ const Internal = (): ReactElement => {
           </View.FilterMenu>
           <Chips />
         </Flex.Box>
-        <Flex.Box x align="center" gap={2}>
+        <Flex.Box x align="center" gap="small">
           {searchTerm === "" && <SortSelect value={sort} onChange={setSort} />}
           <LayoutSelect
             value={layout}
