@@ -34,14 +34,14 @@ subject_pr() {
     git log -1 --format=%s "$1" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'
 }
 
-# Prints a "pick <commit> <source>" line for each `cherry-pick -x` trailer of a commit
-# and a "revert <commit>" line for each commit it reverts. A squash merge drops these
-# lines from the message, so a commit with none reads the commits of the PR its subject
-# names.
+# Prints a "pick <commit> <carrier> <source>" line for each `cherry-pick -x` trailer of
+# a commit and a "revert <commit>" line for each commit it reverts. A squash merge drops
+# these lines from the message, so a commit with none reads the commits of the PR its
+# subject names, and each such commit is the carrier of its trailers.
 links() {
     local found pr
     found=$(git log -1 --format=%B "$1" | sed -nE \
-        -e "s/^\(cherry picked from commit ([0-9a-f]+)\)$/pick $1 \1/p" \
+        -e "s/^\(cherry picked from commit ([0-9a-f]+)\)$/pick $1 $1 \1/p" \
         -e 's/^This reverts commit ([0-9a-f]+).*/revert \1/p') || return
     pr=$(subject_pr "$1") || return
     if [ -n "$found" ] || [ -z "$pr" ]; then
@@ -52,7 +52,8 @@ links() {
         .[] | .sha as $commit | .commit.message
         | (scan("\\(cherry picked from commit ([0-9a-f]+)\\)")
             | "pick \($commit) \(.[0])"),
-          (scan("This reverts commit ([0-9a-f]+)") | "revert \(.[0])")'
+          (scan("This reverts commit ([0-9a-f]+)") | "revert \(.[0])")' \
+        | sed "s/^pick /pick $1 /"
 }
 
 # The commits the previous tag holds that SHA does not are its cherry-picks. A source
@@ -71,7 +72,7 @@ while [ -n "$PICKS" ]; do
     done
     LINKS+=$FOUND
     PICKS=""
-    for source in $(awk '$1 == "pick" { print $3 }' <<< "$FOUND"); do
+    for source in $(awk '$1 == "pick" { print $4 }' <<< "$FOUND"); do
         if [[ " $SEEN " == *" $source "* ]]; then continue; fi
         SEEN+=" $source"
         if git cat-file -e "$source^{commit}" 2> /dev/null \
@@ -82,9 +83,13 @@ while [ -n "$PICKS" ]; do
 done
 SOURCES=$(awk '
     $1 == "revert" { reverted[$2] = 1 }
-    $1 == "pick" { picks[$2] = picks[$2] " " $3 }
-    END { for (c in picks) if (!(c in reverted)) print picks[c] }' <<< "$LINKS" \
-    | tr ' ' '\n' | sort -u | tr '\n' ' ')
+    $1 == "pick" { picks[NR] = $0 }
+    END {
+        for (i in picks) {
+            split(picks[i], f, " ")
+            if (!(f[2] in reverted) && !(f[3] in reverted)) print f[4]
+        }
+    }' <<< "$LINKS" | sort -u | tr '\n' ' ')
 
 # A source with a PR in its subject is that PR's squash merge. GitHub resolves the
 # merged PR of any other source, such as a commit of a PR branch. That PR counts as

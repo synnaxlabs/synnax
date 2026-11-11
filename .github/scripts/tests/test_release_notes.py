@@ -363,3 +363,21 @@ class TestCherryPicks:
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
+
+    def test_keeps_the_fixes_of_a_reverted_pick_pr(self, train: Train) -> None:
+        pick = train.commit("Pick the stall and stage fixes (0.60.1) (#13)")
+        train.commit('Revert "Pick the stall and stage fixes (0.60.1)" (#15)')
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [
+                picked("Fix a stall (#11)", train.stall),
+                picked("Fix a stage (#14)", train.stage),
+            ],
+        )
+        train.gh.serve(
+            "api */pulls/15/commits",
+            [pr_commit("c" * 40, f"Revert\n\nThis reverts commit {pick}.")],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert notes.strip() == MINOR.strip()
