@@ -1594,6 +1594,90 @@ var _ = Describe("Calculation", Ordered, func() {
 			}, 2*retryDelay.Duration()).Should(Succeed())
 		})
 
+		Specify(
+			"Lookups Changed During A Pending Request And An Update",
+			func(ctx SpecContext) {
+				const retryDelay = 500 * telem.Millisecond
+				var (
+					target  atomic.Uint32
+					changes atomic.Int32
+					changed = make(chan struct{}, 10)
+				)
+				changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+				bases := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: 1 * telem.SecondTS,
+					Keys:  channel.KeysFromChannels(bases),
+				}))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				sCtx, cancel := signal.Isolated()
+				DeferCleanup(cancel)
+				streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				_, sOutlet := confluence.Attach(streamer, 1, 1)
+				streamer.Flow(sCtx)
+				Eventually(sOutlet.Outlet()).Should(Receive())
+
+				target.Store(uint32(calc.Key()))
+				changes.Store(1)
+				pending := changing.OpenRequestManager()
+				Expect(pending.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				Expect(changed).To(Receive())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(pending.Close(ctx)).To(Succeed())
+				})
+				// A second request adds the channel while the first is pending.
+				added := changing.OpenRequestManager()
+				Expect(added.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(added.Close(ctx)).To(Succeed())
+				})
+				changes.Store(1)
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						calc.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: fmt.Sprintf("return %s * 3", bases[0].Name),
+						}),
+					)
+					return err
+				})).To(Succeed())
+				Eventually(changed).Should(Receive())
+
+				Eventually(func(g Gomega) {
+					Expect(w.Write(
+						frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2)),
+					)).To(BeTrue())
+					var res framer.StreamerResponse
+					g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+						Should(Receive(&res))
+					g.Expect(res.Frame.Get(calc.Key()).Series[0]).
+						To(telem.MatchSeriesDataV[int64](3, 6))
+				}, 5*time.Second).Should(Succeed())
+			},
+		)
+
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),

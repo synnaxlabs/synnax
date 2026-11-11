@@ -260,6 +260,8 @@ func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
 	switch {
 	case errors.Is(err, channel.ErrLookupsChanged):
 		s.retries.Trigger(ch.Key())
+	// A cancelled compile says nothing about the definition of ch.
+	case err != nil && ctx.Err() != nil:
 	case err != nil:
 		s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
 	default:
@@ -276,7 +278,7 @@ func (s *Service) request(ctx context.Context, ch channel.Channel) {
 		s.retries.Trigger(ch.Key())
 		return
 	}
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
 		s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
 	}
 }
@@ -294,8 +296,8 @@ func (s *Service) start(ctx context.Context, running set.Set[channel.Key]) error
 	return s.rebuildGroups(ctx)
 }
 
-// retry adds the pending requests for the channel with key, or else runs update on its
-// stored definition. It runs on the retry debouncer, so the service holds no lock while
+// retry runs update on the stored definition of the channel with key, then adds its
+// pending requests. It runs on the retry debouncer, so the service holds no lock while
 // a retry waits.
 func (s *Service) retry(ctx context.Context, key channel.Key) {
 	var ch channel.Channel
@@ -319,9 +321,11 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Another request can add the channel while its own request is pending, so the
+	// retry can be for an update and a request at once.
+	s.updateLocked(ctx, ch)
 	pending := s.mu.pending[key]
 	if pending == 0 {
-		s.updateLocked(ctx, ch)
 		return
 	}
 	delete(s.mu.pending, key)
