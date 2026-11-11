@@ -195,9 +195,9 @@ func (s shapes) fields(at string, oldFields, newFields []resolution.Field) strin
 // coverBases marks the bases of old as covered, since UnifiedFields flattens them.
 func (s shapes) coverBases(old resolution.Type) {
 	for _, ext := range old.Form.(resolution.StructForm).Extends {
-		s.covered.Add(ext.Name)
 		base, _, ok := resolution.Dealias(ext, s.old)
-		if !ok || s.covered.Contains(base.QualifiedName) {
+		s.covered.Add(ext.Name)
+		if !ok {
 			continue
 		}
 		s.covered.Add(base.QualifiedName)

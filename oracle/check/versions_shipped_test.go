@@ -670,6 +670,51 @@ Channel struct extends resource.Base {
 			Expect(messages()).To(BeEmpty())
 		})
 
+		It("Should pass a two-level stored base that moves to another chain", func() {
+			write(releaseRoot, v0Path, `
+Base0 struct {
+    key uuid @key
+
+    @go marshal
+}
+
+Base1 struct extends Base0 {
+    name string
+
+    @go marshal
+}
+
+Channel struct extends Base1 {
+    rate float32
+
+    @go marshal
+}
+`)
+			write(root, "schemas/synnax/versions/resource/v0.oracle", `
+Base0 struct {
+    key uuid @key
+
+    @go marshal
+}
+
+Base1 struct extends Base0 {
+    name string
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+import "schemas/synnax/versions/resource/v0"
+
+Channel struct extends resource.Base1 {
+    rate float32
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
 		It("Should fail a union variant that drops a base field", func() {
 			write(releaseRoot, v0Path, `
 Base struct {
@@ -961,6 +1006,13 @@ Channel struct {
 			Expect(messages()).To(ContainElement(
 				"schemas/synnax/channel v1 changes the stored shape of Channel " +
 					"(Channel.name: changes its default), which core/v0.60.1 shipped",
+			))
+		})
+
+		It("Should fail every shipped version file when no chain remains", func() {
+			write(root, "schemas/synnax/channel.oracle", shippedV0)
+			Expect(messages()).To(ConsistOf(
+				"schemas/synnax/channel v0 is gone, which core/v0.60.1 shipped",
 			))
 		})
 
