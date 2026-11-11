@@ -21,21 +21,21 @@ import (
 
 // Sentinel errors for type unification failures.
 var (
-	// ErrConstraints is the base constraints error type.
-	ErrConstraints = errors.New("constraints")
-	// ErrCyclicType indicates a type variable occurs within its own substitution.
-	ErrCyclicType = errors.Wrap(ErrConstraints, "cyclic type dependency")
-	// ErrConstraintViolation indicates a type does not satisfy a type variable's
+	// errConstraints is the base constraints error type.
+	errConstraints = errors.New("constraints")
+	// errCyclicType indicates a type variable occurs within its own substitution.
+	errCyclicType = errors.Wrap(errConstraints, "cyclic type dependency")
+	// errConstraintViolation indicates a type does not satisfy a type variable's
 	// constraint.
-	ErrConstraintViolation = errors.Wrap(ErrConstraints, "constraint violation")
-	// ErrUnresolvable indicates two types cannot be unified.
-	ErrUnresolvable = errors.Wrap(ErrConstraints, "types are not unifiable")
+	errConstraintViolation = errors.Wrap(errConstraints, "constraint violation")
+	// errUnresolvable indicates two types cannot be unified.
+	errUnresolvable = errors.Wrap(errConstraints, "types are not unifiable")
 	// ErrUnresolvedVariable indicates a type variable could not be resolved to a
 	// concrete type.
-	ErrUnresolvedVariable = errors.Wrap(ErrConstraints, "unresolved type variable")
-	// ErrConvergence indicates the unification algorithm did not converge within
+	ErrUnresolvedVariable = errors.Wrap(errConstraints, "unresolved type variable")
+	// errConvergence indicates the unification algorithm did not converge within
 	// iteration limit.
-	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
+	errConvergence = errors.Wrap(errConstraints, "unification did not converge")
 )
 
 // UnificationError captures context about a failed type unification.
@@ -55,7 +55,7 @@ type UnificationError struct {
 
 func (e *UnificationError) Error() string { return e.Message }
 
-// GetHint implements diagnostics.HintProvider.
+// GetHint implements the hint interface of diagnostics.
 func (e *UnificationError) GetHint() string { return e.Hint }
 
 var _ error = (*UnificationError)(nil)
@@ -97,7 +97,7 @@ func (s *System) Unify() error {
 		}
 		if iteration == maxUnificationIterations-1 {
 			return errors.Wrapf(
-				ErrConvergence,
+				errConvergence,
 				"after %d iterations",
 				maxUnificationIterations,
 			)
@@ -210,16 +210,16 @@ func (s *System) unifyTypesWithVisited(
 	// Handle compound types (channel, series) - must be same kind to unify
 	if t1.Kind == types.KindChan || t1.Kind == types.KindSeries {
 		if t1.Kind != t2.Kind {
-			return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
+			return errors.Wrapf(errUnresolvable, "%v and %v", t1, t2)
 		}
 		return s.unifyTypesWithVisited(t1.Unwrap(), t2.Unwrap(), source, visiting)
 	}
 
-	if source.Kind == KindCompatible && t1.IsNumeric() && t2.IsNumeric() {
+	if source.Kind == kindCompatible && t1.IsNumeric() && t2.IsNumeric() {
 		return nil
 	}
 
-	return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
+	return errors.Wrapf(errUnresolvable, "%v and %v", t1, t2)
 }
 
 // numericYields reports whether the constrained variable a takes the type of the
@@ -283,7 +283,7 @@ func (s *System) unifyTypeVariableWithVisited(
 		// If we're in a compatible context with numeric types, we may need to promote
 		// BUT: Only promote if both are CONCRETE types. If either is a type variable,
 		// just recursively unify without promotion.
-		if source.Kind == KindCompatible &&
+		if source.Kind == kindCompatible &&
 			existing.Kind != types.KindVariable &&
 			other.Kind != types.KindVariable &&
 			existing.IsNumeric() && other.IsNumeric() && !types.Equal(existing, other) {
@@ -347,12 +347,12 @@ func (s *System) unifyTypeVariableWithVisited(
 
 	if tv.Constraint == nil {
 		if occursIn(tv, other) {
-			return errors.Wrapf(ErrCyclicType, "%s occurs in %v", tv.Name, other)
+			return errors.Wrapf(errCyclicType, "%s occurs in %v", tv.Name, other)
 		}
 	} else if tv.Constraint.Kind == types.KindNumericConstant {
 		if !checkType.IsNumeric() {
 			return errors.Wrapf(
-				ErrConstraintViolation,
+				errConstraintViolation,
 				"%v does not satisfy numeric constraint",
 				other,
 			)
@@ -362,7 +362,7 @@ func (s *System) unifyTypeVariableWithVisited(
 		// Integer literals can be coerced to floats: `x f32 := 42` is valid
 		if !checkType.IsNumeric() {
 			return errors.Wrapf(
-				ErrConstraintViolation,
+				errConstraintViolation,
 				"%v does not satisfy integer constraint",
 				other,
 			)
@@ -374,7 +374,7 @@ func (s *System) unifyTypeVariableWithVisited(
 		// that can promote.
 		if !checkType.IsFloat() {
 			return errors.Wrapf(
-				ErrConstraintViolation,
+				errConstraintViolation,
 				"%v does not satisfy float constraint",
 				other,
 			)
@@ -382,7 +382,7 @@ func (s *System) unifyTypeVariableWithVisited(
 	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
 		if !checkType.IsNumeric() {
 			return errors.Wrapf(
-				ErrConstraintViolation,
+				errConstraintViolation,
 				"%v does not satisfy exact integer float constraint",
 				other,
 			)
@@ -400,10 +400,10 @@ func (s *System) unifyTypeVariableWithVisited(
 
 	if !isConstraintKind && tv.Constraint != nil &&
 		!types.Equal(*tv.Constraint, other) {
-		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() ||
+		if source.Kind != kindCompatible || !tv.Constraint.IsNumeric() ||
 			!other.IsNumeric() {
 			return errors.Wrapf(
-				ErrConstraintViolation,
+				errConstraintViolation,
 				"%v does not satisfy %v constraint",
 				other,
 				tv.Constraint,
@@ -493,7 +493,7 @@ func (s *System) String() string {
 	_, _ = fmt.Fprintf(&b, "\nConstraints (%d):\n", len(s.Constraints))
 	for i, c := range s.Constraints {
 		kindStr := "≡"
-		if c.Kind == KindCompatible {
+		if c.Kind == kindCompatible {
 			kindStr = "~"
 		}
 		_, _ = fmt.Fprintf(&b, "  [%d] %v %s %v", i, c.Left, kindStr, c.Right)
