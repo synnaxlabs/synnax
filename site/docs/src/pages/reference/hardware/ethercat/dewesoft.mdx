@@ -75,6 +75,15 @@ device.
 
 <Divider.Divider x />
 
+## Physical values
+
+The SIRIUS, the IOLITE 8xLA, 8xLV, and 8xSTGS, the IOLITEi 1xACC, and the KRYPTON 3xSTG
+and 6xSTG can send raw counts. When a read task starts, the Driver reads the gain and
+offset that each channel of these modules stores, and records physical values. A scale
+on the channel applies after them.
+
+<Divider.Divider x />
+
 ## Match the sync mode
 
 Each module runs the sync mode that it stores, SM sync or DC sync. The Driver must run

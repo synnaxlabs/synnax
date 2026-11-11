@@ -243,6 +243,10 @@ A scaled channel writes float values, so its Synnax channel must be `float32` or
 `float64`. The Console creates a `float64` channel for it, apart from the raw channel,
 and its name ends in `_scaled`.
 
+Some Dewesoft modules send raw counts. The Driver turns them into
+[physical values](/reference/hardware/ethercat/dewesoft#physical-values) before the
+scale.
+
 <Client.Tabs>
   <Fragment slot="console">
 
@@ -350,6 +354,21 @@ first message, and the Driver shows the second for a task from code.
 <Problem.Fix>
 
 Select a number type of the same size, such as `int16` for a 16-bit entry.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel ... is ..., but a ... channel must be float32 or float64"}>
+<Problem.Cause>
+
+A scaled channel, and a Dewesoft input that the Driver calibrates, write float values to
+an integer Synnax channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Configure the task in the Console again. The Console creates a `float64` channel. In
+code, use a `float32` or `float64` channel.
 
 </Problem.Fix>
 </Problem.Item>
