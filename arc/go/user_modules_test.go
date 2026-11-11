@@ -23,18 +23,24 @@ var _ = Describe("User modules", func() {
 		fnOut   uint32 = 101
 		seqOut  uint32 = 102
 		textOut uint32 = 103
+		trig2   uint32 = 104
+		fnOut2  uint32 = 105
 	)
 	resolver := channelSymbols(map[string]channelDef{
 		"trig":     {types.U8(), int(trig)},
 		"fn_out":   {types.I64(), int(fnOut)},
 		"seq_out":  {types.U8(), int(seqOut)},
 		"text_out": {types.String(), int(textOut)},
+		"trig2":    {types.U8(), int(trig2)},
+		"fn_out2":  {types.I64(), int(fnOut2)},
 	})
 	digests := []channels.Digest{
 		{Key: trig, DataType: telem.Uint8T},
 		{Key: fnOut, DataType: telem.Int64T},
 		{Key: seqOut, DataType: telem.Uint8T},
 		{Key: textOut, DataType: telem.StringT},
+		{Key: trig2, DataType: telem.Uint8T},
+		{Key: fnOut2, DataType: telem.Int64T},
 	}
 	last := func(fr telem.Frame[uint32], key uint32) telem.Series {
 		GinkgoHelper()
@@ -79,6 +85,33 @@ var _ = Describe("User modules", func() {
 			frames = append(frames, out)
 		}
 		return frames
+	}
+
+	// send ingests v on key, settles the program, and returns what it wrote.
+	send := func(
+		ctx SpecContext,
+		h *runtimeHarness,
+		key uint32,
+		v uint8,
+	) telem.Frame[uint32] {
+		GinkgoHelper()
+		h.Ingest(key, telem.NewSeriesV[uint8](v))
+		for i := range 3 {
+			h.Tick(ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+			h.channelState.ClearReads()
+		}
+		out, _ := h.Flush()
+		return out
+	}
+	// all returns every sample written to key across frames.
+	all := func(frames []telem.Frame[uint32], key uint32) []int64 {
+		var r []int64
+		for _, fr := range frames {
+			for _, s := range fr.Get(key).Series {
+				r = append(r, s.Unmarshal[int64]()...)
+			}
+		}
+		return r
 	}
 
 	It("Should call an exported function and activate an exported sequence", func(
@@ -383,6 +416,178 @@ export func reactive() str { return f"Data: {trig}" }
 		out := run(ctx, h, 1)
 		texts := last(out, textOut).Unmarshal[string]()
 		Expect(texts[len(texts)-1]).To(Equal("Data: 1"))
+	})
+
+	Describe("Stateful variables", func() {
+		const counter = `
+export func count() i64 {
+    n i64 $= 0
+    n = n + 1
+    return n
+}`
+
+		It("Should keep a stateful variable across calls to an exported function", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig -> m.count() -> fn_out
+`, map[string]string{"m": counter}, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(all(pulses(ctx, h, 1, 1, 1, 1), fnOut)).
+				To(Equal([]int64{1, 2, 3, 4}))
+		})
+
+		It("Should keep separate state for each call site", func(ctx SpecContext) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig -> m.count() -> fn_out
+trig2 -> m.count() -> fn_out2
+`, map[string]string{"m": counter}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 1, 1)
+			h.Ingest(trig2, telem.NewSeriesV[uint8](1))
+			frames = append(frames, pulses(ctx, h, 1)...)
+			Expect(all(frames, fnOut)).To(Equal([]int64{1, 2, 3, 4}))
+			Expect(all(frames, fnOut2)).To(Equal([]int64{1}))
+		})
+
+		It("Should keep state in a function called from a module stage", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.s
+`, map[string]string{"m": counter + `
+
+export sequence s { stage a { trig -> count() -> fn_out } }`},
+				resolver, digests...)
+			defer h.Close(ctx)
+			// The first pulse only starts the sequence.
+			Expect(all(pulses(ctx, h, 1, 1, 1, 1), fnOut)).
+				To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("Should keep state in a function of a module that a module imports", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import lib.a
+
+trig -> a.f() -> fn_out
+`, map[string]string{
+				"lib.a": `
+import lib.b
+
+export func f() {t u8} i64 {
+    calls i64 $= 0
+    calls = calls + 1
+    return calls * 100 + b.count()
+}`,
+				"lib.b": counter,
+			}, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(all(pulses(ctx, h, 1, 1, 1, 1), fnOut)).
+				To(Equal([]int64{101, 202, 303, 404}))
+		})
+
+		It("Should keep separate state for each module that imports a module", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import lib.a
+import lib.c
+
+trig -> a.f() -> fn_out
+trig -> c.f() -> fn_out2
+`, map[string]string{
+				"lib.a": "import lib.b\n\nexport func f() {t u8} i64 { return b.count() }",
+				"lib.c": "import lib.b\n\nexport func f() {t u8} i64 { return b.count() }",
+				"lib.b": counter,
+			}, resolver, digests...)
+			defer h.Close(ctx)
+			frames := pulses(ctx, h, 1, 1, 1)
+			Expect(all(frames, fnOut)).To(Equal([]int64{1, 2, 3}))
+			Expect(all(frames, fnOut2)).To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("Should keep state in an exported function bound to a variable", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+x := m.sum()
+x -> fn_out
+`, map[string]string{"m": `
+export func sum() i64 {
+    n i64 $= 0
+    n = n + i64(trig)
+    return n
+}`}, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(all(pulses(ctx, h, 1, 2, 3), fnOut)).To(Equal([]int64{1, 3, 6}))
+		})
+
+		It("Should reset a function's state when its module stage is re-entered", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig2 == 1 => m.s
+`, map[string]string{"m": counter + `
+
+export sequence s {
+    stage a {
+        trig -> count() -> fn_out
+        trig2 == 2 => next
+    }
+    stage b {
+        trig2 == 3 => a
+    }
+}`}, resolver, digests...)
+			defer h.Close(ctx)
+			send(ctx, h, trig2, 1)
+			Expect(all([]telem.Frame[uint32]{
+				send(ctx, h, trig, 1),
+				send(ctx, h, trig, 1),
+			}, fnOut)).To(Equal([]int64{1, 2}))
+			send(ctx, h, trig2, 2)
+			send(ctx, h, trig2, 3)
+			Expect(all([]telem.Frame[uint32]{send(ctx, h, trig, 1)}, fnOut)).
+				To(Equal([]int64{1}))
+		})
+
+		It("Should keep a module sequence's state across stage re-entry", func(
+			ctx SpecContext,
+		) {
+			h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig2 == 1 => m.s
+`, map[string]string{"m": `
+export sequence s {
+    x i64 $= 0
+    stage a {
+        x = x + 1
+        x -> fn_out
+        trig2 == 2 => next
+    }
+    stage b {
+        trig2 == 3 => a
+    }
+}`}, resolver, digests...)
+			defer h.Close(ctx)
+			first := last(send(ctx, h, trig2, 1), fnOut).Unmarshal[int64]()
+			Expect(first[len(first)-1]).To(Equal(int64(1)))
+			Expect(send(ctx, h, trig2, 2).Get(fnOut).Series).To(BeEmpty())
+			again := send(ctx, h, trig2, 3)
+			Expect(all([]telem.Frame[uint32]{again}, fnOut)).To(Equal([]int64{2}))
+		})
 	})
 
 	It("Should activate a module sequence from inside a sequence", func(
