@@ -14,8 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -25,23 +28,41 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		stat  *status.Service
 		svc   *ni.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
+		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		svc = MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: stat,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
+			Status: stat,
 			Stores: svc.Stores(),
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(ni.OpenService(ctx, ni.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
+		DescribeTable(
+			"Should reject a config missing a required field",
+			func(ctx SpecContext, field string, unset func(*ni.ServiceConfig)) {
+				cfg := ni.ServiceConfig{DB: db, Status: stat}
+				unset(&cfg)
+				Expect(ni.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *ni.ServiceConfig) { c.DB = nil }),
+			Entry("status", "status", func(c *ni.ServiceConfig) { c.Status = nil }),
+		)
+
+		It("Should open the chassis and device services", func() {
+			Expect(svc.Chassis).ToNot(BeNil())
+			Expect(svc.Devices).ToNot(BeNil())
 		})
 	})
 
