@@ -527,24 +527,23 @@ trig == 1 => s
 					To(Equal([]uint8{1}))
 			})
 
-			It("Should transition on a local function", func(ctx SpecContext) {
-				h := newHarness(
-					ctx,
+			DescribeTable(
+				"Should transition on a function defined",
+				func(ctx SpecContext, source string, modules map[string]string) {
+					h := newHarness(ctx, source, modules)
+					defer h.Close(ctx)
+					start(ctx, h)
+					Expect(last(drop(ctx, h, a, b, c), done).Unmarshal[uint8]()).
+						To(Equal([]uint8{1}))
+				},
+				Entry(
+					"in the automation",
 					strings.ReplaceAll(turbo, "export ", "")+
 						fmt.Sprintf(cooldown, "stopped()"),
 					nil,
-				)
-				defer h.Close(ctx)
-				start(ctx, h)
-				Expect(last(drop(ctx, h, a, b, c), done).Unmarshal[uint8]()).
-					To(Equal([]uint8{1}))
-			})
-
-			It("Should transition on a function from a nested import", func(
-				ctx SpecContext,
-			) {
-				h := newHarness(
-					ctx,
+				),
+				Entry(
+					"in a module that imports a module",
 					"import lib.turbo\n"+fmt.Sprintf(cooldown, "turbo.stopped()"),
 					map[string]string{
 						"lib.limits": "export limit f32 := 15",
@@ -555,12 +554,8 @@ export func stopped() bool {
     return a < limits.limit and b < limits.limit and c < limits.limit
 }`,
 					},
-				)
-				defer h.Close(ctx)
-				start(ctx, h)
-				Expect(last(drop(ctx, h, a, b, c), done).Unmarshal[uint8]()).
-					To(Equal([]uint8{1}))
-			})
+				),
+			)
 
 			It("Should transition again after the stage is re-entered", func(
 				ctx SpecContext,
