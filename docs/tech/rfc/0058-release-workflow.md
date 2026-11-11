@@ -113,11 +113,12 @@ Assets per product:
 - **Driver** (`driver/vX.Y.Z`): The four platform binaries and the NI install script.
 - **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
   releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
-  binaries, Windows installer, and Docker image (`next` for a pre-release, `latest` for
-  a stable that no other stable Core tag outranks, so a hotfix on an old train never
-  moves `latest` backwards). No workflow rebuilds another product. The notes name the
-  embedded versions. The image pushes in its own job after the Core publishes, and no
-  job waits on it, so a failed push blocks only the image.
+  binaries, Windows installer, and Docker image (`next` for a pre-release that no Core
+  tag outranks, `latest` for a stable that no other stable Core tag outranks, so a
+  hotfix on an old train never moves either one backwards). No workflow rebuilds another
+  product. The notes name the embedded versions. The image pushes in its own job after
+  the Core publishes, and no job waits on it, so a failed push blocks only the image. It
+  reads the tags at push time, so a late rerun never moves a channel back.
 
 Console and Driver release in parallel. The Core embeds them, so it waits for both and
 never runs after one fails. A failed product leaves no tag and the rest stand; rerun
