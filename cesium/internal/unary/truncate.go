@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -72,36 +73,31 @@ func (db *DB) TruncateToIndex(ctx context.Context) error {
 	return nil
 }
 
-// quarantine copies the bytes of c to a new file and returns the name of the file.
+// quarantine copies the bytes of c to the first free name of <start>-<end>.truncated,
+// <start>-<end>.1.truncated, and so on, and returns the name. It reuses a file that
+// already holds those bytes, so a retried truncation does not add a copy.
 func (db *DB) quarantine(ctx context.Context, c cut) (string, error) {
-	name, err := db.freeQuarantineFile(c)
-	if err != nil {
-		return "", err
-	}
-	if err = db.copyCut(ctx, c, name); err != nil {
-		return "", err
-	}
-	return name, nil
-}
-
-// freeQuarantineFile returns the first name for c that no file in the channel directory
-// has: <start>-<end>.truncated, then <start>-<end>.1.truncated, and so on.
-func (db *DB) freeQuarantineFile(c cut) (string, error) {
 	base := fmt.Sprintf("%d-%d", c.start, c.domain.End)
 	name := base + ".truncated"
 	for n := 1; ; n++ {
-		_, err := db.cfg.FS.Stat(name)
+		info, err := db.cfg.FS.Stat(name)
 		if os.IsNotExist(err) {
-			return name, nil
+			return name, db.copyCut(ctx, c, name)
 		}
 		if err != nil {
 			return "", err
+		}
+		if info.Size() == int64(c.size) {
+			held, err := db.holdsCut(ctx, c, name)
+			if err != nil || held {
+				return name, err
+			}
 		}
 		name = fmt.Sprintf("%s.%d.truncated", base, n)
 	}
 }
 
-func (db *DB) copyCut(ctx context.Context, c cut, name string) (err error) {
+func (db *DB) readCut(ctx context.Context, c cut, f func(io.Reader) error) (err error) {
 	iter := db.domain.OpenIterator(domain.IterRange(c.domain))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) || iter.TimeRange() != c.domain {
@@ -112,20 +108,61 @@ func (db *DB) copyCut(ctx context.Context, c cut, name string) (err error) {
 		return err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
-	f, err := db.cfg.FS.Open(name, os.O_CREATE|os.O_WRONLY)
+	return f(io.NewSectionReader(r, int64(c.offset), int64(c.size)))
+}
+
+func (db *DB) holdsCut(ctx context.Context, c cut, name string) (held bool, err error) {
+	f, err := db.cfg.FS.Open(name, os.O_RDONLY)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Combine(err, f.Close()) }()
+	err = db.readCut(ctx, c, func(cutBytes io.Reader) error {
+		var (
+			a = make([]byte, 32*1024)
+			b = make([]byte, len(a))
+		)
+		for {
+			n, err := io.ReadFull(cutBytes, a)
+			if err != nil &&
+				!errors.Is(err, io.ErrUnexpectedEOF) &&
+				!errors.Is(err, io.EOF) {
+				return err
+			}
+			if n == 0 {
+				held = true
+				return nil
+			}
+			if _, err = io.ReadFull(f, b[:n]); err != nil {
+				return err
+			}
+			if !bytes.Equal(a[:n], b[:n]) {
+				return nil
+			}
+		}
+	})
+	return held, err
+}
+
+func (db *DB) copyCut(ctx context.Context, c cut, name string) (err error) {
+	tmp := name + ".tmp"
+	f, err := db.cfg.FS.Open(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err = errors.Combine(err, f.Close()); err != nil {
-			err = errors.Combine(err, db.cfg.FS.Remove(name))
+	err = db.readCut(ctx, c, func(r io.Reader) error {
+		if _, err := io.Copy(f, r); err != nil {
+			return err
 		}
-	}()
-	tail := io.NewSectionReader(r, int64(c.offset), int64(r.Size()-c.offset))
-	if _, err = io.Copy(f, tail); err != nil {
-		return err
+		return f.Sync()
+	})
+	if err = errors.Combine(err, f.Close()); err == nil {
+		err = db.cfg.FS.Rename(tmp, name)
 	}
-	return f.Sync()
+	if err != nil {
+		return errors.Combine(err, db.cfg.FS.Remove(tmp))
+	}
+	return nil
 }
 
 // cut is the tail of a domain that its index has no timestamps for.
@@ -133,6 +170,7 @@ type cut struct {
 	domain  telem.TimeRange
 	start   telem.TimeStamp
 	offset  telem.Size
+	size    telem.Size
 	dropped int64
 }
 
@@ -177,6 +215,7 @@ func (db *DB) findCut(ctx context.Context, iter *domain.Iterator) (cut, bool, er
 		domain:  tr,
 		start:   max(end, tr.Start),
 		offset:  offset,
+		size:    iter.Size() - offset,
 		dropped: count - covered,
 	}, true, nil
 }

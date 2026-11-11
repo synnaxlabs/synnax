@@ -174,6 +174,79 @@ var _ = Describe("TruncateToIndex", func() {
 				},
 			)
 
+			It("Should copy to a new file when an earlier one of the same size differs",
+				func(ctx SpecContext) {
+					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					name := fmt.Sprintf(
+						"%d-%d",
+						14*telem.SecondTS,
+						15*telem.SecondTS+1,
+					)
+					earlier := telem.NewSeriesV[int64](7, 8).Data
+					f := MustSucceed(MustSucceed(fs.Sub("data")).Open(
+						name+".truncated",
+						os.O_CREATE|os.O_WRONLY,
+					))
+					Expect(f.Write(earlier)).To(Equal(len(earlier)))
+					Expect(f.Close()).To(Succeed())
+					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+					Expect(readData(name + ".truncated")).To(Equal(earlier))
+					Expect(readData(name + ".1.truncated")).
+						To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+				},
+			)
+
+			It(
+				"Should reuse the file of a truncation that failed",
+				func(ctx SpecContext) {
+					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					fs.SetOptions(WithFailWriteAt())
+					Expect(dataDB.TruncateToIndex(ctx)).To(MatchError(ErrFault))
+					fs.SetOptions()
+					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+					Expect(quarantined(14*telem.SecondTS, 15*telem.SecondTS+1)).
+						To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+					Expect(MustSucceed(fs.Sub("data")).Exists(fmt.Sprintf(
+						"%d-%d.1.truncated",
+						14*telem.SecondTS,
+						15*telem.SecondTS+1,
+					))).To(BeFalse())
+				},
+			)
+
+			It("Should replace a temporary file that an earlier copy left",
+				func(ctx SpecContext) {
+					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
+					Expect(indexDB.Delete(
+						ctx,
+						(14 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					tmp := fmt.Sprintf(
+						"%d-%d.truncated.tmp",
+						14*telem.SecondTS,
+						15*telem.SecondTS+1,
+					)
+					f := MustSucceed(MustSucceed(fs.Sub("data")).Open(
+						tmp,
+						os.O_CREATE|os.O_WRONLY,
+					))
+					Expect(f.Write([]byte("a partial copy that is long"))).To(Equal(27))
+					Expect(f.Close()).To(Succeed())
+					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
+					Expect(quarantined(14*telem.SecondTS, 15*telem.SecondTS+1)).
+						To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+					Expect(MustSucceed(fs.Sub("data")).Exists(tmp)).To(BeFalse())
+				},
+			)
+
 			DescribeTable("Should not truncate when the copy fails",
 				func(ctx SpecContext, fault FaultyFSOption) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
@@ -186,14 +259,22 @@ var _ = Describe("TruncateToIndex", func() {
 					fs.SetOptions()
 					Expect(ReadUnary(ctx, dataDB, tr)).Error().
 						To(MatchError(index.ErrDiscontinuous))
-					Expect(MustSucceed(fs.Sub("data")).Exists(fmt.Sprintf(
+					name := fmt.Sprintf(
 						"%d-%d.truncated",
 						14*telem.SecondTS,
 						15*telem.SecondTS+1,
-					))).To(BeFalse())
+					)
+					data := MustSucceed(fs.Sub("data"))
+					Expect(data.Exists(name)).To(BeFalse())
+					Expect(data.Exists(name + ".tmp")).To(BeFalse())
 				},
 				Entry("on open", WithFailOpen(fmt.Sprintf(
-					"%d-%d.truncated",
+					"%d-%d.truncated.tmp",
+					14*telem.SecondTS,
+					15*telem.SecondTS+1,
+				))),
+				Entry("on rename", WithFailRename(fmt.Sprintf(
+					"%d-%d.truncated.tmp",
 					14*telem.SecondTS,
 					15*telem.SecondTS+1,
 				))),
