@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -110,13 +111,66 @@ var _ = Describe("Group", Ordered, func() {
 		"Should move an adopted index into the group of its calculated channel",
 		func(ctx SpecContext) {
 			name := UniqueChannelName()
-			old := createCalculated(ctx, name, nil)
+			orphan := channel.Channel{
+				Name:        name + "_time",
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, old.Key(), false)
+				return svc.NewWriter(tx).Create(ctx, &orphan)
 			})).To(Succeed())
 			calc := createCalculated(ctx, name, &g.Key)
-			Expect(calc.Index()).To(Equal(old.Index()))
+			Expect(calc.Index()).To(Equal(orphan.Key()))
 			Expect(retrieve(ctx, calc.Index()).Group).To(Equal(&g.Key))
+		},
+	)
+
+	It(
+		"Should delete a group once every calculated channel in it is deleted",
+		func(ctx SpecContext) {
+			grp := group.Group{Name: "Calculations", Scope: resource.TypeChannel}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &grp)
+			})).To(Succeed())
+			a := createCalculated(ctx, UniqueChannelName(), &grp.Key)
+			b := createCalculated(ctx, UniqueChannelName(), &grp.Key)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					DeleteMany(ctx, channel.Keys{a.Key(), b.Key()}, false)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(a.Index(), b.Index())).
+				Exists(ctx, db)).To(BeFalse())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Delete(ctx, grp.Key)
+			})).To(Succeed())
+		},
+	)
+
+	It(
+		"Should keep the index of a deleted calculated channel that another uses",
+		func(ctx SpecContext) {
+			calc := createCalculated(ctx, UniqueChannelName(), nil)
+			user := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+				LocalIndex:  calc.LocalIndex,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.NewWriter(tx)
+				if err := w.Create(ctx, &user); err != nil {
+					return err
+				}
+				return w.Delete(ctx, calc.Key(), false)
+			})).To(Succeed())
+			Expect(user.Index()).To(Equal(calc.Index()))
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(calc.Index())).
+				Exists(ctx, db)).To(BeTrue())
 		},
 	)
 

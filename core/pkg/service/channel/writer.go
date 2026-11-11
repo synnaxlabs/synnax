@@ -239,10 +239,15 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
-// DeleteMany deletes the channels with the given keys, along with their storage. Unless
-// allowInternal is true, deleting any internal channel returns an error and no channels
-// are deleted.
+// DeleteMany deletes the channels with the given keys, along with their storage. It
+// also deletes the index of each deleted calculated channel that no other channel uses.
+// Unless allowInternal is true, deleting any internal channel returns an error and no
+// channels are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+	keys, err := w.withCalculatedIndexes(ctx, keys)
+	if err != nil {
+		return err
+	}
 	return w.delete(ctx, keys, allowInternal)
 }
 
@@ -258,7 +263,44 @@ func (w Writer) DeleteManyByNames(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.delete(ctx, KeysFromChannels(res), allowInternal)
+	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
+}
+
+// withCalculatedIndexes returns keys and the index of each calculated channel in keys
+// that no channel outside keys uses.
+func (w Writer) withCalculatedIndexes(ctx context.Context, keys Keys) (Keys, error) {
+	var deleted []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		SkipMissingKeys().
+		Entries(&deleted).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	deleting := set.New(keys...)
+	indexes := set.New[Key]()
+	for _, c := range deleted {
+		if c.IsCalculated() && c.LocalIndex != 0 && !deleting.Contains(c.Index()) {
+			indexes.Add(c.Index())
+		}
+	}
+	if len(indexes) == 0 {
+		return keys, nil
+	}
+	var users []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return !c.IsIndex && indexes.Contains(c.Index()) &&
+				!deleting.Contains(c.Key()), nil
+		})).
+		Entries(&users).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	for _, c := range users {
+		indexes.Remove(c.Index())
+	}
+	return slices.Concat(keys, indexes.Slice()), nil
 }
 
 // Rename renames the channel with the given key to newName. Unless allowInternal is
