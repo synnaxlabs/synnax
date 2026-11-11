@@ -62,7 +62,9 @@ export const sync = async (
  * `accounts` holds the addresses the portal added, so sync never removes a person added
  * by hand.
  */
-export const SEGMENTS = { everyone: "Release notes", accounts: "Portal accounts" };
+const SEGMENTS = { everyone: "Release notes", accounts: "Portal accounts" };
+
+type Segments = Record<keyof typeof SEGMENTS, string>;
 
 /** Reply is the shape every Resend SDK call resolves to. */
 interface Reply {
@@ -88,19 +90,18 @@ export const resend = (apiKey: string): Audience => {
       await sleep.sleep(TimeSpan.seconds(Number(headers?.["retry-after"] ?? 1)));
     }
   };
-  let ids: Promise<Record<keyof typeof SEGMENTS, string>> | undefined;
-  const segments = async (): Promise<Record<keyof typeof SEGMENTS, string>> => {
-    ids ??= call(async () => await client.segments.list()).then(({ data }) => {
-      const id = (name: string): string => {
-        const segment = data.find((s) => s.name === name);
-        if (segment == null) throw new Error(`audience: no Resend segment ${name}`);
-        return segment.id;
-      };
-      return { everyone: id(SEGMENTS.everyone), accounts: id(SEGMENTS.accounts) };
-    });
-    return await ids;
+  const lookup = async (): Promise<Segments> => {
+    const { data } = await call(async () => await client.segments.list());
+    const id = (name: string): string => {
+      const segment = data.find((s) => s.name === name);
+      if (segment == null) throw new Error(`audience: no Resend segment ${name}`);
+      return segment.id;
+    };
+    return { everyone: id(SEGMENTS.everyone), accounts: id(SEGMENTS.accounts) };
   };
-  const members = async (segment: keyof typeof SEGMENTS): Promise<Set<string>> => {
+  let ids: Promise<Segments> | undefined;
+  const segments = async (): Promise<Segments> => await (ids ??= lookup());
+  const members = async (segment: keyof Segments): Promise<Set<string>> => {
     const segmentId = (await segments())[segment];
     const emails = new Set<string>();
     let after: string | undefined;
