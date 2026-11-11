@@ -42,6 +42,10 @@ on:
         description: Tag release candidates (-rc.N)
         type: boolean
         default: false
+      migration_audit:
+        description: Run the migration audit before any draft
+        type: boolean
+        default: true
       console_version:
         description:
           "Console release the Core embeds (default: this run's, else the newest on the
@@ -108,6 +112,7 @@ jobs:
       actions: read
       contents: read
       id-token: write
+    if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
       CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
@@ -235,7 +240,10 @@ jobs:
   draft-console:
     name: Draft Console
     needs: [resolve, ci, migration-audit]
-    if: inputs.console
+    if: >-
+      !cancelled() && inputs.console && needs.resolve.result == 'success' &&
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success')
     permissions:
       actions: read
       contents: write
@@ -318,7 +326,10 @@ jobs:
   draft-driver:
     name: Draft Driver
     needs: [resolve, ci, migration-audit]
-    if: inputs.driver
+    if: >-
+      !cancelled() && inputs.driver && needs.resolve.result == 'success' &&
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success')
     permissions:
       actions: read
       contents: write
@@ -601,9 +612,10 @@ jobs:
     needs: [resolve, ci, migration-audit, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success')
     permissions:
       actions: read
       contents: write
