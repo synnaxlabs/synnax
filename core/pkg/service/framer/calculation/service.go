@@ -306,7 +306,8 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		Exec(ctx, s.cfg.DB)
 	if err != nil {
 		if !errors.Is(err, query.ErrNotFound) && ctx.Err() == nil {
-			s.cfg.L.Error("failed to retry calculation", zap.Error(err))
+			s.cfg.L.Error("failed to retry calculation",
+				zap.Error(err), zap.Stringer("channel", key))
 		}
 		return
 	}
@@ -328,7 +329,8 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		s.request(ctx, ch)
 	}
 	if err := s.start(ctx, running); err != nil {
-		s.cfg.L.Error("failed to start calculation", zap.Error(err))
+		s.cfg.L.Error("failed to start calculation",
+			zap.Error(err), zap.Stringer("channel", key))
 	}
 }
 
