@@ -21,32 +21,31 @@ import (
 	"github.com/synnaxlabs/x/video"
 )
 
-// MP4Encoder encodes a read of one video channel as a fragmented MP4 file, with no
-// re-encoding. The file starts at the first keyframe in the time range. A read of
-// anything other than one video channel and its index, a read with a reduction, or a
-// read with no keyframe in the time range fails before the first byte. A read that
-// fails after the first byte truncates the body.
-var MP4Encoder mp4Encoder
+// NewMP4Encoder returns an encoder that encodes a read of one video channel as a
+// fragmented MP4 file, with no re-encoding. The file starts at the first keyframe in
+// the time range. A read of anything other than one video channel and its index, a read
+// with a reduction, or a read with no keyframe in the time range fails before the first
+// byte. A read that fails after the first byte truncates the body. ctx bounds the
+// iterators the encoder opens.
+func NewMP4Encoder(ctx context.Context) xhttp.Encoder { return mp4Encoder{ctx: ctx} }
 
-type mp4Encoder struct{}
-
-var _ xhttp.Encoder = mp4Encoder{}
+type mp4Encoder struct{ ctx context.Context }
 
 // ContentType implements http.Encoder.
 func (mp4Encoder) ContentType() string { return "video/mp4" }
 
 // Encode implements encoding.Encoder. It holds the whole file in memory, so prefer
 // EncodeStream.
-func (e mp4Encoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e mp4Encoder) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := e.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 // EncodeStream implements encoding.Encoder. value must be a ReadResponse.
-func (mp4Encoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e mp4Encoder) EncodeStream(w io.Writer, value any) error {
 	res, err := readResponse(value)
 	if err != nil {
 		return err
@@ -70,7 +69,7 @@ func (mp4Encoder) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 	}
 	index, frames := newColumn(groups[0][0]), newColumn(groups[0][1])
 	columns := []*column{&index, &frames}
-	if err = openColumns(ctx, res, columns); err != nil {
+	if err = openColumns(e.ctx, res, columns); err != nil {
 		return err
 	}
 	m := video.NewMP4(w)

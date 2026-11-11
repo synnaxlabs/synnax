@@ -1,0 +1,282 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Connect a Kafka cluster"
+description:
+  "Connect an Apache Kafka cluster to Synnax, with its brokers, TLS, and SASL
+  authentication."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Kafka integration moves JSON records between an
+[Apache Kafka](https://kafka.apache.org/) cluster and Synnax channels. In Synnax, a
+Kafka cluster is a list of brokers with their TLS and authentication settings. The
+[read task](/reference/hardware/kafka/read-task) records the values in the records of a
+topic, and the [write task](/reference/hardware/kafka/write-task) sends the samples of
+channels to a topic as records.
+
+Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack "Node
+1", and it runs Kafka tasks wherever the Core runs, Docker included.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+- A Kafka cluster with JSON records, or a topic that a write task can send records to.
+- A Core that can reach every broker on the network. Synnax Desktop runs one for you.
+- The advertised listeners of each broker give an address that the Core can reach. The
+  Core reads the broker addresses from the cluster after it connects to the first one.
+
+<Divider.Divider x />
+
+## Connect a cluster
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
+   <Icon.Add /> (**Connect device**), then select **Kafka cluster**. You can also run
+   the "Connect Kafka cluster" command.
+2. Enter a name for the cluster.
+3. In **Brokers**, enter the address and port of a broker, such as `localhost:9092`. To
+   add more brokers, click **Add broker**.
+4. In **Connect from**, keep **Node 1**. The Console selects it for you.
+5. Under **Security**, set [TLS](#tls) and the [SASL mechanism](#authentication) that
+   the brokers use.
+6. Click **Connect**.
+
+The Console tests the connection before it saves the cluster. The test waits up to 15
+seconds. If the test fails, the dialog shows the error and keeps your entries.
+
+<Video id="hardware/kafka/connect-cluster" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+from uuid import uuid4
+
+import synnax as sy
+from synnax import kafka
+
+rack = client.racks.retrieve(integration="kafka", one=True)
+cluster = client.devices.create(
+    key=str(uuid4()),
+    name="Plant cluster",
+    rack=rack.key,
+    location="broker-1:9092",
+    make="kafka",
+    model="cluster",
+    configured=True,
+    properties=kafka.Properties(brokers=["broker-1:9092"]).model_dump(),
+)
+```
+
+Python does not test the connection. The Core checks it within 5 seconds, and the device
+status shows the result.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { kafka } from "@synnaxlabs/client";
+
+const rack = await client.racks.retrieve({ name: "Node 1" });
+const cluster = await client.devices.create({
+  key: crypto.randomUUID(),
+  name: "Plant cluster",
+  rack: rack.key,
+  location: "broker-1:9092",
+  make: "kafka",
+  model: "cluster",
+  configured: true,
+  properties: kafka.propertiesZ.parse({ brokers: ["broker-1:9092"] }),
+});
+```
+
+TypeScript does not test the connection. The Core checks it within 5 seconds, and the
+device status shows the result.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TLS
+
+Turn on **TLS** when every broker listener uses TLS. The Core then checks the
+certificate of each broker against the system roots.
+
+For brokers with certificates from a private certificate authority, paste the PEM text
+of the authority into **CA certificate**. The field takes the text that starts with
+`-----BEGIN CERTIFICATE-----`, not a path to a file. Synnax does not support client
+certificates or skipped certificate checks for Kafka.
+
+<Divider.Divider x />
+
+## Authentication
+
+Select the SASL **Mechanism** that the broker listener uses:
+
+| Mechanism     | Sends                                                          |
+| ------------- | -------------------------------------------------------------- |
+| None          | No credentials. The default.                                   |
+| PLAIN         | The **Username** and **Password** as plain text. Use with TLS. |
+| SCRAM-SHA-256 | The **Username** and **Password** in a SCRAM exchange.         |
+| SCRAM-SHA-512 | The **Username** and **Password** in a SCRAM exchange.         |
+
+In code, `sasl` is one of these:
+
+```python
+kafka.NoneSASL()
+kafka.PlainSASL(username="synnax", password="secret")
+kafka.ScramSha256SASL(username="synnax", password="secret")
+kafka.ScramSha512SASL(username="synnax", password="secret")
+```
+
+<Divider.Divider x />
+
+## Connection settings
+
+| Setting                                        | Default | Notes                                                        |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------ |
+| Brokers <small>`brokers`</small>               |         | At least one `host:port`. A broker with no port uses 9092.   |
+| Connect from <small>`rack`</small>             | Node 1  | The rack of the Core. Set on the device, not in properties.  |
+| TLS <small>`tls`</small>                       | Off     | See [TLS](#tls).                                             |
+| CA certificate <small>`ca_certificate`</small> | Empty   | PEM text. Shows when **TLS** is on. Empty uses system roots. |
+| Mechanism <small>`sasl`</small>                | None    | See [authentication](#authentication).                       |
+
+TypeScript uses the same fields in camel case, such as `caCertificate`.
+
+<Divider.Divider x />
+
+## Cluster status
+
+The Core checks each cluster every 5 seconds and shows the result as its status in the
+devices toolbar:
+
+- **Device connected** -> the Core reached the cluster.
+- **Failed to connect** -> the Core did not reach the cluster. The description gives the
+  reason.
+
+To change the brokers or the security settings, right-click the cluster and select
+**Edit connection**. The Console tests the connection again before it saves.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Failed to reach broker"}>
+<Problem.Cause>
+
+The Core cannot open a connection to a broker. The description says which address
+failed:
+
+- **Could not reach** -> the address of a broker in **Brokers** is wrong, or the network
+  of the Core cannot reach it.
+- **The cluster advertises broker** -> the Core reached the first broker, but not the
+  address that the cluster gives for another broker.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Could not reach** -> check the address and port of each broker.
+- **The cluster advertises broker** -> set the advertised listeners of each broker to an
+  address that the Core can reach. A broker in Docker often advertises `localhost`.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Authentication failed"}>
+<Problem.Cause>
+
+The broker rejected the SASL credentials.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the **Username**, the **Password**, and the **Mechanism**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Not authorized to read metadata"}>
+<Problem.Cause>
+
+The user can log in, but it cannot read the metadata of the cluster.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give the user the Describe operation on the cluster in the ACLs of the cluster.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Broker did not answer"}>
+<Problem.Cause>
+
+The broker accepted the connection, but did not answer within 5 seconds. Most often, the
+TLS or SASL settings do not match the listener.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Match **TLS** and **Mechanism** to the listener on that port.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Certificate not trusted", "Certificate not valid"]}>
+<Problem.Cause>
+
+The certificate of the broker is not signed by a trusted authority, or it is out of
+date.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Paste the authority that signed the certificate into **CA certificate**, or replace the
+certificate of the broker.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Certificate does not match the address"}>
+<Problem.Cause>
+
+The certificate of the broker does not name the address in **Brokers**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Connect with a host name that the certificate names.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Server does not use TLS", "TLS handshake failed"]}>
+<Problem.Cause>
+
+**TLS** is on, but the listener on that port does not use TLS.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn off **TLS**, or connect to the TLS port of the broker.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

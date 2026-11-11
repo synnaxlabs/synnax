@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device, status } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, verbs } from "@synnaxlabs/x";
+import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
+import {
+  type Channel,
+  READ_TYPE,
+  SCAN_TYPE,
+  WRITE_TYPE,
+} from "@/feature/ethercat/task/types";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
@@ -55,30 +61,98 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  SlaveDevice[]
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "toggle enabled",
   verbs: verbs.UPDATE,
-  update: async ({ data, client, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
+    let { enabled } = data;
+    if (enabled == null) {
+      const first = await client.devices.retrieve({
+        key: keys[0],
+        schemas: SLAVE_SCHEMAS,
+      });
+      enabled = !first.properties.enabled;
+    }
+    const set = device.set({ path: ["properties", "enabled"], value: enabled });
+    await Promise.all(keys.map(async (key) => await client.devices.dispatch(key, set)));
+    return data;
+  },
+});
 
-    const devices = await client.devices.retrieve({
-      key: keys,
-      includeStatus: true,
-      schemas: SLAVE_SCHEMAS,
-    });
+/** The scan task command that switches a slave to Synnax only. */
+const SET_STANDALONE_COMMAND = "set_standalone";
 
-    const enabledValue = data.enabled ?? !devices[0]?.properties?.enabled;
+const SWITCH: verbs.Verbs = {
+  present: "switch",
+  past: "switched",
+  participle: "switching",
+};
 
-    const updated = devices.map((dev) => ({
-      ...dev,
-      properties: { ...dev.properties, enabled: enabledValue },
-    }));
+const channelDevicesZ = z.object({
+  channels: z.array(z.object({ device: z.string() })).default(() => []),
+});
 
-    return await client.devices.create(updated, SLAVE_SCHEMAS, {
-      onOptimistic: async () => await onOptimisticComplete(updated),
-    });
+export interface SetStandaloneParams {
+  slave: SlaveDevice;
+}
+
+/**
+ * Stops each EtherCAT task that runs on the network of the slave, then switches the
+ * slave to Synnax only. The slave changes after its power restarts. When a stop or the
+ * switch fails, starts the tasks again.
+ */
+export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
+  name: "EtherCAT slave",
+  verbs: SWITCH,
+  update: async ({ client, data }) => {
+    const { rack, key, properties } = data.slave;
+    const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
+      (t) =>
+        (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
+        t.status?.details.running === true,
+    );
+    const devicesOf = (config: unknown): string[] =>
+      channelDevicesZ.parse(config).channels.map((ch) => ch.device);
+    const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
+    const onNetwork = new Set(
+      (keys.length === 0
+        ? []
+        : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
+      )
+        .filter((s) => s.properties.network === properties.network)
+        .map((s) => s.key),
+    );
+    const tasks = running.filter((t) =>
+      devicesOf(t.config).some((k) => onNetwork.has(k)),
+    );
+    let switched = false;
+    try {
+      await Promise.all(
+        tasks.map(async (t) => {
+          const res = await t.executeCommandSync({ type: "stop" });
+          if (res.variant === "error") throw status.toError(res);
+        }),
+      );
+      const scanTask = await client.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack,
+        one: true,
+      });
+      const res = await scanTask.executeCommandSync({
+        type: SET_STANDALONE_COMMAND,
+        args: { device: key },
+        timeout: TimeSpan.seconds(30),
+      });
+      if (res.variant === "error") throw status.toError(res);
+      switched = true;
+    } finally {
+      // A task that fails to start shows its own error.
+      if (!switched)
+        await Promise.allSettled(
+          tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+        );
+    }
+    return data;
   },
 });

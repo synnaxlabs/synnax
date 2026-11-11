@@ -11,15 +11,13 @@ package video
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Writer creates, edits, and deletes video views in the transaction given to
@@ -38,50 +36,35 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates v, and gives it a new key when v.Key is zero. The view must belong to
-// exactly one of a project and a range. An existing view keeps its group, project, and
-// range. A new view in a group belongs to the project that holds the group.
+// exactly one of a project and a range. A view in a group belongs to the project that
+// holds the group. Create returns an error wrapping validate.ErrValidation when a view
+// with v.Key exists.
 func (w Writer) Create(ctx context.Context, v *Video) error {
-	var (
-		exists bool
-		err    error
-	)
 	if v.Key == uuid.Nil() {
 		v.Key = uuid.New()
-	} else {
-		var stored Video
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Video](v.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			v.Group, v.Project, v.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && v.Group != nil {
+	if v.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, v.Group, resource.TypeVideo)
 		if err != nil {
 			return err
 		}
 		v.Project = proj
 	}
-	if err = v.Validate(); err != nil {
+	if err := v.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(v.Project, v.Range); err != nil {
+	if err := project.ValidateOwner(v.Project, v.Range); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(v).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(v).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, v.Key, NewCreateAction(CreatePayload{Video: *v}))
 	return nil
 }
 
-// CreateMany creates each of videos. A view with the key of an existing view replaces
-// it.
+// CreateMany creates each of videos. It returns an error wrapping
+// validate.ErrValidation when a view with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, videos *[]Video) error {
 	for i := range *videos {
 		if err := w.Create(ctx, &(*videos)[i]); err != nil {
@@ -89,33 +72,6 @@ func (w Writer) CreateMany(ctx context.Context, videos *[]Video) error {
 		}
 	}
 	return nil
-}
-
-// SetGroup moves the video views with keys into g, or out of their group when g is
-// nil. A view in a group belongs to the project that holds the group.
-func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeVideo)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
-}
-
-// SetProject moves the video views with keys out of their group and into the project
-// p. It returns a validation error when a view belongs to a range.
-func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(nil, keys)
-	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the video views with keys that are not in the project p into p,
@@ -147,18 +103,6 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// attachGroup attaches a set of the group of each video view with keys, or a remove of
-// the group when g is nil.
-func (w Writer) attachGroup(g *group.Key, keys []Key) {
-	for _, k := range keys {
-		a := NewRemoveAction(RemovePayload{Key: "group"})
-		if g != nil {
-			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
-		}
-		w.dispatcher.Attach(w.tx, k, a)
-	}
-}
-
 // Delete deletes the video views with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
@@ -167,22 +111,39 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 }
 
 // Apply applies acts to the video view with key and attaches them to the transaction
-// of w, so its commit broadcasts them with the dispatch key of w. Returns a validation
-// error, and stores nothing, when the actions leave the view invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// of w, so its commit broadcasts them with the dispatch key of w. A move into a group
+// also moves the view into the project that holds the group, and a move into another
+// project moves it out of its group. Apply attaches the actions of each such move after
+// acts and returns them. It returns a validation error, and stores nothing, when the
+// actions leave the view invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Video](key)).
-		ChangeErr(func(_ gorp.Context, v Video) (Video, error) {
-			reduced, err := Reduce(v, acts...)
+		ChangeErr(func(_ gorp.Context, prev Video) (Video, error) {
+			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Video{}, err
 			}
-			if err = reduced.Validate(); err != nil {
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeVideo,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
 				return Video{}, err
 			}
-			return reduced, nil
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = next.Validate(); err != nil {
+				return Video{}, err
+			}
+			return next, project.ValidateOwner(next.Project, next.Range)
 		}).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
 }

@@ -168,9 +168,9 @@ var _ = Describe("Task", Ordered, func() {
 				Running: true,
 				Cmd:     "start",
 			}
-			data := MustSucceed(msgpack.Codec.Encode(ctx, original))
+			data := MustSucceed(msgpack.Codec.Encode(original))
 			var decoded task.StatusDetails
-			Expect(msgpack.Codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(msgpack.Codec.Decode(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -346,12 +346,21 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				original := t.ConfigHash
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-2"}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				Expect(t.ConfigHash).ToNot(Equal(original))
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-1"}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				Expect(t.ConfigHash).To(Equal(original))
+				setRoutingKey := func(routingKey string) string {
+					GinkgoHelper()
+					MustSucceed(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+						Path:  []string{"config", "routing_key"},
+						Value: routingKey,
+					})))
+					var stored task.Task
+					Expect(svc.NewRetrieve().
+						Where(task.MatchKeys(t.Key)).
+						Entry(&stored).
+						Exec(ctx, tx)).To(Succeed())
+					return stored.ConfigHash
+				}
+				Expect(setRoutingKey("rk-2")).ToNot(Equal(original))
+				Expect(setRoutingKey("rk-1")).To(Equal(original))
 			},
 		)
 		It("Should ignore a client-provided hash", func(ctx SpecContext) {
@@ -394,29 +403,6 @@ var _ = Describe("Task", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
 		})
-		It(
-			"Should keep the existing hash when a snapshot's config is retained",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type:   testType,
-					Rack:   testRack.Key,
-					Name:   "Test Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true, nil))
-				Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
-				edited := snap
-				edited.Config = msgpack.EncodedJSON{"routing_key": "rk-999"}
-				Expect(w.Create(ctx, &edited)).To(Succeed())
-				var retrieved task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(snap.Key)).
-					Entry(&retrieved).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
-			},
-		)
 	})
 
 	Describe("Config storage", func() {
@@ -442,42 +428,34 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t.Config).To(HaveKeyWithValue("routing_key", "rk-stored"))
 			},
 		)
-		It(
-			"Should overwrite the record when a task is re-configured",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type:   testType,
-					Rack:   testRack.Key,
-					Name:   "Reused Record Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				t.Config = msgpack.EncodedJSON{"routing_key": "rk-2"}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				store := MustBeOk(configs.Store(testType))
-				data := MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-2"))
-			},
-		)
-		It(
-			"Should keep the old record when a type change's config is rejected",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type:   testType,
-					Rack:   testRack.Key,
-					Name:   "Type Change Task",
-					Config: msgpack.EncodedJSON{"routing_key": "rk-keep"},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-				changed := *t
-				changed.Type = arc.TaskType
-				changed.Config = msgpack.EncodedJSON{"text": math.NaN()}
-				Expect(w.Create(ctx, &changed)).To(MatchError(validate.ErrValidation))
-				store := MustBeOk(configs.Store(testType))
-				data := MustSucceed(store.Read(ctx, tx, t.Key))
-				Expect(data).To(HaveKeyWithValue("routing_key", "rk-keep"))
-			},
-		)
+		It("Should refuse a task whose key exists", func(ctx SpecContext) {
+			t := &task.Task{
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Existing Task",
+				Config: msgpack.EncodedJSON{"routing_key": "rk-keep"},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			again := &task.Task{
+				Key:    t.Key,
+				Type:   testType,
+				Rack:   testRack.Key,
+				Name:   "Again",
+				Config: msgpack.EncodedJSON{"routing_key": "rk-again"},
+			}
+			Expect(w.Create(ctx, again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("task %s already exists", t.Key)),
+			))
+			var res task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("Existing Task"))
+			Expect(res.ConfigHash).To(Equal(t.ConfigHash))
+			Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-keep"))
+		})
 		It(
 			"Should compose the stored config on retrieve",
 			func(ctx SpecContext) {
@@ -613,33 +591,6 @@ var _ = Describe("Task", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.Key).To(Equal(snap.Key))
 		})
-
-		It("Should keep the range of a snapshot written again", func(ctx SpecContext) {
-			openTx()
-			r := createRange(ctx, tx)
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
-			snap.Range = nil
-			Expect(w.Create(ctx, &snap)).To(Succeed())
-			Expect(snap.Range).To(Equal(&r.Key))
-		})
-
-		It(
-			"Should keep a snapshot written again as not a snapshot",
-			func(ctx SpecContext) {
-				openTx()
-				r := createRange(ctx, tx)
-				m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				snap := MustSucceed(w.Copy(ctx, m.Key, "Snapshot", true, &r.Key))
-				snap.Snapshot = false
-				snap.Range = nil
-				Expect(w.Create(ctx, &snap)).To(Succeed())
-				Expect(snap.Snapshot).To(BeTrue())
-				Expect(snap.Range).To(Equal(&r.Key))
-			},
-		)
 
 		It(
 			"Should broadcast a create of the copy after the commit",
@@ -998,7 +949,10 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createCommitted(ctx, arcTask)
 				frames := collect()
-				acts := []task.Action{set([]string{"config", "performance"}, "")}
+				acts := []task.Action{task.NewRemoveAction(task.RemovePayload{
+					Path: []string{"config"},
+					Key:  "performance",
+				})}
 				computed := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
@@ -1592,38 +1546,6 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 		It(
-			"Should restore a missing status row when the task is re-configured",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type: testType,
-					Rack: testRack.Key,
-					Name: "Self Heal Task",
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-
-				sw := stat.NewWriter(tx)
-				Expect(sw.DeleteOwned(ctx, t.ResourceID())).
-					To(Succeed())
-				Expect(stat.NewRetrieve[any]().
-					Where(status.MatchOwners[any](t.ResourceID())).
-					Entry(new(status.Status[any])).
-					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-
-				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
-				Expect(w.Create(ctx, reconfigured)).To(Succeed())
-
-				var healed task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&healed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(healed.Owner).To(HaveValue(Equal(t.ResourceID())))
-				Expect(healed.Variant).To(Equal(status.VariantWarning))
-				Expect(healed.Message).To(Equal("Task status unknown"))
-			},
-		)
-
-		It(
 			"Should not write a provided status over the status of another task",
 			func(ctx SpecContext) {
 				a := &task.Task{Type: testType, Rack: testRack.Key, Name: "A"}
@@ -1656,35 +1578,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should not clobber a live status row on a no-op re-configure",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type: testType,
-					Rack: testRack.Key,
-					Name: "Live Status Task",
-					Status: &task.Status{
-						Variant: status.VariantSuccess,
-						Message: "Task is running",
-						Time:    telem.Now(),
-					},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-
-				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
-				Expect(w.Create(ctx, reconfigured)).To(Succeed())
-
-				var preserved task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&preserved).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-				Expect(preserved.Message).To(Equal("Task is running"))
-			},
-		)
-
-		It(
-			"Should rename a live status row when a re-configure renames the task",
+			"Should keep a live status when an apply renames the task",
 			func(ctx SpecContext) {
 				t := &task.Task{
 					Type: testType,
@@ -1698,13 +1592,10 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 
-				reconfigured := &task.Task{
-					Key:  t.Key,
-					Name: "After Task",
-					Type: testType,
-				}
-				Expect(w.Create(ctx, reconfigured)).To(Succeed())
-				Expect(reconfigured.Status.Name).To(Equal("After Task"))
+				MustSucceed(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+					Path:  []string{"name"},
+					Value: "After Task",
+				})))
 
 				var renamed task.Status
 				Expect(stat.NewRetrieve[task.StatusDetails]().
@@ -1731,31 +1622,6 @@ var _ = Describe("Task", Ordered, func() {
 					m.Status.Message,
 				).To(Equal("Task not deployed"))
 				Expect(m.Status.Owner).To(HaveValue(Equal(m.ResourceID())))
-			},
-		)
-
-		It(
-			"Should return the live status on a re-configure rather than a placeholder",
-			func(ctx SpecContext) {
-				t := &task.Task{
-					Type: testType,
-					Rack: testRack.Key,
-					Name: "Live Returned Status Task",
-					Status: &task.Status{
-						Variant: status.VariantSuccess,
-						Message: "Task is running",
-						Time:    telem.Now(),
-						Details: task.StatusDetails{Running: true},
-					},
-				}
-				Expect(w.Create(ctx, t)).To(Succeed())
-
-				reconfigured := &task.Task{Key: t.Key, Name: t.Name, Type: testType}
-				Expect(w.Create(ctx, reconfigured)).To(Succeed())
-				Expect(reconfigured.Status).ToNot(BeNil())
-				Expect(reconfigured.Status.Variant).To(Equal(status.VariantSuccess))
-				Expect(reconfigured.Status.Message).To(Equal("Task is running"))
-				Expect(reconfigured.Status.Details.Running).To(BeTrue())
 			},
 		)
 
@@ -2108,20 +1974,24 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		})).To(Succeed())
 		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
 	}
-	createUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
+	applyUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
 		return func() {
 			defer GinkgoRecover()
 			for i := 0; !done.Load(); i++ {
-				t := newTask(key, i%len(hashes))
+				set := task.NewSetAction(task.SetPayload{
+					Path:  []string{"config"},
+					Value: newTask(key, i%len(hashes)).Config,
+				})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &t)
+					_, err := svc.NewWriter(tx).Apply(ctx, key, set)
+					return err
 				})).To(Succeed())
 			}
 		}
 	}
 
 	It(
-		"Should store the hash of the stored config during concurrent creates",
+		"Should store the hash of the stored config during concurrent applies",
 		func(ctx SpecContext) {
 			t := newTask(uuid.New(), 0)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2132,7 +2002,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				done atomic.Bool
 			)
 			for range 4 {
-				wg.Go(createUntil(ctx, &done, t.Key))
+				wg.Go(applyUntil(ctx, &done, t.Key))
 			}
 			wg.Go(func() {
 				defer GinkgoRecover()
@@ -2147,7 +2017,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	)
 
 	It(
-		"Should copy the config that matches the copied hash during concurrent creates",
+		"Should copy the config that matches the copied hash during concurrent applies",
 		func(ctx SpecContext) {
 			src := newTask(uuid.New(), 0)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2158,7 +2028,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				done atomic.Bool
 			)
 			for range 2 {
-				wg.Go(createUntil(ctx, &done, src.Key))
+				wg.Go(applyUntil(ctx, &done, src.Key))
 			}
 			wg.Go(func() {
 				defer GinkgoRecover()

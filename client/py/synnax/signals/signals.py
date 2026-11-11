@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from synnax import channel, framer
 from synnax.state import Latest, State
+from x.params import deprecate_positional
 
 
 @dataclass
@@ -35,6 +36,7 @@ class Registry:
         self._frame_client = frame_client
         self._channel_retriever = channels
 
+    @deprecate_positional("filter_f")
     def on(
         self,
         channels: channel.Params,

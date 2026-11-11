@@ -120,7 +120,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -311,7 +310,7 @@ func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
 func enums(entries []http.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
-		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+		out[i] = xjson.NewEnum(e.Label, e.Value)
 	}
 	return out
 }
@@ -830,9 +829,9 @@ func (t *readTask) convert(rec *kgo.Record) {
 	g.rows = append(g.rows, r)
 }
 
-// keep sorts the group's rows by timestamp and drops the replay. A body-stamped
-// regression is dropped with a status. Kafka timestamps only count milliseconds, so a
-// regression of one moves to a nanosecond past the last written stamp.
+// keep sorts the group's rows by timestamp and drops the replay. An indexed group drops
+// a regression with a status. Kafka timestamps only count milliseconds, so a row in the
+// millisecond of the last Kafka stamp moves to a nanosecond past the last written one.
 func (t *readTask) keep(g *readGroup) {
 	slices.SortStableFunc(g.rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := g.rows[:0]
@@ -841,7 +840,9 @@ func (t *readTask) keep(g *readGroup) {
 			if g.replaying {
 				continue
 			}
-			if g.stamp != -1 {
+			tie := g.stamp == -1 &&
+				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
+			if g.index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,

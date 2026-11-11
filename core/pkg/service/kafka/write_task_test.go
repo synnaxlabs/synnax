@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 	"uuid"
 
@@ -28,12 +29,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 var _ = Describe("Write task", func() {
@@ -334,6 +338,76 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
+	Describe("Lost cluster", func() {
+		// startBlocked starts a task on a cluster that drops every produce request, and
+		// returns once the producer holds more records than its buffer.
+		startBlocked := func(ctx SpecContext) (driver.Task, task.Task) {
+			GinkgoHelper()
+			lost := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.AllowAutoTopicCreation(),
+			))
+			DeferCleanup(lost.Close)
+			producing := make(chan struct{})
+			var once sync.Once
+			lost.ControlKey(
+				kmsg.Produce.Int16(),
+				func(kmsg.Request) (kmsg.Response, error, bool) {
+					lost.KeepControl()
+					once.Do(func() { close(producing) })
+					return nil, errors.New("cluster lost"), true
+				},
+			)
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: lost.ListenAddrs()})
+			f = newFactory(kafka.FactoryConfig{PingTimeout: 200 * telem.Millisecond})
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			// More samples than the producer buffers by default.
+			const n = 60_000
+			stamps := make([]telem.TimeStamp, n)
+			values := make([]float64, n)
+			for i := range n {
+				stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+				values[i] = float64(i)
+			}
+			writeFrame(ctx, index, data, stamps, telem.NewSeries(values))
+			Eventually(producing).WithTimeout(10 * time.Second).Should(BeClosed())
+			return dt, t
+		}
+
+		It("Should answer a stop command with a timeout", func(ctx SpecContext) {
+			dt, t := startBlocked(ctx)
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "stop", Key: "cmd-3",
+			})).To(Succeed())
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to stop task"))
+			Expect(stat.Description).To(ContainSubstring("timed out producing records"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Consistently(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(250 * time.Millisecond).
+				Should(Equal("Failed to stop task"))
+		})
+
+		It("Should time out a stop without a status", func(ctx SpecContext) {
+			dt, _ := startBlocked(ctx)
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Eventually(stopped).WithTimeout(10 * time.Second).
+				Should(Receive(MatchError(ContainSubstring("timed out producing"))))
+		})
+	})
+
 	It("Should reject an unknown channel", func(ctx SpecContext) {
 		dev := createDevice(ctx, clusterProperties())
 		cfg := kafka.WriteConfig{
@@ -489,6 +563,15 @@ var _ = Describe("Write task", func() {
 		Entry("float64 as a string",
 			telem.Float64T, telem.NewSeriesV[float64](2.5),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "2.5"),
+		Entry("a value as its enum label",
+			telem.Uint8T, telem.NewSeriesV[uint8](1),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "ON"),
+		Entry("a value outside the enum as text",
+			telem.Uint8T, telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "5"),
+		Entry("infinity as text",
+			telem.Float64T, telem.NewSeriesV(math.Inf(-1)),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "-Infinity"),
 		Entry("int64 as a string",
 			telem.Int64T, telem.NewSeriesV[int64](9007199254740993),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "9007199254740993"),
@@ -595,16 +678,12 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
-		Entry("a value outside the enum",
-			telem.Uint8T, telem.NewSeriesV[uint8](5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
-			"no enum label for value 5"),
 		Entry("NaN as a number",
 			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
 			"NaN is not a JSON number"),
 		Entry("infinity as a number",
 			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
-			"+Inf is not a JSON number"),
+			"Infinity is not a JSON number"),
 	)
 
 	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
@@ -697,4 +776,27 @@ var _ = Describe("Write task", func() {
 				}
 			}, "time_format alone encodes"),
 	)
+
+	It("Should reject enum values on a number JSON type", func(ctx SpecContext) {
+		_, data := createIndexed(ctx, telem.Uint8T)
+		dev := createDevice(ctx, clusterProperties())
+		cfg := kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  "t",
+			Channels: []kafka.WriteChannel{{
+				Key:        "c1",
+				Channel:    data.Key(),
+				JSONType:   http.JSONTypeNumber,
+				EnumValues: onOff,
+			}},
+		}
+		Expect(
+			f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+		).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				`channel "c1": enum values require the string JSON type`,
+			)),
+		))
+	})
 })

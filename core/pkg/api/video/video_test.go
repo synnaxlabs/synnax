@@ -103,10 +103,14 @@ var _ = Describe("Video", func() {
 			return svc.Group.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
 		grant(ctx, access.ActionUpdate, editor.ResourceID(), g.ResourceID())
-		MustSucceed(setGroup(AuthedCtx(ctx, editor), apivideo.SetGroupRequest{
-			Group: &g.Key,
-			Keys:  []video.Key{v.Key},
-		}))
+		Expect(dispatch(AuthedCtx(ctx, editor), apivideo.DispatchRequest{
+			Key:         v.Key,
+			DispatchKey: "dk-move",
+			Actions: []video.Action{video.NewSetAction(video.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key,
+			})},
+		})).To(HaveField("Actions", BeEmpty()))
 		Expect(retrieveVideos(ctx, v.Key)[0].Group).To(Equal(&g.Key))
 	})
 

@@ -176,6 +176,66 @@ class TestArc:
         assert retrieved.program is not None
         assert retrieved.program.wasm.startswith(b"\x00asm")
 
+    def test_retrieve_module_status(self, client: sy.Synnax) -> None:
+        """Should return a module's compile status when include_status is True."""
+        created = client.arcs.create(
+            name=f"test_module_{uuid4().hex}",
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func f() i64 { return 1 }"),
+        )
+        assert isinstance(client.arcs.retrieve(key=created.key), sy.arc.Module)
+
+        def compiled() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_status=True)
+            assert isinstance(retrieved, sy.arc.Module)
+            assert retrieved.status is not None
+            assert retrieved.status.message == "Compiled"
+
+        assert_eventually(compiled)
+
+    def test_retrieve_changes(self, client: sy.Synnax) -> None:
+        """Should name an imported module that changed after the deploy."""
+        path = f"test_changes_{uuid4().hex}"
+        module = client.arcs.create(
+            name=path,
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func g() i64 { return 1 }"),
+        )
+        created = client.arcs.create(
+            name=f"test_changes_{uuid4().hex}",
+            mode="text",
+            text=sy.Text(raw=f"import {path}\n\nfunc f() i64 {{ return {path}.g() }}"),
+        )
+        assert isinstance(created, sy.arc.Automation)
+        rack = client.racks.create(name=f"test_changes_{uuid4().hex}")
+        tsk = client.arcs.update_task(created.key, rack=rack.key)
+        assert tsk is not None
+        retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+        assert isinstance(retrieved, sy.arc.Automation)
+        assert not retrieved.changes
+        client.statuses.set(
+            sy.task.Status(
+                variant=sy.status.VARIANT_SUCCESS,
+                message="Task running",
+                details=sy.task.StatusDetails(
+                    running=True, config_hash=tsk.config_hash
+                ),
+                owner=tsk.resource_id,
+            )
+        )
+        client.arcs.set_text(module.key, "export func g() i64 { return 2 }")
+
+        def changed() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+            assert isinstance(retrieved, sy.arc.Automation)
+            assert retrieved.changes == [
+                sy.arc.Change(type="module", path=path, kind="changed")
+            ]
+
+        assert_eventually(changed)
+
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when include_program is not set."""
         created = client.arcs.create(
@@ -191,6 +251,22 @@ class TestArc:
         """Should raise NotFoundError when Arc is not found."""
         with pytest.raises(sy.NotFoundError):
             client.arcs.retrieve(name=f"nonexistent-arc-{uuid4()}")
+
+    def test_set_text(self, client: sy.Synnax) -> None:
+        """Should replace the text of an Arc on each call."""
+        arc = client.arcs.create(
+            name=f"test-arc-{uuid4()}", mode="text", text=sy.Text(raw="x := 1")
+        )
+        client.arcs.set_text(arc.key, "y := 2")
+        assert text_of(client.arcs.retrieve(key=arc.key)).raw == "y := 2"
+        client.arcs.set_text(arc.key, "z := 3 // é")
+        assert text_of(client.arcs.retrieve(key=arc.key)).raw == "z := 3 // é"
+
+    def test_set_text_of_a_graph(self, client: sy.Synnax) -> None:
+        """Should refuse to set the text of a graph-mode Arc."""
+        arc = client.arcs.create(name=f"test-arc-{uuid4()}", mode="graph")
+        with pytest.raises(ValueError, match="graph-mode Arc and has no text"):
+            client.arcs.set_text(arc.key, "x := 1")
 
     def test_delete_single(self, client: sy.Synnax) -> None:
         """Should delete a single Arc."""
@@ -383,6 +459,38 @@ class TestArcTask:
         arc_task = sy.arc.Task(internal=retrieved)
         assert arc_task.config.arc_key == arc.key
         assert arc_task.config.auto_start is False
+
+    def test_update_task_binds_to_rack(self, client: sy.Synnax) -> None:
+        """Should create the automation's task on the rack with its compiled hash."""
+        arc = client.arcs.create(
+            name=f"test-arc-bind-{uuid4()}", mode="text", text=sy.Text(raw="x := 1")
+        )
+        rack = client.racks.create(name=f"test-arc-bind-{uuid4()}")
+        task = client.arcs.update_task(arc.key, rack=rack.key)
+        assert task is not None
+        assert task.rack == rack.key
+        config = sy.arc.Task(internal=task).config
+        assert config.arc_key == arc.key
+        assert config.hash != ""
+
+    def test_update_task_unbinds(self, client: sy.Synnax) -> None:
+        """Should delete the task and return None for a rack of 0."""
+        arc = client.arcs.create(name=f"test-arc-unbind-{uuid4()}", mode="text")
+        rack = client.racks.create(name=f"test-arc-unbind-{uuid4()}")
+        task = client.arcs.update_task(arc.key, rack=rack.key)
+        assert task is not None
+        assert client.arcs.update_task(arc.key, rack=0) is None
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(key=task.key)
+
+    def test_update_task_rejects_module(self, client: sy.Synnax) -> None:
+        """Should raise ValidationError when binding a module to a rack."""
+        module = client.arcs.create(
+            name=f"test_arc_bind_module_{uuid4().hex}", type="module", mode="text"
+        )
+        rack = client.racks.create(name=f"test-arc-bind-{uuid4()}")
+        with pytest.raises(sy.ValidationError):
+            client.arcs.update_task(module.key, rack=rack.key)
 
     def test_performance_defaults_to_auto(self) -> None:
         """Should default the performance level to auto."""

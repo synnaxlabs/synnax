@@ -12,10 +12,15 @@
 package v1
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Protocol is the transport of the media of an RTSP stream. Automatic tries UDP first,
@@ -86,6 +91,31 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.TimeSource == "" {
 		r.TimeSource = TimeSourceArrival
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.Protocol = ProtocolAutomatic
+	r.TimeSource = TimeSourceArrival
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

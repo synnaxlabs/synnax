@@ -82,21 +82,21 @@ Video struct {
         @doc value "sets the range the view plays back. Absent shows live video."
     }
 
-    action Set extends patch.Set {
+    action Set = patch.Set {
         @doc value "replaces the value at a path in the video view."
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the video view.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value "adds an entry to a list in the video view."
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value "moves an entry in a list in the video view."
     }
 

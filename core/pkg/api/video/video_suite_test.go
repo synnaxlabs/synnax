@@ -41,12 +41,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *service.Layer
-	// create, del, dispatch, setGroup, and retrieve run their routes as the API layer
-	// binds them.
+	// create, del, dispatch, and retrieve run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apivideo.CreateRequest, apivideo.CreateResponse]
 	del      freighter.UnaryHandler[apivideo.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apivideo.DispatchRequest, struct{}]
-	setGroup freighter.UnaryHandler[apivideo.SetGroupRequest, struct{}]
+	dispatch freighter.UnaryHandler[apivideo.DispatchRequest, apivideo.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apivideo.RetrieveRequest,
 		apivideo.RetrieveResponse,
@@ -70,7 +68,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	proj = project.Project{Name: "test-project"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

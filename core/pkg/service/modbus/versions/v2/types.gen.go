@@ -14,7 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"strconv"
+	"reflect"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
@@ -39,22 +40,13 @@ type RegisterValue struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *RegisterValue) ApplyDefaults() {
 	if r.DataType == "" {
-		r.DataType = "uint16"
+		r.DataType = "uint8"
 	}
 }
 
-// RegisterBit addresses one bit of a 16-bit register.
-type RegisterBit struct {
-	// Bit is the bit index, from 0 (least significant) to 15.
-	Bit uint8 `json:"bit" msgpack:"bit"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RegisterBit) Validate() error {
-	v := validate.New("RegisterBit")
-	v.LessThanEq("bit", r.Bit, 15)
-	return v.Error()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RegisterValue) SetDefaults() {
+	r.DataType = "uint8"
 }
 
 // BaseReadChannel carries the fields every Modbus read channel shares.
@@ -74,10 +66,6 @@ const (
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
 	InputRegisterReadChannelType ReadChannelType = "input_register"
-	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
-	HoldingRegisterBitReadChannelType ReadChannelType = "holding_register_bit"
-	// InputRegisterBitReadChannelType reads one bit of an input register.
-	InputRegisterBitReadChannelType ReadChannelType = "input_register_bit"
 )
 
 // ReadChannelVariant is implemented by every ReadChannel variant.
@@ -109,6 +97,11 @@ type HoldingRegisterReadChannel struct {
 
 func (HoldingRegisterReadChannel) isReadChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HoldingRegisterReadChannel) SetDefaults() {
+	h.RegisterValue.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HoldingRegisterReadChannel) ApplyDefaults() {
 	h.RegisterValue.ApplyDefaults()
@@ -124,41 +117,14 @@ type InputRegisterReadChannel struct {
 
 func (InputRegisterReadChannel) isReadChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputRegisterReadChannel) SetDefaults() {
+	i.RegisterValue.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputRegisterReadChannel) ApplyDefaults() {
 	i.RegisterValue.ApplyDefaults()
-}
-
-// HoldingRegisterBitReadChannel reads one bit of a holding register.
-type HoldingRegisterBitReadChannel struct {
-	BaseReadChannel
-	RegisterBit
-}
-
-func (HoldingRegisterBitReadChannel) isReadChannelVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (h HoldingRegisterBitReadChannel) Validate() error {
-	v := validate.New("HoldingRegisterBitReadChannel")
-	v.Exec(h.RegisterBit.Validate)
-	return v.Error()
-}
-
-// InputRegisterBitReadChannel reads one bit of an input register.
-type InputRegisterBitReadChannel struct {
-	BaseReadChannel
-	RegisterBit
-}
-
-func (InputRegisterBitReadChannel) isReadChannelVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (i InputRegisterBitReadChannel) Validate() error {
-	v := validate.New("InputRegisterBitReadChannel")
-	v.Exec(i.RegisterBit.Validate)
-	return v.Error()
 }
 
 // ReadChannel is a single Modbus read channel. The type field selects the register
@@ -192,16 +158,6 @@ func (u ReadChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ReadChannelType `json:"type"`
 			InputRegisterReadChannel
 		}{Type: InputRegisterReadChannelType, InputRegisterReadChannel: v})
-	case HoldingRegisterBitReadChannel:
-		return json.MarshalEncode(enc, struct {
-			Type ReadChannelType `json:"type"`
-			HoldingRegisterBitReadChannel
-		}{Type: HoldingRegisterBitReadChannelType, HoldingRegisterBitReadChannel: v})
-	case InputRegisterBitReadChannel:
-		return json.MarshalEncode(enc, struct {
-			Type ReadChannelType `json:"type"`
-			InputRegisterBitReadChannel
-		}{Type: InputRegisterBitReadChannelType, InputRegisterBitReadChannel: v})
 	default:
 		return errors.Newf("ReadChannel: unknown variant %T", v)
 	}
@@ -250,6 +206,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			HoldingRegisterReadChannel
 		}
+		v.HoldingRegisterReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -259,28 +216,11 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			InputRegisterReadChannel
 		}
+		v.InputRegisterReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.InputRegisterReadChannel
-	case HoldingRegisterBitReadChannelType:
-		var v struct {
-			Type ReadChannelType `json:"type"`
-			HoldingRegisterBitReadChannel
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.HoldingRegisterBitReadChannel
-	case InputRegisterBitReadChannelType:
-		var v struct {
-			Type ReadChannelType `json:"type"`
-			InputRegisterBitReadChannel
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.InputRegisterBitReadChannel
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -302,10 +242,6 @@ func (u ReadChannel) Type() ReadChannelType {
 		return HoldingRegisterReadChannelType
 	case InputRegisterReadChannel:
 		return InputRegisterReadChannelType
-	case HoldingRegisterBitReadChannel:
-		return HoldingRegisterBitReadChannelType
-	case InputRegisterBitReadChannel:
-		return InputRegisterBitReadChannelType
 	}
 	return ""
 }
@@ -323,18 +259,6 @@ func (u *ReadChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u ReadChannel) Validate() error {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterBitReadChannel:
-		return variant.Validate()
-	case InputRegisterBitReadChannel:
-		return variant.Validate()
-	}
-	return nil
-}
-
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u ReadChannel) Base() BaseReadChannel {
 	switch variant := u.Variant.(type) {
@@ -345,10 +269,6 @@ func (u ReadChannel) Base() BaseReadChannel {
 	case HoldingRegisterReadChannel:
 		return variant.BaseReadChannel
 	case InputRegisterReadChannel:
-		return variant.BaseReadChannel
-	case HoldingRegisterBitReadChannel:
-		return variant.BaseReadChannel
-	case InputRegisterBitReadChannel:
 		return variant.BaseReadChannel
 	}
 	return BaseReadChannel{}
@@ -369,12 +289,6 @@ func (u *ReadChannel) SetBase(base BaseReadChannel) {
 	case InputRegisterReadChannel:
 		variant.BaseReadChannel = base
 		u.Variant = variant
-	case HoldingRegisterBitReadChannel:
-		variant.BaseReadChannel = base
-		u.Variant = variant
-	case InputRegisterBitReadChannel:
-		variant.BaseReadChannel = base
-		u.Variant = variant
 	default:
 		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
@@ -392,8 +306,6 @@ const (
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
 	HoldingRegisterWriteChannelType WriteChannelType = "holding_register"
-	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
-	HoldingRegisterBitWriteChannelType WriteChannelType = "holding_register_bit"
 )
 
 // WriteChannelVariant is implemented by every WriteChannel variant.
@@ -416,25 +328,14 @@ type HoldingRegisterWriteChannel struct {
 
 func (HoldingRegisterWriteChannel) isWriteChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HoldingRegisterWriteChannel) SetDefaults() {
+	h.RegisterValue.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HoldingRegisterWriteChannel) ApplyDefaults() {
 	h.RegisterValue.ApplyDefaults()
-}
-
-// HoldingRegisterBitWriteChannel writes one bit of a holding register.
-type HoldingRegisterBitWriteChannel struct {
-	BaseWriteChannel
-	RegisterBit
-}
-
-func (HoldingRegisterBitWriteChannel) isWriteChannelVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (h HoldingRegisterBitWriteChannel) Validate() error {
-	v := validate.New("HoldingRegisterBitWriteChannel")
-	v.Exec(h.RegisterBit.Validate)
-	return v.Error()
 }
 
 // WriteChannel is a single Modbus write channel. The type field selects the register
@@ -458,11 +359,6 @@ func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type WriteChannelType `json:"type"`
 			HoldingRegisterWriteChannel
 		}{Type: HoldingRegisterWriteChannelType, HoldingRegisterWriteChannel: v})
-	case HoldingRegisterBitWriteChannel:
-		return json.MarshalEncode(enc, struct {
-			Type WriteChannelType `json:"type"`
-			HoldingRegisterBitWriteChannel
-		}{Type: HoldingRegisterBitWriteChannelType, HoldingRegisterBitWriteChannel: v})
 	default:
 		return errors.Newf("WriteChannel: unknown variant %T", v)
 	}
@@ -502,19 +398,11 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteChannelType `json:"type"`
 			HoldingRegisterWriteChannel
 		}
+		v.HoldingRegisterWriteChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.HoldingRegisterWriteChannel
-	case HoldingRegisterBitWriteChannelType:
-		var v struct {
-			Type WriteChannelType `json:"type"`
-			HoldingRegisterBitWriteChannel
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.HoldingRegisterBitWriteChannel
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -532,8 +420,6 @@ func (u WriteChannel) Type() WriteChannelType {
 		return CoilWriteChannelType
 	case HoldingRegisterWriteChannel:
 		return HoldingRegisterWriteChannelType
-	case HoldingRegisterBitWriteChannel:
-		return HoldingRegisterBitWriteChannelType
 	}
 	return ""
 }
@@ -548,24 +434,12 @@ func (u *WriteChannel) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u WriteChannel) Validate() error {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterBitWriteChannel:
-		return variant.Validate()
-	}
-	return nil
-}
-
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
 	switch variant := u.Variant.(type) {
 	case CoilWriteChannel:
 		return variant.BaseWriteChannel
 	case HoldingRegisterWriteChannel:
-		return variant.BaseWriteChannel
-	case HoldingRegisterBitWriteChannel:
 		return variant.BaseWriteChannel
 	}
 	return BaseWriteChannel{}
@@ -578,9 +452,6 @@ func (u *WriteChannel) SetBase(base BaseWriteChannel) {
 		variant.BaseWriteChannel = base
 		u.Variant = variant
 	case HoldingRegisterWriteChannel:
-		variant.BaseWriteChannel = base
-		u.Variant = variant
-	case HoldingRegisterBitWriteChannel:
 		variant.BaseWriteChannel = base
 		u.Variant = variant
 	default:
@@ -605,13 +476,35 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
-	for i := range r.Channels {
-		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
-	}
+	v.Exec(r.ReadConfig.Validate)
 	return v.Error()
 }
 
@@ -627,16 +520,6 @@ func (w *WriteConfig) ApplyDefaults() {
 	for i := range w.Channels {
 		w.Channels[i].ApplyDefaults()
 	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (w WriteConfig) Validate() error {
-	v := validate.New("WriteConfig")
-	for i := range w.Channels {
-		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }
 
 // ScanConfig configures a Modbus scan task.

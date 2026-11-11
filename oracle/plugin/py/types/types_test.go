@@ -785,6 +785,34 @@ var _ = Describe("Python Types Plugin", func() {
 						ToNotContain(`Any`)
 				},
 			)
+
+			It("Should require a bare any field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						value any
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain("    value: JsonValue\n")
+			})
+
+			It("Should make an @py optional field optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						value    any    @py optional
+						required any
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					"    value: JsonValue | None = None\n",
+					"    required: JsonValue\n",
+				)
+			})
 		})
 
 		It("Should handle optional key and password fields", func(ctx SpecContext) {

@@ -15,8 +15,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/video"
 	"github.com/synnaxlabs/x/config"
@@ -95,16 +93,24 @@ func (s *Service) Create(
 // identifies the batch of the sender, so the sender can skip its own broadcast.
 type DispatchRequest = actions.DispatchRequest[video.Key, video.Action]
 
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the project that a move into a group of another project needs.
+type DispatchResponse = actions.DispatchResponse[video.Action]
+
 // Dispatch applies the actions to the video view in tx. Subscribers to the video
 // action signals receive them after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
+) (DispatchResponse, error) {
+	added, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: added}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -147,38 +153,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves video views into Group, or out of their group when Group is
-// nil.
-type SetGroupRequest struct {
-	Group *group.Key  `json:"group" msgpack:"group"`
-	Keys  []video.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the video views with the given keys into a group. A move into a group
-// under another project moves the views into that project.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
-}
-
-// SetProjectRequest moves video views into Project.
-type SetProjectRequest struct {
-	Project project.Key `json:"project" msgpack:"project"`
-	Keys    []video.Key `json:"keys"    msgpack:"keys"`
-}
-
-// SetProject moves the video views with the given keys out of their group and into a
-// project.
-func (s *Service) SetProject(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetProjectRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		SetProject(ctx, req.Project, req.Keys...)
 }

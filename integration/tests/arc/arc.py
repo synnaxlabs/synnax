@@ -29,10 +29,10 @@ from pydantic import ValidationError
 import synnax as sy
 from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
+from synnax.status import Variant
 from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
 
-ARC_TASK_TYPE = sy.arc.Task.TYPE
 START_TIMEOUT_SECONDS = 30
 
 
@@ -121,23 +121,17 @@ class ArcCase(SimDaqCase, TestCase):
         start: bool = True,
         trigger: str | None = None,
     ) -> str:
-        """Create an Arc, save its task on the selected rack, and return its name.
+        """Create an Arc, bind it to the selected rack, and return its name.
 
-        The task row is saved against ``self.rack``; when ``start`` is True, a
-        start command deploys it and this blocks until the runtime reports it
-        running.
+        When ``start`` is True, a start command deploys it and this blocks until the
+        runtime reports it running.
         """
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")
-        task = sy.task.Task(
-            rack=self.rack.key,
-            name=name,
-            type=ARC_TASK_TYPE,
-            config={"arc_key": str(arc.key)},
-        )
+        task = self.client.arcs.update_task(arc.key, rack=self.rack.key)
+        assert task is not None
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
-        self.client.tasks.configure(task)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
@@ -182,11 +176,59 @@ class ArcCase(SimDaqCase, TestCase):
         )
         path = name
         if parent is not None:
-            directories = self.client.arcs.directories
-            directories.move(directories.root(), parent.key, module.resource_id)
+            self.client.arcs.directories.move(parent.key, module.resource_id)
             path = f"{parent.path}.{name}"
         self._modules.append(ModuleHandle(path=path, arc_key=module.key))
         return path
+
+    def _module(self, path: str) -> ModuleHandle:
+        for module in self._modules:
+            if module.path == path:
+                return module
+        raise KeyError(f"no tracked module at {path!r}")
+
+    def overwrite_module(self, path: str, source: str) -> None:
+        """Replace the text of the module at path, which load_module created."""
+        self.log(f"Overwriting Arc module: {path}")
+        self.client.arcs.set_text(self._module(path).arc_key, source)
+
+    def overwrite_automation(self, name: str, source: str) -> None:
+        """Replace the text of the automation named name, which load_arc created."""
+        self.log(f"Overwriting Arc: {name}")
+        self.client.arcs.set_text(self._arc(name).arc_key, source)
+
+    def wait_for_module_status(
+        self, path: str, variant: Variant, timeout: sy.CrudeTimeSpan
+    ) -> sy.Status:
+        """Fail unless the compile status of the module at path reaches variant in
+        time. Returns that status."""
+        key = self._module(path).arc_key
+        last: sy.Status | None = None
+
+        def reached() -> sy.Status | None:
+            nonlocal last
+            module = self.client.arcs.retrieve(key=key, include_status=True)
+            assert isinstance(module, sy.arc.Module)
+            last = module.status
+            if last is not None and last.variant == variant:
+                return last
+            return None
+
+        status = sy.poll(reached, timeout=timeout, interval=0.05)
+        if status is None:
+            self.fail(f"module {path} status is {last}, not {variant}")
+        return status
+
+    def wait_for_config_hash_change(
+        self, task_key: sy.task.Key, before: str, timeout: sy.CrudeTimeSpan
+    ) -> None:
+        """Fail unless the task's stored config hash moves away from before in time."""
+
+        def moved() -> bool | None:
+            return self.client.tasks.retrieve(task_key).config_hash != before or None
+
+        if sy.poll(moved, timeout=timeout, interval=0.05) is None:
+            self.fail(f"task {task_key} kept config hash {before}")
 
     def start_arc_task(self, task: sy.task.Task) -> None:
         """Start the task and block until the runtime reports it running.
@@ -218,12 +260,15 @@ class ArcCase(SimDaqCase, TestCase):
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
 
-    def task_key(self, name: str) -> sy.task.Key:
-        """Return the task key for a tracked Arc loaded via load_arc."""
+    def _arc(self, name: str) -> ArcTaskHandle:
         for handle in self._arcs:
             if handle.name == name:
-                return handle.task.key
+                return handle
         raise KeyError(f"no tracked arc named {name!r}")
+
+    def task_key(self, name: str) -> sy.task.Key:
+        """Return the task key for a tracked Arc loaded via load_arc."""
+        return self._arc(name).task.key
 
     def remove_arc(self, name: str) -> None:
         """Stop tracking the arc named name so teardown does not delete it.
@@ -241,18 +286,13 @@ class ArcCase(SimDaqCase, TestCase):
         self.verify_sequence_execution()
 
     def teardown(self) -> None:
-        """Delete all tracked arcs and their tasks, then stop the simulator.
+        """Delete all tracked arcs, which deletes their tasks, then stop the simulator.
 
         Cleanup runs even on failure, and SimDaqCase.teardown always runs so the
-        simulator is stopped even when a cleanup step raises. Tasks are deleted
-        explicitly rather than relying on the arc-to-task cascade, since a
-        rejected configuration never links the two.
+        simulator is stopped even when a cleanup step raises.
         """
         try:
             for handle in reversed(self._arcs):
-                if handle.task.key is not None:
-                    with self._try_to(f"delete task {handle.name}"):
-                        self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):
                     self.client.arcs.delete(handle.arc_key)
             for module in reversed(self._modules):

@@ -45,6 +45,11 @@ export interface ConnectProps extends Session.Modals.ContentProps<
   onBack?: () => void;
 }
 
+/** Props of an integration's rack context menu items. */
+export interface RackMenuItemsProps {
+  rackKey: rack.Key;
+}
+
 /** Props of an integration's device context menu items. */
 export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
   /** Opens the configure or connect form of a device. */

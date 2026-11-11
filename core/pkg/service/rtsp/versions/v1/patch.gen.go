@@ -30,11 +30,15 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&rc.Channel, c.Next())
 	case "protocol":
-		return patch.Value(&rc.Protocol, c.Next())
+		return patch.Defaulted(&rc.Protocol, c.Next(), func(def *ReadConfig) {
+			rc.Protocol = def.Protocol
+		})
 	case "offset":
 		return patch.Value(&rc.Offset, c.Next())
 	case "time_source":
-		return patch.Value(&rc.TimeSource, c.Next())
+		return patch.Defaulted(&rc.TimeSource, c.Next(), func(def *ReadConfig) {
+			rc.TimeSource = def.TimeSource
+		})
 	default:
 		return c.UnknownField()
 	}

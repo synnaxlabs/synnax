@@ -23,15 +23,16 @@ $Lock = [IO.File]::Open(
 
 $Dir = 'C:\Users\Administrator\Desktop\runner_telemetry'
 $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
+$Cert = 'C:\ProgramData\Synnax\certs\ca.crt'
 $UvCache = 'C:\Windows\system32\config\systemprofile\AppData\Local\uv'
 $Base = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Sha/scripts/runners"
 $Tasks = [ordered]@{
     'Runner controller' = @{
-        Args = 'controller.py --username controller --secure --scale enabled'
+        Args = "controller.py --username controller --secure --ca-cert $Cert --scale enabled"
         Log  = 'runner_controller.out.log'
     }
     'Runner dispatch'   = @{
-        Args = 'dispatch.py --username controller --secure'
+        Args = "dispatch.py --username controller --secure --ca-cert $Cert"
         Log  = 'runner_commands.out.log'
     }
 }

@@ -11,7 +11,16 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { query } from "@/query";
+import { createOf, reduceAll } from "@/view/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/view/actions.gen";
 import {
   type Key,
   keyZ,
@@ -25,20 +34,20 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
   shortcutZ,
 } from "@/view/where.gen";
 
-export const SET_CHANNEL_NAME = "sy_view_set";
+export const ACTION_CHANNEL_NAME = "sy_view_action_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
 
 const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
@@ -56,17 +65,27 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, View> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, View>;
+  private readonly dispatcher: actions.Controller<Key, View, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, View>({
       name: "views",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, viewZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a view reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, View, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/view/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "view",
       table: store,
@@ -81,6 +100,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async create(view: New): Promise<View>;
@@ -97,15 +117,20 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     return isMany ? res.views : res.views[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/view/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached view until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached view.
+   * @throws {Error} if the cached view cannot hold an action, before any send.
+   * @throws {ValidationError} if the view cannot hold an action.
+   * @throws {NotFoundError} if the view does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

@@ -234,6 +234,21 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (rb RegisterBit) EncodeOrc(w *orc.Writer) error {
+	w.Uint8(uint8(rb.Bit))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rb *RegisterBit) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rb.Bit, err = r.Uint8(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rs RegisterString) EncodeOrc(w *orc.Writer) error {
 	w.Uint16(uint16(rs.Length))
 	if rs.BytesSwapped != nil {
@@ -262,6 +277,183 @@ func (rs *RegisterString) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rs.BytesSwapped = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv RegisterValue) EncodeOrc(w *orc.Writer) error {
+	w.String(string(rv.DataType))
+	if rv.BytesSwapped != nil {
+		w.Bool(true)
+		w.Bool(*rv.BytesSwapped)
+	} else {
+		w.Bool(false)
+	}
+	if rv.WordsSwapped != nil {
+		w.Bool(true)
+		w.Bool(*rv.WordsSwapped)
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *RegisterValue) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.DataType = telem.DataType(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			rv.BytesSwapped = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			rv.WordsSwapped = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
+	switch v := wc.Variant.(type) {
+	case CoilWriteChannel:
+		w.String("coil")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HoldingRegisterWriteChannel:
+		w.String("holding_register")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.RegisterValue.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HoldingRegisterBitWriteChannel:
+		w.String("holding_register_bit")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "coil":
+		var v CoilWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		wc.Variant = v
+	case "holding_register":
+		var v HoldingRegisterWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.RegisterValue.DecodeOrc(r); err != nil {
+			return err
+		}
+		wc.Variant = v
+	case "holding_register_bit":
+		var v HoldingRegisterBitWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.RegisterBit.DecodeOrc(r); err != nil {
+			return err
+		}
+		wc.Variant = v
+	default:
+		return errors.Newf("WriteChannel: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.Bool(wc.DataSavingDisabled)
+	w.String(wc.Device)
+	w.Bool(wc.Channels != nil)
+	if wc.Channels != nil {
+		w.Uint32(uint32(len(wc.Channels)))
+		for i := range wc.Channels {
+			if err := wc.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Channels = make([]WriteChannel, n)
+			for i := range wc.Channels {
+				if err = wc.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

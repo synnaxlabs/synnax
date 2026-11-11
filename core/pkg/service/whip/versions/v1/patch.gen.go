@@ -30,7 +30,9 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "offset":
 		return patch.Value(&rc.Offset, c.Next())
 	case "time_source":
-		return patch.Value(&rc.TimeSource, c.Next())
+		return patch.Defaulted(&rc.TimeSource, c.Next(), func(def *ReadConfig) {
+			rc.TimeSource = def.TimeSource
+		})
 	default:
 		return c.UnknownField()
 	}

@@ -58,15 +58,16 @@ var _ = Describe("Writer", func() {
 				))
 		})
 
-		It("Should keep the owner of an existing view", func(ctx SpecContext) {
-			v := create(ctx, video.Video{Name: "camera"})
-			again := video.Video{Key: v.Key, Name: "renamed"}
+		It("Should refuse a view whose key exists", func(ctx SpecContext) {
+			v := create(ctx, video.Video{Name: "first"})
+			again := video.Video{Key: v.Key, Name: "second", Project: &proj.Key}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &again)
-			})).To(Succeed())
-			res := retrieve(ctx, v.Key)
-			Expect(res.Name).To(Equal("renamed"))
-			Expect(res.Project).To(Equal(&proj.Key))
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("video %s already exists", v.Key)),
+			))
+			Expect(retrieve(ctx, v.Key)).To(Equal(v))
 		})
 	})
 

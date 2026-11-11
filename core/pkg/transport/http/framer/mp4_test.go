@@ -68,9 +68,9 @@ func createVideo(
 }
 
 var _ = Describe("MP4", func() {
-	Describe("MP4Encoder", func() {
-		It("Should emit the MP4 media type", func() {
-			Expect(framer.MP4Encoder.ContentType()).To(Equal("video/mp4"))
+	Describe("NewMP4Encoder", func() {
+		It("Should emit the MP4 media type", func(ctx SpecContext) {
+			Expect(framer.NewMP4Encoder(ctx).ContentType()).To(Equal("video/mp4"))
 		})
 
 		It("Should write the frames of a video channel from its first keyframe", func(
@@ -85,7 +85,7 @@ var _ = Describe("MP4", func() {
 				telem.NewVideoSeriesV(delta(), keyframe(), delta(), keyframe()),
 			)
 			b := MustSucceed(
-				framer.MP4Encoder.Encode(ctx, read(ctx, index, channels...)),
+				framer.NewMP4Encoder(ctx).Encode(read(ctx, index, channels...)),
 			)
 			var init fmp4.Init
 			Expect(init.Unmarshal(bytes.NewReader(b))).To(Succeed())
@@ -117,7 +117,7 @@ var _ = Describe("MP4", func() {
 			res := read(ctx, index, channels...)
 			res.Bounds.Start = 2 * telem.SecondTS
 			var parts fmp4.Parts
-			Expect(parts.Unmarshal(MustSucceed(framer.MP4Encoder.Encode(ctx, res)))).
+			Expect(parts.Unmarshal(MustSucceed(framer.NewMP4Encoder(ctx).Encode(res)))).
 				To(Succeed())
 			Expect(parts).To(HaveLen(1))
 			Expect(parts[0].Tracks[0].Samples).To(HaveLen(1))
@@ -129,8 +129,7 @@ var _ = Describe("MP4", func() {
 		) {
 			index, channels := createVideo(ctx, dataTypes...)
 			var buf bytes.Buffer
-			Expect(framer.MP4Encoder.EncodeStream(
-				ctx,
+			Expect(framer.NewMP4Encoder(ctx).EncodeStream(
 				&buf,
 				read(ctx, index, channels...),
 			)).To(And(
@@ -157,7 +156,7 @@ var _ = Describe("MP4", func() {
 					},
 				},
 			)
-			Expect(framer.MP4Encoder.Encode(ctx, res)).Error().To(And(
+			Expect(framer.NewMP4Encoder(ctx).Encode(res)).Error().To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("an MP4 read cannot take a reduction")),
 			))
@@ -175,8 +174,7 @@ var _ = Describe("MP4", func() {
 				telem.NewVideoSeriesV(delta(), delta()),
 			)
 			var buf bytes.Buffer
-			Expect(framer.MP4Encoder.EncodeStream(
-				ctx,
+			Expect(framer.NewMP4Encoder(ctx).EncodeStream(
 				&buf,
 				read(ctx, index, channels...),
 			)).To(And(

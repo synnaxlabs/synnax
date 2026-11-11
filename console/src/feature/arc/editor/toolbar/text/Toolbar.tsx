@@ -12,11 +12,11 @@ import "@/feature/arc/editor/toolbar/text/Toolbar.css";
 import { arc } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Arc as PlatformArc } from "@/platform/arc";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
@@ -25,12 +25,13 @@ import { Toolbar as Base } from "@/platform/toolbar";
 export const Toolbar = (): ReactElement => {
   const key = Arc.useKey();
   const name = Arc.useName({ key });
+  const TypeIcon = PlatformArc.TYPE_ICONS[Arc.useType()];
   return (
     <Base.Content>
       <Base.Header>
         <Breadcrumb.Breadcrumb level="h5">
           <Base.TitleSegment>
-            <Icon.Arc />
+            <TypeIcon />
             {name}
           </Base.TitleSegment>
         </Breadcrumb.Breadcrumb>

@@ -48,12 +48,16 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 )
 
-// Bind registers an HTTP endpoint for every API service and binds the API layer's
-// handlers and middleware to them. It returns the transports that serve the endpoints,
-// in the order to bind them: router, then the WHIP endpoints. The frame codec resolves
-// channel keys through the API layer's channel service.
+// Bind registers an HTTP endpoint for every API service onto router and binds the API
+// layer's handlers and middleware to them. It returns the transports that serve the
+// endpoints, in the order to bind them: router, then the WHIP endpoints. The frame
+// codec resolves channel keys through the API layer's channel service. Frame reads
+// open their iterators under the router's context, so a streamed body can outlive its
+// request.
 func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
+	ctx := router.Context()
 	framerServerOption := framer.WithCodec(layer.Channel)
+	csvEncoder := framer.NewCSVEncoder(ctx)
 	whipTransport := whip.New()
 	layer.BindTo(api.Transport{
 		// AUTH
@@ -99,14 +103,6 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		),
 
 		// USER
-		UserRename: unary[user.RenameRequest, struct{}](
-			router,
-			"/api/v1/user/rename",
-		),
-		UserChangeUsername: unary[user.ChangeUsernameRequest, struct{}](
-			router,
-			"/api/v1/user/change-username",
-		),
 		UserCreate: unary[user.CreateRequest, user.CreateResponse](
 			router,
 			"/api/v1/user/create",
@@ -119,13 +115,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/user/retrieve",
 		),
-		UserSetRole: unary[user.SetRoleRequest, struct{}](
-			router,
-			"/api/v1/user/set-role",
-		),
 		UserDispatch: unary[user.DispatchRequest, struct{}](
 			router,
-			"/api/v1/user/dispatch",
+			"/api/v1"+api.PathUserDispatch,
 		),
 
 		// CHANNEL
@@ -141,13 +133,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/channel/delete",
 		),
-		ChannelRename: unary[channel.RenameRequest, struct{}](
-			router,
-			"/api/v1/channel/rename",
-		),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
-			"/api/v1/channel/dispatch",
+			"/api/v1"+api.PathChannelDispatch,
 		),
 
 		// CONNECTIVITY
@@ -194,15 +182,15 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.FrameEncoder,
-				framer.CSVEncoder,
-				framer.TDMSEncoder,
-				framer.MP4Encoder,
+				framer.NewFrameEncoder(ctx),
+				csvEncoder,
+				framer.NewTDMSEncoder(ctx),
+				framer.NewMP4Encoder(ctx),
 			),
 			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
 			// bodies are binary samples: gzip shrinks them by under 10% and costs more
 			// time than the smaller body saves on all but a slow link.
-			http.WithStreamingResponse(framer.CSVEncoder),
+			http.WithStreamingResponse(csvEncoder),
 		),
 
 		// CONTROL
@@ -230,13 +218,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1"+api.PathGroupDelete,
 		),
-		GroupRename: unary[group.RenameRequest, struct{}](
-			router,
-			"/api/v1"+api.PathGroupRename,
-		),
 		GroupDispatch: unary[group.DispatchRequest, struct{}](
 			router,
-			"/api/v1/group/dispatch",
+			"/api/v1"+api.PathGroupDispatch,
 		),
 		GroupRetrieve: unary[group.RetrieveRequest, group.RetrieveResponse](
 			router,
@@ -246,78 +230,6 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			group.RetrieveAncestorsRequest,
 			group.RetrieveAncestorsResponse,
 		](router, "/api/v1/group/retrieve-ancestors"),
-		GroupSetParent: unary[group.SetParentRequest, struct{}](
-			router,
-			"/api/v1"+api.PathGroupSetParent,
-		),
-		ChannelSetGroup: unary[channel.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathChannelSetGroup,
-		),
-		DeviceSetGroup: unary[device.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathDeviceSetGroup,
-		),
-		RackSetGroup: unary[rack.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathRackSetGroup,
-		),
-		ProjectSetGroup: unary[project.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathProjectSetGroup,
-		),
-		SchematicSetGroup: unary[schematic.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSetGroup,
-		),
-		SchematicSymbolSetGroup: unary[symbol.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSymbolSetGroup,
-		),
-		LinePlotSetGroup: unary[lineplot.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLinePlotSetGroup,
-		),
-		LogSetGroup: unary[log.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLogSetGroup,
-		),
-		TableSetGroup: unary[table.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathTableSetGroup,
-		),
-		PanelSetGroup: unary[panel.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathPanelSetGroup,
-		),
-		VideoSetGroup: unary[video.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathVideoSetGroup,
-		),
-		SchematicSetProject: unary[schematic.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSetProject,
-		),
-		LinePlotSetProject: unary[lineplot.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLinePlotSetProject,
-		),
-		LogSetProject: unary[log.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLogSetProject,
-		),
-		TableSetProject: unary[table.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathTableSetProject,
-		),
-		PanelSetProject: unary[panel.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathPanelSetProject,
-		),
-		VideoSetProject: unary[video.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathVideoSetProject,
-		),
 		Batch: unary[batch.ExecRequest, batch.ExecResponse](
 			router,
 			"/api/v1/batch",
@@ -336,17 +248,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/range/delete",
 		),
-		RangeRename: unary[ranger.RenameRequest, struct{}](
-			router,
-			"/api/v1/range/rename",
-		),
-		RangeSetEnd: unary[ranger.SetEndRequest, struct{}](
-			router,
-			"/api/v1/range/set-end",
-		),
 		RangeDispatch: unary[ranger.DispatchRequest, struct{}](
 			router,
-			"/api/v1/range/dispatch",
+			"/api/v1"+api.PathRangeDispatch,
 		),
 
 		// KV
@@ -355,7 +259,7 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		KVDelete: unary[kv.DeleteRequest, struct{}](router, "/api/v1/range/kv/delete"),
 		KVDispatch: unary[kv.DispatchRequest, struct{}](
 			router,
-			"/api/v1/range/kv/dispatch",
+			"/api/v1"+api.PathRangeKVDispatch,
 		),
 
 		// ALIAS
@@ -381,7 +285,7 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		),
 		AliasDispatch: unary[alias.DispatchRequest, struct{}](
 			router,
-			"/api/v1/range/alias/dispatch",
+			"/api/v1"+api.PathRangeAliasDispatch,
 		),
 
 		// PROJECT
@@ -397,13 +301,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/project/delete",
 		),
-		ProjectRename: unary[project.RenameRequest, struct{}](
-			router,
-			"/api/v1/project/rename",
-		),
 		ProjectDispatch: unary[project.DispatchRequest, struct{}](
 			router,
-			"/api/v1/project/dispatch",
+			"/api/v1"+api.PathProjectDispatch,
 		),
 		ProjectExport: unary[project.ExportRequest, project.ExportResponse](
 			router,
@@ -429,9 +329,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/schematic/delete",
 		),
-		SchematicDispatch: unary[schematic.DispatchRequest, struct{}](
+		SchematicDispatch: unary[schematic.DispatchRequest, schematic.DispatchResponse](
 			router,
-			"/api/v1/schematic/dispatch",
+			"/api/v1"+api.PathSchematicDispatch,
 		),
 		SchematicCopy: unary[schematic.CopyRequest, schematic.CopyResponse](
 			router,
@@ -451,13 +351,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicSymbolRename: unary[symbol.RenameRequest, struct{}](
-			router,
-			"/api/v1/schematic/symbol/rename",
-		),
 		SchematicSymbolDispatch: unary[symbol.DispatchRequest, struct{}](
 			router,
-			"/api/v1/schematic/symbol/dispatch",
+			"/api/v1"+api.PathSchematicSymbolDispatch,
 		),
 		SchematicSymbolExportGroup: unary[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
@@ -487,9 +383,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/lineplot/delete",
 		),
-		LinePlotDispatch: unary[lineplot.DispatchRequest, struct{}](
+		LinePlotDispatch: unary[lineplot.DispatchRequest, lineplot.DispatchResponse](
 			router,
-			"/api/v1/lineplot/dispatch",
+			"/api/v1"+api.PathLinePlotDispatch,
 		),
 
 		// PANEL
@@ -505,9 +401,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/panel/delete",
 		),
-		PanelDispatch: unary[panel.DispatchRequest, struct{}](
+		PanelDispatch: unary[panel.DispatchRequest, panel.DispatchResponse](
 			router,
-			"/api/v1/panel/dispatch",
+			"/api/v1"+api.PathPanelDispatch,
 		),
 
 		// LOG
@@ -520,9 +416,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			"/api/v1/log/retrieve",
 		),
 		LogDelete: unary[log.DeleteRequest, struct{}](router, "/api/v1/log/delete"),
-		LogDispatch: unary[log.DispatchRequest, struct{}](
+		LogDispatch: unary[log.DispatchRequest, log.DispatchResponse](
 			router,
-			"/api/v1/log/dispatch",
+			"/api/v1"+api.PathLogDispatch,
 		),
 
 		// VIDEO
@@ -538,7 +434,7 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/video/delete",
 		),
-		VideoDispatch: unary[video.DispatchRequest, struct{}](
+		VideoDispatch: unary[video.DispatchRequest, video.DispatchResponse](
 			router,
 			"/api/v1/video/dispatch",
 		),
@@ -560,9 +456,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/table/delete",
 		),
-		TableDispatch: unary[table.DispatchRequest, struct{}](
+		TableDispatch: unary[table.DispatchRequest, table.DispatchResponse](
 			router,
-			"/api/v1/table/dispatch",
+			"/api/v1"+api.PathTableDispatch,
 		),
 
 		// LABEL
@@ -585,7 +481,7 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		),
 		LabelDispatch: unary[label.DispatchRequest, struct{}](
 			router,
-			"/api/v1/label/dispatch",
+			"/api/v1"+api.PathLabelDispatch,
 		),
 
 		// RACK
@@ -601,13 +497,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/rack/delete",
 		),
-		RackRename: unary[rack.RenameRequest, struct{}](
-			router,
-			"/api/v1/rack/rename",
-		),
 		RackDispatch: unary[rack.DispatchRequest, struct{}](
 			router,
-			"/api/v1/rack/dispatch",
+			"/api/v1"+api.PathRackDispatch,
 		),
 
 		// TASK
@@ -627,13 +519,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/task/copy",
 		),
-		TaskRename: unary[task.RenameRequest, struct{}](
-			router,
-			"/api/v1/task/rename",
-		),
 		TaskDispatch: unary[task.DispatchRequest, task.DispatchResponse](
 			router,
-			"/api/v1/task/dispatch",
+			"/api/v1"+api.PathTaskDispatch,
 		),
 
 		// DEVICE
@@ -649,13 +537,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/device/delete",
 		),
-		DeviceRename: unary[device.RenameRequest, struct{}](
-			router,
-			"/api/v1/device/rename",
-		),
 		DeviceDispatch: unary[device.DispatchRequest, struct{}](
 			router,
-			"/api/v1/device/dispatch",
+			"/api/v1"+api.PathDeviceDispatch,
 		),
 
 		// ACCESS
@@ -685,11 +569,11 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		),
 		AccessDispatchPolicy: unary[policy.DispatchRequest, struct{}](
 			router,
-			"/api/v1/access/policy/dispatch",
+			"/api/v1"+api.PathPolicyDispatch,
 		),
 		AccessDispatchRole: unary[role.DispatchRequest, struct{}](
 			router,
-			"/api/v1/access/role/dispatch",
+			"/api/v1"+api.PathRoleDispatch,
 		),
 
 		// ARC
@@ -704,7 +588,7 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 		),
 		ArcDispatch: unary[arc.DispatchRequest, struct{}](
 			router,
-			"/api/v1/arc/dispatch",
+			"/api/v1"+api.PathArcDispatch,
 		),
 		ArcUpdateTask: unary[arc.UpdateTaskRequest, arc.UpdateTaskResponse](
 			router,
@@ -718,19 +602,14 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/arc/directory/create",
 		),
-		ArcRenameDirectory: unary[arc.RenameDirectoryRequest, struct{}](
-			router,
-			"/api/v1/arc/directory/rename",
-		),
 		ArcDispatchDirectory: unary[arc.DispatchDirectoryRequest, struct{}](
 			router,
-			"/api/v1/arc/directory/dispatch",
+			"/api/v1"+api.PathArcDirectoryDispatch,
 		),
 		ArcDeleteDirectory: unary[arc.DeleteDirectoryRequest, struct{}](
 			router,
 			"/api/v1/arc/directory/delete",
 		),
-		ArcMove: unary[arc.MoveRequest, struct{}](router, "/api/v1/arc/move"),
 		ArcLSP: stream[arc.LSPMessage, arc.LSPMessage](
 			router,
 			"/api/v1/arc/lsp",
@@ -771,13 +650,9 @@ func Bind(layer *api.Layer, router *http.Router) []http.BindableTransport {
 			router,
 			"/api/v1/view/delete",
 		),
-		ViewRename: unary[view.RenameRequest, struct{}](
-			router,
-			"/api/v1/view/rename",
-		),
 		ViewDispatch: unary[view.DispatchRequest, struct{}](
 			router,
-			"/api/v1/view/dispatch",
+			"/api/v1"+api.PathViewDispatch,
 		),
 
 		// IMPORT/EXPORT

@@ -11,6 +11,8 @@ package video
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 )
 
@@ -32,39 +34,47 @@ func (p SetPlaybackRangePayload) Handle(state Video) (Video, error) {
 	return state, nil
 }
 
-// Handle applies the set to the name of the video view.
+// Handle applies the set to the name, group, or project of the video view.
 func (p SetPayload) Handle(state Video) (Video, error) {
 	return edit(state, patch.Set(p).Apply)
 }
 
-// Handle applies the remove to the name of the video view.
+// Handle applies the remove to the name, group, or project of the video view.
 func (p RemovePayload) Handle(state Video) (Video, error) {
 	return edit(state, patch.Remove(p).Apply)
 }
 
-// Handle applies the insert to the name of the video view.
+// Handle applies the insert to the name, group, or project of the video view.
 func (p InsertPayload) Handle(state Video) (Video, error) {
 	return edit(state, patch.Insert(p).Apply)
 }
 
-// Handle applies the move to the name of the video view.
+// Handle applies the move to the name, group, or project of the video view.
 func (p MovePayload) Handle(state Video) (Video, error) {
 	return edit(state, patch.Move(p).Apply)
 }
 
 // document is the part of a video view that path actions edit.
 type document struct {
-	Name string `json:"name"`
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
 }
 
 // edit applies a path action to a copy of the document of the view. A document that
-// gains a member it does not declare, such as a path to the group of the view, is
-// rejected.
+// gains a member it does not declare is rejected.
 func edit(state Video, apply func(map[string]any) error) (Video, error) {
-	d, err := patch.Edit(document{Name: state.Name}, apply)
+	d, err := patch.Edit(
+		document{Name: state.Name, Group: state.Group, Project: state.Project},
+		apply,
+	)
 	if err != nil {
 		return Video{}, err
 	}
-	state.Name = d.Name
+	state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }

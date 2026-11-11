@@ -11,7 +11,7 @@
 
 Verifies that task configs deploy on the start command: a start picks up the
 latest saved config, metadata-only saves never restart a running instance, and
-a running instance survives its row moving to another rack.
+a running instance survives its device and row moving to another rack.
 """
 
 from examples.http_sim import HTTPSim
@@ -32,8 +32,9 @@ class HTTPDeployOnStart(SimulatorCase):
            unchanged config never rebuilds the instance.
         2. Rename does not restart — a metadata-only save leaves the running
            instance streaming with its config hash untouched.
-        3. Rack move keeps instance running — moving the row to another rack
-           leaves the live instance streaming, and stop still reaches it.
+        3. Rack move keeps instance running — moving the device and row to
+           another rack leaves the live instance streaming, and stop still
+           reaches it.
     """
 
     sim_classes = [HTTPSim]
@@ -157,7 +158,8 @@ class HTTPDeployOnStart(SimulatorCase):
             cleanup_task(self.client, task)
 
     def test_rack_move_keeps_instance_running(self) -> None:
-        """Move the row to another rack and verify the instance keeps running."""
+        """Move the device and its task to another rack and verify the instance keeps
+        running."""
         self.log("Testing: Rack move leaves the live instance running")
         task = self._make_task("HTTP Deploy Move Test", "http_deploy_move_ch", 10)
         ghost = self.client.racks.create(name=f"deploy_ghost_{random_name()}")
@@ -165,8 +167,9 @@ class HTTPDeployOnStart(SimulatorCase):
             self.client.tasks.configure(task)
             self._start(task)
 
-            task._internal.rack = ghost.key
+            self._move_device(ghost.key)
             self.client.tasks.configure(task)
+            assert task._internal.rack == ghost.key, "task did not follow its device"
             self._assert_streaming(task, "after rack move")
             self.log("  Instance kept streaming after the rack move")
 
@@ -176,3 +179,9 @@ class HTTPDeployOnStart(SimulatorCase):
             self.log("  Stop reached the live instance")
         finally:
             cleanup_task(self.client, task)
+            self._move_device(self.device.rack)
+
+    def _move_device(self, rack: sy.rack.Key) -> None:
+        self.client.devices.dispatch(
+            self.device.key, sy.device.set_rack(sy.device.SetRackPayload(rack=rack))
+        )

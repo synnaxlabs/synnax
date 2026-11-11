@@ -34,6 +34,7 @@ import {
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
+import { Device as PlatformDevice } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -114,6 +115,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   try {
     dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
@@ -164,7 +166,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

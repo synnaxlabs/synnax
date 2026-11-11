@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Loader", func() {
@@ -55,6 +56,12 @@ var _ = Describe("Loader", func() {
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   102,
+			},
+			{
+				Name: "outs",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   103,
 			},
 		}
 	)
@@ -196,7 +203,10 @@ var _ = Describe("Loader", func() {
 				ctx,
 				"import (a b)\n\ntrig -> a.f() -> out\ntrig -> b.g() -> out",
 			)
-			Expect(diag.String()).To(ContainSubstring(`module "a" does not compile`))
+			Expect(diag.String()).To(ContainSubstring(
+				`module "a" does not compile: 1:7 module "d" does not compile: ` +
+					`1:29 undefined symbol: nope`,
+			))
 			Expect(diag.String()).To(ContainSubstring(`module "b" does not compile`))
 			Expect(loads["d"]).To(Equal(1))
 		})
@@ -228,7 +238,9 @@ var _ = Describe("Loader", func() {
 		It("Should report a module that does not compile", func(ctx SpecContext) {
 			sources["m"] = `export func f() i64 { return nope }`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
-			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
+			Expect(diag.String()).To(ContainSubstring(
+				`module "m" does not compile: 1:29 undefined symbol: nope`,
+			))
 		})
 
 		It("Should report a module that does not parse", func(ctx SpecContext) {
@@ -236,6 +248,30 @@ var _ = Describe("Loader", func() {
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
 		})
+
+		It(
+			"Should report a module that does not compile once, at the import",
+			func(ctx SpecContext) {
+				sources["m"] = "export c := 1\n\nexport abc := \"a\"1."
+				diag := analyze(ctx, "import m\n\n"+
+					"f\"{m.c}\" -> outs\n\nm.abc -> outs\n\ntrig -> m.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(
+					`module "m" does not compile: 3:19 mismatched input '<EOF>' ` +
+						`expecting {'->', '=>'}`,
+				))
+				Expect((*diag)[0].Range.Start.Line).To(BeZero())
+			},
+		)
+
+		It(
+			"Should report an unknown module once, at the import",
+			func(ctx SpecContext) {
+				diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(`unknown module "nope"`))
+			},
+		)
 
 		Describe("Imported sequences", func() {
 			BeforeEach(func() {
@@ -309,14 +345,74 @@ sequence main {
 			)
 		})
 
-		It("Should not search import paths", func(ctx SpecContext) {
-			loader := text.NewLoader(text.LoaderConfig{})
-			Expect(loader.Search(ctx, "m")).To(BeEmpty())
+		Describe("Search", func() {
+			It(
+				"Should return the paths that start with the term",
+				func(ctx SpecContext) {
+					loader := text.NewLoader(text.LoaderConfig{
+						Paths: func(context.Context) ([]string, error) {
+							return []string{"lib.m", "lib.sub.n", "other"}, nil
+						},
+					})
+					modules := MustSucceed(loader.Search(ctx, "lib."))
+					Expect(modules).To(HaveLen(2))
+					Expect(modules[0].Name).To(Equal("lib.m"))
+					Expect(modules[0].Kind).To(Equal(symbol.KindModule))
+					Expect(modules[1].Name).To(Equal("lib.sub.n"))
+				},
+			)
+
+			It("Should return nothing without paths", func(ctx SpecContext) {
+				loader := text.NewLoader(text.LoaderConfig{})
+				Expect(loader.Search(ctx, "m")).To(BeEmpty())
+			})
+
+			It("Should return the error of paths", func(ctx SpecContext) {
+				loader := text.NewLoader(text.LoaderConfig{
+					Paths: func(context.Context) ([]string, error) {
+						return nil, errors.New("cat")
+					},
+				})
+				Expect(loader.Search(ctx, "m")).Error().To(MatchError("cat"))
+			})
 		})
 
 		It("Should report an unknown module", func(ctx SpecContext) {
 			diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`unknown module "nope"`))
+		})
+	})
+
+	Describe("Loaded paths", func() {
+		It("Should list every module loaded, at any depth, by path", func(
+			ctx SpecContext,
+		) {
+			sources["d"] = `export func h() i64 { return 1 }`
+			sources["a"] = "import d\n\nexport func f() i64 { return d.h() }"
+			root := newRoot()
+			_, diag := text.Analyze(
+				ctx,
+				parse("import a\n\ntrig -> a.f() -> out"),
+				root,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(text.LoadedPaths(root)).To(Equal([]string{"a", "d"}))
+		})
+
+		It("Should leave out a module that does not compile", func(ctx SpecContext) {
+			sources["a"] = `export func f() i64 { return nope }`
+			root := newRoot()
+			_, diag := text.Analyze(
+				ctx,
+				parse("import a\n\ntrig -> a.f() -> out"),
+				root,
+			)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(text.LoadedPaths(root)).To(BeEmpty())
+		})
+
+		It("Should list nothing for a root with no module resolver", func() {
+			Expect(text.LoadedPaths(symbol.NewRoot(chans, nil))).To(BeNil())
 		})
 	})
 

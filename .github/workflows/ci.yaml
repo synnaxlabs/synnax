@@ -466,7 +466,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
           tool: cargo-llvm-cov
 
@@ -1082,9 +1082,6 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
   vite-plugin:
     needs: changes
     if:
@@ -1305,7 +1302,6 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
-      - versions
       - vite-plugin
       - www
       - www-site

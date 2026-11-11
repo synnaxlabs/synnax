@@ -12,6 +12,7 @@
 #include <cmath>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "client/cpp/ethercat/json.gen.h"
@@ -40,6 +41,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t samples_per_chan = 0;
     /// @brief scales the raw samples of scaled channels into engineering units.
     transform::Scale scales;
+    /// @brief the values the task writes to each slave when it starts.
+    engine::Settings settings;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -47,7 +50,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan),
-        scales(std::move(other.scales)) {}
+        scales(std::move(other.scales)),
+        settings(std::move(other.settings)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -87,6 +91,20 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             claims.claim(input->entry, *slave, ch);
             this->channels.push_back(std::move(input));
         });
+
+        if (cfg.has("startup_parameters"))
+            cfg.iter("startup_parameters", [&](x::json::Parser &s) {
+                const auto *slave = this->slaves.resolve(
+                    *client,
+                    s.field<std::string>("device"),
+                    s
+                );
+                if (slave == nullptr) return;
+                auto &params = this->settings[slave->position];
+                s.iter("parameters", [&params](x::json::Parser &param) {
+                    params.push_back(slave::StartupParameter::parse(param));
+                });
+            });
 
         if (cfg.error()) return;
 
@@ -189,7 +207,8 @@ public:
         auto [rdr, err] = this->engine->open_reader(
             entries,
             this->cfg.sample_rate,
-            this->cfg.samples_per_chan
+            this->cfg.samples_per_chan,
+            this->cfg.settings
         );
         if (err) return err;
         this->reader = std::move(rdr);
