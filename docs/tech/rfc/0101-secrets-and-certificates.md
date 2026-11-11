@@ -301,10 +301,11 @@ renamed" under `certificate:<key>`, with the old path and the new name in the
 description. Until an admin copies the key into the secrets folder under the new name,
 connect fails with an error that names the folder and the file. The reader saves details
 only after a connect that reads every file (§3.5), and the expiry check writes no status
-for a certificate with no details. So the warning stays until the key is in place, and
-the first expiry status after that replaces it. Kafka and MQTT have not shipped, so
-their fields change with no migration. The Core, the Driver, and the Console change in
-one release.
+for a certificate with no details. So the warning stays until the certificate first gets
+details, and the first expiry status after that replaces it. Details come from the
+reader once the key is in place, or earlier from a replace that picks the certificate
+file in the file browser. Kafka and MQTT have not shipped, so their fields change with
+no migration. The Core, the Driver, and the Console change in one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
