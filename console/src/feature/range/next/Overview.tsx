@@ -68,6 +68,7 @@ import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Section as PSection } from "@/platform/section";
+import { Session } from "@/session";
 
 const path = Ranger.formPath;
 
@@ -145,6 +146,7 @@ const Swatch = ({ range, canEdit }: SwatchProps): ReactElement => {
 
 const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
   const range = Ranger.use({ key: rangeKey });
+  const pinned = Session.Range.useSelectState(rangeKey) != null;
   const canEdit = Access.useUpdateGranted(ranger.resourceID(rangeKey));
   const parent = Ranger.useResultParent({ key: rangeKey }).data;
   const { form } = Ranger.useForm({
@@ -230,7 +232,11 @@ const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
               tooltipLocation="bottom"
               textColor={9}
             />
-            <Range.FavoriteButton range={range} size="medium" />
+            <Range.FavoriteButton
+              range={range}
+              size="medium"
+              tooltip={pinned ? "Unpin" : "Pin"}
+            />
           </Flex.Box>
         </Flex.Box>
         <Form.Field path={path.timeRange} padHelpText={false} showLabel={false}>

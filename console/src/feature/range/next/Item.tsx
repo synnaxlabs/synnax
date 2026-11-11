@@ -36,6 +36,7 @@ import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 export const [HighlightContext, useHighlight] = context.create<string | undefined>({
   defaultValue: undefined,
@@ -299,6 +300,7 @@ export const Item = ({
 }: ItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
+  const pinned = Session.Range.useSelectState(itemKey) != null;
   const open = useOpen();
   if (range == null) return null;
   return (
@@ -322,6 +324,7 @@ export const Item = ({
         range={range}
         reveal
         size="small"
+        tooltip={pinned ? "Unpin" : "Pin"}
         className={CSS.BE("range-item", "favorite")}
       />
     </Select.Item>

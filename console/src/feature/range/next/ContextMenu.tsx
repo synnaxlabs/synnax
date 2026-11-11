@@ -111,18 +111,30 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
         <Base.RenameItem onClick={() => Text.edit(List.itemNameID(single.key))} />
       )}
       <Menu.Divider />
-      <Base.FavoriteItems
-        anyFavorited={ranges.some((r) => favoriteKeys.includes(r.key))}
-        anyNotFavorited={ranges.some((r) => !favoriteKeys.includes(r.key))}
-        onFavorite={() =>
-          Session.Range.fromClient(ranges).forEach((r) =>
-            dispatch(Session.Range.add(r)),
-          )
-        }
-        onUnfavorite={() =>
-          dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }))
-        }
-      />
+      {ranges.some((r) => !favoriteKeys.includes(r.key)) && (
+        <Menu.Item
+          itemKey="favorite"
+          onClick={() =>
+            Session.Range.fromClient(ranges).forEach((r) =>
+              dispatch(Session.Range.add(r)),
+            )
+          }
+        >
+          <Icon.StarFilled />
+          Pin
+        </Menu.Item>
+      )}
+      {ranges.some((r) => favoriteKeys.includes(r.key)) && (
+        <Menu.Item
+          itemKey="unfavorite"
+          onClick={() =>
+            dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }))
+          }
+        >
+          <Icon.StarOutlined />
+          Unpin
+        </Menu.Item>
+      )}
       {single != null && (
         <Link.CopyContextMenuItem
           onClick={() =>
