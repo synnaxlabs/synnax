@@ -755,6 +755,13 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
     });
 
+    it("should keep an acronym in the name of a setting in its placeholder", async () => {
+      const settings = createSettingsDescription();
+      settings.device[0].name = "Sample rate (DC sync)";
+      await setup({ settings });
+      expect(await screen.findByText("Select sample rate (DC sync)")).toBeTruthy();
+    });
+
     it("should show the name of the setting for a parameter with no name", async () => {
       await setup({
         settings: createSettingsDescription(),

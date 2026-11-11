@@ -31,6 +31,10 @@ interface OptionalProps extends BaseProps {
   onChange: (value: number | null) => void;
 }
 
+/** @returns the name with a lowercase first letter, unless it starts an acronym. */
+const inSentence = (name: string): string =>
+  /^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name;
+
 export type SettingInputProps = RequiredProps | OptionalProps;
 
 /** A select for a field with options, or a number input with its unit. */
@@ -60,7 +64,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
           onChange={(next: number | null) =>
             next == null ? clear?.() : onChange(next)
           }
-          resourceName={field.name.toLowerCase()}
+          resourceName={inSentence(field.name)}
           searchHidden
           allowNone={clear != null}
           triggerProps={{ status }}
