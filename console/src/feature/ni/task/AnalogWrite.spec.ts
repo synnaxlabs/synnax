@@ -432,6 +432,19 @@ describe("AnalogWrite ports", () => {
     );
   });
 
+  it("should give a channel switched to current the device's current range", async () => {
+    const hardware = createHardware();
+    hardware.analogOutputs[0].types.push("ao_current");
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogWrite(createConfig([createChannel("ao_voltage", 0)], dev.key));
+    fireEvent.click(await findChannelListItem("cmd_ao_voltage_0"));
+    await selectFromDropdown("Voltage", "Current");
+    const max = await screen.findByLabelText<HTMLInputElement>("Maximum value");
+    await waitFor(() => expect(max.value).toBe("0.02"));
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+    expect(max.getAttribute("aria-invalid")).not.toBe("true");
+  });
+
   it("should deploy a channel on a port that does not report its types", async () => {
     const hardware = createHardware();
     hardware.analogOutputs[0] = { ...hardware.analogOutputs[0], types: [] };

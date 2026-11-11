@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
@@ -19,6 +20,7 @@ import {
   type AOChannel,
   type AOChannelType,
   createAOChannel,
+  defaultAORange,
 } from "@/feature/ni/task/types";
 
 /** The items of the channel type select, one for each of the types. */
@@ -47,11 +49,14 @@ interface SelectAOChannelTypeFieldProps extends Pick<
   "inputProps"
 > {
   path: deep.Path<AOChannel>;
+  /** The hardware of the channel's device. A switch to current takes its range. */
+  hardware?: ni.Hardware;
 }
 
 export const SelectAOChannelTypeField = ({
   path,
   inputProps,
+  hardware,
 }: SelectAOChannelTypeFieldProps) => (
   <SelectType
     path={path.type}
@@ -62,8 +67,10 @@ export const SelectAOChannelTypeField = ({
       const next = createAOChannel(value);
       const prevParent = get(path).value;
       const schema = AO_CHANNEL_SCHEMAS[value];
+      const range = defaultAORange(value, hardware);
       set(path, {
         ...deep.overrideValidItems(next, prevParent, schema),
+        ...(range != null && { minVal: range.lower, maxVal: range.upper }),
         type: next.type,
       } as AOChannel);
     }}

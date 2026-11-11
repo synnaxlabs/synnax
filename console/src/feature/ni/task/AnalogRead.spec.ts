@@ -580,6 +580,50 @@ describe("AnalogRead ports", () => {
     expect(fieldInvalid("Maximum value")).toBe(false);
   });
 
+  const createCurrentDevice = async () => {
+    const hardware = createHardware();
+    const [ai0] = hardware.analogInputs;
+    hardware.analogInputs[0] = { ...ai0, types: [...ai0.types, "ai_current"] };
+    return await createNIDevice(client, { properties: { hardware } });
+  };
+
+  it("should give a channel switched to current the device's current range", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should give a new channel the current range of the channel it copies", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(() => {
+      const rows = screen.getAllByRole("option");
+      expect(rows).toHaveLength(2);
+      expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    });
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe(
+      "-0.02",
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
   it("should not mark a current outside every range through an external shunt", async () => {
     const dev = await createDevice();
     await renderWith([

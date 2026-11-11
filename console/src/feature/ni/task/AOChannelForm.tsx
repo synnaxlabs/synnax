@@ -125,6 +125,7 @@ export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) 
       <Form.Section title="Signal">
         <SelectAOChannelTypeField
           path={path}
+          hardware={device?.properties.hardware}
           inputProps={{ children: channelTypeItems(types) }}
         />
         <TypeFields type={type} path={path} />
