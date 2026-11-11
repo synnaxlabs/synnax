@@ -64,6 +64,8 @@ type Calculator struct {
 	err error
 	// failed is true from a failed step until the next clean step with output.
 	failed bool
+	// budget limits the loop iterations and function calls of each step.
+	budget runtime.Budget
 }
 
 type Config struct {
@@ -133,7 +135,10 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		mathMod,
 	}
 
-	var closers io.MultiCloser
+	var (
+		closers io.MultiCloser
+		budget  runtime.Budget
+	)
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, closers.Close())
@@ -188,6 +193,12 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 				return guest.Close(context.TODO())
 			}),
 		)
+		if budget, err = runtime.NewBudget(
+			guest,
+			runtime.DefaultLoopBudget,
+		); err != nil {
+			return nil, err
+		}
 		f = append(f, &wasm.Module{
 			Module:        guest,
 			Memory:        guest.Memory(),
@@ -223,6 +234,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		start:     telem.Now(),
 		clock:     telem.MonoClock{Source: cfg.Now},
 		failed:    cfg.Failed,
+		budget:    budget,
 	}
 	sched.SetErrorHandler(scheduler.ErrorHandlerFunc(
 		func(_ context.Context, _ string, err error) {
@@ -265,12 +277,15 @@ func (c *Calculator) String() string {
 // is free to discard the returned value.
 //
 // The first error a node reports during the step is returned, with no new calculations.
+// A step that uses its whole loop budget returns an error wrapping
+// runtime.ErrLoopBudget.
 func (c *Calculator) Next(
 	ctx context.Context,
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
 	c.state.channel.Ingest(input.ToStorage())
+	c.budget.Reset()
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -301,8 +316,12 @@ func (c *Calculator) Next(
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
 	c.state.channel.ClearReads()
-	if err := c.err; err != nil {
-		c.err = nil
+	err := c.err
+	c.err = nil
+	if budgetErr := c.budget.Err(); budgetErr != nil {
+		return framer.Frame{}, false, budgetErr
+	}
+	if err != nil {
 		return framer.Frame{}, false, err
 	}
 	if !changed {

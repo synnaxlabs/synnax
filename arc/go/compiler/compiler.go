@@ -212,6 +212,8 @@ func compileItem(
 
 	funcT := wasm.FunctionType{Params: wasmParams, Results: wasmResults}
 	typeIdx := ctx.Module.AddType(funcT)
+	// Recursion has no loop, so each call also takes from the budget.
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 
 	if outputMemoryBase > 0 {
 		ctx.Writer.WriteI32Const(int32(outputMemoryBase))

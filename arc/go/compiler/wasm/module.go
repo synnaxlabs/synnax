@@ -40,6 +40,19 @@ type Export struct {
 	Index uint32
 }
 
+// Global is a global of type i64 with a constant initial value.
+type Global struct {
+	// Mutable is true when the guest or the host can set the global.
+	Mutable bool
+	// Init is the value of the global when the module is instantiated.
+	Init int64
+}
+
+// LoopBudgetExport names the exported i64 global that counts the loop iterations and
+// function calls a guest can still run. Each takes one, and the guest traps when it
+// takes the last one. A host sets the global before it calls the guest.
+const LoopBudgetExport = "loop_budget"
+
 // DataSegment represents a data segment to be placed in linear memory
 type DataSegment struct {
 	Bytes  []byte
@@ -52,6 +65,7 @@ type Module struct {
 	imports    []Import
 	functions  []Function
 	exports    []Export
+	globals    []Global
 	data       []DataSegment
 	buf        bytes.Buffer
 	dataOffset uint32
@@ -67,6 +81,12 @@ func NewModule() *Module {
 		exports:   make([]Export, 0),
 		data:      make([]DataSegment, 0),
 	}
+}
+
+// AddGlobal adds a global and returns its index.
+func (m *Module) AddGlobal(g Global) uint32 {
+	m.globals = append(m.globals, g)
+	return uint32(len(m.globals) - 1)
 }
 
 // AddType adds a function type and returns its index
@@ -153,6 +173,9 @@ func (m *Module) Generate() []byte {
 	if m.memory {
 		m.writeMemorySection()
 	}
+	if len(m.globals) > 0 {
+		m.writeGlobalSection()
+	}
 	if len(m.exports) > 0 {
 		m.writeExportSection()
 	}
@@ -221,6 +244,23 @@ func (m *Module) writeMemorySection() {
 	writeUnsignedLEB128(&section, 1)
 	writeUnsignedLEB128(&section, MaxMemoryPages)
 	m.writeSection(SectionMemory, section.Bytes())
+}
+
+func (m *Module) writeGlobalSection() {
+	var section bytes.Buffer
+	writeUnsignedLEB128(&section, uint64(len(m.globals)))
+	for _, g := range m.globals {
+		section.WriteByte(byte(I64))
+		if g.Mutable {
+			section.WriteByte(1)
+		} else {
+			section.WriteByte(0)
+		}
+		section.WriteByte(byte(OpI64Const))
+		writeSignedLEB128(&section, g.Init)
+		section.WriteByte(byte(OpEnd))
+	}
+	m.writeSection(SectionGlobal, section.Bytes())
 }
 
 func (m *Module) writeExportSection() {
