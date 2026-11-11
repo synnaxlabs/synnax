@@ -161,19 +161,11 @@ const Selector = ({
   const contextMenuProps = Menu.useContextMenu();
   const hasCreatePermission = Access.useCreateGranted(view.TYPE_RESOURCE_ID);
   const createModal = useCreateModal();
-  const { update: create } = PView.useCreate({
-    beforeUpdate: async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
-      const result = await createModal();
-      if (result == null) return false;
-      const previousSelected = selected;
-      rollbacks.push(() => onSelect(previousSelected));
-      return { ...data, ...result, key: uuid.create() };
-    },
-    afterSuccess: ({ data }: Flux.AfterSuccessParams<view.New>) => {
-      onSelect(data?.key ?? "");
-    },
-  });
-  const handleCreate = () => create({ name: "", type: resourceType });
+  const handleCreate = async () => {
+    const initialValues = { ...ZERO_VARIANTS[resourceType], name: "" };
+    const result = await createModal({ initialValues });
+    if (result != null) onSelect(result.key);
+  };
   const [anchors, setAnchor] = Appearance.useAnchors();
   const { searchInViews } = useContext("View.Selector");
   const creatable = hasCreatePermission && editable;
@@ -187,7 +179,7 @@ const Selector = ({
       <Vis.Controls x>
         {creatable && !searchInViews && (
           <Button.Button
-            onClick={handleCreate}
+            onClick={() => void handleCreate()}
             tooltip="Create view"
             size="small"
             tooltipLocation={location.BOTTOM_LEFT}
@@ -229,7 +221,7 @@ const Selector = ({
           />
           {creatable && searchInViews && (
             <Button.Button
-              onClick={handleCreate}
+              onClick={() => void handleCreate()}
               variant="text"
               size="small"
               textColor={9}

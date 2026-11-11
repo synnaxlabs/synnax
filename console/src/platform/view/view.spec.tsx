@@ -101,6 +101,26 @@ const renderHarness = async (
   );
 };
 
+/** Opens the create view modal. @returns its name input. */
+const openCreateModal = async (): Promise<HTMLInputElement> => {
+  await enableEditing();
+  const add = await waitFor(() =>
+    getIconButton(getBySelector(document.body, ".console-controls"), "add"),
+  );
+  fireEvent.click(add);
+  return await screen.findByPlaceholderText<HTMLInputElement>("View name");
+};
+
+/** @returns the Create button of the create view modal. */
+const getCreateButton = (): HTMLElement => {
+  // The create view button names itself with a tooltip, and holds no text.
+  const create = screen
+    .getAllByRole("button", { name: /^Create/ })
+    .find((b) => b.textContent?.startsWith("Create"));
+  if (create == null) throw new Error("no Create button");
+  return create;
+};
+
 /** @returns the icon the tab of the named view draws. */
 const tabIcon = (name: string): SVGElement => {
   const tab = screen.getAllByRole("tab").find((t) => t.textContent === name);
@@ -209,30 +229,29 @@ describe("View", () => {
 
   it("creates a view with the name and icon picked in the create modal", async () => {
     await renderHarness();
-    await enableEditing();
-    const add = await waitFor(() =>
-      getIconButton(getBySelector(document.body, ".console-controls"), "add"),
-    );
-    fireEvent.click(add);
-    const input = await screen.findByPlaceholderText<HTMLInputElement>("View name");
+    const input = await openCreateModal();
     expect(input.value).toBe("");
-    // The create view button names itself with a tooltip, and holds no text.
-    const create = screen
-      .getAllByRole("button", { name: /^Create/ })
-      .find((b) => b.textContent?.startsWith("Create"));
-    expect(create?.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByLabelText("Change icon"));
     await act(async () => {
       fireEvent.click(await screen.findByLabelText("Valve"));
     });
     const name = uniqueName("created");
     fireEvent.change(input, { target: { value: name } });
-    expect(create?.getAttribute("aria-disabled")).toBeNull();
-    fireEvent.click(create as HTMLButtonElement);
+    fireEvent.click(getCreateButton());
     await waitFor(() => expect(selectedViewName()).toBe(name));
     expect(tabIcon(name).classList).toContain("lyra-icon--valve");
     const stored = await client.views.retrieve({ where: { name: { eq: name } } });
     expect(stored.map(({ icon }) => icon)).toEqual(["valve"]);
+  });
+
+  it("shows an empty name error at the field and keeps the create button enabled", async () => {
+    await renderHarness();
+    await openCreateModal();
+    const create = getCreateButton();
+    expect(create.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(create);
+    expect(await screen.findByText("Name is required")).toBeTruthy();
+    expect(screen.getByPlaceholderText("View name")).toBeTruthy();
   });
 
   it("draws the explorer icon on a static tab and a view icon on a saved one", async () => {

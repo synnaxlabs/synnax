@@ -39,11 +39,13 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
 export type FormValues =
   optional.Optional<view.RangeView, "key"> | optional.Optional<view.StatusView, "key">;
 
+const nameZ = z.string().min(1, "Name is required");
+
 // TypeScript cannot name the recursive where types inside an inferred schema type, so
 // the schema carries its value type by hand.
 export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
-  view.rangeViewZ.partial({ key: true }),
-  view.statusViewZ.partial({ key: true }),
+  view.rangeViewZ.partial({ key: true }).extend({ name: nameZ }),
+  view.statusViewZ.partial({ key: true }).extend({ name: nameZ }),
 ]);
 
 export const formPath = deep.path<FormValues>();

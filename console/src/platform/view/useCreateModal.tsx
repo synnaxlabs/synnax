@@ -7,75 +7,111 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import { status, UnexpectedError, type view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type ReactElement, useState } from "react";
+import { type Flux, View as PView } from "@synnaxlabs/pluto";
+import { type color } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-/** The name, icon, and color of a view to create. */
-export interface CreateResult extends Pick<view.New, "name" | "icon" | "color"> {}
+const path = PView.formPath;
+
+export interface CreateModalParams {
+  /** The values the view starts with, such as its type. */
+  initialValues: PView.FormValues;
+}
+
+export interface CreateModalResult {
+  key: view.Key;
+}
+
+const IconField = (): ReactElement => {
+  const icon = Form.useField<string | undefined>(path.icon);
+  const iconColor = Form.useField<color.Crude | undefined>(path.color);
+  return (
+    <Dialog.Frame zIndex={100}>
+      <Dialog.Trigger
+        hideCaret
+        variant="outlined"
+        size="large"
+        tooltip="Change icon"
+        aria-label="Change icon"
+      >
+        {Appearance.renderIcon({
+          icon: icon.value,
+          color: iconColor.value,
+          fallback: Icon.View,
+        })}
+      </Dialog.Trigger>
+      <Appearance.Dialog aria-label="View icon">
+        <Appearance.Picker
+          icon={icon.value}
+          color={iconColor.value}
+          fallback={Icon.View}
+          onIconChange={icon.onChange}
+          onColorChange={iconColor.onChange}
+        />
+      </Appearance.Dialog>
+    </Dialog.Frame>
+  );
+};
 
 const Create = ({
+  initialValues,
   close,
-}: Modals.ContentProps<Record<never, never>, CreateResult>): ReactElement => {
-  const [name, setName] = useState("");
-  const [icon, setIcon] = useState<string>();
-  const [color, setColor] = useState<view.New["color"]>();
-  const trimmed = name.trim();
-  const handleCreate = () => {
-    if (trimmed.length > 0) close({ name: trimmed, icon, color });
-  };
+}: Modals.ContentProps<CreateModalParams, CreateModalResult>): ReactElement => {
+  const { form, save, variant } = PView.useForm({
+    query: null,
+    initialValues,
+    afterSave: ({
+      value,
+    }: Flux.AfterSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
+      const { key } = value();
+      if (key == null) throw new UnexpectedError("View key is null");
+      close({ key });
+    },
+  });
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.View />}>View.Create</Modal.Header>
       <Modal.Body>
-        <Flex.Box x align="center" gap="medium">
-          <Dialog.Frame zIndex={100}>
-            <Dialog.Trigger
-              hideCaret
-              variant="outlined"
-              size="large"
-              tooltip="Change icon"
-              aria-label="Change icon"
-            >
-              {Appearance.renderIcon({ icon, color, fallback: Icon.View })}
-            </Dialog.Trigger>
-            <Appearance.Dialog aria-label="View icon">
-              <Appearance.Picker
-                icon={icon}
-                color={color}
-                fallback={Icon.View}
-                onIconChange={setIcon}
-                onColorChange={setColor}
-              />
-            </Appearance.Dialog>
-          </Dialog.Frame>
-          <Input.Text
-            placeholder="View name"
-            aria-label="View name"
-            variant="text"
-            autoFocus
-            level="h3"
-            value={name}
-            onChange={setName}
-          />
-        </Flex.Box>
+        <Form.Form<typeof PView.formSchema> {...form}>
+          {/* The name is as tall as the icon button, so its error shows under it and
+              moves nothing. */}
+          <Flex.Box x align="start" gap="medium">
+            <IconField />
+            <Form.Field path={path.name} showLabel={false} padHelpText={false} grow>
+              {(p) => (
+                <Input.Text
+                  placeholder="View name"
+                  aria-label="View name"
+                  variant="text"
+                  autoFocus
+                  level="h3"
+                  size="large"
+                  {...p}
+                />
+              )}
+            </Form.Field>
+          </Flex.Box>
+        </Form.Form>
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
           <Button.Button
+            status={status.keepVariants(variant, "loading")}
             variant="filled"
-            disabled={trimmed.length === 0}
-            onClick={handleCreate}
+            onClick={() => save()}
             trigger={Triggers.SAVE}
             triggerIndicator
           >
@@ -87,5 +123,7 @@ const Create = ({
   );
 };
 
-/** Asks for the name, icon, and color of a view to create. */
-export const useCreateModal = Modals.createPrompt<CreateResult>(Create);
+/** Creates a view from a name, an icon, and a color, and resolves with its key. */
+export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
+  Create,
+);
