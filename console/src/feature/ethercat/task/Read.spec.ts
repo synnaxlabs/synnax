@@ -130,7 +130,7 @@ const createCalibratedSlave = async () =>
   await createSlaveDevice(client, testRack.key, {
     identifier: createIdentifier(),
     network: "eth0",
-    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
     settings: createCalibratedDescription(),
   });
 
@@ -274,14 +274,27 @@ describe("Read", () => {
     });
   });
 
-  it("should hide the data type of an entry that the Driver calibrates", async () => {
+  it("should calibrate a picked entry that the Driver calibrates", async () => {
     const slave = await createCalibratedSlave();
-    await renderRead({
+    const { draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
     });
-    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
-    expect(await screen.findByRole("button", { name: /^Measurement/ })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
+    expect(await screen.findByText("Data type")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Channel 1 › Value/ }));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        index: 0x6030,
+        subIndex: 1,
+        calibrated: true,
+      });
+    });
     expect(screen.queryByText("Data type")).toBeNull();
   });
 
@@ -1115,14 +1128,24 @@ describe("Read", () => {
     );
   });
 
-  it("should give an entry that the Driver calibrates a float64 channel", async () => {
+  it("should give a calibrated entry a float64 channel", async () => {
+    const slave = await createCalibratedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createSlaveReadChannel(slave, STRAIN_ENTRY)],
+    });
+    const created = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(created.dataType.toString()).toBe("float64");
+  });
+
+  it("should keep the raw data type of an uncalibrated channel on a calibrated entry", async () => {
     const slave = await createCalibratedSlave();
     const deployed = await deployRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     const created = await client.channels.retrieve(deployed.config.channels[0].channel);
-    expect(created.dataType.toString()).toBe("float64");
+    expect(created.dataType.toString()).toBe("int32");
   });
 
   it("should give a scaled entry a float64 channel apart from its raw channel", async () => {
@@ -1813,6 +1836,18 @@ describe("Read", () => {
         subIndex,
       })),
     );
+  });
+
+  it("should calibrate the inputs of a slave that the task starts from", async () => {
+    const slave = await createCalibratedSlave();
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(
+      tsk.config.channels.map((ch) => ch.type === "entry" && ch.calibrated),
+    ).toEqual([true, false]);
   });
 
   it("should create the task from a slave without inputs with one channel on it", async () => {

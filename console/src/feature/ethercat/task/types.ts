@@ -142,8 +142,8 @@ export const isCalibrated = (
 };
 
 /** @returns the data type of the read channel's Synnax channel. */
-export const readDataType = (slave: SlaveDevice, ch: EntryReadChannel): string =>
-  isScaled(ch) || isCalibrated(slave.properties, ch) ? "float64" : ch.dataType;
+export const readDataType = (ch: EntryReadChannel): string =>
+  isScaled(ch) || ch.calibrated ? "float64" : ch.dataType;
 
 /**
  * The data type of each Synnax channel that a slave maps, keyed by the channel. A
@@ -153,13 +153,12 @@ export type DataTypes = Map<number, string>;
 
 /** @returns whether the binding holds the samples of the read channel. */
 const isReadBinding = (
-  slave: SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): ((b: ReadBinding) => boolean) => {
   const at = isAt(ch);
   const scaled = isScaled(ch);
-  const dataType = readDataType(slave, ch);
+  const dataType = readDataType(ch);
   return (b) => at(b) && b.scaled === scaled && dataTypes.get(b.channel) === dataType;
 };
 
@@ -172,8 +171,7 @@ export const readChannelOf = (
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): number =>
-  slave.properties.read.channels.find(isReadBinding(slave, ch, dataTypes))?.channel ??
-  0;
+  slave.properties.read.channels.find(isReadBinding(ch, dataTypes))?.channel ?? 0;
 
 /**
  * Maps the read channel to the Synnax channel with the key on the slave, in place of
@@ -193,7 +191,7 @@ export const bindReadChannel = (
     (b) => !at(b) || b.scaled !== scaled || (!scaled && dataTypes.has(b.channel)),
   );
   read.channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
-  dataTypes.set(key, readDataType(slave, ch));
+  dataTypes.set(key, readDataType(ch));
 };
 
 /**
@@ -210,7 +208,7 @@ export const readNameSuffix = (
   const first = slave.properties.read.channels.find(
     (b) => at(b) && !b.scaled && dataTypes.has(b.channel),
   );
-  const dataType = readDataType(slave, ch);
+  const dataType = readDataType(ch);
   return first != null && dataTypes.get(first.channel) !== dataType
     ? `_${dataType}`
     : "";
@@ -334,6 +332,18 @@ export const createEntryReadChannel = (
     subIndex,
     dataType,
   });
+
+/**
+ * @returns a read channel bound to the entry of the slave, calibrated when the Driver
+ * calibrates the entry.
+ */
+export const createSlaveReadChannel = (
+  { key, properties }: SlaveDevice,
+  entry: ethercat.PDOEntry,
+): EntryReadChannel => ({
+  ...createEntryReadChannel(key, entry),
+  calibrated: isCalibrated(properties, entry),
+});
 
 /** @returns a write channel bound to an entry of the slave with the given key. */
 export const createEntryWriteChannel = (

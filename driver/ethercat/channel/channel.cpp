@@ -199,12 +199,8 @@ void check_stop_value(
         reject(std::format("a whole number from {} to {}", min, max));
 }
 
-/// @brief returns the calibration that the catalog of slave gives the input entry, and
-/// the data type in which the entry encodes samples. Returns nullopt when the catalog
-/// gives none, or when the slave sends float samples at the entry, as newer firmware
-/// does.
-std::optional<std::pair<Calibration, x::telem::DataType>>
-find_calibration(const slave::Properties &slave, const pdo::Entry &entry) {
+/// @brief whether the slave sends integer samples at the input entry.
+bool sends_integers(const slave::Properties &slave, const pdo::Entry &entry) {
     static const std::vector INTEGER_TYPES = {
         x::telem::INT64_T,
         x::telem::INT32_T,
@@ -216,9 +212,14 @@ find_calibration(const slave::Properties &slave, const pdo::Entry &entry) {
         x::telem::UINT8_T,
     };
     const auto pdo = slave.find_pdo(entry.index, entry.sub_index, true);
-    if (!pdo || !pdo->data_type.matches(INTEGER_TYPES) || !slave.settings ||
-        !slave.settings->contains("channels"))
-        return std::nullopt;
+    return pdo && pdo->data_type.matches(INTEGER_TYPES);
+}
+
+/// @brief returns the calibration that the catalog of slave gives the input entry, and
+/// the data type in which the entry encodes samples, or nullopt when it gives none.
+std::optional<std::pair<Calibration, x::telem::DataType>>
+find_calibration(const slave::Properties &slave, const pdo::Entry &entry) {
+    if (!slave.settings || !slave.settings->contains("channels")) return std::nullopt;
     for (const auto &channel: slave.settings->at("channels"))
         for (const auto &e: channel.value("entries", x::json::json::array())) {
             if (e.value("index", 0) != entry.index ||
@@ -258,20 +259,30 @@ std::unique_ptr<Input> make_input(
         .synnax_key = c.channel,
         .scale = c.scale,
     });
-    if (auto found = find_calibration(slave, *entry)) {
-        if (found->second.density() * 8 != entry->bit_length) {
-            parser.field_err(
-                "index",
-                "the catalog gives " + found->second.name() + " samples for entry " +
-                    telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
-                    slave.name + ", but the entry holds " +
-                    std::to_string(entry->bit_length) + " bits"
-            );
-            return nullptr;
-        }
-        input->calibration = found->first;
-        input->entry.data_type = found->second;
+    // Newer firmware sends floats, which are physical values already.
+    if (!c.calibrated || !sends_integers(slave, *entry)) return input;
+    const auto found = find_calibration(slave, *entry);
+    if (!found) {
+        parser.field_err(
+            "calibrated",
+            "the catalog gives no calibration for entry " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                slave.name
+        );
+        return nullptr;
     }
+    if (found->second.density() * 8 != entry->bit_length) {
+        parser.field_err(
+            "index",
+            "the catalog gives " + found->second.name() + " samples for entry " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                slave.name + ", but the entry holds " +
+                std::to_string(entry->bit_length) + " bits"
+        );
+        return nullptr;
+    }
+    input->calibration = found->first;
+    input->entry.data_type = found->second;
     return input;
 }
 

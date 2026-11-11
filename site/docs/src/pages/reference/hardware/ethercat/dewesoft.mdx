@@ -78,9 +78,10 @@ device.
 ## Physical values
 
 The SIRIUS, the IOLITE 8xLA, 8xLV, and 8xSTGS, the IOLITEi 1xACC, and the KRYPTON 3xSTG
-and 6xSTG can send raw counts. When a read task starts, the Driver reads the gain and
-offset that each channel of these modules stores, and records physical values. A scale
-on the channel applies after them.
+and 6xSTG can send raw counts. The Console marks a channel on one of these inputs as
+calibrated when you pick its entry. When a read task starts, the Driver reads the gain
+and offset that the module stores for each calibrated channel, and records physical
+values. A scale on the channel applies after them. In code, set `calibrated=True`.
 
 <Divider.Divider x />
 

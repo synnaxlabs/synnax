@@ -25,6 +25,7 @@ import {
   getEntryLabel,
   getUnresolvedMessage,
   hasEntry,
+  isCalibrated,
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
@@ -75,8 +76,19 @@ export const SelectEntryField = ({
             const entry = entries.find((e) => addressKey(e) === key);
             if (entry == null) throw new Error(`No entry has the key ${key}`);
             const { index, subIndex, dataType } = entry;
+            const calibrated =
+              slave != null &&
+              pdoType === "inputs" &&
+              isCalibrated(slave.properties, entry);
             onChange(
-              schema.parse({ ...value, type: "entry", index, subIndex, dataType }),
+              schema.parse({
+                ...value,
+                type: "entry",
+                index,
+                subIndex,
+                dataType,
+                calibrated,
+              }),
             );
           }}
           resourceName="entry"

@@ -217,14 +217,15 @@ protected:
         ASSERT_NIL(this->client->devices.create(this->slave_device));
     }
 
-    /// @brief returns a config that reads the entry at 0x6000:02 into data_ch.
+    /// @brief returns a config that reads the entry at 0x6000:02 into data_ch, with the
+    /// calibration of the slave.
     x::json::json create_sensor_config(const synnax::channel::Channel &data_ch) {
         auto cfg = this->create_base_config();
         cfg["sample_rate"] = 10;
         cfg["stream_rate"] = 10;
-        cfg["channels"].push_back(
-            this->create_input_channel_config(data_ch, 0x6000, 2, "int32")
-        );
+        auto ch = this->create_input_channel_config(data_ch, 0x6000, 2, "int32");
+        ch["calibrated"] = true;
+        cfg["channels"].push_back(ch);
         return cfg;
     }
 

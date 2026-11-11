@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -15,7 +16,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
-import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
@@ -102,13 +103,16 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const createSlaveWriteChannel = ({ key }: SlaveDevice, entry: ethercat.PDOEntry) =>
+  createEntryWriteChannel(key, entry);
+
 const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
   <>
     <AddSlaveEntriesItem
       {...props}
       path={path.config.channels}
       pdoType="outputs"
-      createChannel={createEntryWriteChannel}
+      createChannel={createSlaveWriteChannel}
     />
     {Task.writeChannelContextMenuItems(props)}
   </>
@@ -153,7 +157,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
             client,
             deviceKey,
             "outputs",
-            createEntryWriteChannel,
+            createSlaveWriteChannel,
             createWriteChannel([]),
           );
   return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };

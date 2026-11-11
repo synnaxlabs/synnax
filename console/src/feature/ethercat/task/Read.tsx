@@ -32,8 +32,8 @@ import {
 } from "@/feature/ethercat/task/configure";
 import {
   bindReadChannel,
-  createEntryReadChannel,
   createReadChannel,
+  createSlaveReadChannel,
   type DataTypes,
   deployReadConfigZ,
   entryAt,
@@ -127,7 +127,7 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
       {...props}
       path={path.config.channels}
       pdoType="inputs"
-      createChannel={createEntryReadChannel}
+      createChannel={createSlaveReadChannel}
     />
     {Task.readChannelContextMenuItem(props)}
   </>
@@ -170,7 +170,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
             client,
             deviceKey,
             "inputs",
-            createEntryReadChannel,
+            createSlaveReadChannel,
             createReadChannel([]),
           );
   return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
@@ -232,14 +232,14 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       index: () => slave.properties.readIndex,
       mapped: mappedChannels(slave),
       bind: (ch, key) => bindReadChannel(slave, ch, key, dataTypes),
-      getDataType: (ch) => readDataType(slave, ch),
+      getDataType: readDataType,
     });
 
     if (toCreate.length > 0) {
       const created = await client.channels.create(
         toCreate.map((ch) => ({
           name: nameOf(ch),
-          dataType: readDataType(slave, ch),
+          dataType: readDataType(ch),
           index: slave.properties.readIndex,
         })),
       );

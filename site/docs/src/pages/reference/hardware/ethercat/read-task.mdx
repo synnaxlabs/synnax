@@ -213,11 +213,12 @@ setting, with its Python field under it.
 
 Reads one input entry at its CoE address.
 
-| Setting                                   | Default | Notes                                                              |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
-| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
+| Setting                                   | Default | Notes                                                                                           |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                                                           |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                                                    |
+| Calibrated <small>`calibrated`</small>    | False   | Records physical values. See [Dewesoft](/reference/hardware/ethercat/dewesoft#physical-values). |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales).                              |
 
 </Channel.Type>
 
