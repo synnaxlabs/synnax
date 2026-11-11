@@ -75,8 +75,8 @@ describe("Secret", () => {
       const second = await client.secrets.set({
         key: first.key,
         name: "API key v2",
-        source: "file",
-        fileName: "api.key",
+        source: "stored",
+        value: "two",
       });
       expect(second.key).toEqual(first.key);
       expect(second.updated.after(first.updated)).toBe(true);

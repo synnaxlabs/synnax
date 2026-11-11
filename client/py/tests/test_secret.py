@@ -76,7 +76,7 @@ class TestSecret:
         """Should replace a secret that has the same key."""
         first = client.secrets.set(secret.NewStored(name="API key", value="one"))
         second = client.secrets.set(
-            secret.NewFile(key=first.key, name="API key v2", file_name="api.key")
+            secret.NewStored(key=first.key, name="API key v2", value="two")
         )
         assert second.key == first.key
         assert second.updated > first.updated
