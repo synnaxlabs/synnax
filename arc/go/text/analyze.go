@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
-	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
@@ -888,7 +887,7 @@ func varReadRef(vn *ir.Node) nodeResult {
 // buildScaleNode builds the node that converts a value of type from to the unit of to.
 func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
 	key := kg.generate("scale", "")
-	inputs := types.Params{{Name: ir.DefaultInputParam, Type: from}}
+	inputs := types.Params{{Name: "value", Type: from}}
 	outputs := types.Params{{Name: ir.DefaultOutputParam, Type: to}}
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      compiler.ScaleSyntheticPrefix + key,
@@ -902,7 +901,7 @@ func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
 		Channels: types.NewChannels(),
 		Inputs:   inputs,
 		Outputs:  outputs,
-	}, ir.DefaultInputParam, ir.DefaultOutputParam)
+	}, "value", ir.DefaultOutputParam)
 }
 
 // varFeederRef appends a fresh feeder param to vn and returns a reference
@@ -2293,24 +2292,22 @@ func extractInputValues(
 					if !convertible {
 						return varValue(sym), ref, true
 					}
-					// Only a native node converts a register to the unit of its input.
-					if fnSym.Exec != symbol.ExecFlow {
-						ctx.Diagnostics.Add(diagnostics.Errorf(
-							expr,
-							"type mismatch in argument '%s' of '%s': expected %v, got %v",
-							paramName,
-							fnSym.Name,
-							paramType,
-							t,
-						).WithCode(codes.FuncArgType))
-						return nil, paramType, false
-					}
-					ref.Unit = paramType.Unit
 					parsed, err := literal.ParseConst(sym.Initializer(), paramType)
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 						return nil, paramType, false
 					}
+					// A native node converts the register when it reads it. Any other
+					// node reads a scale node that fires with the call.
+					if fnSym.Exec != symbol.ExecFlow {
+						scale := buildScaleNode(ref, paramType, kg)
+						args = append(args, scale.node)
+						return parsed.Value, types.VarRef(
+							paramType,
+							scale.node.Key,
+						), true
+					}
+					ref.Unit = paramType.Unit
 					return parsed.Value, ref, true
 				}
 				if !sym.Reassigned && sym.DefaultValue != nil {

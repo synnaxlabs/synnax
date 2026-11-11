@@ -320,17 +320,43 @@ var _ = Describe("Literal Parser", func() {
 			)
 		})
 
-		Context("With target type kind (no unit)", func() {
+		Context("With a target with no unit", func() {
+			DescribeTable("Should keep the number as written",
+				func(text string, target types.Type, expected any) {
+					expr := MustSucceed(parser.ParseExpression(text))
+					Expect(MustSucceed(literal.ParseConst(expr, target)).Value).
+						To(Equal(expected))
+				},
+				Entry("a float", "14.7psi", types.F64(), 14.7),
+				Entry("a narrowed float", "14.7psi", types.F32(), float32(14.7)),
+				Entry("an integer", "100psi", types.I32(), int32(100)),
+				Entry("a duration", "5s", types.I64(), telem.TimeSpan(5)),
+				Entry("a negated duration", "-5s", types.I64(), telem.TimeSpan(-5)),
+				Entry("an unsigned integer", "5khz", types.U64(), uint64(5)),
+			)
+
+			It("Should return an error for a float into an integer", func() {
+				expr := MustSucceed(parser.ParseExpression("14.7psi"))
+				Expect(literal.ParseConst(expr, types.I64())).
+					Error().To(MatchError(ContainSubstring("fractional part")))
+			})
+		})
+
+		Context("ParseNumeric with target type kind (no unit)", func() {
 			It("Should convert to i32 when SI value is exact integer", func() {
 				lit := getLiteral("100psi")
-				parsed := MustSucceed(literal.Parse(lit, types.I32()))
+				parsed := MustSucceed(
+					literal.ParseNumeric(lit.NumericLiteral(), types.I32()),
+				)
 				Expect(parsed.Value).To(BeNumerically("~", int32(689476), 1))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI32))
 			})
 
 			It("Should convert to i64 when SI value is exact integer", func() {
 				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.I64()))
+				parsed := MustSucceed(
+					literal.ParseNumeric(lit.NumericLiteral(), types.I64()),
+				)
 				Expect(parsed.Value).To(Equal(int64(5000)))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
@@ -338,7 +364,9 @@ var _ = Describe("Literal Parser", func() {
 			DescribeTable(
 				"Time-unit literal boxing per target kind",
 				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
-					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
+					parsed := MustSucceed(
+						literal.ParseNumeric(getLiteral(text).NumericLiteral(), target),
+					)
 					Expect(parsed.Value).To(Equal(expectedValue))
 					Expect(parsed.Type.Kind).To(Equal(expectedKind))
 				},
@@ -381,38 +409,47 @@ var _ = Describe("Literal Parser", func() {
 
 			It("Should convert to f64", func() {
 				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.F64()))
+				parsed := MustSucceed(
+					literal.ParseNumeric(lit.NumericLiteral(), types.F64()),
+				)
 				Expect(parsed.Value).To(Equal(5000.0))
 				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
 			})
 
 			It("Should convert to f32", func() {
 				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.F32()))
+				parsed := MustSucceed(
+					literal.ParseNumeric(lit.NumericLiteral(), types.F32()),
+				)
 				Expect(parsed.Value).To(Equal(float32(5000)))
 				Expect(parsed.Type.Kind).To(Equal(types.KindF32))
 			})
 		})
 
-		Context("Go-like constant semantics (error on fractional)", func() {
-			It("Should error when converting non-exact value to i32", func() {
-				lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
-				Expect(literal.Parse(lit, types.I32())).
-					Error().To(MatchError(ContainSubstring("fractional part")))
-			})
+		Context(
+			"ParseNumeric Go-like constant semantics (error on fractional)",
+			func() {
+				It("Should error when converting non-exact value to i32", func() {
+					lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
+					Expect(literal.ParseNumeric(lit.NumericLiteral(), types.I32())).
+						Error().To(MatchError(ContainSubstring("fractional part")))
+				})
 
-			It("Should error when converting non-exact value to i64", func() {
-				lit := getLiteral("100.5kg")
-				Expect(literal.Parse(lit, types.I64())).
-					Error().To(MatchError(ContainSubstring("fractional part")))
-			})
+				It("Should error when converting non-exact value to i64", func() {
+					lit := getLiteral("100.5kg")
+					Expect(literal.ParseNumeric(lit.NumericLiteral(), types.I64())).
+						Error().To(MatchError(ContainSubstring("fractional part")))
+				})
 
-			It("Should succeed when converting exact float literal to i32", func() {
-				lit := getLiteral("1.0km")
-				parsed := MustSucceed(literal.Parse(lit, types.I32()))
-				Expect(parsed.Value).To(Equal(int32(1000)))
-			})
-		})
+				It("Should succeed when converting exact float literal to i32", func() {
+					lit := getLiteral("1.0km")
+					parsed := MustSucceed(
+						literal.ParseNumeric(lit.NumericLiteral(), types.I32()),
+					)
+					Expect(parsed.Value).To(Equal(int32(1000)))
+				})
+			},
+		)
 
 		Context("Error cases", func() {
 			It("Should return error for unknown units", func() {
@@ -705,7 +742,7 @@ var _ = Describe("Literal Parser", func() {
 			Entry("int64", "-5000000000", types.I64(), int64(-5000000000)),
 			Entry("float32", "-3.14", types.F32(), float32(-3.14)),
 			Entry("float64", "-2.718", types.F64(), float64(-2.718)),
-			Entry("TimeSpan", "-1s", types.I64(), -telem.Second),
+			Entry("TimeSpan", "-1s", types.I64(), telem.TimeSpan(-1)),
 			Entry("zero int64", "-0", types.I64(), int64(0)),
 			Entry("zero float64", "-0.0", types.F64(), float64(0)),
 		)
@@ -757,12 +794,17 @@ var _ = Describe("Literal Parser", func() {
 			Entry("i32 type minimum", "-2147483648", types.I32(), int32(-2147483648)),
 			Entry("negated float", "-2.5", types.F64(), float64(-2.5)),
 			Entry("negated float narrowed to f32", "-2.5", types.F32(), float32(-2.5)),
-			Entry("bare time unit boxes TimeSpan", "5s", types.I64(), telem.Second*5),
+			Entry(
+				"bare time unit boxes TimeSpan",
+				"5s",
+				types.I64(),
+				telem.TimeSpan(5),
+			),
 			Entry(
 				"negated time unit boxes TimeSpan",
 				"-5s",
 				types.I64(),
-				telem.Second*-5,
+				telem.TimeSpan(-5),
 			),
 			Entry(
 				"negated nanoseconds box TimeSpan",

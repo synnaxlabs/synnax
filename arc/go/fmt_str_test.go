@@ -309,7 +309,9 @@ trig -> f"v={d}" -> log`, "v=5000000000"),
 			Entry("typed duration in milliseconds", `d i64 ms := 5s
 trig -> f"v={d}" -> log`, "v=5000"),
 			Entry("duration in a plain integer", `d i64 := 5s
-trig -> f"v={d}" -> log`, "v=5000000000"),
+trig -> f"v={d}" -> log`, "v=5"),
+			Entry("pressure in a plain float", `q f64 := 14.7psi
+trig -> f"v={q}" -> log`, "v=14.7"),
 		)
 	})
 

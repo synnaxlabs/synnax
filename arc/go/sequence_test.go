@@ -5907,6 +5907,59 @@ var _ = Describe("Sequence", func() {
 				`p = p_kpa`, "d=1 other=120 typed=120000 p=2.5"),
 		)
 
+		DescribeTable("Passes a reassigned variable to a function on every trigger",
+			func(ctx SpecContext, declaration string) {
+				h := newRuntimeHarness(ctx, `
+				func show(x i64 ns) str {
+				    return `+`f"x={x}"`+`
+				}
+				sequence main {
+				    `+declaration+`
+				    stage write {
+				        6s -> d
+				        raw -> show(x=d) -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				var logged []string
+				for i := range 4 {
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+					out, _ := h.Flush()
+					logged = append(logged, drainStrings(out, 101)...)
+				}
+				// The first cycle starts the sequence, and each later trigger logs.
+				Expect(logged).To(Equal([]string{
+					"x=6000000000", "x=6000000000", "x=6000000000",
+				}))
+			},
+			Entry("in the unit of the input", `d i64 ns := 5s`),
+			Entry("in another unit", `d := 5s`),
+			Entry("in a typed unit", `d i64 ms := 5s`),
+		)
+
+		DescribeTable("Gives a function input a literal and a variable in the same way",
+			func(ctx SpecContext, param, expected string) {
+				for _, arg := range []string{"14.7psi", "p"} {
+					h := newRuntimeHarness(ctx, `
+					p := 14.7psi
+					func show(x `+param+`) str {
+					    return `+`f"{x}"`+`
+					}
+					raw -> show(x=`+arg+`) -> log`, resolver, digests...)
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.Millisecond)
+					out, _ := h.Flush()
+					Expect(drainStrings(out, 101)).To(Equal([]string{expected}), arg)
+					h.Close(ctx)
+				}
+			},
+			Entry("an input with no unit keeps the number as written", `f64`, "14.7"),
+			Entry("an input in the same unit", `f64 psi`, "14.7"),
+			Entry("an input in another unit converts", `f64 bar`, "1.01352972"),
+		)
+
 		It(
 			"Converts a variable to the unit of a function input",
 			func(ctx SpecContext) {

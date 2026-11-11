@@ -657,7 +657,12 @@ var _ = Describe("Text", func() {
 			    return x
 			}
 			count_ch -> hold(x=d) -> flag_ch`, "expected f64, got i64"),
-			Entry("a reassigned variable into a function", `
+		)
+
+		It("Should convert a reassigned variable on its way into a function", func(
+			ctx SpecContext,
+		) {
+			source := `
 			func hold(x i64 ns) i64 {
 			    return x
 			}
@@ -667,8 +672,32 @@ var _ = Describe("Text", func() {
 			        d = 6s
 			        count_ch -> hold(x=d) -> count_ch
 			    }
-			}`, "expected i64 ns, got i64 s"),
-		)
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			scale := findNodeByKey(inter.Nodes, "scale_0")
+			Expect(scale.Type).To(Equal(compiler.ScaleSyntheticPrefix + "scale_0"))
+			Expect(scale.Inputs[0].Type).To(Equal(
+				types.VarRef(MustBeOk(
+					findNodeByKey(
+						inter.Nodes,
+						"var_d_0",
+					).Outputs.Get(
+						ir.DefaultOutputParam,
+					),
+				).Type, "var_d_0"),
+			))
+			x := MustBeOk(findNodeByKey(inter.Nodes, "hold_0").Inputs.Get("x"))
+			Expect(x.Type).To(Equal(types.VarRef(types.TimeSpan(), "scale_0")))
+			Expect(x.Value).To(Equal(5 * telem.Second))
+			Expect(hasEdge(inter, nodeReading(inter, 901), "scale_0")).To(BeTrue(),
+				"the trigger must fire the conversion")
+		})
 
 		It("Should stamp both units on a reassigned variable of another unit", func(
 			ctx SpecContext,

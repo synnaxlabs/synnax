@@ -33,13 +33,14 @@ type ParsedValue struct {
 // literals (integer, float, with optional unit suffix) and validates type
 // compatibility. The targetType parameter specifies the expected type for conversion.
 // Float-to-int conversions that lose precision will fail (matching Go semantics for
-// constant conversions).
+// constant conversions). A unit literal converts to the unit of targetType, and keeps
+// its number as written when targetType has no unit.
 func Parse(
 	literal parser.ILiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if num := literal.NumericLiteral(); num != nil {
-		return ParseNumeric(num, targetType)
+		return ParseNumeric(num, writtenTarget(num, targetType))
 	}
 	if str := parser.StringTerminal(literal); str != nil {
 		return ParseString(str.GetText(), targetType)
@@ -528,9 +529,27 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return parseNumericSigned(numLit, true, targetType)
+				return parseNumericSigned(
+					numLit,
+					true,
+					writtenTarget(numLit, targetType),
+				)
 			}
 		}
 	}
 	return ParsedValue{}, errors.New("expression is not a compile-time constant")
+}
+
+// writtenTarget gives a target with no unit the unit of numLit, so that the literal
+// keeps its number as written.
+func writtenTarget(numLit parser.INumericLiteralContext, target types.Type) types.Type {
+	if !target.IsValid() || target.Unit != nil {
+		return target
+	}
+	if id := numLit.IDENTIFIER(); id != nil {
+		if unit, ok := units.Resolve(id.GetText()); ok {
+			target.Unit = unit
+		}
+	}
+	return target
 }

@@ -337,6 +337,9 @@ func compileScaleSynthetic(
 		)
 	}
 	in, out := fn.Inputs[0].Type, fn.Outputs[0].Type
+	if in.Kind == types.KindVarRef && in.Elem != nil {
+		in = *in.Elem
+	}
 	if !types.UnitsConvertible(in.Unit, out.Unit) || in.Kind != out.Kind {
 		return compiledFunction{}, errors.Newf(
 			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
