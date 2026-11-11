@@ -402,6 +402,43 @@ var _ = Describe("Unified fields through aliases", func() {
 			Equal([]string{"label", "hidden", "on"}),
 		)
 	})
+	It("Should fill in the type arguments of a generic base and variant", func() {
+		param := resolution.TypeRef{TypeParam: &resolution.TypeParam{Name: "T"}}
+		generic := func(name, fieldName string) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form: resolution.StructForm{
+					TypeParams: []resolution.TypeParam{{Name: "T"}},
+					Fields: []resolution.Field{
+						{Name: fieldName, Type: param},
+					},
+				},
+			})).To(Succeed())
+		}
+		generic("Head", "head")
+		generic("Body", "body")
+		union := resolution.Type{
+			Name:          "Node",
+			QualifiedName: "t.Node",
+			Namespace:     "t",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Extends: []resolution.TypeRef{{
+					Name: "t.Head", TypeArgs: []resolution.TypeRef{ref("uint8")},
+				}},
+			},
+		}
+		variant := resolution.UnionVariant{Name: "valve", Type: resolution.TypeRef{
+			Name: "t.Body", TypeArgs: []resolution.TypeRef{ref("string")},
+		}}
+		fields := resolution.UnifiedVariantFields(union, variant, table)
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Type).To(Equal(ref("uint8")))
+		Expect(fields[1].Type).To(Equal(ref("string")))
+	})
 })
 
 var _ = Describe("InheritedFields", func() {
