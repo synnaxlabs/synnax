@@ -19,13 +19,14 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Version bump
+        description:
+          Version bump (minor or major from main, patch from release/desktop-X.Y)
         type: choice
         options:
-          - patch
           - minor
           - major
-        default: patch
+          - patch
+        default: minor
       prerelease:
         description: Tag a release candidate (-rc.N)
         type: boolean
@@ -96,6 +97,7 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: desktop
+          ref: ${{ github.ref_name }}
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
