@@ -605,10 +605,13 @@ describe("Device", async () => {
           properties: {},
         });
 
-        it("should fetch the status after a status-free read", async () => {
+        it("should fetch the status after a status-free list read", async () => {
           const d = await client.devices.create(createNew("status-free-read"));
           const local = createTestClient();
-          await local.devices.retrieve(d.key);
+          // A filter on more than the key reads past the table, so no status comes.
+          await local.devices.retrieve({
+            where: { key: { in: [d.key] }, rack: { eq: testRack.key } },
+          });
           const params = { key: d.key, includeStatus: true };
           expect(local.devices.watch(params).getCached()).toBeUndefined();
           const retrieved = await local.devices.retrieve(params);
@@ -621,20 +624,22 @@ describe("Device", async () => {
           const d = { ...createNew("stream-cached"), rack };
           await client.devices.create(d);
           const local = createTestClient();
-          const stop = local.devices.watch(d.key).onChange(() => {});
+          const stop = local.devices
+            .watch({ where: { key: { in: [d.key] }, rack: { eq: rack } } })
+            .onChange(() => {});
           await waitForStreamLive(local.connection);
           try {
-            // An edit that keeps the name and the parent writes no status.
+            // An edit to properties writes no status and fetches nothing.
             await client.devices.dispatch(
               d.key,
-              device.set({ path: ["location"], value: "Dev2" }),
+              device.set({ path: ["properties", "edited"], value: true }),
             );
             await expect
               .poll(() => {
                 const cached = local.devices.watch(d.key).getCached();
-                return query.isLive(cached) ? cached.location : undefined;
+                return query.isLive(cached) ? cached.properties.edited : undefined;
               })
-              .toBe("Dev2");
+              .toBe(true);
             const params = { key: d.key, includeStatus: true };
             expect(local.devices.watch(params).getCached()).toBeUndefined();
             const retrieved = await local.devices.retrieve(params);
@@ -686,6 +691,36 @@ describe("Device", async () => {
           await local.devices.retrieve(d.key);
           expect(expectLive(local.devices.watch(d.key).getCached()).key).toBe(d.key);
         });
+      });
+
+      it("should fetch the statuses of several devices in one request", async () => {
+        const devices = await Promise.all(
+          ["batched_1", "batched_2", "batched_3"].map(
+            async (name) =>
+              await client.devices.create({
+                key: id.create(),
+                rack: testRack.key,
+                location: "Dev1",
+                name,
+                make: "ni",
+                model: "dog",
+                properties: {},
+              }),
+          ),
+        );
+        const local = createTestClient();
+        const send = spyOnSend(local);
+        const retrieved = await Promise.all(
+          devices.map(
+            async ({ key }) =>
+              await local.devices.retrieve({ key, includeStatus: true }),
+          ),
+        );
+        expect(retrieved.map((d) => d.status?.owner)).toEqual(
+          devices.map(({ key }) => device.resourceID(key)),
+        );
+        const retrieves = send.mock.calls.filter(([t]) => t === "/device/retrieve");
+        expect(retrieves).toHaveLength(1);
       });
 
       it("should include status for multiple devices", async () => {

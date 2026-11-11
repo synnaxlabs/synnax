@@ -182,6 +182,7 @@ export default manifest.define([
   },
   { id: "releases/0-61-0/ethercat-sync", script: "scripts/ethercat-sync-mode.ts" },
   { id: "releases/0-61-0/logs", script: "scripts/release-0-61-logs.ts" },
+  { id: "releases/0-61-0/arc-modules", script: "scripts/release-0-61-arc-modules.ts" },
   {
     id: "hardware/opc-ua/trust-server-certificate",
     script: "scripts/opcua-trust-server-certificate.ts",

@@ -254,12 +254,13 @@ A standalone Driver on another minor version starts no tasks. See
 </Problem.Fix>
 </Problem.Body>
 
-### Clock is ahead of the Core
+### Clock out of sync with the Core
 
 <Problem.Body>
 <Problem.Cause>
 
-The clocks of this computer and the Core differ by more than one second.
+The clocks of this computer and the Core differ by more than the clock skew limit. The
+rack status gives the measured skew and the limit.
 
 </Problem.Cause>
 <Problem.Fix>

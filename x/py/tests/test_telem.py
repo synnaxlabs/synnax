@@ -436,6 +436,17 @@ class TestTimeSpan:
         """Should correctly add two time spans"""
         assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
 
+    def test_sum(self) -> None:
+        """Should sum time spans with the builtin sum"""
+        total = sum([sy.TimeSpan.SECOND, sy.TimeSpan.MILLISECOND])
+        assert isinstance(total, sy.TimeSpan)
+        assert total == sy.TimeSpan.SECOND + sy.TimeSpan.MILLISECOND
+
+    def test_zero_before(self) -> None:
+        """Should return the span when an int 0 is added before it"""
+        span = sy.TimeSpan.SECOND
+        assert 0 + span is span
+
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan(0) == sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND
@@ -798,13 +809,19 @@ class TestRate:
             op(sy.Rate(10), number)
 
     @pytest.mark.parametrize("op", [operator.add, operator.sub])
-    @pytest.mark.parametrize("number", [5, 5.0])
+    @pytest.mark.parametrize("number", [5, 5.0, 0.0])
     def test_bare_number_before_rejected(
         self, op: Callable[[object, object], object], number: float
     ) -> None:
         """Should reject a bare int or float before a rate"""
         with pytest.raises(TypeError):
             op(number, sy.Rate(10))
+
+    def test_sum(self) -> None:
+        """Should sum rates with the builtin sum"""
+        total = sum([sy.Rate.KHZ, sy.Rate.HZ])
+        assert type(total) is sy.Rate
+        assert total == 1001.0
 
 
 @pytest.mark.telem

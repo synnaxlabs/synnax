@@ -147,6 +147,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/rack/dispatch", dispatchReqZ, dispatchResZ),
       reduce: reduceAll,
       createOf,

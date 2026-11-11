@@ -47,6 +47,10 @@ type Env struct {
 	// IncludeDiffs requests that gates capture per-finding unified diffs. Off by
 	// default because diffs blow up output size.
 	IncludeDiffs bool
+	// Shipped is the stable release that HEAD must still read. The versions gate fails
+	// on any version file that changes a stored shape it shipped. Nil skips that
+	// comparison.
+	Shipped *Release
 }
 
 // Severity describes how a finding affects the gate's pass/fail decision.
