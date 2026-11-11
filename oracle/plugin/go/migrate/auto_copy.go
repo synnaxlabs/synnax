@@ -540,11 +540,25 @@ func (c *collector) structFuncFromForms(
 			c.unionMismatch(oldField.Type, newField.Type) ||
 			c.declarationMismatch(oldField.Type, newField.Type) ||
 			c.castMismatch(oldField.Type, newField.Type) {
+			c.requireRetyped(oldField.Type, newField.Type)
 			continue
 		}
 		c.addField(&fn, oldField.Type, recv+"."+name, name, oldField.Optional)
 	}
 	return fn
+}
+
+// requireRetyped queues the conversion of each changed type that a field takes a new
+// name from, so the hand-written migration of the field can call it.
+func (c *collector) requireRetyped(oldRef, newRef resolution.TypeRef) {
+	for _, t := range schemadiff.Retyped(
+		oldRef, newRef, c.oldTable, c.newTable, c.mapping.counterpart,
+	) {
+		if td, ok := c.diff[t.QualifiedName]; ok &&
+			td.Kind != schemadiff.TypeUnchanged {
+			c.requireFunc(t)
+		}
+	}
 }
 
 // unionFunc converts a union variant by variant. A variant the incoming version drops
