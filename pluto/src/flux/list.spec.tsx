@@ -13,6 +13,7 @@ import {
   holdResponses,
   rejectRequests,
   spyOnSend,
+  waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -350,6 +351,8 @@ describe("useList", () => {
     await create("a");
     await create("b");
     const local = createTestClient();
+    // A list read before the stream is live reads again when the stream goes live.
+    await waitForStreamLive(local.connection);
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName(), pageSize: 1 }),
       { wrapper: createSynnaxWrapper({ client: local }) },
@@ -368,6 +371,8 @@ describe("useList", () => {
   it("should read nothing on more once the list is complete", async () => {
     await create("a");
     const local = createTestClient();
+    // A list read before the stream is live reads again when the stream goes live.
+    await waitForStreamLive(local.connection);
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper: createSynnaxWrapper({ client: local }) },
