@@ -24,6 +24,11 @@
     padding: 0 1.75rem;
 }
 
+.console-view__filter-trigger {
+    --pluto-hover-bg: var(--pluto-gray-l3);
+    --pluto-active-bg: var(--pluto-gray-l4);
+}
+
 .console-view__filter-remove {
     width: var(--pluto-height-medium);
 

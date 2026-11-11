@@ -10,6 +10,7 @@
 import "@/platform/view/FilterChip.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -23,8 +24,8 @@ export interface FilterChipProps extends Flex.BoxProps {}
 
 /**
  * One condition of a view's filter, as parts split by lines: a {@link FilterChipName},
- * a {@link FilterChipOperator}, a {@link FilterChipValue}, and a
- * {@link FilterChipRemove}.
+ * a {@link FilterChipOperator}, a {@link FilterChipValue} or {@link FilterChipTrigger},
+ * and a {@link FilterChipRemove}.
  */
 export const FilterChip = ({ className, ...rest }: FilterChipProps): ReactElement => (
   <Flex.Box
@@ -74,6 +75,31 @@ export const FilterChipValue = ({ children }: FilterChipValueProps): ReactElemen
   <Text.Text el="div" gap="small" align="center" className={SEGMENT_CLASS}>
     {children}
   </Text.Text>
+);
+
+export interface FilterChipTriggerProps extends Omit<
+  Dialog.TriggerProps,
+  "variant" | "size" | "level" | "hideCaret" | "sharp"
+> {}
+
+/**
+ * A part of a {@link FilterChip} that opens a dialog, such as a picker of its value or
+ * a choice of its operator.
+ */
+export const FilterChipTrigger = ({
+  className,
+  ...rest
+}: FilterChipTriggerProps): ReactElement => (
+  <Dialog.Trigger
+    variant="text"
+    size="small"
+    level="p"
+    gap="small"
+    hideCaret
+    sharp
+    className={CSS.cls(SEGMENT_CLASS, CSS.BE("view", "filter-trigger"), className)}
+    {...rest}
+  />
 );
 
 export interface FilterChipRemoveProps {
