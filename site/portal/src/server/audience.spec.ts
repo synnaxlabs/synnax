@@ -17,7 +17,7 @@ const GRACE = { name: "Grace Hopper", email: "grace@example.com" };
 
 describe("audience", () => {
   describe("sync", () => {
-    const SUBSCRIBED = { unsubscribed: false, everyone: true, account: true };
+    const SUBSCRIBED = { unsubscribed: false, segments: ["accounts", "everyone"] };
 
     it("should add every account to the list in lowercase", async () => {
       const audience = memory();
@@ -36,7 +36,7 @@ describe("audience", () => {
         added: 0,
         removed: 0,
       });
-      expect(audience.contacts.get("ada@example.com")?.account).toBe(false);
+      expect(audience.contacts.get("ada@example.com")?.segments).toEqual(["everyone"]);
     });
 
     it("should keep a hand-added address after its account is deleted", async () => {
@@ -63,13 +63,26 @@ describe("audience", () => {
       await sync(directory(), audience);
       expect(audience.contacts.get("ada@example.com")).toEqual({
         unsubscribed: true,
-        everyone: false,
-        account: false,
+        segments: [],
       });
       await sync(directory({ people: { a: ADA } }), audience);
       expect(audience.contacts.get("ada@example.com")).toEqual({
         ...SUBSCRIBED,
         unsubscribed: true,
+      });
+    });
+
+    it("should keep a contact that another segment holds", async () => {
+      const audience = memory();
+      audience.contacts.set("ada@example.com", {
+        unsubscribed: false,
+        segments: ["events"],
+      });
+      await sync(directory({ people: { a: ADA } }), audience);
+      await sync(directory(), audience);
+      expect(audience.contacts.get("ada@example.com")).toEqual({
+        unsubscribed: false,
+        segments: ["events"],
       });
     });
 
@@ -164,7 +177,7 @@ describe("audience", () => {
       const [, init] = fetch.mock.calls[2];
       expect(JSON.parse(init?.body as string)).toMatchObject({
         email: "ada@example.com",
-        segments: [{ id: "seg_all" }, { id: "seg_accounts" }],
+        segments: [{ id: "seg_accounts" }, { id: "seg_all" }],
       });
     });
 
@@ -176,48 +189,65 @@ describe("audience", () => {
       expect(requests()).toEqual([
         "GET /segments",
         `GET ${ADDRESS}`,
-        `POST ${ADDRESS}/segments/seg_all`,
         `POST ${ADDRESS}/segments/seg_accounts`,
+        `POST ${ADDRESS}/segments/seg_all`,
       ]);
     });
 
-    it("should delete an address that did not unsubscribe", async () => {
+    const held =
+      (...ids: string[]) =>
+      (): Response =>
+        Response.json({
+          object: "list",
+          has_more: false,
+          data: ids.map((id) => ({ id, name: id })),
+        });
+
+    it("should delete an address that only the list held", async () => {
       routes[`GET ${ADDRESS}`] = contact(false);
+      routes[`GET ${ADDRESS}/segments`] = held("seg_all", "seg_accounts");
       routes[`DELETE ${ADDRESS}`] = ok;
       await resend("re_key").remove("ada@example.com");
-      expect(requests()).toEqual([`GET ${ADDRESS}`, `DELETE ${ADDRESS}`]);
+      expect(requests().at(-1)).toBe(`DELETE ${ADDRESS}`);
     });
 
     it("should keep an unsubscribed address outside the segments", async () => {
       routes[`GET ${ADDRESS}`] = contact(true);
+      routes[`GET ${ADDRESS}/segments`] = held("seg_all", "seg_accounts");
       routes[`DELETE ${ADDRESS}/segments/seg_all`] = ok;
       routes[`DELETE ${ADDRESS}/segments/seg_accounts`] = ok;
       await resend("re_key").remove("ada@example.com");
-      expect(requests()).toEqual([
-        `GET ${ADDRESS}`,
-        "GET /segments",
+      expect(requests().slice(-2)).toEqual([
         `DELETE ${ADDRESS}/segments/seg_all`,
         `DELETE ${ADDRESS}/segments/seg_accounts`,
       ]);
     });
 
-    it("should retry a request after the time Resend asks for", async () => {
+    it("should keep an address that another segment holds", async () => {
       routes[`GET ${ADDRESS}`] = contact(false);
-      routes[`DELETE ${ADDRESS}`] = ok;
+      routes[`GET ${ADDRESS}/segments`] = held("seg_all", "seg_accounts", "seg_events");
+      routes[`DELETE ${ADDRESS}/segments/seg_all`] = ok;
+      routes[`DELETE ${ADDRESS}/segments/seg_accounts`] = ok;
+      await resend("re_key").remove("ada@example.com");
+      expect(requests()).not.toContain(`DELETE ${ADDRESS}`);
+    });
+
+    it("should retry a request after the time Resend asks for", async () => {
+      routes["GET /segments/seg_accounts/contacts"] = held();
       fetch.mockImplementationOnce(async () =>
         refused("rate_limit_exceeded", 429, { "retry-after": "0.01" })(),
       );
-      await resend("re_key").remove("ada@example.com");
+      expect(await resend("re_key").accounts()).toEqual(new Set());
       expect(requests()).toEqual([
-        `GET ${ADDRESS}`,
-        `GET ${ADDRESS}`,
-        `DELETE ${ADDRESS}`,
+        "GET /segments",
+        "GET /segments",
+        "GET /segments/seg_accounts/contacts",
       ]);
     });
 
     it("should throw when Resend refuses a request", async () => {
       routes[`GET ${ADDRESS}`] = refused("restricted_api_key", 401);
-      await expect(resend("re_key").remove("ada@example.com")).rejects.toThrow(
+      await expect(resend("re_key").add("ada@example.com")).rejects.toThrow(
         "audience: restricted_api_key message",
       );
     });

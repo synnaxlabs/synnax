@@ -27,9 +27,9 @@ export interface Audience {
    */
   add: (email: string) => Promise<void>;
   /**
-   * remove takes the address of a deleted account off the list. It deletes the contact,
-   * except one that unsubscribed: Resend keeps that one outside every segment, so a
-   * later add cannot undo the unsubscribe.
+   * remove takes the address of a deleted account off the list. It deletes the contact
+   * only when no other segment holds it and it did not unsubscribe, so a later add
+   * cannot undo an unsubscribe.
    */
   remove: (email: string) => Promise<void>;
 }
@@ -136,6 +136,8 @@ export const resend = (apiKey: string): Audience => {
   return {
     everyone: async () => await members("everyone"),
     accounts: async () => await members("accounts"),
+    // add joins `accounts` first and remove leaves it last, so a change cut off part
+    // way leaves the address where the next sync finds it.
     add: async (email) => {
       const { everyone, accounts } = await segments();
       if ((await find(email)) == null) {
@@ -143,23 +145,28 @@ export const resend = (apiKey: string): Audience => {
           async () =>
             await client.contacts.create({
               email,
-              segments: [{ id: everyone }, { id: accounts }],
+              segments: [{ id: accounts }, { id: everyone }],
             }),
         );
         return;
       }
-      for (const segmentId of [everyone, accounts])
+      for (const segmentId of [accounts, everyone])
         await call(
           async () => await client.contacts.segments.add({ email, segmentId }),
         );
     },
     remove: async (email) => {
-      if ((await find(email))?.unsubscribed !== true) {
+      const ours = await segments();
+      const [contact, { data: held }] = await Promise.all([
+        call(async () => await client.contacts.get({ email })),
+        call(async () => await client.contacts.segments.list({ email, limit: PAGE })),
+      ]);
+      const ids: string[] = [ours.everyone, ours.accounts];
+      if (!contact.unsubscribed && held.every(({ id }) => ids.includes(id))) {
         await call(async () => await client.contacts.remove({ email }));
         return;
       }
-      const { everyone, accounts } = await segments();
-      for (const segmentId of [everyone, accounts])
+      for (const segmentId of ids)
         await call(
           async () => await client.contacts.segments.remove({ email, segmentId }),
         );
@@ -178,39 +185,45 @@ export const log = (): Audience => ({
 /** Contact is one address that a {@link memory} audience keeps. */
 export interface Contact {
   unsubscribed: boolean;
-  /** everyone is true when the address gets release notes. */
-  everyone: boolean;
-  /** account is true when the portal added the address for an account. */
-  account: boolean;
+  /**
+   * segments names the segments that hold the address: `everyone`, `accounts`, or any
+   * other.
+   */
+  segments: string[];
 }
 
 /**
  * memory keeps the list in a map instead of Resend, with the same rules. It starts with
- * the addresses added by hand. For tests.
+ * the addresses added by hand to `everyone`. For tests.
  */
 export const memory = (
   hand: string[] = [],
 ): Audience & { contacts: Map<string, Contact> } => {
   const contacts = new Map<string, Contact>(
-    hand.map((email) => [
-      email,
-      { unsubscribed: false, everyone: true, account: false },
-    ]),
+    hand.map((email) => [email, { unsubscribed: false, segments: ["everyone"] }]),
   );
-  const members = (key: "everyone" | "account"): Set<string> =>
-    new Set([...contacts].filter(([, c]) => c[key]).map(([email]) => email));
+  const members = (segment: string): Set<string> =>
+    new Set(
+      [...contacts].filter(([, c]) => c.segments.includes(segment)).map(([e]) => e),
+    );
+  const ours = new Set(["everyone", "accounts"]);
   return {
     contacts,
     everyone: async () => members("everyone"),
-    accounts: async () => members("account"),
+    accounts: async () => members("accounts"),
     add: async (email) => {
-      const unsubscribed = contacts.get(email)?.unsubscribed ?? false;
-      contacts.set(email, { unsubscribed, everyone: true, account: true });
+      const { unsubscribed = false, segments = [] } = contacts.get(email) ?? {};
+      contacts.set(email, {
+        unsubscribed,
+        segments: [...new Set([...segments, "accounts", "everyone"])],
+      });
     },
     remove: async (email) => {
-      if (contacts.get(email)?.unsubscribed === true)
-        contacts.set(email, { unsubscribed: true, everyone: false, account: false });
-      else contacts.delete(email);
+      const contact = contacts.get(email);
+      if (contact == null) throw new Error(`audience: no contact ${email}`);
+      const segments = contact.segments.filter((s) => !ours.has(s));
+      if (!contact.unsubscribed && segments.length === 0) contacts.delete(email);
+      else contacts.set(email, { ...contact, segments });
     },
   };
 };
