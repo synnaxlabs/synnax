@@ -67,15 +67,13 @@ type Device struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the device, or its NI-MAX resource name when it is
-	// simulated.
+	// Serial is the serial number of the device. Empty on simulated hardware.
 	Serial string `json:"serial" msgpack:"serial"`
+	// ResourceName is the NI-MAX resource name of the device, a GUID that survives
+	// renames.
+	ResourceName string `json:"resource_name" msgpack:"resource_name"`
 	// Model is the product name of the device.
 	Model string `json:"model" msgpack:"model"`
-	// Alias is the DAQmx alias of the device.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Simulated is true when the device is simulated in NI-MAX.
-	Simulated bool `json:"simulated" msgpack:"simulated"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
 	// Identifier is the prefix of the device's channel names. The device is
@@ -100,5 +98,7 @@ type Device struct {
 func (d Device) Validate() error {
 	v := validate.New("Device")
 	v.NotEmptyString("name", d.Name)
+	v.NotEmptyString("resource_name", d.ResourceName)
+	v.NotEmptyString("model", d.Model)
 	return v.Error()
 }

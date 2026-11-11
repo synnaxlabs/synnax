@@ -17,8 +17,8 @@ describe("Update", () => {
       group: "identity",
       rack: 1,
       serial: "01A",
+      resourceName: "Mod1",
       model: "PXI-6255",
-      alias: "Mod1",
     });
     expect(update.group).toEqual("identity");
     if (update.group !== "identity") return;
@@ -36,5 +36,38 @@ describe("Update", () => {
     expect(
       ni.device.updateZ.safeParse({ group: "other", name: "Module" }).success,
     ).toBe(false);
+  });
+});
+
+describe("Identity", () => {
+  const identity = { rack: 1, serial: "01A", resourceName: "Mod1", model: "PXI-6255" };
+
+  it.each(["resourceName", "model"])("should reject an empty %s", (field) => {
+    expect(ni.device.identityZ.safeParse({ ...identity, [field]: "" }).success).toBe(
+      false,
+    );
+  });
+
+  it("should default the serial of simulated hardware to empty", () => {
+    const { serial: _, ...simulated } = identity;
+    expect(ni.device.identityZ.parse(simulated).serial).toEqual("");
+  });
+});
+
+describe("Device", () => {
+  const device = {
+    key: "11111111-1111-4111-8111-111111111111",
+    rack: 1,
+    name: "PXI-6255",
+    resourceName: "Mod1",
+    model: "PXI-6255",
+  };
+
+  it("should parse a device without a serial", () => {
+    expect(ni.device.deviceZ.parse(device).serial).toEqual("");
+  });
+
+  it.each(["resourceName", "model"])("should reject an empty %s", (field) => {
+    expect(ni.device.deviceZ.safeParse({ ...device, [field]: "" }).success).toBe(false);
   });
 });

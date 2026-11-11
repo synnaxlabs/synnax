@@ -34,23 +34,23 @@ Device struct {
         @search
         @validate required
     }
-    serial         string          {
-        @doc value    """
-            is the serial number of the device, or its NI-MAX resource name when it is
-            simulated.
-        """
+    serial         string = "" {
+        @doc value    "is the serial number of the device. Empty on simulated hardware."
         @filter
         @index lookup
     }
-    model          string          {
-        @doc value "is the product name of the device."
+    resource_name  string          {
+        @doc value         """
+            is the NI-MAX resource name of the device, a GUID that survives renames.
+        """
         @filter
+        @index lookup
+        @validate required
     }
-    alias          string          {
-        @doc value "is the DAQmx alias of the device."
-    }
-    simulated      bool = false {
-        @doc value "is true when the device is simulated in NI-MAX."
+    model          string          {
+        @doc value         "is the product name of the device."
+        @filter
+        @validate required
     }
     chassis        ni_chassis.Key? {
         @doc value     """
@@ -102,6 +102,7 @@ Where filter Device {
     key
     name
     serial
+    resource_name
     model
     rack
 
@@ -161,27 +162,24 @@ Status = status.Status<StatusDetails> {
 }
 
 Identity struct {
-    rack      rack.Key        {
+    rack          rack.Key        {
         @doc value         "is the key of the rack the device is connected to."
         @validate required
     }
-    serial    string          {
+    serial        string = "" {
+        @doc value "is the serial number of the device. Empty on simulated hardware."
+    }
+    resource_name string          {
         @doc value         """
-            is the serial number of the device, or its NI-MAX resource name when it is
-            simulated.
+            is the NI-MAX resource name of the device, a GUID that survives renames.
         """
         @validate required
     }
-    model     string          {
-        @doc value "is the product name of the device."
+    model         string          {
+        @doc value         "is the product name of the device."
+        @validate required
     }
-    alias     string          {
-        @doc value "is the DAQmx alias of the device."
-    }
-    simulated bool = false {
-        @doc value "is true when the device is simulated in NI-MAX."
-    }
-    chassis   ni_chassis.Key? {
+    chassis       ni_chassis.Key? {
         @doc value """
             is the chassis that holds the device. Absent for a standalone device.
         """

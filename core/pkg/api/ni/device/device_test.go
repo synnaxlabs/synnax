@@ -54,10 +54,11 @@ var _ = Describe("Service", func() {
 	createDevice := func(ctx SpecContext, overrides ...func(*device.Device)) device.Device {
 		GinkgoHelper()
 		d := device.Device{
-			Rack:   svc.Rack.EmbeddedKey,
-			Name:   "PXI-6255",
-			Serial: uuid.New().String(),
-			Model:  "PXI-6255",
+			Rack:         svc.Rack.EmbeddedKey,
+			Name:         "PXI-6255",
+			Serial:       uuid.New().String(),
+			ResourceName: uuid.New().String(),
+			Model:        "PXI-6255",
 		}
 		for _, override := range overrides {
 			override(&d)
@@ -121,9 +122,11 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(create(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.CreateRequest{Devices: []device.Device{{
-					Rack:   svc.Rack.EmbeddedKey,
-					Name:   "Module",
-					Serial: uuid.New().String(),
+					Rack:         svc.Rack.EmbeddedKey,
+					Name:         "Module",
+					Serial:       uuid.New().String(),
+					ResourceName: uuid.New().String(),
+					Model:        "PXI-6255",
 				}}},
 			))
 			Expect(res.Devices[0].Key).ToNot(Equal(uuid.Nil()))
@@ -135,10 +138,12 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(create(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.CreateRequest{Devices: []device.Device{{
-					Rack:   svc.Rack.EmbeddedKey,
-					Name:   "Module",
-					Serial: uuid.New().String(),
-					Status: &device.Status{Message: "Connected"},
+					Rack:         svc.Rack.EmbeddedKey,
+					Name:         "Module",
+					Serial:       uuid.New().String(),
+					ResourceName: uuid.New().String(),
+					Model:        "PXI-6255",
+					Status:       &device.Status{Message: "Connected"},
 				}}},
 			))
 			Expect(res.Devices[0].Status).To(BeNil())
@@ -151,8 +156,10 @@ var _ = Describe("Service", func() {
 			Expect(create(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.CreateRequest{Devices: []device.Device{{
-					Rack: svc.Rack.EmbeddedKey,
-					Name: "Module",
+					Rack:         svc.Rack.EmbeddedKey,
+					Name:         "Module",
+					ResourceName: uuid.New().String(),
+					Model:        "PXI-6255",
 				}}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -367,7 +374,12 @@ var _ = Describe("Service", func() {
 				apidevice.UpdateRequest{
 					Key: d.Key,
 					Update: device.Update{Variant: device.IdentityUpdate{
-						Identity: device.Identity{Rack: d.Rack, Serial: "02B"},
+						Identity: device.Identity{
+							Rack:         d.Rack,
+							Serial:       "02B",
+							ResourceName: d.ResourceName,
+							Model:        d.Model,
+						},
 					}},
 				},
 			)).Error().ToNot(HaveOccurred())

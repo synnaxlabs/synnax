@@ -32,10 +32,9 @@ inline Device Device::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.field<std::string>("name"),
-        .serial = parser.field<std::string>("serial"),
+        .serial = parser.field<std::string>("serial", ""),
+        .resource_name = parser.field<std::string>("resource_name"),
         .model = parser.field<std::string>("model"),
-        .alias = parser.field<std::string>("alias"),
-        .simulated = parser.field<bool>("simulated", false),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
         .identifier = parser.field<std::string>("identifier", ""),
         .analog_input = parser.field<InputPorts>("analog_input", InputPorts{}),
@@ -53,9 +52,8 @@ inline x::json::json Device::to_json() const {
     j["rack"] = this->rack;
     j["name"] = this->name;
     j["serial"] = this->serial;
+    j["resource_name"] = this->resource_name;
     j["model"] = this->model;
-    j["alias"] = this->alias;
-    j["simulated"] = this->simulated;
     if (this->chassis.has_value()) j["chassis"] = this->chassis->to_json();
     j["identifier"] = this->identifier;
     j["analog_input"] = this->analog_input.to_json();
@@ -75,6 +73,9 @@ inline Where Where::parse(x::json::Parser parser) {
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
         .serial = parser.field<std::optional<::x::filter::String>>("serial"),
+        .resource_name = parser.field<std::optional<::x::filter::String>>(
+            "resource_name"
+        ),
         .model = parser.field<std::optional<::x::filter::String>>("model"),
         .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
             "rack"
@@ -90,6 +91,8 @@ inline x::json::json Where::to_json() const {
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->name.has_value()) j["name"] = this->name->to_json();
     if (this->serial.has_value()) j["serial"] = this->serial->to_json();
+    if (this->resource_name.has_value())
+        j["resource_name"] = this->resource_name->to_json();
     if (this->model.has_value()) j["model"] = this->model->to_json();
     if (this->rack.has_value()) j["rack"] = this->rack->to_json();
     return j;
@@ -174,10 +177,9 @@ inline x::json::json StatusDetails::to_json() const {
 inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .serial = parser.field<std::string>("serial"),
+        .serial = parser.field<std::string>("serial", ""),
+        .resource_name = parser.field<std::string>("resource_name"),
         .model = parser.field<std::string>("model"),
-        .alias = parser.field<std::string>("alias"),
-        .simulated = parser.field<bool>("simulated", false),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
     };
 }
@@ -186,9 +188,8 @@ inline x::json::json Identity::to_json() const {
     x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["serial"] = this->serial;
+    j["resource_name"] = this->resource_name;
     j["model"] = this->model;
-    j["alias"] = this->alias;
-    j["simulated"] = this->simulated;
     if (this->chassis.has_value()) j["chassis"] = this->chassis->to_json();
     return j;
 }

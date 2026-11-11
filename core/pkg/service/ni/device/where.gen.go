@@ -117,6 +117,37 @@ func MatchWhere(w Where) (Filter, error) {
 			}))
 		}
 	}
+	if l := w.ResourceName; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "resource_name")
+		}
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchResourceNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchResourceNames(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
+		}
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
+			if err != nil {
+				return nil, validate.PathedError(err, "resource_name")
+			}
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Device,
+			) (bool, error) {
+				return match(e.ResourceName), nil
+			}))
+		}
+	}
 	if l := w.Model; l != nil {
 		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
 			l.Regex == nil {

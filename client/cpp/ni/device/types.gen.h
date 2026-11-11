@@ -72,15 +72,13 @@ struct CommandStatePair {
 struct Identity {
     /// @brief rack is the key of the rack the device is connected to.
     ::synnax::rack::Key rack = 0;
-    /// @brief serial is the serial number of the device, or its NI-MAX resource name
-    /// when it is simulated.
-    std::string serial;
+    /// @brief serial is the serial number of the device. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
+    /// survives renames.
+    std::string resource_name;
     /// @brief model is the product name of the device.
     std::string model;
-    /// @brief alias is the DAQmx alias of the device.
-    std::string alias;
-    /// @brief simulated is true when the device is simulated in NI-MAX.
-    bool simulated = false;
     /// @brief chassis is the chassis that holds the device. Absent for a standalone
     /// device.
     std::optional<::synnax::ni::chassis::Key> chassis;
@@ -103,6 +101,8 @@ struct Where {
     ::x::filter::Field<::x::filter::String> name;
     /// @brief serial selects by serial.
     ::x::filter::Field<::x::filter::String> serial;
+    /// @brief resource_name selects by resource_name.
+    ::x::filter::Field<::x::filter::String> resource_name;
     /// @brief model selects by model.
     ::x::filter::Field<::x::filter::String> model;
     /// @brief rack selects by rack.
@@ -242,15 +242,13 @@ struct Device {
     ::synnax::rack::Key rack = 0;
     /// @brief name is a human-readable name for the device.
     std::string name;
-    /// @brief serial is the serial number of the device, or its NI-MAX resource name
-    /// when it is simulated.
-    std::string serial;
+    /// @brief serial is the serial number of the device. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
+    /// survives renames.
+    std::string resource_name;
     /// @brief model is the product name of the device.
     std::string model;
-    /// @brief alias is the DAQmx alias of the device.
-    std::string alias;
-    /// @brief simulated is true when the device is simulated in NI-MAX.
-    bool simulated = false;
     /// @brief chassis is the chassis that holds the device. Absent for a standalone
     /// device.
     std::optional<::synnax::ni::chassis::Key> chassis;

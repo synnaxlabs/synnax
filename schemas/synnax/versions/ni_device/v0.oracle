@@ -78,20 +78,16 @@ Device struct {
     name           string          {
         @doc value "is a human-readable name for the device."
     }
-    serial         string          {
+    serial         string = "" {
+        @doc value "is the serial number of the device. Empty on simulated hardware."
+    }
+    resource_name  string          {
         @doc value """
-            is the serial number of the device, or its NI-MAX resource name when it is
-            simulated.
+            is the NI-MAX resource name of the device, a GUID that survives renames.
         """
     }
     model          string          {
         @doc value "is the product name of the device."
-    }
-    alias          string          {
-        @doc value "is the DAQmx alias of the device."
-    }
-    simulated      bool = false {
-        @doc value "is true when the device is simulated in NI-MAX."
     }
     chassis        ni_chassis.Key? {
         @doc value """

@@ -22,7 +22,12 @@ import (
 
 var _ = Describe("Update", func() {
 	identity := device.Update{Variant: device.IdentityUpdate{
-		Identity: device.Identity{Rack: 1, Serial: "01A", Model: "PXI-6255"},
+		Identity: device.Identity{
+			Rack:         1,
+			Serial:       "01A",
+			ResourceName: "Mod1",
+			Model:        "PXI-6255",
+		},
 	}}
 	configuration := device.Update{Variant: device.ConfigurationUpdate{
 		Configuration: device.Configuration{Name: "Module", Identifier: "dev1"},

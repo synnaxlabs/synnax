@@ -53,19 +53,17 @@ class Identity(BaseModel):
 
     Attributes:
         rack: Is the key of the rack the device is connected to.
-        serial: Is the serial number of the device, or its NI-MAX resource name when it
-            is simulated.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
         model: Is the product name of the device.
-        alias: Is the DAQmx alias of the device.
-        simulated: Is true when the device is simulated in NI-MAX.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    serial: str
+    serial: str = ""
+    resource_name: str
     model: str
-    alias: str
-    simulated: bool = False
     chassis: chassis_.Key | None = None
 
 
@@ -79,6 +77,7 @@ class Where(BaseModel):
         key: Selects by key.
         name: Selects by name.
         serial: Selects by serial.
+        resource_name: Selects by resource_name.
         model: Selects by model.
         rack: Selects by rack.
     """
@@ -91,6 +90,7 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
     serial: filter.String | None = None
+    resource_name: filter.String | None = None
     model: filter.String | None = None
     rack: filter.Set[rack_.Key] | None = None
 
@@ -106,6 +106,7 @@ WhereInput = TypedDict(
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
         "serial": filter.StringInput,
+        "resource_name": filter.StringInput,
         "model": filter.StringInput,
         "rack": filter.SetInput[rack_.Key],
     },
@@ -200,11 +201,10 @@ class Device(BaseModel):
         key: Uniquely identifies the device.
         rack: Is the key of the rack the device is connected to.
         name: Is a human-readable name for the device.
-        serial: Is the serial number of the device, or its NI-MAX resource name when it
-            is simulated.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
         model: Is the product name of the device.
-        alias: Is the DAQmx alias of the device.
-        simulated: Is true when the device is simulated in NI-MAX.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
@@ -219,10 +219,9 @@ class Device(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str
-    serial: str
+    serial: str = ""
+    resource_name: str
     model: str
-    alias: str
-    simulated: bool = False
     chassis: chassis_.Key | None = None
     identifier: str = ""
     analog_input: InputPorts = Field(default_factory=lambda: InputPorts())
