@@ -15,7 +15,11 @@ import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { type Config, WRAP_WIDTH_BOUNDS } from "@/schematic/node/common/label/Label";
+import {
+  type Config,
+  WRAP_WIDTH_BOUNDS,
+  WRAP_WIDTH_DRAG_SCALE,
+} from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
@@ -29,8 +33,6 @@ interface FormProps {
   /** Makes the label field a text area, so a user can enter newlines. */
   multiline?: boolean;
 }
-
-const WRAP_WIDTH_DRAG_SCALE = { x: 1, y: 0.5 };
 
 const WrapWidthField = ({ path }: { path: deep.Target<number> }): ReactElement => {
   const value = Base.useFieldValue(path);

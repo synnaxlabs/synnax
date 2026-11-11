@@ -583,6 +583,7 @@ const MultiConfig = ({
               endContent="px"
               bounds={Schematic.Node.Label.WRAP_WIDTH_BOUNDS}
               integer
+              dragScale={Schematic.Node.Label.WRAP_WIDTH_DRAG_SCALE}
             />
           </Input.Item>
           <Input.Item label="Size">
