@@ -150,28 +150,62 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	It(
-		"Should keep the index of a deleted calculated channel that another uses",
+		"Should delete the index of a calculated channel deleted by name",
 		func(ctx SpecContext) {
-			calc := createCalculated(ctx, UniqueChannelName(), nil)
-			user := channel.Channel{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Float32T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				LocalIndex:  calc.LocalIndex,
-			}
+			calc := createCalculated(ctx, UniqueChannelName(), &g.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := svc.NewWriter(tx)
-				if err := w.Create(ctx, &user); err != nil {
-					return err
-				}
-				return w.Delete(ctx, calc.Key(), false)
+				return svc.NewWriter(tx).
+					DeleteManyByNames(ctx, []string{calc.Name}, false)
 			})).To(Succeed())
-			Expect(user.Index()).To(Equal(calc.Index()))
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(calc.Key(), calc.Index())).
+				Exists(ctx, db)).To(BeFalse())
+		},
+	)
+
+	shareIndex := func(ctx context.Context, calc channel.Channel) channel.Channel {
+		GinkgoHelper()
+		data := channel.Channel{
+			Name:        UniqueChannelName(),
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+			LocalIndex:  calc.LocalIndex,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
+		Expect(data.Index()).To(Equal(calc.Index()))
+		return data
+	}
+
+	DescribeTable(
+		"Should keep the index of a deleted calculated channel that another uses",
+		func(
+			ctx SpecContext,
+			del func(context.Context, channel.Writer, channel.Channel) error,
+		) {
+			calc := createCalculated(ctx, UniqueChannelName(), nil)
+			shareIndex(ctx, calc)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return del(ctx, svc.NewWriter(tx), calc)
+			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(channel.MatchKeys(calc.Index())).
 				Exists(ctx, db)).To(BeTrue())
 		},
+		Entry(
+			"by key",
+			func(ctx context.Context, w channel.Writer, c channel.Channel) error {
+				return w.Delete(ctx, c.Key(), false)
+			},
+		),
+		Entry(
+			"by name",
+			func(ctx context.Context, w channel.Writer, c channel.Channel) error {
+				return w.DeleteManyByNames(ctx, []string{c.Name}, false)
+			},
+		),
 	)
 
 	It("Should reject a group that does not exist", func(ctx SpecContext) {

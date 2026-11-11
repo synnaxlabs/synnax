@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -36,13 +37,18 @@ var _ = Describe("IndexGroupMigration", func() {
 			Migrations: []gorp.Migration{v1.IndexGroupMigration},
 		})).To(Succeed())
 	}
-	groupOf := func(ctx context.Context, localKey v1.LocalKey) *uuid.UUID {
+	groupOf := func(
+		ctx context.Context,
+		localKey v1.LocalKey,
+		leaseholder ...node.Key,
+	) *uuid.UUID {
 		GinkgoHelper()
 		var ch v1.Channel
 		Expect(gorp.NewRetrieve[v1.Key, v1.Channel]().
-			Where(gorp.MatchKeys[v1.Key, v1.Channel](
-				v1.Channel{Leaseholder: node.KeyFree, LocalKey: localKey}.Key(),
-			)).
+			Where(gorp.MatchKeys[v1.Key, v1.Channel](v1.Channel{
+				Leaseholder: lo.FirstOr(leaseholder, node.KeyFree),
+				LocalKey:    localKey,
+			}.Key())).
 			Entry(&ch).
 			Exec(ctx, db)).To(Succeed())
 		return ch.Group
@@ -81,7 +87,15 @@ var _ = Describe("IndexGroupMigration", func() {
 				free("f_time", 10, 10, "", nil),
 				free("f", 11, 10, "return v", &g),
 				free("data", 12, 10, "", nil),
-			)).To(Succeed())
+				free("h", 14, 13, "return u", &g),
+				v1.Channel{
+					Name:        "sensor_time",
+					Leaseholder: 1,
+					LocalKey:    13,
+					IsIndex:     true,
+				},
+			),
+			).To(Succeed())
 			expectGroups := func() {
 				GinkgoHelper()
 				Expect(groupOf(ctx, 1)).To(HaveValue(Equal(g)))
@@ -90,6 +104,7 @@ var _ = Describe("IndexGroupMigration", func() {
 				Expect(groupOf(ctx, 7)).To(HaveValue(Equal(g)))
 				Expect(groupOf(ctx, 9)).To(BeNil())
 				Expect(groupOf(ctx, 10)).To(BeNil())
+				Expect(groupOf(ctx, 13, 1)).To(BeNil())
 			}
 			migrate(ctx, "first")
 			expectGroups()
