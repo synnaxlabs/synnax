@@ -432,7 +432,7 @@ func (r *repo) fetch(ctx context.Context, rm remote) error {
 		errors.Is(err, transport.ErrEmptyRemoteRepository) {
 		return nil
 	}
-	return err
+	return explain(err)
 }
 
 // push sends the local branch name to the remote and records the remote branch.
@@ -448,7 +448,7 @@ func (r *repo) push(ctx context.Context, rm remote, name string) error {
 		Auth:       rm.auth(),
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return err
+		return explain(err)
 	}
 	return r.setRef(remoteRef(name), h)
 }
@@ -465,9 +465,32 @@ func (r *repo) pushTags(ctx context.Context, rm remote) error {
 		Auth: rm.auth(),
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return err
+		return explain(err)
 	}
 	return nil
+}
+
+// explain turns a refusal from the remote into a sentence that says what to fix. The
+// remote often sends no reason of its own.
+func explain(err error) error {
+	switch {
+	case errors.Is(err, transport.ErrAuthenticationRequired):
+		return errors.New(
+			"The remote needs a valid access token. Check that the token is correct " +
+				"and has not expired.",
+		)
+	case errors.Is(err, transport.ErrAuthorizationFailed):
+		return errors.New(
+			"The access token cannot write to the repository. Give it read and " +
+				"write access to the repository contents.",
+		)
+	case errors.Is(err, transport.ErrRepositoryNotFound):
+		return errors.New(
+			"No repository was found at this URL. Check the URL, and check that " +
+				"the access token can see the repository.",
+		)
+	}
+	return err
 }
 
 // branches returns the names of the local and remote branches, sorted, without review

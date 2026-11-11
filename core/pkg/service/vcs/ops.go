@@ -68,10 +68,7 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 	}
 	if conn.RemoteURL != "" {
 		if err := s.repo.fetch(ctx, conn.remote()); err != nil {
-			return Status{}, errors.Combine(
-				errors.Wrap(err, "fetch the remote"),
-				s.repo.setRemote(s.conn.RemoteURL),
-			)
+			return Status{}, errors.Combine(err, s.repo.setRemote(s.conn.RemoteURL))
 		}
 		s.fetchedAt = telem.Now()
 		s.lastErr = ""

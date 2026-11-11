@@ -282,6 +282,43 @@ var _ = Describe("VCS", func() {
 			Expect(svc.Connect(ctx, vcs.ConnectRequest{Configuration: "../x"})).
 				Error().To(MatchError(ContainSubstring("is not a valid name")))
 		})
+
+		DescribeTable(
+			"Should say what to fix when the remote refuses",
+			func(ctx SpecContext, code int, msg string) {
+				remote := httptest.NewServer(
+					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.WriteHeader(code)
+					}),
+				)
+				DeferCleanup(remote.Close)
+				Expect(svc.Connect(ctx, vcs.ConnectRequest{
+					Configuration: "main",
+					RemoteURL:     remote.URL + "/x/remote.git",
+					Token:         "wrong",
+					Author:        ada,
+				})).Error().To(MatchError(msg))
+				Expect(MustSucceed(svc.Status(ctx)).Enabled).To(BeFalse())
+			},
+			Entry(
+				"a rejected token",
+				http.StatusUnauthorized,
+				"The remote needs a valid access token. Check that the token is "+
+					"correct and has not expired.",
+			),
+			Entry(
+				"a token without access",
+				http.StatusForbidden,
+				"The access token cannot write to the repository. Give it read and "+
+					"write access to the repository contents.",
+			),
+			Entry(
+				"a missing repository",
+				http.StatusNotFound,
+				"No repository was found at this URL. Check the URL, and check that "+
+					"the access token can see the repository.",
+			),
+		)
 	})
 
 	Describe("Commit", func() {

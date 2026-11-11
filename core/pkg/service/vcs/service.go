@@ -374,7 +374,7 @@ func (s *Service) push(ctx context.Context) {
 }
 
 func (s *Service) fail(op string, err error) {
-	s.lastErr = op + ": " + err.Error()
+	s.lastErr = err.Error()
 	s.cfg.L.Warn("version control "+op+" failed", zap.Error(err))
 }
 
