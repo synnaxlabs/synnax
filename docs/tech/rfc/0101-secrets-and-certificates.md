@@ -295,11 +295,12 @@ integration's Go service migrates its own records. Each password, token, API key
 routing key becomes a secret named "<device name> <field>". Each OPC UA path pair
 becomes a file certificate whose key file is `<certificate key>.pem`, and each PEM pin a
 stored certificate. The certificate key is unique, so two old keys with the same file
-name, such as the `own/private/private.pem` of two OPC UA PKI folders, get two names. A
-key that is not in the secrets folder fails at connect, with an error that names the
-folder and the file, until an admin copies the key there. Kafka and MQTT have not
-shipped, so their fields change with no migration. The Core, the Driver, and the Console
-change in one release.
+name, such as the `own/private/private.pem` of two OPC UA PKI folders, get two names. No
+record keeps the old path, so the migration logs a warning for each key that names its
+old path and its new name. Until an admin copies the key into the secrets folder under
+that name, connect fails with an error that names the folder and the file. Kafka and
+MQTT have not shipped, so their fields change with no migration. The Core, the Driver,
+and the Console change in one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
