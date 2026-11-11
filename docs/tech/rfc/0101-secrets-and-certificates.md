@@ -117,12 +117,14 @@ Certificate struct {
 The package is `core/pkg/service/certificate`. For a stored certificate, the Core parses
 `pem` with `crypto/x509` on every write and fills the details, so no client parses a
 certificate. A write may carry a private key as PEM: the Core checks that it matches the
-leaf and saves it as a secret in the same transaction, so the caller must also be able
-to write that secret. A `pem` that holds a private key is refused, so a key never lands
-in the public record. For a file certificate, the details come from the file browser and
-from the reader (§3.5). Certificates are public: anyone who can retrieve one can
-download it as PEM or DER. The endpoints match the secret endpoints, without grants and
-resolve, and add `certificate/refresh` (§3.5).
+leaf and saves it as a stored secret in the same transaction, so the caller must also be
+able to write that secret. The Core never takes a `private_key` from the caller, so the
+key of a stored certificate is always a stored secret, and a replace cannot point it at
+a file secret of another rack. A `pem` that holds a private key is refused, so a key
+never lands in the public record. For a file certificate, the details come from the file
+browser and from the reader (§3.5). Certificates are public: anyone who can retrieve one
+can download it as PEM or DER. The endpoints match the secret endpoints, without grants
+and resolve, and add `certificate/refresh` (§3.5).
 
 ### 3.2 Encryption key
 
