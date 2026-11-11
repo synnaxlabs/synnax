@@ -20,6 +20,7 @@
     --pluto-fill-rest: var(--pluto-gray-l3);
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
+    --pluto-btn-transition: none;
 
     box-shadow: var(--pluto-shadow-overlay);
     border-radius: var(--pluto-border-radius-large);

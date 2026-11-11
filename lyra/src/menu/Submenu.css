@@ -1,0 +1,31 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The item whose submenu is open stays lit. */
+.lyra-btn.lyra-menu-item--submenu[aria-expanded="true"] {
+    --pluto-bg: var(--pluto-fill-hover);
+}
+
+/* While the pointer travels toward an open submenu, the submenu items it crosses do not
+   light. */
+.lyra-btn.lyra-menu-item--submenu[data-aiming]:not([aria-expanded="true"]) {
+    --pluto-hover-bg: transparent;
+    --pluto-active-bg: transparent;
+}
+
+/* One item is lit at a time: the open item goes dark while the pointer rests on
+   another. */
+:is(.lyra-menu-dialog, .lyra-menu-context):has(
+        .lyra-menu-item:not([data-aiming], [aria-expanded="true"]):hover
+    )
+    .lyra-btn.lyra-menu-item--submenu[aria-expanded="true"] {
+    --pluto-bg: transparent;
+}
