@@ -14,20 +14,51 @@ import { type ReactElement } from "react";
 
 import { Change } from "@/feature/vcs/diff/change";
 import { CSS } from "@/platform/css";
+import { Link } from "@/platform/link";
+
+interface PartProps {
+  part: Change.Part;
+}
+
+const Reference = ({
+  text,
+  resource,
+}: Required<Change.Part>): ReactElement | string => {
+  const open = Link.useOpen(resource.type);
+  if (open == null) return text;
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      className={CSS.BE("vcs-diff", "link")}
+      onClick={() => open(resource.key)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") open(resource.key);
+      }}
+    >
+      {text}
+    </span>
+  );
+};
+
+const Part = ({ part: { text, resource } }: PartProps): ReactElement | string =>
+  resource == null ? text : <Reference text={text} resource={resource} />;
 
 interface ValueProps {
   side: "before" | "after";
-  children: string;
+  parts: Change.Part[];
 }
 
-const Value = ({ side, children }: ValueProps): ReactElement => (
+const Value = ({ side, parts }: ValueProps): ReactElement => (
   <Text.Text
     level="small"
     overflow="fade"
-    title={children}
+    title={Change.text(parts)}
     className={CSS.BEM("vcs-diff", "value", side)}
   >
-    {children}
+    {parts.map((part, i) => (
+      <Part key={i} part={part} />
+    ))}
   </Text.Text>
 );
 
@@ -48,9 +79,9 @@ const Property = ({ property }: PropertyProps): ReactElement => {
   if (kind === "changed")
     value = (
       <>
-        {before != null && <Value side="before">{before}</Value>}
+        {before != null && <Value side="before" parts={before} />}
         {before != null && after != null && <Icon.Arrow.Right />}
-        {after != null && <Value side="after">{after}</Value>}
+        {after != null && <Value side="after" parts={after} />}
         {before == null && after == null && (
           <Text.Text level="small" color={9}>
             Changed
@@ -58,8 +89,8 @@ const Property = ({ property }: PropertyProps): ReactElement => {
         )}
       </>
     );
-  else if (after != null) value = <Value side="after">{after}</Value>;
-  else if (before != null) value = <Value side="before">{before}</Value>;
+  else if (after != null) value = <Value side="after" parts={after} />;
+  else if (before != null) value = <Value side="before" parts={before} />;
   else
     value = (
       <Text.Text level="small" status={kind === "added" ? "success" : "error"}>

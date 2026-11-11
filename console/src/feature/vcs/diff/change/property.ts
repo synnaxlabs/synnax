@@ -7,27 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { resource } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 
 /** How one property or element differs between two versions. */
 export type Kind = "added" | "removed" | "changed";
+
+/** One piece of a value as text, such as one channel of a list of channels. */
+export interface Part {
+  text: string;
+  /** resource is the resource the text names. Absent for plain text. */
+  resource?: resource.ID;
+}
 
 /** One difference between two versions of a resource. */
 export interface Property {
   /** path names the property, outermost first, such as ["Channels", "ai_0", "Port"]. */
   path: string[];
   kind: Kind;
-  /** before is the old value as text. Absent for an added element. */
-  before?: string;
-  /** after is the new value as text. Absent for a removed element. */
-  after?: string;
+  /** before is the old value. Absent for an added element. */
+  before?: Part[];
+  /** after is the new value. Absent for a removed element. */
+  after?: Part[];
 }
 
-/** Returns the name of the channel with the given key, or undefined if unknown. */
-export type ChannelName = (key: number) => string | undefined;
+/** Returns the name of the resource, or undefined if it does not exist. */
+export type Name = (id: resource.ID) => string | undefined;
 
 export interface DiffOptions {
-  channelName?: ChannelName;
+  name?: Name;
   /** omit names top-level fields to leave out, such as fields shown elsewhere. */
   omit?: string[];
 }
@@ -94,8 +102,16 @@ export const humanize = (field: string): string => {
 
 const CHANNEL_FIELD = /^(channel|channels|index)$|(_c|C)hannels?$/;
 
-/** Returns true if the field holds the key of a channel. */
-const isChannelField = (field: string): boolean => CHANNEL_FIELD.test(field);
+/** Returns the resource that a value of the field names, or null if it names none. */
+const referenceOf = (field: string, value: unknown): resource.ID | null => {
+  if (typeof value === "number" && value > 0) {
+    if (CHANNEL_FIELD.test(field)) return { type: "channel", key: String(value) };
+    if (field === "rack") return { type: "rack", key: String(value) };
+  }
+  if (typeof value === "string" && value.length > 0 && field === "device")
+    return { type: "device", key: value };
+  return null;
+};
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   v != null && typeof v === "object" && !Array.isArray(v);
@@ -120,9 +136,9 @@ const elementKey = (v: unknown): string | null => {
   return null;
 };
 
-/** Collects the key of every channel the values reference, in first-seen order. */
-export const channelKeys = (...values: unknown[]): number[] => {
-  const keys = new Set<number>();
+/** Collects every resource the values name, such as channels and devices, once each. */
+export const references = (...values: unknown[]): resource.ID[] => {
+  const ids = new Map<string, resource.ID>();
   const walk = (value: unknown, field: string | null): void => {
     const v = expand(value);
     if (Array.isArray(v)) {
@@ -133,11 +149,11 @@ export const channelKeys = (...values: unknown[]): number[] => {
       Object.entries(v).forEach(([k, el]) => walk(el, k));
       return;
     }
-    if (field != null && isChannelField(field) && typeof v === "number" && v > 0)
-      keys.add(v);
+    const id = field == null ? null : referenceOf(field, v);
+    if (id != null) ids.set(resource.idToString(id), id);
   };
   values.forEach((v) => walk(v, null));
-  return [...keys];
+  return [...ids.values()];
 };
 
 // Arrays of objects become records keyed by a token per element, so elements match
@@ -150,16 +166,12 @@ interface Normalized {
   labels: Map<string, string>;
 }
 
-const elementLabel = (
-  el: unknown,
-  fallback: string,
-  channelName?: ChannelName,
-): string => {
+const elementLabel = (el: unknown, fallback: string, name?: Name): string => {
   if (!isPlainObject(el)) return fallback;
-  const { name, channel, port } = el;
-  if (typeof name === "string" && name.length > 0) return name;
+  const { name: elementName, channel, port } = el;
+  if (typeof elementName === "string" && elementName.length > 0) return elementName;
   if (typeof channel === "number") {
-    const resolved = channelName?.(channel);
+    const resolved = name?.({ type: "channel", key: String(channel) });
     if (resolved != null) return resolved;
   }
   if (typeof port === "number" || typeof port === "string") return `Port ${port}`;
@@ -169,7 +181,7 @@ const elementLabel = (
 const normalize = (
   before: unknown,
   after: unknown,
-  channelName?: ChannelName,
+  name?: Name,
 ): [Normalized, Normalized] => {
   const labels = new Map<string, string>();
   const tokens = new Map<string, string>();
@@ -192,7 +204,7 @@ const normalize = (
       v.forEach((el, i) => {
         const id = keyed ? `${path}#${keys[i]}` : `${path}[${i}]`;
         const fallback = keyed ? String(keys[i]) : `Item ${i + 1}`;
-        const token = tokenFor(id, elementLabel(el, fallback, channelName));
+        const token = tokenFor(id, elementLabel(el, fallback, name));
         out[token] = walk(el, id);
       });
       return out;
@@ -227,28 +239,35 @@ const splitPath = (path: string): string[] =>
 
 const MAX_LIST = 6;
 
-const formatValue = (
-  value: unknown,
-  field: string,
-  channelName?: ChannelName,
-): string => {
-  if (value == null) return "None";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "number") {
-    if (isChannelField(field)) return channelName?.(value) ?? String(value);
-    return String(value);
-  }
-  if (typeof value === "string") return value.length === 0 ? "Empty" : value;
+const plain = (text: string): Part[] => [{ text }];
+
+const formatValue = (value: unknown, field: string, name?: Name): Part[] => {
+  if (value == null) return plain("None");
+  if (typeof value === "boolean") return plain(value ? "Yes" : "No");
   if (Array.isArray(value)) {
-    if (value.length === 0) return "None";
-    const shown = value
+    if (value.length === 0) return plain("None");
+    const parts = value
       .slice(0, MAX_LIST)
-      .map((v) => formatValue(v, field, channelName));
-    const rest = value.length - shown.length;
-    return rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
+      .flatMap((v, i) => [
+        ...(i > 0 ? plain(", ") : []),
+        ...formatValue(v, field, name),
+      ]);
+    const rest = value.length - MAX_LIST;
+    return rest > 0 ? [...parts, ...plain(` and ${rest} more`)] : parts;
   }
-  return JSON.stringify(value);
+  const id = referenceOf(field, value);
+  if (id != null) {
+    // A resource that no longer exists shows its key, with nothing to open.
+    const resolved = name?.(id);
+    return resolved == null ? plain(id.key) : [{ text: resolved, resource: id }];
+  }
+  if (typeof value === "number") return plain(String(value));
+  if (typeof value === "string") return plain(value.length === 0 ? "Empty" : value);
+  return plain(JSON.stringify(value));
 };
+
+/** Joins the parts of a value into its text. */
+export const text = (parts: Part[]): string => parts.map((p) => p.text).join("");
 
 // The top-level config of a task wraps every field, so it adds no meaning to a path.
 const TRANSPARENT = new Set(["config"]);
@@ -288,15 +307,15 @@ const describePath = (
  * Lists every property that differs between two versions of a resource, with
  * human-readable paths and values. Elements of an array of objects match by their key
  * when every element has one, and by position otherwise. JSON text, such as a task
- * config, is compared as the object it holds. Channel keys read as channel names when
- * the channel is known.
+ * config, is compared as the object it holds. The key of a channel, device, or rack
+ * reads as its name when it exists.
  */
 export const diffProperties = (
   before: unknown,
   after: unknown,
-  { channelName, omit = [] }: DiffOptions = {},
+  { name, omit = [] }: DiffOptions = {},
 ): Property[] => {
-  const [b, a] = normalize(strip(before, omit), strip(after, omit), channelName);
+  const [b, a] = normalize(strip(before, omit), strip(after, omit), name);
   const labels = new Map([...b.labels, ...a.labels]);
   const diffs = deep.difference(b.value as object, a.value as object);
   const properties: Property[] = [];
@@ -310,8 +329,8 @@ export const diffProperties = (
       properties.push({
         path,
         kind: "changed",
-        before: formatValue(prev, field, channelName),
-        after: formatValue(next, field, channelName),
+        before: formatValue(prev, field, name),
+        after: formatValue(next, field, name),
       });
   });
   return properties;
@@ -326,10 +345,10 @@ export const diffProperties = (
 export const listProperties = (
   value: unknown,
   kind: "added" | "removed",
-  { channelName, omit = [] }: DiffOptions = {},
+  { name, omit = [] }: DiffOptions = {},
 ): Property[] => {
   const stripped = strip(value, omit);
-  const [{ value: normalized, labels }] = normalize(stripped, stripped, channelName);
+  const [{ value: normalized, labels }] = normalize(stripped, stripped, name);
   const properties: Property[] = [];
   const walk = (v: unknown, raw: string[]): void => {
     if (isPlainObject(v) && Object.keys(v).length > 0) {
@@ -339,9 +358,9 @@ export const listProperties = (
     // A key names its element, which the path already shows.
     if (raw.length === 0 || raw.at(-1) === "key") return;
     const { path, field } = describePath(raw, labels);
-    const text = isPlainObject(v) ? "None" : formatValue(v, field, channelName);
+    const parts = isPlainObject(v) ? plain("None") : formatValue(v, field, name);
     properties.push(
-      kind === "added" ? { path, kind, after: text } : { path, kind, before: text },
+      kind === "added" ? { path, kind, after: parts } : { path, kind, before: parts },
     );
   };
   walk(normalized, []);
@@ -361,15 +380,14 @@ export const formatPath = ({ path }: Pick<Property, "path">): string =>
  */
 export const format = (property: Property): string => {
   const path = formatPath(property);
+  const { before, after } = property;
   switch (property.kind) {
     case "added":
-      return property.after == null ? `${path}: added` : `${path}: ${property.after}`;
+      return after == null ? `${path}: added` : `${path}: ${text(after)}`;
     case "removed":
-      return property.before == null
-        ? `${path}: removed`
-        : `${path}: ${property.before}`;
+      return before == null ? `${path}: removed` : `${path}: ${text(before)}`;
     case "changed":
-      if (property.before == null || property.after == null) return `${path}: changed`;
-      return `${path}: ${property.before} -> ${property.after}`;
+      if (before == null || after == null) return `${path}: changed`;
+      return `${path}: ${text(before)} -> ${text(after)}`;
   }
 };

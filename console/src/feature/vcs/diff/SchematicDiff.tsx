@@ -225,7 +225,7 @@ export interface SchematicDiffProps {
   before: schematic.Schematic | null;
   /** after is null for a deleted schematic. */
   after: schematic.Schematic | null;
-  channelName: Change.ChannelName;
+  name: Change.Name;
 }
 
 /**
@@ -237,7 +237,7 @@ export const SchematicDiff = ({
   kind,
   before,
   after,
-  channelName,
+  name,
 }: SchematicDiffProps): ReactElement => {
   if (before == null || after == null) {
     const document = before ?? after;
@@ -248,7 +248,7 @@ export const SchematicDiff = ({
       </Flex.Box>
     );
   }
-  const changes = Change.diffElements(before, after, { channelName, symbolName });
+  const changes = Change.diffElements(before, after, { name, symbolName });
   const hasChanges = changes.elements.length > 0 || changes.document.length > 0;
   return (
     <Flex.Box y empty grow>

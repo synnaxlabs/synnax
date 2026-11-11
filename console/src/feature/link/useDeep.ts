@@ -56,7 +56,7 @@ const useWaitFor = (
 
 export const useDeep = (
   connect: Link.Connect,
-  handlers: Record<string, Link.Handler>,
+  handlers: Link.Handlers,
   deps: Link.Deps = Link.DEFAULT_DEPS,
 ): void => {
   const handleError = Status.useAsyncErrorHandler();

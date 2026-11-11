@@ -7,19 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { resource } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Change } from "@/feature/vcs/diff/change";
 
-const CHANNELS = new Map([
-  [1048577, "pressure_1"],
-  [1048578, "pressure_2"],
-  [1048579, "valve_cmd"],
+const DEVICE = "3c7d1f2a-9b4e-4f6a-8c21-5e0d7b9a1f34";
+
+const NAMES = new Map([
+  ["channel:1048577", "pressure_1"],
+  ["channel:1048578", "pressure_2"],
+  ["channel:1048579", "valve_cmd"],
+  [`device:${DEVICE}`, "NI 9237 strain module"],
+  ["rack:65537", "cRIO 1"],
 ]);
-const channelName = (key: number) => CHANNELS.get(key);
+const name: Change.Name = (id) => NAMES.get(resource.idToString(id));
 
 const lines = (before: unknown, after: unknown, opts?: Change.DiffOptions) =>
-  Change.diffProperties(before, after, { channelName, ...opts }).map(Change.format);
+  Change.diffProperties(before, after, { name, ...opts }).map(Change.format);
 
 describe("Change", () => {
   describe("humanize", () => {
@@ -86,6 +91,63 @@ describe("Change", () => {
       expect(lines({ channels: [1048577] }, { channels: [1048577, 1048578] })).toEqual([
         "Channels: pressure_1 -> pressure_1, pressure_2",
       ]);
+    });
+
+    it("should link a channel key to the channel", () => {
+      expect(
+        Change.diffProperties({ channel: 1048577 }, { channel: 1048578 }, { name }),
+      ).toEqual([
+        {
+          path: ["Channel"],
+          kind: "changed",
+          before: [
+            { text: "pressure_1", resource: { type: "channel", key: "1048577" } },
+          ],
+          after: [
+            { text: "pressure_2", resource: { type: "channel", key: "1048578" } },
+          ],
+        },
+      ]);
+    });
+
+    it("should link each channel of a list and keep the separators plain", () => {
+      const [property] = Change.diffProperties(
+        { channels: [] },
+        { channels: [1048577, 1048578] },
+        { name },
+      );
+      expect(property.after).toEqual([
+        { text: "pressure_1", resource: { type: "channel", key: "1048577" } },
+        { text: ", " },
+        { text: "pressure_2", resource: { type: "channel", key: "1048578" } },
+      ]);
+    });
+
+    it("should show a device key as a link to the device", () => {
+      const [property] = Change.diffProperties(
+        { device: "" },
+        { device: DEVICE },
+        { name },
+      );
+      expect(property.after).toEqual([
+        { text: "NI 9237 strain module", resource: { type: "device", key: DEVICE } },
+      ]);
+      expect(Change.format(property)).toBe("Device: Empty -> NI 9237 strain module");
+    });
+
+    it("should show a rack key as the rack name", () => {
+      expect(lines({ rack: 65537 }, { rack: 65538 })).toEqual([
+        "Rack: cRIO 1 -> 65538",
+      ]);
+    });
+
+    it("should show the key of a device that does not exist as plain text", () => {
+      const [property] = Change.diffProperties(
+        { device: DEVICE },
+        { device: "missing" },
+        { name },
+      );
+      expect(property.after).toEqual([{ text: "missing" }]);
     });
 
     it("should not resolve a number in a field that holds no channel", () => {
@@ -160,7 +222,7 @@ describe("Change", () => {
             config: { sample_rate: 1000, channels: [{ key: "a", channel: 1048577 }] },
           },
           "added",
-          { channelName, omit: ["key"] },
+          { name, omit: ["key"] },
         ).map(Change.format),
       ).toEqual([
         "Name: Read",
@@ -171,19 +233,34 @@ describe("Change", () => {
 
     it("should put each value of a deleted resource in before", () => {
       expect(Change.listProperties({ rate: 5 }, "removed")).toEqual([
-        { path: ["Rate"], kind: "removed", before: "5" },
+        { path: ["Rate"], kind: "removed", before: [{ text: "5" }] },
       ]);
     });
   });
 
-  describe("channelKeys", () => {
-    it("should collect the keys in channel fields, config text included", () => {
+  describe("references", () => {
+    it("should collect the channels, devices, and racks, config text included", () => {
       expect(
-        Change.channelKeys(
-          { config: JSON.stringify({ channels: [{ channel: 1048577, port: 2 }] }) },
-          { state_channel: 1048578, index: 1048579, port: 7 },
+        Change.references(
+          {
+            rack: 65537,
+            config: JSON.stringify({
+              channels: [{ channel: 1048577, device: DEVICE, port: 2 }],
+            }),
+          },
+          { state_channel: 1048578, index: 1048579, port: 7, device: DEVICE },
         ),
-      ).toEqual([1048577, 1048578, 1048579]);
+      ).toEqual([
+        { type: "rack", key: "65537" },
+        { type: "channel", key: "1048577" },
+        { type: "device", key: DEVICE },
+        { type: "channel", key: "1048578" },
+        { type: "channel", key: "1048579" },
+      ]);
+    });
+
+    it("should skip an empty device key", () => {
+      expect(Change.references({ device: "", channel: 0 })).toEqual([]);
     });
   });
 });

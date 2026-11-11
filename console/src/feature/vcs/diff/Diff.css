@@ -145,3 +145,14 @@
     color: var(--pluto-primary-z);
     background: var(--pluto-primary-z-10);
 }
+
+.console-vcs-diff__link {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 0.5rem;
+
+    &:hover,
+    &:focus-visible {
+        text-decoration-style: solid;
+    }
+}

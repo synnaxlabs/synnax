@@ -11,10 +11,10 @@ import { type schematic } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 
 import {
-  type ChannelName,
   diffProperties,
   humanize,
   type Kind,
+  type Name,
   type Property,
 } from "@/feature/vcs/diff/change/property";
 
@@ -40,7 +40,7 @@ export interface Elements {
 }
 
 export interface ElementsOptions {
-  channelName?: ChannelName;
+  name?: Name;
   /** symbolName names a symbol that has no label, such as "Valve". */
   symbolName: (config: schematic.ElementConfig) => string;
 }
@@ -60,8 +60,9 @@ const labelOf = (
   return symbolName(config);
 };
 
-const formatPosition = ({ x, y }: { x: number; y: number }): string =>
-  `${Math.round(x)}, ${Math.round(y)}`;
+const formatPosition = ({ x, y }: { x: number; y: number }): Property["after"] => [
+  { text: `${Math.round(x)}, ${Math.round(y)}` },
+];
 
 const NODE_OMIT = ["key", "position"];
 // Moving a symbol reroutes the pipes attached to it, so routes read as noise.
@@ -75,7 +76,7 @@ const DOCUMENT_OMIT = ["key", "nodes", "edges", "configs"];
 export const diffElements = (
   before: schematic.Schematic,
   after: schematic.Schematic,
-  { channelName, symbolName }: ElementsOptions,
+  { name, symbolName }: ElementsOptions,
 ): Elements => {
   const elements: Element[] = [];
   const beforeKinds = new Map<string, Kind>();
@@ -107,8 +108,8 @@ export const diffElements = (
         after: formatPosition(node.position),
       });
     properties.push(
-      ...diffProperties(prev, node, { channelName, omit: NODE_OMIT }),
-      ...diffProperties(before.configs[node.key], config, { channelName }),
+      ...diffProperties(prev, node, { name, omit: NODE_OMIT }),
+      ...diffProperties(before.configs[node.key], config, { name }),
     );
     if (properties.length === 0) return;
     beforeKinds.set(node.key, "changed");
@@ -157,9 +158,9 @@ export const diffElements = (
       return;
     }
     const properties = [
-      ...diffProperties(prev, edge, { channelName, omit: ["key"] }),
+      ...diffProperties(prev, edge, { name, omit: ["key"] }),
       ...diffProperties(before.configs[edge.key], after.configs[edge.key], {
-        channelName,
+        name,
         omit: EDGE_CONFIG_OMIT,
       }),
     ];
@@ -185,7 +186,7 @@ export const diffElements = (
 
   return {
     elements,
-    document: diffProperties(before, after, { channelName, omit: DOCUMENT_OMIT }),
+    document: diffProperties(before, after, { name, omit: DOCUMENT_OMIT }),
     before: beforeKinds,
     after: afterKinds,
   };

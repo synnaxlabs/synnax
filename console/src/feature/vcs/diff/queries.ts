@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type vcs } from "@synnaxlabs/client";
+import { type resource, type vcs } from "@synnaxlabs/client";
 import { Flux } from "@synnaxlabs/pluto";
 
 import { Change } from "@/feature/vcs/diff/change";
@@ -20,16 +20,14 @@ export type FilesQuery = {
   version: number;
 };
 
-export interface ChannelEntry {
-  key: number;
-  name: string;
-}
-
 export interface Files {
   before: vcs.File[];
   after: vcs.File[];
-  /** channels names every channel the files reference that still exists. */
-  channels: ChannelEntry[];
+  /**
+   * resources names every resource the files reference that still exists, such as
+   * channels and devices.
+   */
+  resources: resource.Resource[];
 }
 
 /** Returns the parsed body of the first file with the extension, or undefined. */
@@ -50,12 +48,8 @@ export const { useResult: useFiles, useRefresh: useRefreshFiles } = Flux.createR
       client.vcs.files(before, resource),
       client.vcs.files(after, resource),
     ]);
-    const keys = Change.channelKeys(parseFile(prev, ".json"), parseFile(next, ".json"));
-    const channels = keys.length === 0 ? [] : await client.channels.retrieve(keys);
-    return {
-      before: prev,
-      after: next,
-      channels: channels.map(({ key, name }) => ({ key, name })),
-    };
+    const ids = Change.references(parseFile(prev, ".json"), parseFile(next, ".json"));
+    const resources = ids.length === 0 ? [] : await client.resources.retrieve(ids);
+    return { before: prev, after: next, resources };
   },
 });

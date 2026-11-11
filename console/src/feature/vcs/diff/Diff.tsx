@@ -9,7 +9,7 @@
 
 import "@/feature/vcs/diff/Diff.css";
 
-import { type vcs } from "@synnaxlabs/client";
+import { resource, type vcs } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Arc } from "@synnaxlabs/pluto";
@@ -64,11 +64,11 @@ const useLiveKey = ({ resource, before, after }: Target): string | null => {
 const propertiesOf = (
   kind: vcs.ChangeKind,
   files: Files,
-  channelName: Change.ChannelName,
+  name: Change.Name,
 ): Change.Property[] => {
   const before = parseFile(files.before, ".json");
   const after = parseFile(files.after, ".json");
-  const opts = { channelName, omit: OMIT };
+  const opts = { name, omit: OMIT };
   if (kind === "added") return Change.listProperties(after, "added", opts);
   if (kind === "deleted") return Change.listProperties(before, "removed", opts);
   return Change.diffProperties(before, after, opts);
@@ -103,9 +103,9 @@ const Body = ({ target, kind, files, json }: BodyProps): ReactElement => {
         language="json"
       />
     );
-  const names = new Map(files.channels.map(({ key, name }) => [key, name]));
-  const channelName = (key: number) => names.get(key);
-  const properties = propertiesOf(kind, files, channelName);
+  const names = new Map(files.resources.map(({ key, name }) => [key, name]));
+  const name: Change.Name = (id) => names.get(resource.idToString(id));
+  const properties = propertiesOf(kind, files, name);
   const list =
     properties.length === 0 ? (
       <Empty.Action message="No property changes" grow />
@@ -123,7 +123,7 @@ const Body = ({ target, kind, files, json }: BodyProps): ReactElement => {
         kind={kind}
         before={before}
         after={after}
-        channelName={channelName}
+        name={name}
       />
     );
   }
