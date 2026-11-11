@@ -372,6 +372,22 @@ var _ = Describe("Index", func() {
 				Entry("an empty range", bound(40, false), bound(20, false), []int{}),
 			)
 
+			DescribeTable(
+				"InRange should report whether a value lies between the bounds",
+				func(value int, lower, upper *index.Bound[int], expected bool) {
+					Expect(index.InRange(value, lower, upper)).To(Equal(expected))
+				},
+				Entry("an inclusive lower end", 20, bound(20, false), nil, true),
+				Entry("an exclusive lower end", 20, bound(20, true), nil, false),
+				Entry("an inclusive upper end", 40, nil, bound(40, false), true),
+				Entry("an exclusive upper end", 40, nil, bound(40, true), false),
+				Entry("a value below the range", 10, bound(20, false), bound(40, false),
+					false),
+				Entry("a value above the range", 50, bound(20, false), bound(40, false),
+					false),
+				Entry("no bounds", 7, nil, nil, true),
+			)
+
 			It("Should apply the changes of its scope", func() {
 				txn := &scope{}
 				s.Stage(txn, 1, 35)
