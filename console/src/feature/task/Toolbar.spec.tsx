@@ -12,24 +12,21 @@ import {
   arc,
   channel,
   device,
-  framer,
-  group,
-  label,
   NotFoundError,
   panel,
   project,
   query,
   rack,
   ranger,
-  status,
+  type resource,
   type Synnax as Client,
   task,
   user,
 } from "@synnaxlabs/client";
 import {
+  type BuiltInRole,
   createTestClient,
   createTestClientWithPolicy,
-  createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -54,7 +51,6 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
-  createKeyEndingIn,
   getIconButton,
   openContextMenu,
   queryIconButton,
@@ -108,10 +104,7 @@ const createTask = async ({
 }: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
-  // A Viewer or an Operator lists every task on the Core, so the key sorts this task
-  // onto the first page.
   const t = await rack.createTask({
-    key: createKeyEndingIn("0"),
     name: uniqueName("task"),
     type,
     config,
@@ -122,49 +115,44 @@ const createTask = async ({
   return t;
 };
 
-// The types the toolbar reads besides tasks.
-const NON_TASK_TYPES = [
-  access.policy.TYPE_RESOURCE_ID,
-  access.role.TYPE_RESOURCE_ID,
-  arc.TYPE_RESOURCE_ID,
-  arc.directory.TYPE_RESOURCE_ID,
-  channel.TYPE_RESOURCE_ID,
-  device.TYPE_RESOURCE_ID,
-  framer.TYPE_RESOURCE_ID,
-  group.TYPE_RESOURCE_ID,
-  label.TYPE_RESOURCE_ID,
-  panel.TYPE_RESOURCE_ID,
-  project.TYPE_RESOURCE_ID,
-  rack.TYPE_RESOURCE_ID,
-  ranger.TYPE_RESOURCE_ID,
-  status.TYPE_RESOURCE_ID,
-  user.TYPE_RESOURCE_ID,
-];
+const isTaskType = ({ type, key }: resource.ID): boolean =>
+  type === task.TYPE_RESOURCE_ID.type && key === task.TYPE_RESOURCE_ID.key;
 
 // The toolbar lists every task its user can read, and other spec files leave tasks on
-// the Core. A user that reads only the tasks of the test sees the same rows on any
-// Core.
-const createTestTasksClient = async (): Promise<Client> =>
-  await createTestClientWithPolicy(client, [
-    {
-      name: uniqueName("types"),
-      objects: NON_TASK_TYPES,
-      actions: [...access.ACTIONS],
-    },
-    {
-      name: uniqueName("tasks"),
-      objects: task.resourceID(testTasks),
-      actions: [...access.ACTIONS],
-    },
-    {
-      name: uniqueName("create"),
-      objects: [task.TYPE_RESOURCE_ID],
-      actions: ["create"],
-    },
-  ]);
+// the Core. The policies of a built-in role, with the reading of tasks narrowed to the
+// tasks of the test, show the same rows on any Core.
+const createTestTasksClient = async (roleName: BuiltInRole): Promise<Client> => {
+  const roles = await client.access.roles.retrieve({});
+  const role = roles.find((r) => r.name === roleName);
+  assertDefined(role, `no built-in role named ${roleName}`);
+  const policies = await client.access.policies.retrieve({ roles: [role.key] });
+  return await createTestClientWithPolicy(
+    client,
+    policies.flatMap(({ objects, actions }) => {
+      const name = uniqueName("policy");
+      if (!objects.some(isTaskType)) return [{ name, objects, actions }];
+      const narrowed = {
+        name,
+        objects: [
+          ...objects.filter((o) => !isTaskType(o)),
+          ...task.resourceID(testTasks),
+        ],
+        actions,
+      };
+      const writes = actions.filter((a) => a !== "retrieve");
+      if (writes.length === 0) return [narrowed];
+      const typeWrites = {
+        name: uniqueName("policy"),
+        objects: [task.TYPE_RESOURCE_ID],
+        actions: writes,
+      };
+      return [narrowed, typeWrites];
+    }),
+  );
+};
 
 interface RenderToolbarOptions {
-  as?: Client;
+  as?: Client | BuiltInRole;
   analytics?: Analytics.Sink;
 }
 
@@ -174,7 +162,7 @@ const renderToolbar = async ({
   as,
   analytics = Analytics.NOOP,
 }: RenderToolbarOptions = {}) => {
-  as ??= await createTestTasksClient();
+  if (typeof as !== "object") as = await createTestTasksClient(as ?? "Owner");
   onTestFinished(async () => await as.close());
   await as.connect();
   const { wrapper, store } = await createConsoleWrapper({ client: as });
@@ -416,7 +404,20 @@ describe("task/Toolbar Arc rows", () => {
       const taskDeleter = await createTestClientWithPolicy(client, [
         {
           name: uniqueName("retrieve"),
-          objects: [...NON_TASK_TYPES, ...task.resourceID(testTasks)],
+          objects: [
+            ...task.resourceID(testTasks),
+            arc.TYPE_RESOURCE_ID,
+            arc.directory.TYPE_RESOURCE_ID,
+            rack.TYPE_RESOURCE_ID,
+            device.TYPE_RESOURCE_ID,
+            channel.TYPE_RESOURCE_ID,
+            ranger.TYPE_RESOURCE_ID,
+            panel.TYPE_RESOURCE_ID,
+            project.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
           actions: ["retrieve"],
         },
         {
@@ -544,8 +545,7 @@ describe("task/Toolbar", () => {
 
     it("leaves the config unchanged when a viewer clicks the button", async () => {
       const t = await createTask({ config: { dataSavingDisabled: false } });
-      const viewer = await createTestClientWithRole(client, "Viewer");
-      await renderToolbar({ as: viewer });
+      await renderToolbar({ as: "Viewer" });
       await screen.findByText(t.name);
       fireEvent.click(
         await within(getRow(t.name)).findByRole("button", {
@@ -743,8 +743,7 @@ describe("task/Toolbar", () => {
 
     it("withholds the start/stop button and its items from a viewer", async () => {
       const t = await createStoppedTask();
-      const viewer = await createTestClientWithRole(client, "Viewer");
-      await renderToolbar({ as: viewer });
+      await renderToolbar({ as: "Viewer" });
       await screen.findByText(t.name);
       expect(queryIconButton(document.body, "play")).toBeNull();
       await openContextMenu(t.name);
@@ -754,8 +753,7 @@ describe("task/Toolbar", () => {
 
     it("withholds Edit configuration from an operator", async () => {
       const t = await createStoppedTask();
-      const operator = await createTestClientWithRole(client, "Operator");
-      await renderToolbar({ as: operator });
+      await renderToolbar({ as: "Operator" });
       await screen.findByText(t.name);
       await openContextMenuUntil(t.name, "Start");
       expect(screen.queryByText("Edit configuration")).toBeNull();
@@ -763,8 +761,7 @@ describe("task/Toolbar", () => {
 
     it("offers the start/stop button and its items to an operator", async () => {
       const t = await createStoppedTask();
-      const operator = await createTestClientWithRole(client, "Operator");
-      await renderToolbar({ as: operator });
+      await renderToolbar({ as: "Operator" });
       await screen.findByText(t.name);
       await waitFor(() =>
         expect(queryIconButton(document.body, "play")).not.toBeNull(),
