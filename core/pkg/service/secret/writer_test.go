@@ -87,6 +87,43 @@ var _ = Describe("Writer", func() {
 				Expect(resolve(ctx, s.Base().Key)).To(Equal("new"))
 			},
 		)
+		DescribeTable("Should refuse a replace that changes the source",
+			func(ctx SpecContext, prev, next secret.Secret, value, msg string) {
+				prevValue := []byte("hunter2")
+				if prev.Source() == secret.SourceFile {
+					prevValue = nil
+				}
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					return w.Set(ctx, &prev, prevValue)
+				})).To(Succeed())
+				base := next.Base()
+				base.Key = prev.Base().Key
+				next.SetBase(base)
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					return w.Set(ctx, &next, []byte(value))
+				})).To(MatchError(msg))
+				Expect(e.retrieve(ctx, prev.Base().Key).Source()).
+					To(Equal(prev.Source()))
+			},
+			Entry(
+				"stored to file",
+				secret.Secret{
+					Variant: secret.StoredSecret{Base: secret.Base{Name: "A"}},
+				},
+				fileSecret("key.pem"),
+				"",
+				"source: cannot change from stored to file",
+			),
+			Entry(
+				"file to stored",
+				fileSecret("key.pem"),
+				secret.Secret{
+					Variant: secret.StoredSecret{Base: secret.Base{Name: "A"}},
+				},
+				"hunter2",
+				"source: cannot change from file to stored",
+			),
+		)
 		DescribeTable("Should reject an invalid secret",
 			func(ctx SpecContext, s secret.Secret, value, msg string) {
 				Expect(e.write(ctx, func(w secret.Writer) error {
