@@ -189,9 +189,8 @@ AOChannel union on type extends BaseAOChannel {
         wave_type WaveType = sine {
             @doc value "selects the waveform to generate."
         }
-        frequency float64  {
-            @doc value   "is the waveform frequency, in Hertz."
-            @validate gt 0
+        frequency float64 = 0 {
+            @doc value "is the waveform frequency, in Hertz."
         }
         amplitude float64 = 0 {
             @doc value "is the waveform amplitude."
@@ -220,7 +219,8 @@ DIChannel struct extends v2.DIChannel {
         @doc value "is the physical port the channel reads from."
     }
     line uint8 = 0 {
-        @doc value "is the digital line within the port the channel reads from."
+        @doc value    "is the digital line within the port the channel reads from."
+        @validate max 31
     }
 }
 
@@ -229,7 +229,8 @@ DOChannel struct extends v2.DOChannel {
         @doc value "is the physical port the channel writes to."
     }
     line uint8 = 0 {
-        @doc value "is the digital line within the port the channel writes to."
+        @doc value    "is the digital line within the port the channel writes to."
+        @validate max 31
     }
 }
 
