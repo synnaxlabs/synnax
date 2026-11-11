@@ -354,7 +354,8 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
 
 // CompileProgram retrieves the automation with key and compiles its program. A module
-// is a validation error.
+// is a validation error. CompileProgram returns channel.ErrLookupsChanged when writes
+// changed what each of its compiles read, and the caller must try again.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
 	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
@@ -400,7 +401,7 @@ type Build struct {
 // Build compiles the automation with key, or analyzes the module with key, as
 // channel.CompileConsistent does, for TaskUpdate.Build. A source that does not compile
 // is not an error, since the Build holds the failure. Build returns query.ErrNotFound
-// when no Arc has key.
+// when no Arc has key, and channel.ErrLookupsChanged as CompileConsistent does.
 func (s *Service) Build(ctx context.Context, key Key) (Build, error) {
 	return channel.CompileConsistent(ctx, s.cfg.DB, func(
 		snap gorp.Snapshot,
