@@ -30,6 +30,9 @@ A Dewesoft device runs in one of two setups. Each module stores its setup.
   **EtherCAT bus 1 IN** and the Driver to **EtherCAT bus 2 IN**. On a SIRIUS, connect
   DewesoftX to the USB port and the Driver to **EtherCAT IN**.
 
+If the Driver connects to bus 2 of a standalone IOLITE, the module shows **Connect
+Synnax to EtherCAT bus 1 IN**.
+
 In dual mode, one converter gives the data to both systems, and DewesoftX sets its
 sample rate. The data on the Driver's bus gets no added anti-aliasing filter, so a
 network that cycles slower than the sample rate can show aliases.
@@ -61,9 +64,14 @@ Console shows the settings of the module by name:
 
 The Driver writes each setting as a startup parameter when the task starts.
 
-If the module is set up for DewesoftX, the **Configure** dialog shows a note and no
-settings. To use the module with Synnax only, click **Switch to Synnax only**, then
-restart the power of the device.
+If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
+settings:
+
+- **Set up by DewesoftX** -> Synnax reads the data, and DewesoftX sets the settings.
+- **Set up for DewesoftX** -> only DewesoftX reads the data.
+
+To give the module to Synnax, click **Switch to Synnax**, then restart the power of the
+device.
 
 <Divider.Divider x />
 

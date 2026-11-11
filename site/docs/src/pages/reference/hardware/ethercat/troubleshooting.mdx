@@ -45,8 +45,8 @@ The Console and the Driver call an EtherCAT module a slave, so error messages sa
 DewesoftX adds a network filter, **EthercatDAQ Filter**, to each Ethernet port. After
 DewesoftX starts, the filter stops the replies of the modules before they get to the
 Driver. This continues after you close DewesoftX, and a restart of the port does not
-stop it. The scan finds no modules, and a task shows `no EtherCAT slaves found on ...`,
-with the name of the adapter that has the filter.
+stop it. The scan finds no modules and shows "The DewesoftX "EthercatDAQ Filter" on this
+adapter blocks EtherCAT replies", with the name of the adapter.
 
 </Problem.Cause>
 <Problem.Fix>
