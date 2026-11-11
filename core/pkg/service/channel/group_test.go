@@ -69,30 +69,54 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(retrieve(ctx, ch.Key()).Group).To(Equal(&g.Key))
 	})
 
+	createCalculated := func(
+		ctx context.Context,
+		name string,
+		grp *group.Key,
+	) channel.Channel {
+		GinkgoHelper()
+		idx := create(ctx, nil)
+		data := channel.Channel{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float32T,
+			LocalIndex: idx.LocalKey,
+		}
+		calc := channel.Channel{
+			Name:       name,
+			Expression: "return " + data.Name,
+			Group:      grp,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := svc.NewWriter(tx)
+			if err := w.Create(ctx, &data); err != nil {
+				return err
+			}
+			return w.Create(ctx, &calc)
+		})).To(Succeed())
+		return retrieve(ctx, calc.Key())
+	}
+
 	It(
 		"Should create the index of a calculated channel in its group",
 		func(ctx SpecContext) {
-			idx := create(ctx, nil)
-			data := channel.Channel{
-				Name:       UniqueChannelName(),
-				DataType:   telem.Float32T,
-				LocalIndex: idx.LocalKey,
-			}
-			calc := channel.Channel{
-				Name:       UniqueChannelName(),
-				Expression: "return " + data.Name,
-				Group:      &g.Key,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := svc.NewWriter(tx)
-				if err := w.Create(ctx, &data); err != nil {
-					return err
-				}
-				return w.Create(ctx, &calc)
-			})).To(Succeed())
-			calcIdx := retrieve(ctx, retrieve(ctx, calc.Key()).Index())
+			calc := createCalculated(ctx, UniqueChannelName(), &g.Key)
+			calcIdx := retrieve(ctx, calc.Index())
 			Expect(calcIdx.IsIndex).To(BeTrue())
 			Expect(calcIdx.Group).To(Equal(&g.Key))
+		},
+	)
+
+	It(
+		"Should move an adopted index into the group of its calculated channel",
+		func(ctx SpecContext) {
+			name := UniqueChannelName()
+			old := createCalculated(ctx, name, nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, old.Key(), false)
+			})).To(Succeed())
+			calc := createCalculated(ctx, name, &g.Key)
+			Expect(calc.Index()).To(Equal(old.Index()))
+			Expect(retrieve(ctx, calc.Index()).Group).To(Equal(&g.Key))
 		},
 	)
 
@@ -121,6 +145,17 @@ var _ = Describe("Group", Ordered, func() {
 			})).To(Succeed())
 			Expect(retrieve(ctx, a.Key()).Group).To(BeNil())
 		})
+
+		It(
+			"Should move the index of a calculated channel with it",
+			func(ctx SpecContext) {
+				calc := createCalculated(ctx, UniqueChannelName(), nil)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).SetGroup(ctx, &g.Key, calc.Key())
+				})).To(Succeed())
+				Expect(retrieve(ctx, calc.Index()).Group).To(Equal(&g.Key))
+			},
+		)
 	})
 
 	It(

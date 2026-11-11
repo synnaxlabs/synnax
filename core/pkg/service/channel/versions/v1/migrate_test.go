@@ -48,7 +48,7 @@ var _ = Describe("IndexGroupMigration", func() {
 		return ch.Group
 	}
 
-	It("Should move each ungrouped calculated index into its channel's group",
+	It("Should move each ungrouped index into its calculated channel's group",
 		func(ctx SpecContext) {
 			free := func(
 				name string,
@@ -75,15 +75,17 @@ var _ = Describe("IndexGroupMigration", func() {
 				free("b", 4, 3, "return y", &g),
 				free("c_time", 5, 5, "", nil),
 				free("c", 6, 5, "return z", nil),
-				free("shared", 7, 7, "", nil),
+				free("renamed_time", 7, 7, "", nil),
 				free("d", 8, 7, "return w", &g),
+				free("e_time", 9, 9, "", nil),
 			)).To(Succeed())
 			expectGroups := func() {
 				GinkgoHelper()
 				Expect(groupOf(ctx, 1)).To(HaveValue(Equal(g)))
 				Expect(groupOf(ctx, 3)).To(HaveValue(Equal(user)))
 				Expect(groupOf(ctx, 5)).To(BeNil())
-				Expect(groupOf(ctx, 7)).To(BeNil())
+				Expect(groupOf(ctx, 7)).To(HaveValue(Equal(g)))
+				Expect(groupOf(ctx, 9)).To(BeNil())
 			}
 			migrate(ctx, "first")
 			expectGroups()

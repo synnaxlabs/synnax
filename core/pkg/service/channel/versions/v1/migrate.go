@@ -30,8 +30,8 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ch
 	ProjectOwned: false,
 })
 
-// IndexGroupMigration moves the index that the Core created for each grouped
-// calculated channel into the group of that channel when the index has no group.
+// IndexGroupMigration moves the index of each grouped calculated channel into the
+// group of that channel when the index has no group.
 var IndexGroupMigration = migrate.New("v61_calculated_index_group", migrateIndexGroups)
 
 func migrateIndexGroups(
@@ -55,8 +55,8 @@ func migrateIndexGroups(
 	var indexes []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			owner, ok := owners[c.Key()]
-			return ok && c.Group == nil && c.Name == owner.Name+"_time", nil
+			_, ok := owners[c.Key()]
+			return ok && c.Group == nil, nil
 		})).
 		Entries(&indexes).
 		Exec(ctx, tx); err != nil {

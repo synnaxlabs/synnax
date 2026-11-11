@@ -140,6 +140,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	if next.IsCalculated() && !sameGroup(prev.Group, next.Group) {
+		if err = w.SetGroup(ctx, next.Group, next.Index()); err != nil {
+			return nil, err
+		}
+	}
 	var computed []Action
 	if next.DataType != prev.DataType {
 		computed = append(computed, dataTypeAction(next.DataType))
@@ -388,6 +393,8 @@ func (w Writer) create(
 	// runs before the overwrite step so the auto-created index names flow through the
 	// same name-collision machinery as caller-provided channels.
 	indexChannels := make([]Channel, 0, len(channels))
+	// regroup holds each adopted index with the group of its new calculated channel.
+	var regroup []Channel
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
 	for i, ch := range channels {
@@ -446,6 +453,10 @@ func (w Writer) create(
 			idx := namePositions[ex.Name][0]
 			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
 				ex.DataType == telem.TimestampT {
+				if g := indexChannels[idx].Group; !sameGroup(ex.Group, g) {
+					ex.Group = g
+					regroup = append(regroup, ex)
+				}
 				indexChannels[idx] = ex
 				continue
 			}
@@ -545,8 +556,21 @@ func (w Writer) create(
 		written = append(written, ch.Key())
 	}
 
+	for _, ch := range regroup {
+		if err := w.SetGroup(ctx, ch.Group, ch.Key()); err != nil {
+			return err
+		}
+	}
+
 	*_channels = channels
 	return w.attachCreates(ctx, lo.Uniq(written))
+}
+
+func sameGroup(a, b *group.Key) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // attachCreates attaches a create action that holds the stored channel for each key.
