@@ -128,17 +128,22 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
       }
       error={create.error ?? oauthError}
       footer={
-        <Text.Text level="small" color={9}>
-          Already have an account?{" "}
-          <Text.Text
-            el="a"
-            level="small"
-            variant="link"
-            href={withTarget("/login", target)}
-          >
-            Log in
+        <>
+          <Text.Text level="small" color={9}>
+            We email you our release notes. You can unsubscribe at any time.
           </Text.Text>
-        </Text.Text>
+          <Text.Text level="small" color={9}>
+            Already have an account?{" "}
+            <Text.Text
+              el="a"
+              level="small"
+              variant="link"
+              href={withTarget("/login", target)}
+            >
+              Log in
+            </Text.Text>
+          </Text.Text>
+        </>
       }
     >
       <OAuth mode="sign-up" target={target} onError={setOAuthError} />
