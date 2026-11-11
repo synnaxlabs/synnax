@@ -437,7 +437,30 @@ func (s *Service) updateRequests(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	running := s.mu.graph.CalculatedKeys()
 	graphChanged := false
+	var requested []channel.Key
+	for _, ch := range channels {
+		if !ch.IsCalculated() {
+			continue
+		}
+		err := s.mu.graph.Add(ctx, ch)
+		// The caller tries again, so the request leaves the graph as it was.
+		if errors.Is(err, channel.ErrLookupsChanged) {
+			for _, k := range requested {
+				if _, rmErr := s.mu.graph.Remove(k); rmErr != nil {
+					return errors.Join(err, rmErr)
+				}
+			}
+			return err
+		}
+		if err != nil {
+			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
+		} else {
+			requested = append(requested, ch.Key())
+		}
+		graphChanged = true
+	}
 	for _, k := range removed {
 		found, err := s.mu.graph.Remove(k)
 		if err != nil {
@@ -446,16 +469,6 @@ func (s *Service) updateRequests(
 		if found {
 			graphChanged = true
 		}
-	}
-	running := s.mu.graph.CalculatedKeys()
-	for _, ch := range channels {
-		if !ch.IsCalculated() {
-			continue
-		}
-		if err := s.mu.graph.Add(ctx, ch); err != nil {
-			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
-		}
-		graphChanged = true
 	}
 	// A calculation that already runs owns its status, so only a new one clears it.
 	// Dependencies start with the channel that reads them.

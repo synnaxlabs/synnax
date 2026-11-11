@@ -1472,6 +1472,121 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Updates", func() {
+		// openChanging opens a Service, used by the specs in place of c, whose compile
+		// of target reports a change of its lookups while changes is positive.
+		openChanging := func(
+			ctx context.Context,
+			retryDelay telem.TimeSpan,
+			target *atomic.Uint32,
+			changes *atomic.Int32,
+			changed chan struct{},
+		) *calculation.Service {
+			GinkgoHelper()
+			svc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+				DB:           dist.DB,
+				Framer:       dist.Framer,
+				Writer:       writerSvc,
+				Channel:      channelSvc,
+				ChannelGraph: channelGraph,
+				RetryDelay:   retryDelay,
+				Compile: func(
+					ctx context.Context,
+					db *gorp.DB,
+					cfgs ...compiler.Config,
+				) (compiler.Module, error) {
+					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
+						changes.Add(-1) >= 0 {
+						changed <- struct{}{}
+						return compiler.Module{}, channel.ErrLookupsChanged
+					}
+					return compiler.Compile(ctx, db, cfgs...)
+				},
+			}))
+			previous := c
+			c = svc
+			DeferCleanup(func() { c = previous })
+			return svc
+		}
+
+		Specify("Lookups Changed During A Request", func(ctx SpecContext) {
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			changing := openChanging(
+				ctx,
+				100*telem.Millisecond,
+				&target,
+				&changes,
+				changed,
+			)
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calcs := []channel.Channel{
+				{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				},
+				{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 3", bases[0].Name),
+				},
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
+			keys := channel.KeysFromChannels(calcs)
+			target.Store(uint32(keys[1]))
+			changes.Store(1)
+
+			// The first calculation compiles and the second fails, so the failed
+			// request leaves the first with no request when rm closes.
+			rm := changing.OpenRequestManager()
+			Expect(rm.Set(ctx, keys)).To(MatchError(channel.ErrLookupsChanged))
+			Expect(rm.Close(ctx)).To(Succeed())
+			rm = changing.OpenRequestManager()
+			Expect(rm.Set(ctx, keys[1:])).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rm.Close(ctx)).To(Succeed())
+			})
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  channel.KeysFromChannels(bases),
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			_, sOutlet := confluence.Attach(streamer, 1, 1)
+			streamer.Flow(sCtx)
+			Eventually(sOutlet.Outlet()).Should(Receive())
+			Expect(
+				w.Write(frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2))),
+			).To(BeTrue())
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.Get(keys[0]).Series).To(BeEmpty())
+			Expect(res.Frame.Get(keys[1]).Series[0]).
+				To(telem.MatchSeriesDataV[int64](3, 6))
+		})
+
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
@@ -1541,31 +1656,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				changes atomic.Int32
 				changed = make(chan struct{}, 10)
 			)
-			// The compile of target reports a change of its lookups while changes
-			// is positive.
-			retrying := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-				DB:           dist.DB,
-				Framer:       dist.Framer,
-				Writer:       writerSvc,
-				Channel:      channelSvc,
-				ChannelGraph: channelGraph,
-				RetryDelay:   retryDelay,
-				Compile: func(
-					ctx context.Context,
-					db *gorp.DB,
-					cfgs ...compiler.Config,
-				) (compiler.Module, error) {
-					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
-						changes.Add(-1) >= 0 {
-						changed <- struct{}{}
-						return compiler.Module{}, channel.ErrLookupsChanged
-					}
-					return compiler.Compile(ctx, db, cfgs...)
-				},
-			}))
-			previous := c
-			c = retrying
-			DeferCleanup(func() { c = previous })
+			retrying := openChanging(ctx, retryDelay, &target, &changes, changed)
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,

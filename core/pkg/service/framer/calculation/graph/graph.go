@@ -67,11 +67,6 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-type moduleSnapshot struct {
-	key channel.Key
-	old compiler.Module
-}
-
 type channelInfo struct {
 	module   compiler.Module
 	calcDeps []channel.Key
@@ -133,72 +128,78 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) error {
 // group assignment. Preserves reference counts - use this when a channel's calculation
 // changes but the same users are still requesting it. If the channel's DataType
 // changes, all downstream channels that depend on it are recompiled in topological
-// order.
+// order. Update compiles every module before it changes the graph, so a failed compile
+// leaves the graph as it was.
 func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
 		return err
 	}
-
-	oldDataType := info.module.Channel.DataType
-
-	if err := g.updateSingle(ctx, ch, info); err != nil {
+	mod, err := g.compile(ctx, ch)
+	if err != nil {
+		g.logCompileError(ctx, err, ch)
+		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
+	}
+	var dependents []compiler.Module
+	if oldDataType := info.module.Channel.DataType; oldDataType != mod.Channel.DataType {
+		g.L.Debug("channel DataType changed, recompiling dependents",
+			zap.String("channel", ch.Key().String()),
+			zap.String("old_type", string(oldDataType)),
+			zap.String("new_type", string(mod.Channel.DataType)),
+		)
+		if dependents, err = g.compileDependents(ctx, ch.Key()); err != nil {
+			return err
+		}
+	}
+	if err := g.updateSingle(ctx, ch, info, mod); err != nil {
 		return err
 	}
-
-	if oldDataType == info.module.Channel.DataType {
-		return nil
+	for _, dep := range dependents {
+		g.channels[dep.Channel.Key()].module = dep
 	}
-
-	g.L.Debug("channel DataType changed, recompiling dependents",
-		zap.String("channel", ch.Key().String()),
-		zap.String("old_type", string(oldDataType)),
-		zap.String("new_type", string(info.module.Channel.DataType)),
-	)
-	return g.recompileDependents(ctx, ch.Key())
+	return nil
 }
 
-// recompileDependents collects all transitive dependents of changedKey, fetches
-// them in a single batch, then recompiles each in topological order (parents
-// before children). If a recompilation changes a channel's DataType, its own
-// dependents are already in the ordered list and will be recompiled in turn.
-func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key) error {
+// compileDependents compiles all transitive dependents of changedKey in topological
+// order (parents before children). If a compile changes a channel's DataType, its own
+// dependents are already in the ordered list.
+func (g *Graph) compileDependents(
+	ctx context.Context,
+	changedKey channel.Key,
+) ([]compiler.Module, error) {
 	ordered := g.collectDependentsTopological(changedKey)
 	if len(ordered) == 0 {
-		return nil
+		return nil, nil
 	}
-
 	fetched, err := g.fetchChannels(ctx, ordered)
 	if err != nil {
-		return errors.Wrap(err, "failed to fetch dependent channels for recompilation")
+		return nil, errors.Wrap(
+			err,
+			"failed to fetch dependent channels for recompilation",
+		)
 	}
 	byKey := make(map[channel.Key]channel.Channel, len(fetched))
 	for _, ch := range fetched {
 		byKey[ch.Key()] = ch
 	}
-
-	snapshots := make([]moduleSnapshot, 0, len(ordered))
+	mods := make([]compiler.Module, 0, len(ordered))
 	for _, key := range ordered {
 		ch, ok := byKey[key]
 		if !ok {
 			continue
 		}
-		info := g.channels[key]
-		if info == nil {
-			continue
+		mod, err := g.compile(ctx, ch)
+		if err != nil {
+			g.logCompileError(ctx, err, ch)
+			return nil, errors.Wrapf(
+				err,
+				"failed to recompile dependent channel %s",
+				ch,
+			)
 		}
-		mod, cErr := g.compile(ctx, ch)
-		if cErr != nil {
-			for _, s := range snapshots {
-				g.channels[s.key].module = s.old
-			}
-			g.logCompileError(ctx, cErr, ch)
-			return errors.Wrapf(cErr, "failed to recompile dependent channel %s", ch)
-		}
-		snapshots = append(snapshots, moduleSnapshot{key: key, old: info.module})
-		info.module = mod
+		mods = append(mods, mod)
 	}
-	return nil
+	return mods, nil
 }
 
 // collectDependentsTopological returns all channels in the graph that transitively
@@ -253,12 +254,13 @@ func (g *Graph) collectDependentsTopological(root channel.Key) []channel.Key {
 	return ordered
 }
 
-// updateSingle recompiles a single channel and updates its dependencies and group
+// updateSingle sets mod as the module of ch and updates its dependencies and group
 // assignment without cascading to dependents.
 func (g *Graph) updateSingle(
 	ctx context.Context,
 	ch channel.Channel,
 	info *channelInfo,
+	mod compiler.Module,
 ) error {
 	// Store current state
 	oldExplicitCount := info.explicitCount
@@ -270,12 +272,6 @@ func (g *Graph) updateSingle(
 	info.processing = true
 	defer func() { info.processing = false }()
 
-	// Recompile with new expression
-	mod, err := g.compile(ctx, ch)
-	if err != nil {
-		g.logCompileError(ctx, err, ch)
-		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
-	}
 	dependencies := mod.Dependencies.Reads.Slice()
 
 	// Process new dependencies
@@ -283,6 +279,7 @@ func (g *Graph) updateSingle(
 	var depChannels []channel.Channel
 
 	if len(dependencies) > 0 {
+		var err error
 		depChannels, err = g.fetchChannels(ctx, dependencies)
 		if err != nil {
 			return errors.Wrap(err, "failed to retrieve dependency channels")

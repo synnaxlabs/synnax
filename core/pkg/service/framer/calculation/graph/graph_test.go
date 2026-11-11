@@ -1408,6 +1408,77 @@ var _ = Describe("Graph", func() {
 				Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
 			},
 		)
+		It(
+			"Should leave the graph unchanged when a dependent fails to compile",
+			func(ctx SpecContext) {
+				var (
+					failing  channel.Key
+					compiled []channel.Key
+				)
+				g = MustSucceed(graph.New(graph.Config{
+					Channel: channelSvc,
+					DB:      db,
+					Compile: func(
+						ctx context.Context,
+						db *gorp.DB,
+						cfgs ...compiler.Config,
+					) (compiler.Module, error) {
+						compiled = append(compiled, cfgs[0].Channel.Key())
+						if cfgs[0].Channel.Key() == failing {
+							return compiler.Module{}, channel.ErrLookupsChanged
+						}
+						return compiler.Compile(ctx, db, cfgs...)
+					},
+				}))
+				raw := channel.Channel{
+					Name:     "rollback_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				parent := channel.Channel{
+					Name:       "rollback_parent",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return rollback_raw * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &parent)
+				})).To(Succeed())
+				child := channel.Channel{
+					Name:       "rollback_child",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return f64(rollback_parent) * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &child)
+				})).To(Succeed())
+				Expect(g.Add(ctx, child)).To(Succeed())
+				dataTypes := func() map[channel.Key]telem.DataType {
+					return lo.SliceToMap(
+						g.CalculateFlat(),
+						func(m compiler.Module) (channel.Key, telem.DataType) {
+							return m.Channel.Key(), m.Channel.DataType
+						},
+					)
+				}
+				before := dataTypes()
+
+				setExpression(ctx, &parent, "return f32(rollback_raw)")
+				failing = child.Key()
+				Expect(g.Update(ctx, parent)).
+					To(MatchError(channel.ErrLookupsChanged))
+				Expect(dataTypes()).To(Equal(before))
+
+				failing, compiled = 0, nil
+				Expect(g.Update(ctx, parent)).To(Succeed())
+				Expect(compiled).To(Equal([]channel.Key{parent.Key(), child.Key()}))
+				Expect(dataTypes()[parent.Key()]).To(Equal(telem.Float32T))
+			},
+		)
 		It("Should not cascade when DataType stays the same", func(ctx SpecContext) {
 			raw := channel.Channel{
 				Name:     "nocascade_raw",
