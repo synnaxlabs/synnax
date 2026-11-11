@@ -13,11 +13,11 @@ package certificate
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Certificate table for references. Pass it as
@@ -201,10 +201,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Certificate) (bool, error) {
-				return slices.Contains(vals, e.Base().Name), nil
+				return want.Contains(e.Base().Name), nil
 			}),
 		)
 	}
