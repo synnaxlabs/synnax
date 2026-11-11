@@ -299,6 +299,10 @@ func (s *Service) start(ctx context.Context, running set.Set[channel.Key]) error
 // pending requests. It runs on the retry debouncer, so the service holds no lock while
 // a retry waits.
 func (s *Service) retry(ctx context.Context, key channel.Key) {
+	// A change handler installs a newer definition under the lock, so a read under the
+	// lock cannot undo it.
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var ch channel.Channel
 	err := s.cfg.Channel.NewRetrieve().
 		Where(channel.MatchKeys(key)).
@@ -308,14 +312,13 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		if !errors.Is(err, query.ErrNotFound) && ctx.Err() == nil {
 			s.cfg.L.Error("failed to retry calculation",
 				zap.Error(err), zap.Stringer("channel", key))
+			s.retries.Trigger(key)
 		}
 		return
 	}
 	if !ch.IsCalculated() {
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	// Another request can add the channel while its own request is pending, so the
 	// retry can be for an update and a request at once.
 	s.updateLocked(ctx, ch)

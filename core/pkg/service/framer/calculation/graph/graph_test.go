@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -24,9 +25,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var (
@@ -1736,6 +1741,39 @@ var _ = Describe("Graph", func() {
 				).Error().
 					To(MatchError(ContainSubstring("bad_calc_update")))
 			},
+		)
+
+		DescribeTable(
+			"Should log a compile error that the caller does not retry",
+			func(ctx SpecContext, compileErr error, logged int) {
+				core, logs := observer.New(zapcore.ErrorLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				g = MustSucceed(graph.New(graph.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					Channel:         channelSvc,
+					DB:              db,
+					Compile: func(
+						context.Context,
+						*gorp.DB,
+						...compiler.Config,
+					) (compiler.Module, error) {
+						return compiler.Module{}, compileErr
+					},
+				}))
+				calc := channel.Channel{
+					Name:       "logged_calc",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return 1.0",
+				}
+				Expect(g.Add(ctx, calc)).To(MatchError(compileErr))
+				failures := logs.FilterMessage("failed to compile calculated channel")
+				Expect(failures.Len()).To(Equal(logged))
+			},
+			Entry("a compile failure", errors.New("bad expression"), 1),
+			Entry("changed lookups", channel.ErrLookupsChanged, 0),
 		)
 	})
 })

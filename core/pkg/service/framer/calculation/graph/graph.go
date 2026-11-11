@@ -981,12 +981,16 @@ func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 }
 
 // logCompileError logs detailed diagnostic information when a calculated channel
-// fails to compile, including its expression, data type, and dependency graph.
+// fails to compile, including its expression, data type, and dependency graph. It logs
+// nothing for channel.ErrLookupsChanged, which the caller retries.
 func (g *Graph) logCompileError(
 	ctx context.Context,
 	err error,
 	ch channel.Channel,
 ) {
+	if errors.Is(err, channel.ErrLookupsChanged) {
+		return
+	}
 	fields := []zap.Field{
 		zap.String("channel", ch.String()),
 		zap.String("expression", ch.Expression),
