@@ -54,7 +54,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/vcs"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcvcs "github.com/synnaxlabs/synnax/pkg/service/vcs"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
@@ -237,6 +239,23 @@ type Transport struct {
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
+	// VERSION CONTROL
+	VCSStatus         freighter.UnaryServer[vcs.StatusRequest, svcvcs.Status]
+	VCSConnect        freighter.UnaryServer[vcs.ConnectRequest, svcvcs.Status]
+	VCSFetch          freighter.UnaryServer[vcs.FetchRequest, svcvcs.Status]
+	VCSCommit         freighter.UnaryServer[vcs.CommitRequest, vcs.CommitResponse]
+	VCSDiscard        freighter.UnaryServer[vcs.DiscardRequest, svcvcs.Inverse]
+	VCSWrite          freighter.UnaryServer[svcvcs.Inverse, struct{}]
+	VCSPlan           freighter.UnaryServer[vcs.PlanRequest, svcvcs.Plan]
+	VCSApply          freighter.UnaryServer[vcs.ApplyRequest, svcvcs.Inverse]
+	VCSFiles          freighter.UnaryServer[vcs.FilesRequest, vcs.FilesResponse]
+	VCSLog            freighter.UnaryServer[vcs.LogRequest, vcs.LogResponse]
+	VCSShow           freighter.UnaryServer[vcs.ShowRequest, vcs.ShowResponse]
+	VCSConfigurations freighter.UnaryServer[vcs.ConfigurationsRequest, vcs.ConfigurationsResponse]
+	VCSClone          freighter.UnaryServer[vcs.CloneRequest, svcvcs.Status]
+	VCSCompare        freighter.UnaryServer[vcs.CompareRequest, vcs.CompareResponse]
+	VCSSnapshot       freighter.UnaryServer[vcs.SnapshotRequest, vcs.SnapshotResponse]
+	VCSSnapshots      freighter.UnaryServer[vcs.SnapshotsRequest, vcs.SnapshotsResponse]
 	// BATCH
 	Batch freighter.UnaryServer[batch.ExecRequest, batch.ExecResponse]
 }
@@ -273,6 +292,7 @@ type Layer struct {
 	Arc          *arc.Service
 	Status       *status.Service
 	ImEx         *imex.Service
+	VCS          *vcs.Service
 	Batch        *batch.Service
 	binder       *bind.Service
 	config       config.LayerConfig
@@ -497,6 +517,24 @@ func (l *Layer) BindTo(t Transport) {
 		// IMPORT/EXPORT
 		t.ImExImport,
 		t.ImExExport,
+
+		// VERSION CONTROL
+		t.VCSStatus,
+		t.VCSConnect,
+		t.VCSFetch,
+		t.VCSCommit,
+		t.VCSDiscard,
+		t.VCSWrite,
+		t.VCSPlan,
+		t.VCSApply,
+		t.VCSFiles,
+		t.VCSLog,
+		t.VCSShow,
+		t.VCSConfigurations,
+		t.VCSClone,
+		t.VCSCompare,
+		t.VCSSnapshot,
+		t.VCSSnapshots,
 
 		// BATCH
 		t.Batch,
@@ -728,6 +766,24 @@ func (l *Layer) BindTo(t Transport) {
 	// IMPORT/EXPORT
 	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
 	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
+
+	// VERSION CONTROL
+	t.VCSStatus.BindHandler(l.VCS.Status)
+	t.VCSConnect.BindHandler(l.VCS.Connect)
+	t.VCSFetch.BindHandler(l.VCS.Fetch)
+	t.VCSCommit.BindHandler(l.VCS.Commit)
+	t.VCSDiscard.BindHandler(l.VCS.Discard)
+	t.VCSWrite.BindHandler(l.VCS.Write)
+	t.VCSPlan.BindHandler(l.VCS.Plan)
+	t.VCSApply.BindHandler(l.VCS.Apply)
+	t.VCSFiles.BindHandler(l.VCS.Files)
+	t.VCSLog.BindHandler(l.VCS.Log)
+	t.VCSShow.BindHandler(l.VCS.Show)
+	t.VCSConfigurations.BindHandler(l.VCS.Configurations)
+	t.VCSClone.BindHandler(l.VCS.Clone)
+	t.VCSCompare.BindHandler(l.VCS.Compare)
+	t.VCSSnapshot.BindHandler(l.VCS.Snapshot)
+	t.VCSSnapshots.BindHandler(l.VCS.Snapshots)
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -926,6 +982,16 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		ImEx: cfg.Service.ImEx,
+	}); err != nil {
+		return nil, err
+	}
+	if l.VCS, err = vcs.NewService(vcs.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		RBAC:     cfg.Service.RBAC,
+		Binder:   l.binder,
+		VCS:      cfg.Service.VCS,
+		User:     cfg.Service.User,
+		Password: cfg.Service.Password,
 	}); err != nil {
 		return nil, err
 	}

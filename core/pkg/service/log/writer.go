@@ -120,6 +120,33 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
+// Replace stores l in place of the log with the same key, with the checks of Create,
+// and broadcasts it as a create. It returns query.ErrNotFound when no log has the key,
+// and a validation error for an invalid l.
+func (w Writer) Replace(ctx context.Context, l Log) error {
+	if l.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, l.Group, resource.TypeLog)
+		if err != nil {
+			return err
+		}
+		l.Project = proj
+	}
+	if err := validateWrite(l); err != nil {
+		return err
+	}
+	if err := project.ValidateOwner(l.Project, l.Range); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Log](l.Key)).
+		Change(func(gorp.Context, Log) Log { return l }).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
+	return nil
+}
+
 // CreateMany creates the given logs. It returns an error wrapping
 // validate.ErrValidation when a log with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, logs *[]Log) error {

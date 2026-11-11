@@ -1,0 +1,59 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* stylelint-disable declaration-no-important -- Monaco styles its editors inline */
+
+.pluto-diff-editor {
+    height: 100%;
+    min-height: 0;
+    -webkit-user-select: text;
+    user-select: text;
+
+    /* Only .pluto-diff-editor paints, so callers pick the surface with `background`. */
+    .monaco-editor,
+    .monaco-editor-background,
+    .monaco-editor .margin {
+        background: transparent !important;
+    }
+
+    /* Removed text takes the error color and added text the primary color, like every
+       other diff in the theme. */
+    /* stylelint-disable custom-property-pattern -- Monaco names these properties */
+    .monaco-editor {
+        --vscode-diffEditor-insertedLineBackground: var(--pluto-primary-z-10);
+        --vscode-diffEditor-insertedTextBackground: var(--pluto-primary-z-30);
+        --vscode-diffEditor-removedLineBackground: var(--pluto-error-z-10);
+        --vscode-diffEditor-removedTextBackground: var(--pluto-error-z-30);
+        --vscode-diffEditor-unchangedRegionBackground: var(--pluto-gray-l2);
+        --vscode-diffEditor-unchangedRegionForeground: var(--pluto-gray-l9);
+    }
+    /* stylelint-enable custom-property-pattern */
+}
+
+.pluto-diff-editor__labels {
+    flex-shrink: 0;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-border-color);
+}
+
+.pluto-diff-editor__label {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 1rem 2rem;
+
+    & + & {
+        border-left: var(--pluto-border-width) solid var(--pluto-border-color);
+    }
+}
+
+.pluto-diff-editor__body {
+    min-height: 0;
+    padding-top: 1rem;
+}

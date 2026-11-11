@@ -14,6 +14,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { ContextMenuItem } from "@/platform/group/ContextMenuItem";
 import { useCreateFromSelection } from "@/platform/group/useCreateFromSelection";
 import { Tree } from "@/platform/tree";
+import { Vcs } from "@/platform/vcs";
 
 /** The menu for a tree selection of more than one resource type. */
 export const SelectionContextMenu: Tree.ContextMenu = (props) => {
@@ -37,6 +38,8 @@ export const SelectionContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
+      <Vcs.CommitContextMenuItem {...props} />
+      <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />

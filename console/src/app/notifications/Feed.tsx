@@ -12,12 +12,14 @@ import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Rack } from "@/feature/rack";
 import { Task } from "@/feature/task";
+import { Vcs } from "@/feature/vcs";
 import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
   ...Device.NOTIFICATIONS,
   ...Version.NOTIFICATIONS,
+  ...Vcs.NOTIFICATIONS,
 ];
 
 const RULES: Notifications.Rules = {

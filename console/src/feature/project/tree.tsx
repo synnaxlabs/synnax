@@ -44,6 +44,7 @@ import { Log } from "@/platform/log";
 import { Schematic } from "@/platform/schematic";
 import { Table } from "@/platform/table";
 import { Tree } from "@/platform/tree";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
@@ -149,6 +150,8 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           )}
         </>
       )}
+      <Menu.Divider />
+      <Vcs.CommitContextMenuItem {...props} />
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       {singleResource && (

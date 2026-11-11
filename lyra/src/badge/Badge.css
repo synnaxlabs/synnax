@@ -17,6 +17,7 @@
     height: 3rem;
     padding: 0 1rem;
     border-radius: var(--pluto-border-radius-small);
+    font-family: var(--pluto-font-family);
     font-size: var(--pluto-tiny-size);
     line-height: 1;
     white-space: nowrap;

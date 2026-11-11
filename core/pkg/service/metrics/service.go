@@ -226,5 +226,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
+// Group returns the key of the group that holds the metrics channels.
+func (s *Service) Group() group.Key { return s.group.Key }
+
 // Close gracefully stops the service, waiting for all internal goroutines to exit.
 func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }

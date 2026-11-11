@@ -24,6 +24,7 @@ import { type ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
+import { Vcs } from "@/platform/vcs";
 
 export interface ArcItemProps extends List.ItemProps<task.Key> {
   arcKey: arc.Key;
@@ -83,6 +84,7 @@ export const ArcItem = ({
                 </Text.Text>
               </Tooltip.Dialog>
             )}
+            <Vcs.ModifiedMarker id={arc.resourceID(arcKey)} />
           </Flex.Box>
         </Flex.Box>
         <Text.Text level="tiny" color={8}>

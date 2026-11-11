@@ -102,7 +102,6 @@ import {
   MdCalendarToday,
   MdCode,
   MdComment,
-  MdCommit,
   MdComputer,
   MdContentCut,
   MdContentPaste,
@@ -253,6 +252,16 @@ import {
 } from "react-icons/tb";
 import {
   VscChromeRestore,
+  VscDiff,
+  VscDiscard,
+  VscGitBranch,
+  VscGitCommit,
+  VscGitCompare,
+  VscGitPullRequest,
+  VscHistory,
+  VscRepoPull,
+  VscRepoPush,
+  VscSourceControl,
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
@@ -508,7 +517,7 @@ export const MoveToMainWindow = wrapSVGIcon(MdOutlineWebAsset, "move-to-main-win
 export const SplitX = wrapSVGIcon(VscSplitHorizontal, "split-x");
 export const SplitY = wrapSVGIcon(VscSplitVertical, "split-y");
 export const AutoFitWidth = wrapSVGIcon(TbArrowAutofitWidth, "auto-fit-width");
-export const Commit = wrapSVGIcon(MdCommit, "commit");
+export const Commit = wrapSVGIcon(VscGitCommit, "commit");
 export const Snooze = wrapSVGIcon(IoNotificationsOff, "snooze");
 export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
@@ -579,6 +588,15 @@ export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
 export const Dashboard = wrapSVGIcon(RiDashboardFill, "dashboard");
 export const Err = wrapSVGIcon(MdError, "error");
+export const SourceControl = wrapSVGIcon(VscSourceControl, "source-control");
+export const Branch = wrapSVGIcon(VscGitBranch, "branch");
+export const PullRequest = wrapSVGIcon(VscGitPullRequest, "pull-request");
+export const Diff = wrapSVGIcon(VscDiff, "diff");
+export const Discard = wrapSVGIcon(VscDiscard, "discard");
+export const History = wrapSVGIcon(VscHistory, "history");
+export const Push = wrapSVGIcon(VscRepoPush, "push");
+export const Pull = wrapSVGIcon(VscRepoPull, "pull");
+export const Compare = wrapSVGIcon(VscGitCompare, "compare");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -770,6 +788,15 @@ const icons = {
   StrokeColor,
   Logout,
   Err,
+  SourceControl,
+  Branch,
+  PullRequest,
+  Diff,
+  Discard,
+  History,
+  Push,
+  Pull,
+  Compare,
 };
 
 export const resolve = ((

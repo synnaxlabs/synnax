@@ -21,6 +21,7 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
@@ -171,6 +172,9 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               <Icon.Save />
               Save to Core
             </Menu.Item>
+          )}
+          {rng.variant === "persisted" && (
+            <Vcs.SnapshotMenuItem range={{ key: rng.key, name: rng.name }} />
           )}
           <Menu.Divider />
           {rng.variant === "persisted" && (

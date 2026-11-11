@@ -37,7 +37,9 @@ import (
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	apivcs "github.com/synnaxlabs/synnax/pkg/api/vcs"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/vcs"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -201,6 +203,22 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
+	t.VCSStatus = noop.UnaryServer[apivcs.StatusRequest, vcs.Status]{}
+	t.VCSConnect = noop.UnaryServer[apivcs.ConnectRequest, vcs.Status]{}
+	t.VCSFetch = noop.UnaryServer[apivcs.FetchRequest, vcs.Status]{}
+	t.VCSCommit = noop.UnaryServer[apivcs.CommitRequest, apivcs.CommitResponse]{}
+	t.VCSDiscard = noop.UnaryServer[apivcs.DiscardRequest, vcs.Inverse]{}
+	t.VCSWrite = noop.UnaryServer[vcs.Inverse, struct{}]{}
+	t.VCSPlan = noop.UnaryServer[apivcs.PlanRequest, vcs.Plan]{}
+	t.VCSApply = noop.UnaryServer[apivcs.ApplyRequest, vcs.Inverse]{}
+	t.VCSFiles = noop.UnaryServer[apivcs.FilesRequest, apivcs.FilesResponse]{}
+	t.VCSLog = noop.UnaryServer[apivcs.LogRequest, apivcs.LogResponse]{}
+	t.VCSShow = noop.UnaryServer[apivcs.ShowRequest, apivcs.ShowResponse]{}
+	t.VCSConfigurations = noop.UnaryServer[apivcs.ConfigurationsRequest, apivcs.ConfigurationsResponse]{}
+	t.VCSClone = noop.UnaryServer[apivcs.CloneRequest, vcs.Status]{}
+	t.VCSCompare = noop.UnaryServer[apivcs.CompareRequest, apivcs.CompareResponse]{}
+	t.VCSSnapshot = noop.UnaryServer[apivcs.SnapshotRequest, apivcs.SnapshotResponse]{}
+	t.VCSSnapshots = noop.UnaryServer[apivcs.SnapshotsRequest, apivcs.SnapshotsResponse]{}
 
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}

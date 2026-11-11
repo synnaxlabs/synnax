@@ -67,6 +67,34 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 	return nil
 }
 
+// Replace stores s in place of the symbol with the same key, with the checks of Create,
+// and broadcasts it as a create. It returns query.ErrNotFound when no symbol has the
+// key, and a validation error for an invalid s.
+func (w Writer) Replace(ctx context.Context, s Symbol) error {
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		s.Group,
+		resource.TypeSchematicSymbol,
+		nil,
+	); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Symbol](s.Key)).
+		ChangeErr(func(_ gorp.Context, prev Symbol) (Symbol, error) {
+			return s, validateScale(&prev, s)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Symbol: s}))
+	return nil
+}
+
 // Apply applies the actions to the symbol with the given key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
 // returns an error wrapping validate.ErrValidation when an action is a create, the

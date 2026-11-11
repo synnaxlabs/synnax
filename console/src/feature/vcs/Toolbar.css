@@ -1,0 +1,58 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The configuration starts on the same edge as the item content in the lists below. */
+.console-vcs-toolbar__configuration {
+    padding: 1.5rem 2rem 1.25rem 2.5rem;
+}
+
+.console-vcs-toolbar__branch-icon {
+    flex-shrink: 0;
+    color: var(--pluto-gray-l9);
+}
+
+/* The commit line starts under the configuration name. */
+.console-vcs-toolbar__head {
+    padding-left: calc(1em + 1rem);
+}
+
+.console-vcs-toolbar__sync {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A tab starts on the same edge as the hover fill of the list items below. */
+.console-vcs-toolbar__tabs {
+    flex-shrink: 0;
+    margin-bottom: 0.5rem;
+    padding-inline: 1rem;
+}
+
+.console-vcs-toolbar__count {
+    color: var(--pluto-gray-l8);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-vcs-toolbar__unavailable,
+.console-vcs-toolbar__loading {
+    padding: 3rem 2rem;
+}
+
+.console-vcs-toolbar__start {
+    flex-grow: 1;
+    padding: 4rem 3rem 8rem;
+}
+
+.console-vcs-toolbar__start-icon {
+    margin-bottom: 0.5rem;
+    color: var(--pluto-gray-l8);
+    font-size: 6rem;
+}

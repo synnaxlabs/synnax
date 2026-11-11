@@ -98,6 +98,34 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
+// Replace stores lp in place of the line plot with the same key, with the checks of
+// Create, and broadcasts it as a create. It returns query.ErrNotFound when no line plot
+// has the key, and a validation error for an invalid lp.
+func (w Writer) Replace(ctx context.Context, lp LinePlot) error {
+	if lp.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, lp.Group, resource.TypeLineplot)
+		if err != nil {
+			return err
+		}
+		lp.Project = proj
+	}
+	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
+	if err := lp.Validate(); err != nil {
+		return err
+	}
+	if err := project.ValidateOwner(lp.Project, lp.Range); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
+		Change(func(gorp.Context, LinePlot) LinePlot { return lp }).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, lp.Key, NewCreateAction(CreatePayload{LinePlot: lp}))
+	return nil
+}
+
 // CreateMany creates the given line plots. It returns an error wrapping
 // validate.ErrValidation when a line plot with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {

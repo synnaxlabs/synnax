@@ -16,6 +16,9 @@
  * expression is true when `DESKTOP` is. Each entry names its owner, its Linear
  * umbrella issue, and the release that removes it.
  */
-export const FLAGS = {} as const satisfies Record<string, boolean>;
+export const FLAGS = {
+  // Owner: Emiliano Bonilla. Umbrella: SY-1746. Removed when version control ships.
+  versionControl: IS_DEV,
+} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

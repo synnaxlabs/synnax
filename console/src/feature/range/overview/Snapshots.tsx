@@ -24,6 +24,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vcs } from "@/platform/vcs";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -135,6 +136,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
           <List.Items>{snapshotsListItem}</List.Items>
         </List.Scroll>
       </List.Frame>
+      <Vcs.RangeSnapshots rangeKey={rangeKey} />
     </Flex.Box>
   );
 };

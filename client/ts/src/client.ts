@@ -49,6 +49,7 @@ import { table } from "@/table";
 import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
+import { vcs } from "@/vcs";
 import { view } from "@/view";
 
 export const synnaxParamsZ = z.object({
@@ -206,6 +207,7 @@ export default class Synnax extends framer.Client {
   readonly groups: group.Client;
   readonly batch: batch.Client;
   readonly imex: imex.Client;
+  readonly vcs: vcs.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
@@ -409,6 +411,7 @@ export default class Synnax extends framer.Client {
     this.logs = new log.Client({ unary, cache });
     this.tables = new table.Client({ unary, cache });
     this.imex = new imex.Client({ file: this.transport.file });
+    this.vcs = new vcs.Client({ unary });
   }
 
   /**

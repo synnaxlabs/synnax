@@ -85,6 +85,7 @@ export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
 export { user } from "@/user";
+export { vcs } from "@/vcs";
 export { view } from "@/view";
 export {
   type CrudeDataType,

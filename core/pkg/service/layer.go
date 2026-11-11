@@ -70,6 +70,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/vcs"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
@@ -114,6 +115,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
 	License license.ServiceConfig
+	// Dirname is the data directory of the Core. Version control keeps its repository
+	// there.
+	//
+	// [OPTIONAL] - Defaults to a temporary directory.
+	Dirname string
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -147,6 +153,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SessionIdleTimeout,
 	)
 	c.License = c.License.Override(other.License)
+	c.Dirname = override.String(c.Dirname, other.Dirname)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
@@ -243,6 +250,8 @@ type Layer struct {
 	// Metrics is used for collecting host machine metrics and publishing them over
 	// channels
 	Metrics *metrics.Service
+	// VCS keeps the configuration of the Core in a Git repository.
+	VCS *vcs.Service
 	// Status is used for tracking the statuses
 	Status *status.Service
 	// View is used for managing views
@@ -921,6 +930,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 		},
 	); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	if l.VCS, err = vcs.OpenService(ctx, vcs.Config{
+		Instrumentation: cfg.Child("vcs"),
+		DB:              cfg.Distribution.DB,
+		Dirname:         cfg.Dirname,
+		Channel:         l.Channel,
+		Task:            l.Task,
+		TaskStopper:     l.TaskStopper,
+		Status:          l.Status,
+		Arc:             l.Arc,
+		MatchArcTasks:   l.ArcTask.MatchArcs,
+		Schematic:       l.Schematic,
+		LinePlot:        l.LinePlot,
+		Log:             l.Log,
+		Table:           l.Table,
+		Panel:           l.Panel,
+		Project:         l.Project,
+		Group:           l.Group,
+		CoreGroups:      []group.Key{l.Metrics.Group()},
+	}); !ok(err, l.VCS) {
 		return nil, err
 	}
 	// Composition migrations move data across service boundaries, so they can only run

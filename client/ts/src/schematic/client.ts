@@ -269,6 +269,17 @@ export class Client extends query.Retriever<
     drop();
   }
 
+  /**
+   * Places a schematic in the local cache without sending it to the Core, so a stored
+   * version of a schematic can render read-only. Its key must name no schematic on the
+   * Core. A reconnect drops it.
+   * @returns A destructor that removes it from the cache.
+   */
+  preview(schematic: Schematic): destructor.Destructor {
+    this.store.set(schematic);
+    return () => this.store.evict(schematic.key);
+  }
+
   /** Subscribes to every schematic delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
     return this.store.subscribe((event) => {

@@ -21,6 +21,7 @@ import { CSS } from "@/platform/css";
 import { type Children } from "@/platform/tree/children";
 import { MatchGroup, useHighlight } from "@/platform/tree/search";
 import { type ContextMenu, type Resource } from "@/platform/tree/types";
+import { Vcs } from "@/platform/vcs";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.
@@ -117,6 +118,7 @@ const DefaultRow = ({
         highlight={highlight}
       />
       <MatchGroup id={resource.id} />
+      <Vcs.ModifiedMarker id={resource.id} />
     </Base.Item>
   );
 };

@@ -17,6 +17,7 @@ import { Core } from "@/platform/core";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
+import { Vcs } from "@/platform/vcs";
 
 const useRename = Tree.createUseRename({
   useUpdate: Group.useRename,
@@ -130,6 +131,8 @@ export const createTreeItems = (
             onClick={() => createFromSelection(props)}
           />
         )}
+        <Menu.Divider />
+        <Vcs.CommitContextMenuItem {...props} />
         <Menu.Divider />
         <Tree.CopyContextMenuItem {...props} />
         {isSingle && (
