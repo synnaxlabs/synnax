@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -169,9 +170,6 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
-	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// snap, before the entry is validated and stored.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
@@ -199,7 +197,6 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ReconcileEntry = override.Nil(c.ReconcileEntry, other.ReconcileEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
@@ -341,6 +338,9 @@ func (s *Service[E]) Edit(
 		}
 	}
 	edited, keyed := s.hash(&e), e.GorpKey() == key
+	if e, err = redecode(e); err != nil {
+		return Record{}, false, err
+	}
 	rec, err := s.prepare(ctx, snap, key, &e)
 	if err != nil {
 		return Record{}, false, err
@@ -348,16 +348,28 @@ func (s *Service[E]) Edit(
 	return rec, filled || !keyed || rec.hash != edited, nil
 }
 
-// prepare fills the defaults of e, gives it key, resolves, and validates it.
+// redecode returns e as a decode of its JSON form gives it, which fills each default
+// group whose members are all zero.
+func redecode[E any](e E) (E, error) {
+	var out E
+	b, err := json.Marshal(e)
+	if err != nil {
+		return out, errors.Wrapf(validate.ErrValidation, "encoding config: %s", err)
+	}
+	if err = json.Unmarshal(b, &out); err != nil {
+		var zero E
+		return zero, errors.Wrapf(validate.ErrValidation, "decoding config: %s", err)
+	}
+	return out, nil
+}
+
+// prepare gives e key, resolves, and validates it.
 func (s *Service[E]) prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
 	e *E,
 ) (Record, error) {
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(e)
-	}
 	s.cfg.SetEntryKey(e, key)
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(ctx, snap, e); err != nil {
@@ -448,6 +460,9 @@ func (s *Service[E]) Decode(
 	data msgpack.EncodedJSON,
 ) (Decoded, error) {
 	ladder := s.cfg.Ladder
+	// A legacy rewrite or a migration gives a field that its source lacks the zero
+	// value.
+	older := version < ladder.Latest
 	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
@@ -472,8 +487,8 @@ func (s *Service[E]) Decode(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
+	if older {
+		e = defaults.Fill(e)
 	}
 	return Decoded{normalize: func(
 		ctx context.Context,

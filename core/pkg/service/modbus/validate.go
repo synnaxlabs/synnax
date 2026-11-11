@@ -51,6 +51,7 @@ func validateRegisterValueAt(v *validate.Validator, i int, r RegisterValue, read
 func validateReadConfig(c *ReadConfig) error {
 	v := validate.New("modbus.ReadConfig")
 	v.Exec(c.Validate)
+	v.GreaterThan("stream_rate", c.StreamRate, 0)
 	for i, ch := range c.Channels {
 		switch variant := ch.Variant.(type) {
 		case HoldingRegisterReadChannel:

@@ -483,4 +483,49 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": sampleRate,
+				"stream_rate": streamRate,
+			})).Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+	)
+
+	// The Console saves each field edit, so a draft can hold a stream rate above its
+	// sample rate. The Driver refuses it on start.
+	It("Should store a read config whose stream rate is above its sample rate",
+		func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": 10.0,
+				"stream_rate": 20.0,
+			})).Error().ToNot(HaveOccurred())
+		},
+	)
 })
