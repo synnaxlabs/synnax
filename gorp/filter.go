@@ -47,6 +47,10 @@ type Filter[K Key, E Entry[K]] struct {
 	// resolver-backed so the per-call eval can close over the
 	// materialized child without sharing mutable state across Execs.
 	resolve resolveFilter[K, E]
+	// span, if non-nil, estimates the number of keys resolve returns. A filter with a
+	// span has an eval that checks the same condition as its keys, so And can skip its
+	// resolve.
+	span func(ctx context.Context) (int, error)
 }
 
 // evalFunc is the signature of Filter.eval. Kept as a named alias so
@@ -129,7 +133,8 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 // keys are intersected, raw runs as a short-circuit AND pre-screen,
 // and eval runs as an AND-composed post-decode predicate. The raw
 // pre-screen survives composition, so MatchRaw children retain their
-// no-decode skip.
+// no-decode skip. Of several SortedIndex.FilterRange children, And reads the keys of
+// the narrowest range only.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 	f.eval = andEval(filters)
@@ -168,7 +173,11 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 
 	if anyHasResolver(filters) {
 		f.resolve = func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
-			materialized, err := materializeFilters(ctx, snap, filters)
+			narrowed, err := narrowSpans(ctx, filters)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			materialized, err := materializeFilters(ctx, snap, narrowed)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -181,6 +190,39 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 	f.keys = keyset.Intersect(filterKeys(filters)...)
 	return f
+}
+
+// narrowSpans returns filters with the resolve of every child that has a span dropped,
+// except the child with the smallest span. The dropped children still check each entry
+// through their eval.
+func narrowSpans[K Key, E Entry[K]](
+	ctx context.Context,
+	filters []Filter[K, E],
+) ([]Filter[K, E], error) {
+	narrowest, least, spanned := 0, 0, 0
+	for i, child := range filters {
+		if child.span == nil {
+			continue
+		}
+		n, err := child.span(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if spanned == 0 || n < least {
+			narrowest, least = i, n
+		}
+		spanned++
+	}
+	if spanned < 2 {
+		return filters, nil
+	}
+	out := slices.Clone(filters)
+	for i := range out {
+		if out[i].span != nil && i != narrowest {
+			out[i].resolve, out[i].span = nil, nil
+		}
+	}
+	return out, nil
 }
 
 // andEval returns the eval closure used by And composition, or nil when no child has

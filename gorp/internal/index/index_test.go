@@ -363,6 +363,7 @@ var _ = Describe("Index", func() {
 				"Should return the keys between the bounds",
 				func(lower, upper *index.Bound[int], expected []int) {
 					Expect(s.Range(nil, lower, upper)).To(ConsistOf(expected))
+					Expect(s.Count(lower, upper)).To(Equal(len(expected)))
 				},
 				Entry("an inclusive range", bound(20, false), bound(40, false),
 					[]int{2, 3, 4}),

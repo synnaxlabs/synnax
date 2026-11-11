@@ -12,6 +12,7 @@ package gorp
 import (
 	"cmp"
 	"context"
+	"math"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
@@ -336,6 +337,14 @@ func (s *SortedIndex[K, E, V]) FilterRange(lower, upper *Bound[V]) Filter[K, E] 
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return index.InRange(s.extract(e), lower, upper), nil
+		},
+		span: func(ctx context.Context) (int, error) {
+			if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+				return math.MaxInt, nil
+			} else if err != nil {
+				return 0, err
+			}
+			return s.store.Count(lower, upper), nil
 		},
 	}
 }

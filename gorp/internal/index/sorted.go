@@ -210,6 +210,16 @@ func (s *Sorted[S, K, V]) CommittingRange(lower, upper *Bound[V]) []K {
 	return keys
 }
 
+// Count returns the number of committed entries whose values lie between lower and
+// upper, in O(log n). It blocks until the bulk load finishes.
+func (s *Sorted[S, K, V]) Count(lower, upper *Bound[V]) int {
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	lo, hi := s.span(lower, upper)
+	return hi - lo
+}
+
 // Len returns the number of committed entries. It blocks until the bulk load finishes.
 func (s *Sorted[S, K, V]) Len() int {
 	<-s.population.done
