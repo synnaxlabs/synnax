@@ -19,13 +19,14 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Version bump
+        description:
+          Version bump (minor or major from main, patch from release/desktop-X.Y)
         type: choice
         options:
-          - patch
           - minor
           - major
-        default: patch
+          - patch
+        default: minor
       prerelease:
         description: Tag a release candidate (-rc.N)
         type: boolean
@@ -96,6 +97,7 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: desktop
+          ref: ${{ github.ref_name }}
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
@@ -119,10 +121,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release

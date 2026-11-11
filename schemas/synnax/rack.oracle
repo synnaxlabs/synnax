@@ -30,7 +30,15 @@ Key uint32 {
     @key
 }
 
-Status = status.Status<nil> {
+StatusDetails struct {
+    running bool = false {
+        @doc value "is true when the status comes from a running Driver."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails> {
     @doc value "is rack-specific status information including operational state."
 }
 

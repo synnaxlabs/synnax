@@ -121,6 +121,14 @@ func (r *ReadConfig) SetDefaults() {
 	r.StreamRate = 5
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	return v.Error()
+}
+
 // WriteConfig carries the configuration fields shared by hardware control tasks.
 type WriteConfig struct {
 	PersistConfig
@@ -147,6 +155,14 @@ func (s *ScanConfig) ApplyDefaults() {
 // SetDefaults sets every field that has a schema default to that default.
 func (s *ScanConfig) SetDefaults() {
 	s.Rate = 0.2
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.GreaterThan("rate", s.Rate, 0)
+	return v.Error()
 }
 
 // ScaleType is the "type" value that selects a variant of Scale.

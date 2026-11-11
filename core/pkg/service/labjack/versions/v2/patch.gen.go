@@ -28,7 +28,9 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.WriteConfig.Device, c.Next())
 	case "state_rate":
-		return patch.Value(&wc.StateRate, c.Next())
+		return patch.Defaulted(&wc.StateRate, c.Next(), func(def *WriteConfig) {
+			wc.StateRate = def.StateRate
+		})
 	case "channels":
 		return patch.List(&wc.Channels, c.Next())
 	default:
@@ -123,7 +125,9 @@ func (awc *AnalogWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&awc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&awc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&awc.BaseWriteChannel.Port, c.Next(), func(def *AnalogWriteChannel) {
+			awc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -155,7 +159,9 @@ func (dwc *DigitalWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&dwc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&dwc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&dwc.BaseWriteChannel.Port, c.Next(), func(def *DigitalWriteChannel) {
+			dwc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}

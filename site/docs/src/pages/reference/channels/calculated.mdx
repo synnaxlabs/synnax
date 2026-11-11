@@ -131,26 +131,33 @@ the name, the expression, or the operation, then click **Save**.
 
   <Fragment slot="python">
 
-Change the channel, then pass it to `create` again. Because the channel has a key,
-`create` updates the channel and does not make a new one.
+Call `set_expression` with the key of the channel. The Core sets the data type from the
+new expression.
 
 ```python
-pressure_drop.expression = "return (inlet_pressure - outlet_pressure) * 0.0689"
-client.channels.create(pressure_drop)
+client.channels.set_expression(
+    pressure_drop.key,
+    "return (inlet_pressure - outlet_pressure) * 0.0689",
+)
 ```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Pass the channel with its key to `create` again. Because the channel has a key, `create`
-updates the channel and does not make a new one.
+Call `client.channels.dispatch` with a `channel.set` action. The Core sets the data type
+from the new expression.
 
 ```typescript
-await client.channels.create({
-  ...pressureDrop.payload,
-  expression: "return (inlet_pressure - outlet_pressure) * 0.0689",
-});
+import { channel } from "@synnaxlabs/client";
+
+await client.channels.dispatch(
+  pressureDrop.key,
+  channel.set({
+    path: ["expression"],
+    value: "return (inlet_pressure - outlet_pressure) * 0.0689",
+  }),
+);
 ```
 
   </Fragment>

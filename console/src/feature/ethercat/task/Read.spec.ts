@@ -1010,6 +1010,7 @@ describe("Read", () => {
         key: deployed.key,
         properties: { ...deployed.properties, identifier: createIdentifier() },
       },
+      deployed.properties,
       EtherCAT.Device.SLAVE_SCHEMAS,
     );
     const slave = await createSlaveDevice(client, testRack.key, {
