@@ -557,7 +557,15 @@ export class Lists<
 
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
     if (entry.ingesting) return;
-    const keys = events.map(({ key }) => key);
+    // A record that a fetch found is unchanged on the Core, so the Core answers a
+    // ranked window as it did.
+    const changes = entry.ranked
+      ? events.filter(
+          (event) => event.variant === "delete" || event.discovered !== true,
+        )
+      : events;
+    if (changes.length === 0) return;
+    const keys = changes.map(({ key }) => key);
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {

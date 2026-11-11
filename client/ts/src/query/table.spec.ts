@@ -172,6 +172,31 @@ describe("Table", () => {
         expect(table.get("key1")).toEqual({ key: "key1", value: "replacement" });
       });
 
+      it("should count an overwrite as a change, not a discovery", () => {
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
+        table.set([{ key: "key1", value: "original" }]);
+        const listener = vi.fn();
+        table.subscribe(listener);
+        table.ingest({ key: "key1", value: "replacement" });
+        expect(listener).toHaveBeenCalledExactlyOnceWith({
+          variant: "set",
+          key: "key1",
+          value: { key: "key1", value: "replacement" },
+        });
+      });
+
+      it("should count a new record as a change when the records changed", () => {
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
+        const listener = vi.fn();
+        table.subscribe(listener);
+        table.ingest({ key: "key1", value: "value1" }, { changed: true });
+        expect(listener).toHaveBeenCalledExactlyOnceWith({
+          variant: "set",
+          key: "key1",
+          value: { key: "key1", value: "value1" },
+        });
+      });
+
       it("should insert a single value when the key is absent", () => {
         const table = ifAbsentTable();
         table.ingest({ key: "key1", value: "value1" });
@@ -212,6 +237,7 @@ describe("Table", () => {
           variant: "set",
           key: "key2",
           value: { key: "key2", value: "value2" },
+          discovered: true,
         });
       });
 
@@ -1335,6 +1361,33 @@ describe("Table", () => {
       hydrate?: query.HydrateMode,
     ) => new query.Table<string, Item>({ onError: noopError, fetch, hydrate });
 
+    it("should mark a fetched record new to the table as discovered", async () => {
+      const fetch = vi.fn(async (keys: string[]) => keys.map((k) => item(k, "new")));
+      const table = fetchTable(fetch);
+      const listener = vi.fn();
+      table.subscribe(listener);
+      await table.retrieve(["a"]);
+      expect(listener).toHaveBeenCalledExactlyOnceWith({
+        variant: "set",
+        key: "a",
+        value: item("a", "new"),
+        discovered: true,
+      });
+    });
+
+    it("should count a refreshed record new to the table as a change", async () => {
+      const fetch = vi.fn(async (keys: string[]) => keys.map((k) => item(k, "new")));
+      const table = fetchTable(fetch);
+      const listener = vi.fn();
+      table.subscribe(listener);
+      await table.retrieve(["a"], { refresh: true });
+      expect(listener).toHaveBeenCalledExactlyOnceWith({
+        variant: "set",
+        key: "a",
+        value: item("a", "new"),
+      });
+    });
+
     it("should serve cached entries without touching the fetch", async () => {
       const fetch = vi.fn(async () => []);
       const table = fetchTable(fetch);
@@ -1656,21 +1709,29 @@ describe("intercept", () => {
   };
 
   it.each([
-    ["set", (t: query.Table<string, Counter>) => t.set("a", counter(1))],
-    ["ingest", (t: query.Table<string, Counter>) => t.ingest(counter(1))],
-  ])("should store and notify the value the interceptor shows on %s", (_, write) => {
-    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
-    const listener = vi.fn();
-    table.subscribe(listener);
-    write(table);
-    expect(bases.get("a")).toEqual(counter(1));
-    expect(table.get("a")).toEqual(counter(11));
-    expect(listener).toHaveBeenCalledExactlyOnceWith({
-      variant: "set",
-      key: "a",
-      value: counter(11),
-    });
-  });
+    ["set", (t: query.Table<string, Counter>) => t.set("a", counter(1)), {}],
+    [
+      "ingest",
+      (t: query.Table<string, Counter>) => t.ingest(counter(1)),
+      { discovered: true },
+    ],
+  ])(
+    "should store and notify the value the interceptor shows on %s",
+    (_, write, flags) => {
+      const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+      const listener = vi.fn();
+      table.subscribe(listener);
+      write(table);
+      expect(bases.get("a")).toEqual(counter(1));
+      expect(table.get("a")).toEqual(counter(11));
+      expect(listener).toHaveBeenCalledExactlyOnceWith({
+        variant: "set",
+        key: "a",
+        value: counter(11),
+        ...flags,
+      });
+    },
+  );
 
   it("should pass the base to a setter", () => {
     const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));

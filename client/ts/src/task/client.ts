@@ -454,7 +454,8 @@ export class Client extends query.Retriever<
         // status the create carries fills in until it does.
         const carried =
           action.type === "create" ? action.create.task.status : undefined;
-        if (carried != null) statusStore.ingest(carried, { mode: "if-absent" });
+        if (carried != null)
+          statusStore.ingest(carried, { mode: "if-absent", changed: true });
         return this.sugar(created);
       },
     });

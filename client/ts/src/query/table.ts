@@ -42,7 +42,18 @@ export type EntryStatus = "present" | "tombstoned" | "unknown";
 export type TableEvent<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
-> = { variant: "set"; key: Key; value: Value } | { variant: "delete"; key: Key };
+> =
+  | {
+      variant: "set";
+      key: Key;
+      value: Value;
+      /**
+       * Set when a fetch found a record that the table did not hold. The record is new
+       * to the table, not changed on the Core.
+       */
+      discovered?: boolean;
+    }
+  | { variant: "delete"; key: Key };
 
 /** Receives {@link TableEvent}s. Must be synchronous; thrown errors are reported to the
  *  table's error sink and do not stop delivery. */
@@ -94,6 +105,11 @@ export interface IngestOptions {
    * reset after it: the fetch predates them.
    */
   since?: Stamp;
+  /**
+   * Set when the records changed on the Core, such as records that the change stream
+   * announced. A record new to the table is then a change, not a discovery.
+   */
+  changed?: boolean;
 }
 
 /** A table value carrying its entry key, so batch writes and fetches can derive each
@@ -398,17 +414,22 @@ export class Table<
   }
 
   /** Writes the value as the base of the key and shows the result if it changed. */
-  private show(key: Key, value: Value): void {
+  private show(key: Key, value: Value, discovered = false): void {
     const next = this.interceptor == null ? value : this.interceptor.apply(key, value);
     const shown = this.entries.get(key);
     if (shown != null && this.equal(next, shown, key)) return;
     this.applySet(key, next);
-    this.notify({ variant: "set", key, value: next });
+    this.notify(
+      discovered
+        ? { variant: "set", key, value: next, discovered }
+        : { variant: "set", key, value: next },
+    );
   }
 
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
+    discovered = false,
   ): destructor.Destructor | undefined {
     const prev = this.base(key);
     const next = state.executeSetter(value, prev);
@@ -416,7 +437,7 @@ export class Table<
     const prevTombstone = this.tombstones.get(key);
     const prevStamp = this.writeStamps.get(key);
     this.tombstones.delete(key);
-    this.show(key, next);
+    this.show(key, next, discovered);
 
     return () => {
       if (prev === undefined) {
@@ -454,11 +475,14 @@ export class Table<
     return rollback;
   }
 
-  private setMany(values: Array<Keyed<Key, Value>>): destructor.Destructor {
+  private setMany(
+    values: Array<Keyed<Key, Value>>,
+    discovers?: (key: Key) => boolean,
+  ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
-        const rollback = this.setOne(val.key, val);
+        const rollback = this.setOne(val.key, val, discovers?.(val.key));
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -503,12 +527,15 @@ export class Table<
     return this.changes;
   }
 
-  private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
+  private setIfAbsent(
+    values: Array<Keyed<Key, Value>>,
+    discovers: (key: Key) => boolean,
+  ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
         if (this.entries.has(val.key)) return;
-        const rollback = this.setOne(val.key, val);
+        const rollback = this.setOne(val.key, val, discovers(val.key));
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -540,23 +567,37 @@ export class Table<
   ): destructor.Destructor {
     if (typeof keyOrValues !== "object") {
       const key = keyOrValues as Key;
-      const { mode = this.hydrateMode, since } = options ?? {};
+      const { mode = this.hydrateMode, since, changed = false } = options ?? {};
       let rollback = destructor.NOOP;
       if (
         this.ingestible(key, since) &&
         (mode !== "if-absent" || !this.entries.has(key))
       )
-        rollback = this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+        rollback =
+          this.setOne(key, valueOrOptions as Value, this.discovers(key, changed)) ??
+          destructor.NOOP;
       this.touch(key);
       return rollback;
     }
-    const { mode = this.hydrateMode, since }: IngestOptions =
-      (valueOrOptions as IngestOptions | undefined) ?? {};
+    const {
+      mode = this.hydrateMode,
+      since,
+      changed = false,
+    }: IngestOptions = (valueOrOptions as IngestOptions | undefined) ?? {};
     const values = array.toArray(keyOrValues);
     const arr = values.filter(({ key }) => this.ingestible(key, since));
-    const rollback = mode === "if-absent" ? this.setIfAbsent(arr) : this.setMany(arr);
+    const discovers = (key: Key): boolean => this.discovers(key, changed);
+    const rollback =
+      mode === "if-absent"
+        ? this.setIfAbsent(arr, discovers)
+        : this.setMany(arr, discovers);
     values.forEach(({ key }) => this.touch(key));
     return rollback;
+  }
+
+  // A fetch reads what the Core holds, so a record new to the table is no change there.
+  private discovers(key: Key, changed: boolean): boolean {
+    return !changed && this.status(key) === "unknown";
   }
 
   // A fetch reads each record it ingests, so a trim keeps the record until the fetch
@@ -635,11 +676,11 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence and cached entries the fetch omits are
-   * tombstoned. A key written or deleted while the fetch was in flight keeps that write
-   * either way. Returns the table's entries for the found keys in input order,
-   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
-   * serve cached entries only.
+   * every key is fetched regardless of presence, cached entries the fetch omits are
+   * tombstoned, and a record new to the table is a change. A key written or deleted
+   * while the fetch was in flight keeps that write either way. Returns the table's
+   * entries for the found keys in input order, deduplicated; keys the cluster no longer
+   * has are omitted. Tables without a fetch serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     const { fetchBatcher } = this;
@@ -662,7 +703,8 @@ export class Table<
             );
             this.batch(() => {
               if (vanished.length > 0) this.remove(vanished, "confirmed");
-              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
+              if (fetched.length > 0)
+                this.ingest(fetched, { mode: "set", since, changed: true });
             });
           } else if (fetched.length > 0) this.ingest(fetched, { since });
         });
