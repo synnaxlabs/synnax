@@ -838,8 +838,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         settings: createDewesoftXSettings(true),
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
-      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
-      expect(screen.getByText("Synnax cannot read its data.")).toBeTruthy();
+      expect(
+        await screen.findByText("Only DewesoftX can use this device"),
+      ).toBeTruthy();
       expect(findButton("Switch to Synnax")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
     });
@@ -849,10 +850,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         settings: createDewesoftXSettings(true, 2),
         inputs: [STRAIN_ENTRY],
       });
-      expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
-      expect(
-        screen.getByText("Synnax reads its data, but cannot change its settings."),
-      ).toBeTruthy();
+      expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
       expect(screen.queryByText("Startup parameters")).toBeNull();
       expect(findButton("Switch to Synnax")).toBeTruthy();
@@ -915,7 +913,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         settings: { ...createDewesoftXSettings(true), mode: undefined },
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
-      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(
+        await screen.findByText("Only DewesoftX can use this device"),
+      ).toBeTruthy();
       expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 

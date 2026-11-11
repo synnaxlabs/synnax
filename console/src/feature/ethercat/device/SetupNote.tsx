@@ -87,14 +87,11 @@ const ReaderNote = ({
   return (
     <NoteBody
       variant={shared ? "info" : "warning"}
-      title={`Set up ${shared ? "by" : "for"} ${reader}`}
+      title={
+        shared ? `${reader} sets up this device` : `Only ${reader} can use this device`
+      }
       action={action}
     >
-      <Detail>
-        {shared
-          ? "Synnax reads its data, but cannot change its settings."
-          : "Synnax cannot read its data."}
-      </Detail>
       {variant === "error" && (
         <Text.Text level="small" status="error">
           {result.description ?? result.message}

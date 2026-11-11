@@ -339,7 +339,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
-    expect(screen.queryByText("Set up by DewesoftX")).toBeNull();
+    expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -467,14 +467,18 @@ describe("Read", () => {
 
     it("should show the setup note and the switch to Synnax in the task", async () => {
       await renderChannel(true);
-      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(
+        await screen.findByText("Only DewesoftX can use this device"),
+      ).toBeTruthy();
       expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
     });
 
     it("should say who sets up the slave in an empty picker", async () => {
       await renderChannel(false);
       fireEvent.click(await screen.findByText("Select entry"));
-      expect(await screen.findByText("Set up for DewesoftX.")).toBeTruthy();
+      expect(
+        await screen.findByText("Only DewesoftX can use this device."),
+      ).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Switch to Synnax" })).toBeNull();
     });
   });

@@ -56,7 +56,7 @@ export const SelectEntryField = ({
           .find((r) => r != null) ?? null);
   let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
-  else if (reader != null) emptyContent = `Set up for ${reader}.`;
+  else if (reader != null) emptyContent = `Only ${reader} can use this device.`;
   const unresolvedProps =
     ch.type === "unresolved"
       ? {
