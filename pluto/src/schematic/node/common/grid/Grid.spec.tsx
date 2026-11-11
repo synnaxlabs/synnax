@@ -631,4 +631,12 @@ describe("Grid inline resize", () => {
     result.current.onResize?.({ width: 10, height: 40 });
     expect(onChange).toHaveBeenLastCalledWith(40);
   });
+
+  it("should round the inline size to whole pixels", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => Grid.useInlineResize(100, onChange));
+    result.current.onResizeStart?.({ width: 150, height: 40 });
+    result.current.onResize?.({ width: 180.6, height: 40 });
+    expect(onChange).toHaveBeenLastCalledWith(131);
+  });
 });
