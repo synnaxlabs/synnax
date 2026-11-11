@@ -52,16 +52,17 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	s.visiting.Add(key)
 	defer s.visiting.Remove(key)
 	s.covered.Add(old.QualifiedName)
-	// An alias on one side only stores what its target stores.
-	if isAlias(old) != isAlias(new) {
-		oldTarget, _, oldOK := resolution.Dealias(
-			resolution.TypeRef{Name: old.QualifiedName}, s.old,
-		)
-		newTarget, _, newOK := resolution.Dealias(
-			resolution.TypeRef{Name: new.QualifiedName}, s.new,
-		)
-		if oldOK && newOK {
-			return s.typ(at, oldTarget, newTarget)
+	// A stored root has no type arguments to bind, so it resolves a one-sided alias
+	// only when neither side declares type parameters.
+	if isAlias(old) != isAlias(new) &&
+		len(resolution.TypeParams(old.Form)) == 0 &&
+		len(resolution.TypeParams(new.Form)) == 0 {
+		if reason, ok := s.dealiased(
+			at,
+			resolution.TypeRef{Name: old.QualifiedName},
+			resolution.TypeRef{Name: new.QualifiedName},
+		); ok {
+			return reason
 		}
 	}
 	if reflect.TypeOf(old.Form) != reflect.TypeOf(new.Form) {
@@ -233,7 +234,25 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		}
 		return ""
 	}
-	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
+	oldType, newType := s.old.MustGet(old.Name), s.new.MustGet(new.Name)
+	if isAlias(oldType) != isAlias(newType) {
+		if reason, ok := s.dealiased(at, old, new); ok {
+			return reason
+		}
+	}
+	return s.typ(at, oldType, newType)
+}
+
+// dealiased compares what old and new stand for once both resolve through aliases,
+// since an alias stores what its target stores. ok is false when either side does not
+// resolve to a type.
+func (s shapes) dealiased(at string, old, new resolution.TypeRef) (string, bool) {
+	_, oldTarget, oldOK := resolution.Dealias(old, s.old)
+	_, newTarget, newOK := resolution.Dealias(new, s.new)
+	if !oldOK || !newOK {
+		return "", false
+	}
+	return s.ref(at, oldTarget, newTarget), true
 }
 
 func isAlias(t resolution.Type) bool {

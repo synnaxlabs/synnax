@@ -976,6 +976,67 @@ Channel struct {
     @go marshal
 }
 `, "Channel.pair: changes its type parameter"),
+			Entry("a generic alias on one side that binds a concrete type", `
+Inner struct<T> {
+    value T
+}
+
+Channel struct {
+    payload Inner<uint8>
+
+    @go marshal
+}
+`, `
+Real struct<T> {
+    value T
+}
+
+Inner<T> = Real<string>
+
+Channel struct {
+    payload Inner<uint8>
+
+    @go marshal
+}
+`, "Channel.payload: changes from uint8 to string"),
+			Entry("a generic alias on one side that swaps its type parameters", `
+Inner struct<A, B> {
+    a A
+    b B
+}
+
+Channel struct {
+    payload Inner<uint8, string>
+
+    @go marshal
+}
+`, `
+Real struct<A, B> {
+    a A
+    b B
+}
+
+Inner<A, B> = Real<B, A>
+
+Channel struct {
+    payload Inner<uint8, string>
+
+    @go marshal
+}
+`, "Channel.payload: changes from uint8 to string"),
+			Entry("a stored root replaced by an alias with a new shape", `
+Channel struct {
+    value uint8
+
+    @go marshal
+}
+`, `
+Real struct<T> {
+    value T
+}
+
+Channel = Real<string>
+`, "Channel: changes its type arguments"),
 			Entry("a field that drops its nil type argument", `
 Status struct<D> {
     details D?
