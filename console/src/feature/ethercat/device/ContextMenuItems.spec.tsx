@@ -16,7 +16,12 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import {
+  createIdentifier,
+  createPDOs,
+  createSlaveDevice,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
@@ -226,7 +231,7 @@ describe("EtherCAT device ContextMenuItems", () => {
   });
 
   it("should create the vendor task drafts and open their resource tabs", async () => {
-    const slave = await createSlave(true);
+    const slave = await createSlave(true, { pdos: createPDOs() });
     const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
@@ -243,6 +248,15 @@ describe("EtherCAT device ContextMenuItems", () => {
     if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
     const write = await client.tasks.retrieve({ key: writeTab.resource.key });
     expect(write.type).toBe(EtherCAT.Task.WRITE_TYPE);
+  });
+
+  it("should offer no write task for a slave with no outputs", async () => {
+    const slave = await createSlave(true, {
+      pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+    });
+    await renderContextMenu([slave]);
+    expect(await screen.findByText("Create read task")).toBeTruthy();
+    expect(screen.queryByText("Create write task")).toBeNull();
   });
 
   it("should disable every selected slave on the Core when Disable is clicked", async () => {
