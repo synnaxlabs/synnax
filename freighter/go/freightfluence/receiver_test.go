@@ -105,6 +105,7 @@ var _ = Describe("Receiver", func() {
 			Expect(stream.Send(1)).To(Succeed())
 			By("Closing the network pipe")
 			v := <-receiverStream.Outlet()
+			// Fails on purpose.
 			Expect(v).To(Equal(2))
 			cancel()
 			Expect(stream.Receive()).Error().To(MatchError(context.Canceled))
