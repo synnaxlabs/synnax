@@ -12,12 +12,16 @@ import {
   arc,
   channel,
   device,
+  framer,
+  group,
+  label,
   NotFoundError,
   panel,
   project,
   query,
   rack,
   ranger,
+  status,
   type Synnax as Client,
   task,
   user,
@@ -29,16 +33,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import {
-  afterEach,
-  assert,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -68,47 +63,6 @@ import {
 
 const client = createTestClient();
 
-// The toolbar reads its next page when the end of the list scrolls into view. Other
-// spec files leave tasks on the Core, and the Core picks the key of an Arc's task, so
-// the task can sort past the first page.
-const listEnds = new Set<() => void>();
-
-class ListEndObserver {
-  private readonly reachEnd: () => void;
-
-  constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
-    this.reachEnd = () => callback([{ isIntersecting: true }]);
-  }
-
-  observe(): void {
-    listEnds.add(this.reachEnd);
-  }
-
-  unobserve(): void {
-    listEnds.delete(this.reachEnd);
-  }
-
-  disconnect(): void {
-    listEnds.delete(this.reachEnd);
-  }
-}
-
-beforeAll(() => vi.stubGlobal("IntersectionObserver", ListEndObserver));
-
-// Scrolls to the end of the list until the row renders, as a user does. The list drops
-// a scroll that lands while it settles a read, and does not fetch again until its rows
-// change. A timer paces each scroll, so it runs only after the read settles.
-const findRow = async (name: string): Promise<HTMLElement> => {
-  const deadline = Date.now() + 5_000;
-  while (Date.now() < deadline) {
-    const row = screen.queryByText(name);
-    if (row != null) return row;
-    listEnds.forEach((reachEnd) => reachEnd());
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error(`no list item for ${name}`);
-};
-
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
   running?: boolean;
@@ -116,11 +70,11 @@ interface CreateTaskOptions {
   drifted?: boolean;
 }
 
-// The toolbar lists every task on the Core, so leaked tasks from prior tests slow each
-// render. Track created resources and remove them after each test.
 const createdTasks: task.Key[] = [];
 const createdRacks: number[] = [];
 const createdArcs: arc.Key[] = [];
+// The tasks of the running test, Arc tasks included.
+const testTasks: task.Key[] = [];
 
 // Deletion tests already removed their task, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -128,6 +82,7 @@ const ignoreNotFound = (err: unknown) => {
 };
 
 afterEach(async () => {
+  testTasks.splice(0);
   await client.arcs.delete(createdArcs.splice(0)).catch(ignoreNotFound);
   await client.tasks.delete(createdTasks.splice(0)).catch(ignoreNotFound);
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
@@ -153,8 +108,8 @@ const createTask = async ({
 }: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
-  // The toolbar renders only the first rows of every task on the Core, so the key
-  // sorts this task first.
+  // A Viewer or an Operator lists every task on the Core, so the key sorts this task
+  // onto the first page.
   const t = await rack.createTask({
     key: createKeyEndingIn("0"),
     name: uniqueName("task"),
@@ -162,17 +117,64 @@ const createTask = async ({
     config,
   });
   createdTasks.push(t.key);
+  testTasks.push(t.key);
   if (running != null) await setRunning(t, running, drifted);
   return t;
 };
 
-// A client keeps its list answer after the list unmounts and serves it without a fetch.
-// A task created since sits past the rows that render, or outside a full page, so each
-// render takes a new client.
-const renderToolbar = async (
-  as: Client = createTestClient(),
-  analytics: Analytics.Sink = Analytics.NOOP,
-) => {
+// The types the toolbar reads besides tasks.
+const NON_TASK_TYPES = [
+  access.policy.TYPE_RESOURCE_ID,
+  access.role.TYPE_RESOURCE_ID,
+  arc.TYPE_RESOURCE_ID,
+  arc.directory.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  framer.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
+  label.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  ranger.TYPE_RESOURCE_ID,
+  status.TYPE_RESOURCE_ID,
+  user.TYPE_RESOURCE_ID,
+];
+
+// The toolbar lists every task its user can read, and other spec files leave tasks on
+// the Core. A user that reads only the tasks of the test sees the same rows on any
+// Core.
+const createTestTasksClient = async (): Promise<Client> =>
+  await createTestClientWithPolicy(client, [
+    {
+      name: uniqueName("types"),
+      objects: NON_TASK_TYPES,
+      actions: [...access.ACTIONS],
+    },
+    {
+      name: uniqueName("tasks"),
+      objects: task.resourceID(testTasks),
+      actions: [...access.ACTIONS],
+    },
+    {
+      name: uniqueName("create"),
+      objects: [task.TYPE_RESOURCE_ID],
+      actions: ["create"],
+    },
+  ]);
+
+interface RenderToolbarOptions {
+  as?: Client;
+  analytics?: Analytics.Sink;
+}
+
+// A client keeps its list answer after the list unmounts and serves it without a fetch,
+// so each render takes a new client.
+const renderToolbar = async ({
+  as,
+  analytics = Analytics.NOOP,
+}: RenderToolbarOptions = {}) => {
+  as ??= await createTestTasksClient();
   onTestFinished(async () => await as.close());
   await as.connect();
   const { wrapper, store } = await createConsoleWrapper({ client: as });
@@ -204,7 +206,6 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
 
 // The task's status streams in after the list fetch, so wait for the item it gates.
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
-  await findRow(name);
   await openContextMenu(name);
   await screen.findByText(text);
 };
@@ -226,6 +227,7 @@ const createBoundArc = async (): Promise<{ arc: arc.Arc; task: task.Task }> => {
   createdRacks.push(rack.key);
   const t = await client.arcs.updateTask(a.key, { rack: rack.key });
   assertDefined(t, "binding the Arc to a rack made no task");
+  testTasks.push(t.key);
   return { arc: a, task: t };
 };
 
@@ -252,7 +254,7 @@ describe("task/Toolbar Arc rows", () => {
   it("shows an Arc that has a task with the Arc icon and its type", async () => {
     const { arc: a } = await createBoundArc();
     await renderToolbar();
-    const row = (await findRow(a.name)).closest(".lyra-list__item");
+    const row = (await screen.findByText(a.name)).closest(".lyra-list__item");
     assertDefined(row, `no list item for ${a.name}`);
     expect(row.querySelector(".lyra-icon--arc")).not.toBeNull();
     expect(row.textContent).toContain("Arc automation task");
@@ -263,14 +265,14 @@ describe("task/Toolbar Arc rows", () => {
     const unbound = await createArc();
     const { arc: bound } = await createBoundArc();
     await renderToolbar();
-    await findRow(bound.name);
+    await screen.findByText(bound.name);
     expect(screen.queryByText(unbound.name)).toBeNull();
   });
 
   it("opens the Arc editor on double click", async () => {
     const { arc: a } = await createBoundArc();
     const { created } = await renderToolbar();
-    await findRow(a.name);
+    await screen.findByText(a.name);
     fireEvent.doubleClick(screen.getByText(a.name));
     expect(await awaitArcTab(created)).toBe(a.key);
   });
@@ -280,7 +282,7 @@ describe("task/Toolbar Arc rows", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
       await renderToolbar();
-      await findRow(a.name);
+      await screen.findByText(a.name);
       const start = await waitFor(() => {
         const row = document.getElementById(t.key);
         if (row == null) throw new Error(`no list item for ${a.name}`);
@@ -297,8 +299,8 @@ describe("task/Toolbar Arc rows", () => {
     const { arc: started, task: t } = await createBoundArc();
     const { arc: opened } = await createBoundArc();
     const { created } = await renderToolbar();
-    await findRow(started.name);
-    await findRow(opened.name);
+    await screen.findByText(started.name);
+    await screen.findByText(opened.name);
     // The start button mounts only once the update permission resolves, so poll the
     // row for it instead of reading it off the first render.
     const start = await waitFor(() => {
@@ -355,7 +357,7 @@ describe("task/Toolbar Arc rows", () => {
     // A click can land before the list knows the row, so it repeats until the row
     // reads as selected. Control adds the row to the selection.
     const selectRow = async (name: string, control: boolean): Promise<void> => {
-      await findRow(name);
+      await screen.findByText(name);
       await waitFor(() => {
         const row = screen.getByText(name).closest(".lyra-list__item");
         assertDefined(row, `no list item for ${name}`);
@@ -377,7 +379,7 @@ describe("task/Toolbar Arc rows", () => {
       const { arc: a } = await createBoundArc();
       const t = await createTask({ running: false });
       const analytics = createTestSink();
-      await renderToolbar(createTestClient(), analytics);
+      await renderToolbar({ analytics });
       await selectRows(t.name, a.name);
       await openContextMenuUntil(a.name, "Start");
       fireEvent.click(screen.getByText("Start"));
@@ -414,20 +416,7 @@ describe("task/Toolbar Arc rows", () => {
       const taskDeleter = await createTestClientWithPolicy(client, [
         {
           name: uniqueName("retrieve"),
-          objects: [
-            task.TYPE_RESOURCE_ID,
-            arc.TYPE_RESOURCE_ID,
-            arc.directory.TYPE_RESOURCE_ID,
-            rack.TYPE_RESOURCE_ID,
-            device.TYPE_RESOURCE_ID,
-            channel.TYPE_RESOURCE_ID,
-            ranger.TYPE_RESOURCE_ID,
-            panel.TYPE_RESOURCE_ID,
-            project.TYPE_RESOURCE_ID,
-            user.TYPE_RESOURCE_ID,
-            access.role.TYPE_RESOURCE_ID,
-            access.policy.TYPE_RESOURCE_ID,
-          ],
+          objects: [...NON_TASK_TYPES, ...task.resourceID(testTasks)],
           actions: ["retrieve"],
         },
         {
@@ -436,7 +425,7 @@ describe("task/Toolbar Arc rows", () => {
           actions: ["delete"],
         },
       ]);
-      await renderToolbar(taskDeleter);
+      await renderToolbar({ as: taskDeleter });
       // The client sees Delete on the task alone, so its grants have loaded.
       await openContextMenuUntil(t.name, "Delete");
       fireEvent.keyDown(document.body, { code: "Escape" });
@@ -556,7 +545,7 @@ describe("task/Toolbar", () => {
     it("leaves the config unchanged when a viewer clicks the button", async () => {
       const t = await createTask({ config: { dataSavingDisabled: false } });
       const viewer = await createTestClientWithRole(client, "Viewer");
-      await renderToolbar(viewer);
+      await renderToolbar({ as: viewer });
       await screen.findByText(t.name);
       fireEvent.click(
         await within(getRow(t.name)).findByRole("button", {
@@ -601,7 +590,7 @@ describe("task/Toolbar", () => {
     it("reports the type of a task it started", async () => {
       const t = await createTask({ running: false });
       const analytics = createTestSink();
-      await renderToolbar(createTestClient(), analytics);
+      await renderToolbar({ analytics });
       await openContextMenuUntil(t.name, "Start");
       fireEvent.click(screen.getByText("Start"));
       await waitFor(() =>
@@ -755,7 +744,7 @@ describe("task/Toolbar", () => {
     it("withholds the start/stop button and its items from a viewer", async () => {
       const t = await createStoppedTask();
       const viewer = await createTestClientWithRole(client, "Viewer");
-      await renderToolbar(viewer);
+      await renderToolbar({ as: viewer });
       await screen.findByText(t.name);
       expect(queryIconButton(document.body, "play")).toBeNull();
       await openContextMenu(t.name);
@@ -766,7 +755,7 @@ describe("task/Toolbar", () => {
     it("withholds Edit configuration from an operator", async () => {
       const t = await createStoppedTask();
       const operator = await createTestClientWithRole(client, "Operator");
-      await renderToolbar(operator);
+      await renderToolbar({ as: operator });
       await screen.findByText(t.name);
       await openContextMenuUntil(t.name, "Start");
       expect(screen.queryByText("Edit configuration")).toBeNull();
@@ -775,7 +764,7 @@ describe("task/Toolbar", () => {
     it("offers the start/stop button and its items to an operator", async () => {
       const t = await createStoppedTask();
       const operator = await createTestClientWithRole(client, "Operator");
-      await renderToolbar(operator);
+      await renderToolbar({ as: operator });
       await screen.findByText(t.name);
       await waitFor(() =>
         expect(queryIconButton(document.body, "play")).not.toBeNull(),
