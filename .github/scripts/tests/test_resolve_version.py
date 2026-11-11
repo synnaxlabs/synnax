@@ -214,6 +214,16 @@ class TestReleaseBranch:
         assert out["previous_tag"] == "core/v0.58.2"
         assert out["latest"] == "true"
 
+    def test_should_reject_a_branch_without_the_last_patch(self, repo: Repo) -> None:
+        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.commit("core hotfix")
+        repo.tag("core/v0.58.3")
+        repo.branch(self.REF, "console/v0.58.2")
+        repo.commit("console hotfix")
+        assert repo.resolve("console", ref=self.REF)["version"] == "0.58.3"
+        error = repo.resolve_error("core", ref=self.REF)
+        assert f"core/v0.58.3 is not on {self.REF}" in error
+
 
 class TestCandidates:
     """Tests for the pre-release channel from main."""
@@ -436,8 +446,9 @@ class TestPackages:
     def test_should_release_the_next_patch_from_a_release_branch(
         self, repo: Repo
     ) -> None:
-        repo.tag("ts/v0.58.4", "core/v0.59.0", "ts/v0.59.0")
+        repo.tag("core/v0.59.0", "ts/v0.59.0")
         repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.tag("ts/v0.58.4")
         repo.commit("hotfix")
         out = repo.resolve("ts", ref="release/core-0.58")
         assert out["version"] == "0.58.5"
@@ -448,8 +459,8 @@ class TestPackages:
     def test_should_release_with_the_core_from_a_release_branch(
         self, repo: Repo
     ) -> None:
-        repo.tag("py/v0.58.4")
         repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.tag("py/v0.58.4")
         repo.commit("hotfix")
         ref = "release/core-0.58"
         assert repo.resolve("core", ref=ref)["version"] == "0.58.3"

@@ -18,7 +18,8 @@
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
 # tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the train has no
-# tag. Both fail when the tag they count from names HEAD.
+# tag. Both fail when the tag they count from names HEAD, and a release branch fails
+# when it does not hold that tag.
 #
 # ts and py share the Core's minor, since the clients connect only to a Core with the
 # same major.minor. From main, they release only with the Core: core is the stable
@@ -103,6 +104,13 @@ case "$PRODUCT" in
             BASE=$TRAIN
             CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
             NEXT=$(next_patch "$TRAIN")
+            # A patch built without the train's last patch would drop that fix.
+            if [ "$REF" != main ] && [ -n "$CURRENT" ] \
+                && ! git merge-base --is-ancestor "$PRODUCT/v$CURRENT" HEAD; then
+                echo "$PRODUCT/v$CURRENT is not on $REF. Release $PRODUCT from the" \
+                    "branch that holds it" >&2
+                exit 1
+            fi
         else
             CURRENT=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
             BASE=$CURRENT
