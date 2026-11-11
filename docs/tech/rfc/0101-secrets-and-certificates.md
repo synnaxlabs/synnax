@@ -207,8 +207,8 @@ key included. TLS sends no private key, so a certificate's paths can point anywh
 Each integration's Core service refuses a device or task that names a file item of
 another rack, directly or through a certificate. A replace keeps the source of an item,
 so a stored secret never becomes a file. A replace of an item in use keeps its rack, or
-fails as a delete does. So an item has one file and one set of details. The reader opens the file at each connect, and the value never enters the
-store.
+fails as a delete does. So an item has one file and one set of details. The reader opens
+the file at each connect, and the value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
