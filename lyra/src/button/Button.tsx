@@ -35,9 +35,10 @@ export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 /**
  * The rest-state emphasis of the button chassis. A glyph button never fills, so its
  * icon alone shows hover and press. Use it for an action inside another control, such
- * as a tab's close button.
+ * as a tab's close button. A shadow button draws no box at rest, for a field that reads
+ * as its value, and draws the outlined box on hover, on press, and while it is open.
  */
-export type Variant = "filled" | "outlined" | "text" | "glyph" | "card";
+export type Variant = "filled" | "outlined" | "text" | "glyph" | "card" | "shadow";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -209,7 +210,8 @@ export const Button = <E extends ElementType = "button">(
 
   const res = color.colorZ.safeParse(colorVal);
   const hasCustomColor =
-    res.success && (variant === "filled" || variant === "outlined");
+    res.success &&
+    (variant === "filled" || variant === "outlined" || variant === "shadow");
   const theme = Theming.use();
 
   let pStyle = style;
@@ -264,7 +266,7 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant === "filled" || variant === "outlined" || variant === "card"}
+      bordered={variant !== "text" && variant !== "glyph"}
       level={level}
       variant={textVariant}
       square={square}

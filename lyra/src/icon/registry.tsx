@@ -74,7 +74,6 @@ import {
   IoTerminal,
   IoTerminalOutline,
   IoTime,
-  IoTvOutline,
 } from "react-icons/io5";
 import {
   LuFileBadge,
@@ -249,6 +248,7 @@ import {
   TbRowInsertBottom,
   TbRowInsertTop,
   TbRowRemove,
+  TbStack2Filled,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -299,7 +299,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
-export const View = wrapSVGIcon(IoTvOutline, "view");
+export const View = wrapSVGIcon(TbStack2Filled, "view");
 export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
   Row: wrapSVGIcon(TbRowRemove, "delete-row"),
   Col: wrapSVGIcon(TbColumnRemove, "delete-col"),

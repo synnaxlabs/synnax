@@ -21,3 +21,9 @@
     > .lyra-text.lyra-select-multiple-trigger-placeholder {
     color: inherit;
 }
+
+/* Any click on a shadow trigger opens it, so its tags drop their remove buttons. The
+   dialog removes them instead. */
+.lyra-dialog__trigger.lyra-btn--shadow .lyra-tag__close {
+    display: none;
+}

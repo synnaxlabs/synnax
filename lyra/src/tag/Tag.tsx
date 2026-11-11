@@ -67,6 +67,8 @@ export const Tag = ({
       align="center"
       gap="small"
       onDragStart={onDragStart}
+      // A tag with no action of its own is part of what holds it, such as a trigger.
+      propagateClick={rest.onClick == null}
       {...rest}
     >
       {icon}

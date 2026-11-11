@@ -77,7 +77,13 @@ const multipleTag = renderProp(MultipleTag);
 export interface MultipleTriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
-> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview" | "className"> {
+> extends Pick<Button.ButtonProps, "disabled" | "preview" | "className"> {
+  /**
+   * The trigger's chassis. A shadow trigger reads as its tags, and any click on it
+   * opens it, so its tags have no remove buttons. In a list item, an empty shadow
+   * trigger shows its placeholder on hover only.
+   */
+  variant?: Button.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   /** Builds the haul item for an entry dragged out of the trigger. */
@@ -206,7 +212,12 @@ export const MultipleTrigger = <
       {...itemStatus}
     >
       {value.length === 0 && (
-        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
+        <Text.Text
+          className={CSS.cls(
+            CSS.B("select-multiple-trigger-placeholder"),
+            variant === "shadow" && CSS.M("reveal"),
+          )}
+        >
           {preview === true ? (
             "None"
           ) : (
@@ -230,7 +241,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button ref={triggerRef} variant={variant} onClick={toggle}>
+        <Button.Button ref={triggerRef} variant="text" onClick={toggle}>
           <Icon.Add color={9} />
         </Button.Button>
       )}
