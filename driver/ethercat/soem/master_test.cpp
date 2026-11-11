@@ -378,6 +378,7 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_FALSE(err.matches(errors::REPLIES_BLOCKED));
     EXPECT_EQ(
         err.data,
         "No EtherCAT slaves found on eth0. Check the cable and the power of the first "
@@ -386,14 +387,15 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     EXPECT_TRUE(this->mock->close_called);
 }
 
-/// @brief it should name the DewesoftX filter and the Windows name of the adapter when
-/// the filter is bound to an interface with no slaves.
+/// @brief it should return a blocked replies error that names the DewesoftX filter and
+/// the Windows name of the adapter when the filter is bound to an interface with no
+/// slaves.
 TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
         "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
@@ -411,7 +413,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
         "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "

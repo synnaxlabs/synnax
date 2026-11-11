@@ -123,21 +123,28 @@ uint32_t pop_sdo_abort(
     return code;
 }
 
-/// @brief returns why the interface iface, which messages call name, has no slaves.
-std::string
-no_slaves_message(API &api, const std::string &iface, const std::string &name) {
+/// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
+/// the replies, else errors::NO_SLAVES_FOUND. Messages call iface name.
+x::errors::Error
+no_slaves_error(API &api, const std::string &iface, const std::string &name) {
     const auto found = "No EtherCAT slaves found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
-        return found + "Check the cable and the power of the first device.";
-    return found + std::format(
-                       "The DewesoftX \"EthercatDAQ Filter\" is on this adapter. After "
-                       "DewesoftX starts, the filter blocks EtherCAT replies, also "
-                       "after DewesoftX closes. Clear it in the properties of \"{}\" "
-                       "(Settings > Network & internet > Advanced network settings > "
-                       "More network adapter options, then right-click the adapter > "
-                       "Properties).",
-                       name
-                   );
+        return x::errors::Error(
+            errors::NO_SLAVES_FOUND,
+            found + "Check the cable and the power of the first device."
+        );
+    return x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        found + std::format(
+                    "The DewesoftX \"EthercatDAQ Filter\" is on this adapter. After "
+                    "DewesoftX starts, the filter blocks EtherCAT replies, also "
+                    "after DewesoftX closes. Clear it in the properties of \"{}\" "
+                    "(Settings > Network & internet > Advanced network settings > "
+                    "More network adapter options, then right-click the adapter > "
+                    "Properties).",
+                    name
+                )
+    );
 }
 }
 
@@ -174,13 +181,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         }
         if (this->api->config_init() <= 0) {
             this->api->close();
-            return {
-                {},
-                x::errors::Error(
-                    errors::NO_SLAVES_FOUND,
-                    no_slaves_message(*this->api, this->iface_name, this->name())
-                )
-            };
+            return {{}, no_slaves_error(*this->api, this->iface_name, this->name())};
         }
         // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
         // request to a slave whose last read state is below PRE-OP.

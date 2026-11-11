@@ -194,8 +194,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     for (const auto &master_info: masters) {
         const auto &key = master_info.key;
         if (const auto it = this->next_probes.find(key);
-            it != this->next_probes.end() && scan_ctx.count < it->second)
+            it != this->next_probes.end() && scan_ctx.count < it->second.due) {
+            if (!it->second.failure.empty()) failures.insert(it->second.failure);
             continue;
+        }
         const auto due = this->next_rediscoveries.find(key);
         const bool scheduled = due != this->next_rediscoveries.end();
         const bool rediscover = scheduled && scan_ctx.count >= due->second;
@@ -205,7 +207,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
         if (err.matches(errors::NO_SLAVES_FOUND)) {
-            this->next_probes[key] = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            auto &probe = this->next_probes[key];
+            probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data : "";
+            if (!probe.failure.empty()) failures.insert(probe.failure);
             continue;
         }
         this->next_probes.erase(key);

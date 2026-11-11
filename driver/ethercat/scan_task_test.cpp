@@ -298,6 +298,31 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     EXPECT_EQ(this->master->call_count("scan"), 2);
 }
 
+/// @brief it should report an interface whose replies a filter blocks on each scan, and
+/// still probe it only on every sixth scan.
+TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {
+    const auto blocked = x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
+    );
+    this->master->inject_scan_error(blocked);
+    for (std::size_t i = 0; i < 7; ++i) {
+        const auto [devices, err] = this->scanner->scan({.count = i});
+        ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+        EXPECT_EQ(err.data, blocked.data);
+        EXPECT_TRUE(devices.empty());
+    }
+    EXPECT_EQ(this->master->call_count("scan"), 2);
+    this->master->inject_scan_error(x::errors::NIL);
+    for (std::size_t i = 7; i < 12; ++i)
+        ASSERT_OCCURRED_AS_P(
+            this->scanner->scan({.count = i}),
+            common::PARTIAL_SCAN_ERROR
+        );
+    ASSERT_NIL_P(this->scanner->scan({.count = 12}));
+}
+
 /// @brief it should return a partial scan error for an interface it cannot open, then
 /// scan the interface again when it opens.
 TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
