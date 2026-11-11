@@ -139,7 +139,7 @@ class FileCertificate(Base):
 
     source: Literal["file"] = "file"
     certificate_path: str
-    private_key_path: str | None = None
+    private_key_file: str | None = None
     details: Details | None = None
 
 
