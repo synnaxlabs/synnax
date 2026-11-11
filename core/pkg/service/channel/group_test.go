@@ -69,6 +69,33 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(retrieve(ctx, ch.Key()).Group).To(Equal(&g.Key))
 	})
 
+	It(
+		"Should create the index of a calculated channel in its group",
+		func(ctx SpecContext) {
+			idx := create(ctx, nil)
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: idx.LocalKey,
+			}
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				Expression: "return " + data.Name,
+				Group:      &g.Key,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.NewWriter(tx)
+				if err := w.Create(ctx, &data); err != nil {
+					return err
+				}
+				return w.Create(ctx, &calc)
+			})).To(Succeed())
+			calcIdx := retrieve(ctx, retrieve(ctx, calc.Key()).Index())
+			Expect(calcIdx.IsIndex).To(BeTrue())
+			Expect(calcIdx.Group).To(Equal(&g.Key))
+		},
+	)
+
 	It("Should reject a group that does not exist", func(ctx SpecContext) {
 		ch := channel.Channel{
 			Name:     UniqueChannelName(),

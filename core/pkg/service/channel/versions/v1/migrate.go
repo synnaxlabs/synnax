@@ -10,6 +10,10 @@
 package v1
 
 import (
+	"context"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -25,3 +29,37 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ch
 	SetGroup:     func(e *Channel, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: false,
 })
+
+// IndexGroupMigration moves the index of each grouped calculated channel into the
+// group of that channel when the index has no group.
+var IndexGroupMigration = migrate.New("v61_calculated_index_group", migrateIndexGroups)
+
+func migrateIndexGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	var calculated []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return c.IsCalculated() && c.LocalIndex != 0 && c.Group != nil, nil
+		})).
+		Entries(&calculated).
+		Exec(ctx, tx); err != nil || len(calculated) == 0 {
+		return err
+	}
+	groups := make(map[Key]*groupv1.Key, len(calculated))
+	for _, c := range calculated {
+		groups[c.Index()] = c.Group
+	}
+	var indexes []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			_, ok := groups[c.Key()]
+			return ok && c.Group == nil, nil
+		})).
+		Entries(&indexes).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	for i := range indexes {
+		indexes[i].Group = groups[indexes[i].Key()]
+	}
+	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, indexes...)
+}

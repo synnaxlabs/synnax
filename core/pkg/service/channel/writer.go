@@ -423,6 +423,7 @@ func (w Writer) create(
 			Virtual:     true,
 			Leaseholder: node.KeyFree,
 			Internal:    ch.Internal,
+			Group:       ch.Group,
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
 	}
