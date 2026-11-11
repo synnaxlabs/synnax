@@ -35,15 +35,15 @@ interface ContentProps {
 
 const Content = ({ viewKey }: ContentProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(viewKey);
-  const { update: dispatch } = PView.useDispatch();
+  const { update: setFields } = PView.useSetFields();
   if (item == null) return null;
   const handleIconChange = (next?: string) =>
-    dispatch({
+    setFields({
       key: viewKey,
       actions: view.set({ path: ["icon"], value: next ?? null }),
     });
   const handleColorChange = (next?: color.Color) =>
-    dispatch({
+    setFields({
       key: viewKey,
       actions: view.set({
         path: ["color"],

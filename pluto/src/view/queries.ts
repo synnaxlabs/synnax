@@ -92,13 +92,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface DispatchParams {
+export interface SetFieldsParams {
   key: view.Key;
   actions: view.Action | view.Action[];
 }
 
-/** Applies actions to a view, such as a set of its icon or its color. */
-export const { useUpdate: useDispatch } = Flux.createUpdate<DispatchParams>({
+/** Sets fields of a view, such as its icon or its color. */
+export const { useUpdate: useSetFields } = Flux.createUpdate<SetFieldsParams>({
   name: RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {

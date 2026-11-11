@@ -212,10 +212,10 @@ describe("View queries", () => {
       expect(retrieved.name).toEqual("renamed-view");
     });
   });
-  describe("useDispatch", () => {
+  describe("useSetFields", () => {
     it("should set the icon and color of a view", async () => {
       const created = await client.views.create({ name: "styled-view", type: "range" });
-      const { result } = renderHook(() => View.useDispatch(), { wrapper });
+      const { result } = renderHook(() => View.useSetFields(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({
           key: created.key,
