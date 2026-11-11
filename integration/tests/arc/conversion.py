@@ -200,6 +200,60 @@ func wrap_i16() {x i16} {
 }
 in_wrap_i16 -> wrap_i16()
 
+// Each result is taken from the expression and again from a stateful variable, which
+// stores the value at its declared width.
+func spec_cast_neg() {x i32} {
+    s i8 $= 0
+    s = i8(x)
+    direct i64 := 0
+    if i8(x) < 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s < 0 {
+        stored = 1
+    }
+    out_spec_cast_neg = direct
+    out_spec_cast_neg_stored = stored
+    out_spec_cast_neg_value = i64(i8(x))
+    out_spec_cast_neg_value_stored = i64(s)
+}
+in_spec_cast_neg -> spec_cast_neg()
+
+func spec_half() {x u8} {
+    s u8 $= 0
+    s = x + 1
+    out_spec_half = i64((x + 1) / 2)
+    out_spec_half_stored = i64(s / 2)
+}
+in_spec_half -> spec_half()
+
+func spec_neg() {x i8} {
+    s i8 $= 0
+    s = -x
+    direct i64 := 0
+    if -x > 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s > 0 {
+        stored = 1
+    }
+    out_spec_neg = direct
+    out_spec_neg_stored = stored
+    out_spec_neg_value = i64(-x)
+    out_spec_neg_value_stored = i64(s)
+}
+in_spec_neg -> spec_neg()
+
+func spec_cast_wide() {x i64} {
+    s i8 $= 0
+    s = i8(x)
+    out_spec_cast_wide = i64(i8(x))
+    out_spec_cast_wide_stored = i64(s)
+}
+in_spec_cast_wide -> spec_cast_wide()
+
 // ───────── Flow-context casts (inline expression in flow) ─────────
 // The cast.go path that compiles in-flow expressions differs from the WASM
 // function-body path above: the value is read straight from channel state at
@@ -255,6 +309,10 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_wrap_u16", sy.DataType.UINT16),
     ("in_wrap_i8", sy.DataType.INT8),
     ("in_wrap_i16", sy.DataType.INT16),
+    ("in_spec_cast_neg", sy.DataType.INT32),
+    ("in_spec_half", sy.DataType.UINT8),
+    ("in_spec_neg", sy.DataType.INT8),
+    ("in_spec_cast_wide", sy.DataType.INT64),
 ]
 
 # Each entry is an input channel, a value to write, and the i64 outputs to expect.
@@ -551,6 +609,56 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i16_div": -40,
             "out_wrap_i16_cmp": -32727,
         },
+    ),
+    # A narrow value from an expression and from a stateful variable. The two cases
+    # that test a sign also check the exact value.
+    (
+        "in_spec_cast_neg",
+        200,
+        {
+            "out_spec_cast_neg": 1,
+            "out_spec_cast_neg_stored": 1,
+            "out_spec_cast_neg_value": -56,
+            "out_spec_cast_neg_value_stored": -56,
+        },
+    ),
+    (
+        "in_spec_cast_neg",
+        100,
+        {
+            "out_spec_cast_neg": 0,
+            "out_spec_cast_neg_stored": 0,
+            "out_spec_cast_neg_value": 100,
+            "out_spec_cast_neg_value_stored": 100,
+        },
+    ),
+    ("in_spec_half", 9, {"out_spec_half": 5, "out_spec_half_stored": 5}),
+    ("in_spec_half", 255, {"out_spec_half": 0, "out_spec_half_stored": 0}),
+    (
+        "in_spec_neg",
+        -5,
+        {
+            "out_spec_neg": 1,
+            "out_spec_neg_stored": 1,
+            "out_spec_neg_value": 5,
+            "out_spec_neg_value_stored": 5,
+        },
+    ),
+    (
+        "in_spec_neg",
+        -128,
+        {
+            "out_spec_neg": 0,
+            "out_spec_neg_stored": 0,
+            "out_spec_neg_value": -128,
+            "out_spec_neg_value_stored": -128,
+        },
+    ),
+    ("in_spec_cast_wide", 5, {"out_spec_cast_wide": 5, "out_spec_cast_wide_stored": 5}),
+    (
+        "in_spec_cast_wide",
+        511,
+        {"out_spec_cast_wide": -1, "out_spec_cast_wide_stored": -1},
     ),
 ]
 
