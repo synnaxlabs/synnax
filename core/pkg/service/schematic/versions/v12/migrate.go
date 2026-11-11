@@ -175,8 +175,9 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	return out, nil
 }
 
-// Migration lifts stored schematics from v11 to v12, which stores the precision and
-// stroke widths as bytes and the style of each edge on the edge.
+// Migration lifts stored schematics from v11 to v12. It stores the precision, stroke
+// widths, and label wrap widths as integers, sets the text level of each field symbol,
+// and moves the style of each edge onto the edge.
 var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
 // MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
