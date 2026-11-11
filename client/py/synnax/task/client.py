@@ -505,34 +505,38 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task goes on the rack of the
-        devices that its config or its channels name, and moves when they move to
-        another rack. A rack that the caller sets instead stays on later configures.
-        A task that names no device keeps its rack, or goes on the embedded rack when
-        it has none. Configure creates a task that does not exist yet, and sets the
-        name, rack, and config of a task that does.
+        to the driver on the next start command. A task that names devices, in its
+        config or its channels, goes on their rack and moves with them. A task that
+        names no device stays on the rack that the caller sets or the cluster stores,
+        or goes on the embedded rack when it has none. Configure creates a task that
+        does not exist yet, and sets the name, rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
-        :raises ValidationError: If the devices are on different racks, if the task
-            exists and the config has a field that its type does not declare, or if
-            the task is a snapshot.
+        :raises ValidationError: If the devices are on different racks, if the caller
+            sets a rack other than theirs, if the task exists and the config has a
+            field that its type does not declare, or if the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
         stored = self.retrieve(keys=[pld.key])
-        follows = pld.rack == 0 or (
-            bool(stored) and self._follows_devices(stored[0], pld.rack)
-        )
-        if follows and (devices := _config_devices(pld.config)):
+        if devices := _config_devices(pld.config):
             racks = {self._device_client.retrieve(key=d).rack for d in devices}
             if len(racks) > 1:
                 raise exceptions.ValidationError(
                     f"The devices {devices} of task {pld.name} must be on one rack, "
                     f"but they are on the racks {sorted(racks)}"
                 )
-            pld.rack = racks.pop()
+            rack = racks.pop()
+            # A rack that the cluster stores is not a choice of the caller.
+            chosen = pld.rack != 0 and not (stored and stored[0].rack == pld.rack)
+            if chosen and pld.rack != rack:
+                raise exceptions.ValidationError(
+                    f"Task {pld.name} must be on the rack {rack} of its devices, not "
+                    f"on the rack {pld.rack}"
+                )
+            pld.rack = rack
         pld = self.maybe_assign_def_rack(pld)
         if not stored:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
@@ -547,15 +551,6 @@ class Client:
         self._client.send("/task/dispatch", req, Empty)
         task.set_internal(self.retrieve(key=pld.key))
         return task
-
-    def _follows_devices(self, stored: Task, rack: rack_.Key) -> bool:
-        """Returns whether rack is the stored rack of a task and the rack of the
-        devices in its stored config, which means no caller set it."""
-        keys = _config_devices(stored.config)
-        if stored.rack != rack or not keys:
-            return False
-        devices = self._device_client.retrieve(keys=keys)
-        return {d.rack for d in devices} == {rack}
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))

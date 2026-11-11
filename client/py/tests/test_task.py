@@ -668,6 +668,19 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
+    def test_configure_moves_task_to_rack_of_first_channel_device(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should move a task configured with no channels to the rack of the device
+        that its first channel names."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(name="test", channels=[])
+        client.tasks.configure(tsk)
+        tsk.config.channels.append(_ai_channel(client, 0, device=dev.key))
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
     def test_configure_rejects_devices_on_different_racks(
         self, client: sy.Synnax
     ) -> None:
@@ -696,8 +709,11 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
 
-    def test_configure_keeps_set_rack(self, client: sy.Synnax) -> None:
-        """Should keep a rack set on the task over the rack of its device."""
+    def test_configure_rejects_rack_other_than_rack_of_device(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when the caller sets a rack other than the rack of the device
+        of a task."""
         dev = client.devices.create(_device(client.racks.create(name="a").key))
         rack = client.racks.create(name=str(uuid4()))
         tsk = sy.Task(
@@ -706,22 +722,33 @@ class TestTaskClient:
             rack=rack.key,
             config={"device": dev.key},
         )
-        client.tasks.configure(tsk)
-        assert tsk.rack == rack.key
-        client.tasks.configure(tsk)
-        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+        with pytest.raises(sy.ValidationError, match="must be on the rack"):
+            client.tasks.configure(tsk)
 
-    def test_configure_keeps_rack_set_on_configured_task(
+    def test_configure_rejects_rack_change_away_from_device(
         self, client: sy.Synnax
     ) -> None:
-        """Should keep a rack that the caller sets on a configured task over the rack
-        of its device, on later configures too."""
+        """Should raise when the caller moves a configured task off the rack of its
+        device."""
         dev = client.devices.create(_device(client.racks.create(name="a").key))
-        rack = client.racks.create(name=str(uuid4()))
         tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
         client.tasks.configure(tsk)
-        tsk.rack = rack.key
-        client.tasks.configure(tsk)
+        tsk.rack = client.racks.create(name=str(uuid4())).key
+        with pytest.raises(sy.ValidationError, match="must be on the rack"):
+            client.tasks.configure(tsk)
+
+    def test_configure_moves_task_off_a_wrong_rack(self, client: sy.Synnax) -> None:
+        """Should move a stored task that is not on the rack of its device onto that
+        rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        created = client.tasks.create(
+            name="test",
+            type="modbus_read",
+            rack=client.racks.retrieve_embedded_rack().key,
+            config={"device": dev.key},
+        )
+        tsk = client.tasks.retrieve(key=created.key)
         client.tasks.configure(tsk)
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
