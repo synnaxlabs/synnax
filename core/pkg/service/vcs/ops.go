@@ -60,12 +60,9 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 	defer s.mu.Unlock()
 	if req.Token == "" && s.conn.Token != "" && req.RemoteURL != "" &&
 		host(req.RemoteURL) != host(s.conn.RemoteURL) {
-		return Status{}, errors.Mark(
-			errors.New(
-				"Enter the access token again. The Core never sends a saved token "+
-					"to a new host.",
-			),
-			validate.ErrValidation,
+		return Status{}, validate.Errorf(
+			"Enter the access token again. The Core never sends a saved token to a " +
+				"new host.",
 		)
 	}
 	conn := s.conn
@@ -365,13 +362,10 @@ func (s *Service) Discard(
 		if _, ok := headTree.items[id]; ok {
 			st.from = headTree
 		} else if id.Type == resource.TypeChannel {
-			return Inverse{}, errors.Mark(
-				errors.Newf(
-					"Version control never deletes channels, so it cannot discard "+
-						"the new channel %s.",
-					work.items[id].name,
-				),
-				validate.ErrValidation,
+			return Inverse{}, validate.Errorf(
+				"Version control never deletes channels, so it cannot discard the "+
+					"new channel %s.",
+				work.items[id].name,
 			)
 		}
 		steps = append(steps, st)

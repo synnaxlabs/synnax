@@ -44,11 +44,8 @@ var (
 	)
 	// ErrMoved is returned by Apply when the commit of a pull or load target is no
 	// longer the commit the plan reviewed.
-	ErrMoved = errors.Mark(
-		errors.New(
-			"The commits to apply changed after you reviewed them. Open the plan again.",
-		),
-		validate.ErrValidation,
+	ErrMoved = validate.Errorf(
+		"The commits to apply changed after you reviewed them. Open the plan again.",
 	)
 )
 

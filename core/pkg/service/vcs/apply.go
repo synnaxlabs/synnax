@@ -358,13 +358,10 @@ func (a *applier) putChannel(ctx context.Context, t *tree, id resource.ID) error
 	if !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	return errors.Mark(
-		errors.Newf(
-			"Channel %s does not exist on this Core. Version control cannot create "+
-				"it, since tasks and visualizations name channels by key.",
-			f.Name,
-		),
-		validate.ErrValidation,
+	return validate.Errorf(
+		"Channel %s does not exist on this Core. Version control cannot create it, "+
+			"since tasks and visualizations name channels by key.",
+		f.Name,
 	)
 }
 
