@@ -775,7 +775,7 @@ class TestTaskClient:
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_keeps_rack_of_task_without_device(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should keep the rack of a configured task whose config names no device."""
         rack = client.racks.create(name=str(uuid4()))
@@ -783,7 +783,7 @@ class TestTaskClient:
             name="test",
             type="pagerduty_alert",
             rack=rack.key,
-            config={"routing_key": "rk-r"},
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
         client.tasks.configure(tsk)
