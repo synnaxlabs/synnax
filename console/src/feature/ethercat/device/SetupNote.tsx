@@ -10,6 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -24,7 +25,6 @@ const SETUP_DOCS = "hardware/ethercat/dewesoft#set-up-a-module-in-synnax";
 
 interface NoteBodyProps {
   variant: "warning" | "info";
-  className?: string;
   title: string;
   /** Sits at the right of the text when it fits, else below it. */
   action?: ReactNode;
@@ -33,20 +33,11 @@ interface NoteBodyProps {
 
 const NoteBody = ({
   variant,
-  className,
   title,
   action,
   children,
 }: NoteBodyProps): ReactElement => (
-  <Note.Note
-    variant={variant}
-    className={className}
-    x
-    align="center"
-    justify="between"
-    gap="medium"
-    wrap
-  >
+  <Note.Note variant={variant} x align="center" justify="between" gap="medium" wrap>
     <Flex.Box y gap="small">
       <Text.Text weight={500} status={variant === "warning" ? "warning" : undefined}>
         {variant === "warning" ? <Icon.Warning /> : <Icon.Info />}
@@ -65,7 +56,6 @@ const Detail = ({ children }: { children: ReactNode }): ReactElement => (
 );
 
 interface ReaderNoteProps {
-  className?: string;
   slave: SlaveDevice;
   reader: string;
   shared: boolean;
@@ -77,7 +67,6 @@ interface ReaderNoteProps {
  * has one, and shows why a switch failed.
  */
 const ReaderNote = ({
-  className,
   slave,
   reader,
   shared,
@@ -103,7 +92,6 @@ const ReaderNote = ({
   return (
     <NoteBody
       variant={shared ? "info" : "warning"}
-      className={className}
       title={
         shared ? `${reader} sets up this device` : `Only ${reader} can use this device`
       }
@@ -122,9 +110,41 @@ const ReaderNote = ({
   );
 };
 
+/** @returns the note for the slave, or null when Synnax alone sets it up. */
+const noteOf = (
+  slave: SlaveDevice,
+  switched: boolean,
+  onSwitched: () => void,
+): ReactElement | null => {
+  const { properties } = slave;
+  const setup = of(properties);
+  const restarting =
+    switched && (setup.kind !== "synnax" || !confirmsSwitch(properties));
+  if (setup.kind === "switched" || restarting)
+    return (
+      <NoteBody variant="warning" title="Restart the power of the device">
+        {properties.settings?.mode?.bus === 2 && (
+          <Detail>First, connect Synnax to EtherCAT bus 1 IN.</Detail>
+        )}
+      </NoteBody>
+    );
+  if (setup.kind === "synnax") return null;
+  if (setup.kind === "bus")
+    return <NoteBody variant="warning" title="Connect Synnax to EtherCAT bus 1 IN" />;
+  return (
+    <ReaderNote
+      slave={slave}
+      reader={setup.reader}
+      shared={setup.kind === "shared"}
+      onSwitched={onSwitched}
+    />
+  );
+};
+
 export interface SetupNoteProps {
   deviceKey: string;
-  className?: string;
+  /** Lines the note up with the controls of the form sections it sits in. */
+  aligned?: boolean;
 }
 
 /**
@@ -133,43 +153,12 @@ export interface SetupNoteProps {
  */
 export const SetupNote = ({
   deviceKey,
-  className,
+  aligned = false,
 }: SetupNoteProps): ReactElement | null => {
   const { data: slave } = useResultSlave({ key: deviceKey });
   const [switched, setSwitched] = useState(false);
   if (slave == null) return null;
-  const { properties } = slave;
-  const setup = of(properties);
-  const restarting =
-    switched && (setup.kind !== "synnax" || !confirmsSwitch(properties));
-  if (setup.kind === "switched" || restarting)
-    return (
-      <NoteBody
-        variant="warning"
-        className={className}
-        title="Restart the power of the device"
-      >
-        {properties.settings?.mode?.bus === 2 && (
-          <Detail>First, connect Synnax to EtherCAT bus 1 IN.</Detail>
-        )}
-      </NoteBody>
-    );
-  if (setup.kind === "synnax") return null;
-  if (setup.kind === "bus")
-    return (
-      <NoteBody
-        variant="warning"
-        className={className}
-        title="Connect Synnax to EtherCAT bus 1 IN"
-      />
-    );
-  return (
-    <ReaderNote
-      className={className}
-      slave={slave}
-      reader={setup.reader}
-      shared={setup.kind === "shared"}
-      onSwitched={() => setSwitched(true)}
-    />
-  );
+  const note = noteOf(slave, switched, () => setSwitched(true));
+  if (note == null || !aligned) return note;
+  return <Form.Aligned>{note}</Form.Aligned>;
 };

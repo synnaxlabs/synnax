@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/ethercat/task/ChannelDetails.css";
-
 import { ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -37,7 +35,6 @@ import {
   WRITE_CHANNEL_SCHEMAS,
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
-import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 const renderSelectDataType = Component.renderProp(
@@ -74,12 +71,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
     <PForm.Sections>
       <PForm.Section title="Entry">
         <SelectSlave path={path.device} />
-        {noted && (
-          <SetupNote
-            deviceKey={ch.device}
-            className={CSS.BE("ethercat-channel-details", "note")}
-          />
-        )}
+        {noted && <SetupNote deviceKey={ch.device} aligned />}
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && !calibrated && (
           <PForm.Field
