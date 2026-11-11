@@ -97,6 +97,7 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 
 // fields compares the stored fields of two structs, bases included.
 func (s shapes) fields(at string, old, new resolution.Type) string {
+	s.coverBases(old)
 	oldFields := storedFields(resolution.UnifiedFields(old, s.old))
 	newFields := storedFields(resolution.UnifiedFields(new, s.new))
 	if !slices.EqualFunc(oldFields, newFields, func(a, b resolution.Field) bool {
@@ -123,6 +124,19 @@ func (s shapes) fields(at string, old, new resolution.Type) string {
 		}
 	}
 	return ""
+}
+
+// coverBases marks the bases of old as covered, since fields compares their fields.
+func (s shapes) coverBases(old resolution.Type) {
+	for _, ext := range old.Form.(resolution.StructForm).Extends {
+		s.covered.Add(ext.Name)
+		base, _, ok := resolution.Dealias(ext, s.old)
+		if !ok || s.covered.Contains(base.QualifiedName) {
+			continue
+		}
+		s.covered.Add(base.QualifiedName)
+		s.coverBases(base)
+	}
 }
 
 func (s shapes) union(at string, oldType, newType resolution.Type) string {

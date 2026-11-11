@@ -472,6 +472,39 @@ Channel union on type {
 			))
 		})
 
+		It("Should pass a stored base that moves to another chain", func() {
+			write(releaseRoot, v0Path, `
+Base struct {
+    key uuid @key
+
+    @go marshal
+}
+
+Channel struct extends Base {
+    name string
+
+    @go marshal
+}
+`)
+			write(root, "schemas/synnax/versions/resource/v0.oracle", `
+Base struct {
+    key uuid @key
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+import "schemas/synnax/versions/resource/v0"
+
+Channel struct extends resource.Base {
+    name string
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
 		It("Should fail a union variant that drops a base field", func() {
 			write(releaseRoot, v0Path, `
 Base struct {
