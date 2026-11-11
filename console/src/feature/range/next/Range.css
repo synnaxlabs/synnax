@@ -1,0 +1,409 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-item {
+    gap: 1rem;
+}
+
+.console-range-item__indent {
+    flex-shrink: 0;
+    width: calc(var(--console-range-depth, 0) * 3rem);
+    margin-right: -1rem;
+}
+
+.console-range-item__caret {
+    flex-shrink: 0;
+    justify-content: center;
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0;
+
+    & svg {
+        transition: transform 0.1s ease;
+    }
+}
+
+.console-range-item__caret--expanded svg {
+    transform: rotate(90deg);
+}
+
+.console-range-item__swatch {
+    display: flex;
+    flex-shrink: 0;
+    width: var(--pluto-height-tiny);
+}
+
+.console-range-item__name {
+    flex: 1 1 0;
+    min-width: 0;
+
+    & > :first-child {
+        flex-shrink: 0;
+        max-width: 100%;
+    }
+}
+
+.console-range-item__path {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.console-range-item__labels {
+    display: flex;
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.console-range-item__when {
+    flex-shrink: 0;
+}
+
+.console-range-item__start {
+    flex-shrink: 0;
+    width: 19rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-range-item__span {
+    flex-shrink: 0;
+    justify-content: flex-end;
+    width: 11rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.console-range-item__favorite {
+    flex-shrink: 0;
+    justify-content: center;
+    width: 4.5rem;
+    min-width: 4.5rem;
+}
+
+.console-range-explorer__list .console-range-item {
+    padding-right: 1.5rem;
+}
+
+.console-range-explorer__more {
+    padding: 1rem 2rem;
+}
+
+.console-range-explorer__message {
+    padding: 3rem 2rem;
+}
+
+.console-range-timeline {
+    --console-range-timeline-label: 46rem;
+    --console-range-timeline-line: var(--pluto-gray-l4);
+    --console-range-timeline-bg: var(--pluto-gray-l0);
+
+    padding-top: 0;
+}
+
+.console-range-timeline__header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-shrink: 0;
+    height: 5rem;
+    min-height: 5rem;
+
+    /* Spans the list's side padding, so its columns line up with the lanes. */
+    margin: 0 -1rem;
+    padding: 0 3rem 0 2rem;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    background: var(--console-range-timeline-bg);
+}
+
+.console-range-timeline__label {
+    flex: 0 0 var(--console-range-timeline-label);
+    gap: 1rem;
+    width: var(--console-range-timeline-label);
+    min-width: 0;
+    padding-right: 2rem;
+}
+
+.console-range-timeline__controls {
+    margin-left: -0.5rem;
+}
+
+.console-range-timeline__axis {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+.console-range-timeline__tick {
+    position: absolute;
+    top: 50%;
+    padding-left: 0.75rem;
+    transform: translateY(-50%);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.console-range-timeline__lane {
+    gap: 0;
+    height: 5.5rem;
+    min-height: 5.5rem;
+    padding: 0 2rem;
+
+    /* The lane spaces its leading checkbox as the tree does. The label gives up the
+       width that takes, so the track lines up with the axis. */
+    & > .console-range-timeline__label {
+        --console-range-timeline-lane-label: calc(
+            var(--console-range-timeline-label) - var(--pluto-height-medium) + 0.5rem
+        );
+
+        flex-basis: var(--console-range-timeline-lane-label);
+        width: var(--console-range-timeline-lane-label);
+        margin-left: 1rem;
+    }
+}
+
+.console-range-timeline__track {
+    position: relative;
+    flex: 1 1 0;
+    align-self: stretch;
+    min-width: 0;
+    overflow: hidden;
+    background: var(--console-range-timeline-grid, none);
+
+    &::after {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--console-range-timeline-now, -10px);
+        width: 1px;
+        background: var(--pluto-primary-z);
+        content: "";
+        opacity: 0.6;
+    }
+}
+
+.console-range-timeline__bar {
+    --console-range-bar: var(--console-range-color, var(--pluto-gray-l8));
+
+    position: absolute;
+    top: 50%;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    transform: translateY(-50%);
+    border: var(--pluto-border-width) solid var(--console-range-bar);
+    border-radius: var(--pluto-border-radius-small);
+    background: color-mix(in srgb, var(--console-range-bar) 22%, transparent);
+    cursor: zoom-in;
+
+    &:hover {
+        background: color-mix(in srgb, var(--console-range-bar) 38%, transparent);
+    }
+}
+
+.console-range-timeline__bar--plain {
+    border-color: var(--pluto-gray-l8);
+    background: var(--pluto-gray-l5);
+
+    &:hover {
+        background: var(--pluto-gray-l6);
+    }
+}
+
+.console-range-timeline__bar--open {
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    mask-image: linear-gradient(
+        to right,
+        #000 max(50%, calc(100% - 3rem)),
+        transparent
+    );
+}
+
+.console-range-timeline__bar--cut-start {
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.console-range-timeline__bar--cut-end {
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.console-range-overview__scroll {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.console-range-overview {
+    width: 100%;
+    max-width: 175rem;
+    margin: 0 auto;
+    padding: 7rem 7rem 12rem;
+
+    & > * + * {
+        margin-top: 6rem;
+    }
+}
+
+.console-range-overview__top {
+    gap: 2.5rem;
+}
+
+/* The add lines of empty sections sit together, as one short list. */
+.console-range-overview__add {
+    width: fit-content;
+    margin-left: -1.5rem;
+
+    & + & {
+        margin-top: 0.5rem;
+    }
+}
+
+.console-range-overview__header {
+    gap: 2rem;
+}
+
+.console-range-overview__crumbs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 -1rem -1.5rem;
+}
+
+.console-range-overview__crumb {
+    font-weight: 400;
+}
+
+.console-range-overview__separator {
+    color: var(--pluto-gray-l7);
+}
+
+.console-range-overview__name {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-left: -0.5rem;
+}
+
+.console-range-overview__actions {
+    flex-shrink: 0;
+}
+
+.console-range-overview__timeline {
+    margin-left: -2rem;
+}
+
+.console-range-overview__labels-select {
+    width: fit-content;
+}
+
+/* Puts the chip, not the box around it, on the content edge. */
+.console-range-overview__color {
+    margin-left: -0.65rem;
+}
+
+.console-range-overview__caret {
+    display: flex;
+    transition: transform 0.1s ease;
+
+    .console-range-overview__section--collapsed & {
+        transform: rotate(-90deg);
+    }
+}
+
+.console-range-overview__children {
+    max-height: 76rem;
+
+    & .console-range-timeline {
+        --console-range-timeline-label: 36rem;
+        --console-range-timeline-bg: var(--pluto-gray-l1);
+    }
+}
+
+.console-range-overview__fields {
+    padding: 1rem;
+}
+
+.console-range-overview__field {
+    display: grid;
+    grid-template-columns: 34rem minmax(0, 1fr) auto;
+    gap: 2rem;
+    align-items: center;
+    min-height: 5.5rem;
+    padding: 0 1rem 0 1.5rem;
+    border-radius: var(--pluto-border-radius);
+
+    &:hover {
+        background: var(--pluto-gray-l2);
+    }
+}
+
+.console-range-overview__field-name,
+.console-range-overview__field-value {
+    min-width: 0;
+}
+
+.console-range-overview__field-input {
+    width: calc(100% + 1.5rem);
+    margin-left: -1.5rem;
+}
+
+.console-range-overview__field-actions {
+    gap: 0.5rem;
+    opacity: 0;
+
+    .console-range-overview__field:hover &,
+    .console-range-overview__field:focus-within & {
+        opacity: 1;
+    }
+}
+
+.console-range-overview__field-note {
+    flex-shrink: 0;
+    padding-right: 0.5rem;
+}
+
+.console-range-overview__channel-dialog {
+    min-width: 60rem;
+}
+
+.console-range-overview__document {
+    width: 100%;
+    min-height: 5.5rem;
+    padding: 0 1.5rem;
+}
+
+.console-range-overview__document-icon,
+.console-range-overview__document-kind {
+    flex-shrink: 0;
+}
+
+.console-range-overview__document-name {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.console-range-overview__document-kind {
+    margin-left: auto;
+}

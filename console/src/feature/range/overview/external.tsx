@@ -11,13 +11,16 @@ import { query, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Ranger } from "@synnaxlabs/pluto";
 
+import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 
 const TAB: Panel.Tab = {
-  Content: Panel.lazyComponent(
-    () => import("@/feature/range/overview/Overview"),
-    "Overview",
-  ),
+  Content: FLAGS.ranges
+    ? Panel.lazyComponent(() => import("@/feature/range/next/Overview"), "Overview")
+    : Panel.lazyComponent(
+        () => import("@/feature/range/overview/Overview"),
+        "Overview",
+      ),
   Icon: Icon.Range,
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
