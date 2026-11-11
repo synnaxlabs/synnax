@@ -799,14 +799,13 @@ var _ = Describe("Service", func() {
 			decoding = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:                 DeferClose(gorp.Wrap(memkv.New())),
-					Type:               "decode_test",
-					Ladder:             arcversions.ConfigLadder,
-					LegacyVersion:      1,
-					SetEntryKey:        (*arctask.Config).SetKey,
-					PatchEntry:         (*arctask.Config).Patch,
-					HashEntry:          (*arctask.Config).HashContent,
-					ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					Type:          "decode_test",
+					Ladder:        arcversions.ConfigLadder,
+					LegacyVersion: 1,
+					SetEntryKey:   (*arctask.Config).SetKey,
+					PatchEntry:    (*arctask.Config).Patch,
+					HashEntry:     (*arctask.Config).HashContent,
 					ReconcileEntry: func(
 						ctx context.Context,
 						tx gorp.Tx,
