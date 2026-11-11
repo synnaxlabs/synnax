@@ -19,7 +19,6 @@ export * from "@/select/Label";
 export * from "@/select/List";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
-export { usePlaceholder } from "@/select/placeholder";
 export { useKeyboard } from "@/select/scope";
 export * from "@/select/Search";
 export * from "@/select/Simple";
