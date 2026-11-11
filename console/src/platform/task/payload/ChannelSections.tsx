@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
-import { DataType, deep } from "@synnaxlabs/x";
+import { DataType, deep, type payload } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { type Form as PlatformForm } from "@/platform/form";
@@ -20,11 +20,12 @@ import { DataTypeField } from "@/platform/task/payload/DataTypeField";
 import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import { TimeFormatField } from "@/platform/task/payload/TimeFormatField";
-import { type JSONType, type TimeFormat } from "@/platform/task/payload/types";
 
 const renderSelectJSONType = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<JSONType>, "children" | "resourceName">) => (
-    <Select.Simple<JSONType> {...p} resourceName="JSON type">
+  (
+    p: Omit<Select.SingleSimpleProps<payload.JSONType>, "children" | "resourceName">,
+  ) => (
+    <Select.Simple<payload.JSONType> {...p} resourceName="JSON type">
       {JSON_TYPE_ITEMS}
     </Select.Simple>
   ),
@@ -34,8 +35,8 @@ interface CommandField {
   channel: channel.Key;
   dataType: string;
   pointer: string;
-  jsonType: JSONType;
-  timeFormat?: TimeFormat;
+  jsonType: payload.JSONType;
+  timeFormat?: payload.TimeFormat;
   enumValues: PlatformForm.Entry<"label", number>[];
 }
 
@@ -64,7 +65,7 @@ export const ChannelSections = ({
   const { data: dataType } = Channel.useResultDataType(query);
   const { set } = Form.useContext();
   // The Driver rejects enum values on any JSON type but string.
-  const handleJSONTypeChange = (value: JSONType) => {
+  const handleJSONTypeChange = (value: payload.JSONType) => {
     if (value !== "string") set(field.enumValues, []);
   };
   const pointerInputProps = { placeholder: pointerPlaceholder };

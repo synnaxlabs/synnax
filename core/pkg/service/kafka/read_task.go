@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -34,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -307,7 +307,7 @@ func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
 }
 
 // enums returns the labels of entries in the form xjson takes.
-func enums(entries []http.EnumEntry) []xjson.Enum {
+func enums(entries []payload.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
 		out[i] = xjson.NewEnum(e.Label, e.Value)

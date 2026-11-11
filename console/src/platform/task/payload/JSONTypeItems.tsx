@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-
-import { type JSONType } from "@/platform/task/payload/types";
+import { type payload } from "@synnaxlabs/x";
 
 export const JSON_TYPE_ITEMS = (
   <>
-    <Select.Item<JSONType> itemKey="number">Number</Select.Item>
-    <Select.Item<JSONType> itemKey="string">String</Select.Item>
-    <Select.Item<JSONType> itemKey="boolean">Boolean</Select.Item>
+    <Select.Item<payload.JSONType> itemKey="number">Number</Select.Item>
+    <Select.Item<payload.JSONType> itemKey="string">String</Select.Item>
+    <Select.Item<payload.JSONType> itemKey="boolean">Boolean</Select.Item>
   </>
 );

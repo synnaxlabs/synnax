@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { mqtt } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, payload } from "@synnaxlabs/x";
 
 import { type BrowsedField, type ReadField } from "@/feature/mqtt/task/types";
 
-const DATA_TYPES: Record<mqtt.JSONType, string> = {
+const DATA_TYPES: Record<payload.JSONType, string> = {
   number: DataType.FLOAT64.toString(),
   boolean: DataType.UINT8.toString(),
   string: DataType.STRING.toString(),
@@ -38,8 +38,8 @@ export const createReadFields = (scalars: BrowsedField[]): ReadField[] => {
  * @returns the JSON type of the sample that a field came from.
  * @throws {Error} if no JSON sample gives a field of its data type.
  */
-export const jsonTypeOf = ({ dataType }: ReadField): mqtt.JSONType => {
-  const type = mqtt.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
+export const jsonTypeOf = ({ dataType }: ReadField): payload.JSONType => {
+  const type = payload.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
   if (type == null) throw new Error(`No JSON sample gives a ${dataType} field`);
   return type;
 };

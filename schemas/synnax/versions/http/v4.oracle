@@ -10,31 +10,37 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v0"
 import "schemas/x/versions/telem/v0"
 
 Method = v2.Method
-
-TimeFormat = v2.TimeFormat
 
 Header = v2.Header
 
 QueryParam = v2.QueryParam
 
-EnumEntry = v2.EnumEntry
-
 ReadField struct extends v2.ReadField {
     disabled
-    optional   bool = false {
+    optional    bool = false {
         @doc value """
             is true when a missing value is normal for this field. The task writes
             fill_value, or NaN on a float channel, and sends no warning.
         """
     }
-    fill_value any? {
+    fill_value  any?                {
         @doc value """
             is the value written when an optional field is missing, typed by the
             channel. Unset writes NaN, which needs a float channel.
         """
+    }
+    time_format payload.TimeFormat? {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values payload.EnumEntry[] {
+        @doc value "maps string labels in the response to numeric channel values."
     }
 }
 
@@ -100,18 +106,46 @@ ReadConfig struct extends task.PersistConfig {
     @go migrate
 }
 
-JSONType = v2.JSONType
-
-GeneratorType = v2.GeneratorType
-
-ChannelField = v2.ChannelField
+ChannelField struct extends v2.ChannelField {
+    json_type   payload.JSONType = number {
+        @doc value "is the JSON type the channel value is serialized as."
+    }
+    time_format payload.TimeFormat? {
+        @doc value """
+            is the output encoding when the command channel holds timestamps. An unset
+            format is ISO 8601.
+        """
+    }
+    enum_values payload.EnumEntry[] {
+        @doc value """
+            maps numeric channel values to string labels. Only valid when json_type is
+            'string'.
+        """
+    }
+}
 
 BaseWriteField = v2.BaseWriteField
 
-WriteField = v2.WriteField
+WriteField union on type extends v2.WriteField {
+    static {
+        json_type payload.JSONType = number {
+            @doc value "is the JSON type the value is serialized as."
+        }
+    }
+    generated {
+        generator   payload.GeneratorType = uuid {
+            @doc value "is the generator that produces a fresh value per request."
+        }
+        time_format payload.TimeFormat?   {
+            @doc value """
+                is the output encoding for timestamp generators. Defaults to iso8601.
+            """
+        }
+    }
+}
 
-WriteEndpoint = v2.WriteEndpoint
+WriteEndpoint struct extends v2.WriteEndpoint {}
 
-WriteConfig = v2.WriteConfig
+WriteConfig struct extends v2.WriteConfig {}
 
 ScanConfig = v2.ScanConfig

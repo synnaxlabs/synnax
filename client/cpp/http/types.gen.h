@@ -20,27 +20,21 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::http {
 
 struct Header;
 struct QueryParam;
-struct EnumEntry;
-struct BaseWriteField;
-struct ScanConfig;
 struct ReadField;
 struct ChannelField;
+struct BaseWriteField;
+struct ScanConfig;
 struct ReadEndpoint;
 struct WriteEndpoint;
 struct ReadConfig;
 struct WriteConfig;
-
-constexpr const char *TIME_FORMAT_ISO_8601 = "iso8601";
-constexpr const char *TIME_FORMAT_UNIX_SEC = "unix_sec";
-constexpr const char *TIME_FORMAT_UNIX_MS = "unix_ms";
-constexpr const char *TIME_FORMAT_UNIX_US = "unix_us";
-constexpr const char *TIME_FORMAT_UNIX_NS = "unix_ns";
 
 constexpr const char *METHOD_GET = "GET";
 constexpr const char *METHOD_HEAD = "HEAD";
@@ -51,13 +45,6 @@ constexpr const char *METHOD_PATCH = "PATCH";
 constexpr const char *METHOD_OPTIONS = "OPTIONS";
 constexpr const char *METHOD_TRACE = "TRACE";
 constexpr const char *METHOD_CONNECT = "CONNECT";
-
-constexpr const char *JSON_TYPE_NUMBER = "number";
-constexpr const char *JSON_TYPE_STRING = "string";
-constexpr const char *JSON_TYPE_BOOLEAN = "boolean";
-
-constexpr const char *GENERATOR_TYPE_UUID = "uuid";
-constexpr const char *GENERATOR_TYPE_TIMESTAMP = "timestamp";
 
 /// @brief Header is a single HTTP header sent with a request.
 struct Header {
@@ -78,36 +65,6 @@ struct QueryParam {
     std::string value = "";
 
     static QueryParam parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief EnumEntry maps a string label in a JSON body to a numeric channel value for
-/// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-struct EnumEntry {
-    /// @brief label is the string label in the JSON body.
-    std::string label = "";
-    /// @brief value is the numeric channel value the label maps to.
-    double value = 0;
-
-    static EnumEntry parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BaseWriteField carries the fields every write body field shares.
-struct BaseWriteField {
-    /// @brief key uniquely identifies the field within the endpoint.
-    std::string key;
-    /// @brief pointer is the JSON Pointer where the value is placed in the body.
-    std::string pointer = "";
-
-    static BaseWriteField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ScanConfig configures an HTTP scan task.
-struct ScanConfig : public ::synnax::task::ScanConfig {
-
-    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -135,7 +92,7 @@ struct ReadField {
     /// holds timestamps. Required for timestamp channels.
     std::optional<std::string> time_format;
     /// @brief enum_values maps string labels in the response to numeric channel values.
-    std::vector<EnumEntry> enum_values;
+    std::vector<::x::payload::EnumEntry> enum_values;
 
     static ReadField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -149,7 +106,7 @@ struct ChannelField {
     /// the endpoint may not declare any additional fields.
     std::string pointer = "";
     /// @brief json_type is the JSON type the channel value is serialized as.
-    std::string json_type = JSON_TYPE_NUMBER;
+    std::string json_type = ::x::payload::JSON_TYPE_NUMBER;
     /// @brief channel is the Synnax command channel that triggers the request.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief name is the human-readable name of the command channel.
@@ -161,9 +118,27 @@ struct ChannelField {
     std::optional<std::string> time_format;
     /// @brief enum_values maps numeric channel values to string labels. Only valid when
     /// json_type is 'string'.
-    std::vector<EnumEntry> enum_values;
+    std::vector<::x::payload::EnumEntry> enum_values;
 
     static ChannelField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseWriteField carries the fields every write body field shares.
+struct BaseWriteField {
+    /// @brief key uniquely identifies the field within the endpoint.
+    std::string key;
+    /// @brief pointer is the JSON Pointer where the value is placed in the body.
+    std::string pointer = "";
+
+    static BaseWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures an HTTP scan task.
+struct ScanConfig : public ::synnax::task::ScanConfig {
+
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -171,7 +146,7 @@ struct ChannelField {
 struct StaticWriteField : public BaseWriteField {
     std::string type = "static";
     /// @brief json_type is the JSON type the value is serialized as.
-    std::string json_type = JSON_TYPE_NUMBER;
+    std::string json_type = ::x::payload::JSON_TYPE_NUMBER;
     /// @brief value is the fixed JSON value placed at the pointer.
     x::json::json value;
 
@@ -183,7 +158,7 @@ struct StaticWriteField : public BaseWriteField {
 struct GeneratedWriteField : public BaseWriteField {
     std::string type = "generated";
     /// @brief generator is the generator that produces a fresh value per request.
-    std::string generator = GENERATOR_TYPE_UUID;
+    std::string generator = ::x::payload::GENERATOR_TYPE_UUID;
     /// @brief time_format is the output encoding for timestamp generators. Defaults to
     /// iso8601.
     std::optional<std::string> time_format;

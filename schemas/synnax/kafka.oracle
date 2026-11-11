@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/http"
 import "schemas/synnax/task"
+import "schemas/x/payload"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/kafka"
@@ -124,13 +125,13 @@ ReadField struct {
         @doc value "is the data type of the extracted value."
         @ts type   "string"
     }
-    time_format http.TimeFormat? {
+    time_format payload.TimeFormat? {
         @doc value """
             is the encoding of the JSON value when the target channel holds timestamps.
             Required for timestamp channels.
         """
     }
-    enum_values http.EnumEntry[] {
+    enum_values payload.EnumEntry[] {
         @doc value """
             maps string labels in the record to numeric or boolean channel values.
         """
@@ -186,16 +187,16 @@ WriteChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    json_type   http.JSONType = number {
+    json_type   payload.JSONType = number {
         @doc value "is the JSON type the sample value is serialized as."
     }
-    time_format http.TimeFormat? {
+    time_format payload.TimeFormat? {
         @doc value """
             is the output encoding when the channel holds timestamps. Required for
             timestamp channels.
         """
     }
-    enum_values http.EnumEntry[] {
+    enum_values payload.EnumEntry[] {
         @doc value """
             maps numeric or boolean channel values to string labels. Only valid when
             json_type is 'string'.
@@ -210,21 +211,21 @@ Record struct {
     value_pointer     string = "/value" {
         @doc value "is the JSON Pointer where the sample value is placed."
     }
-    channel_pointer   string?           {
+    channel_pointer   string?            {
         @doc value """
             is the JSON Pointer where the channel name is placed. Absent omits the name.
         """
     }
-    timestamp_pointer string?           {
+    timestamp_pointer string?            {
         @doc value """
             is the JSON Pointer where the sample timestamp is placed. Absent omits the
             timestamp.
         """
     }
-    time_format       http.TimeFormat = unix_ns {
+    time_format       payload.TimeFormat = unix_ns {
         @doc value "is the encoding of the sample timestamp."
     }
-    fields            http.WriteField[] {
+    fields            http.WriteField[]  {
         @doc value "contains additional static or generated record fields."
     }
 

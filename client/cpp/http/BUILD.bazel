@@ -21,6 +21,7 @@ cc_library(
         "//client/cpp/device",
         "//client/cpp/task",
         "//x/cpp/json",
+        "//x/cpp/payload",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],

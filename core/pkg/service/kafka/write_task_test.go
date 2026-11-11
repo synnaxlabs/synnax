@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -43,9 +44,12 @@ import (
 var _ = Describe("Write task", func() {
 	var (
 		f         driver.Factory
-		unixMs    = http.TimeFormatUnixMs
-		isoFormat = http.TimeFormatISO8601
-		onOff     = []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+		unixMs    = payload.TimeFormatUnixMs
+		isoFormat = payload.TimeFormatISO8601
+		onOff     = []payload.EnumEntry{
+			{Label: "OFF", Value: 0},
+			{Label: "ON", Value: 1},
+		}
 		writeUUID = uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 	)
 	BeforeEach(func() { f = newFactory() })
@@ -149,7 +153,7 @@ var _ = Describe("Write task", func() {
 			index, data := createIndexed(ctx, telem.Uint8T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
-			iso := http.TimeFormatISO8601
+			iso := payload.TimeFormatISO8601
 			startTask(ctx, kafka.WriteConfig{
 				Device:    dev.Key,
 				Topic:     topic,
@@ -161,20 +165,20 @@ var _ = Describe("Write task", func() {
 							BaseWriteField: http.BaseWriteField{
 								Key: "source", Pointer: "/meta/source",
 							},
-							JSONType: http.JSONTypeString,
+							JSONType: payload.JSONTypeString,
 							Value:    "synnax",
 						}},
 						{Variant: http.GeneratedWriteField{
 							BaseWriteField: http.BaseWriteField{
 								Key: "id", Pointer: "/id",
 							},
-							Generator: http.GeneratorTypeUUID,
+							Generator: payload.GeneratorTypeUUID,
 						}},
 						{Variant: http.GeneratedWriteField{
 							BaseWriteField: http.BaseWriteField{
 								Key: "sent", Pointer: "/meta/sent",
 							},
-							Generator:  http.GeneratorTypeTimestamp,
+							Generator:  payload.GeneratorTypeTimestamp,
 							TimeFormat: &iso,
 						}},
 					},
@@ -182,8 +186,8 @@ var _ = Describe("Write task", func() {
 				Channels: []kafka.WriteChannel{{
 					Key:      "c1",
 					Channel:  data.Key(),
-					JSONType: http.JSONTypeString,
-					EnumValues: []http.EnumEntry{
+					JSONType: payload.JSONTypeString,
+					EnumValues: []payload.EnumEntry{
 						{Label: "OFF", Value: 0},
 						{Label: "ON", Value: 1},
 					},
@@ -221,7 +225,7 @@ var _ = Describe("Write task", func() {
 							Key:     "sent",
 							Pointer: "/sent",
 						},
-						Generator: http.GeneratorTypeTimestamp,
+						Generator: payload.GeneratorTypeTimestamp,
 					}}},
 				},
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
@@ -460,7 +464,7 @@ var _ = Describe("Write task", func() {
 						Key:     "source",
 						Pointer: "/meta",
 					},
-					JSONType: http.JSONTypeString,
+					JSONType: payload.JSONTypeString,
 					Value:    "synnax",
 				}}},
 			},
@@ -548,33 +552,53 @@ var _ = Describe("Write task", func() {
 			telem.Uint16T, telem.NewSeriesV[uint16](7), kafka.WriteChannel{}, 7.0),
 		Entry("uint8 as a boolean",
 			telem.Uint8T, telem.NewSeriesV[uint8](1),
-			kafka.WriteChannel{JSONType: http.JSONTypeBoolean}, true),
+			kafka.WriteChannel{JSONType: payload.JSONTypeBoolean}, true),
 		Entry("a boolean as a number",
 			telem.BooleanT, telem.NewSeriesV(true), kafka.WriteChannel{}, 1.0),
 		Entry("a boolean as a string",
 			telem.BooleanT, telem.NewSeriesV(false),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "0"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "0"),
 		Entry("a float as a boolean",
 			telem.Float64T, telem.NewSeriesV[float64](0.5),
-			kafka.WriteChannel{JSONType: http.JSONTypeBoolean}, true),
-		Entry("a uint64 as a string",
-			telem.Uint64T, telem.NewSeriesV[uint64](18446744073709551615),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "18446744073709551615"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeBoolean}, true),
+		Entry(
+			"a uint64 as a string",
+			telem.Uint64T,
+			telem.NewSeriesV[uint64](18446744073709551615),
+			kafka.WriteChannel{
+				JSONType: payload.JSONTypeString,
+			},
+			"18446744073709551615",
+		),
 		Entry("float64 as a string",
 			telem.Float64T, telem.NewSeriesV[float64](2.5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "2.5"),
-		Entry("a value as its enum label",
-			telem.Uint8T, telem.NewSeriesV[uint8](1),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "ON"),
-		Entry("a value outside the enum as text",
-			telem.Uint8T, telem.NewSeriesV[uint8](5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "5"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "2.5"),
+		Entry(
+			"a value as its enum label",
+			telem.Uint8T,
+			telem.NewSeriesV[uint8](1),
+			kafka.WriteChannel{
+				JSONType:   payload.JSONTypeString,
+				EnumValues: onOff,
+			},
+			"ON",
+		),
+		Entry(
+			"a value outside the enum as text",
+			telem.Uint8T,
+			telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{
+				JSONType:   payload.JSONTypeString,
+				EnumValues: onOff,
+			},
+			"5",
+		),
 		Entry("infinity as text",
 			telem.Float64T, telem.NewSeriesV(math.Inf(-1)),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "-Infinity"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "-Infinity"),
 		Entry("int64 as a string",
 			telem.Int64T, telem.NewSeriesV[int64](9007199254740993),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "9007199254740993"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "9007199254740993"),
 		Entry("a timestamp in unix milliseconds",
 			telem.TimestampT, telem.NewSeriesV(10*telem.SecondTS),
 			kafka.WriteChannel{TimeFormat: &unixMs}, 10_000.0),
@@ -583,13 +607,13 @@ var _ = Describe("Write task", func() {
 			kafka.WriteChannel{TimeFormat: &isoFormat}, "1970-01-01T00:00:10Z"),
 		Entry("a string",
 			telem.StringT, telem.NewSeriesV("hi"),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "hi"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "hi"),
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, writeUUID.String()),
 		Entry("bytes as base64",
 			telem.BytesT, telem.NewSeriesV([]byte{0x00, 0xff, 0x3f}),
-			kafka.WriteChannel{JSONType: http.JSONTypeString}, "AP8/"),
+			kafka.WriteChannel{JSONType: payload.JSONTypeString}, "AP8/"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
@@ -612,20 +636,20 @@ var _ = Describe("Write task", func() {
 				ValuePointer:     "/payload/value",
 				ChannelPointer:   new("/channel"),
 				TimestampPointer: new("/meta/sent"),
-				TimeFormat:       http.TimeFormatUnixNs,
+				TimeFormat:       payload.TimeFormatUnixNs,
 				Fields: []http.WriteField{
 					{Variant: http.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{
 							Key: "unit", Pointer: "/payload/unit",
 						},
-						JSONType: http.JSONTypeString,
+						JSONType: payload.JSONTypeString,
 						Value:    "psi",
 					}},
 					{Variant: http.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{
 							Key: "source", Pointer: "/meta/source",
 						},
-						JSONType: http.JSONTypeString,
+						JSONType: payload.JSONTypeString,
 						Value:    "synnax",
 					}},
 				},
@@ -687,7 +711,7 @@ var _ = Describe("Write task", func() {
 	)
 
 	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
-		func(ctx SpecContext, dt telem.DataType, jsonType http.JSONType) {
+		func(ctx SpecContext, dt telem.DataType, jsonType payload.JSONType) {
 			_, data := createIndexed(ctx, dt)
 			dev := createDevice(ctx, clusterProperties())
 			cfg := kafka.WriteConfig{
@@ -708,8 +732,8 @@ var _ = Describe("Write task", func() {
 					))),
 				))
 		},
-		Entry("a string as a number", telem.StringT, http.JSONTypeNumber),
-		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
+		Entry("a string as a number", telem.StringT, payload.JSONTypeNumber),
+		Entry("a UUID as a boolean", telem.UUIDT, payload.JSONTypeBoolean),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -759,7 +783,7 @@ var _ = Describe("Write task", func() {
 						Key:        "c1",
 						Channel:    data.Key(),
 						TimeFormat: &unixMs,
-						JSONType:   http.JSONTypeString,
+						JSONType:   payload.JSONTypeString,
 					}},
 				}
 			}, "time_format alone encodes"),
@@ -786,7 +810,7 @@ var _ = Describe("Write task", func() {
 			Channels: []kafka.WriteChannel{{
 				Key:        "c1",
 				Channel:    data.Key(),
-				JSONType:   http.JSONTypeNumber,
+				JSONType:   payload.JSONTypeNumber,
 				EnumValues: onOff,
 			}},
 		}

@@ -16,17 +16,12 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, id, json } from "@synnaxlabs/x";
+import { deep, id, json, type payload } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
-import {
-  type GeneratorType,
-  type JSONType,
-  type TimeFormat,
-} from "@/platform/task/payload/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 
@@ -34,7 +29,7 @@ interface StaticField {
   key: string;
   pointer: string;
   type: "static";
-  jsonType: JSONType;
+  jsonType: payload.JSONType;
   value: unknown;
 }
 
@@ -42,8 +37,8 @@ interface GeneratedField {
   key: string;
   pointer: string;
   type: "generated";
-  generator: GeneratorType;
-  timeFormat?: TimeFormat;
+  generator: payload.GeneratorType;
+  timeFormat?: payload.TimeFormat;
 }
 
 type Field = StaticField | GeneratedField;
@@ -76,14 +71,14 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
   const field = deep.variant(path, "type", "static");
   const jsonType = Form.useFieldValue(field.jsonType);
   const { set } = Form.useContext();
-  const handleJSONTypeChange = (value: JSONType) => {
+  const handleJSONTypeChange = (value: payload.JSONType) => {
     set(field.jsonType, value);
     set(field.value, json.ZERO_PRIMITIVES[value]);
   };
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <PointerField path={path} />
-      <Select.Simple<JSONType>
+      <Select.Simple<payload.JSONType>
         value={jsonType}
         onChange={handleJSONTypeChange}
         resourceName="type"
@@ -120,12 +115,12 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
   );
 };
 
-type GeneratorKey = "uuid" | TimeFormat;
+type GeneratorKey = "uuid" | payload.TimeFormat;
 
 /** A timestamp generator shows as its time format; ISO 8601 when unset. */
 const generatorKey = (
-  generator: GeneratorType,
-  timeFormat: TimeFormat | undefined,
+  generator: payload.GeneratorType,
+  timeFormat: payload.TimeFormat | undefined,
 ): GeneratorKey => (generator === "timestamp" ? (timeFormat ?? "iso8601") : "uuid");
 
 const GeneratedItem = ({ path, ...props }: ItemProps) => {

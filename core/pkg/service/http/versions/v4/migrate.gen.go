@@ -16,6 +16,8 @@ import (
 
 	"github.com/samber/lo"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 )
 
 func autoMigrateReadConfig(ctx context.Context, old v3.ReadConfig) (ReadConfig, error) {
@@ -34,11 +36,17 @@ func autoMigrateReadConfig(ctx context.Context, old v3.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v3.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v3.WriteConfig) (WriteConfig, error) {
+	endpoints, err := lo.MapErr(old.Endpoints, func(v v3.WriteEndpoint, _ int) (WriteEndpoint, error) {
+		return MigrateWriteEndpoint(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
-		Endpoints:   old.Endpoints,
+		Endpoints:   endpoints,
 	}, nil
 }
 
@@ -61,7 +69,48 @@ func autoMigrateReadEndpoint(ctx context.Context, old v3.ReadEndpoint) (ReadEndp
 	}, nil
 }
 
-func autoMigrateReadField(_ context.Context, old v3.ReadField) (ReadField, error) {
+func autoMigrateWriteEndpoint(ctx context.Context, old v3.WriteEndpoint) (WriteEndpoint, error) {
+	channel, err := MigrateChannelField(ctx, old.Channel)
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
+	fields, err := lo.MapErr(old.Fields, func(v v3.WriteField, _ int) (WriteField, error) {
+		return MigrateWriteField(ctx, v)
+	})
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
+	return WriteEndpoint{
+		Key:         old.Key,
+		Disabled:    old.Disabled,
+		Method:      old.Method,
+		Path:        old.Path,
+		Headers:     old.Headers,
+		QueryParams: old.QueryParams,
+		Channel:     channel,
+		Fields:      fields,
+	}, nil
+}
+
+func autoMigrateV3EnumEntryToPayloadEnumEntry(_ context.Context, old v3.EnumEntry) (payload.EnumEntry, error) {
+	return payload.EnumEntry{
+		Label: old.Label,
+		Value: old.Value,
+	}, nil
+}
+
+func autoMigrateReadField(ctx context.Context, old v3.ReadField) (ReadField, error) {
+	var timeFormat *payload.TimeFormat
+	if old.TimeFormat != nil {
+		v := payload.TimeFormat(*old.TimeFormat)
+		timeFormat = &v
+	}
+	enumValues, err := lo.MapErr(old.EnumValues, func(v v3.EnumEntry, _ int) (payload.EnumEntry, error) {
+		return autoMigrateV3EnumEntryToPayloadEnumEntry(ctx, v)
+	})
+	if err != nil {
+		return ReadField{}, err
+	}
 	return ReadField{
 		Key:        old.Key,
 		Name:       old.Name,
@@ -69,7 +118,56 @@ func autoMigrateReadField(_ context.Context, old v3.ReadField) (ReadField, error
 		Channel:    old.Channel,
 		Pointer:    old.Pointer,
 		DataType:   old.DataType,
-		TimeFormat: old.TimeFormat,
-		EnumValues: old.EnumValues,
+		TimeFormat: timeFormat,
+		EnumValues: enumValues,
 	}, nil
+}
+
+func autoMigrateChannelField(ctx context.Context, old v3.ChannelField) (ChannelField, error) {
+	var timeFormat *payload.TimeFormat
+	if old.TimeFormat != nil {
+		v := payload.TimeFormat(*old.TimeFormat)
+		timeFormat = &v
+	}
+	enumValues, err := lo.MapErr(old.EnumValues, func(v v3.EnumEntry, _ int) (payload.EnumEntry, error) {
+		return autoMigrateV3EnumEntryToPayloadEnumEntry(ctx, v)
+	})
+	if err != nil {
+		return ChannelField{}, err
+	}
+	return ChannelField{
+		Pointer:    old.Pointer,
+		JSONType:   payload.JSONType(old.JSONType),
+		Channel:    old.Channel,
+		Name:       old.Name,
+		DataType:   old.DataType,
+		TimeFormat: timeFormat,
+		EnumValues: enumValues,
+	}, nil
+}
+
+func autoMigrateWriteField(_ context.Context, old v3.WriteField) (WriteField, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return WriteField{}, nil
+	case v3.StaticWriteField:
+		return WriteField{Variant: StaticWriteField{
+			BaseWriteField: variant.BaseWriteField,
+			JSONType:       payload.JSONType(variant.JSONType),
+			Value:          variant.Value,
+		}}, nil
+	case v3.GeneratedWriteField:
+		var timeFormat *payload.TimeFormat
+		if variant.TimeFormat != nil {
+			v := payload.TimeFormat(*variant.TimeFormat)
+			timeFormat = &v
+		}
+		return WriteField{Variant: GeneratedWriteField{
+			BaseWriteField: variant.BaseWriteField,
+			Generator:      payload.GeneratorType(variant.Generator),
+			TimeFormat:     timeFormat,
+		}}, nil
+	default:
+		return WriteField{}, errors.Newf("unknown WriteField variant %T", variant)
+	}
 }

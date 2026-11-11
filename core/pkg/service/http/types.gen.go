@@ -37,31 +37,11 @@ const (
 	MethodConnect Method = versions.MethodConnect
 )
 
-// TimeFormat is the encoding of a timestamp value within a JSON body.
-type TimeFormat = versions.TimeFormat
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = versions.TimeFormatUnixMs
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = versions.TimeFormatUnixUs
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = versions.TimeFormatUnixNs
-)
-
 // Header is a single HTTP header sent with a request.
 type Header = versions.Header
 
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam = versions.QueryParam
-
-// EnumEntry maps a string label in a JSON body to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = versions.EnumEntry
 
 // ReadField is a single value extracted from an endpoint's JSON response.
 type ReadField = versions.ReadField
@@ -72,28 +52,6 @@ type ReadEndpoint = versions.ReadEndpoint
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig = versions.ReadConfig
-
-// JSONType is the JSON type a channel value is serialized as in a request body.
-type JSONType = versions.JSONType
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = versions.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = versions.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = versions.GeneratorType
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each request.
-	GeneratorTypeUUID GeneratorType = versions.GeneratorTypeUUID
-	// GeneratorTypeTimestamp produces the time of the request.
-	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
-)
 
 // ChannelField is the command channel value placed into a write endpoint's body.
 type ChannelField = versions.ChannelField

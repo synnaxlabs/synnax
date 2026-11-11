@@ -51,3 +51,11 @@ var _ = Describe("ReadConfig", func() {
 		})
 	})
 })
+
+var _ = Describe("WriteConfig", func() {
+	Describe("CustomTypeName", func() {
+		It("Should return the HTTP write config gorp type name", func() {
+			Expect(v4.WriteConfig{}.CustomTypeName()).To(Equal("http_write_config"))
+		})
+	})
+})

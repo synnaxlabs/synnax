@@ -138,12 +138,6 @@ func (et *EdgeTag) HashContent(h *content.Hash) {
 	}
 }
 
-// HashContent writes the content of the value to h, without its keys.
-func (ee *EnumEntry) HashContent(h *content.Hash) {
-	h.String(ee.Label)
-	h.Float(ee.Value)
-}
-
 // Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
