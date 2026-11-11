@@ -11,8 +11,8 @@
 
 Slot | Alias   | Module
 -----|---------|------------------------------------------
+1    | SY2Mod1 | NI 9375, 16 DI on port 0, 16 DO on port 1
 2    | SY2Mod2 | NI 9211, 4 thermocouple inputs, not wired
-4    | SY2Mod4 | NI 9375, 16 DI on port 0, 16 DO on port 1
 
 The NI 9375 has no supply on Vsup, so its outputs do not drive its inputs. The analog
 modules are in the cRIO, tested by `crio_ni`.
@@ -27,7 +27,7 @@ class CDAQDigitalRead(NIDigitalReadTaskCase):
     """Read two digital inputs of the NI 9375."""
 
     task_name = "HITL cDAQ Digital Read"
-    device_locations = ["SY2Mod4"]
+    device_locations = ["SY2Mod1"]
     simulated = False
     # Digital reads are software timed, and an Ethernet chassis answers each sample
     # over the network, so 1 kHz is out of reach.
@@ -58,7 +58,7 @@ class CDAQDigitalWrite(NIDigitalWriteTaskCase):
     """Write two digital outputs of the NI 9375."""
 
     task_name = "HITL cDAQ Digital Write"
-    device_locations = ["SY2Mod4"]
+    device_locations = ["SY2Mod1"]
     simulated = False
     command_values: list[list[float]] | None = [[1, 0], [0, 1]]
 

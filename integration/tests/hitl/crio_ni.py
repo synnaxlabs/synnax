@@ -124,7 +124,6 @@ class CRIOAnalogLoopback(CRIOAnalogRead):
             state_rate=self.SAMPLE_RATE,
             channels=outputs,
         )
-        # Teardown deletes the write task with the rack of the cRIO.
         self.client.tasks.configure(write)
         commands = [ch.cmd_channel for ch in outputs]
         cmd_index = self.client.channels.retrieve(commands[0]).index
@@ -149,6 +148,8 @@ class CRIOAnalogLoopback(CRIOAnalogRead):
                     )
                     self._wait_for_levels(streamer, inputs, levels)
         finally:
+            # The Core refuses to delete a channel that a task uses.
+            self.client.tasks.delete(write.key)
             delete_channels(
                 self.client,
                 commands + [ch.state_channel for ch in outputs],
