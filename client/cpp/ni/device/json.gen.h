@@ -37,11 +37,30 @@ inline Device Device::parse(x::json::Parser parser) {
         .model = parser.field<std::string>("model"),
         .chassis = parser.field<std::optional<::synnax::ni::chassis::Key>>("chassis"),
         .identifier = parser.field<std::string>("identifier", ""),
-        .analog_input = parser.field<InputPorts>("analog_input", InputPorts{}),
-        .analog_output = parser.field<OutputPorts>("analog_output", OutputPorts{}),
-        .counter_input = parser.field<InputPorts>("counter_input", InputPorts{}),
-        .digital_input = parser.field<InputPorts>("digital_input", InputPorts{}),
-        .digital_output = parser.field<OutputPorts>("digital_output", OutputPorts{}),
+        .analog_input = parser.field<AnalogInputPorts>(
+            "analog_input",
+            AnalogInputPorts{}
+        ),
+        .analog_output = parser.field<
+            std::unordered_map<std::uint16_t, AnalogOutputChannels>>(
+            "analog_output",
+            std::unordered_map<std::uint16_t, AnalogOutputChannels>{}
+        ),
+        .counter_input = parser.field<
+            std::unordered_map<std::uint16_t, CounterInputChannels>>(
+            "counter_input",
+            std::unordered_map<std::uint16_t, CounterInputChannels>{}
+        ),
+        .digital_input = parser.field<
+            std::unordered_map<std::uint16_t, DigitalInputChannels>>(
+            "digital_input",
+            std::unordered_map<std::uint16_t, DigitalInputChannels>{}
+        ),
+        .digital_output = parser.field<
+            std::unordered_map<std::uint16_t, DigitalOutputChannels>>(
+            "digital_output",
+            std::unordered_map<std::uint16_t, DigitalOutputChannels>{}
+        ),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -57,10 +76,30 @@ inline x::json::json Device::to_json() const {
     if (this->chassis.has_value()) j["chassis"] = this->chassis->to_json();
     j["identifier"] = this->identifier;
     j["analog_input"] = this->analog_input.to_json();
-    j["analog_output"] = this->analog_output.to_json();
-    j["counter_input"] = this->counter_input.to_json();
-    j["digital_input"] = this->digital_input.to_json();
-    j["digital_output"] = this->digital_output.to_json();
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->analog_output)
+            obj[std::to_string(key)] = item.to_json();
+        j["analog_output"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->counter_input)
+            obj[std::to_string(key)] = item.to_json();
+        j["counter_input"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_input)
+            obj[std::to_string(key)] = item.to_json();
+        j["digital_input"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_output)
+            obj[std::to_string(key)] = item.to_json();
+        j["digital_output"] = obj;
+    }
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
@@ -98,25 +137,6 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
-inline InputPorts InputPorts::parse(x::json::Parser parser) {
-    return InputPorts{
-        .index = parser
-                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
-        .channels = parser
-                        .field<std::unordered_map<std::string, ::synnax::channel::Key>>(
-                            "channels",
-                            std::unordered_map<std::string, ::synnax::channel::Key>{}
-                        ),
-    };
-}
-
-inline x::json::json InputPorts::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["index"] = this->index;
-    j["channels"] = this->channels;
-    return j;
-}
-
 inline CommandStatePair CommandStatePair::parse(x::json::Parser parser) {
     return CommandStatePair{
         .command = parser.field<::synnax::channel::Key>(
@@ -135,27 +155,120 @@ inline x::json::json CommandStatePair::to_json() const {
     return j;
 }
 
-inline OutputPorts OutputPorts::parse(x::json::Parser parser) {
-    return OutputPorts{
-        .state_index = parser.field<::synnax::channel::Key>(
-            "state_index",
+inline AnalogInputPorts AnalogInputPorts::parse(x::json::Parser parser) {
+    return AnalogInputPorts{
+        .index = parser
+                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
+        .temperature = parser.field<::synnax::channel::Key>(
+            "temperature",
             ::synnax::channel::Key(0)
         ),
-        .channels = parser.field<std::unordered_map<std::string, CommandStatePair>>(
+        .channels = parser.field<
+            std::unordered_map<std::uint16_t, ::synnax::channel::Key>>(
             "channels",
-            std::unordered_map<std::string, CommandStatePair>{}
+            std::unordered_map<std::uint16_t, ::synnax::channel::Key>{}
         ),
     };
 }
 
-inline x::json::json OutputPorts::to_json() const {
+inline x::json::json AnalogInputPorts::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["temperature"] = this->temperature;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->channels)
+            obj[std::to_string(key)] = item;
+        j["channels"] = obj;
+    }
+    return j;
+}
+
+inline AnalogOutputChannels AnalogOutputChannels::parse(x::json::Parser parser) {
+    return AnalogOutputChannels{
+        .state_index = parser.field<::synnax::channel::Key>(
+            "state_index",
+            ::synnax::channel::Key(0)
+        ),
+        .command = parser.field<::synnax::channel::Key>(
+            "command",
+            ::synnax::channel::Key(0)
+        ),
+        .state = parser
+                     .field<::synnax::channel::Key>("state", ::synnax::channel::Key(0)),
+    };
+}
+
+inline x::json::json AnalogOutputChannels::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["state_index"] = this->state_index;
+    j["command"] = this->command;
+    j["state"] = this->state;
+    return j;
+}
+
+inline CounterInputChannels CounterInputChannels::parse(x::json::Parser parser) {
+    return CounterInputChannels{
+        .index = parser
+                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
+    };
+}
+
+inline x::json::json CounterInputChannels::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["channel"] = this->channel;
+    return j;
+}
+
+inline DigitalInputChannels DigitalInputChannels::parse(x::json::Parser parser) {
+    return DigitalInputChannels{
+        .index = parser
+                     .field<::synnax::channel::Key>("index", ::synnax::channel::Key(0)),
+        .lines = parser.field<std::unordered_map<std::uint8_t, ::synnax::channel::Key>>(
+            "lines",
+            std::unordered_map<std::uint8_t, ::synnax::channel::Key>{}
+        ),
+    };
+}
+
+inline x::json::json DigitalInputChannels::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->lines)
+            obj[std::to_string(key)] = item;
+        j["lines"] = obj;
+    }
+    return j;
+}
+
+inline DigitalOutputChannels DigitalOutputChannels::parse(x::json::Parser parser) {
+    return DigitalOutputChannels{
+        .state_index = parser.field<::synnax::channel::Key>(
+            "state_index",
+            ::synnax::channel::Key(0)
+        ),
+        .lines = parser.field<std::unordered_map<std::uint8_t, CommandStatePair>>(
+            "lines",
+            std::unordered_map<std::uint8_t, CommandStatePair>{}
+        ),
+    };
+}
+
+inline x::json::json DigitalOutputChannels::to_json() const {
     x::json::json j = x::json::json::object();
     j["state_index"] = this->state_index;
     {
         auto obj = x::json::json::object();
-        for (const auto &[key, item]: this->channels)
-            obj[key] = item.to_json();
-        j["channels"] = obj;
+        for (const auto &[key, item]: this->lines)
+            obj[std::to_string(key)] = item.to_json();
+        j["lines"] = obj;
     }
     return j;
 }
@@ -198,11 +311,30 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
     return Configuration{
         .name = parser.field<std::string>("name"),
         .identifier = parser.field<std::string>("identifier", ""),
-        .analog_input = parser.field<InputPorts>("analog_input", InputPorts{}),
-        .analog_output = parser.field<OutputPorts>("analog_output", OutputPorts{}),
-        .counter_input = parser.field<InputPorts>("counter_input", InputPorts{}),
-        .digital_input = parser.field<InputPorts>("digital_input", InputPorts{}),
-        .digital_output = parser.field<OutputPorts>("digital_output", OutputPorts{}),
+        .analog_input = parser.field<AnalogInputPorts>(
+            "analog_input",
+            AnalogInputPorts{}
+        ),
+        .analog_output = parser.field<
+            std::unordered_map<std::uint16_t, AnalogOutputChannels>>(
+            "analog_output",
+            std::unordered_map<std::uint16_t, AnalogOutputChannels>{}
+        ),
+        .counter_input = parser.field<
+            std::unordered_map<std::uint16_t, CounterInputChannels>>(
+            "counter_input",
+            std::unordered_map<std::uint16_t, CounterInputChannels>{}
+        ),
+        .digital_input = parser.field<
+            std::unordered_map<std::uint16_t, DigitalInputChannels>>(
+            "digital_input",
+            std::unordered_map<std::uint16_t, DigitalInputChannels>{}
+        ),
+        .digital_output = parser.field<
+            std::unordered_map<std::uint16_t, DigitalOutputChannels>>(
+            "digital_output",
+            std::unordered_map<std::uint16_t, DigitalOutputChannels>{}
+        ),
     };
 }
 
@@ -211,10 +343,30 @@ inline x::json::json Configuration::to_json() const {
     j["name"] = this->name;
     j["identifier"] = this->identifier;
     j["analog_input"] = this->analog_input.to_json();
-    j["analog_output"] = this->analog_output.to_json();
-    j["counter_input"] = this->counter_input.to_json();
-    j["digital_input"] = this->digital_input.to_json();
-    j["digital_output"] = this->digital_output.to_json();
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->analog_output)
+            obj[std::to_string(key)] = item.to_json();
+        j["analog_output"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->counter_input)
+            obj[std::to_string(key)] = item.to_json();
+        j["counter_input"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_input)
+            obj[std::to_string(key)] = item.to_json();
+        j["digital_input"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_output)
+            obj[std::to_string(key)] = item.to_json();
+        j["digital_output"] = obj;
+    }
     return j;
 }
 

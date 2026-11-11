@@ -18,15 +18,6 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-/** InputPorts holds the channels that a device reads into. */
-export const inputPortsZ = z.object({
-  /** index is the index channel of the channels that read the ports. */
-  index: channel.keyZ.default(0),
-  /** channels maps a port to the channel that holds its samples. */
-  channels: z.record(z.string(), channel.keyZ).default(() => ({})),
-});
-export interface InputPorts extends z.infer<typeof inputPortsZ> {}
-
 /** CommandStatePair is the pair of channels that writes to one port. */
 export const commandStatePairZ = z.object({
   /** command is the channel that commands the port. */
@@ -35,6 +26,46 @@ export const commandStatePairZ = z.object({
   state: channel.keyZ.default(0),
 });
 export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
+
+/** AnalogInputPorts holds the channels that a device reads analog input into. */
+export const analogInputPortsZ = z.object({
+  /** index is the index channel of the analog input channels. */
+  index: channel.keyZ.default(0),
+  /** temperature is the channel that holds the built-in temperature of the device. */
+  temperature: channel.keyZ.default(0),
+  /** channels maps a port number to the channel that holds its samples. */
+  channels: z.record(zod.uint16, channel.keyZ).default(() => ({})),
+});
+export interface AnalogInputPorts extends z.infer<typeof analogInputPortsZ> {}
+
+/** AnalogOutputChannels holds the channels of one analog output port. */
+export const analogOutputChannelsZ = z.object({
+  /** stateIndex is the index channel of the state channel. */
+  stateIndex: channel.keyZ.default(0),
+  /** command is the channel that commands the port. */
+  command: channel.keyZ.default(0),
+  /** state is the channel that holds the state of the port. */
+  state: channel.keyZ.default(0),
+});
+export interface AnalogOutputChannels extends z.infer<typeof analogOutputChannelsZ> {}
+
+/** CounterInputChannels holds the channels of one counter input. */
+export const counterInputChannelsZ = z.object({
+  /** index is the index channel of the counter. */
+  index: channel.keyZ.default(0),
+  /** channel is the channel that holds the samples of the counter. */
+  channel: channel.keyZ.default(0),
+});
+export interface CounterInputChannels extends z.infer<typeof counterInputChannelsZ> {}
+
+/** DigitalInputChannels holds the channels of one digital input port. */
+export const digitalInputChannelsZ = z.object({
+  /** index is the index channel of the port. */
+  index: channel.keyZ.default(0),
+  /** lines maps a line number to the channel that holds its samples. */
+  lines: z.record(zod.uint8, channel.keyZ).default(() => ({})),
+});
+export interface DigitalInputChannels extends z.infer<typeof digitalInputChannelsZ> {}
 
 /** Identity holds the device fields that the scanner owns. */
 export const identityZ = z.object({
@@ -57,14 +88,14 @@ export interface Identity extends z.infer<typeof identityZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** OutputPorts holds the channels that a device writes through. */
-export const outputPortsZ = z.object({
+/** DigitalOutputChannels holds the channels of one digital output port. */
+export const digitalOutputChannelsZ = z.object({
   /** stateIndex is the index channel of the state channels. */
   stateIndex: channel.keyZ.default(0),
-  /** channels maps a port to the channels that write to it. */
-  channels: z.record(z.string(), commandStatePairZ).default(() => ({})),
+  /** lines maps a line number to the channels that write to it. */
+  lines: z.record(zod.uint8, commandStatePairZ).default(() => ({})),
 });
-export interface OutputPorts extends z.infer<typeof outputPortsZ> {}
+export interface DigitalOutputChannels extends z.infer<typeof digitalOutputChannelsZ> {}
 
 /** Where is a filter that selects NI devices. */
 export type Where = {
@@ -133,15 +164,15 @@ export const configurationZ = z.object({
    */
   identifier: z.string().default(""),
   /** analogInput are the channels of the analog input ports. */
-  analogInput: inputPortsZ.prefault({}),
-  /** analogOutput are the channels of the analog output ports. */
-  analogOutput: outputPortsZ.prefault({}),
-  /** counterInput are the channels of the counter input ports. */
-  counterInput: inputPortsZ.prefault({}),
-  /** digitalInput are the channels of the digital input lines. */
-  digitalInput: inputPortsZ.prefault({}),
-  /** digitalOutput are the channels of the digital output lines. */
-  digitalOutput: outputPortsZ.prefault({}),
+  analogInput: analogInputPortsZ.prefault({}),
+  /** analogOutput maps an analog output port number to its channels. */
+  analogOutput: z.record(zod.uint16, analogOutputChannelsZ).default(() => ({})),
+  /** counterInput maps a counter number to its channels. */
+  counterInput: z.record(zod.uint16, counterInputChannelsZ).default(() => ({})),
+  /** digitalInput maps a digital port number to its input channels. */
+  digitalInput: z.record(zod.uint16, digitalInputChannelsZ).default(() => ({})),
+  /** digitalOutput maps a digital port number to its output channels. */
+  digitalOutput: z.record(zod.uint16, digitalOutputChannelsZ).default(() => ({})),
 });
 export interface Configuration extends z.infer<typeof configurationZ> {}
 
@@ -221,15 +252,15 @@ export const deviceZ = z.object({
    */
   identifier: z.string().default(""),
   /** analogInput are the channels of the analog input ports. */
-  analogInput: inputPortsZ.prefault({}),
-  /** analogOutput are the channels of the analog output ports. */
-  analogOutput: outputPortsZ.prefault({}),
-  /** counterInput are the channels of the counter input ports. */
-  counterInput: inputPortsZ.prefault({}),
-  /** digitalInput are the channels of the digital input lines. */
-  digitalInput: inputPortsZ.prefault({}),
-  /** digitalOutput are the channels of the digital output lines. */
-  digitalOutput: outputPortsZ.prefault({}),
+  analogInput: analogInputPortsZ.prefault({}),
+  /** analogOutput maps an analog output port number to its channels. */
+  analogOutput: z.record(zod.uint16, analogOutputChannelsZ).default(() => ({})),
+  /** counterInput maps a counter number to its channels. */
+  counterInput: z.record(zod.uint16, counterInputChannelsZ).default(() => ({})),
+  /** digitalInput maps a digital port number to its input channels. */
+  digitalInput: z.record(zod.uint16, digitalInputChannelsZ).default(() => ({})),
+  /** digitalOutput maps a digital port number to its output channels. */
+  digitalOutput: z.record(zod.uint16, digitalOutputChannelsZ).default(() => ({})),
   /** status is the current operational status of the device. */
   status: statusZ.optional(),
 });

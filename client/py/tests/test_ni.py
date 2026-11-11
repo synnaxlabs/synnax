@@ -908,14 +908,30 @@ class TestNIResources:
         assert device.serial == ""
         assert device.identifier == ""
         assert device.chassis is None
-        assert device.analog_input == sy.ni.device.InputPorts()
-        assert device.analog_output == sy.ni.device.OutputPorts()
+        assert device.analog_input == sy.ni.device.AnalogInputPorts()
+        assert device.analog_output == {}
 
     def test_device_requires_a_resource_name(self) -> None:
         with pytest.raises(ValidationError):
             sy.ni.device.Device.model_validate(
                 {"rack": 1, "name": "PXI-6255", "model": "PXI-6255"}
             )
+
+    def test_device_port_maps_parse_integer_keys(self) -> None:
+        device = sy.ni.device.Device.model_validate(
+            {
+                "rack": 1,
+                "name": "PXI-6255",
+                "resource_name": "Mod1",
+                "model": "PXI-6255",
+                "analog_input": {"index": 1, "channels": {"3": 2}},
+                "digital_output": {
+                    "0": {"state_index": 4, "lines": {"7": {"command": 5, "state": 6}}}
+                },
+            }
+        )
+        assert device.analog_input.channels == {3: 2}
+        assert device.digital_output[0].lines[7].state == 6
 
     def test_update_selects_its_group(self) -> None:
         adapter = TypeAdapter(sy.ni.device.Update)

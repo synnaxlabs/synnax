@@ -7,17 +7,80 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/ni_chassis/v0"
 import "schemas/synnax/versions/rack/v2"
 import "schemas/synnax/versions/status/v2"
 
 Key = v0.Key
 
-InputPorts = v0.InputPorts
-
 CommandStatePair = v0.CommandStatePair
 
-OutputPorts = v0.OutputPorts
+AnalogInputPorts struct {
+    index       channel.Key = 0 {
+        @doc value "is the index channel of the analog input channels."
+    }
+    temperature channel.Key = 0 {
+        @doc value "is the channel that holds the built-in temperature of the device."
+    }
+    channels    map<uint16, channel.Key> = {} {
+        @doc value "maps a port number to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels that a device reads analog input into."
+    @go marshal
+}
+
+AnalogOutputChannels struct {
+    state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channel."
+    }
+    command     channel.Key = 0 {
+        @doc value "is the channel that commands the port."
+    }
+    state       channel.Key = 0 {
+        @doc value "is the channel that holds the state of the port."
+    }
+
+    @doc value  "holds the channels of one analog output port."
+    @go marshal
+}
+
+CounterInputChannels struct {
+    index   channel.Key = 0 {
+        @doc value "is the index channel of the counter."
+    }
+    channel channel.Key = 0 {
+        @doc value "is the channel that holds the samples of the counter."
+    }
+
+    @doc value  "holds the channels of one counter input."
+    @go marshal
+}
+
+DigitalInputChannels struct {
+    index channel.Key = 0 {
+        @doc value "is the index channel of the port."
+    }
+    lines map<uint8, channel.Key> = {} {
+        @doc value "maps a line number to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels of one digital input port."
+    @go marshal
+}
+
+DigitalOutputChannels struct {
+    state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels."
+    }
+    lines       map<uint8, CommandStatePair> = {} {
+        @doc value "maps a line number to the channels that write to it."
+    }
+
+    @doc value  "holds the channels of one digital output port."
+    @go marshal
+}
 
 StatusDetails struct {
     rack   rack.Key {
@@ -39,24 +102,24 @@ Device struct {
         @doc value "uniquely identifies the device."
         @key
     }
-    rack           rack.Key        {
+    rack           rack.Key                           {
         @doc value "is the key of the rack the device is connected to."
     }
-    name           string          {
+    name           string                             {
         @doc value "is a human-readable name for the device."
     }
     serial         string = "" {
         @doc value "is the serial number of the device. Empty on simulated hardware."
     }
-    resource_name  string          {
+    resource_name  string                             {
         @doc value """
             is the NI-MAX resource name of the device, a GUID that survives renames.
         """
     }
-    model          string          {
+    model          string                             {
         @doc value "is the product name of the device."
     }
-    chassis        ni_chassis.Key? {
+    chassis        ni_chassis.Key?                    {
         @doc value """
             is the chassis that holds the device. Absent for a standalone device.
         """
@@ -67,22 +130,22 @@ Device struct {
             while it is empty.
         """
     }
-    analog_input   InputPorts = {} {
+    analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."
     }
-    analog_output  OutputPorts = {} {
-        @doc value "are the channels of the analog output ports."
+    analog_output  map<uint16, AnalogOutputChannels> = {} {
+        @doc value "maps an analog output port number to its channels."
     }
-    counter_input  InputPorts = {} {
-        @doc value "are the channels of the counter input ports."
+    counter_input  map<uint16, CounterInputChannels> = {} {
+        @doc value "maps a counter number to its channels."
     }
-    digital_input  InputPorts = {} {
-        @doc value "are the channels of the digital input lines."
+    digital_input  map<uint16, DigitalInputChannels> = {} {
+        @doc value "maps a digital port number to its input channels."
     }
-    digital_output OutputPorts = {} {
-        @doc value "are the channels of the digital output lines."
+    digital_output map<uint16, DigitalOutputChannels> = {} {
+        @doc value "maps a digital port number to its output channels."
     }
-    status         Status?         {
+    status         Status?                            {
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }

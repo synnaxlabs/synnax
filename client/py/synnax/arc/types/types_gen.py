@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import TypeAlias
+from typing import Annotated, TypeAlias
 
 from pydantic import BaseModel, Field, JsonValue
 
@@ -59,8 +59,12 @@ class Channels(BaseModel):
         write: Contains writable channel indices mapped to parameter names.
     """
 
-    read: dict[int, str] = Field(default_factory=dict)
-    write: dict[int, str] = Field(default_factory=dict)
+    read: dict[Annotated[int, Field(ge=0, le=4294967295)], str] = Field(
+        default_factory=dict
+    )
+    write: dict[Annotated[int, Field(ge=0, le=4294967295)], str] = Field(
+        default_factory=dict
+    )
 
 
 class Dimensions(BaseModel):

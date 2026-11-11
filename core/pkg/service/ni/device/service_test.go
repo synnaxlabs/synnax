@@ -437,9 +437,9 @@ var _ = Describe("Service", func() {
 				ctx,
 				d.Key,
 				func(d device.Device) (device.Device, error) {
-					d.AnalogInput = device.InputPorts{
+					d.AnalogInput = device.AnalogInputPorts{
 						Index:    1,
-						Channels: map[string]channel.Key{"ai0": 2},
+						Channels: map[uint16]channel.Key{0: 2},
 					}
 					return d, nil
 				},

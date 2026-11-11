@@ -52,10 +52,6 @@ var _ = Describe("Migration", func() {
 			Model:      "PXI-6255",
 			Alias:      "Mod1",
 			Identifier: "dev1",
-			AnalogInput: v0.InputPorts{
-				Index:    1,
-				Channels: map[string]channel.Key{"0": 2},
-			},
 		}
 		got := migrate(ctx, old)
 		Expect(got.Serial).To(Equal("01A"))
@@ -63,7 +59,66 @@ var _ = Describe("Migration", func() {
 		Expect(got.Name).To(Equal("PXI-6255"))
 		Expect(got.Model).To(Equal("PXI-6255"))
 		Expect(got.Identifier).To(Equal("dev1"))
-		Expect(got.AnalogInput).To(Equal(old.AnalogInput))
+	})
+
+	It("Should key each port group by port and line number", func(ctx SpecContext) {
+		got := migrate(ctx, v0.Device{
+			Key:    uuid.New(),
+			Rack:   1,
+			Name:   "PXI-6255",
+			Serial: "01A",
+			Model:  "PXI-6255",
+			AnalogInput: v0.InputPorts{
+				Index: 1,
+				Channels: map[string]channel.Key{
+					"3":               2,
+					"boardTempSensor": 3,
+					"bad":             4,
+				},
+			},
+			AnalogOutput: v0.OutputPorts{
+				StateIndex: 5,
+				Channels: map[string]v0.CommandStatePair{
+					"1": {Command: 6, State: 7},
+				},
+			},
+			CounterInput: v0.InputPorts{
+				Index:    8,
+				Channels: map[string]channel.Key{"2": 9},
+			},
+			DigitalInput: v0.InputPorts{
+				Index:    10,
+				Channels: map[string]channel.Key{"0l7": 11, "0l1": 12, "1": 13},
+			},
+			DigitalOutput: v0.OutputPorts{
+				StateIndex: 14,
+				Channels: map[string]v0.CommandStatePair{
+					"2l3": {Command: 15, State: 16},
+				},
+			},
+		})
+		Expect(got.AnalogInput).To(Equal(v1.AnalogInputPorts{
+			Index:       1,
+			Temperature: 3,
+			Channels:    map[uint16]channel.Key{3: 2},
+		}))
+		Expect(got.AnalogOutput).To(Equal(map[uint16]v1.AnalogOutputChannels{
+			1: {StateIndex: 5, Command: 6, State: 7},
+		}))
+		Expect(got.CounterInput).To(Equal(map[uint16]v1.CounterInputChannels{
+			2: {Index: 8, Channel: 9},
+		}))
+		Expect(got.DigitalInput).To(Equal(map[uint16]v1.DigitalInputChannels{
+			0: {Index: 10, Lines: map[uint8]channel.Key{7: 11, 1: 12}},
+		}))
+		Expect(got.DigitalOutput).To(Equal(map[uint16]v1.DigitalOutputChannels{
+			2: {
+				StateIndex: 14,
+				Lines: map[uint8]v1.CommandStatePair{
+					3: {Command: 15, State: 16},
+				},
+			},
+		}))
 	})
 
 	It("Should move the serial of a simulated device to its resource name", func(

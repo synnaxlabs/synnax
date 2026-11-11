@@ -16,24 +16,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import channel, rack as rack_, status as status_
+from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
 from synnax.resource import ID
 from x import filter
 
 Key: TypeAlias = UUID
-
-
-class InputPorts(BaseModel):
-    """Holds the channels that a device reads into.
-
-    Attributes:
-        index: Is the index channel of the channels that read the ports.
-        channels: Maps a port to the channel that holds its samples.
-    """
-
-    index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, channel.Key] = Field(default_factory=dict)
 
 
 class CommandStatePair(BaseModel):
@@ -44,8 +32,64 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    state: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class AnalogInputPorts(BaseModel):
+    """Holds the channels that a device reads analog input into.
+
+    Attributes:
+        index: Is the index channel of the analog input channels.
+        temperature: Is the channel that holds the built-in temperature of the device.
+        channels: Maps a port number to the channel that holds its samples.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    temperature: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    channels: dict[Annotated[int, Field(ge=0, le=65535)], channel_.Key] = Field(
+        default_factory=dict
+    )
+
+
+class AnalogOutputChannels(BaseModel):
+    """Holds the channels of one analog output port.
+
+    Attributes:
+        state_index: Is the index channel of the state channel.
+        command: Is the channel that commands the port.
+        state: Is the channel that holds the state of the port.
+    """
+
+    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class CounterInputChannels(BaseModel):
+    """Holds the channels of one counter input.
+
+    Attributes:
+        index: Is the index channel of the counter.
+        channel: Is the channel that holds the samples of the counter.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+
+
+class DigitalInputChannels(BaseModel):
+    """Holds the channels of one digital input port.
+
+    Attributes:
+        index: Is the index channel of the port.
+        lines: Maps a line number to the channel that holds its samples.
+    """
+
+    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    lines: dict[Annotated[int, Field(ge=0, le=255)], channel_.Key] = Field(
+        default_factory=dict
+    )
 
 
 class Identity(BaseModel):
@@ -136,16 +180,18 @@ class Cursor(BaseModel):
     key: Key
 
 
-class OutputPorts(BaseModel):
-    """Holds the channels that a device writes through.
+class DigitalOutputChannels(BaseModel):
+    """Holds the channels of one digital output port.
 
     Attributes:
         state_index: Is the index channel of the state channels.
-        channels: Maps a port to the channels that write to it.
+        lines: Maps a line number to the channels that write to it.
     """
 
-    state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, CommandStatePair] = Field(default_factory=dict)
+    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    lines: dict[Annotated[int, Field(ge=0, le=255)], CommandStatePair] = Field(
+        default_factory=dict
+    )
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -179,19 +225,27 @@ class Configuration(BaseModel):
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         analog_input: Are the channels of the analog input ports.
-        analog_output: Are the channels of the analog output ports.
-        counter_input: Are the channels of the counter input ports.
-        digital_input: Are the channels of the digital input lines.
-        digital_output: Are the channels of the digital output lines.
+        analog_output: Maps an analog output port number to its channels.
+        counter_input: Maps a counter number to its channels.
+        digital_input: Maps a digital port number to its input channels.
+        digital_output: Maps a digital port number to its output channels.
     """
 
     name: str
     identifier: str = ""
-    analog_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    analog_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
-    counter_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
+    analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
+    analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
+        Field(default_factory=dict)
+    )
+    counter_input: dict[Annotated[int, Field(ge=0, le=65535)], CounterInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_input: dict[Annotated[int, Field(ge=0, le=65535)], DigitalInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_output: dict[
+        Annotated[int, Field(ge=0, le=65535)], DigitalOutputChannels
+    ] = Field(default_factory=dict)
 
 
 class Device(BaseModel):
@@ -209,10 +263,10 @@ class Device(BaseModel):
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         analog_input: Are the channels of the analog input ports.
-        analog_output: Are the channels of the analog output ports.
-        counter_input: Are the channels of the counter input ports.
-        digital_input: Are the channels of the digital input lines.
-        digital_output: Are the channels of the digital output lines.
+        analog_output: Maps an analog output port number to its channels.
+        counter_input: Maps a counter number to its channels.
+        digital_input: Maps a digital port number to its input channels.
+        digital_output: Maps a digital port number to its output channels.
         status: Is the current operational status of the device.
     """
 
@@ -224,11 +278,19 @@ class Device(BaseModel):
     model: str
     chassis: chassis_.Key | None = None
     identifier: str = ""
-    analog_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    analog_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
-    counter_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_input: InputPorts = Field(default_factory=lambda: InputPorts())
-    digital_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
+    analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
+    analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
+        Field(default_factory=dict)
+    )
+    counter_input: dict[Annotated[int, Field(ge=0, le=65535)], CounterInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_input: dict[Annotated[int, Field(ge=0, le=65535)], DigitalInputChannels] = (
+        Field(default_factory=dict)
+    )
+    digital_output: dict[
+        Annotated[int, Field(ge=0, le=65535)], DigitalOutputChannels
+    ] = Field(default_factory=dict)
     status: Status | None = None
 
     @_override

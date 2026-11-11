@@ -25,6 +25,21 @@ describe("Update", () => {
     expect(update.serial).toEqual("01A");
   });
 
+  it("should parse the integer keys of the port maps", () => {
+    const update = ni.device.updateZ.parse({
+      group: "configuration",
+      name: "Module",
+      analogInput: { index: 1, channels: { "3": 2 } },
+      digitalOutput: {
+        "0": { stateIndex: 4, lines: { "7": { command: 5, state: 6 } } },
+      },
+    });
+    expect(update.group).toEqual("configuration");
+    if (update.group !== "configuration") return;
+    expect(update.analogInput.channels[3]).toEqual(2);
+    expect(update.digitalOutput[0].lines[7].state).toEqual(6);
+  });
+
   it("should parse a configuration update by its group", () => {
     const update = ni.device.updateZ.parse({ group: "configuration", name: "Module" });
     expect(update.group).toEqual("configuration");

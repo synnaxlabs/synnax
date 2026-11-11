@@ -12,10 +12,133 @@
 package v1
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (aip AnalogInputPorts) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(aip.Index))
+	w.Uint32(uint32(aip.Temperature))
+	w.Bool(aip.Channels != nil)
+	if aip.Channels != nil {
+		w.Uint32(uint32(len(aip.Channels)))
+		for key, val := range aip.Channels {
+			w.Uint16(uint16(key))
+			w.Uint32(uint32(val))
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (aip *AnalogInputPorts) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		aip.Index = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		aip.Temperature = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			aip.Channels = make(map[uint16]channel.Key, n)
+			for range n {
+				var key uint16
+				var val channel.Key
+				if key, err = r.Uint16(); err != nil {
+					return err
+				}
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					val = channel.Key(rawV)
+				}
+				aip.Channels[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (aoc AnalogOutputChannels) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(aoc.StateIndex))
+	w.Uint32(uint32(aoc.Command))
+	w.Uint32(uint32(aoc.State))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (aoc *AnalogOutputChannels) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		aoc.StateIndex = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		aoc.Command = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		aoc.State = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (cic CounterInputChannels) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(cic.Index))
+	w.Uint32(uint32(cic.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cic *CounterInputChannels) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		cic.Index = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		cic.Channel = channel.Key(rawV)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (d Device) EncodeOrc(w *orc.Writer) error {
@@ -35,17 +158,45 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	if err := d.AnalogInput.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := d.AnalogOutput.EncodeOrc(w); err != nil {
-		return err
+	w.Bool(d.AnalogOutput != nil)
+	if d.AnalogOutput != nil {
+		w.Uint32(uint32(len(d.AnalogOutput)))
+		for key, val := range d.AnalogOutput {
+			w.Uint16(uint16(key))
+			if err := val.EncodeOrc(w); err != nil {
+				return err
+			}
+		}
 	}
-	if err := d.CounterInput.EncodeOrc(w); err != nil {
-		return err
+	w.Bool(d.CounterInput != nil)
+	if d.CounterInput != nil {
+		w.Uint32(uint32(len(d.CounterInput)))
+		for key, val := range d.CounterInput {
+			w.Uint16(uint16(key))
+			if err := val.EncodeOrc(w); err != nil {
+				return err
+			}
+		}
 	}
-	if err := d.DigitalInput.EncodeOrc(w); err != nil {
-		return err
+	w.Bool(d.DigitalInput != nil)
+	if d.DigitalInput != nil {
+		w.Uint32(uint32(len(d.DigitalInput)))
+		for key, val := range d.DigitalInput {
+			w.Uint16(uint16(key))
+			if err := val.EncodeOrc(w); err != nil {
+				return err
+			}
+		}
 	}
-	if err := d.DigitalOutput.EncodeOrc(w); err != nil {
-		return err
+	w.Bool(d.DigitalOutput != nil)
+	if d.DigitalOutput != nil {
+		w.Uint32(uint32(len(d.DigitalOutput)))
+		for key, val := range d.DigitalOutput {
+			w.Uint16(uint16(key))
+			if err := val.EncodeOrc(w); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -94,17 +245,207 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 	if err = d.AnalogInput.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = d.AnalogOutput.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.AnalogOutput = make(map[uint16]AnalogOutputChannels, n)
+			for range n {
+				var key uint16
+				var val AnalogOutputChannels
+				if key, err = r.Uint16(); err != nil {
+					return err
+				}
+				if err = val.DecodeOrc(r); err != nil {
+					return err
+				}
+				d.AnalogOutput[key] = val
+			}
+		}
 	}
-	if err = d.CounterInput.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.CounterInput = make(map[uint16]CounterInputChannels, n)
+			for range n {
+				var key uint16
+				var val CounterInputChannels
+				if key, err = r.Uint16(); err != nil {
+					return err
+				}
+				if err = val.DecodeOrc(r); err != nil {
+					return err
+				}
+				d.CounterInput[key] = val
+			}
+		}
 	}
-	if err = d.DigitalInput.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.DigitalInput = make(map[uint16]DigitalInputChannels, n)
+			for range n {
+				var key uint16
+				var val DigitalInputChannels
+				if key, err = r.Uint16(); err != nil {
+					return err
+				}
+				if err = val.DecodeOrc(r); err != nil {
+					return err
+				}
+				d.DigitalInput[key] = val
+			}
+		}
 	}
-	if err = d.DigitalOutput.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.DigitalOutput = make(map[uint16]DigitalOutputChannels, n)
+			for range n {
+				var key uint16
+				var val DigitalOutputChannels
+				if key, err = r.Uint16(); err != nil {
+					return err
+				}
+				if err = val.DecodeOrc(r); err != nil {
+					return err
+				}
+				d.DigitalOutput[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (dic DigitalInputChannels) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(dic.Index))
+	w.Bool(dic.Lines != nil)
+	if dic.Lines != nil {
+		w.Uint32(uint32(len(dic.Lines)))
+		for key, val := range dic.Lines {
+			w.Uint8(uint8(key))
+			w.Uint32(uint32(val))
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (dic *DigitalInputChannels) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		dic.Index = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			dic.Lines = make(map[uint8]channel.Key, n)
+			for range n {
+				var key uint8
+				var val channel.Key
+				if key, err = r.Uint8(); err != nil {
+					return err
+				}
+				{
+					rawV, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					val = channel.Key(rawV)
+				}
+				dic.Lines[key] = val
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (doc DigitalOutputChannels) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(doc.StateIndex))
+	w.Bool(doc.Lines != nil)
+	if doc.Lines != nil {
+		w.Uint32(uint32(len(doc.Lines)))
+		for key, val := range doc.Lines {
+			w.Uint8(uint8(key))
+			if err := val.EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (doc *DigitalOutputChannels) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		doc.StateIndex = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			doc.Lines = make(map[uint8]CommandStatePair, n)
+			for range n {
+				var key uint8
+				var val CommandStatePair
+				if key, err = r.Uint8(); err != nil {
+					return err
+				}
+				if err = val.DecodeOrc(r); err != nil {
+					return err
+				}
+				doc.Lines[key] = val
+			}
+		}
 	}
 	return nil
 }
