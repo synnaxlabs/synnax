@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 import synnax as sy
 from synnax import task
 from x import filter
+from x.strings import random_name
 from x.testutil import assert_eventually
 
 
@@ -25,6 +26,18 @@ def _device(rack: sy.rack.Key) -> sy.Device:
     return sy.Device(
         key=key, name=key, rack=rack, location="dev", make="modbus", model="test"
     )
+
+
+def _ai_channel(
+    client: sy.Synnax, port: int, *, device: str = ""
+) -> sy.ni.AIVoltageChannel:
+    idx = client.channels.create(
+        name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+    )
+    ch = client.channels.create(
+        name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+    )
+    return sy.ni.AIVoltageChannel(port=port, channel=ch.key, device=device)
 
 
 def _reply_to_next_command(
@@ -624,6 +637,37 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         assert tsk.rack == rack.key
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_puts_task_on_rack_of_channel_devices(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should configure a task whose channels name its devices onto their rack."""
+        rack = client.racks.create(name=str(uuid4()))
+        dev = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test",
+            device=dev.key,
+            channels=[_ai_channel(client, 0), _ai_channel(client, 1)],
+        )
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_rejects_devices_on_different_racks(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when the channels of a task name devices on different
+        racks."""
+        a = client.devices.create(_device(client.racks.create(name="a").key))
+        b = client.devices.create(_device(client.racks.create(name="b").key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test",
+            channels=[
+                _ai_channel(client, 0, device=a.key),
+                _ai_channel(client, 1, device=b.key),
+            ],
+        )
+        with pytest.raises(sy.ValidationError, match="must be on one rack"):
+            client.tasks.configure(tsk)
 
     def test_configure_puts_task_without_device_on_embedded_rack(
         self, client: sy.Synnax
