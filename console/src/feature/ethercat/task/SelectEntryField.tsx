@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/ethercat/task/SelectEntryField.css";
+
 import { ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -29,6 +31,7 @@ import {
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
+import { CSS } from "@/platform/css";
 
 export interface SelectEntryFieldProps {
   path: deep.Target<Channel>;
@@ -46,19 +49,27 @@ export const SelectEntryField = ({
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
+  const used = new Set(entries.map(addressKey));
   const reader =
-    slave == null || entries.length > 0
+    slave == null
       ? null
       : (slave.properties.pdos[pdoType]
+          .filter((e) => !used.has(addressKey(e)))
           .map((e) => onlyReaderOf(slave.properties, e))
           .find((r) => r != null) ?? null);
+  const switchHint =
+    slave != null && canSwitch(slave.properties)
+      ? " In Configure, switch the device to Synnax."
+      : "";
   let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
-  else if (reader != null)
-    emptyContent =
-      slave != null && canSwitch(slave.properties)
-        ? `Set up for ${reader}. In Configure, switch it to Synnax.`
-        : `Set up for ${reader}.`;
+  else if (reader != null) emptyContent = `Set up for ${reader}.${switchHint}`;
+  const footer =
+    reader == null || entries.length === 0 ? undefined : (
+      <Text.Text level="small" color={9} className={CSS.BE("ethercat-entry", "hidden")}>
+        {`Only ${reader} reads the other ${DIRECTIONS[pdoType]} entries.${switchHint}`}
+      </Text.Text>
+    );
   const unresolvedProps =
     ch.type === "unresolved"
       ? {
@@ -94,6 +105,7 @@ export const SelectEntryField = ({
           resourceName="entry"
           allowNone={false}
           emptyContent={emptyContent}
+          footer={footer}
         >
           {entries.map((entry) => {
             const label = getEntryLabel(entry);

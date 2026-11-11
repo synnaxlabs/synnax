@@ -114,8 +114,8 @@ const validateEntries = <C extends Channel>(
 /**
  * @returns a channel from create for each usable entry on the side of the slave with
  * the key, or the empty channel on the slave when it has none. When the catalog of the
- * slave describes some of the entries, only those get a channel, so status entries stay
- * out of the task.
+ * slave describes some of its entries, only those can get a channel, so status entries
+ * stay out of the task.
  */
 export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
@@ -125,11 +125,13 @@ export const createSlaveChannels = async <C extends Channel>(
   empty: C,
 ): Promise<C[]> => {
   const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const usable = usableEntries(slave.properties, pdoType);
-  const described = usable.filter(
-    (entry) => findInput(slave.properties.settings, entry) != null,
-  );
-  const entries = described.length > 0 ? described : usable;
+  const { properties } = slave;
+  const described = (entry: ethercat.PDOEntry) =>
+    findInput(properties.settings, entry) != null;
+  const usable = usableEntries(properties, pdoType);
+  const entries = properties.pdos[pdoType].some(described)
+    ? usable.filter(described)
+    : usable;
   if (entries.length === 0) return [{ ...empty, device: key }];
   return entries.map((entry) => create(slave, entry));
 };

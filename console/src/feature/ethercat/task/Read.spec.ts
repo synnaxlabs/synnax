@@ -469,7 +469,28 @@ describe("Read", () => {
       await renderPicker(true);
       expect(
         await screen.findByText(
-          "Set up for DewesoftX. In Configure, switch it to Synnax.",
+          "Set up for DewesoftX. In Configure, switch the device to Synnax.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should say why the picker leaves out the inputs that only DewesoftX reads", async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: { inputs: [STATUS_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+        settings: createDewesoftXSettings(true),
+      });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
+      });
+      fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
+      fireEvent.click(await screen.findByText("Select entry"));
+      expect(
+        await screen.findByText(
+          "Only DewesoftX reads the other input entries. In Configure, switch the " +
+            "device to Synnax.",
         ),
       ).toBeTruthy();
     });
@@ -1865,6 +1886,22 @@ describe("Read", () => {
     expect(
       tsk.config.channels.map((ch) => ch.type === "entry" && ch.calibrated),
     ).toEqual([true, false]);
+  });
+
+  it("should create the task from a slave in DewesoftX mode with no entry", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(tsk.config.channels.map(EtherCAT.Task.hasEntry)).toEqual([false]);
+    expect(tsk.config.channels[0].device).toEqual(slave.key);
   });
 
   it("should create the task from a slave without inputs with one channel on it", async () => {
