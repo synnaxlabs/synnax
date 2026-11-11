@@ -160,10 +160,13 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
 			req.IncludeStatus = true
-			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
-			Expect(stat).ToNot(BeNil())
-			Expect(stat.Message).To(Equal("Compiled"))
+			Eventually(func(g Gomega) {
+				res, err := retrieve(AuthedCtx(ctx, author), req)
+				g.Expect(err).ToNot(HaveOccurred())
+				stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+				g.Expect(stat).ToNot(BeNil())
+				g.Expect(stat.Message).To(Equal("Compiled"))
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 
 		It("Should include what changed in a deployed automation", func(

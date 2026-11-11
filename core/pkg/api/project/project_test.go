@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -181,6 +182,38 @@ var _ = Describe("Import", func() {
 		files := zip.Files{"Metrics.json": []byte("{}")}
 		Expect(importBundle(importCtx(ctx, u), files)).Error().
 			To(MatchError(ContainSubstring("bundle holds no manifest.json")))
+	})
+	It("Should decode the bundle before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := zip.Files{"Metrics.json": []byte("{}")}
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(MatchError(validate.ErrValidation)))
+	})
+	It("Should migrate each member before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := newBundle("Too new")
+		files["Metrics.json"] = []byte(
+			`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+		)
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		)))
 	})
 })
 

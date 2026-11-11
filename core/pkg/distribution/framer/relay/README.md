@@ -55,7 +55,9 @@ tapper, and are instead forwarded to the delta.
 ### 1.3 - The dynamic delta
 
 The dynamic delta is used to multiply responses received from taps to the streamers that
-requested them. It is dynamic because streamers can be added or removed at any time.
+requested them. It is dynamic because streamers can be added or removed at any time. The
+delta skips a response for a streamer when the response holds none of the streamer's
+channels, so traffic on other channels never fills that streamer's buffer.
 
 ### 1.4 - An additional note on free writes
 
@@ -111,11 +113,11 @@ so be careful when making code changes here to prevent deadlocks. The selection 
 is as follows:
 
 1. Context cancellation, which does an immediate, hard shutdown of the streamer.
-2. Frames on the outlet channel from the delta. The response from the delta contains
-   series for ALL channels requested by ALL streamers, so we filter only the keys we
-   want to send back to the caller. This process results in excess allocations, and is a
-   big performance hit. See [Section 4](#4---performance-considerations) for more
-   details.
+2. Frames on the outlet channel from the delta. A response from the delta holds at least
+   one of the streamer's channels, but it can also contain series for channels that
+   other streamers requested, so we filter only the keys we want to send back to the
+   caller. This process results in excess allocations, and is a big performance hit. See
+   [Section 4](#4---performance-considerations) for more details.
 3. Requests containing updated key sets to stream. We push these requests through the
    demand channel so the tapper can update its taps. If the caller closes this channel,
    we shut down the streamer.

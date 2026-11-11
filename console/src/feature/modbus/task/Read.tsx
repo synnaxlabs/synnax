@@ -182,6 +182,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
     try {
@@ -233,7 +234,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await Device.setProperties(client, dev, SCHEMAS);
+    if (modified) await Device.setProperties(client, dev, before, SCHEMAS);
   }
 
   config.channels.forEach((c) => {

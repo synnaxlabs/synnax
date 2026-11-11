@@ -1395,6 +1395,66 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
+		Context("Open channel", func() {
+			It(
+				"Should delete no channel when one is open for writing",
+				func(ctx SpecContext) {
+					chs := []channel.Channel{
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(Succeed())
+					kept, open := chs[0].Key(), chs[1].Key()
+					Expect(dist.Storage.TS.WriteSeries(
+						ctx,
+						kept.StorageKey(),
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					)).To(Succeed())
+					w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, ts.WriterConfig{
+						Start:    20 * telem.SecondTS,
+						Channels: []ts.ChannelKey{open.StorageKey()},
+					}))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteMany(
+							ctx,
+							channel.Keys{kept, open},
+							true,
+						)
+					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
+					Expect(w.Close()).To(Succeed())
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchKeys(kept)).
+						Exists(ctx, db)).To(BeTrue())
+					fr := MustSucceed(
+						dist.Storage.TS.Read(
+							ctx,
+							telem.TimeRangeMax,
+							kept.StorageKey(),
+						),
+					)
+					Expect(
+						fr.Get(kept.StorageKey()).Series[0],
+					).To(telem.MatchSeriesDataV(
+						10*telem.SecondTS,
+						11*telem.SecondTS,
+						12*telem.SecondTS,
+					))
+				},
+			)
+		})
 		Context("Calculated Channel Index", func() {
 			It(
 				"Should clear on open the index of a channel whose index does not exist",
