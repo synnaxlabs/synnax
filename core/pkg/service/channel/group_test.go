@@ -208,6 +208,34 @@ var _ = Describe("Group", Ordered, func() {
 		),
 	)
 
+	It(
+		"Should leave a shared index in place when its calculated channel is created again",
+		func(ctx SpecContext) {
+			name := UniqueChannelName()
+			old := createCalculated(ctx, name, nil)
+			shareIndex(ctx, old)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, old.Key(), false)
+			})).To(Succeed())
+			calc := createCalculated(ctx, name, &g.Key)
+			Expect(calc.Index()).To(Equal(old.Index()))
+			Expect(retrieve(ctx, calc.Index()).Group).To(BeNil())
+		},
+	)
+
+	It(
+		"Should leave a shared index in place when its calculated channel moves",
+		func(ctx SpecContext) {
+			calc := createCalculated(ctx, UniqueChannelName(), nil)
+			shareIndex(ctx, calc)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, calc.Key())
+			})).To(Succeed())
+			Expect(retrieve(ctx, calc.Key()).Group).To(Equal(&g.Key))
+			Expect(retrieve(ctx, calc.Index()).Group).To(BeNil())
+		},
+	)
+
 	It("Should reject a group that does not exist", func(ctx SpecContext) {
 		ch := channel.Channel{
 			Name:     UniqueChannelName(),

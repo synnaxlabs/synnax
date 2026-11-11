@@ -143,8 +143,18 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
 		!sameGroup(prev.Group, next.Group) {
-		if err = w.SetGroup(ctx, next.Group, next.Index()); err != nil {
+		var used set.Set[Key]
+		if used, err = w.usedIndexes(
+			ctx,
+			set.New(next.Index()),
+			set.New(key),
+		); err != nil {
 			return nil, err
+		}
+		if !used.Contains(next.Index()) {
+			if err = w.SetGroup(ctx, next.Group, next.Index()); err != nil {
+				return nil, err
+			}
 		}
 	}
 	var computed []Action
@@ -284,23 +294,39 @@ func (w Writer) withCalculatedIndexes(ctx context.Context, keys Keys) (Keys, err
 			indexes.Add(c.Index())
 		}
 	}
+	used, err := w.usedIndexes(ctx, indexes, deleting)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Concat(keys, indexes.Difference(used).Slice()), nil
+}
+
+// usedIndexes returns the keys in indexes that a channel outside exclude uses as its
+// index. The Core keeps such an index where it is when it moves or deletes the
+// calculated channel that owns it.
+func (w Writer) usedIndexes(
+	ctx context.Context,
+	indexes set.Set[Key],
+	exclude set.Set[Key],
+) (set.Set[Key], error) {
+	used := set.New[Key]()
 	if len(indexes) == 0 {
-		return keys, nil
+		return used, nil
 	}
 	var users []Channel
 	if err := w.svc.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			return !c.IsIndex && indexes.Contains(c.Index()) &&
-				!deleting.Contains(c.Key()), nil
+				!exclude.Contains(c.Key()), nil
 		})).
 		Entries(&users).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
 	for _, c := range users {
-		indexes.Remove(c.Index())
+		used.Add(c.Index())
 	}
-	return slices.Concat(keys, indexes.Slice()), nil
+	return used, nil
 }
 
 // Rename renames the channel with the given key to newName. Unless allowInternal is
@@ -437,8 +463,9 @@ func (w Writer) create(
 	// runs before the overwrite step so the auto-created index names flow through the
 	// same name-collision machinery as caller-provided channels.
 	indexChannels := make([]Channel, 0, len(channels))
-	// regroup holds each adopted index with the group of its new calculated channel.
-	var regroup []Channel
+	// regroup holds the position in indexChannels of each adopted index with the group
+	// of its new calculated channel.
+	regroup := make(map[int]*group.Key)
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
 	for i, ch := range channels {
@@ -498,8 +525,7 @@ func (w Writer) create(
 			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
 				ex.DataType == telem.TimestampT {
 				if g := indexChannels[idx].Group; !sameGroup(ex.Group, g) {
-					ex.Group = g
-					regroup = append(regroup, ex)
+					regroup[idx] = g
 				}
 				indexChannels[idx] = ex
 				continue
@@ -512,6 +538,21 @@ func (w Writer) create(
 				"channel %q already exists and cannot serve as the index for a calculated channel",
 				ex.Name,
 			)
+		}
+		adopted := set.New[Key]()
+		for idx := range regroup {
+			adopted.Add(indexChannels[idx].Key())
+		}
+		used, err := w.usedIndexes(ctx, adopted, nil)
+		if err != nil {
+			return err
+		}
+		for idx, g := range regroup {
+			if used.Contains(indexChannels[idx].Key()) {
+				delete(regroup, idx)
+				continue
+			}
+			indexChannels[idx].Group = g
 		}
 	}
 	channels = append(channels, indexChannels...)
@@ -600,8 +641,8 @@ func (w Writer) create(
 		written = append(written, ch.Key())
 	}
 
-	for _, ch := range regroup {
-		if err := w.SetGroup(ctx, ch.Group, ch.Key()); err != nil {
+	for idx, g := range regroup {
+		if err := w.SetGroup(ctx, g, indexChannels[idx].Key()); err != nil {
 			return err
 		}
 	}
