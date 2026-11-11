@@ -581,7 +581,8 @@ func (t *writeTask) closeClient() error {
 	err := t.client.Flush(ctx)
 	t.client.Close()
 	// Close fails the buffered records without waiting for their promises, and a
-	// promise that reports after the stop status would overwrite it.
+	// promise that reports after the stop status would overwrite it. The closer runs
+	// this after the relay exits, so nothing adds to promises during the wait.
 	t.promises.Wait()
 	return err
 }
