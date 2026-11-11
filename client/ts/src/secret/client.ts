@@ -208,7 +208,7 @@ export class Client extends query.Retriever<
    * Creates secrets, or replaces the secrets whose keys exist.
    * @returns the saved secrets, without their values.
    * @throws {PathError} if a secret is not valid, such as a stored secret without a
-   * value.
+   * value, or if a replace changes the source of a secret.
    * @throws {AccessDeniedError} if the caller cannot create secrets, or cannot update a
    * secret that the call replaces.
    */
