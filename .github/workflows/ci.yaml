@@ -853,8 +853,6 @@ jobs:
         run: pnpm knip
 
       - name: Check exports that only their own module's specs use
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: python3 scripts/check_exports_ts.py
 
   lint-integration:
