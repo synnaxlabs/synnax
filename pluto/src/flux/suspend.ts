@@ -66,7 +66,7 @@ const SETTLED_CAP = 256;
  * unbounded map leaks across a long session's distinct queries. An evicted entry
  * costs a refetch on the next read, never correctness.
  */
-export const setSettled = <Data>(
+const setSettled = <Data>(
   local: LocalCache<Data>,
   hash: string,
   entry: Settled<Data>,
