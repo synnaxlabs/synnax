@@ -1452,6 +1452,16 @@ TEST(SeriesModule, SliceHasItsOwnData) {
                    .call(f.store, {wasmtime::Val(int32_t{4})})
                    .unwrap();
     auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
     auto result = f.get("slice")
                       .call(
                           f.store,
@@ -1475,8 +1485,8 @@ TEST(SeriesModule, SliceHasItsOwnData) {
             {wasmtime::Val(h), wasmtime::Val(int32_t{2}), wasmtime::Val(int32_t{7})}
         )
         .unwrap();
-    EXPECT_EQ(f.state->get(h)->at<int32_t>(1), 0);
-    EXPECT_EQ(f.state->get(sliced)->at<int32_t>(1), 0);
+    EXPECT_EQ(f.state->get(h)->at<int32_t>(1), 20);
+    EXPECT_EQ(f.state->get(sliced)->at<int32_t>(1), 30);
 }
 
 TEST(SeriesModule, SliceStartGEEndReturnsZero) {
