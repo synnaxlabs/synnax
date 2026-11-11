@@ -29,9 +29,25 @@ if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
     exit 1
 fi
 
-# Prints the PR number at the end of a commit's subject.
+ERR=$(mktemp)
+trap 'rm -f "$ERR"' EXIT
+
+# Prints the PR number at the end of the subject of the message on stdin.
 subject_pr() {
-    git log -1 --format=%s "$1" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'
+    sed -nE '1s/.*\(#([0-9]+)\)$/\1/p'
+}
+
+# Prints a commit's message. A commit outside the clone, such as one of a deleted PR
+# branch, is read from GitHub, and one that GitHub does not know prints nothing.
+message() {
+    if git cat-file -e "$1^{commit}" 2> /dev/null; then
+        git log -1 --format=%B "$1"
+        return
+    fi
+    if ! "$GH_API" "repos/$GITHUB_REPOSITORY/commits/$1" --jq .commit.message \
+        2> "$ERR"; then
+        grep -q "No commit found for SHA" "$ERR" || { cat "$ERR" >&2 && return 1; }
+    fi
 }
 
 # Prints each commit of a PR as a line of JSON. The endpoint lists at most 250 commits,
@@ -49,15 +65,23 @@ pr_commits() {
 
 # Prints a "pick <commit> <carrier> <source>" line for each `cherry-pick -x` trailer of
 # a commit and a "revert <commit> <carrier> <target>" line for each commit it reverts.
-# A squash merge drops these lines from the message, so a commit with none reads the
-# commits of the PR its subject names, and each such commit is the carrier of its lines.
+# A squash merge loses the order and SHAs of its PR's commits, so a commit whose subject
+# names a PR reads that PR's commits, and each is the carrier of its lines. A direct
+# pick of a squash merge keeps its subject, so it reads its own message.
 links() {
-    local found pr
-    found=$(git log -1 --format=%B "$1" | sed -nE \
+    local msg found pr source
+    msg=$(message "$1") || return
+    found=$(sed -nE \
         -e "s/^\(cherry picked from commit ([0-9a-f]+)\)$/pick $1 $1 \1/p" \
-        -e "s/^This reverts commit ([0-9a-f]+).*/revert $1 $1 \1/p") || return
-    pr=$(subject_pr "$1") || return
-    if [ -n "$found" ] || [ -z "$pr" ]; then
+        -e "s/^This reverts commit ([0-9a-f]+).*/revert $1 $1 \1/p" <<< "$msg")
+    pr=$(subject_pr <<< "$msg")
+    while read -r source; do
+        if git cat-file -e "$source^{commit}" 2> /dev/null \
+            && [ "$(git log -1 --format=%s "$source" | subject_pr)" = "$pr" ]; then
+            pr=""
+        fi
+    done < <(awk '$1 == "pick" { print $4 }' <<< "$found")
+    if [ -z "$pr" ]; then
         echo "$found"
         return
     fi
@@ -71,7 +95,7 @@ links() {
 
 # The commits the previous tag holds that SHA does not are its cherry-picks, oldest
 # first. A source off SHA is itself a pick, such as one from an older train's branch, so
-# its own links are read too.
+# its own links are read too, as are those of a source outside the clone.
 LINKS=""
 OPS=""
 SEEN=""
@@ -89,15 +113,17 @@ while [ -n "$PICKS" ]; do
     while read -r source; do
         if [[ " $SEEN " == *" $source "* ]]; then continue; fi
         SEEN+=" $source"
-        if git cat-file -e "$source^{commit}" 2> /dev/null \
-            && ! git merge-base --is-ancestor "$source" "$SHA"; then
+        if ! git cat-file -e "$source^{commit}" 2> /dev/null \
+            || ! git merge-base --is-ancestor "$source" "$SHA"; then
             PICKS+=" $source"
         fi
     done < <(awk '$1 == "pick" { print $4 }' <<< "$FOUND")
 done
 # Applies the picks in commit order, so each source keeps its last state. A pick ships
 # its source, and a revert flips the state of its target. A squash merge applies its
-# PR's commits in order, and a revert of it undoes them in reverse order.
+# PR's commits in order, and a revert of it undoes them in reverse order. A revert ships
+# with the fix it undoes or restores, so a source counts as shipped when the fix at the
+# end of its revert chain does.
 SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
     function add(list, key, value) {
         if (index(list[key] " ", " " value " ") == 0) list[key] = list[key] " " value
@@ -117,6 +143,14 @@ SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
         n = split(reverts[c], list, " ")
         for (i = 1; i <= n; i++) apply(list[i], !on)
     }
+    function base(c,   list) {
+        while (1) {
+            if (reverts[c] != "") split(reverts[c], list, " ")
+            else if (c in picks) split(picks[c], list, " ")
+            else return c
+            c = list[1]
+        }
+    }
     $1 == "pick" { add(picks, $2, $4); sources[$4] = 1 }
     $1 == "revert" { n++; commit[n] = $2; target[n] = $4 }
     ($1 == "pick" || $1 == "revert") && $2 != $3 { add(subs, $3, $2) }
@@ -132,7 +166,7 @@ SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
         }
         m = split(ops, list, " ")
         for (i = 1; i <= m; i++) apply(list[i], 1)
-        for (s in sources) if (state[s]) print s
+        for (s in sources) if (state[base(s)]) print s
     }' <<< "$LINKS" | sort -u | tr '\n' ' ')
 
 # A source with a PR in its subject is that PR's squash merge. GitHub resolves the
@@ -140,12 +174,10 @@ SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
 # shipped only when all of its commits but merges were picked. A source picked from a
 # commit that was never pushed has no PR.
 SHIPPED=""
-ERR=$(mktemp)
-trap 'rm -f "$ERR"' EXIT
 for source in $SOURCES; do
     PR=""
     if git cat-file -e "$source^{commit}" 2> /dev/null; then
-        PR=$(subject_pr "$source")
+        PR=$(git log -1 --format=%s "$source" | subject_pr)
     fi
     if [ -n "$PR" ]; then
         SHIPPED+=" $PR"
@@ -181,7 +213,10 @@ gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${ARGS[@]}" --jq .bod
         /^\*\*Full Changelog\*\*/ { skip = 0 }
         skip { next }
         /^\* / && match($0, /\/pull\/[0-9]+$/) && substr($0, RSTART) in drop { next }
-        # A category whose PRs all shipped earlier is left out.
-        /^### / { header = $0; next }
-        header != "" { if (/^\* /) print header; header = "" }
-        { print }'
+        # A section or category whose PRs all shipped earlier is left out.
+        /^## / { section = $0; category = ""; next }
+        /^### / { category = $0; next }
+        /^$/ && section category != "" { next }
+        /^\* / && section != "" { print section }
+        /^\* / && category != "" { print category }
+        { section = ""; category = ""; print }'

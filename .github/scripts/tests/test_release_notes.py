@@ -162,6 +162,21 @@ MINOR = f"""## What's Changed
 """
 
 
+WITH_REVERTS = MINOR.replace(
+    f"{PULL}/12\n",
+    f"{PULL}/12\n* Revert a stall fix by @someone in {PULL}/16\n"
+    f"* Re-land the stall fix by @someone in {PULL}/17\n",
+)
+
+ONLY_STAGE = f"""## What's Changed
+### Arc
+* Fix a stage by @someone in {PULL}/14
+
+
+**Full Changelog**: https://github.com/synnaxlabs/synnax/compare/v0.60.1...v0.61.0
+"""
+
+
 class Train(Harness):
     """Main holds a stall fix (#11), a leak fix (#12), and a stage fix (#14) after
     core/v0.60.0. The checkout is release/core-0.60 at core/v0.60.0."""
@@ -173,6 +188,10 @@ class Train(Harness):
         self.leak = self.commit("Fix a leak (#12)")
         self.stage = self.commit("Fix a stage (#14)")
         self.git("checkout", "-q", "-b", "release/core-0.60", "core/v0.60.0")
+
+    def serve_message(self, sha: str, message: str = "") -> None:
+        """Serves the message of a commit that is not in the clone."""
+        self.gh.serve(f"api */commits/{sha}", {"commit": {"message": message}})
 
 
 @pytest.fixture
@@ -252,6 +271,7 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.serve_message(branch, "Fix a stall")
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
         train.gh.serve("api */pulls/11/commits", [pr_commit(branch)])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
@@ -276,6 +296,7 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.serve_message(branch, "Fix a stall")
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
         train.gh.serve("api */pulls/11/commits", [pr_commit(branch), pr_commit(later)])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
@@ -314,10 +335,8 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", local)])
-        train.gh.fail(
-            f"api */commits/{local}/pulls",
-            f"gh: No commit found for SHA: {local} (HTTP 422)",
-        )
+        for route in (f"api */commits/{local}", f"api */commits/{local}/pulls"):
+            train.gh.fail(route, f"gh: No commit found for SHA: {local} (HTTP 422)")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert notes.strip() == MINOR.strip()
 
@@ -326,6 +345,7 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.serve_message(branch, "Fix a stall")
         train.gh.fail(
             f"api */commits/{branch}/pulls", "gh: Resource not accessible (HTTP 403)"
         )
@@ -345,6 +365,7 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.serve_message(branch, "Fix a stall")
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
         train.gh.serve(
             "api */pulls/11/commits", [pr_commit(branch), pr_commit(merge, parents=2)]
@@ -427,6 +448,7 @@ class TestCherryPicks:
         train.git("cherry-pick", "-x", revert)
         train.git("cherry-pick", "-x", reland)
         train.git("tag", "core/v0.60.1")
+        train.gh.serve(f"api */commits/{revert}/pulls")
         train.gh.serve(f"api */commits/{reland}/pulls")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
@@ -456,7 +478,7 @@ class TestCherryPicks:
                 picked_revert(revert, train.stall, "b" * 40),
             ],
         )
-        train.gh.serve(f"api */commits/{revert}/pulls")
+        train.serve_message(revert, f"Revert\n\nThis reverts commit {train.stall}.")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"* Fix a stall by @someone in {PULL}/11" in notes
 
@@ -473,6 +495,9 @@ class TestCherryPicks:
                 picked_revert(reland, revert, "c" * 40),
             ],
         )
+        train.serve_message(revert, f"Revert\n\nThis reverts commit {train.stall}.")
+        train.serve_message(reland, f"Revert\n\nThis reverts commit {revert}.")
+        train.gh.serve(f"api */commits/{revert}/pulls")
         train.gh.serve(f"api */commits/{reland}/pulls")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
@@ -494,3 +519,79 @@ class TestCherryPicks:
         )
         assert result.returncode != 0
         assert "PR #13 has 250 or more commits" in result.stderr
+
+    def test_keeps_a_fix_and_its_picked_revert_pr(self, train: Train) -> None:
+        train.git("checkout", "-q", "main")
+        revert = train.commit(
+            f'Revert "Fix a stall (#11)" (#16)\n\nThis reverts commit {train.stall}.'
+        )
+        train.git("checkout", "-q", "release/core-0.60")
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("cherry-pick", "-x", revert)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */releases/generate-notes", {"body": WITH_REVERTS})
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11\n" in notes
+        assert f"{PULL}/16\n" in notes
+
+    def test_leaves_out_a_fix_and_its_relanded_revert_prs(self, train: Train) -> None:
+        train.git("checkout", "-q", "main")
+        revert = train.commit(
+            f'Revert "Fix a stall (#11)" (#16)\n\nThis reverts commit {train.stall}.'
+        )
+        reland = train.commit(
+            f"Re-land the stall fix (#17)\n\nThis reverts commit {revert}."
+        )
+        train.git("checkout", "-q", "release/core-0.60")
+        for commit in (train.stall, revert, reland):
+            train.git("cherry-pick", "-x", commit)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */releases/generate-notes", {"body": WITH_REVERTS})
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        for pr in (11, 16, 17):
+            assert f"{PULL}/{pr}\n" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
+
+    def test_reads_the_commits_of_a_pick_pr_whose_message_has_trailers(
+        self, train: Train
+    ) -> None:
+        stage_pick = "0123456789abcdef0123456789abcdef01234567"
+        train.commit(
+            "Pick the stall and stage fixes (0.60.1) (#13)\n\n"
+            f"(cherry picked from commit {train.stall})\n"
+            f"(cherry picked from commit {train.stage})\n"
+            f"This reverts commit {stage_pick}."
+        )
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [
+                picked("Fix a stall (#11)", train.stall, "a" * 40),
+                picked("Fix a stage (#14)", train.stage, stage_pick),
+                pr_commit("b" * 40, f"Revert\n\nThis reverts commit {stage_pick}."),
+            ],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a stage by @someone in {PULL}/14" in notes
+
+    def test_leaves_out_the_section_when_every_fix_shipped(self, train: Train) -> None:
+        train.git("cherry-pick", "-x", train.stage)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */releases/generate-notes", {"body": ONLY_STAGE})
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert "What's Changed" not in notes
+        assert "**Full Changelog**" in notes
+
+    def test_follows_a_pick_from_a_commit_outside_the_clone(self, train: Train) -> None:
+        branch = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall fix (0.60.1) (#21)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/21/commits", [picked("Fix a stall", branch)])
+        train.serve_message(
+            branch, f"Fix a stall\n\n(cherry picked from commit {train.stall})"
+        )
+        train.gh.serve(f"api */commits/{branch}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
