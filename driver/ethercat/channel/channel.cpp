@@ -226,16 +226,16 @@ find_calibration(const slave::Properties &slave, const pdo::Entry &entry) {
                 e.value("sub_index", 0) != entry.sub_index ||
                 !e.contains("calibration"))
                 continue;
-            const auto &c = e["calibration"];
+            const auto &c = e.at("calibration");
             return std::pair{
                 Calibration{
-                    .index = c["index"].get<uint16_t>(),
-                    .gain_sub_index = c["gain_sub_index"].get<uint8_t>(),
-                    .offset_sub_index = c["offset_sub_index"].get<uint8_t>(),
-                    .divisor = c["divisor"].get<double>(),
+                    .index = c.at("index").get<uint16_t>(),
+                    .gain_sub_index = c.at("gain_sub_index").get<uint8_t>(),
+                    .offset_sub_index = c.at("offset_sub_index").get<uint8_t>(),
+                    .divisor = c.at("divisor").get<double>(),
                     .raw_offset = c.value("raw_offset", false),
                 },
-                x::telem::DataType(c["data_type"].get<std::string>()),
+                x::telem::DataType(c.at("data_type").get<std::string>()),
             };
         }
     return std::nullopt;
