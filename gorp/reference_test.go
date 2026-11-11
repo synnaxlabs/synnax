@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
@@ -552,6 +553,41 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("Referenced", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+			createRack(ctx, 2)
+			createRack(ctx, 3)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 2})).To(Succeed())
+		})
+
+		It("Should return the targets that an entry holds", func(ctx SpecContext) {
+			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2, 3)).
+				To(Equal(set.New[uint32](1, 2)))
+		})
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 3}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(deviceRef.rack.Referenced(ctx, tx, 1, 2, 3)).
+				To(Equal(set.New[uint32](2, 3)))
+			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2, 3)).
+				To(Equal(set.New[uint32](1, 2)))
+		})
+
+		It("Should drop a target once no entry holds it", func(ctx SpecContext) {
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice]("b")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2)).
+				To(Equal(set.New[uint32](1)))
+		})
+	})
+
 	Describe("FilterHolding", func() {
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx)
@@ -1027,6 +1063,8 @@ var _ = Describe("Reference", func() {
 
 			It("Should fail a probe of the reference", func(ctx SpecContext) {
 				Expect(deviceRef.rack.Get(ctx, nil, 1)).Error().
+					To(MatchError(gorp.ErrIndexInvalid))
+				Expect(deviceRef.rack.Referenced(ctx, nil, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
 				Expect(racks.Dependents(ctx, db, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))

@@ -162,6 +162,33 @@ func (m *Multi[S, K, V]) CommittingHolding(holding bool) []K {
 	return keys.Slice()
 }
 
+// HeldValues returns those of values that at least one key holds, with the changes of
+// scope applied. It blocks until the bulk load finishes.
+func (m *Multi[S, K, V]) HeldValues(scope S, values []V) (set.Set[V], error) {
+	<-m.population.done
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if err := m.population.err; err != nil {
+		return nil, err
+	}
+	d, staged := m.overlay.get(scope)
+	// kept reports whether a committed holder keeps its values under the changes.
+	kept := func(k K) bool {
+		if !staged {
+			return true
+		}
+		_, changed := d.state[k]
+		return !changed
+	}
+	held := make(set.Set[V])
+	for _, v := range values {
+		if m.forward[v].some(kept) || (staged && d.forward[v].len() > 0) {
+			held.Add(v)
+		}
+	}
+	return held, nil
+}
+
 // Held returns the values that key holds, with the changes of scope applied. It
 // returns false when the bulk load has not finished or failed.
 func (m *Multi[S, K, V]) Held(scope S, key K) ([]V, bool) {

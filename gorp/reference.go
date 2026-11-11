@@ -424,6 +424,32 @@ func (r *reference[K, E, T]) Get(
 	return probe(ctx, r.store, snap, targets)
 }
 
+// Referenced returns those of targets that at least one entry holds, with the changes
+// staged against snap applied. Pass a nil snap to skip staged changes. Like Get, it
+// counts the entries of a commit in flight, which can fail.
+//
+// Referenced waits for the index to populate, or for ctx to end. It returns
+// ErrIndexInvalid if population failed.
+func (r *reference[K, E, T]) Referenced(
+	ctx context.Context,
+	snap Snapshot,
+	targets ...T,
+) (set.Set[T], error) {
+	if err := r.store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	held, err := r.store.HeldValues(scopeOf(snap), targets)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range targets {
+		if !held.Contains(t) && len(r.store.Committing(t)) > 0 {
+			held.Add(t)
+		}
+	}
+	return held, nil
+}
+
 // Filter returns a Filter matching entries that hold any of targets. It sees the
 // changes staged in the transaction it runs in.
 func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {

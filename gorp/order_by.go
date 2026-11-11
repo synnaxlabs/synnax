@@ -12,10 +12,12 @@ package gorp
 import (
 	"cmp"
 	"iter"
+	"math/bits"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/gorp/internal/keyset"
 )
 
 // Direction is the iteration direction used by a SortedIndex index when it is
@@ -35,8 +37,8 @@ type OrderQuery[K Key, E Entry[K]] interface {
 	// walk yields the keys of the walk in order, each with a check that reports whether
 	// an entry read at the key still holds the value the walk found it at. It takes
 	// batch keys from the index at a time, or every key at once when batch is 0. A
-	// non-nil keys limits the walk to those keys.
-	walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool]
+	// bounded keys limits the walk to those keys.
+	walk(keys keyset.Set[K], batch int) iter.Seq2[K, func(e *E) bool]
 	// sort orders entries by the values they hold now, in the walk direction, and drops
 	// each entry that is not strictly past the walk's cursor.
 	sort(entries []E) []E
@@ -75,7 +77,10 @@ func (q SortedQuery[K, E, V]) After(value V, key K) SortedQuery[K, E, V] {
 // per-tx delta. A failed populate leaves the index empty for the walk.
 //
 //nolint:unused
-func (q SortedQuery[K, E, V]) walk(keys []K, batch int) iter.Seq2[K, func(e *E) bool] {
+func (q SortedQuery[K, E, V]) walk(
+	keys keyset.Set[K],
+	batch int,
+) iter.Seq2[K, func(e *E) bool] {
 	desc := q.dir == DirectionDesc
 	return func(yield func(K, func(e *E) bool) bool) {
 		emit := func(entries []index.Entry[K, V]) bool {
@@ -89,12 +94,17 @@ func (q SortedQuery[K, E, V]) walk(keys []K, batch int) iter.Seq2[K, func(e *E) 
 			}
 			return true
 		}
-		if keys != nil {
-			emit(q.sorted.store.Order(keys, desc, q.after))
-			return
+		var in func(K) bool
+		if keys.Bounded() {
+			// Sorting few keys costs less than walking past the entries they skip.
+			if n := len(keys.Keys()); n*bits.Len(uint(n)) <= q.sorted.store.Len() {
+				emit(q.sorted.store.Order(keys.Keys(), desc, q.after))
+				return
+			}
+			in = keys.Probe()
 		}
 		for after := q.after; ; {
-			next := q.sorted.store.Walk(desc, after, batch)
+			next := q.sorted.store.Walk(desc, after, batch, in)
 			if len(next) == 0 || !emit(next) || batch == 0 {
 				return
 			}

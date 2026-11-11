@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Multi", func() {
@@ -129,6 +130,34 @@ var _ = Describe("Multi", func() {
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(failed.Holding(nil, false)).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("HeldValues", func() {
+		It("Should return the values that some key holds", func() {
+			Expect(m.HeldValues(nil, []string{"a", "b", "c"})).
+				To(Equal(set.New("a", "b")))
+		})
+
+		It("Should show staged changes only to their scope", func() {
+			m.Stage(txn, 1, []string{"c"})
+			Expect(m.HeldValues(txn, []string{"a", "b", "c"})).
+				To(Equal(set.New("b", "c")))
+			m.StageDelete(txn, 2)
+			Expect(m.HeldValues(txn, []string{"a", "b", "c"})).
+				To(Equal(set.New("c")))
+			Expect(m.HeldValues(nil, []string{"a", "b", "c"})).
+				To(Equal(set.New("a", "b")))
+		})
+
+		It("Should return the load error", func() {
+			failed := index.NewMulti[*scope, int, string]()
+			_, finish := failed.Populate()
+			finish(errLoad)
+			Expect(
+				failed.HeldValues(nil, []string{"a"}),
+			).Error().
+				To(MatchError(errLoad))
 		})
 	})
 
