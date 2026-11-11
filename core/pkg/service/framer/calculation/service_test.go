@@ -1509,18 +1509,13 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 
 		Specify("Lookups Changed During A Request", func(ctx SpecContext) {
+			const retryDelay = 200 * telem.Millisecond
 			var (
 				target  atomic.Uint32
 				changes atomic.Int32
 				changed = make(chan struct{}, 10)
 			)
-			changing := openChanging(
-				ctx,
-				100*telem.Millisecond,
-				&target,
-				&changes,
-				changed,
-			)
+			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
 			bases := []channel.Channel{{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
@@ -1529,40 +1524,20 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
 			})).To(Succeed())
-			calcs := []channel.Channel{
-				{
+			calcs := make([]channel.Channel, 3)
+			for i := range calcs {
+				calcs[i] = channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
-				},
-				{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Int64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s * 3", bases[0].Name),
-				},
+					Expression:  fmt.Sprintf("return %s * %d", bases[0].Name, i+2),
+				}
 			}
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
 			})).To(Succeed())
 			keys := channel.KeysFromChannels(calcs)
-			target.Store(uint32(keys[1]))
-			changes.Store(1)
-
-			// The first calculation compiles and the second fails, so the failed
-			// request leaves the first with no request when rm closes.
-			rm := changing.OpenRequestManager()
-			Expect(rm.Set(ctx, keys)).To(MatchError(channel.ErrLookupsChanged))
-			Expect(rm.Close(ctx)).To(Succeed())
-			rm = changing.OpenRequestManager()
-			Expect(rm.Set(ctx, keys[1:])).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(rm.Close(ctx)).To(Succeed())
-			})
-
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
 				Keys:  channel.KeysFromChannels(bases),
@@ -1577,14 +1552,46 @@ var _ = Describe("Calculation", Ordered, func() {
 			_, sOutlet := confluence.Attach(streamer, 1, 1)
 			streamer.Flow(sCtx)
 			Eventually(sOutlet.Outlet()).Should(Receive())
-			Expect(
-				w.Write(frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2))),
-			).To(BeTrue())
+			write := func() {
+				GinkgoHelper()
+				Expect(w.Write(
+					frame.NewUnary(bases[0].Key(), telem.NewSeriesV[int64](1, 2)),
+				)).To(BeTrue())
+			}
+
+			// A request closed before its retry starts no calculation.
+			target.Store(uint32(keys[2]))
+			changes.Store(1)
+			closed := changing.OpenRequestManager()
+			Expect(closed.Set(ctx, keys[2:])).To(Succeed())
+			Expect(changed).To(Receive())
+			Expect(closed.Close(ctx)).To(Succeed())
+
+			target.Store(uint32(keys[1]))
+			changes.Store(1)
+			rm := changing.OpenRequestManager()
+			Expect(rm.Set(ctx, keys[:2])).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rm.Close(ctx)).To(Succeed())
+			})
+			Expect(changed).To(Receive())
 			var res framer.StreamerResponse
-			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
-			Expect(res.Frame.Get(keys[0]).Series).To(BeEmpty())
+			Eventually(func(g Gomega) {
+				write()
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(keys[1]).Series).To(HaveLen(1))
+			}, 5*time.Second).Should(Succeed())
+			Expect(res.Frame.Get(keys[0]).Series[0]).
+				To(telem.MatchSeriesDataV[int64](2, 4))
 			Expect(res.Frame.Get(keys[1]).Series[0]).
 				To(telem.MatchSeriesDataV[int64](3, 6))
+			Consistently(func(g Gomega) {
+				write()
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(keys[2]).Series).To(BeEmpty())
+			}, 2*retryDelay.Duration()).Should(Succeed())
 		})
 
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {

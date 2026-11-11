@@ -108,8 +108,9 @@ func New(cfgs ...Config) (*Graph, error) {
 }
 
 // Add compiles a channel and its dependencies, then assigns it to a group.
-// Increments the explicit reference count for the channel.
-func (g *Graph) Add(ctx context.Context, ch channel.Channel) error {
+// Increments the explicit reference count for the channel. A failed Add leaves the
+// graph as it was.
+func (g *Graph) Add(ctx context.Context, ch channel.Channel) (err error) {
 	if info := g.channels[ch.Key()]; info != nil {
 		oldCount := info.explicitCount
 		info.explicitCount++
@@ -121,20 +122,41 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) error {
 		)
 		return nil
 	}
+	defer g.restoreOnError(&err)()
 	return g.addInternal(ctx, ch, true)
+}
+
+// restoreOnError saves the state of the graph. The returned function restores that
+// state when *err is not nil.
+func (g *Graph) restoreOnError(err *error) func() {
+	channels := make(map[channel.Key]*channelInfo, len(g.channels))
+	for k, info := range g.channels {
+		saved := *info
+		channels[k] = &saved
+	}
+	groups := make(map[int]*groupInfo, len(g.groups))
+	for k, group := range g.groups {
+		groups[k] = &groupInfo{baseDeps: group.baseDeps, members: group.members.Copy()}
+	}
+	nextGroupID := g.nextGroupID
+	return func() {
+		if *err != nil {
+			g.channels, g.groups, g.nextGroupID = channels, groups, nextGroupID
+		}
+	}
 }
 
 // Update recompiles a channel with a new expression and updates its dependencies and
 // group assignment. Preserves reference counts - use this when a channel's calculation
 // changes but the same users are still requesting it. If the channel's DataType
 // changes, all downstream channels that depend on it are recompiled in topological
-// order. Update compiles every module before it changes the graph, so a failed compile
-// leaves the graph as it was.
-func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
+// order. A failed Update leaves the graph as it was.
+func (g *Graph) Update(ctx context.Context, ch channel.Channel) (err error) {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
 		return err
 	}
+	defer g.restoreOnError(&err)()
 	mod, err := g.compile(ctx, ch)
 	if err != nil {
 		g.logCompileError(ctx, err, ch)
@@ -540,7 +562,6 @@ func (g *Graph) addInternal(
 
 	mod, err := g.compile(ctx, ch)
 	if err != nil {
-		delete(g.channels, ch.Key())
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
@@ -553,14 +574,12 @@ func (g *Graph) addInternal(
 		var err error
 		depChannels, err = g.fetchChannels(ctx, dependencies)
 		if err != nil {
-			delete(g.channels, ch.Key())
 			return errors.Wrap(err, "failed to retrieve dependency channels")
 		}
 
 		for _, depCh := range depChannels {
 			if depCh.IsCalculated() {
 				if err := g.addInternal(ctx, depCh, false); err != nil {
-					delete(g.channels, ch.Key())
 					return errors.Wrapf(
 						err,
 						"failed to add calculated dependency %v",
@@ -583,7 +602,6 @@ func (g *Graph) addInternal(
 
 	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
 	if err != nil {
-		delete(g.channels, ch.Key())
 		return err
 	}
 

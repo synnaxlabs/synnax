@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -119,6 +120,8 @@ type Service struct {
 	mu      struct {
 		graph  *graph.Graph
 		groups map[int]*group
+		// pending counts the requests for each channel whose add waits on a retry.
+		pending map[channel.Key]int
 		sync.Mutex
 	}
 }
@@ -153,6 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s.mu.graph = g
 	s.mu.groups = make(map[int]*group)
+	s.mu.pending = make(map[channel.Key]int)
 	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -245,6 +249,10 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.updateLocked(ctx, ch)
+}
+
+func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
 	if !s.mu.graph.Contains(ch.Key()) {
 		return
 	}
@@ -259,8 +267,36 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	}
 }
 
-// retry runs update on the stored definition of the channel with key. It runs on the
-// retry debouncer, so the service holds no lock while a retry waits.
+// request adds a request for ch to the graph. When the channels that ch reads changed
+// during each compile, request holds the request as pending and schedules a retry.
+func (s *Service) request(ctx context.Context, ch channel.Channel) {
+	err := s.mu.graph.Add(ctx, ch)
+	if errors.Is(err, channel.ErrLookupsChanged) {
+		s.mu.pending[ch.Key()]++
+		s.retries.Trigger(ch.Key())
+		return
+	}
+	if err != nil {
+		s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
+	}
+}
+
+// start clears the status of each calculation not in running and starts the groups of
+// the graph.
+func (s *Service) start(ctx context.Context, running set.Set[channel.Key]) error {
+	// A calculation that already runs owns its status, so only a new one clears it.
+	// Dependencies start with the channel that reads them.
+	for k := range s.mu.graph.CalculatedKeys() {
+		if !running.Contains(k) {
+			s.clearStatus(ctx, k)
+		}
+	}
+	return s.rebuildGroups(ctx)
+}
+
+// retry adds the pending requests for the channel with key, or else runs update on its
+// stored definition. It runs on the retry debouncer, so the service holds no lock while
+// a retry waits.
 func (s *Service) retry(ctx context.Context, key channel.Key) {
 	var ch channel.Channel
 	err := s.cfg.Channel.NewRetrieve().
@@ -278,8 +314,27 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		)
 		return
 	}
-	if ch.IsCalculated() {
-		s.update(ctx, ch)
+	if !ch.IsCalculated() {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending := s.mu.pending[key]
+	if pending == 0 {
+		s.updateLocked(ctx, ch)
+		return
+	}
+	delete(s.mu.pending, key)
+	running := s.mu.graph.CalculatedKeys()
+	for range pending {
+		s.request(ctx, ch)
+	}
+	if err := s.start(ctx, running); err != nil {
+		s.cfg.L.Error(
+			"failed to start calculation",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
 	}
 }
 
@@ -438,49 +493,24 @@ func (s *Service) updateRequests(
 	defer s.mu.Unlock()
 
 	running := s.mu.graph.CalculatedKeys()
-	graphChanged := false
-	var requested []channel.Key
-	for _, ch := range channels {
-		if !ch.IsCalculated() {
+	for _, k := range removed {
+		if s.mu.pending[k] > 0 {
+			if s.mu.pending[k]--; s.mu.pending[k] == 0 {
+				delete(s.mu.pending, k)
+			}
 			continue
 		}
-		err := s.mu.graph.Add(ctx, ch)
-		// The caller tries again, so the request leaves the graph as it was.
-		if errors.Is(err, channel.ErrLookupsChanged) {
-			for _, k := range requested {
-				if _, rmErr := s.mu.graph.Remove(k); rmErr != nil {
-					return errors.Join(err, rmErr)
-				}
-			}
+		if _, err := s.mu.graph.Remove(k); err != nil {
 			return err
 		}
-		if err != nil {
-			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
-		} else {
-			requested = append(requested, ch.Key())
-		}
-		graphChanged = true
 	}
-	for _, k := range removed {
-		found, err := s.mu.graph.Remove(k)
-		if err != nil {
-			return err
-		}
-		if found {
-			graphChanged = true
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			s.request(ctx, ch)
 		}
 	}
-	// A calculation that already runs owns its status, so only a new one clears it.
-	// Dependencies start with the channel that reads them.
-	for k := range s.mu.graph.CalculatedKeys() {
-		if !running.Contains(k) {
-			s.clearStatus(ctx, k)
-		}
-	}
-	if graphChanged {
-		if err := s.rebuildGroups(ctx); err != nil {
-			return err
-		}
+	if err := s.start(ctx, running); err != nil {
+		return err
 	}
 	if len(added) > 0 {
 		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))

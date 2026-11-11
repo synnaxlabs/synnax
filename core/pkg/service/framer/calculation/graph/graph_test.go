@@ -1479,6 +1479,73 @@ var _ = Describe("Graph", func() {
 				Expect(dataTypes()[parent.Key()]).To(Equal(telem.Float32T))
 			},
 		)
+		It(
+			"Should leave the graph unchanged when an added dependency fails to compile",
+			func(ctx SpecContext) {
+				var failing channel.Key
+				g = MustSucceed(graph.New(graph.Config{
+					Channel: channelSvc,
+					DB:      db,
+					Compile: func(
+						ctx context.Context,
+						db *gorp.DB,
+						cfgs ...compiler.Config,
+					) (compiler.Module, error) {
+						if cfgs[0].Channel.Key() == failing {
+							return compiler.Module{}, channel.ErrLookupsChanged
+						}
+						return compiler.Compile(ctx, db, cfgs...)
+					},
+				}))
+				raw := channel.Channel{
+					Name:     "atomic_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				deps := []channel.Channel{
+					{
+						Name:       "atomic_a",
+						DataType:   telem.Float64T,
+						Virtual:    true,
+						Expression: "return atomic_raw * 2.0",
+					},
+					{
+						Name:       "atomic_b",
+						DataType:   telem.Float64T,
+						Virtual:    true,
+						Expression: "return atomic_raw * 3.0",
+					},
+				}
+				for i := range deps {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &deps[i])
+					})).To(Succeed())
+				}
+				sum := channel.Channel{
+					Name:       "atomic_sum",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return atomic_a + atomic_b",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &sum)
+				})).To(Succeed())
+
+				for _, dep := range deps {
+					failing = dep.Key()
+					Expect(g.Add(ctx, sum)).To(MatchError(channel.ErrLookupsChanged))
+					Expect(g.CalculatedKeys()).To(BeEmpty())
+				}
+				failing = 0
+				Expect(g.Add(ctx, sum)).To(Succeed())
+				Expect(g.CalculatedKeys()).To(HaveLen(3))
+				Expect(g.Remove(sum.Key())).To(BeTrue())
+				Expect(g.CalculatedKeys()).To(BeEmpty())
+			},
+		)
 		It("Should not cascade when DataType stays the same", func(ctx SpecContext) {
 			raw := channel.Channel{
 				Name:     "nocascade_raw",
