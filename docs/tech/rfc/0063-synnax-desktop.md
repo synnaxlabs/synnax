@@ -369,15 +369,17 @@ beside Core 0.59.2. RFC 0058 §4 rejected independent numbers because users coul
 tell which products work together, and Desktop pairs with nothing but its own Core.
 
 A person dispatches `release.desktop.yaml` with a bump and an optional candidate flag: a
-`minor` or `major` bump from `main`, or a `patch` from a `release/desktop-X.Y` branch.
-It reuses the parts of `release.yaml`:
+`minor` (the default) or `major` bump from `main`, or a `patch` from a
+`release/desktop-X.Y` branch. A run from any other branch fails. It reuses the parts of
+`release.yaml`:
 
 1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
    integration on Ubuntu and Windows.
 2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
    the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
-   bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. Candidates
-   count up as for the other products.
+   bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
+   needs a stable `desktop/` tag on X.Y and must hold the newest one, so no patch drops
+   an earlier fix. Candidates count up as for the other products.
 3. **Draft**: `draft-release` makes a draft under the tag.
 4. **Build**: `build.synnax.yaml` builds the Driver, a Core with the Driver embedded,
    and Desktop, for macOS arm64 and Windows x64, signed and notarized. The run passes no
