@@ -219,6 +219,16 @@ var _ = Describe("MigrateSchematic", func() {
 			map[string]any{"label": "P1"}, uint16(150)),
 		Entry("a value with a chosen width", "value",
 			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
+		Entry("a cap with a fractional width", "cap",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a valve with a fractional width", "valve",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a valve with a width of 0", "valve",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(150)),
+		Entry("a relief valve with a fractional width", "relief_valve",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a relief valve with a width of 0", "relief_valve",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(150)),
 	)
 
 	DescribeTable("Should keep the rendered text size of a saved state indicator",
@@ -393,6 +403,28 @@ var _ = Describe("MigrateLabelConfig", func() {
 		Entry("zero", 0.0, uint16(150)),
 		Entry("NaN", math.NaN(), uint16(150)),
 	)
+})
+
+var _ = Describe("MigrateLabeledConfig", func() {
+	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
+		cfg := MustSucceed(v12.MigrateLabeledConfig(ctx, v11.LabeledConfig{
+			Label: v11.LabelConfig{Label: "P1", MaxInlineSize: 80.6},
+		}))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(81))
+		Expect(cfg.Label.Label).To(Equal("P1"))
+	})
+})
+
+var _ = Describe("MigrateToggleConfig", func() {
+	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
+		cfg := MustSucceed(v12.MigrateToggleConfig(ctx, v11.ToggleConfig{
+			LabeledConfig: v11.LabeledConfig{
+				Label: v11.LabelConfig{Label: "P1", MaxInlineSize: 0},
+			},
+		}))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
+		Expect(cfg.Label.Label).To(Equal("P1"))
+	})
 })
 
 var _ = Describe("MigrateNodeConfig", func() {
