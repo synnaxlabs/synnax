@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 func compile(
@@ -2571,6 +2572,242 @@ var _ = Describe("Compiler", func() {
 				x i32 := 42
 				return i64(u8(x))
 			}`, float64(42)),
+		)
+
+		DescribeTable("a narrow value should match the spec in an expression",
+			narrowResult,
+			Entry("i8 cast of 200 is negative", `{
+				x i32 := 200
+				if i8(x) < 0 {
+					return 1
+				}
+				return 0
+			}`, float64(1)),
+			Entry("i8 cast of 200 is negative through a variable", `{
+				x i32 := 200
+				y i8 := i8(x)
+				if y < 0 {
+					return 1
+				}
+				return 0
+			}`, float64(1)),
+			Entry("i8 cast of 200 is -56", `{
+				x i32 := 200
+				return i64(i8(x))
+			}`, float64(-56)),
+			Entry("i8 cast of 200 is -56 through a variable", `{
+				x i32 := 200
+				y i8 := i8(x)
+				return i64(y)
+			}`, float64(-56)),
+			Entry("u8 255 plus 1 divided by 2 is 0", `{
+				x u8 := 255
+				return i64((x + 1) / 2)
+			}`, float64(0)),
+			Entry("u8 255 plus 1 divided by 2 is 0 through a variable", `{
+				x u8 := 255
+				y u8 := x + 1
+				return i64(y / 2)
+			}`, float64(0)),
+			Entry("i8 minimum negated is not positive", `{
+				x i8 := -127
+				y i8 := x - 1
+				if -y > 0 {
+					return 1
+				}
+				return 0
+			}`, float64(0)),
+			Entry("i8 minimum negated is not positive through a variable", `{
+				x i8 := -127
+				y i8 := x - 1
+				z i8 := -y
+				if z > 0 {
+					return 1
+				}
+				return 0
+			}`, float64(0)),
+			Entry("i8 minimum negated is -128", `{
+				x i8 := -127
+				y i8 := x - 1
+				return i64(-y)
+			}`, float64(-128)),
+			Entry("i8 minimum negated is -128 through a variable", `{
+				x i8 := -127
+				y i8 := x - 1
+				z i8 := -y
+				return i64(z)
+			}`, float64(-128)),
+			Entry("i8 cast of an i64 511 is -1", `{
+				x i64 := 511
+				return i64(i8(x))
+			}`, float64(-1)),
+			Entry("i8 cast of an i64 511 is -1 through a variable", `{
+				x i64 := 511
+				y i8 := i8(x)
+				return i64(y)
+			}`, float64(-1)),
+			Entry("i16 cast of 40000 is negative", `{
+				x i32 := 40000
+				if i16(x) < 0 {
+					return 1
+				}
+				return 0
+			}`, float64(1)),
+			Entry("i16 cast of 40000 is negative through a variable", `{
+				x i32 := 40000
+				y i16 := i16(x)
+				if y < 0 {
+					return 1
+				}
+				return 0
+			}`, float64(1)),
+			Entry("i16 cast of 40000 is -25536", `{
+				x i32 := 40000
+				return i64(i16(x))
+			}`, float64(-25536)),
+			Entry("i16 cast of 40000 is -25536 through a variable", `{
+				x i32 := 40000
+				y i16 := i16(x)
+				return i64(y)
+			}`, float64(-25536)),
+			Entry("u16 65535 plus 1 divided by 2 is 0", `{
+				x u16 := 65535
+				return i64((x + 1) / 2)
+			}`, float64(0)),
+			Entry("u16 65535 plus 1 divided by 2 is 0 through a variable", `{
+				x u16 := 65535
+				y u16 := x + 1
+				return i64(y / 2)
+			}`, float64(0)),
+			Entry("i16 minimum negated is not positive", `{
+				x i16 := -32767
+				y i16 := x - 1
+				if -y > 0 {
+					return 1
+				}
+				return 0
+			}`, float64(0)),
+			Entry("i16 minimum negated is not positive through a variable", `{
+				x i16 := -32767
+				y i16 := x - 1
+				z i16 := -y
+				if z > 0 {
+					return 1
+				}
+				return 0
+			}`, float64(0)),
+			Entry("i16 minimum negated is -32768", `{
+				x i16 := -32767
+				y i16 := x - 1
+				return i64(-y)
+			}`, float64(-32768)),
+			Entry("i16 minimum negated is -32768 through a variable", `{
+				x i16 := -32767
+				y i16 := x - 1
+				z i16 := -y
+				return i64(z)
+			}`, float64(-32768)),
+			Entry("i16 cast of an i64 131071 is -1", `{
+				x i64 := 131071
+				return i64(i16(x))
+			}`, float64(-1)),
+			Entry("i16 cast of an i64 131071 is -1 through a variable", `{
+				x i64 := 131071
+				y i16 := i16(x)
+				return i64(y)
+			}`, float64(-1)),
+		)
+
+		DescribeTable(
+			"a narrow value should match the spec in a named output",
+			func(
+				ctx SpecContext,
+				param, outType, body string,
+				arg uint64,
+				expected int64,
+			) {
+				source := fmt.Sprintf(
+					`func test() {%s} (out %s) {%s}`, param, outType, body,
+				)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				MustSucceed(mod.ExportedFunction("test").Call(ctx, arg))
+				var (
+					mem    = mod.Memory()
+					offset = output.OutputMemoryBases["test"] + 8
+					actual int64
+				)
+				switch outType {
+				case "u8":
+					actual = int64(MustBeOk(mem.ReadByte(offset)))
+				case "u16":
+					actual = int64(MustBeOk(mem.ReadUint16Le(offset)))
+				default:
+					actual = int64(MustBeOk(mem.ReadUint64Le(offset)))
+				}
+				Expect(actual).To(Equal(expected))
+			},
+			Entry("i8 cast of 200 is negative", "x i32", "i64", `
+					out = 0
+					if i8(x) < 0 {
+						out = 1
+					}
+			`, api.EncodeI32(200), int64(1)),
+			Entry("i8 cast of 200 is -56", "x i32", "i64", `
+					out = i64(i8(x))
+			`, api.EncodeI32(200), int64(-56)),
+			Entry("u8 255 plus 1 divided by 2 is 0", "x u8", "i64", `
+					out = i64((x + 1) / 2)
+			`, api.EncodeI32(255), int64(0)),
+			Entry("u8 255 plus 1 divided by 2 is 0 in a u8 output", "x u8", "u8", `
+					out = (x + 1) / 2
+			`, api.EncodeI32(255), int64(0)),
+			Entry("i8 minimum negated is not positive", "x i8", "i64", `
+					out = 0
+					if -x > 0 {
+						out = 1
+					}
+			`, api.EncodeI32(-128), int64(0)),
+			Entry("i8 minimum negated is -128", "x i8", "i64", `
+					out = i64(-x)
+			`, api.EncodeI32(-128), int64(-128)),
+			Entry("i8 cast of an i64 511 is -1", "x i64", "i64", `
+					out = i64(i8(x))
+			`, api.EncodeI64(511), int64(-1)),
+			Entry("i16 cast of 40000 is negative", "x i32", "i64", `
+					out = 0
+					if i16(x) < 0 {
+						out = 1
+					}
+			`, api.EncodeI32(40000), int64(1)),
+			Entry("i16 cast of 40000 is -25536", "x i32", "i64", `
+					out = i64(i16(x))
+			`, api.EncodeI32(40000), int64(-25536)),
+			Entry("u16 65535 plus 1 divided by 2 is 0", "x u16", "i64", `
+					out = i64((x + 1) / 2)
+			`, api.EncodeI32(65535), int64(0)),
+			Entry(
+				"u16 65535 plus 1 divided by 2 is 0 in a u16 output",
+				"x u16",
+				"u16",
+				`
+					out = (x + 1) / 2
+			`,
+				api.EncodeI32(65535),
+				int64(0),
+			),
+			Entry("i16 minimum negated is not positive", "x i16", "i64", `
+					out = 0
+					if -x > 0 {
+						out = 1
+					}
+			`, api.EncodeI32(-32768), int64(0)),
+			Entry("i16 minimum negated is -32768", "x i16", "i64", `
+					out = i64(-x)
+			`, api.EncodeI32(-32768), int64(-32768)),
+			Entry("i16 cast of an i64 131071 is -1", "x i64", "i64", `
+					out = i64(i16(x))
+			`, api.EncodeI64(131071), int64(-1)),
 		)
 
 		DescribeTable("a float cast should saturate at the bounds of the target",

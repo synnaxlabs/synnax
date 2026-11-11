@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from dataclasses import dataclass
+
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
@@ -200,6 +202,112 @@ func wrap_i16() {x i16} {
 }
 in_wrap_i16 -> wrap_i16()
 
+// Each result is taken from the expression and again from a stateful variable, which
+// stores the value at its declared width.
+func spec_cast_neg() {x i32} {
+    s i8 $= 0
+    s = i8(x)
+    direct i64 := 0
+    if i8(x) < 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s < 0 {
+        stored = 1
+    }
+    out_spec_cast_neg = direct
+    out_spec_cast_neg_stored = stored
+    out_spec_cast_neg_value = i64(i8(x))
+    out_spec_cast_neg_value_stored = i64(s)
+}
+in_spec_cast_neg -> spec_cast_neg()
+
+func spec_half() {x u8} {
+    s u8 $= 0
+    s = x + 1
+    out_spec_half = i64((x + 1) / 2)
+    out_spec_half_stored = i64(s / 2)
+}
+in_spec_half -> spec_half()
+
+func spec_neg() {x i8} {
+    s i8 $= 0
+    s = -x
+    direct i64 := 0
+    if -x > 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s > 0 {
+        stored = 1
+    }
+    out_spec_neg = direct
+    out_spec_neg_stored = stored
+    out_spec_neg_value = i64(-x)
+    out_spec_neg_value_stored = i64(s)
+}
+in_spec_neg -> spec_neg()
+
+func spec_cast_wide() {x i64} {
+    s i8 $= 0
+    s = i8(x)
+    out_spec_cast_wide = i64(i8(x))
+    out_spec_cast_wide_stored = i64(s)
+}
+in_spec_cast_wide -> spec_cast_wide()
+
+func spec_cast_neg_i16() {x i32} {
+    s i16 $= 0
+    s = i16(x)
+    direct i64 := 0
+    if i16(x) < 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s < 0 {
+        stored = 1
+    }
+    out_spec_cast_neg_i16 = direct
+    out_spec_cast_neg_i16_stored = stored
+    out_spec_cast_neg_i16_value = i64(i16(x))
+    out_spec_cast_neg_i16_value_stored = i64(s)
+}
+in_spec_cast_neg_i16 -> spec_cast_neg_i16()
+
+func spec_half_u16() {x u16} {
+    s u16 $= 0
+    s = x + 1
+    out_spec_half_u16 = i64((x + 1) / 2)
+    out_spec_half_u16_stored = i64(s / 2)
+}
+in_spec_half_u16 -> spec_half_u16()
+
+func spec_neg_i16() {x i16} {
+    s i16 $= 0
+    s = -x
+    direct i64 := 0
+    if -x > 0 {
+        direct = 1
+    }
+    stored i64 := 0
+    if s > 0 {
+        stored = 1
+    }
+    out_spec_neg_i16 = direct
+    out_spec_neg_i16_stored = stored
+    out_spec_neg_i16_value = i64(-x)
+    out_spec_neg_i16_value_stored = i64(s)
+}
+in_spec_neg_i16 -> spec_neg_i16()
+
+func spec_cast_wide_i16() {x i64} {
+    s i16 $= 0
+    s = i16(x)
+    out_spec_cast_wide_i16 = i64(i16(x))
+    out_spec_cast_wide_i16_stored = i64(s)
+}
+in_spec_cast_wide_i16 -> spec_cast_wide_i16()
+
 // ───────── Flow-context casts (inline expression in flow) ─────────
 // The cast.go path that compiles in-flow expressions differs from the WASM
 // function-body path above: the value is read straight from channel state at
@@ -255,180 +363,197 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_wrap_u16", sy.DataType.UINT16),
     ("in_wrap_i8", sy.DataType.INT8),
     ("in_wrap_i16", sy.DataType.INT16),
+    ("in_spec_cast_neg", sy.DataType.INT32),
+    ("in_spec_half", sy.DataType.UINT8),
+    ("in_spec_neg", sy.DataType.INT8),
+    ("in_spec_cast_wide", sy.DataType.INT64),
+    ("in_spec_cast_neg_i16", sy.DataType.INT32),
+    ("in_spec_half_u16", sy.DataType.UINT16),
+    ("in_spec_neg_i16", sy.DataType.INT16),
+    ("in_spec_cast_wide_i16", sy.DataType.INT64),
 ]
 
-# Each entry is an input channel, a value to write, and the i64 outputs to expect.
-NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
+
+@dataclass
+class NarrowCase:
+    """A value to write to an input channel and the i64 outputs to expect."""
+
+    input: str
+    value: int | float
+    expected: dict[str, int]
+
+
+NARROW_CASES: list[NarrowCase] = [
     # An integer cast wraps to the width of the target.
-    (
-        "in_wrap_cast",
-        -1,
-        {
+    NarrowCase(
+        input="in_wrap_cast",
+        value=-1,
+        expected={
             "out_wrap_cast_u8": 255,
             "out_wrap_cast_i8": -1,
             "out_wrap_cast_u16": 65535,
             "out_wrap_cast_i16": -1,
         },
     ),
-    (
-        "in_wrap_cast",
-        40000,
-        {
+    NarrowCase(
+        input="in_wrap_cast",
+        value=40000,
+        expected={
             "out_wrap_cast_u8": 64,
             "out_wrap_cast_i8": 64,
             "out_wrap_cast_u16": 40000,
             "out_wrap_cast_i16": -25536,
         },
     ),
-    (
-        "in_wrap_cast",
-        42,
-        {
+    NarrowCase(
+        input="in_wrap_cast",
+        value=42,
+        expected={
             "out_wrap_cast_u8": 42,
             "out_wrap_cast_i8": 42,
             "out_wrap_cast_u16": 42,
             "out_wrap_cast_i16": 42,
         },
     ),
-    (
-        "in_wrap_cast_i64",
-        300,
-        {
+    NarrowCase(
+        input="in_wrap_cast_i64",
+        value=300,
+        expected={
             "out_wrap_cast_i64_u8": 44,
             "out_wrap_cast_i64_i8": 44,
             "out_wrap_cast_i64_u16": 300,
             "out_wrap_cast_i64_i16": 300,
         },
     ),
-    (
-        "in_wrap_cast_i64",
-        -40000,
-        {
+    NarrowCase(
+        input="in_wrap_cast_i64",
+        value=-40000,
+        expected={
             "out_wrap_cast_i64_u8": 192,
             "out_wrap_cast_i64_i8": -64,
             "out_wrap_cast_i64_u16": 25536,
             "out_wrap_cast_i64_i16": 25536,
         },
     ),
-    (
-        "in_wrap_cast_i64",
-        4294967303,
-        {
+    NarrowCase(
+        input="in_wrap_cast_i64",
+        value=4294967303,
+        expected={
             "out_wrap_cast_i64_u8": 7,
             "out_wrap_cast_i64_i8": 7,
             "out_wrap_cast_i64_u16": 7,
             "out_wrap_cast_i64_i16": 7,
         },
     ),
-    (
-        "in_wrap_cast_u16",
-        300,
-        {
+    NarrowCase(
+        input="in_wrap_cast_u16",
+        value=300,
+        expected={
             "out_wrap_cast_u16_u8": 44,
             "out_wrap_cast_u16_i8": 44,
             "out_wrap_cast_u16_i16": 300,
         },
     ),
-    (
-        "in_wrap_cast_u16",
-        65535,
-        {
+    NarrowCase(
+        input="in_wrap_cast_u16",
+        value=65535,
+        expected={
             "out_wrap_cast_u16_u8": 255,
             "out_wrap_cast_u16_i8": -1,
             "out_wrap_cast_u16_i16": -1,
         },
     ),
-    (
-        "in_wrap_cast_u8",
-        200,
-        {
+    NarrowCase(
+        input="in_wrap_cast_u8",
+        value=200,
+        expected={
             "out_wrap_cast_u8_i8": -56,
             "out_wrap_cast_u8_u16": 200,
             "out_wrap_cast_u8_i16": 200,
         },
     ),
-    (
-        "in_wrap_cast_u8",
-        100,
-        {
+    NarrowCase(
+        input="in_wrap_cast_u8",
+        value=100,
+        expected={
             "out_wrap_cast_u8_i8": 100,
             "out_wrap_cast_u8_u16": 100,
             "out_wrap_cast_u8_i16": 100,
         },
     ),
-    (
-        "in_wrap_cast_i8",
-        -1,
-        {
+    NarrowCase(
+        input="in_wrap_cast_i8",
+        value=-1,
+        expected={
             "out_wrap_cast_i8_u8": 255,
             "out_wrap_cast_i8_u16": 65535,
             "out_wrap_cast_i8_i16": -1,
         },
     ),
-    (
-        "in_wrap_cast_i8",
-        5,
-        {
+    NarrowCase(
+        input="in_wrap_cast_i8",
+        value=5,
+        expected={
             "out_wrap_cast_i8_u8": 5,
             "out_wrap_cast_i8_u16": 5,
             "out_wrap_cast_i8_i16": 5,
         },
     ),
     # A float cast saturates at the bounds of the target.
-    (
-        "in_sat_cast",
-        70000.0,
-        {
+    NarrowCase(
+        input="in_sat_cast",
+        value=70000.0,
+        expected={
             "out_sat_cast_u8": 255,
             "out_sat_cast_i8": 127,
             "out_sat_cast_u16": 65535,
             "out_sat_cast_i16": 32767,
         },
     ),
-    (
-        "in_sat_cast",
-        -70000.0,
-        {
+    NarrowCase(
+        input="in_sat_cast",
+        value=-70000.0,
+        expected={
             "out_sat_cast_u8": 0,
             "out_sat_cast_i8": -128,
             "out_sat_cast_u16": 0,
             "out_sat_cast_i16": -32768,
         },
     ),
-    (
-        "in_sat_cast",
-        42.9,
-        {
+    NarrowCase(
+        input="in_sat_cast",
+        value=42.9,
+        expected={
             "out_sat_cast_u8": 42,
             "out_sat_cast_i8": 42,
             "out_sat_cast_u16": 42,
             "out_sat_cast_i16": 42,
         },
     ),
-    (
-        "in_sat_cast_f32",
-        70000.0,
-        {
+    NarrowCase(
+        input="in_sat_cast_f32",
+        value=70000.0,
+        expected={
             "out_sat_cast_f32_u8": 255,
             "out_sat_cast_f32_i8": 127,
             "out_sat_cast_f32_u16": 65535,
             "out_sat_cast_f32_i16": 32767,
         },
     ),
-    (
-        "in_sat_cast_f32",
-        -70000.0,
-        {
+    NarrowCase(
+        input="in_sat_cast_f32",
+        value=-70000.0,
+        expected={
             "out_sat_cast_f32_u8": 0,
             "out_sat_cast_f32_i8": -128,
             "out_sat_cast_f32_u16": 0,
             "out_sat_cast_f32_i16": -32768,
         },
     ),
-    (
-        "in_sat_cast_f32",
-        -42.5,
-        {
+    NarrowCase(
+        input="in_sat_cast_f32",
+        value=-42.5,
+        expected={
             "out_sat_cast_f32_u8": 0,
             "out_sat_cast_f32_i8": -42,
             "out_sat_cast_f32_u16": 0,
@@ -436,10 +561,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
         },
     ),
     # Arithmetic wraps to the width of the type.
-    (
-        "in_wrap_u8",
-        0,
-        {
+    NarrowCase(
+        input="in_wrap_u8",
+        value=0,
+        expected={
             "out_wrap_u8_sub": 255,
             "out_wrap_u8_add": 255,
             "out_wrap_u8_mul": 0,
@@ -447,10 +572,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_u8_cmp": 255,
         },
     ),
-    (
-        "in_wrap_u8",
-        17,
-        {
+    NarrowCase(
+        input="in_wrap_u8",
+        value=17,
+        expected={
             "out_wrap_u8_sub": 16,
             "out_wrap_u8_add": 16,
             "out_wrap_u8_mul": 164,
@@ -458,10 +583,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_u8_cmp": 16,
         },
     ),
-    (
-        "in_wrap_u16",
-        0,
-        {
+    NarrowCase(
+        input="in_wrap_u16",
+        value=0,
+        expected={
             "out_wrap_u16_sub": 65535,
             "out_wrap_u16_add": 65535,
             "out_wrap_u16_mul": 0,
@@ -469,10 +594,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_u16_cmp": 65535,
         },
     ),
-    (
-        "in_wrap_u16",
-        100,
-        {
+    NarrowCase(
+        input="in_wrap_u16",
+        value=100,
+        expected={
             "out_wrap_u16_sub": 99,
             "out_wrap_u16_add": 99,
             "out_wrap_u16_mul": 34464,
@@ -480,10 +605,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_u16_cmp": 99,
         },
     ),
-    (
-        "in_wrap_i8",
-        1,
-        {
+    NarrowCase(
+        input="in_wrap_i8",
+        value=1,
+        expected={
             "out_wrap_i8_sub": -126,
             "out_wrap_i8_add": -128,
             "out_wrap_i8_mul": 100,
@@ -492,10 +617,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i8_cmp": -126,
         },
     ),
-    (
-        "in_wrap_i8",
-        -128,
-        {
+    NarrowCase(
+        input="in_wrap_i8",
+        value=-128,
+        expected={
             "out_wrap_i8_sub": 1,
             "out_wrap_i8_add": -1,
             "out_wrap_i8_mul": 0,
@@ -504,10 +629,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i8_cmp": 1,
         },
     ),
-    (
-        "in_wrap_i8",
-        2,
-        {
+    NarrowCase(
+        input="in_wrap_i8",
+        value=2,
+        expected={
             "out_wrap_i8_sub": -125,
             "out_wrap_i8_add": -127,
             "out_wrap_i8_mul": -56,
@@ -516,10 +641,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i8_cmp": -125,
         },
     ),
-    (
-        "in_wrap_i16",
-        1,
-        {
+    NarrowCase(
+        input="in_wrap_i16",
+        value=1,
+        expected={
             "out_wrap_i16_sub": -32766,
             "out_wrap_i16_add": -32768,
             "out_wrap_i16_mul": 1000,
@@ -528,10 +653,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i16_cmp": -32766,
         },
     ),
-    (
-        "in_wrap_i16",
-        -32768,
-        {
+    NarrowCase(
+        input="in_wrap_i16",
+        value=-32768,
+        expected={
             "out_wrap_i16_sub": 1,
             "out_wrap_i16_add": -1,
             "out_wrap_i16_mul": 0,
@@ -540,10 +665,10 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i16_cmp": 1,
         },
     ),
-    (
-        "in_wrap_i16",
-        40,
-        {
+    NarrowCase(
+        input="in_wrap_i16",
+        value=40,
+        expected={
             "out_wrap_i16_sub": -32727,
             "out_wrap_i16_add": -32729,
             "out_wrap_i16_mul": -25536,
@@ -552,6 +677,79 @@ NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
             "out_wrap_i16_cmp": -32727,
         },
     ),
+]
+
+# A narrow value from an expression and from a stateful variable. Each output has a
+# copy with a "_stored" suffix that must match it.
+STORED_CASES: list[NarrowCase] = [
+    NarrowCase(
+        input="in_spec_cast_neg",
+        value=200,
+        expected={"out_spec_cast_neg": 1, "out_spec_cast_neg_value": -56},
+    ),
+    NarrowCase(
+        input="in_spec_cast_neg",
+        value=100,
+        expected={"out_spec_cast_neg": 0, "out_spec_cast_neg_value": 100},
+    ),
+    NarrowCase(input="in_spec_half", value=9, expected={"out_spec_half": 5}),
+    NarrowCase(input="in_spec_half", value=255, expected={"out_spec_half": 0}),
+    NarrowCase(
+        input="in_spec_neg",
+        value=-5,
+        expected={"out_spec_neg": 1, "out_spec_neg_value": 5},
+    ),
+    NarrowCase(
+        input="in_spec_neg",
+        value=-128,
+        expected={"out_spec_neg": 0, "out_spec_neg_value": -128},
+    ),
+    NarrowCase(input="in_spec_cast_wide", value=5, expected={"out_spec_cast_wide": 5}),
+    NarrowCase(
+        input="in_spec_cast_wide", value=511, expected={"out_spec_cast_wide": -1}
+    ),
+    NarrowCase(
+        input="in_spec_cast_neg_i16",
+        value=40000,
+        expected={"out_spec_cast_neg_i16": 1, "out_spec_cast_neg_i16_value": -25536},
+    ),
+    NarrowCase(
+        input="in_spec_cast_neg_i16",
+        value=100,
+        expected={"out_spec_cast_neg_i16": 0, "out_spec_cast_neg_i16_value": 100},
+    ),
+    NarrowCase(input="in_spec_half_u16", value=9, expected={"out_spec_half_u16": 5}),
+    NarrowCase(
+        input="in_spec_half_u16", value=65535, expected={"out_spec_half_u16": 0}
+    ),
+    NarrowCase(
+        input="in_spec_neg_i16",
+        value=-5,
+        expected={"out_spec_neg_i16": 1, "out_spec_neg_i16_value": 5},
+    ),
+    NarrowCase(
+        input="in_spec_neg_i16",
+        value=-32768,
+        expected={"out_spec_neg_i16": 0, "out_spec_neg_i16_value": -32768},
+    ),
+    NarrowCase(
+        input="in_spec_cast_wide_i16", value=5, expected={"out_spec_cast_wide_i16": 5}
+    ),
+    NarrowCase(
+        input="in_spec_cast_wide_i16",
+        value=131071,
+        expected={"out_spec_cast_wide_i16": -1},
+    ),
+]
+
+NARROW_CASES += [
+    NarrowCase(
+        input=case.input,
+        value=case.value,
+        expected=case.expected
+        | {f"{name}_stored": v for name, v in case.expected.items()},
+    )
+    for case in STORED_CASES
 ]
 
 OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -630,7 +828,7 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     *(
         (name, sy.DataType.INT64)
         for name in dict.fromkeys(
-            name for _, _, expected in NARROW_CASES for name in expected
+            name for case in NARROW_CASES for name in case.expected
         )
     ),
 ]
@@ -748,10 +946,10 @@ class Conversion(ArcCase):
 
     def _test_narrow(self) -> None:
         self.log("=== Narrow integer casts and arithmetic ===")
-        for in_ch, value, expected in NARROW_CASES:
-            self.log(f"Writing {value} to {in_ch}")
-            self.writer.write(in_ch, value)
-            for out_ch, result in expected.items():
+        for case in NARROW_CASES:
+            self.log(f"Writing {case.value} to {case.input}")
+            self.writer.write(case.input, case.value)
+            for out_ch, result in case.expected.items():
                 self.wait_for_eq(out_ch, result)
 
     def _test_flow_context(self) -> None:
