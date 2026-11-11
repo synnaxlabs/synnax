@@ -107,7 +107,7 @@ export interface IngestOptions {
   since?: Stamp;
   /**
    * Set when the records changed on the Core, such as records that the change stream
-   * announced. A record new to the table is then a change, not a discovery.
+   * announced. Each write is then a change, even for a record new to the table.
    */
   changed?: boolean;
 }
@@ -196,6 +196,14 @@ const closedError = (cause?: unknown): DisconnectedError => {
 // client deleted ahead of the change stream.
 type Removal = "evict" | "confirmed" | "local";
 
+/** What the table tracks for each live entry beside its value. */
+interface Meta {
+  /** The touch sequence at the last read or write, which orders what trim drops. */
+  touch: number;
+  /** Set while the last write was a fetch that found a record new to the table. */
+  discovered: boolean;
+}
+
 /**
  * Owns the base of a key, the value that writes build on, when a table shows other
  * content on top of it, such as edits that have not reached the Core.
@@ -253,8 +261,7 @@ export class Table<
   // grows.
   private readonly inFlight: Stamp[] = [];
   private readonly holders = new Set<Holder<Key>>();
-  // The last read or write of each entry, which orders the entries that trim drops.
-  private readonly touches = new Map<Key, number>();
+  private readonly meta = new Map<Key, Meta>();
   private touchSeq = 0;
   // The touch sequence when the last trim ran. A trim keeps every entry touched since,
   // since a fetch in flight may not yet hold the records it just wrote.
@@ -316,16 +323,16 @@ export class Table<
           });
   }
 
-  private applySet(key: Key, value: Value): void {
+  private applySet(key: Key, value: Value, discovered: boolean): void {
     this.entries.set(key, value);
-    this.touches.set(key, ++this.touchSeq);
+    this.meta.set(key, { touch: ++this.touchSeq, discovered });
     for (const index of this.indexes) index.set(key, value);
   }
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     this.writeStamps.delete(key);
-    this.touches.delete(key);
+    this.meta.delete(key);
     for (const index of this.indexes) index.delete(key);
   }
 
@@ -370,7 +377,7 @@ export class Table<
     });
     if (over <= 0) return [];
     const held = this.held();
-    const touchOf = (key: Key): number => this.touches.get(key) ?? 0;
+    const touchOf = (key: Key): number => this.meta.get(key)?.touch ?? 0;
     const dropped = Array.from(this.entries.keys())
       .filter((key) => !held.has(key) && touchOf(key) <= since)
       .sort((a, b) => touchOf(a) - touchOf(b))
@@ -413,12 +420,15 @@ export class Table<
     return this.interceptor?.base(key) ?? this.entries.get(key);
   }
 
-  /** Writes the value as the base of the key and shows the result if it changed. */
-  private show(key: Key, value: Value, discovered = false): void {
+  /**
+   * Writes the value as the base of the key and shows the result if it changed or if
+   * forced.
+   */
+  private show(key: Key, value: Value, discovered = false, forced = false): void {
     const next = this.interceptor == null ? value : this.interceptor.apply(key, value);
     const shown = this.entries.get(key);
-    if (shown != null && this.equal(next, shown, key)) return;
-    this.applySet(key, next);
+    if (shown != null && !forced && this.equal(next, shown, key)) return;
+    this.applySet(key, next, discovered);
     this.notify(
       discovered
         ? { variant: "set", key, value: next, discovered }
@@ -429,15 +439,21 @@ export class Table<
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
-    discovered = false,
+    fetched = false,
   ): destructor.Destructor | undefined {
     const prev = this.base(key);
     const next = state.executeSetter(value, prev);
-    if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
+    if (next == null) return undefined;
+    // A fetch reads what the Core holds: a record new to the table is no change there.
+    const discovered = fetched && this.status(key) === "unknown";
+    // Lists skip a discovery, so the first change after one shows even when equal: it
+    // can be the stream set of a record that the Core just created.
+    const forced = !fetched && this.meta.get(key)?.discovered === true;
+    if (prev != null && !forced && this.equal(next, prev, key)) return undefined;
     const prevTombstone = this.tombstones.get(key);
     const prevStamp = this.writeStamps.get(key);
     this.tombstones.delete(key);
-    this.show(key, next, discovered);
+    this.show(key, next, discovered, forced);
 
     return () => {
       if (prev === undefined) {
@@ -477,12 +493,12 @@ export class Table<
 
   private setMany(
     values: Array<Keyed<Key, Value>>,
-    discovers?: (key: Key) => boolean,
+    fetched = false,
   ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
-        const rollback = this.setOne(val.key, val, discovers?.(val.key));
+        const rollback = this.setOne(val.key, val, fetched);
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -529,13 +545,13 @@ export class Table<
 
   private setIfAbsent(
     values: Array<Keyed<Key, Value>>,
-    discovers: (key: Key) => boolean,
+    fetched: boolean,
   ): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
       values.forEach((val) => {
         if (this.entries.has(val.key)) return;
-        const rollback = this.setOne(val.key, val, discovers(val.key));
+        const rollback = this.setOne(val.key, val, fetched);
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
@@ -574,8 +590,7 @@ export class Table<
         (mode !== "if-absent" || !this.entries.has(key))
       )
         rollback =
-          this.setOne(key, valueOrOptions as Value, this.discovers(key, changed)) ??
-          destructor.NOOP;
+          this.setOne(key, valueOrOptions as Value, !changed) ?? destructor.NOOP;
       this.touch(key);
       return rollback;
     }
@@ -586,24 +601,20 @@ export class Table<
     }: IngestOptions = (valueOrOptions as IngestOptions | undefined) ?? {};
     const values = array.toArray(keyOrValues);
     const arr = values.filter(({ key }) => this.ingestible(key, since));
-    const discovers = (key: Key): boolean => this.discovers(key, changed);
     const rollback =
       mode === "if-absent"
-        ? this.setIfAbsent(arr, discovers)
-        : this.setMany(arr, discovers);
+        ? this.setIfAbsent(arr, !changed)
+        : this.setMany(arr, !changed);
     values.forEach(({ key }) => this.touch(key));
     return rollback;
   }
 
-  // A fetch reads what the Core holds, so a record new to the table is no change there.
-  private discovers(key: Key, changed: boolean): boolean {
-    return !changed && this.status(key) === "unknown";
-  }
-
-  // A fetch reads each record it ingests, so a trim keeps the record until the fetch
-  // composes its answer, even when the record left the entry as it was.
+  // Orders the entries that trim drops. A fetch touches each record it ingests, so a
+  // trim keeps the record until the fetch composes its answer, even when the record
+  // left the entry as it was.
   private touch(key: Key): void {
-    if (this.entries.has(key)) this.touches.set(key, ++this.touchSeq);
+    const meta = this.meta.get(key);
+    if (meta != null) meta.touch = ++this.touchSeq;
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
@@ -636,13 +647,13 @@ export class Table<
       for (const key of keys) {
         const value = this.entries.get(key);
         if (value == null) continue;
-        this.touches.set(key, ++this.touchSeq);
+        this.touch(key);
         values.push(value);
       }
       return values;
     }
     const value = this.entries.get(keys);
-    if (value != null) this.touches.set(keys, ++this.touchSeq);
+    if (value != null) this.touch(keys);
     return value;
   }
 
@@ -890,7 +901,7 @@ export class Table<
     this.pendingDeletes.clear();
     this.writeStamps.clear();
     this.dropped.clear();
-    this.touches.clear();
+    this.meta.clear();
     for (const index of this.indexes) index.reset();
   }
 

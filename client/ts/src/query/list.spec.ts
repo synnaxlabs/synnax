@@ -403,6 +403,16 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it("should fetch again when the stream sets a record a fetch found", async () => {
+      const { lists, list, table, fetch, core } = await searching([rec("1", "ab")]);
+      core.records.push(rec("2", "ac"));
+      await lists.list({ order: byName }).retrieve();
+      table.mirrorSet("2", rec("2", "ac"));
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
     it("should show a change to a member at once", async () => {
       const { table, handler } = await searching([rec("1", "ab")]);
       table.set("1", rec("1", "ab", 5));

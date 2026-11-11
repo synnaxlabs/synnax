@@ -197,6 +197,37 @@ describe("Table", () => {
         });
       });
 
+      it("should count the first equal set after a discovery as a change", () => {
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
+        const value = { key: "key1", value: "value1" };
+        table.ingest(value);
+        const listener = vi.fn();
+        table.subscribe(listener);
+        table.set(value);
+        table.set(value);
+        expect(listener).toHaveBeenCalledExactlyOnceWith({
+          variant: "set",
+          key: "key1",
+          value,
+        });
+      });
+
+      it("should keep a discovery through an equal fetch", () => {
+        const table = new query.Table<string, KeyedValue>({ onError: noopError });
+        const value = { key: "key1", value: "value1" };
+        table.ingest(value);
+        const listener = vi.fn();
+        table.subscribe(listener);
+        table.ingest(value);
+        expect(listener).not.toHaveBeenCalled();
+        table.set(value);
+        expect(listener).toHaveBeenCalledExactlyOnceWith({
+          variant: "set",
+          key: "key1",
+          value,
+        });
+      });
+
       it("should insert a single value when the key is absent", () => {
         const table = ifAbsentTable();
         table.ingest({ key: "key1", value: "value1" });
