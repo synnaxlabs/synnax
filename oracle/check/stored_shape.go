@@ -98,8 +98,8 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 // fields compares the stored fields of two structs, bases included.
 func (s shapes) fields(at string, old, new resolution.Type) string {
 	s.coverBases(old)
-	oldFields := unifiedFields(old, s.old)
-	newFields := unifiedFields(new, s.new)
+	oldFields := storedFields(resolution.UnifiedFields(old, s.old))
+	newFields := storedFields(resolution.UnifiedFields(new, s.new))
 	if !slices.EqualFunc(oldFields, newFields, func(a, b resolution.Field) bool {
 		return a.Name == b.Name
 	}) {
@@ -124,46 +124,6 @@ func (s shapes) fields(at string, old, new resolution.Type) string {
 		}
 	}
 	return ""
-}
-
-// unifiedFields returns the stored fields of typ, bases included. A base type argument
-// that the extends reference omits takes the parameter's default.
-func unifiedFields(typ resolution.Type, table *resolution.Table) []resolution.Field {
-	defaults := make(map[string]resolution.TypeRef)
-	baseDefaults(typ, table, defaults)
-	for _, p := range resolution.TypeParams(typ.Form) {
-		delete(defaults, p.Name)
-	}
-	fields := storedFields(resolution.UnifiedFields(typ, table))
-	for i := range fields {
-		fields[i].Type = resolution.SubstituteTypeRef(fields[i].Type, defaults)
-	}
-	return fields
-}
-
-// baseDefaults adds to defaults the default of every base type parameter that an
-// extends reference in typ, or in one of its bases, omits.
-func baseDefaults(
-	typ resolution.Type,
-	table *resolution.Table,
-	defaults map[string]resolution.TypeRef,
-) {
-	for _, ext := range typ.Form.(resolution.StructForm).Extends {
-		base, ref, ok := resolution.Dealias(ext, table)
-		if !ok {
-			continue
-		}
-		form, ok := base.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		for i, p := range form.TypeParams {
-			if i >= len(ref.TypeArgs) && p.HasDefault() {
-				defaults[p.Name] = *p.Default
-			}
-		}
-		baseDefaults(base, table, defaults)
-	}
 }
 
 // coverBases marks the bases of old as covered, since fields compares their fields.
@@ -261,7 +221,21 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		}
 		return ""
 	}
-	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
+	oldType, newType := s.old.MustGet(old.Name), s.new.MustGet(new.Name)
+	// An alias on one side only stores what its target stores.
+	if isAlias(oldType) != isAlias(newType) {
+		_, oldTarget, oldOK := resolution.Dealias(old, s.old)
+		_, newTarget, newOK := resolution.Dealias(new, s.new)
+		if oldOK && newOK {
+			return s.ref(at, oldTarget, newTarget)
+		}
+	}
+	return s.typ(at, oldType, newType)
+}
+
+func isAlias(t resolution.Type) bool {
+	_, ok := t.Form.(resolution.AliasForm)
+	return ok
 }
 
 // paramIndex returns the position of the type parameter that ref holds in params.

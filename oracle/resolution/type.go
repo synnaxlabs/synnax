@@ -789,12 +789,15 @@ func MergeOverrideField(parent, child Field) Field {
 }
 
 // TypeArgMap maps each of params to the argument at its position in args, for
-// SubstituteTypeRef. A parameter with no argument is left out.
+// SubstituteTypeRef. A parameter with no argument takes its default, or is left out
+// when it has none.
 func TypeArgMap(params []TypeParam, args []TypeRef) map[string]TypeRef {
 	typeArgMap := make(map[string]TypeRef, len(params))
 	for i, tp := range params {
 		if i < len(args) {
 			typeArgMap[tp.Name] = args[i]
+		} else if tp.HasDefault() {
+			typeArgMap[tp.Name] = SubstituteTypeRef(*tp.Default, typeArgMap)
 		}
 	}
 	return typeArgMap

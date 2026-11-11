@@ -110,6 +110,55 @@ Channel struct {
 			Expect(messages()).To(BeEmpty())
 		})
 
+		It("Should pass a codec marker that changes", func() {
+			write(root, v0Path, `
+Status struct {
+    message string
+}
+
+Channel struct {
+    key    uuid @key
+    name   string = "a"
+    status Status? {
+        @go marshal omit
+    }
+
+    @go marshal hand
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
+		It("Should pass a stored type replaced by an alias of the same shape", func() {
+			write(releaseRoot, v0Path, `
+ID struct {
+    type string
+    key  string
+}
+
+Channel struct {
+    owner ID
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Ref struct {
+    type string
+    key  string
+}
+
+ID = Ref
+
+Channel struct {
+    owner ID
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
 		It("Should pass a shipped type that only omitted fields reach", func() {
 			write(root, v0Path, `
 Status struct {
@@ -1170,6 +1219,50 @@ Bounds struct<T extends numeric = int32> {
 }
 
 Channel struct extends Bounds {
+    @go marshal
+}
+`)
+		Expect(messages()).To(ContainElement(ContainSubstring("Channel.lower")))
+	})
+
+	It("Should fail a changed field in a type that only migrates", func() {
+		write(releaseRoot, v0Path, `
+Channel struct {
+    name string
+
+    @go migrate
+}
+`)
+		write(root, v0Path, `
+Channel struct {
+    name int32
+
+    @go migrate
+}
+`)
+		Expect(messages()).To(ContainElement(ContainSubstring("Channel.name")))
+	})
+
+	It("Should fail a new base default that a generic struct does not shadow", func() {
+		write(releaseRoot, v0Path, `
+Bounds struct<T extends numeric = float64> {
+    lower T
+}
+
+Channel struct<T> extends Bounds {
+    value T
+
+    @go marshal
+}
+`)
+		write(root, v0Path, `
+Bounds struct<T extends numeric = int32> {
+    lower T
+}
+
+Channel struct<T> extends Bounds {
+    value T
+
     @go marshal
 }
 `)

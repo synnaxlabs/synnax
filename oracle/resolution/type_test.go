@@ -506,6 +506,23 @@ var _ = Describe("TypeArgMap", func() {
 		),
 		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
 	)
+
+	It("Should give a missing argument its parameter's default", func() {
+		params := []resolution.TypeParam{
+			{Name: "K"},
+			{Name: "V", Default: &resolution.TypeRef{
+				Name: "Pair", TypeArgs: []resolution.TypeRef{{
+					TypeParam: &resolution.TypeParam{Name: "K"},
+				}},
+			}},
+		}
+		Expect(resolution.TypeArgMap(
+			params, []resolution.TypeRef{{Name: "string"}},
+		)).To(Equal(map[string]resolution.TypeRef{
+			"K": {Name: "string"},
+			"V": {Name: "Pair", TypeArgs: []resolution.TypeRef{{Name: "string"}}},
+		}))
+	})
 })
 
 var _ = Describe("MergeOverrideField", func() {
