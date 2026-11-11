@@ -119,8 +119,7 @@ func (s *Service) Stores() []config.Store {
 }
 
 // checkStored refuses a routing key that names a file secret, since the Core cannot
-// read
-// a file. The config references refuse a key that names no secret.
+// read a file. The config references refuse a key that names no secret.
 func checkStored(
 	ctx context.Context,
 	snap gorp.Snapshot,
