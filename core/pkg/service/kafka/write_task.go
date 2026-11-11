@@ -118,6 +118,9 @@ type writeTask struct {
 	closer io.Closer
 	// sCtx is the streamer's context. A streamer that fails cancels it.
 	sCtx signal.Context
+	// promises counts produced records whose promise has not returned. The client
+	// calls promises from its own goroutines, even after it closes.
+	promises sync.WaitGroup
 	// mu guards lastErr, which produce callbacks update from client goroutines.
 	mu sync.Mutex
 	// lastErr is the last produce error reported, so a repeat is not rewritten.
@@ -554,6 +557,7 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	sCtx.Go(func(ctx context.Context) error {
 		// The client has finished with a record by the time it calls the promise.
 		promise := func(rec *kgo.Record, err error) {
+			defer t.promises.Done()
 			if err != nil {
 				t.reportError(ctx, "Produce failed: "+err.Error())
 			}
@@ -567,7 +571,8 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	return nil
 }
 
-// closeClient flushes the buffered records and closes the producer.
+// closeClient flushes the buffered records, closes the producer, and waits for every
+// promise to return.
 func (t *writeTask) closeClient() error {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -575,6 +580,9 @@ func (t *writeTask) closeClient() error {
 	defer cancel()
 	err := t.client.Flush(ctx)
 	t.client.Close()
+	// Close fails the buffered records without waiting for their promises, and a
+	// promise that reports after the stop status would overwrite it.
+	t.promises.Wait()
 	return err
 }
 
@@ -612,6 +620,7 @@ func (t *writeTask) produce(
 				t.reportError(ctx, "Record build failed: "+err.Error())
 				continue
 			}
+			t.promises.Add(1)
 			t.client.Produce(ctx, rec, promise)
 		}
 	}
