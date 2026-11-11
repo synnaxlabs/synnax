@@ -223,7 +223,7 @@ export const Base = ({
   };
 
   const menuContent = () => (
-    <Menu.Menu level="small" onChange={handleMenuSelect}>
+    <Menu.Menu onChange={handleMenuSelect}>
       {undoRedo != null && (
         <>
           <Menu.UndoRedoItems {...undoRedo} />

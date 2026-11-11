@@ -133,7 +133,7 @@ export const Editor = ({
 
   const contextMenu = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
-    <Menu.Menu level="small" gap="small">
+    <Menu.Menu gap="small">
       {editable && (
         <>
           <BaseDiagram.Menu.ClipboardItems
