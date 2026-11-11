@@ -23,7 +23,6 @@ from tests.driver.task import (
     TaskCase,
     TaskT,
     WriteTaskCase,
-    assert_states,
 )
 
 _NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"
@@ -202,15 +201,6 @@ class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
 
     @abstractmethod
     def _state_keys(self, task: TaskT) -> list[int]: ...
-
-    def assert_written(self) -> None:
-        assert self.tsk is not None and self.command_values is not None
-        assert_states(
-            self.client,
-            cmd=self._channel_keys(self.tsk)[0],
-            states=self._state_keys(self.tsk),
-            expected=self.command_values[-1],
-        )
 
 
 class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):

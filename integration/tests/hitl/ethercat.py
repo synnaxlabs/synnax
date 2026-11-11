@@ -20,13 +20,7 @@ Position | Slave
 from pydantic import JsonValue
 
 import synnax as sy
-from tests.driver.task import (
-    ReadTaskCase,
-    WriteTaskCase,
-    assert_states,
-    create_channel,
-    create_index,
-)
+from tests.driver.task import ReadTaskCase, WriteTaskCase, create_channel, create_index
 
 SLAVES = [
     "IOLITE GATE LATCH v2.00 BUS1",
@@ -257,12 +251,5 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
     def _channel_keys(self, task: sy.ethercat.WriteTask) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]
 
-    def assert_written(self) -> None:
-        assert self.tsk is not None and self.command_values is not None
-        channels = self.tsk.config.channels
-        assert_states(
-            self.client,
-            cmd=channels[0].cmd_channel,
-            states=[ch.state_channel for ch in channels],
-            expected=self.command_values[-1],
-        )
+    def _state_keys(self, task: sy.ethercat.WriteTask) -> list[int]:
+        return [ch.state_channel for ch in task.config.channels]

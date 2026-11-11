@@ -367,8 +367,8 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
                 task_name=tsk.name,
                 task_key=tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(tsk),
             )
-            self.assert_written()
 
         self.log(f"Test 2 - Reset {dev} via DAQmxResetDevice")
         nidaqmx.system.Device(dev).reset_device()
@@ -382,8 +382,8 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
                 task_name=tsk.name,
                 task_key=tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(tsk),
             )
-            self.assert_written()
 
         # Phase 2: Device removal and recovery (always restores config)
         saved_config = _export_ni_config()
@@ -414,8 +414,8 @@ class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
                 task_name=tsk.name,
                 task_key=tsk.key,
                 command_values=self.command_values,
+                state_keys=self._state_keys(tsk),
             )
-            self.assert_written()
 
 
 class NIDigitalWriteDisconnect(
