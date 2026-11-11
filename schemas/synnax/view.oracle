@@ -28,7 +28,7 @@ Type enum {
     @doc value "names the resource that a view lists."
 }
 
-Sort enum {
+RangeSort enum {
     newest = "newest" {
         @doc value "puts the range that starts latest first."
     }
@@ -42,7 +42,7 @@ Sort enum {
     @doc value "is the order of the ranges in a range view."
 }
 
-Layout enum {
+RangeLayout enum {
     tree     = "tree" {
         @doc value "shows each range under the range it is nested in."
     }
@@ -61,16 +61,11 @@ View union on type Type extends Base {
         where  ranger.Where? {
             @doc value "selects the ranges the view shows. An absent where shows all."
         }
-        sort   Sort?         {
-            @doc value """
-                is the order of the ranges. When null, the Console shows the newest
-                first.
-            """
+        sort   RangeSort = newest {
+            @doc value "is the order of the ranges."
         }
-        layout Layout?       {
-            @doc value """
-                is how the view shows the ranges. When null, the Console shows a tree.
-            """
+        layout RangeLayout = tree {
+            @doc value "is how the view lays out the ranges."
         }
 
         @doc value "is a saved view of ranges."

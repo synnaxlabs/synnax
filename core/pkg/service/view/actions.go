@@ -63,8 +63,8 @@ func (d document[W]) base(key Key) Base {
 // rangeDocument is the part of a range view that path actions edit.
 type rangeDocument struct {
 	document[ranger.Where]
-	Sort   *Sort   `json:"sort,omitzero"`
-	Layout *Layout `json:"layout,omitzero"`
+	Sort   RangeSort   `json:"sort"`
+	Layout RangeLayout `json:"layout"`
 }
 
 // edit applies a path action to a copy of the view's document. A document that gains a

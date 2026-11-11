@@ -143,8 +143,8 @@ var _ = Describe("Codec", func() {
 					Stages:   []ranger.Stage{ranger.Stage("to_do")},
 					Recent:   new(telem.TimeSpan(60)),
 				}),
-				Sort:   new(v3.Sort("newest")),
-				Layout: new(v3.Layout("tree")),
+				Sort:   v3.RangeSort("newest"),
+				Layout: v3.RangeLayout("tree"),
 			}}),
 			Entry("status variant", v3.View{Variant: v3.StatusView{
 				Base: fullyPopulatedBase,
@@ -280,8 +280,8 @@ func BenchmarkEncodeDecodeView(b *testing.B) {
 			Stages:   []ranger.Stage{ranger.Stage("to_do")},
 			Recent:   new(telem.TimeSpan(60)),
 		}),
-		Sort:   new(v3.Sort("newest")),
-		Layout: new(v3.Layout("tree")),
+		Sort:   v3.RangeSort("newest"),
+		Layout: v3.RangeLayout("tree"),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -413,8 +413,8 @@ func FuzzDecodeView(f *testing.F) {
 				Stages:   []ranger.Stage{ranger.Stage("to_do")},
 				Recent:   new(telem.TimeSpan(60)),
 			}),
-			Sort:   new(v3.Sort("newest")),
-			Layout: new(v3.Layout("tree")),
+			Sort:   v3.RangeSort("newest"),
+			Layout: v3.RangeLayout("tree"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

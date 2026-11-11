@@ -21,6 +21,16 @@ func MigrateBase(ctx context.Context, old v2.Base) (Base, error) {
 	return autoMigrateBase(ctx, old)
 }
 
-// Migration moves each stored view to its v3 shape. A range view keeps its where and
-// has no sort or layout.
-var Migration = migrate.NewEntry("v62_view_shape", autoMigrateView)
+// MigrateView lifts a v2 view to v3. A range view keeps its where and takes the default
+// sort and layout.
+func MigrateView(ctx context.Context, old v2.View) (View, error) {
+	v, err := autoMigrateView(ctx, old)
+	if err != nil {
+		return View{}, err
+	}
+	v.ApplyDefaults()
+	return v, nil
+}
+
+// Migration moves each stored view to its v3 shape.
+var Migration = migrate.NewEntry("v62_view_shape", MigrateView)

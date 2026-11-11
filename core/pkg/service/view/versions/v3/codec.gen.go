@@ -94,18 +94,8 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		if v.Sort != nil {
-			w.Bool(true)
-			w.String(string(*v.Sort))
-		} else {
-			w.Bool(false)
-		}
-		if v.Layout != nil {
-			w.Bool(true)
-			w.String(string(*v.Layout))
-		} else {
-			w.Bool(false)
-		}
+		w.String(string(v.Sort))
+		w.String(string(v.Layout))
 	case StatusView:
 		w.String("status")
 		if err := v.Base.EncodeOrc(w); err != nil {
@@ -151,38 +141,18 @@ func (vv *View) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 		{
-			present, err := r.Bool()
+			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			if present {
-				var hv Sort
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					hv = Sort(rawV)
-				}
-				v.Sort = &hv
-			}
+			v.Sort = RangeSort(rawV)
 		}
 		{
-			present, err := r.Bool()
+			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			if present {
-				var hv Layout
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					hv = Layout(rawV)
-				}
-				v.Layout = &hv
-			}
+			v.Layout = RangeLayout(rawV)
 		}
 		vv.Variant = v
 	case "status":

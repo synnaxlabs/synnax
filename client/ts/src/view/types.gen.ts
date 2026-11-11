@@ -24,13 +24,13 @@ export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
 
-export const SORTS = ["newest", "oldest", "name"] as const;
-export const sortZ = z.enum(SORTS);
-export type Sort = z.infer<typeof sortZ>;
+export const RANGE_SORTS = ["newest", "oldest", "name"] as const;
+export const rangeSortZ = z.enum(RANGE_SORTS);
+export type RangeSort = z.infer<typeof rangeSortZ>;
 
-export const LAYOUTS = ["tree", "list", "timeline"] as const;
-export const layoutZ = z.enum(LAYOUTS);
-export type Layout = z.infer<typeof layoutZ>;
+export const RANGE_LAYOUTS = ["tree", "list", "timeline"] as const;
+export const rangeLayoutZ = z.enum(RANGE_LAYOUTS);
+export type RangeLayout = z.infer<typeof rangeLayoutZ>;
 
 /** Order is a sort of views. */
 export const orderZ = z.object({
@@ -104,10 +104,10 @@ export const rangeViewZ = baseZ.extend({
   type: z.literal("range"),
   /** where selects the ranges the view shows. An absent where shows all. */
   where: ranger.whereZ.optional(),
-  /** sort is the order of the ranges. When null, the Console shows the newest first. */
-  sort: sortZ.optional(),
-  /** layout is how the view shows the ranges. When null, the Console shows a tree. */
-  layout: layoutZ.optional(),
+  /** sort is the order of the ranges. */
+  sort: rangeSortZ.default("newest"),
+  /** layout is how the view lays out the ranges. */
+  layout: rangeLayoutZ.default("tree"),
 });
 export interface RangeView extends z.infer<typeof rangeViewZ> {}
 

@@ -32,23 +32,23 @@ ORDER_FIELD_NAME: Literal["name"] = "name"
 
 OrderField = Literal["name"]
 
-SORT_NEWEST: Literal["newest"] = "newest"
+RANGE_SORT_NEWEST: Literal["newest"] = "newest"
 
-SORT_OLDEST: Literal["oldest"] = "oldest"
+RANGE_SORT_OLDEST: Literal["oldest"] = "oldest"
 
-SORT_NAME: Literal["name"] = "name"
-
-
-Sort = Literal["newest", "oldest", "name"]
-
-LAYOUT_TREE: Literal["tree"] = "tree"
-
-LAYOUT_LIST: Literal["list"] = "list"
-
-LAYOUT_TIMELINE: Literal["timeline"] = "timeline"
+RANGE_SORT_NAME: Literal["name"] = "name"
 
 
-Layout = Literal["tree", "list", "timeline"]
+RangeSort = Literal["newest", "oldest", "name"]
+
+RANGE_LAYOUT_TREE: Literal["tree"] = "tree"
+
+RANGE_LAYOUT_LIST: Literal["list"] = "list"
+
+RANGE_LAYOUT_TIMELINE: Literal["timeline"] = "timeline"
+
+
+RangeLayout = Literal["tree", "list", "timeline"]
 
 Key: TypeAlias = UUID
 
@@ -141,8 +141,8 @@ class RangeView(Base):
 
     type: Literal["range"] = "range"
     where: ranger.Where | None = None
-    sort: Sort | None = None
-    layout: Layout | None = None
+    sort: RangeSort = "newest"
+    layout: RangeLayout = "tree"
 
 
 class StatusView(Base):

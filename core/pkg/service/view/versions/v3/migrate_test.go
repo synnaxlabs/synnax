@@ -53,8 +53,10 @@ var _ = Describe("Migration", func() {
 			To(Succeed())
 		Expect(out).To(ConsistOf(
 			v3.View{Variant: v3.RangeView{
-				Base:  v3.Base{Key: ranges.Key, Name: "Ranges"},
-				Where: &rangerv3.Where{Labels: []uuid.UUID{label}},
+				Base:   v3.Base{Key: ranges.Key, Name: "Ranges"},
+				Where:  &rangerv3.Where{Labels: []uuid.UUID{label}},
+				Sort:   v3.RangeSortNewest,
+				Layout: v3.RangeLayoutTree,
 			}},
 			v3.View{Variant: v3.StatusView{
 				Base:  v3.Base{Key: statuses.Key, Name: "Statuses"},

@@ -55,46 +55,46 @@ const (
 	TypeStatus Type = v2.TypeStatus
 )
 
-// Sort is the order of the ranges in a range view.
-type Sort string
+// RangeSort is the order of the ranges in a range view.
+type RangeSort string
 
 const (
-	// SortNewest puts the range that starts latest first.
-	SortNewest Sort = "newest"
-	// SortOldest puts the range that starts earliest first.
-	SortOldest Sort = "oldest"
-	// SortName puts the ranges in order of name.
-	SortName Sort = "name"
+	// RangeSortNewest puts the range that starts latest first.
+	RangeSortNewest RangeSort = "newest"
+	// RangeSortOldest puts the range that starts earliest first.
+	RangeSortOldest RangeSort = "oldest"
+	// RangeSortName puts the ranges in order of name.
+	RangeSortName RangeSort = "name"
 )
 
-// IsValid reports whether s is one of the defined Sort
+// IsValid reports whether r is one of the defined RangeSort
 // values.
-func (s Sort) IsValid() bool {
-	switch s {
-	case SortNewest, SortOldest, SortName:
+func (r RangeSort) IsValid() bool {
+	switch r {
+	case RangeSortNewest, RangeSortOldest, RangeSortName:
 		return true
 	default:
 		return false
 	}
 }
 
-// Layout is how a range view shows its ranges.
-type Layout string
+// RangeLayout is how a range view shows its ranges.
+type RangeLayout string
 
 const (
-	// LayoutTree shows each range under the range it is nested in.
-	LayoutTree Layout = "tree"
-	// LayoutList shows the ranges in one flat list.
-	LayoutList Layout = "list"
-	// LayoutTimeline shows the ranges as lanes over a time axis.
-	LayoutTimeline Layout = "timeline"
+	// RangeLayoutTree shows each range under the range it is nested in.
+	RangeLayoutTree RangeLayout = "tree"
+	// RangeLayoutList shows the ranges in one flat list.
+	RangeLayoutList RangeLayout = "list"
+	// RangeLayoutTimeline shows the ranges as lanes over a time axis.
+	RangeLayoutTimeline RangeLayout = "timeline"
 )
 
-// IsValid reports whether l is one of the defined Layout
+// IsValid reports whether r is one of the defined RangeLayout
 // values.
-func (l Layout) IsValid() bool {
-	switch l {
-	case LayoutTree, LayoutList, LayoutTimeline:
+func (r RangeLayout) IsValid() bool {
+	switch r {
+	case RangeLayoutTree, RangeLayoutList, RangeLayoutTimeline:
 		return true
 	default:
 		return false
@@ -111,24 +111,36 @@ type RangeView struct {
 	Base
 	// Where selects the ranges the view shows. An absent where shows all.
 	Where *ranger.Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// Sort is the order of the ranges. When null, the Console shows the newest first.
-	Sort *Sort `json:"sort,omitzero" msgpack:"sort,omitempty"`
-	// Layout is how the view shows the ranges. When null, the Console shows a tree.
-	Layout *Layout `json:"layout,omitzero" msgpack:"layout,omitempty"`
+	// Sort is the order of the ranges.
+	Sort RangeSort `json:"sort" msgpack:"sort"`
+	// Layout is how the view lays out the ranges.
+	Layout RangeLayout `json:"layout" msgpack:"layout"`
 }
 
 func (RangeView) isViewVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *RangeView) SetDefaults() {
+	r.Sort = RangeSortNewest
+	r.Layout = RangeLayoutTree
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RangeView) ApplyDefaults() {
+	if r.Sort == "" {
+		r.Sort = RangeSortNewest
+	}
+	if r.Layout == "" {
+		r.Layout = RangeLayoutTree
+	}
+}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RangeView) Validate() error {
 	v := validate.New("RangeView")
-	if r.Sort != nil {
-		v.Ternaryf("sort", !r.Sort.IsValid(), "invalid sort: %v", *r.Sort)
-	}
-	if r.Layout != nil {
-		v.Ternaryf("layout", !r.Layout.IsValid(), "invalid layout: %v", *r.Layout)
-	}
+	v.Ternaryf("sort", !r.Sort.IsValid(), "invalid sort: %v", r.Sort)
+	v.Ternaryf("layout", !r.Layout.IsValid(), "invalid layout: %v", r.Layout)
 	v.Exec(r.Base.Validate)
 	return v.Error()
 }
@@ -204,6 +216,7 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type Type `json:"type"`
 			RangeView
 		}
+		v.RangeView.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -236,6 +249,16 @@ func (u View) Type() Type {
 		return TypeStatus
 	}
 	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *View) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

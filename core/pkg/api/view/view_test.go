@@ -42,7 +42,11 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 
 func createView(ctx SpecContext) view.View {
 	GinkgoHelper()
-	v := view.View{Variant: view.RangeView{Name: "Before"}}
+	v := view.View{Variant: view.RangeView{
+		Name:   "Before",
+		Sort:   view.RangeSortNewest,
+		Layout: view.RangeLayoutTree,
+	}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.View.NewWriter(tx).Create(ctx, &v)
 	})).To(Succeed())
@@ -69,7 +73,11 @@ func retrieveView(ctx SpecContext, key view.Key) view.View {
 
 var _ = Describe("Create", func() {
 	newView := func() view.View {
-		return view.View{Variant: view.RangeView{Name: "Created"}}.WithKey(uuid.New())
+		return view.View{Variant: view.RangeView{
+			Name:   "Created",
+			Sort:   view.RangeSortNewest,
+			Layout: view.RangeLayoutTree,
+		}}.WithKey(uuid.New())
 	}
 	It("Should create the view with create on views", func(ctx SpecContext) {
 		u := createUser(ctx)

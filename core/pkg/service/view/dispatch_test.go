@@ -115,8 +115,8 @@ var _ = Describe("Dispatch", func() {
 					ctx,
 					set("icon", "star"),
 					set("color", c),
-					set("sort", view.SortOldest),
-					set("layout", view.LayoutTimeline),
+					set("sort", view.RangeSortOldest),
+					set("layout", view.RangeLayoutTimeline),
 				)).To(Succeed())
 				Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.RangeView{
 					Base: view.Base{
@@ -125,17 +125,11 @@ var _ = Describe("Dispatch", func() {
 						Icon:  new("star"),
 						Color: &c,
 					},
-					Sort:   new(view.SortOldest),
-					Layout: new(view.LayoutTimeline),
+					Sort:   view.RangeSortOldest,
+					Layout: view.RangeLayoutTimeline,
 				}}))
 			},
 		)
-
-		It("Should clear a sort set to null", func(ctx SpecContext) {
-			Expect(apply(ctx, set("sort", view.SortName))).To(Succeed())
-			Expect(apply(ctx, set("sort", nil))).To(Succeed())
-			Expect(retrieve(ctx)).To(Equal(v))
-		})
 
 		DescribeTable(
 			"Should refuse an invalid edit",
@@ -147,6 +141,16 @@ var _ = Describe("Dispatch", func() {
 				Expect(retrieve(ctx)).To(Equal(v))
 			},
 			Entry("of the sort", set("sort", "random"), "sort: invalid sort: random"),
+			Entry(
+				"of the sort to null",
+				set("sort", nil),
+				"[sort]: the document requires a value",
+			),
+			Entry(
+				"that removes the sort",
+				view.NewRemoveAction(view.RemovePayload{Key: "sort"}),
+				"[sort]: the document requires a value",
+			),
 			Entry(
 				"of the layout",
 				set("layout", "grid"),

@@ -27,28 +27,28 @@ const (
 	TypeStatus Type = versions.TypeStatus
 )
 
-// Sort is the order of the ranges in a range view.
-type Sort = versions.Sort
+// RangeSort is the order of the ranges in a range view.
+type RangeSort = versions.RangeSort
 
 const (
-	// SortNewest puts the range that starts latest first.
-	SortNewest Sort = versions.SortNewest
-	// SortOldest puts the range that starts earliest first.
-	SortOldest Sort = versions.SortOldest
-	// SortName puts the ranges in order of name.
-	SortName Sort = versions.SortName
+	// RangeSortNewest puts the range that starts latest first.
+	RangeSortNewest RangeSort = versions.RangeSortNewest
+	// RangeSortOldest puts the range that starts earliest first.
+	RangeSortOldest RangeSort = versions.RangeSortOldest
+	// RangeSortName puts the ranges in order of name.
+	RangeSortName RangeSort = versions.RangeSortName
 )
 
-// Layout is how a range view shows its ranges.
-type Layout = versions.Layout
+// RangeLayout is how a range view shows its ranges.
+type RangeLayout = versions.RangeLayout
 
 const (
-	// LayoutTree shows each range under the range it is nested in.
-	LayoutTree Layout = versions.LayoutTree
-	// LayoutList shows the ranges in one flat list.
-	LayoutList Layout = versions.LayoutList
-	// LayoutTimeline shows the ranges as lanes over a time axis.
-	LayoutTimeline Layout = versions.LayoutTimeline
+	// RangeLayoutTree shows each range under the range it is nested in.
+	RangeLayoutTree RangeLayout = versions.RangeLayoutTree
+	// RangeLayoutList shows the ranges in one flat list.
+	RangeLayoutList RangeLayout = versions.RangeLayoutList
+	// RangeLayoutTimeline shows the ranges as lanes over a time axis.
+	RangeLayoutTimeline RangeLayout = versions.RangeLayoutTimeline
 )
 
 // View is a saved, named filter over a list of resources. The type selects the resource

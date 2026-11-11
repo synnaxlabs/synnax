@@ -20,7 +20,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/view/actions.gen";
-import { layoutZ, sortZ, type Type, type View } from "@/view/types.gen";
+import { rangeLayoutZ, rangeSortZ, type Type, type View } from "@/view/types.gen";
 
 const BASE = {
   name: z.string(),
@@ -34,8 +34,8 @@ const DOCUMENTS: Record<Type, z.ZodObject> = {
   range: z.object({
     ...BASE,
     where: zod.nullToUndefined(ranger.whereZ),
-    sort: zod.nullToUndefined(sortZ),
-    layout: zod.nullToUndefined(layoutZ),
+    sort: rangeSortZ,
+    layout: rangeLayoutZ,
   }),
   status: z.object({ ...BASE, where: zod.nullToUndefined(status.whereZ) }),
 };
