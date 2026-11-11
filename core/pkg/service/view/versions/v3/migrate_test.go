@@ -27,7 +27,7 @@ import (
 var _ = Describe("Migration", func() {
 	It("Should keep the base and where of each view", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.View]{DB: db}))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.View]{DB: db}))
 		label := uuid.New()
 		ranges := v2.Base{Key: uuid.New(), Name: "Ranges"}
 		statuses := v2.Base{Key: uuid.New(), Name: "Statuses"}
