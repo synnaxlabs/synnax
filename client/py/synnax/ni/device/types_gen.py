@@ -169,7 +169,9 @@ class IdentityUpdate(Identity):
 
 
 class ConfigurationUpdate(Configuration):
-    """Writes the fields that the user owns."""
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
 
     group: Literal["configuration"] = "configuration"
 

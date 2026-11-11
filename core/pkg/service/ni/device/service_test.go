@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -395,6 +396,34 @@ var _ = Describe("Service", func() {
 			Expect(got.Identifier).To(Equal("dev1"))
 			Expect(got.Serial).To(Equal(d.Serial))
 			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should clear the ports that a configuration update leaves out", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.AnalogInput = device.InputPorts{
+						Index:    1,
+						Channels: map[string]channel.Key{"ai0": 2},
+					}
+					return d, nil
+				},
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "dev1",
+					},
+				},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.AnalogInput.Index).To(BeZero())
+			Expect(got.AnalogInput.Channels).To(BeEmpty())
 		})
 
 		It("Should return not found for a missing device", func(ctx SpecContext) {

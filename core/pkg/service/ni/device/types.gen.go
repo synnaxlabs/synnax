@@ -101,7 +101,8 @@ type UpdateType string
 const (
 	// IdentityUpdateType writes the fields that the scanner owns.
 	IdentityUpdateType UpdateType = "identity"
-	// ConfigurationUpdateType writes the fields that the user owns.
+	// ConfigurationUpdateType replaces the fields that the user owns. A client sends
+	// the whole group, because a field it leaves out is cleared.
 	ConfigurationUpdateType UpdateType = "configuration"
 )
 
@@ -125,7 +126,8 @@ func (i IdentityUpdate) Validate() error {
 	return v.Error()
 }
 
-// ConfigurationUpdate writes the fields that the user owns.
+// ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+// group, because a field it leaves out is cleared.
 type ConfigurationUpdate struct {
 	Configuration
 }

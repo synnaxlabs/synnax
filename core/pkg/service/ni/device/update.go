@@ -79,9 +79,10 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// Apply writes the field group that update carries to the device stored under key and
+// Apply replaces the field group that update carries on the device stored under key and
 // keeps the other group as stored. It returns an error wrapping query.ErrNotFound when
-// no device is stored under key and a validation error when update is invalid.
+// no device is stored under key and a validation error when update is invalid. A
+// transaction that commits between the read and the write of this one is overwritten.
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:

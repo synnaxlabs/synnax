@@ -173,7 +173,8 @@ struct IdentityUpdate : public Identity {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ConfigurationUpdate writes the fields that the user owns.
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
 struct ConfigurationUpdate : public Configuration {
     std::string group = "configuration";
 

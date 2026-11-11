@@ -212,7 +212,10 @@ Update union on group {
         @doc value "writes the fields that the scanner owns."
     }
     configuration Configuration {
-        @doc value "writes the fields that the user owns."
+        @doc value """
+            replaces the fields that the user owns. A client sends the whole group,
+            because a field it leaves out is cleared.
+        """
     }
 
     @doc value "is a write to one field group of a device."

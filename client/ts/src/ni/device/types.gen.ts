@@ -108,7 +108,10 @@ export const identityUpdateZ = identityZ.extend({
 });
 export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
 
-/** ConfigurationUpdate writes the fields that the user owns. */
+/**
+ * ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
 export const configurationUpdateZ = configurationZ.extend({
   group: z.literal("configuration"),
 });
