@@ -159,6 +159,26 @@ Channel struct {
 			Expect(messages()).To(BeEmpty())
 		})
 
+		It("Should pass a stored root replaced by an alias of the same shape", func() {
+			write(releaseRoot, v0Path, `
+Channel struct {
+    name string
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Ref struct {
+    name string
+
+    @go marshal
+}
+
+Channel = Ref
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
 		It("Should pass a shipped type that only omitted fields reach", func() {
 			write(root, v0Path, `
 Status struct {

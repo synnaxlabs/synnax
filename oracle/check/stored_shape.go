@@ -52,6 +52,18 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	s.visiting.Add(key)
 	defer s.visiting.Remove(key)
 	s.covered.Add(old.QualifiedName)
+	// An alias on one side only stores what its target stores.
+	if isAlias(old) != isAlias(new) {
+		oldTarget, _, oldOK := resolution.Dealias(
+			resolution.TypeRef{Name: old.QualifiedName}, s.old,
+		)
+		newTarget, _, newOK := resolution.Dealias(
+			resolution.TypeRef{Name: new.QualifiedName}, s.new,
+		)
+		if oldOK && newOK {
+			return s.typ(at, oldTarget, newTarget)
+		}
+	}
 	if reflect.TypeOf(old.Form) != reflect.TypeOf(new.Form) {
 		return fmt.Sprintf("%s: changes from %T to %T", at, old.Form, new.Form)
 	}
@@ -221,16 +233,7 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		}
 		return ""
 	}
-	oldType, newType := s.old.MustGet(old.Name), s.new.MustGet(new.Name)
-	// An alias on one side only stores what its target stores.
-	if isAlias(oldType) != isAlias(newType) {
-		_, oldTarget, oldOK := resolution.Dealias(old, s.old)
-		_, newTarget, newOK := resolution.Dealias(new, s.new)
-		if oldOK && newOK {
-			return s.ref(at, oldTarget, newTarget)
-		}
-	}
-	return s.typ(at, oldType, newType)
+	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
 }
 
 func isAlias(t resolution.Type) bool {
