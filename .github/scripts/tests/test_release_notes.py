@@ -10,6 +10,7 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from scripts_common import FakeGH
@@ -179,9 +180,14 @@ def train(tmp_path: Path) -> Train:
     return Train(path=tmp_path)
 
 
-def picked(subject: str, sha: str) -> dict[str, dict[str, str]]:
-    """Returns a PR commit that `cherry-pick -x` made from sha."""
-    return {"commit": {"message": f"{subject}\n\n(cherry picked from commit {sha})"}}
+def pr_commit(sha: str, message: str = "", parents: int = 1) -> dict[str, Any]:
+    """Returns a commit as the PR commits endpoint lists it."""
+    return {"sha": sha, "parents": [{}] * parents, "commit": {"message": message}}
+
+
+def picked(subject: str, source: str, sha: str = "f" * 40) -> dict[str, Any]:
+    """Returns a PR commit that `cherry-pick -x` made from source."""
+    return pr_commit(sha, f"{subject}\n\n(cherry picked from commit {source})")
 
 
 MERGED_11 = [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}]
@@ -237,7 +243,7 @@ class TestCherryPicks:
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
-        train.gh.serve("api */pulls/11/commits", [{"sha": branch}])
+        train.gh.serve("api */pulls/11/commits", [pr_commit(branch)])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
@@ -249,7 +255,7 @@ class TestCherryPicks:
         train.git("cherry-pick", "-x", branch)
         train.git("tag", "core/v0.60.1")
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
-        train.gh.serve("api */pulls/11/commits", [{"sha": branch}])
+        train.gh.serve("api */pulls/11/commits", [pr_commit(branch)])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
@@ -261,7 +267,7 @@ class TestCherryPicks:
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
-        train.gh.serve("api */pulls/11/commits", [{"sha": branch}, {"sha": later}])
+        train.gh.serve("api */pulls/11/commits", [pr_commit(branch), pr_commit(later)])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert notes.strip() == MINOR.strip()
 
@@ -321,3 +327,39 @@ class TestCherryPicks:
         )
         assert result.returncode != 0
         assert "HTTP 403" in result.stderr
+
+    def test_ignores_merge_commits_of_a_picked_pr_branch(self, train: Train) -> None:
+        branch = "0123456789abcdef0123456789abcdef01234567"
+        merge = "89abcdef0123456789abcdef0123456789abcdef"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
+        train.gh.serve(
+            "api */pulls/11/commits", [pr_commit(branch), pr_commit(merge, parents=2)]
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+
+    def test_keeps_a_fix_whose_pick_was_reverted(self, train: Train) -> None:
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("revert", "--no-edit", "HEAD")
+        train.git("tag", "core/v0.60.1")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert notes.strip() == MINOR.strip()
+
+    def test_keeps_a_fix_reverted_inside_its_pick_pr(self, train: Train) -> None:
+        stage_pick = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall and stage fixes (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [
+                picked("Fix a stall (#11)", train.stall, "a" * 40),
+                picked("Fix a stage (#14)", train.stage, stage_pick),
+                pr_commit("b" * 40, f"Revert\n\nThis reverts commit {stage_pick}."),
+            ],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a stage by @someone in {PULL}/14" in notes

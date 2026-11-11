@@ -34,49 +34,62 @@ subject_pr() {
     git log -1 --format=%s "$1" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'
 }
 
-# Prints the sources a commit names in `cherry-pick -x` trailers. A squash merge drops
-# the trailers, so a commit with none reads the commits of the PR its subject names.
-sources() {
-    local trailer='s/^\(cherry picked from commit ([0-9a-f]+)\)$/\1/p'
+# Prints a "pick <commit> <source>" line for each `cherry-pick -x` trailer of a commit
+# and a "revert <commit>" line for each commit it reverts. A squash merge drops these
+# lines from the message, so a commit with none reads the commits of the PR its subject
+# names.
+links() {
     local found pr
-    found=$(git log -1 --format=%B "$1" | sed -nE "$trailer") || return
+    found=$(git log -1 --format=%B "$1" | sed -nE \
+        -e "s/^\(cherry picked from commit ([0-9a-f]+)\)$/pick $1 \1/p" \
+        -e 's/^This reverts commit ([0-9a-f]+).*/revert \1/p') || return
     pr=$(subject_pr "$1") || return
     if [ -n "$found" ] || [ -z "$pr" ]; then
         echo "$found"
         return
     fi
-    "$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate \
-        --jq '.[].commit.message' | sed -nE "$trailer"
+    "$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate --jq '
+        .[] | .sha as $commit | .commit.message
+        | (scan("\\(cherry picked from commit ([0-9a-f]+)\\)")
+            | "pick \($commit) \(.[0])"),
+          (scan("This reverts commit ([0-9a-f]+)") | "revert \(.[0])")'
 }
 
 # The commits the previous tag holds that SHA does not are its cherry-picks. A source
-# off SHA is itself a pick, such as one from an older train's branch, so its own
-# sources are read too.
-SOURCES=""
+# off SHA is itself a pick, such as one from an older train's branch, so its own links
+# are read too. A pick that a later commit reverts shipped nothing.
+LINKS=""
 PICKS=""
+SEEN=""
 if [ -n "$PREVIOUS_TAG" ]; then
     PICKS=$(git rev-list --no-merges "$PREVIOUS_TAG" "^$SHA")
 fi
 while [ -n "$PICKS" ]; do
     FOUND=""
     for commit in $PICKS; do
-        FOUND+=$(sources "$commit")$'\n'
+        FOUND+=$(links "$commit")$'\n'
     done
+    LINKS+=$FOUND
     PICKS=""
-    for source in $FOUND; do
-        if [[ " $SOURCES " == *" $source "* ]]; then continue; fi
-        SOURCES+=" $source"
+    for source in $(awk '$1 == "pick" { print $3 }' <<< "$FOUND"); do
+        if [[ " $SEEN " == *" $source "* ]]; then continue; fi
+        SEEN+=" $source"
         if git cat-file -e "$source^{commit}" 2> /dev/null \
             && ! git merge-base --is-ancestor "$source" "$SHA"; then
             PICKS+=" $source"
         fi
     done
 done
+SOURCES=$(awk '
+    $1 == "revert" { reverted[$2] = 1 }
+    $1 == "pick" { picks[$2] = picks[$2] " " $3 }
+    END { for (c in picks) if (!(c in reverted)) print picks[c] }' <<< "$LINKS" \
+    | tr ' ' '\n' | sort -u | tr '\n' ' ')
 
 # A source with a PR in its subject is that PR's squash merge. GitHub resolves the
 # merged PR of any other source, such as a commit of a PR branch. That PR counts as
-# shipped only when all of its commits were picked. A source picked from a commit that
-# was never pushed has no PR.
+# shipped only when all of its commits but merges were picked. A source picked from a
+# commit that was never pushed has no PR.
 SHIPPED=""
 ERR=$(mktemp)
 trap 'rm -f "$ERR"' EXIT
@@ -99,7 +112,7 @@ for source in $SOURCES; do
     fi
     for pr in $PRS; do
         COMMITS=$("$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate \
-            --jq '.[].sha')
+            --jq '.[] | select(.parents | length == 1) | .sha')
         ALL=true
         for commit in $COMMITS; do
             if [[ " $SOURCES " != *" $commit "* ]]; then ALL=false; fi
