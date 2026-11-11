@@ -55,6 +55,14 @@ export type TableEvent<
     }
   | { variant: "delete"; key: Key };
 
+/**
+ * Returns whether the event can change what the Core answers to a query: every event
+ * except a set that a fetch found.
+ */
+export const isChange = <Key extends record.Key, Value extends state.State>(
+  event: TableEvent<Key, Value>,
+): boolean => event.variant === "delete" || event.discovered !== true;
+
 /** Receives {@link TableEvent}s. Must be synchronous; thrown errors are reported to the
  *  table's error sink and do not stop delivery. */
 export interface TableSubscriber<
