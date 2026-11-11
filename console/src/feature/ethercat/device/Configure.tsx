@@ -60,9 +60,6 @@ const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
 /** The start of the name of a network that the IgH master runs. */
 const IGH_PREFIX = "igh:";
 
-const APPLY_NOTE =
-  "A change applies the next time the network starts, after every task on it stops.";
-
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
 
@@ -281,6 +278,39 @@ const NAME_INPUT_PROPS = {
   "aria-label": "Name",
 } as const;
 
+const General = (): ReactElement => {
+  const name = Form.useFieldValue(path.name);
+  const { set } = Form.useContext();
+  return (
+    <Form.Section title="General">
+      <Form.TextField
+        path={path.properties.identifier}
+        label="Identifier"
+        padHelpText={false}
+        inputProps={{ placeholder: "dev1" }}
+      />
+      <Flex.Box y gap="small">
+        <Text.Text level="small" color={9}>
+          A short prefix for every channel on this device.
+        </Text.Text>
+        <Flex.Box x align="center" wrap>
+          <Icon.Bolt />
+          {strings.createShortIdentifiers(name ?? "").map((id) => (
+            <Button.Button
+              key={id}
+              onClick={() => set(path.properties.identifier, id)}
+              size="small"
+              variant="text"
+            >
+              {id}
+            </Button.Button>
+          ))}
+        </Flex.Box>
+      </Flex.Box>
+    </Form.Section>
+  );
+};
+
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
  * of one EtherCAT slave.
@@ -301,7 +331,6 @@ export const Configure = ({
   const checked = useRef(false);
   // The checks show the platform's messages in place of the stored schema's.
   useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
-  const name = Form.useFieldValue(path.name, { ctx: form });
   const modes = Form.useFieldValue(path.properties.opModes, { ctx: form }) ?? [];
   const choice =
     Form.useFieldValue(OP_MODE_PATH, { ctx: form, optional: true }) ?? null;
@@ -349,12 +378,49 @@ export const Configure = ({
     createTask?.(deviceKey);
     close();
   };
-  let help: HelpProps;
+  // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
+  let help: HelpProps | null = null;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
   else if (cycleProblem != null) help = { text: cycleProblem, problem: severity };
-  else if (mode != null) help = { text: describeTicks(mode, effective) };
-  else if (choice == null) help = { text: autoDescription(modes, catalog) };
-  else help = { text: describeMode(modes[choice.index]) };
+  else if (choice != null)
+    help = {
+      text:
+        mode == null ? describeMode(modes[choice.index]) : describeTicks(mode, choice),
+    };
+  const syncMode = (
+    <Form.Section title="Sync mode">
+      <Input.Item label="Mode" padHelpText={false}>
+        <ModeSelect
+          modes={modes}
+          catalog={catalog}
+          value={choice}
+          stale={stale}
+          onChange={setChoice}
+        />
+      </Input.Item>
+      {mode != null && index != null && (choice != null || cycleProblem != null) && (
+        <Flex.Box x>
+          <CycleField
+            label="SYNC0 cycle"
+            value={choice == null ? 0 : choice.sync0Cycle}
+            problem={sync0Problem == null ? undefined : severity}
+            onChange={(ns) =>
+              setChoice(withCycle(modes, choice, catalog, index, "sync0Cycle", ns))
+            }
+          />
+          <CycleField
+            label="SYNC1 cycle"
+            value={choice == null ? 0 : choice.sync1Cycle}
+            problem={sync1Problem == null ? undefined : severity}
+            onChange={(ns) =>
+              setChoice(withCycle(modes, choice, catalog, index, "sync1Cycle", ns))
+            }
+          />
+        </Flex.Box>
+      )}
+      {help != null && <Help {...help} />}
+    </Form.Section>
+  );
   return (
     <Modal.Frame
       className={CSS.cls(
@@ -375,82 +441,24 @@ export const Configure = ({
           />
           <SetupNote deviceKey={deviceKey} />
           <div className={CSS.BE("ethercat-configure", "columns")}>
-            <Form.Sections>
-              <Form.Section title="General">
-                <Form.TextField
-                  path={path.properties.identifier}
-                  label="Identifier"
-                  padHelpText={false}
-                  inputProps={{ placeholder: "dev1" }}
-                />
-                <Flex.Box y gap="small">
-                  <Text.Text level="small" color={9}>
-                    A short prefix for every channel on this device.
-                  </Text.Text>
-                  <Flex.Box x align="center" wrap>
-                    <Icon.Bolt />
-                    {strings.createShortIdentifiers(name ?? "").map((id) => (
-                      <Button.Button
-                        key={id}
-                        onClick={() => form.set(path.properties.identifier, id)}
-                        size="small"
-                        variant="text"
-                      >
-                        {id}
-                      </Button.Button>
-                    ))}
-                  </Flex.Box>
-                </Flex.Box>
-              </Form.Section>
-              <Form.Section title="Sync mode">
-                <Input.Item label="Mode" padHelpText={false}>
-                  <ModeSelect
-                    modes={modes}
-                    catalog={catalog}
-                    value={choice}
-                    stale={stale}
-                    onChange={setChoice}
-                  />
-                </Input.Item>
-                {mode != null && index != null && (
-                  <Flex.Box x>
-                    <CycleField
-                      label="SYNC0 cycle"
-                      value={choice == null ? 0 : choice.sync0Cycle}
-                      problem={sync0Problem == null ? undefined : severity}
-                      onChange={(ns) =>
-                        setChoice(
-                          withCycle(modes, choice, catalog, index, "sync0Cycle", ns),
-                        )
-                      }
-                    />
-                    <CycleField
-                      label="SYNC1 cycle"
-                      value={choice == null ? 0 : choice.sync1Cycle}
-                      problem={sync1Problem == null ? undefined : severity}
-                      onChange={(ns) =>
-                        setChoice(
-                          withCycle(modes, choice, catalog, index, "sync1Cycle", ns),
-                        )
-                      }
-                    />
-                  </Flex.Box>
-                )}
-                <Flex.Box y gap="small">
-                  <Help {...help} />
-                  <Text.Text level="small" color={9}>
-                    {APPLY_NOTE}
-                  </Text.Text>
-                </Flex.Box>
-              </Form.Section>
-            </Form.Sections>
-            {!shared && (
+            {shared ? (
               <Form.Sections>
-                <SlaveSettings />
-                <Form.Section title="Startup parameters">
-                  <StartupParameters />
-                </Form.Section>
+                <General />
+                {syncMode}
               </Form.Sections>
+            ) : (
+              <>
+                <Form.Sections>
+                  <General />
+                  <SlaveSettings />
+                </Form.Sections>
+                <Form.Sections>
+                  {syncMode}
+                  <Form.Section title="Startup parameters">
+                    <StartupParameters />
+                  </Form.Section>
+                </Form.Sections>
+              </>
             )}
           </div>
         </Form.Form>
@@ -465,6 +473,9 @@ export const Configure = ({
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
+          <Text.Text level="small" color={9}>
+            Changes apply after every task on this network restarts.
+          </Text.Text>
           {onCreateTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
