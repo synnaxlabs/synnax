@@ -516,11 +516,16 @@ var _ = Describe("Service", func() {
 			-1.0,
 			"stream_rate: must be greater than 0",
 		),
-		Entry(
-			"stream rate above the sample rate",
-			10.0,
-			20.0,
-			"stream_rate: must be less than or equal to the sample rate",
-		),
+	)
+
+	// The Console saves each field edit, so a draft can hold a stream rate above its
+	// sample rate. The Driver refuses it on start.
+	It("Should store a read config whose stream rate is above its sample rate",
+		func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": 10.0,
+				"stream_rate": 20.0,
+			})).Error().ToNot(HaveOccurred())
+		},
 	)
 })

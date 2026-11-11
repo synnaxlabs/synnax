@@ -12,7 +12,6 @@ package modbus
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -52,7 +51,7 @@ func validateRegisterValueAt(v *validate.Validator, i int, r RegisterValue, read
 func validateReadConfig(c *ReadConfig) error {
 	v := validate.New("modbus.ReadConfig")
 	v.Exec(c.Validate)
-	config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+	v.GreaterThan("stream_rate", c.StreamRate, 0)
 	for i, ch := range c.Channels {
 		switch variant := ch.Variant.(type) {
 		case HoldingRegisterReadChannel:

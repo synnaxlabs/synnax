@@ -93,7 +93,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ValidateEntry: func(c *AnalogReadConfig) error {
 				v := validate.New("ni.AnalogReadConfig")
 				v.Exec(c.Validate)
-				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
 				return v.Error()
 			},
 		},
@@ -134,7 +134,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ValidateEntry: func(c *CounterReadConfig) error {
 				v := validate.New("ni.CounterReadConfig")
 				v.Exec(c.Validate)
-				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
 				return v.Error()
 			},
 		},
@@ -157,7 +157,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ValidateEntry: func(c *DigitalReadConfig) error {
 				v := validate.New("ni.DigitalReadConfig")
 				v.Exec(c.Validate)
-				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
 				return v.Error()
 			},
 		},

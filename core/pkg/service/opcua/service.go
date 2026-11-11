@@ -138,7 +138,7 @@ func validateReadConfig(c *ReadConfig) error {
 	v := validate.New("opcua.ReadConfig")
 	v.Exec(c.Validate)
 	if _, array := c.Sampling.Variant.(ArraySampling); !array {
-		config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+		v.GreaterThan("stream_rate", c.StreamRate, 0)
 	}
 	return v.Error()
 }

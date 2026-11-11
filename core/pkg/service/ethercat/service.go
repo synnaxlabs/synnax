@@ -107,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ValidateEntry: func(c *ReadConfig) error {
 				v := validate.New("ethercat.ReadConfig")
 				v.Exec(c.Validate)
-				config.ValidateStreamRate(v, c.SampleRate, c.StreamRate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
 				return v.Error()
 			},
 		},

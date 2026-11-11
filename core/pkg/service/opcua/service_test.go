@@ -202,12 +202,6 @@ var _ = Describe("Service", func() {
 			-1.0,
 			"stream_rate: must be greater than 0",
 		),
-		Entry(
-			"stream rate above the sample rate",
-			10.0,
-			20.0,
-			"stream_rate: must be less than or equal to the sample rate",
-		),
 	)
 
 	It("Should accept a zero stream rate under array sampling", func(ctx SpecContext) {
