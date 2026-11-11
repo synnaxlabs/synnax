@@ -184,3 +184,50 @@ var _ = Describe("Lookups", func() {
 		Expect(lookups.Unchanged(ctx, db)).Error().To(MatchError("lookup failed"))
 	})
 })
+
+var _ = Describe("RetryChanged", func() {
+	// changing returns a function that returns channel.ErrLookupsChanged for its first
+	// changes calls, and counts each call in calls.
+	changing := func(changes int, calls *int) func() (int, error) {
+		return func() (int, error) {
+			*calls++
+			if *calls <= changes {
+				return 0, channel.ErrLookupsChanged
+			}
+			return 42, nil
+		}
+	}
+
+	It("Should call again until the lookups hold", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, changing(2, &calls))).To(Equal(42))
+		Expect(calls).To(Equal(3))
+	})
+
+	It("Should fail after three changed calls", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, changing(3, &calls))).Error().
+			To(MatchError(channel.ErrLookupsChanged))
+		Expect(calls).To(Equal(3))
+	})
+
+	It("Should return another error at once", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, func() (int, error) {
+			calls++
+			return 0, query.ErrNotFound
+		})).Error().To(MatchError(query.ErrNotFound))
+		Expect(calls).To(Equal(1))
+	})
+
+	It("Should stop waiting when the context is cancelled", func(ctx SpecContext) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		var calls int
+		Expect(channel.RetryChanged(cancelCtx, func() (int, error) {
+			calls++
+			cancel()
+			return 0, channel.ErrLookupsChanged
+		})).Error().To(MatchError(context.Canceled))
+		Expect(calls).To(Equal(1))
+	})
+})
