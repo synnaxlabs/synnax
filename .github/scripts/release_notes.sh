@@ -122,8 +122,8 @@ done
 # Applies the picks in commit order, so each source keeps its last state. A pick ships
 # its source, and a revert flips the state of its target. A squash merge applies its
 # PR's commits in order, and a revert of it undoes them in reverse order. A revert ships
-# with the fix it undoes or restores, so a source counts as shipped when the fix at the
-# end of its revert chain does.
+# with the picked fix it undoes or restores, so a source counts as shipped when the
+# picked fix at the end of its revert chain does.
 SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
     function add(list, key, value) {
         if (index(list[key] " ", " " value " ") == 0) list[key] = list[key] " " value
@@ -148,6 +148,7 @@ SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
             if (reverts[c] != "") split(reverts[c], list, " ")
             else if (c in picks) split(picks[c], list, " ")
             else return c
+            if (!(list[1] in sources)) return c
             c = list[1]
         }
     }
