@@ -19,13 +19,14 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Version bump (patch only from release/desktop-X.Y)
+        description:
+          Version bump (minor or major from main, patch from release/desktop-X.Y)
         type: choice
         options:
-          - patch
           - minor
           - major
-        default: patch
+          - patch
+        default: minor
       prerelease:
         description: Tag a release candidate (-rc.N)
         type: boolean
