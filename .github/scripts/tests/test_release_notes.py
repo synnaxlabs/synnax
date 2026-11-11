@@ -190,6 +190,16 @@ def picked(subject: str, source: str, sha: str = "f" * 40) -> dict[str, Any]:
     return pr_commit(sha, f"{subject}\n\n(cherry picked from commit {source})")
 
 
+def picked_revert(source: str, target: str, sha: str) -> dict[str, Any]:
+    """Returns a PR commit that `cherry-pick -x` made from source, which reverts
+    target."""
+    return pr_commit(
+        sha,
+        f"Revert\n\nThis reverts commit {target}.\n\n"
+        f"(cherry picked from commit {source})",
+    )
+
+
 MERGED_11 = [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}]
 
 
@@ -275,7 +285,8 @@ class TestCherryPicks:
         train.git("checkout", "-q", "-b", "release/core-0.59", "core/v0.60.0")
         older = train.commit("Pick the stall fix (0.59.2) (#20)")
         train.gh.serve(
-            "api */pulls/20/commits", [picked("Fix a stall (#11)", train.stall)]
+            "api */pulls/20/commits",
+            [picked("Fix a stall (#11)", train.stall, "a" * 40)],
         )
         train.git("checkout", "-q", "release/core-0.60")
         train.commit("Pick the stall fix (0.60.1) (#21)")
@@ -402,3 +413,84 @@ class TestCherryPicks:
         train.gh.serve(f"api */commits/{revert}/pulls")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"* Fix a stall by @someone in {PULL}/11" in notes
+
+    def test_leaves_out_a_fix_whose_picked_revert_was_relanded(
+        self, train: Train
+    ) -> None:
+        train.git("checkout", "-q", "main")
+        train.git("revert", "--no-edit", train.stall)
+        revert = train.git("rev-parse", "HEAD")
+        train.git("revert", "--no-edit", revert)
+        reland = train.git("rev-parse", "HEAD")
+        train.git("checkout", "-q", "release/core-0.60")
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("cherry-pick", "-x", revert)
+        train.git("cherry-pick", "-x", reland)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(f"api */commits/{reland}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
+
+    def test_leaves_out_a_fix_picked_again_after_its_revert(self, train: Train) -> None:
+        train.git("checkout", "-q", "main")
+        train.git("revert", "--no-edit", train.stall)
+        revert = train.git("rev-parse", "HEAD")
+        train.git("checkout", "-q", "release/core-0.60")
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("cherry-pick", "-x", revert)
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(f"api */commits/{revert}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+
+    def test_keeps_a_fix_and_its_revert_picked_in_one_pr(self, train: Train) -> None:
+        revert = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [
+                picked("Fix a stall (#11)", train.stall, "a" * 40),
+                picked_revert(revert, train.stall, "b" * 40),
+            ],
+        )
+        train.gh.serve(f"api */commits/{revert}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"* Fix a stall by @someone in {PULL}/11" in notes
+
+    def test_leaves_out_a_fix_relanded_in_one_pick_pr(self, train: Train) -> None:
+        revert = "0123456789abcdef0123456789abcdef01234567"
+        reland = "89abcdef0123456789abcdef0123456789abcdef"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [
+                picked("Fix a stall (#11)", train.stall, "a" * 40),
+                picked_revert(revert, train.stall, "b" * 40),
+                picked_revert(reland, revert, "c" * 40),
+            ],
+        )
+        train.gh.serve(f"api */commits/{reland}/pulls")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
+
+    def test_fails_when_a_pick_pr_reaches_the_commit_limit(self, train: Train) -> None:
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/13/commits",
+            [picked("Fix a stall (#11)", train.stall, f"{i:040x}") for i in range(250)],
+        )
+        result = subprocess.run(
+            [str(SCRIPT), "core/v0.61.0", "main", "c.yml", "core/v0.60.1"],
+            cwd=train.path,
+            env=train.env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "PR #13 has 250 or more commits" in result.stderr

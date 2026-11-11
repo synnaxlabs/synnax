@@ -34,6 +34,19 @@ subject_pr() {
     git log -1 --format=%s "$1" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'
 }
 
+# Prints each commit of a PR as a line of JSON. The endpoint lists at most 250 commits,
+# so a PR that reaches that count fails.
+pr_commits() {
+    local commits
+    commits=$("$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$1/commits" --paginate \
+        --jq '.[] | @json') || return
+    if [ "$(grep -c . <<< "$commits")" -ge 250 ]; then
+        echo "PR #$1 has 250 or more commits, and GitHub lists only 250" >&2
+        return 1
+    fi
+    echo "$commits"
+}
+
 # Prints a "pick <commit> <carrier> <source>" line for each `cherry-pick -x` trailer of
 # a commit and a "revert <commit> <carrier> <target>" line for each commit it reverts.
 # A squash merge drops these lines from the message, so a commit with none reads the
@@ -48,23 +61,24 @@ links() {
         echo "$found"
         return
     fi
-    "$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate --jq '
-        .[] | .sha as $commit | .commit.message
+    pr_commits "$pr" | jq -r --arg carrier "$1" '
+        .sha as $commit | .commit.message
         | (scan("\\(cherry picked from commit ([0-9a-f]+)\\)")
-            | "pick \($commit) \(.[0])"),
-          (scan("This reverts commit ([0-9a-f]+)") | "revert \($commit) \(.[0])")' \
-        | sed -E "s/^(pick|revert) /\1 $1 /"
+            | "pick \($commit) \($carrier) \(.[0])"),
+          (scan("This reverts commit ([0-9a-f]+)")
+            | "revert \($commit) \($carrier) \(.[0])")'
 }
 
-# The commits the previous tag holds that SHA does not are its cherry-picks. A source
-# off SHA is itself a pick, such as one from an older train's branch, so its own links
-# are read too. A pick that a later commit reverts shipped nothing.
+# The commits the previous tag holds that SHA does not are its cherry-picks, oldest
+# first. A source off SHA is itself a pick, such as one from an older train's branch, so
+# its own links are read too.
 LINKS=""
-PICKS=""
+OPS=""
 SEEN=""
 if [ -n "$PREVIOUS_TAG" ]; then
-    PICKS=$(git rev-list --no-merges "$PREVIOUS_TAG" "^$SHA")
+    OPS=$(git rev-list --reverse --no-merges "$PREVIOUS_TAG" "^$SHA")
 fi
+PICKS=$OPS
 while [ -n "$PICKS" ]; do
     FOUND=""
     for commit in $PICKS; do
@@ -72,36 +86,53 @@ while [ -n "$PICKS" ]; do
     done
     LINKS+=$FOUND
     PICKS=""
-    for source in $(awk '$1 == "pick" { print $4 }' <<< "$FOUND"); do
+    while read -r source; do
         if [[ " $SEEN " == *" $source "* ]]; then continue; fi
         SEEN+=" $source"
         if git cat-file -e "$source^{commit}" 2> /dev/null \
             && ! git merge-base --is-ancestor "$source" "$SHA"; then
             PICKS+=" $source"
         fi
-    done
+    done < <(awk '$1 == "pick" { print $4 }' <<< "$FOUND")
 done
-# A commit counts as reverted only when a revert of it is not itself reverted. A picked
-# revert of a source cancels that source.
-SOURCES=$(awk '
-    function reverted(x, i) {
-        if (x in memo) return memo[x]
-        memo[x] = 0
-        for (i = 1; i <= n; i++) {
-            if (target[i] == x && !reverted(commit[i]) && !reverted(carrier[i])) {
-                memo[x] = 1
-                break
-            }
-        }
-        return memo[x]
+# Applies the picks in commit order, so each source keeps its last state. A pick ships
+# its source, and a revert flips the state of its target. A squash merge applies its
+# PR's commits in order, and a revert of it undoes them in reverse order.
+SOURCES=$(awk -v ops="$(tr '\n' ' ' <<< "$OPS")" '
+    function add(list, key, value) {
+        if (index(list[key] " ", " " value " ") == 0) list[key] = list[key] " " value
     }
-    $1 == "revert" { n++; commit[n] = $2; carrier[n] = $3; target[n] = $4 }
-    $1 == "pick" { picks[NR] = $0 }
-    END {
-        for (i in picks) {
-            split(picks[i], f, " ")
-            if (!reverted(f[2]) && !reverted(f[3]) && !reverted(f[4])) print f[4]
+    function apply(c, on,   n, i, list) {
+        if (c in subs) {
+            n = split(subs[c], list, " ")
+            for (i = 1; i <= n; i++) apply(list[on ? i : n + 1 - i], on)
+            return
         }
+        if (c in picks) {
+            n = split(picks[c], list, " ")
+            for (i = 1; i <= n; i++) apply(list[i], on)
+        } else {
+            state[c] = on
+        }
+        n = split(reverts[c], list, " ")
+        for (i = 1; i <= n; i++) apply(list[i], !on)
+    }
+    $1 == "pick" { add(picks, $2, $4); sources[$4] = 1 }
+    $1 == "revert" { n++; commit[n] = $2; target[n] = $4 }
+    ($1 == "pick" || $1 == "revert") && $2 != $3 { add(subs, $3, $2) }
+    END {
+        # A pick of a revert copies its message, so the revert belongs to its source.
+        for (i = 1; i <= n; i++) {
+            if (!(commit[i] in picks)) {
+                add(reverts, commit[i], target[i])
+                continue
+            }
+            m = split(picks[commit[i]], from, " ")
+            for (j = 1; j <= m; j++) add(reverts, from[j], target[i])
+        }
+        m = split(ops, list, " ")
+        for (i = 1; i <= m; i++) apply(list[i], 1)
+        for (s in sources) if (state[s]) print s
     }' <<< "$LINKS" | sort -u | tr '\n' ' ')
 
 # A source with a PR in its subject is that PR's squash merge. GitHub resolves the
@@ -129,8 +160,8 @@ for source in $SOURCES; do
         continue
     fi
     for pr in $PRS; do
-        COMMITS=$("$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate \
-            --jq '.[] | select(.parents | length == 1) | .sha')
+        COMMITS=$(pr_commits "$pr" \
+            | jq -r 'select(.parents | length == 1) | .sha')
         ALL=true
         for commit in $COMMITS; do
             if [[ " $SOURCES " != *" $commit "* ]]; then ALL=false; fi
