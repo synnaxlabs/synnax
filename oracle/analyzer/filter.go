@@ -73,7 +73,9 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 		))
 		return
 	}
-	filter := &resolution.Filter{Target: collectTypeRef(c, def.TypeRef(), nil)}
+	filter := &resolution.Filter{Target: collectTypeRef(
+		c, def.TypeRef(), nil, "filter target",
+	)}
 	self := resolution.TypeRef{Name: name}
 	form := resolution.StructForm{Fields: []resolution.Field{
 		treeField("and", arrayOf(self), "matches when every child matches."),

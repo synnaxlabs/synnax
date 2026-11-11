@@ -4194,6 +4194,96 @@ Node union on variant {
 			Entry("generic argument", "Box<string?>", "string?"),
 			Entry("argument in a map", "map<string, Box<int32?>>", "int32?"),
 		)
+
+		DescribeTable(
+			"Should reject an optional marker outside a field",
+			func(decl, message string) {
+				source := `
+				Base struct {
+					name string
+				}
+
+				Box struct<T> {
+					value T
+				}
+
+				Kind enum {
+					a = "a"
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					message + " cannot be optional: only a field can be absent",
+				))
+			},
+			Entry(
+				"struct extends",
+				"Child struct extends Base? {\n}",
+				"extended type Base?",
+			),
+			Entry("alias target", "Alias = Base?", "alias target Base?"),
+			Entry(
+				"type parameter constraint",
+				"Wrap struct<T extends Base?> {\n value T\n}",
+				"type parameter constraint Base?",
+			),
+			Entry(
+				"type parameter default",
+				"Wrap struct<T = Base?> {\n value T\n}",
+				"type parameter default Base?",
+			),
+			Entry("base type", "Key uint32?", "base type uint32?"),
+			Entry(
+				"named variant type",
+				"Shape union on type {\n base Base?\n}",
+				"variant type Base?",
+			),
+			Entry(
+				"union extends",
+				"Shape union on type extends Base? {\n base Base\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"inline variant extends",
+				"Shape union on type {\n base extends Base? {}\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"enum extends",
+				"More enum extends Kind? {\n b = \"b\"\n}",
+				"extended type Kind?",
+			),
+			Entry(
+				"action extends",
+				"Thing struct {\n action Rename extends Base? {}\n}",
+				"extended type Base?",
+			),
+		)
+
+		It("Should keep an optional marker on a field", func() {
+			source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					name   string?
+					box    Box<string>?
+					lookup map<string, int32>?
+				}
+			`
+			table, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form, ok := table.MustGet("test.Config").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			for _, name := range []string{"name", "box", "lookup"} {
+				field, ok := form.Field(name)
+				Expect(ok).To(BeTrue())
+				Expect(field.Optional).To(BeTrue(), name)
+			}
+		})
 	})
 
 	Describe("Recursive Types", func() {
