@@ -20,7 +20,6 @@ import {
   type MultiSeries,
   POINTS_PER_GROUP,
   scale,
-  type Series,
   type SeriesDigest,
   TimeSpan,
   xy,
@@ -31,7 +30,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
+import { windowBounds } from "@/vis/line/aether/bounds";
 import {
   bridgeVertices,
   buildDrawOperations,
@@ -82,15 +81,6 @@ const loadingState = (
   if (!isLoading(x) && !isLoading(y)) return "none";
   if (loaded || (x.data[1].length > 0 && y.data[1].length > 0)) return "fetching";
   return hidden ? "none" : "loading";
-};
-
-const safelyGetDataValue = (
-  series: number,
-  index: number,
-  data: MultiSeries,
-): number => {
-  if (series === -1 || index === -1 || series >= data.series.length) return NaN;
-  return Number(data.series[series].at(index));
 };
 
 export type State = z.input<typeof stateZ>;
@@ -325,6 +315,8 @@ interface InternalState {
   loadingState?: LoadingState;
   // loaded is true once both sources leave loading, until either source changes.
   loaded?: boolean;
+  // drawn holds the ops of the last render.
+  drawn: DrawOperation[];
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -344,6 +336,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
+    i.drawn ??= [];
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -394,22 +387,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     };
   }
 
+  /**
+   * @returns the point the line drew at its last render whose x is nearest target. The
+   * value of a point the line reduced has float32 precision.
+   */
   findByXValue(props: LineProps, target: number): FindResult {
-    const { xTelem, yTelem } = this.internal;
-    const valueProps = this.read(view(props));
-    const [, xData] = xTelem.value(valueProps).data;
-    let [index, series] = [-1, -1];
-    xData.series.find((x, i) => {
-      const v = x.binarySearch(target);
-      // The returned value gives us the insert position, so anything that is not
-      // a valid index is not a valid value.
-      const valid = v >= 0 && v < x.length;
-      if (valid) [index, series] = [v, i];
-      return valid;
-    });
     const { key } = this;
-    const { color, label } = this.state;
-    const result = {
+    const { color, label, visible } = this.state;
+    const result: FindResult = {
       key,
       color,
       label,
@@ -417,32 +402,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
     };
-
-    if (index === -1 || series === -1 || !this.state.visible) return result;
-
-    const xSeries = xData.series[series];
-    const [, yData] = yTelem.value(valueProps).data;
-    const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
-    let ySeries: Series | undefined;
-    forEachPair(
-      [xSeries],
-      yData.series,
-      DEFAULT_OVERLAP_THRESHOLD,
-      (_, y, start, end) => {
-        if (alignment >= start && alignment < end) ySeries ??= y;
-      },
-    );
-    if (ySeries == null) return result;
-    result.value.x = safelyGetDataValue(series, index, xData);
-
-    result.value.y = Number(ySeries.atAlignment(alignment, true));
-
-    result.bounds = { ...ySeries.bounds };
-
-    result.position = {
-      x: props.dataToDecimalScale.x.pos(result.value.x),
-      y: props.dataToDecimalScale.y.pos(result.value.y),
+    const found = visible ? nearest(this.internal.drawn, target) : null;
+    if (found == null) return result;
+    const [{ x, y, xOffset, yOffset }, i] = found;
+    result.value = {
+      x: Number(x.at(xOffset + i, true)),
+      y: Number(y.at(yOffset + i, true)),
     };
+    result.bounds = { ...y.bounds };
+    result.position = props.dataToDecimalScale.pos(result.value);
     return result;
   }
 
@@ -490,6 +458,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
         ? inView(full, v.bounds, size)
         : full;
     const ops = reducer.reduce(cut, i.aggregation, size);
+    i.drawn = ops;
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.renderCtx);
@@ -529,6 +498,28 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
     bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },
     width: box.width(region),
   };
+};
+
+// Returns the op and op index of the sample whose x is nearest target. The x samples of
+// each op must ascend.
+const nearest = (
+  ops: DrawOperation[],
+  target: number,
+): [DrawOperation, number] | null => {
+  let found: [DrawOperation, number] | null = null;
+  let distance = Infinity;
+  for (const op of ops) {
+    const { x, xOffset, count } = op;
+    const after = Math.min(Math.max(x.binarySearch(target) - xOffset, 0), count);
+    for (const i of [after - 1, after]) {
+      if (i < 0 || i >= count) continue;
+      const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
+      if (d >= distance) continue;
+      found = [op, i];
+      distance = d;
+    }
+  }
+  return found;
 };
 
 /**

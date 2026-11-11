@@ -58,6 +58,15 @@ interface LoopEntry {
   render?: () => render.Cleanup | undefined;
 }
 
+// Runs the render that the plot requested last.
+const renderPlot = (recorder: canvasTest.Recorder): void => {
+  const entry = recorder.loopCalls
+    .map((call) => call.args[0] as LoopEntry)
+    .reverse()
+    .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
+  entry?.render?.();
+};
+
 interface Mount {
   plot: LinePlot;
   recorder: canvasTest.Recorder;
@@ -99,13 +108,6 @@ describe("LinePlot", () => {
         loading: lineLoading,
       });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    const pump = (): void => {
-      const entry = recorder.loopCalls
-        .map((call) => call.args[0] as LoopEntry)
-        .reverse()
-        .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
-      entry?.render?.();
-    };
     return {
       plot: stack.driver.find<LinePlot>(base),
       recorder,
@@ -116,7 +118,7 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
-      pump,
+      pump: () => renderPlot(recorder),
       hide: () =>
         stack.driver.update(base, LinePlot.TYPE, {
           container: box.DECIMAL,
@@ -236,6 +238,8 @@ describe("LinePlot against a Core", () => {
   };
 
   const mount = (props: telem.ChannelDataProps) => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
     const stack = buildStack({
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
@@ -246,7 +250,7 @@ describe("LinePlot against a Core", () => {
         [line.Line.TYPE]: line.Line,
       },
       synnax: { props: TEST_CLIENT_PARAMS },
-      render: true,
+      render: recorder,
     });
     const gl = [...stack.basePath, "gl"];
     stack.driver.update(gl, lineTest.Host.TYPE, {});
@@ -266,23 +270,23 @@ describe("LinePlot against a Core", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base), setViewport };
+    return { plot: stack.driver.find<LinePlot>(base), recorder, setViewport };
   };
 
-  // The distance from each target to the first drawn sample at or after it.
-  const gaps = (plot: LinePlot, targets: number[]): number[] =>
-    targets.map((t) => {
-      const [found] = plot.findByXValue(t);
+  // Renders the plot, then returns the distance from each target to the drawn sample
+  // nearest it.
+  const gaps = (m: ReturnType<typeof mount>, targets: number[]): number[] => {
+    renderPlot(m.recorder);
+    return targets.map((t) => {
+      const [found] = m.plot.findByXValue(t);
       const x = found?.value.x ?? NaN;
-      return Number.isNaN(x) ? Infinity : x - t;
+      return Number.isNaN(x) ? Infinity : Math.abs(x - t);
     });
+  };
 
   it("should draw full detail tiles after a zoom", async () => {
     const { data, home } = await writeData();
-    const { plot, setViewport } = mount({
-      channel: data.key,
-      window: staticWindow(home),
-    });
+    const m = mount({ channel: data.key, window: staticWindow(home) });
     const homeSpan = Number(home.span.valueOf());
     const lower = Number(home.start.valueOf()) + homeSpan / 2;
     const targets = [0.1, 0.3, 0.5, 0.7, 0.9].map(
@@ -290,15 +294,15 @@ describe("LinePlot against a Core", () => {
     );
     // Home tiles hold one point every half second or so.
     await expect
-      .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
+      .poll(() => Math.max(...gaps(m, targets)), { timeout: 10_000 })
       .toBeLessThan(Number(TimeSpan.seconds(2).valueOf()));
-    expect(Math.max(...gaps(plot, targets))).toBeGreaterThan(
+    expect(Math.max(...gaps(m, targets))).toBeGreaterThan(
       Number(TimeSpan.milliseconds(50).valueOf()),
     );
     const zoom = Number(TimeSpan.seconds(2).valueOf()) / homeSpan;
-    setViewport(box.construct(0.5, 0, zoom, 1));
+    m.setViewport(box.construct(0.5, 0, zoom, 1));
     await expect
-      .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
+      .poll(() => Math.max(...gaps(m, targets)), { timeout: 10_000 })
       .toBeLessThan(Number(TimeSpan.milliseconds(20).valueOf()));
   });
 
@@ -313,10 +317,7 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({
-      channel: data.key,
-      window: dynamicWindow(TimeSpan.seconds(10)),
-    });
+    const m = mount({ channel: data.key, window: dynamicWindow(TimeSpan.seconds(10)) });
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -337,7 +338,10 @@ describe("LinePlot against a Core", () => {
         await sleep.sleep(TimeSpan.milliseconds(100));
       }
       const target = Number(last.valueOf());
-      await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
+      // Until the last chunk draws, the sample nearest target lies 100 ms before it.
+      await expect
+        .poll(() => gaps(m, [target])[0], { timeout: 10_000 })
+        .toBeLessThan(Number(TimeSpan.milliseconds(50).valueOf()));
     } finally {
       await writer.close();
     }
