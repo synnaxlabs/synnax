@@ -161,26 +161,91 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 	})
 }
 
-// checkArrayDefaultSize enforces that the default of a fixed-size array field has
-// exactly as many elements as the array.
+// checkArrayDefaultSize enforces that every fixed-size array in a field's default,
+// nested ones included, has exactly as many elements as the array.
 func checkArrayDefaultSize(c *analysisCtx) {
 	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
-		if f.Default.Kind != resolution.ValueKindArray {
-			return
-		}
-		size, ok := resolution.ArraySize(f.Type, c.table)
-		if !ok || int64(len(f.Default.Elements)) == size {
-			return
-		}
-		c.diag.Add(diagnostics.Errorf(
-			nil,
-			"default of field %q in %q has %d elements, but its type holds exactly %d",
-			f.Name,
-			typ.Name,
-			len(f.Default.Elements),
-			size,
-		))
+		checkArraySizes(c, typ, f, f.Type, *f.Default)
 	})
+}
+
+func checkArraySizes(
+	c *analysisCtx,
+	typ resolution.Type,
+	f resolution.Field,
+	ref resolution.TypeRef,
+	val resolution.ExpressionValue,
+) {
+	switch val.Kind {
+	case resolution.ValueKindArray:
+		size, ok := resolution.ArraySize(ref, c.table)
+		if ok && int64(len(val.Elements)) != size {
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"default of field %q in %q has an array of %d elements, but its type "+
+					"holds exactly %d",
+				f.Name,
+				typ.Name,
+				len(val.Elements),
+				size,
+			))
+		}
+		elem, ok := arrayElement(ref, c.table)
+		if !ok {
+			return
+		}
+		for _, el := range val.Elements {
+			checkArraySizes(c, typ, f, elem, el)
+		}
+	case resolution.ValueKindStruct:
+		resolved, _, ok := resolution.Dealias(ref, c.table)
+		if !ok {
+			return
+		}
+		if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+			return
+		}
+		fields := resolution.UnifiedFields(resolved, c.table)
+		for _, fv := range val.Fields {
+			if field, ok := lo.Find(fields, func(field resolution.Field) bool {
+				return field.Name == fv.Name
+			}); ok {
+				checkArraySizes(c, typ, f, field.Type, fv.Value)
+			}
+		}
+	}
+}
+
+// arrayElement returns the element type of the array that ref resolves to through
+// aliases and distinct bases.
+func arrayElement(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	visited := make(map[string]bool)
+	for !visited[ref.Name] {
+		visited[ref.Name] = true
+		if ref.Name == "Array" {
+			if len(ref.TypeArgs) == 0 {
+				return resolution.TypeRef{}, false
+			}
+			return ref.TypeArgs[0], true
+		}
+		resolved, target, ok := resolution.Dealias(ref, table)
+		if !ok {
+			return resolution.TypeRef{}, false
+		}
+		if target.Name == "Array" {
+			ref = target
+			continue
+		}
+		distinct, ok := resolved.Form.(resolution.DistinctForm)
+		if !ok {
+			return resolution.TypeRef{}, false
+		}
+		ref = distinct.Base
+	}
+	return resolution.TypeRef{}, false
 }
 
 // forEachDefaultedField calls fn for every field carrying a default on every struct
