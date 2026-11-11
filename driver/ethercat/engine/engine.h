@@ -229,6 +229,9 @@ class Engine {
     /// @brief copies the staged outputs into the process image. Waits for write_mu when
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
+    /// @brief returns why the latest failed cycle failed. A working counter error also
+    /// names each slave that the latest check found out of OP. Call it only while the
+    /// bus runs.
     [[nodiscard]] x::errors::Error cycle_error() const;
     /// @brief returns the offset of each entry in the process image.
     /// @returns errors::STATE_CHANGE_REFUSED for an entry on a left-out slave, or

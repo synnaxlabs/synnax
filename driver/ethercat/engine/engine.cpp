@@ -578,8 +578,26 @@ void Engine::write_outputs(const bool wait) {
 }
 
 x::errors::Error Engine::cycle_error() const {
-    std::lock_guard lock(this->cycle_err_mu);
-    return this->cycle_err;
+    x::errors::Error err;
+    {
+        std::lock_guard lock(this->cycle_err_mu);
+        err = this->cycle_err;
+    }
+    if (!err.matches(errors::WORKING_COUNTER_ERROR)) return err;
+    const auto &slaves = this->image.slaves;
+    for (const auto &h: this->health()) {
+        if (h.refusal || h.operational()) continue;
+        const auto slave = std::ranges::find(slaves, h.position, [](const auto &s) {
+            return s.properties.position;
+        });
+        err.data += std::format(
+            ". Slave {} ({}) is not in OP: {}",
+            h.position,
+            slave == slaves.end() ? "" : slave->properties.name,
+            h.to_string()
+        );
+    }
+    return err;
 }
 
 void Engine::close_input(const std::shared_ptr<Input> &input) {

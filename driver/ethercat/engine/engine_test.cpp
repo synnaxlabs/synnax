@@ -1564,6 +1564,60 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     EXPECT_EQ(reader->warning(), "");
 }
 
+/// @brief it should name each slave that is out of OP in the warning of cycles that
+/// failed for a wrong working counter.
+TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    this->master->set_slave_transition_failure(2, slave::State::OP);
+    this->master->fault_slave(2, slave::State::SAFE_OP, "Sync manager watchdog");
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 3 && this->engine->health()[1].lost &&
+        this->engine->health()[2].faulted
+    );
+    const auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
+            "working counter mismatch: expected 9, got 3"
+        )
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+    EXPECT_EQ(
+        reader->warning(),
+        "Bus cycles failed: working counter mismatch: expected 9, got 3. Slave 1 "
+        "(Slave1) is not in OP: not responding. Slave 2 (Slave2) is not in OP: SAFE-OP "
+        "+ ERROR: Sync manager watchdog."
+    );
+}
+
+/// @brief it should name no slave in the warning of cycles that failed for another
+/// reason.
+TEST_F(EngineTest, OtherCycleWarningNamesNoSlave) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    const auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
 /// @brief it should report the samples a reader dropped because it fell behind the bus
 /// as a warning.
 TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
