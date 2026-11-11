@@ -10,7 +10,6 @@
 package errors_test
 
 import (
-	"context"
 	stderrors "errors"
 	"fmt"
 	"time"
@@ -268,7 +267,7 @@ var _ = Describe("Is", func() {
 				}
 				joined := errors.Join(members...)
 				Expect(joined.Error()).To(Equal(want))
-				payload := errors.Encode(context.Background(), joined, false)
+				payload := errors.Encode(joined, false)
 				Expect(payload.Data).To(Equal(want))
 			},
 			Entry("before one character", "z", "", "z"),
@@ -286,13 +285,11 @@ var _ = Describe("Is", func() {
 
 		It("Should stay matchable after transport", func() {
 			sentinel := errors.New("sentinel")
-			ctx := context.Background()
 			payload := errors.Encode(
-				ctx,
 				errors.Join(errors.Wrap(sentinel, "context"), errors.New("other")),
 				true,
 			)
-			decoded := errors.Decode(ctx, payload)
+			decoded := errors.Decode(payload)
 			Expect(decoded).To(MatchError("context: sentinel\nother"))
 			Expect(errors.Is(decoded, sentinel)).To(BeTrue())
 			Expect(errors.UnwrapMulti(decoded)).To(HaveLen(2))
@@ -328,7 +325,7 @@ var _ = Describe("Is", func() {
 			),
 			Entry("transport encoding under Wrap",
 				func(err error) string {
-					return errors.Encode(context.Background(), err, true).Data
+					return errors.Encode(err, true).Data
 				},
 				func(err error) error { return errors.Wrap(err, "context") },
 			),

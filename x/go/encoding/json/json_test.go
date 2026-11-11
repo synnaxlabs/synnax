@@ -363,6 +363,6 @@ var _ = Describe("Decoding errors", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("failed to decode")),
 		))
-		Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+		Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
 	})
 })

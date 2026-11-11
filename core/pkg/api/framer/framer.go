@@ -389,7 +389,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 			ctx context.Context,
 			res IteratorResponse,
 		) (IteratorResponse, bool, error) {
-			res.Error = errors.Encode(ctx, res.Error, false)
+			res.Error = errors.Encode(res.Error, false)
 			return res, true, nil
 		},
 	}
@@ -680,7 +680,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 			return WriterResponse{
 				Command:    i.Command,
 				Authorized: i.Authorized,
-				Err:        errors.Encode(ctx, i.Err, false),
+				Err:        errors.Encode(i.Err, false),
 				End:        i.End,
 			}, true, nil
 		},
@@ -750,7 +750,7 @@ func (s *Service) openWriter(
 	// Let the client know the writer is ready to receive segments.
 	if err := stream.Send(WriterResponse{
 		Command: framer.WriterCommandOpen,
-		Err:     errors.Encode(ctx, nil, false),
+		Err:     errors.Encode(nil, false),
 	}); err != nil {
 		return nil, errors.Combine(err, release(w))
 	}

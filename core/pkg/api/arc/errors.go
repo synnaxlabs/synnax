@@ -10,8 +10,6 @@
 package arc
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -25,7 +23,7 @@ type CompileError struct {
 
 func (e CompileError) Error() string { return e.Diagnostics }
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	var ce CompileError
 	if errors.As(err, &ce) {
 		return errors.Payload{Type: errorType, Data: ce.Diagnostics}, true
@@ -33,7 +31,7 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, p errors.Payload) (error, bool) {
+func decode(p errors.Payload) (error, bool) {
 	if p.Type != errorType {
 		return nil, false
 	}

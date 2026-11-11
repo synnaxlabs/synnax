@@ -250,7 +250,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeCode = ws.CloseNormalClosure
 		if err = s.send(WSMessage[RS]{
 			Type: WSMessageTypeClose,
-			Err:  errors.Encode(context.TODO(), err, false),
+			Err:  errors.Encode(err, false),
 		}); err != nil {
 			return err
 		}

@@ -10,7 +10,6 @@
 package auth
 
 import (
-	"context"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -49,7 +48,7 @@ const (
 	accessDeniedType       = errorType + ".access_denied"
 )
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrSessionEnded) {
 		return errors.Payload{Type: sessionEndedType, Data: err.Error()}, true
 	}
@@ -77,7 +76,7 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, p errors.Payload) (error, bool) {
+func decode(p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
 		return errors.Wrap(ErrInvalidCredentials, p.Data), true

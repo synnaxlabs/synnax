@@ -43,7 +43,7 @@ var _ = Describe("Codec", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("failed to decode")),
 		))
-		Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+		Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
 	})
 
 	Describe("ContentType", func() {

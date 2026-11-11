@@ -120,7 +120,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 				if err != nil {
 					p := &errors.Payload{}
 					p.Unmarshal(status.Convert(err).Message())
-					return oCtx, errors.Decode(iCtx, *p)
+					return oCtx, errors.Decode(*p)
 				}
 				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err
@@ -164,7 +164,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	)
 	if err != nil {
 		var zero RST
-		return zero, errors.Encode(ctx, err, u.Internal)
+		return zero, errors.Encode(err, u.Internal)
 	}
 	return tRes, nil
 }

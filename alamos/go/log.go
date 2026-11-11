@@ -10,7 +10,6 @@
 package alamos
 
 import (
-	"context"
 	"slices"
 
 	"github.com/synnaxlabs/x/config"
@@ -203,7 +202,7 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 			if !ok {
 				continue
 			}
-			if errors.Expected(context.Background(), err) {
+			if errors.Expected(err) {
 				if !unexpected {
 					entry.Stack = ""
 				}
