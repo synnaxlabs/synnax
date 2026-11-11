@@ -55,7 +55,7 @@ var _ = Describe("CompileConsistent", func() {
 		Expect(checks).To(Equal(1))
 	})
 
-	It("Should compile inside a snapshot after three changed tries", func(
+	It("Should fail after five changed tries with no lock held", func(
 		ctx SpecContext,
 	) {
 		var snaps []gorp.Snapshot
@@ -68,9 +68,28 @@ var _ = Describe("CompileConsistent", func() {
 				return false, nil
 			})
 			return len(snaps), nil
-		})).To(Equal(4))
-		Expect(snaps[:3]).To(HaveEach(BeIdenticalTo(db)))
-		Expect(snaps[3]).ToNot(BeIdenticalTo(db))
+		})).Error().To(MatchError(channel.ErrLookupsChanged))
+		Expect(snaps).To(HaveLen(5))
+		Expect(snaps).To(HaveEach(BeIdenticalTo(db)))
+	})
+
+	It("Should stop waiting between tries when the context is cancelled", func(
+		ctx SpecContext,
+	) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		var compiles int
+		Expect(channel.CompileConsistent(cancelCtx, db, func(
+			_ gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (int, error) {
+			compiles++
+			cancel()
+			lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+				return false, nil
+			})
+			return 42, nil
+		})).Error().To(MatchError(context.Canceled))
+		Expect(compiles).To(Equal(1))
 	})
 
 	It("Should return the error of a check", func(ctx SpecContext) {
@@ -129,5 +148,86 @@ var _ = Describe("CompileConsistent", func() {
 		}))
 		Expect(sym.ID).To(Equal(int(ch.Key())))
 		Expect(compiles).To(Equal(2))
+	})
+})
+
+var _ = Describe("Lookups", func() {
+	DescribeTable(
+		"Unchanged",
+		func(ctx SpecContext, answers []bool, unchanged bool) {
+			lookups := &channel.Lookups{}
+			for _, same := range answers {
+				lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+					return same, nil
+				})
+			}
+			Expect(lookups.Unchanged(ctx, db)).To(Equal(unchanged))
+		},
+		Entry("Should hold with no lookups", nil, true),
+		Entry(
+			"Should hold when each lookup gives the same answer",
+			[]bool{true, true},
+			true,
+		),
+		Entry(
+			"Should not hold when a lookup gives another answer",
+			[]bool{true, false},
+			false,
+		),
+	)
+
+	It("Should return the error of a lookup", func(ctx SpecContext) {
+		lookups := &channel.Lookups{}
+		lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+			return false, errors.New("lookup failed")
+		})
+		Expect(lookups.Unchanged(ctx, db)).Error().To(MatchError("lookup failed"))
+	})
+})
+
+var _ = Describe("RetryChanged", func() {
+	// changing returns a function that returns channel.ErrLookupsChanged for its first
+	// changes calls, and counts each call in calls.
+	changing := func(changes int, calls *int) func() (int, error) {
+		return func() (int, error) {
+			*calls++
+			if *calls <= changes {
+				return 0, channel.ErrLookupsChanged
+			}
+			return 42, nil
+		}
+	}
+
+	It("Should call again until the lookups hold", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, changing(2, &calls))).To(Equal(42))
+		Expect(calls).To(Equal(3))
+	})
+
+	It("Should fail after three changed calls", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, changing(3, &calls))).Error().
+			To(MatchError(channel.ErrLookupsChanged))
+		Expect(calls).To(Equal(3))
+	})
+
+	It("Should return another error at once", func(ctx SpecContext) {
+		var calls int
+		Expect(channel.RetryChanged(ctx, func() (int, error) {
+			calls++
+			return 0, query.ErrNotFound
+		})).Error().To(MatchError(query.ErrNotFound))
+		Expect(calls).To(Equal(1))
+	})
+
+	It("Should stop waiting when the context is cancelled", func(ctx SpecContext) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		var calls int
+		Expect(channel.RetryChanged(cancelCtx, func() (int, error) {
+			calls++
+			cancel()
+			return 0, channel.ErrLookupsChanged
+		})).Error().To(MatchError(context.Canceled))
+		Expect(calls).To(Equal(1))
 	})
 })

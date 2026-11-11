@@ -318,6 +318,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (range, acts) => {
         const { payload } = range;

@@ -12,6 +12,7 @@ import "@/feature/version/Guard.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import {
@@ -42,7 +43,9 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
   const check = Version.useCheck();
   // A breaking update moves the Console past the Core, so it cannot fix the mismatch.
   const updatable =
-    check.variant === "success" && check.available != null && !check.available.breaking;
+    check.variant === "success" &&
+    check.available != null &&
+    check.available.variant !== "breaking";
   const openInfo = Version.useInfoModal();
   const url =
     target == null
@@ -70,6 +73,12 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
           <Text.Text level="p" color={9} className={CSS.BE("version-mismatch", "text")}>
             The Console and the Core must have the same minor version.
           </Text.Text>
+          {check.variant === "blocked" && (
+            <Status.Summary
+              className={CSS.BE("version-mismatch", "text")}
+              status={check.status}
+            />
+          )}
           <Button.Button
             variant="text"
             size="small"

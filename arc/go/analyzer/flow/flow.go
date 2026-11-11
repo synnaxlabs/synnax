@@ -417,7 +417,7 @@ func analyzeIdentifier(
 	}
 
 	if isLastNode && prevNode != nil &&
-		(sym.Kind == symbol.KindChannel || isValueVarSink) {
+		(sym.Kind == symbol.KindChannel || sym.IsValueVariable()) {
 		srcType, srcDesc := flowSourceType(ctx, prevNode)
 		chanValueType := sym.Type.Unwrap()
 		if srcType.IsValid() {

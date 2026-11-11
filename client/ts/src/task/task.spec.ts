@@ -712,7 +712,7 @@ describe("Task", async () => {
       expect(
         await client.tasks.dispatch(
           t.key,
-          task.set({ path: ["config", "performance"], value: "" }),
+          task.remove({ path: ["config"], key: "performance" }),
         ),
       ).toBe(true);
       await client.tasks.settled(t.key);
@@ -1177,6 +1177,7 @@ describe("Task", async () => {
     key: number,
     variant: status.Variant,
     message: string,
+    running: boolean = variant === "success",
   ) => {
     await client.statuses.set({
       owner: rack.resourceID(key),
@@ -1184,6 +1185,7 @@ describe("Task", async () => {
       variant,
       message,
       time: TimeStamp.now(),
+      details: { running },
     });
   };
 
@@ -1199,6 +1201,7 @@ describe("Task", async () => {
       variant: "success",
       message,
       time: TimeStamp.now(),
+      details: { running: true },
     });
     await expect
       .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
@@ -1237,7 +1240,7 @@ describe("Task", async () => {
         message: "Driver not running",
         description: "The Core has not heard from the Driver.",
         time: TimeStamp.now(),
-        details: { rack: key },
+        details: { running: false },
       });
 
     it("should end the wait when the Driver of the task goes down", async () => {
@@ -1309,36 +1312,49 @@ describe("Task", async () => {
       await ended;
     });
 
-    it("should keep waiting through a healthy status of the rack", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
-      const t = await alive.createTask({
-        name: `alive-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      onTestFinished(() => streamer.close());
-      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
-      const cmd = await readCommand(streamer, t.key);
-      await setRackStatus(alive.key, "success", "Driver is running");
-      const reply = {
-        owner: task.resourceID(t.key),
-        name: t.name,
-        variant: "success" as const,
-        message: "Scan complete",
-        description: "",
-        time: TimeStamp.now(),
-        details: {
-          running: true,
-          cmd: cmd.key,
-          configHash: "",
-          rack: alive.key,
-          data: {},
-        },
-      };
-      await writer.statuses.set(reply);
-      expect(await wait).toMatchObject({ message: "Scan complete" });
-    });
+    it.each(["success", "warning"] as const)(
+      "should keep waiting through a %s status from a running Driver",
+      async (variant) => {
+        const alive = await client.racks.create({ name: `alive-${id.create()}` });
+        const t = await alive.createTask({
+          name: `alive-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => streamer.close());
+        const wait = t.executeCommandSync({
+          type: "scan",
+          timeout: TimeSpan.minutes(1),
+        });
+        const cmd = await readCommand(streamer, t.key);
+        await writer.statuses.set({
+          owner: rack.resourceID(alive.key),
+          name: "Rack Status",
+          variant,
+          message: "Driver is running",
+          time: TimeStamp.now(),
+          details: { running: true },
+        });
+        const reply = {
+          owner: task.resourceID(t.key),
+          name: t.name,
+          variant: "success" as const,
+          message: "Scan complete",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: true,
+            cmd: cmd.key,
+            configHash: "",
+            rack: alive.key,
+            data: {},
+          },
+        };
+        await writer.statuses.set(reply);
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+      },
+    );
 
     const setReply = async (
       t: task.Task,
@@ -1600,6 +1616,33 @@ describe("Task", async () => {
       }
     });
 
+    it("sends a loading status for a rack whose running Driver warns", async () => {
+      const warned = await client.racks.create({ name: `warned-${id.create()}` });
+      const t = await warned.createTask({
+        name: `warned-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(warned.key, "warning", "Driver is degraded", true);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant !== "disabled")
+          seeWrite(event.value);
+      }, key);
+      try {
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          variant: "loading",
+          message: "Sending start command",
+        });
+      } finally {
+        off();
+      }
+    });
+
     it("moves a stand-in to the next problem of its rack", async () => {
       const dying = await client.racks.create({ name: `dying-${id.create()}` });
       const t = await dying.createTask({
@@ -1692,6 +1735,7 @@ describe("Task", async () => {
           description: "",
           time: TimeStamp.now(),
           labels: [],
+          details: { running: false },
         };
         const reply: task.Status = {
           key,
