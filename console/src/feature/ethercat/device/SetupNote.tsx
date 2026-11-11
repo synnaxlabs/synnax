@@ -22,11 +22,18 @@ import { type SlaveDevice } from "@/feature/ethercat/device/types";
 interface NoteBodyProps {
   variant: "warning" | "info";
   title: string;
+  /** Sits at the right of the text when it fits, else below it. */
+  action?: ReactNode;
   children?: ReactNode;
 }
 
-const NoteBody = ({ variant, title, children }: NoteBodyProps): ReactElement => (
-  <Note.Note variant={variant}>
+const NoteBody = ({
+  variant,
+  title,
+  action,
+  children,
+}: NoteBodyProps): ReactElement => (
+  <Note.Note variant={variant} x align="center" justify="between" gap="medium" wrap>
     <Flex.Box y gap="small">
       <Text.Text weight={500} status={variant === "warning" ? "warning" : undefined}>
         {variant === "warning" ? <Icon.Warning /> : <Icon.Info />}
@@ -34,6 +41,7 @@ const NoteBody = ({ variant, title, children }: NoteBodyProps): ReactElement => 
       </Text.Text>
       {children}
     </Flex.Box>
+    {action}
   </Note.Note>
 );
 
@@ -43,13 +51,23 @@ const Detail = ({ children }: { children: ReactNode }): ReactElement => (
   </Text.Text>
 );
 
-interface SwitchProps {
+interface ReaderNoteProps {
   slave: SlaveDevice;
+  reader: string;
+  shared: boolean;
   onSwitched: () => void;
 }
 
-/** Switches the slave to Synnax only, and shows why a switch failed. */
-const Switch = ({ slave, onSwitched }: SwitchProps): ReactElement => {
+/**
+ * Says which program sets up the slave, offers the switch to Synnax only when the slave
+ * has one, and shows why a switch failed.
+ */
+const ReaderNote = ({
+  slave,
+  reader,
+  shared,
+  onSwitched,
+}: ReaderNoteProps): ReactElement => {
   const {
     update,
     variant,
@@ -57,23 +75,32 @@ const Switch = ({ slave, onSwitched }: SwitchProps): ReactElement => {
   } = useSetStandalone({
     afterSuccess: onSwitched,
   });
+  const action = canSwitch(slave.properties) ? (
+    <Button.Button
+      size="small"
+      status={status.keepVariants(variant, "loading")}
+      onClick={() => update({ slave })}
+    >
+      Switch to Synnax
+    </Button.Button>
+  ) : undefined;
   return (
-    <>
-      <Flex.Box x>
-        <Button.Button
-          size="small"
-          status={status.keepVariants(variant, "loading")}
-          onClick={() => update({ slave })}
-        >
-          Switch to Synnax
-        </Button.Button>
-      </Flex.Box>
+    <NoteBody
+      variant={shared ? "info" : "warning"}
+      title={`Set up ${shared ? "by" : "for"} ${reader}`}
+      action={action}
+    >
+      <Detail>
+        {shared
+          ? "Synnax reads its data, but cannot change its settings."
+          : "Synnax cannot read its data."}
+      </Detail>
       {variant === "error" && (
         <Text.Text level="small" status="error">
           {result.description ?? result.message}
         </Text.Text>
       )}
-    </>
+    </NoteBody>
   );
 };
 
@@ -103,20 +130,12 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
   if (setup.kind === "synnax") return null;
   if (setup.kind === "bus")
     return <NoteBody variant="warning" title="Connect Synnax to EtherCAT bus 1 IN" />;
-  const shared = setup.kind === "shared";
   return (
-    <NoteBody
-      variant={shared ? "info" : "warning"}
-      title={`Set up ${shared ? "by" : "for"} ${setup.reader}`}
-    >
-      <Detail>
-        {shared
-          ? "Synnax reads its data, but cannot change its settings."
-          : "Synnax cannot read its data."}
-      </Detail>
-      {canSwitch(properties) && (
-        <Switch slave={slave} onSwitched={() => setSwitched(true)} />
-      )}
-    </NoteBody>
+    <ReaderNote
+      slave={slave}
+      reader={setup.reader}
+      shared={setup.kind === "shared"}
+      onSwitched={() => setSwitched(true)}
+    />
   );
 };
