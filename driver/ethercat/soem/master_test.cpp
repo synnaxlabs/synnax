@@ -366,7 +366,7 @@ TEST_F(SOEMMasterTest, ScanInitFails) {
     EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
     EXPECT_EQ(
         err.data,
-        "cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
+        "Cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
         "CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
     EXPECT_TRUE(this->mock->close_called);
@@ -380,7 +380,7 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. Check the cable and the power of the first "
+        "No EtherCAT slaves found on eth0. Check the cable and the power of the first "
         "device."
     );
     EXPECT_TRUE(this->mock->close_called);
@@ -396,7 +396,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
         "is on this adapter. After DewesoftX starts, the filter blocks EtherCAT "
         "replies, also after DewesoftX closes. Clear it in the properties of "
         "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
@@ -414,7 +414,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
+        "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
         "this adapter. After DewesoftX starts, the filter blocks EtherCAT replies, "
         "also after DewesoftX closes. Clear it in the properties of \"eth0\" "
         "(Settings > Network & internet > Advanced network settings > More network "
@@ -440,7 +440,7 @@ TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(
         err.data,
-        "cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
+        "Cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
         "with CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
 }
@@ -2729,8 +2729,8 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
-        "entries hold 24 and 0"
+        "Slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
+        "entries hold 24 and 0."
     );
 }
 
@@ -2938,8 +2938,8 @@ TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
-        "parameter written too high"
+        "Slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high."
     );
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);

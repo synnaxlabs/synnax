@@ -306,7 +306,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     );
     const auto [devices, err] = this->scanner->scan({});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, "cannot open eth0");
+    EXPECT_EQ(err.data, "Cannot open eth0.");
     EXPECT_TRUE(devices.empty());
     this->master->inject_scan_error(x::errors::NIL);
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
@@ -590,6 +590,31 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
         status.description,
         "The device reports an error without an error code. With IgH, the kernel "
         "log (dmesg) shows it."
+    );
+}
+
+/// @brief it should show the startup parameter that a slave rejected as a sentence.
+TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASentence) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_state(1, slave::State::PRE_OP);
+    this->master->fail_startup(
+        1,
+        "rejected startup parameter 0x8000:15 (Filter): Value of parameter written "
+        "too high"
+    );
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && !engine->health()[0].startup_error.empty()
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Error in PRE-OP");
+    EXPECT_EQ(
+        status.description,
+        "Rejected startup parameter 0x8000:15 (Filter): Value of parameter written too "
+        "high."
     );
 }
 
@@ -1120,7 +1145,10 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to switch the device");
-    EXPECT_EQ(status.description, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_EQ(
+        status.description,
+        "A task uses eth0. Stop the tasks that use it first."
+    );
     EXPECT_TRUE(this->master->written().empty());
 }
 

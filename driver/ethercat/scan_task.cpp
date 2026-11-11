@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <cctype>
 #include <set>
 #include <string>
 #include <tuple>
@@ -79,7 +78,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
         if (!health.startup_error.empty())
-            status.description = health.startup_error;
+            status.description = errors::sentence(health.startup_error);
         else if (!health.al_status.empty())
             status.description = health.al_status;
         else
@@ -105,11 +104,7 @@ void set_invalid_properties_status(
 
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
-    auto sentence = error;
-    sentence[0] = static_cast<char>(
-        std::toupper(static_cast<unsigned char>(sentence[0]))
-    );
-    return sentence + ". " + get_pdo_error_guidance(error);
+    return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
@@ -241,7 +236,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
-        desc += (desc.empty() ? "" : "; ") + failure;
+        desc += (desc.empty() ? "" : " ") + errors::sentence(failure);
     return {devices, x::errors::Error(common::PARTIAL_SCAN_ERROR, desc)};
 }
 

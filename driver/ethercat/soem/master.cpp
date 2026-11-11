@@ -126,7 +126,7 @@ uint32_t pop_sdo_abort(
 /// @brief returns why the interface iface, which messages call name, has no slaves.
 std::string
 no_slaves_message(API &api, const std::string &iface, const std::string &name) {
-    const auto found = "no EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT slaves found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return found + "Check the cable and the power of the first device.";
     return found + std::format(
@@ -166,7 +166,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
                 {},
                 x::errors::Error(
                     errors::MASTER_INIT_ERROR,
-                    "cannot open " + this->name() +
+                    "Cannot open " + this->name() +
                         " for raw Ethernet access. Run the Driver as root (or with "
                         "CAP_NET_RAW on Linux), and install Npcap on Windows."
                 )
@@ -490,8 +490,8 @@ x::errors::Error Master::write(
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
-                err.data
+            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                err.data + "."
         );
     if (this->session)
         this->session->plan.slaves[pos].add_startup_parameters(parameters);
@@ -618,8 +618,8 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "slave {} ({}) maps {} input and {} output bits, but its discovered "
-                    "PDO entries hold {} and {}",
+                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
                     mapped_input_bits,

@@ -733,7 +733,7 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
         1
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0");
+    EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0.");
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -747,7 +747,7 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         res.second.data,
-        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again"
+        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again."
     );
     EXPECT_FALSE(this->engine->running());
 }
@@ -1170,7 +1170,7 @@ TEST_F(EngineTest, InitializeErrorPropagates) {
     );
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(res.second.data, "init failed");
+    EXPECT_EQ(res.second.data, "Init failed.");
     EXPECT_EQ(this->master->call_count("scan"), 3);
     EXPECT_FALSE(this->engine->running());
 }
@@ -1184,7 +1184,7 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
     );
     const auto res = this->engine->open_writer({{OUT_I16, 0}}, x::telem::Rate(100));
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "activate failed");
+    EXPECT_EQ(res.second.data, "Activate failed.");
     EXPECT_EQ(this->master->call_count("activate"), 3);
     EXPECT_EQ(this->master->call_count("deactivate"), 3);
     EXPECT_FALSE(this->engine->running());
@@ -1234,7 +1234,7 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
     );
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
-    EXPECT_EQ(res.second.data, "inconsistent settings");
+    EXPECT_EQ(res.second.data, "Inconsistent settings.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     EXPECT_FALSE(this->engine->running());
@@ -1259,7 +1259,7 @@ TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings"
+        "Failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(this->master->call_count("activate"), 1);
@@ -1309,7 +1309,7 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Inconsistent settings."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
@@ -1328,7 +1328,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -1349,7 +1349,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
@@ -1377,7 +1377,7 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid output configuration. The Driver left out slave 3 "
         "because it refused SAFE-OP: Invalid DC SYNC configuration. " +
@@ -1394,7 +1394,7 @@ TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
     auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     EXPECT_EQ(
         res.second.data,
-        "failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
+        "Failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
@@ -1479,7 +1479,7 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "activate failed");
+    EXPECT_EQ(res.second.data, "Activate failed.");
     // The second try ends at 50 s, so a third would end at 75 s.
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_FALSE(this->engine->running());
@@ -1521,7 +1521,7 @@ TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     const auto err = reader->read(this->brk, frame, times);
     ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
     ASSERT_TRUE(err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR));
-    EXPECT_EQ(err.data, "every bus cycle failed: expected 3, got 1");
+    EXPECT_EQ(err.data, "Every bus cycle failed: expected 3, got 1.");
     this->master->clear_injected_errors();
     ASSERT_EVENTUALLY_NIL(reader->read(this->brk, frame, times));
 }
@@ -1538,7 +1538,7 @@ TEST_F(EngineTest, ReadTimesOutWhenTheBusStalls) {
     const auto err = reader->read(this->brk, frame, times);
     this->master->resume();
     ASSERT_OCCURRED_AS(err, errors::CYCLE_OVERRUN);
-    EXPECT_EQ(err.data, "no inputs from eth0 within 220ms");
+    EXPECT_EQ(err.data, "No inputs from eth0 within 220ms.");
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
@@ -1628,7 +1628,7 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "no bus rate at or below 10000 Hz on eth0 is a multiple of every read task "
+        "No bus rate at or below 10000 Hz on eth0 is a multiple of every read task "
         "sample rate (997 Hz, 300 Hz). Choose sample rates with a smaller common "
         "multiple."
     );
@@ -1642,7 +1642,8 @@ TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "a write task on eth0 runs at 20000 Hz, above the maximum bus rate of 10000 Hz"
+        "A write task on eth0 runs at 20000 Hz, above the maximum bus rate of 10000 "
+        "Hz."
     );
     EXPECT_FALSE(this->engine->running());
 }
@@ -1676,7 +1677,7 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );
@@ -1699,7 +1700,7 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
         res.second.data,
-        "the bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
+        "The bus on eth0 cycles at 100 Hz while a slave runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
     );
@@ -1971,7 +1972,7 @@ TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
     gone.serial = 9;
     const auto err = this->engine->configure(gone, STANDALONE);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling");
+    EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling.");
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
@@ -1983,7 +1984,7 @@ TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
     this->master->clear_call_log();
     const auto err = this->engine->configure(io_slave(0), STANDALONE);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_EQ(err.data, "A task uses eth0. Stop the tasks that use it first.");
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
@@ -1997,7 +1998,7 @@ TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
     );
     const auto err = this->engine->configure(io_slave(0), STANDALONE);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "a task uses Ethernet 2. Stop the tasks that use it first");
+    EXPECT_EQ(err.data, "A task uses Ethernet 2. Stop the tasks that use it first.");
 }
 
 /// @brief it should return the error of a write that the slave rejects.

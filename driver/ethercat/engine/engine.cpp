@@ -57,8 +57,8 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
             x::errors::Error(
                 errors::RATE_MISMATCH,
                 std::format(
-                    "a write task on {} runs at {} Hz, above the maximum bus rate of "
-                    "{} Hz",
+                    "A write task on {} runs at {} Hz, above the maximum bus rate of "
+                    "{} Hz.",
                     network,
                     static_cast<double>(floor) / 1000,
                     MAX_CYCLE_RATE.hz()
@@ -76,8 +76,8 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
                 x::errors::Error(
                     errors::RATE_MISMATCH,
                     std::format(
-                        "a read task on {} samples at {} Hz, but sample rates must be "
-                        "a positive multiple of 0.001 Hz",
+                        "A read task on {} samples at {} Hz, but sample rates must be "
+                        "a positive multiple of 0.001 Hz.",
                         network,
                         rate.hz()
                     )
@@ -96,7 +96,7 @@ std::pair<uint64_t, x::errors::Error> bus_rate(
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
-                "no bus rate at or below {} Hz on {} is a multiple of every read task "
+                "No bus rate at or below {} Hz on {} is a multiple of every read task "
                 "sample rate ({}). Choose sample rates with a smaller common multiple.",
                 MAX_CYCLE_RATE.hz(),
                 network,
@@ -145,6 +145,7 @@ x::errors::Error Engine::start_error(
     const std::map<uint16_t, slave::Refusal> &refused,
     const std::map<uint16_t, LeftOut> &left_out
 ) {
+    err.data = errors::sentence(std::move(err.data));
     std::vector<std::string_view> advice;
     const auto add_advice = [&advice](const slave::Refusal &refusal) {
         if (!refusal.advice.empty() &&
@@ -154,13 +155,10 @@ x::errors::Error Engine::start_error(
     for (const auto &[_, refusal]: refused)
         add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
-        if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
         add_advice(left.refusal);
     }
-    if (advice.empty()) return err;
-    if (!err.data.ends_with('.')) err.data += '.';
     for (const auto a: advice)
         err.data.append(" ").append(a);
     return err;
@@ -549,7 +547,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
-                "the bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
+                "The bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
@@ -647,8 +645,8 @@ x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
                         return x::errors::Error(
                             errors::SETTING_CONFLICT,
                             std::format(
-                                "another task sets {} of slave {} to {}. Stop it, or "
-                                "give both tasks the same value",
+                                "Another task sets {} of slave {} to {}. Stop it, or "
+                                "give both tasks the same value.",
                                 telem::format_index_sub_index(
                                     param.index,
                                     param.sub_index
@@ -781,7 +779,7 @@ x::errors::Error Engine::configure(
     if (this->running())
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
-            "a task uses " + this->network_name + ". Stop the tasks that use it first"
+            "A task uses " + this->network_name + ". Stop the tasks that use it first."
         );
     const auto [slaves, err] = this->master->scan();
     if (err) return err;
@@ -795,7 +793,7 @@ x::errors::Error Engine::configure(
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
             slave.name + " is not on " + this->network_name +
-                ". Check its power and cabling"
+                ". Check its power and cabling."
         );
     if (auto write_err = this->master->write(found->properties.position, parameters))
         return write_err;

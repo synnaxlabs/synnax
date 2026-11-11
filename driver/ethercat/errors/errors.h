@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cctype>
 #include <cstdint>
 #include <string>
 
@@ -66,4 +67,13 @@ const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 
 /// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
 std::string sdo_abort_reason(uint32_t code);
+
+/// @brief returns error text as a sentence: the first letter in upper case and a
+/// period at the end.
+inline std::string sentence(std::string text) {
+    if (text.empty()) return text;
+    text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+    if (!text.ends_with('.')) text += '.';
+    return text;
+}
 }
