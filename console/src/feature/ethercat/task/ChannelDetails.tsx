@@ -26,6 +26,7 @@ import {
   getEntryLabel,
   getPortLabel,
   hasEntry,
+  isCalibrated,
   type PDOType,
   READ_CHANNEL_SCHEMAS,
   type ReadChannel,
@@ -58,6 +59,14 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   children,
 }) => {
   const ch = PForm.useFieldValue(path);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  const calibrated =
+    pdoType === "inputs" &&
+    slave != null &&
+    hasEntry(ch) &&
+    isCalibrated(slave.properties, ch);
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
@@ -65,7 +74,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
       </PForm.Section>
       <PForm.Section title="Entry">
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
-        {hasEntry(ch) && (
+        {hasEntry(ch) && !calibrated && (
           <PForm.Field
             path={deep.variant(path, "type", "entry").dataType}
             label="Data type"

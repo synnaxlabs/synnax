@@ -25,6 +25,25 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::channel {
+/// @brief the objects of a slave that hold the gain and offset of an entry with integer
+/// samples. A physical value is raw / divisor * gain + offset, or (raw / divisor +
+/// offset) * gain when the offset is raw.
+struct Calibration {
+    uint16_t index = 0;
+    uint8_t gain_sub_index = 0;
+    uint8_t offset_sub_index = 0;
+    double divisor = 1;
+    bool raw_offset = false;
+
+    /// @brief returns the slope and the offset of the line that turns raw samples into
+    /// physical values, for the gain and offset that the slave holds.
+    [[nodiscard]] std::pair<double, double>
+    line(const float gain, const float offset) const {
+        const double g = gain;
+        return {g / this->divisor, this->raw_offset ? offset * g : offset};
+    }
+};
+
 /// @brief an enabled channel that reads an input entry (TxPDO, slave->master).
 struct Input {
     /// @brief the entry the channel reads.
@@ -35,6 +54,9 @@ struct Input {
     synnax::channel::Channel ch;
     /// @brief the scale applied to raw samples after acquisition.
     ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
+    /// @brief the calibration that the catalog gives the integer samples of the entry,
+    /// applied before scale, or nullopt for none.
+    std::optional<Calibration> calibration;
 
     /// @brief whether the channel scales its raw samples.
     [[nodiscard]] bool scaled() const {

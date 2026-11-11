@@ -89,8 +89,11 @@ x::errors::Error resolve(x::json::json &setting, const coe::Read &read) {
     return x::errors::NIL;
 }
 
-/// @brief returns the address of each entry that channel n reads, in every layout.
-x::json::json entries_of(const x::json::json &layouts, const int n) {
+/// @brief returns the address of each entry that channel n reads, in every layout, with
+/// its calibration. The objects of a calibration are index_step apart from channel to
+/// channel.
+x::json::json
+entries_of(const x::json::json &layouts, const int n, const uint16_t index_step) {
     auto entries = x::json::json::array();
     for (const auto &layout: layouts) {
         const auto index = layout["index"].get<int>() +
@@ -101,6 +104,12 @@ x::json::json entries_of(const x::json::json &layouts, const int n) {
             x::json::json entry{{"index", index}, {"sub_index", first + k}};
             if (layout.contains("only_read_by"))
                 entry["only_read_by"] = layout["only_read_by"];
+            if (layout.contains("calibration")) {
+                entry["calibration"] = layout["calibration"];
+                entry["calibration"]["index"] = layout["calibration"]["index"]
+                                                    .get<int>() +
+                                                n * index_step;
+            }
             entries.push_back(std::move(entry));
         }
     }
@@ -302,7 +311,7 @@ x::errors::Error read_channels(
     const auto index_step = channels["index_step"].get<uint16_t>();
     for (int n = 0; n < channels["count"].get<int>(); n++) {
         x::json::json channel{
-            {"entries", entries_of(channels["entries"], n)},
+            {"entries", entries_of(channels["entries"], n, index_step)},
             {"settings", channels["settings"]},
             {"requires", channels["requires"]},
         };

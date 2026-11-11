@@ -237,14 +237,14 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       index: () => slave.properties.readIndex,
       mapped: mappedChannels(slave),
       bind: (ch, key) => bindReadChannel(slave, ch, key, dataTypes),
-      getDataType: readDataType,
+      getDataType: (ch) => readDataType(slave, ch),
     });
 
     if (toCreate.length > 0) {
       const created = await client.channels.create(
         toCreate.map((ch) => ({
           name: nameOf(ch),
-          dataType: readDataType(ch),
+          dataType: readDataType(slave, ch),
           index: slave.properties.readIndex,
         })),
       );

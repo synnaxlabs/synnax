@@ -257,9 +257,8 @@ struct Properties {
     /// @brief the settings the user chose. to_json leaves out the startup parameters,
     /// so a scan keeps them.
     Config config;
-    /// @brief the settings that the ESI catalog describes for the slave, as
-    /// esi::read_settings returns them, or nullopt when it describes none. Only a scan
-    /// sets it.
+    /// @brief the settings that the ESI catalog describes for the slave at the last
+    /// scan, as esi::read_settings returns them, or nullopt when it describes none.
     std::optional<nlohmann::json> settings;
 
     /// @brief returns the entry at the given address in one direction, or nullopt when
@@ -312,6 +311,8 @@ struct Properties {
             parser.iter("startup_parameters", [&params](x::json::Parser &param) {
                 params.push_back(StartupParameter::parse(param));
             });
+        if (parser.has("settings"))
+            props.settings = parser.field<x::json::json>("settings");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {

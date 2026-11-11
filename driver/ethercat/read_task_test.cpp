@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <bit>
 
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/testutil/master.h"
@@ -194,6 +196,36 @@ protected:
         auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
         EXPECT_NIL(source->start());
         return source;
+    }
+
+    /// @brief saves a catalog for the slave that calibrates its int32 entry at
+    /// 0x6000:02 with the gain at 0x8040:15 and the offset at 0x8040:14.
+    void calibrate_slave() {
+        this->slave_device.properties["settings"] = {
+            {"channels",
+             {{{"entries",
+                {{{"index", 0x6000},
+                  {"sub_index", 2},
+                  {"calibration",
+                   {{"data_type", "int32"},
+                    {"index", 0x8040},
+                    {"gain_sub_index", 0x15},
+                    {"offset_sub_index", 0x14},
+                    {"divisor", 1}}}}}}}}},
+        };
+        ASSERT_NIL(this->client->devices.del(this->slave_device.key));
+        ASSERT_NIL(this->client->devices.create(this->slave_device));
+    }
+
+    /// @brief returns a config that reads the entry at 0x6000:02 into data_ch.
+    x::json::json create_sensor_config(const synnax::channel::Channel &data_ch) {
+        auto cfg = this->create_base_config();
+        cfg["sample_rate"] = 10;
+        cfg["stream_rate"] = 10;
+        cfg["channels"].push_back(
+            this->create_input_channel_config(data_ch, 0x6000, 2, "int32")
+        );
+        return cfg;
     }
 
     synnax::channel::Channel
@@ -442,7 +474,7 @@ TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
 /// valid.
 TEST_F(EtherCATReadTest, ParseConfigRejectsASlaveWithInvalidProperties) {
     auto broken = this->slave_device;
-    broken.key = "ecat_slave_broken";
+    broken.key = make_unique_channel_name("ecat_slave_broken");
     broken.properties["serial"] = "not a number";
     ASSERT_NIL(this->client->devices.create(broken));
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
@@ -597,6 +629,71 @@ TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     );
     brk.stop();
     ASSERT_NIL(source->stop());
+}
+
+/// @brief it should turn each raw sample into a physical value with the gain and offset
+/// that the slave holds.
+TEST_F(EtherCATReadTest, SourceAppliesTheCalibrationOfTheSlave) {
+    this->calibrate_slave();
+    this->mock_master->set_object(1, 0x8040, 0x15, std::bit_cast<uint32_t>(2.0F));
+    this->mock_master->set_object(1, 0x8040, 0x14, std::bit_cast<uint32_t>(0.5F));
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT64_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_input<int32_t>(2, -100);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -199.5
+    );
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should fail to start, naming the channel, when it cannot read the
+/// calibration from the slave.
+TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
+    this->calibrate_slave();
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT32_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    const auto err = source.start();
+    ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "Failed to read the calibration of channel " + data_ch.name +
+            ": failed to read 0x8040:15: Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should reject a calibrated channel whose Synnax channel is not a float
+/// channel.
+TEST_F(EtherCATReadTest, ParseConfigRejectsACalibratedIntegerChannel) {
+    this->calibrate_slave();
+    const auto data_ch = this->create_data_channel("sensor", x::telem::INT32_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "channel " + data_ch.name +
+            " is int32, but a calibrated channel must be float32 or float64. Pick a "
+            "float channel."
+    );
 }
 
 /// @brief it should read each channel from its own PDO entry.

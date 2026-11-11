@@ -21,16 +21,20 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::testutil {
+/// @brief the SDO abort code of a read of an object that the slave does not have.
+constexpr uint32_t OBJECT_MISSING_ABORT = 0x06020000;
 /// @brief an in-memory master. Inputs set by a test reach the process image on the next
 /// receive(), and outputs become visible to get_output() on the next send(), as they
 /// would on a real bus.
@@ -72,6 +76,9 @@ class Master final : public master::Master {
     std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
+    /// @brief the value of each object that set_object() gave, by position, index, and
+    /// sub-index.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -620,6 +627,32 @@ public:
         this->writes.emplace_back(position, parameters);
         this->latest_plan.slaves[position].add_startup_parameters(parameters);
         return x::errors::NIL;
+    }
+
+    /// @brief returns the value that set_object() gave the object, or
+    /// coe::OBJECT_MISSING.
+    std::pair<uint32_t, x::errors::Error> read(
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index
+    ) override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("read");
+        const auto it = this->objects.find({position, index, sub_index});
+        if (it == this->objects.end())
+            return {0, coe::read_error(index, sub_index, OBJECT_MISSING_ABORT)};
+        return {it->second, x::errors::NIL};
+    }
+
+    /// @brief gives the object of the slave at position the value that read() returns.
+    void set_object(
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index,
+        const uint32_t value
+    ) {
+        std::lock_guard lock(this->mu);
+        this->objects[{position, index, sub_index}] = value;
     }
 
     /// @brief sets a value in the input image. The bus delivers it at the next

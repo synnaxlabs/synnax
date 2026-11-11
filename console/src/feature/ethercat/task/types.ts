@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, ethercat, type task } from "@synnaxlabs/client";
-import { id, primitive } from "@synnaxlabs/x";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Address } from "@/feature/ethercat/device/settings";
+import { type Address, findInput } from "@/feature/ethercat/device/settings";
 import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   type ReadBinding,
@@ -126,9 +126,24 @@ const isAt =
 /** @returns whether the read channel scales its samples. */
 const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
 
+/**
+ * @returns whether the Driver turns the samples of the input entry at the address into
+ * physical values: the slave sends integers there, and its catalog calibrates them.
+ */
+export const isCalibrated = (
+  { pdos, settings }: SlaveProperties,
+  address: Address,
+): boolean => {
+  const entry = entryAt(pdos.inputs, address);
+  if (entry == null || !new DataType(entry.dataType).isInteger) return false;
+  const at = isAt(address);
+  const input = findInput(settings, address);
+  return input?.entries.some((e) => at(e) && e.calibration != null) === true;
+};
+
 /** @returns the data type of the read channel's Synnax channel. */
-export const readDataType = (ch: EntryReadChannel): string =>
-  isScaled(ch) ? "float64" : ch.dataType;
+export const readDataType = (slave: SlaveDevice, ch: EntryReadChannel): string =>
+  isScaled(ch) || isCalibrated(slave.properties, ch) ? "float64" : ch.dataType;
 
 /**
  * The data type of each Synnax channel that a slave maps, keyed by the channel. A
@@ -138,12 +153,13 @@ export type DataTypes = Map<number, string>;
 
 /** @returns whether the binding holds the samples of the read channel. */
 const isReadBinding = (
+  slave: SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): ((b: ReadBinding) => boolean) => {
   const at = isAt(ch);
   const scaled = isScaled(ch);
-  const dataType = readDataType(ch);
+  const dataType = readDataType(slave, ch);
   return (b) => at(b) && b.scaled === scaled && dataTypes.get(b.channel) === dataType;
 };
 
@@ -156,7 +172,8 @@ export const readChannelOf = (
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): number =>
-  slave.properties.read.channels.find(isReadBinding(ch, dataTypes))?.channel ?? 0;
+  slave.properties.read.channels.find(isReadBinding(slave, ch, dataTypes))?.channel ??
+  0;
 
 /**
  * Maps the read channel to the Synnax channel with the key on the slave, in place of
@@ -176,7 +193,7 @@ export const bindReadChannel = (
     (b) => !at(b) || b.scaled !== scaled || (!scaled && dataTypes.has(b.channel)),
   );
   read.channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
-  dataTypes.set(key, readDataType(ch));
+  dataTypes.set(key, readDataType(slave, ch));
 };
 
 /**
@@ -193,8 +210,9 @@ export const readNameSuffix = (
   const first = slave.properties.read.channels.find(
     (b) => at(b) && !b.scaled && dataTypes.has(b.channel),
   );
-  return first != null && dataTypes.get(first.channel) !== ch.dataType
-    ? `_${ch.dataType}`
+  const dataType = readDataType(slave, ch);
+  return first != null && dataTypes.get(first.channel) !== dataType
+    ? `_${dataType}`
     : "";
 };
 

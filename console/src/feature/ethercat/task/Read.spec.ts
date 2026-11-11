@@ -23,6 +23,7 @@ import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createCalibratedDescription,
   createDewesoftXSettings,
   createIdentifier,
   createPDOs,
@@ -122,6 +123,15 @@ const createStrainSlave = async () =>
     network: "eth0",
     pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
     settings: createSettingsDescription(),
+  });
+
+/** Creates a slave whose catalog calibrates the samples of {@link STRAIN_ENTRY}. */
+const createCalibratedSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    settings: createCalibratedDescription(),
   });
 
 /** Creates a slave that DewesoftX sets up and that sends no data only it reads. */
@@ -262,6 +272,17 @@ describe("Read", () => {
         scale: { type: "linear", slope: 1, offset: 0 },
       });
     });
+  });
+
+  it("should hide the data type of an entry that the Driver calibrates", async () => {
+    const slave = await createCalibratedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByRole("button", { name: /^Measurement/ })).toBeTruthy();
+    expect(screen.queryByText("Data type")).toBeNull();
   });
 
   it("should save the setting picked for an entry that the catalog describes", async () => {
@@ -1061,6 +1082,16 @@ describe("Read", () => {
     expect(secondTask.config.channels[0].channel).toBe(
       firstTask.config.channels[0].channel,
     );
+  });
+
+  it("should give an entry that the Driver calibrates a float64 channel", async () => {
+    const slave = await createCalibratedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const created = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(created.dataType.toString()).toBe("float64");
   });
 
   it("should give a scaled entry a float64 channel apart from its raw channel", async () => {

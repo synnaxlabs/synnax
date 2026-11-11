@@ -137,8 +137,8 @@ class Master final : public master::Master {
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
-    /// @brief keeps the mailbox writes of check() and write() apart, and guards the
-    /// startup parameters in the session plan while the bus runs.
+    /// @brief keeps the mailbox exchanges of check(), write(), and read() apart, and
+    /// guards the startup parameters in the session plan while the bus runs.
     std::mutex mailbox_mu;
 
 public:
@@ -176,6 +176,9 @@ public:
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
     ) override;
+
+    std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) override;
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 

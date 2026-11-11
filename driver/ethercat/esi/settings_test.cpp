@@ -218,6 +218,27 @@ TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
     EXPECT_EQ(entries[1]["only_read_by"], "DewesoftX");
 }
 
+/// @brief it should give each SIRIUS input the calibration objects of its channel.
+TEST(ReadSettings, GivesEachSIRIUSInputTheCalibrationOfItsChannel) {
+    constexpr uint32_t SIRIUS = 0x66;
+    const auto settings = ASSERT_NIL_P(read_settings(
+        DEWESOFT,
+        SIRIUS,
+        0x02000001,
+        {},
+        testutil::read_of({{{0x8020, 7}, 2}})
+    ));
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    ASSERT_EQ(channels.size(), 16);
+    EXPECT_EQ(
+        channels[3]["entries"],
+        x::json::json::parse(R"([{"index": 24624, "sub_index": 4, "calibration": {
+            "data_type": "int32", "index": 32835, "gain_sub_index": 21,
+            "offset_sub_index": 20, "divisor": 1}}])")
+    );
+}
+
 /// @brief it should give a standalone 6xSTG the DC sync mode that its mode needs and
 /// nothing to switch.
 TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {

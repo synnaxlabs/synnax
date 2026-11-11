@@ -128,6 +128,9 @@ public:
         const std::vector<slave::StartupParameter> &parameters
     ) override;
 
+    std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) override;
+
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
         return std::nullopt;

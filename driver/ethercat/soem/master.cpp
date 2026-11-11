@@ -498,6 +498,12 @@ x::errors::Error Master::write(
     return x::errors::NIL;
 }
 
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
+    std::lock_guard lock(this->mailbox_mu);
+    return this->read_sdo(pos, index, sub_index);
+}
+
 void Master::update_lost(const uint16_t pos) {
     if (this->record(pos).state == EC_STATE_NONE && !this->record(pos).islost)
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);

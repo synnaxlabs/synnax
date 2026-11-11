@@ -423,6 +423,12 @@ public:
         const std::vector<slave::StartupParameter> &parameters
     );
 
+    /// @brief reads an object of at most four bytes from the slave at position on the
+    /// running bus, as an unsigned value. Thread-safe.
+    /// @returns coe::read_error() when the read fails.
+    [[nodiscard]] std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index);
+
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.
     [[nodiscard]] std::vector<slave::Health> health() const;

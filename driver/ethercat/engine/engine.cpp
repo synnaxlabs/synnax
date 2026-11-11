@@ -822,6 +822,12 @@ x::errors::Error Engine::configure(
     return this->rediscover_locked().second;
 }
 
+std::pair<uint32_t, x::errors::Error>
+Engine::read(const uint16_t position, const uint16_t index, const uint8_t sub_index) {
+    std::lock_guard lock(this->mu);
+    return this->master->read(position, index, sub_index);
+}
+
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::rediscover_locked() {
     this->master->deactivate();
