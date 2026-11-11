@@ -20,7 +20,8 @@
 # bump. The train rule caps a product at one minor ahead of the Core's latest stable.
 # Desktop skips the train rule, takes a major bump, and bumps its first release from
 # 0.0.0. That first release must be a major bump, so it outranks the 1.0.0 candidates.
-# latest is true when no stable tag of the product outranks the result. A train (X.Y)
+# latest is true when no stable tag of the product outranks the result. previous_tag is
+# the highest stable product tag below the result, reachable or not. A train (X.Y)
 # ignores the bump and resolves the next patch on that minor, or X.Y.0 when none exists.
 # A train's newest tag at HEAD resolves to itself.
 
@@ -52,31 +53,28 @@ if [ -n "$TRAIN" ]; then
     fi
     CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
     BASE=${CURRENT:-none on $TRAIN}
-    PREVIOUS_TAG=""
     NEXT="$TRAIN.0"
     if [ -n "$CURRENT" ]; then
         IFS=. read -r _ _ PATCH <<< "$CURRENT"
-        PREVIOUS_TAG="$PRODUCT/v$CURRENT"
         NEXT="$TRAIN.$((PATCH + 1))"
         # A tag at HEAD claims its version for this commit, so a rerun finishes it.
-        if [ "$(git rev-parse "$PREVIOUS_TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
+        CURRENT_COMMIT=$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")
+        if [ "$CURRENT_COMMIT" = "$(git rev-parse HEAD)" ]; then
             NEXT=$CURRENT
         fi
     fi
 else
     BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
-    PREVIOUS_TAG=""
-    if [ -n "$BASE" ]; then
-        PREVIOUS_TAG="$PRODUCT/v$BASE"
-    elif [ "$PRODUCT" = desktop ]; then
+    if [ -z "$BASE" ]; then
+        if [ "$PRODUCT" != desktop ]; then
+            echo "no stable $PRODUCT tag is reachable from HEAD" >&2
+            exit 1
+        fi
         if [ "$BUMP" != major ]; then
             echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
             exit 1
         fi
         BASE=0.0.0
-    else
-        echo "no stable $PRODUCT tag is reachable from HEAD" >&2
-        exit 1
     fi
     IFS=. read -r MAJOR MINOR _ <<< "$BASE"
 
@@ -127,9 +125,17 @@ if [ "$PRERELEASE" = "true" ]; then
     VERSION="$NEXT-rc.$((${LAST_RC:-0} + 1))"
 fi
 
+RANKED=$({
+    git tag --list "$PRODUCT/v*"
+    echo "$PRODUCT/v$NEXT"
+} | sed -nE "s#^$PRODUCT/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" \
+    | sort -u -t. -k1,1n -k2,2n -k3,3n)
+PREVIOUS=$(grep -B1 -xF "$NEXT" <<< "$RANKED" | head -1)
+PREVIOUS_TAG=""
+if [ "$PREVIOUS" != "$NEXT" ]; then PREVIOUS_TAG="$PRODUCT/v$PREVIOUS"; fi
+
 # A hotfix on an old train must not become the product's latest release.
-ALL=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
-HIGHEST=$(printf '%s\n' "$ALL" "$NEXT" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+HIGHEST=$(tail -1 <<< "$RANKED")
 LATEST=false
 if [ "$HIGHEST" = "$NEXT" ]; then LATEST=true; fi
 

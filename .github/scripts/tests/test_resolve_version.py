@@ -107,7 +107,18 @@ class TestHotfixes:
         repo.git("checkout", "-q", "main")
         out = repo.resolve("console", bump="patch")
         assert out["version"] == "0.58.4"
-        assert out["previous_tag"] == "console/v0.58.2"
+        assert out["previous_tag"] == "console/v0.58.3"
+
+    def test_should_follow_an_unreachable_hotfix_into_the_next_train(
+        self, repo: Repo
+    ) -> None:
+        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
+        repo.commit("hotfix")
+        repo.tag("core/v0.58.3")
+        repo.git("checkout", "-q", "main")
+        out = repo.resolve("core", bump="minor")
+        assert out["version"] == "0.59.0"
+        assert out["previous_tag"] == "core/v0.58.3"
 
     def test_should_resolve_the_minor_from_the_branch(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0", "console/v0.59.0")
@@ -295,7 +306,7 @@ class TestPackages:
         repo.tag("ts/v0.58.4")
         out = repo.resolve("ts", bump="patch", train="0.59")
         assert out["version"] == "0.59.0"
-        assert out["previous_tag"] == ""
+        assert out["previous_tag"] == "ts/v0.58.4"
 
     def test_should_count_unreachable_tags_on_a_train(self, repo: Repo) -> None:
         repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
@@ -316,4 +327,6 @@ class TestPackages:
         repo.tag("ts/v0.58.4")
         repo.commit("more")
         repo.tag("ts/v0.58.5")
-        assert repo.resolve("ts", bump="patch", train="0.58")["version"] == "0.58.5"
+        out = repo.resolve("ts", bump="patch", train="0.58")
+        assert out["version"] == "0.58.5"
+        assert out["previous_tag"] == "ts/v0.58.4"
