@@ -50,8 +50,9 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(d.Rack))
 	w.String(d.Name)
 	w.String(d.Serial)
-	w.String(d.ResourceName)
 	w.String(d.Model)
+	w.String(d.Alias)
+	w.Bool(d.Simulated)
 	if d.Chassis != nil {
 		w.Bool(true)
 		w.Write((*d.Chassis)[:])
@@ -96,10 +97,13 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 	if d.Serial, err = r.String(); err != nil {
 		return err
 	}
-	if d.ResourceName, err = r.String(); err != nil {
+	if d.Model, err = r.String(); err != nil {
 		return err
 	}
-	if d.Model, err = r.String(); err != nil {
+	if d.Alias, err = r.String(); err != nil {
+		return err
+	}
+	if d.Simulated, err = r.Bool(); err != nil {
 		return err
 	}
 	{

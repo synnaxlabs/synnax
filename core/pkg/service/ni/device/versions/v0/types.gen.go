@@ -18,7 +18,6 @@ import (
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key uniquely identifies an NI device.
@@ -67,13 +66,15 @@ type Device struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the device. Empty on simulated hardware.
+	// Serial is the serial number of the device, or its NI-MAX resource name when it is
+	// simulated.
 	Serial string `json:"serial" msgpack:"serial"`
-	// ResourceName is the NI-MAX resource name of the device, a GUID that survives
-	// renames.
-	ResourceName string `json:"resource_name" msgpack:"resource_name"`
 	// Model is the product name of the device.
 	Model string `json:"model" msgpack:"model"`
+	// Alias is the DAQmx alias of the device.
+	Alias string `json:"alias" msgpack:"alias"`
+	// Simulated is true when the device is simulated in NI-MAX.
+	Simulated bool `json:"simulated" msgpack:"simulated"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
 	// Identifier is the prefix of the device's channel names. The device is
@@ -91,14 +92,4 @@ type Device struct {
 	DigitalOutput OutputPorts `json:"digital_output" msgpack:"digital_output"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d Device) Validate() error {
-	v := validate.New("Device")
-	v.NotEmptyString("name", d.Name)
-	v.NotEmptyString("resource_name", d.ResourceName)
-	v.NotEmptyString("model", d.Model)
-	return v.Error()
 }
