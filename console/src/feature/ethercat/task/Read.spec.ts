@@ -173,7 +173,7 @@ describe("Read", () => {
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[1])],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6010:01/ }));
-    await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Device")).toBeTruthy());
     expect(await screen.findByText("Channel 2 › Input · 0x6010:01")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Entry/ })).toBeTruthy();
     expect(screen.getByText("Data type")).toBeTruthy();
@@ -330,6 +330,17 @@ describe("Read", () => {
     });
   });
 
+  it("should name a channel in the list by its entry, then its address", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByRole("option", { name: /^Value 0x6030:01/ }),
+    ).toBeTruthy();
+  });
+
   it("should show no settings or setup note for a channel of a slave that DewesoftX sets up", async () => {
     const slave = await createSharedSlave();
     await renderRead({
@@ -428,7 +439,7 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
     fireEvent.click(await screen.findByText("Select entry"));
-    expect(await screen.findByText("Select a slave device first.")).toBeTruthy();
+    expect(await screen.findByText("Select a device first.")).toBeTruthy();
   });
 
   it("should ask for a scan when the slave has no input entries", async () => {
@@ -445,7 +456,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByText("Select entry"));
     expect(
       await screen.findByText(
-        "This slave has no input entries. Scan the network again.",
+        "This device has no input entries. Scan the network again.",
       ),
     ).toBeTruthy();
   });

@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/ethercat/task/ChannelDetails.css";
+
 import { ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
@@ -34,6 +37,7 @@ import {
   WRITE_CHANNEL_SCHEMAS,
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
+import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 const renderSelectDataType = Component.renderProp(
@@ -68,11 +72,14 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   const noted = slave != null && of(slave.properties).kind !== "shared";
   return (
     <PForm.Sections>
-      <PForm.Section title="Source">
-        <SelectSlave path={path.device} />
-      </PForm.Section>
       <PForm.Section title="Entry">
-        {noted && <SetupNote deviceKey={ch.device} />}
+        <SelectSlave path={path.device} />
+        {noted && (
+          <SetupNote
+            deviceKey={ch.device}
+            className={CSS.BE("ethercat-channel-details", "note")}
+          />
+        )}
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && !calibrated && (
           <PForm.Field
@@ -132,7 +139,11 @@ const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
     if (entry != null)
       title = `${getEntryLabel(entry)} · ${ethercat.formatAddress(ch)}`;
   }
-  return <Task.Views.ItemLabel kind="PDO">{title}</Task.Views.ItemLabel>;
+  return (
+    <Text.Text weight={500} color={10} overflow="fade">
+      {title}
+    </Text.Text>
+  );
 };
 
 export const ReadDetailsTitle: FC<Task.Views.DetailsProps<ReadChannel>> = (props) => (

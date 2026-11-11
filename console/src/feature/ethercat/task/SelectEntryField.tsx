@@ -54,8 +54,8 @@ export const SelectEntryField = ({
           .filter((e) => !used.has(addressKey(e)))
           .map((e) => onlyReaderOf(slave.properties, e))
           .find((r) => r != null) ?? null);
-  let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
-  if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
+  let emptyContent = `This device has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
+  if (primitive.isZero(ch.device)) emptyContent = "Select a device first.";
   else if (reader != null) emptyContent = `Only ${reader} can use this device.`;
   const unresolvedProps =
     ch.type === "unresolved"

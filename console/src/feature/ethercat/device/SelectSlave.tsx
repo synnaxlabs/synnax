@@ -41,9 +41,9 @@ export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
   return (
     <Device.Select
       path={path}
-      label="Slave device"
+      label="Device"
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
-      emptyContent="No EtherCAT slaves discovered"
+      emptyContent="No EtherCAT devices discovered"
       make={MAKE}
       model={SLAVE_MODEL}
       icon={HARDWARE.icon}

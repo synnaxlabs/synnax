@@ -62,7 +62,7 @@ every frame.
 1. In the devices toolbar, right-click a module and select **Create write task**. The
    task opens with one empty channel.
 2. Set **Execution rate** and **State update rate**.
-3. Select the empty channel, then select the module in **Slave device**.
+3. Select the empty channel, then select the module in **Device**.
 4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
 5. Click <Icon.Play /> (**Start**).
 
@@ -203,9 +203,9 @@ TypeScript uses the same fields in camel case, such as `executionRate`.
 
 ## Channel reference
 
-Each channel has a `device`, the key of the module (**Slave device**), a `cmd_channel`,
-and a `state_channel`. A `state_channel` of 0 means no state channel. Each table shows
-the Console label of a setting, with its Python field under it.
+Each channel has a `device`, the key of the module (**Device**), a `cmd_channel`, and a
+`state_channel`. A `state_channel` of 0 means no state channel. Each table shows the
+Console label of a setting, with its Python field under it.
 
 <Channel.Types>
 
@@ -263,7 +263,7 @@ opens with.
 </Problem.Cause>
 <Problem.Fix>
 
-Select the module in **Slave device** and an entry in **Entry**, or remove the channel.
+Select the module in **Device** and an entry in **Entry**, or remove the channel.
 
 </Problem.Fix>
 </Problem.Item>

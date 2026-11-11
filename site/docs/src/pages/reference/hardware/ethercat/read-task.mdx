@@ -60,10 +60,10 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 2. Set **Sample rate** and **Stream rate**.
 3. Click <Icon.Play /> (**Start**).
 
-To add a channel, click **Add channel**, select the module in **Slave device**, and
-select an entry in **Entry**. A new channel starts with the module of the last channel,
-and **Data type** shows the type of the entry. To add every input of a module at once,
-right-click one of its channels and select **Add every input of** _module name_.
+To add a channel, click **Add channel**, select the module in **Device**, and select an
+entry in **Entry**. A new channel starts with the module of the last channel, and **Data
+type** shows the type of the entry. To add every input of a module at once, right-click
+one of its channels and select **Add every input of** _module name_.
 
 The Console creates the channels and names them after the identifier of the module and
 the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
@@ -200,9 +200,9 @@ TypeScript uses the same fields in camel case, such as `sampleRate`.
 
 ## Channel reference
 
-Each channel has a `device`, the key of the module (**Slave device**), and a `channel`,
-the Synnax channel that records the value. Each table shows the Console label of a
-setting, with its Python field under it.
+Each channel has a `device`, the key of the module (**Device**), and a `channel`, the
+Synnax channel that records the value. Each table shows the Console label of a setting,
+with its Python field under it.
 
 <Channel.Types>
 

@@ -30,6 +30,7 @@ import {
   retrieveAndValidateSlaves,
   retrieveByName,
 } from "@/feature/ethercat/task/configure";
+import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindWriteChannel,
   createEntryWriteChannel,
@@ -38,7 +39,6 @@ import {
   entryAt,
   type EntryWriteChannel,
   getEntryChannelName,
-  getPortLabel,
   hasEntry,
   mappedChannels,
   WRITE_SCHEMAS,
@@ -81,7 +81,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
-      port={getPortLabel(ch)}
+      port={<PortLabel ch={ch} entries={slave?.properties.pdos.outputs ?? []} />}
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.cmdChannel}

@@ -30,6 +30,7 @@ import {
   fillStartupParameters,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
+import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindReadChannel,
   createReadChannel,
@@ -38,7 +39,6 @@ import {
   deployReadConfigZ,
   entryAt,
   type EntryReadChannel,
-  getPortLabel,
   hasEntry,
   mappedChannels,
   READ_SCHEMAS,
@@ -101,7 +101,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
-      port={getPortLabel(ch)}
+      port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
@@ -110,7 +110,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
-      portMaxChars={10}
+      portMaxChars={20}
     />
   );
 };
