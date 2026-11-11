@@ -21,6 +21,8 @@ var (
 	// ErrInvalidCredentials is returned when the supplied credentials do not
 	// match a registered entity.
 	ErrInvalidCredentials = errors.Wrap(ErrAuth, "invalid credentials")
+	// ErrMissingCredentials is returned when a request carries no token or cookie.
+	ErrMissingCredentials = errors.Wrap(ErrAuth, "missing credentials")
 	// ErrRepeatedUsername is returned when a username is already taken.
 	ErrRepeatedUsername = errors.Wrap(ErrAuth, "username already exists")
 	// ErrInvalidToken is returned when a bearer token fails validation.
@@ -38,6 +40,7 @@ var (
 const (
 	errorType              = "sy.auth"
 	invalidCredentialsType = errorType + ".invalid-credentials"
+	missingCredentialsType = errorType + ".missing_credentials"
 	invalidTokenType       = errorType + ".invalid_token"
 	sessionEndedType       = errorType + ".session_ended"
 	expiredTokenType       = errorType + ".expired_token"
@@ -54,6 +57,9 @@ func encode(err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrInvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrMissingCredentials) {
+		return errors.Payload{Type: missingCredentialsType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrExpiredToken) {
 		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
@@ -74,6 +80,8 @@ func decode(p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
 		return errors.Wrap(ErrInvalidCredentials, p.Data), true
+	case missingCredentialsType:
+		return errors.Wrap(ErrMissingCredentials, p.Data), true
 	case invalidTokenType:
 		return errors.Wrap(ErrInvalidToken, p.Data), true
 	case sessionEndedType:

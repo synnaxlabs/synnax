@@ -117,20 +117,35 @@ func (db *DB) Size() telem.Size { return db.domain.Size() }
 // still be marked closed and no read/write operations are allowed on it to protect data
 // integrity.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
-		return nil
+	if err := db.MarkClosed(); err != nil {
+		return errors.Skip(err, ErrDBClosed)
 	}
-	if err := db.domain.Close(); err != nil {
-		if errors.Is(err, resource.ErrOpen) {
-			// If the close failed because of an open entity, the database should not be
-			// marked as closed and can still serve reads/writes.
-			db.closed.Store(false)
-		}
+	return db.Release()
+}
+
+// MarkClosed marks the database closed, so that it refuses new writers and iterators.
+// It returns an error wrapping resource.ErrOpen and leaves the database open if a
+// writer, iterator, or delete is open, or ErrDBClosed if the database is already
+// closed. After a nil error, call Release or UnmarkClosed.
+func (db *DB) MarkClosed() error {
+	if !db.closed.CompareAndSwap(false, true) {
+		return db.wrapError(ErrDBClosed)
+	}
+	if err := db.domain.MarkClosed(); err != nil {
+		db.closed.Store(false)
 		return db.wrapError(err)
 	}
-
 	return nil
 }
+
+// UnmarkClosed opens a database that MarkClosed marked closed.
+func (db *DB) UnmarkClosed() {
+	db.domain.UnmarkClosed()
+	db.closed.Store(false)
+}
+
+// Release frees the files of a database that MarkClosed marked closed.
+func (db *DB) Release() error { return db.wrapError(db.domain.Release()) }
 
 // RenameChannelInMeta renames the channel to the given name, and persists the change to
 // the underlying file system.

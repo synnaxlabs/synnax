@@ -494,6 +494,60 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     EXPECT_EQ(sink->stop_count, 1);
 }
 
+/// @brief it should restart a task whose command pipeline failed, whether or not the
+/// failed run has stopped yet.
+TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    streamer_factory->open_errors = {x::errors::UNKNOWN};
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    ASSERT_TRUE(write_task->start("start_cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().details.cmd, "start_cmd_2");
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.message, "Started task");
+    EXPECT_TRUE(status.details.running);
+    EXPECT_EQ(sink->start_count, 2);
+    EXPECT_EQ(sink->stop_count, 1);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
+/// @brief it should stop the sink before it restarts a task whose command pipeline
+/// exited without an error.
+TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector{pipeline::testutil::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                std::make_shared<std::vector<x::errors::Error>>(
+                    std::vector{freighter::STREAM_CLOSED}
+                ),
+                x::errors::NIL,
+            }}
+        )
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // A start while the command pipeline still runs is answered without a restart.
+    ASSERT_EVENTUALLY_TRUE(write_task->start("start_cmd_2"));
+    EXPECT_EQ(sink->stop_count, 1);
+    EXPECT_EQ(sink->start_count, 2);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
 namespace {
 const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
 
@@ -619,6 +673,52 @@ TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
     EXPECT_EQ(status.message, "Failed to write commands");
     EXPECT_EQ(status.description, "no control authority");
     write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should stop when both pipelines run out of retries while the Core is
+/// unreachable.
+TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const std::vector unreachable(10, freighter::UNREACHABLE);
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto write_task = std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "cat",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = 2,
+        },
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 100,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        ),
+        std::make_shared<pipeline::testutil::WriterFactory>(
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            unreachable
+        ),
+        std::make_shared<pipeline::testutil::StreamerFactory>(
+            unreachable,
+            std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
+        )
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    EXPECT_FALSE(write_task->stop("stop_cmd", true));
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.details.cmd, "stop_cmd");
+    EXPECT_FALSE(status.details.running);
 }
 
 /// @brief a task whose sink has no state channels never starts the state pipeline.

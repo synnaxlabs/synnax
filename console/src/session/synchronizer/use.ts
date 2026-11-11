@@ -66,7 +66,7 @@ export const use = <S, A extends Action>(
         if (synchronizer.reconcile == null) continue;
         if (ended()) return;
         try {
-          await synchronizer.reconcile(params);
+          await synchronizer.reconcile({ ...params, ended });
         } catch (err) {
           if (ended()) return;
           console.error(`${synchronizer.name} reconcile failed`, err);

@@ -168,9 +168,9 @@ var _ = Describe("Task", Ordered, func() {
 				Running: true,
 				Cmd:     "start",
 			}
-			data := MustSucceed(msgpack.Codec.Encode(ctx, original))
+			data := MustSucceed(msgpack.Codec.Encode(original))
 			var decoded task.StatusDetails
-			Expect(msgpack.Codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(msgpack.Codec.Decode(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})
@@ -949,7 +949,10 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createCommitted(ctx, arcTask)
 				frames := collect()
-				acts := []task.Action{set([]string{"config", "performance"}, "")}
+				acts := []task.Action{task.NewRemoveAction(task.RemovePayload{
+					Path: []string{"config"},
+					Key:  "performance",
+				})}
 				computed := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))

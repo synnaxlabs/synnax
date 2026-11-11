@@ -23,6 +23,7 @@ import {
 
 import {
   type Available,
+  type Blocked,
   find,
   STATUS_KEY_PREFIX,
   useTarget,
@@ -35,6 +36,7 @@ const CHECK_INTERVAL = TimeSpan.seconds(30);
 export type Check =
   | { variant: "loading" }
   | { variant: "error"; status: status.Status }
+  | Blocked
   | { variant: "success"; available: Available | null };
 
 /**
@@ -81,10 +83,11 @@ interface Installing {
 
 /**
  * Checks for an update now and every 30 seconds until it finds one, then adds a status.
- * A change of the Core, its version, or the grant starts the checks again. The found
- * update stays open for {@link useCheck} until the checks start again or the Provider
- * unmounts, and while {@link useInstall} installs it. A status also tells a user who
- * may take the Console past the Core about a newer Core release.
+ * The checks also stop when an insecure connection blocks a downgrade. A change of the
+ * Core, its version, or the grant starts the checks again. The found update stays open
+ * for {@link useCheck} until the checks start again or the Provider unmounts, and while
+ * {@link useInstall} installs it. A status also tells a user who may take the Console
+ * past the Core about a newer Core release.
  */
 export const Provider = ({
   installMiddleware = runInstall,
@@ -102,7 +105,7 @@ export const Provider = ({
       let found: Available | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const run = async (): Promise<void> => {
-        let next: Available | null;
+        let next: Available | Blocked | null;
         try {
           next = await find(target);
         } catch (error) {
@@ -115,7 +118,11 @@ export const Provider = ({
           return;
         }
         if (signal.aborted) {
-          await next?.update.close();
+          if (next != null && next.variant !== "blocked") await next.update.close();
+          return;
+        }
+        if (next?.variant === "blocked") {
+          setCheck(next);
           return;
         }
         setCheck({ variant: "success", available: next });

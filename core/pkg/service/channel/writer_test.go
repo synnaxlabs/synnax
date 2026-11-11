@@ -12,10 +12,13 @@ package channel_test
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -23,8 +26,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -765,25 +772,22 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should adopt an orphaned index when re-creating a calculated channel",
+				"Should adopt an orphaned index when creating a calculated channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
-					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+					// A Core older than 0.61 left the index of a deleted calculated
+					// channel behind.
+					orphan := channel.Channel{
+						Name:        name + "_time",
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).Create(ctx, &orphan)
 					})).To(Succeed())
-					originalIndex := calcCh.LocalIndex
-
-					// Deleting the calculated channel leaves its auto-created index
-					// behind; re-creating a calculated channel with the same name must
-					// reuse it rather than duplicating the index name.
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Delete(ctx, calcCh.Key(), false)
-					})).To(Succeed())
+					originalIndex := orphan.LocalKey
 					recreated := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,
@@ -1337,6 +1341,114 @@ var _ = Describe("Writer", func() {
 					).
 						Error().
 						To(MatchError(ts.ErrChannelNotFound))
+				},
+			)
+		})
+		Context("Slow data removal", func() {
+			It(
+				"Should not block Gorp reads while removing data",
+				func(ctx SpecContext) {
+					base := DeferClose(storagetestutil.OpenLayer(ctx))
+					fsys := xfstestutil.WrapFaultyFS(xfs.NewMem())
+					tsDB := DeferClose(
+						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
+					)
+					slow := testutil.NewNode(ctx, distribution.LayerConfig{
+						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+					})
+					slowSvc := openService(ctx, slow)
+					ch := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Leaseholder: 1,
+					}
+					Expect(slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return slowSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
+					removing := make(chan struct{})
+					release := make(chan struct{})
+					DeferCleanup(sync.OnceFunc(func() { close(release) }))
+					fsys.SetOptions(xfstestutil.WithBeforeRemove(sync.OnceFunc(func() {
+						close(removing)
+						<-release
+					})))
+					deleted := make(chan error, 1)
+					go func() {
+						deleted <- slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return slowSvc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+						})
+					}()
+					Eventually(removing).Should(BeClosed())
+					read := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						read <- MustSucceed(slowSvc.NewRetrieve().
+							Where(channel.MatchKeys(ch.Key())).
+							Exists(ctx, slow.DB))
+					}()
+					Eventually(read).Should(Receive(BeFalse()))
+					Eventually(deleted).Should(Receive(BeNil()))
+				},
+			)
+		})
+		Context("Open channel", func() {
+			It(
+				"Should delete no channel when one is open for writing",
+				func(ctx SpecContext) {
+					chs := []channel.Channel{
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})).To(Succeed())
+					kept, open := chs[0].Key(), chs[1].Key()
+					Expect(dist.Storage.TS.WriteSeries(
+						ctx,
+						kept.StorageKey(),
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					)).To(Succeed())
+					w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, ts.WriterConfig{
+						Start:    20 * telem.SecondTS,
+						Channels: []ts.ChannelKey{open.StorageKey()},
+					}))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).DeleteMany(
+							ctx,
+							channel.Keys{kept, open},
+							true,
+						)
+					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
+					Expect(w.Close()).To(Succeed())
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchKeys(kept)).
+						Exists(ctx, db)).To(BeTrue())
+					fr := MustSucceed(
+						dist.Storage.TS.Read(
+							ctx,
+							telem.TimeRangeMax,
+							kept.StorageKey(),
+						),
+					)
+					Expect(
+						fr.Get(kept.StorageKey()).Series[0],
+					).To(telem.MatchSeriesDataV(
+						10*telem.SecondTS,
+						11*telem.SecondTS,
+						12*telem.SecondTS,
+					))
 				},
 			)
 		})

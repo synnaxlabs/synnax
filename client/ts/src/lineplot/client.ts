@@ -106,6 +106,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/lineplot/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
@@ -185,6 +186,15 @@ export class Client extends query.Retriever<
     opts: actions.Options<LinePlot, Action> = {},
   ): Promise<boolean> {
     return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
+  }
+
+  /**
+   * Applies actions to the cached line plot, if any, and sends them to the server. It
+   * records no undo entry, so it suits edits the user did not make.
+   * @throws {Error} if the send fails, after the local apply rolls back.
+   */
+  async send(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /**

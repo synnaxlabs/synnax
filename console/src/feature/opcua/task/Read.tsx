@@ -245,6 +245,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(previous.properties);
   const device = { ...previous, properties: migrateProperties(previous.properties) };
 
   const index = await determineIndexChannel({
@@ -288,7 +289,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannel(device.properties, c),
   }));
-  await PlatformDevice.setProperties(client, device, SCHEMAS);
+  await PlatformDevice.setProperties(client, device, before, SCHEMAS);
   return [config, device.rack];
 };
 

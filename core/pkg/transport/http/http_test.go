@@ -226,7 +226,7 @@ var _ = Describe("HTTP", func() {
 					http.MethodPost,
 					path,
 					bytes.NewReader(
-						MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{})),
+						MustSucceed(msgpack.Codec.Encode(map[string]any{})),
 					),
 				)
 				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
@@ -458,6 +458,9 @@ var _ = Describe("HTTP", func() {
 		It("Should refuse a request with neither header nor cookie", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(MustSucceed(io.ReadAll(res.Body))).To(
+				ContainSubstring("sy.auth.missing_credentials"),
+			)
 		})
 		It("Should read the cookie on every unary route", func() {
 			const unauthenticated = "no authentication token"

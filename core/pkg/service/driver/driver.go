@@ -191,6 +191,7 @@ func (d *Driver) startHeartbeat() {
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
+					Details: rack.StatusDetails{Running: true},
 				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))

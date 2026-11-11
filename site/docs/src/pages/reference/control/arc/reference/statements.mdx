@@ -81,9 +81,11 @@ or past `end`, the body does not run.
 
 The type of `i` is the integer type of the arguments, or `i64` for literals. An `i64`
 index into a series compiles, but the automation fails to start (known bug). To index a
-series with `i`, use `range(i32(n))`. Mixing integer types fails with
-`type mismatch: cannot use i32 and i64 in range()`. Arc reads `end` and `step` once,
-before the first pass. A float argument fails with
+series with `i`, use `range(i32(n))`. Typed arguments must all have the same integer
+type: `range(n, i64(100))` with an `i32` `n` fails with
+`type mismatch: cannot use i32 and i64 in range()`. Cast them to one type, as in
+`range(i64(n), i64(100))`. Arc reads `end` and `step` once, before the first pass. A
+float argument fails with
 `range() argument 1 must be an integer type, got exact integer float`. Do not use a step
 of 0: the compiler accepts it, and the loop can run forever.
 

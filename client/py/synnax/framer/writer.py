@@ -35,6 +35,7 @@ from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.exceptions import Error, Registry
 from x.lists import normalize
+from x.params import deprecate_positional
 
 
 class WriterCommand(int, Enum):
@@ -326,6 +327,7 @@ class Writer:
         :param value: A dictionary mapping channel keys/names to their authority levels.
         """
 
+    @deprecate_positional("authority")
     def set_authority(
         self,
         value: (

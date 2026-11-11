@@ -40,11 +40,18 @@ func (*recordingImporter) Type() resource.Type {
 	return resource.TypeChannel
 }
 
-func (r *recordingImporter) Import(
-	_ context.Context, _ gorp.Tx, env imex.Envelope, opts imex.ImportOptions,
-) (resource.ID, error) {
-	r.opts = opts
-	return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
+func (r *recordingImporter) Decode(
+	_ context.Context,
+	env imex.Envelope,
+) (imex.Write, error) {
+	return func(
+		_ context.Context,
+		_ gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		r.opts = opts
+		return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
+	}, nil
 }
 
 // Match claims typeless envelopes carrying the legacy_marker key so specs can exercise
@@ -355,9 +362,9 @@ var _ = Describe("Export", func() {
 var _ = Describe("JSONCodec", func() {
 	It("Should write the same bytes for the same value", func(ctx SpecContext) {
 		v := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
-		first := MustSucceed(apiimex.JSONCodec.Encode(ctx, v))
+		first := MustSucceed(apiimex.JSONCodec.Encode(v))
 		for range 20 {
-			Expect(apiimex.JSONCodec.Encode(ctx, v)).To(Equal(first))
+			Expect(apiimex.JSONCodec.Encode(v)).To(Equal(first))
 		}
 		Expect(string(first)).To(ContainSubstring("\"a\": 2,\n  \"b\": 4"))
 	})
@@ -367,7 +374,7 @@ var _ = Describe("ImportCodec", func() {
 	It("Should replace a lone surrogate with U+FFFD", func(ctx SpecContext) {
 		var env imex.Envelope
 		Expect(apiimex.ImportCodec.Decode(
-			ctx, []byte(`{"version":1,"name":"Tank \ud83d"}`), &env,
+			[]byte(`{"version":1,"name":"Tank \ud83d"}`), &env,
 		)).To(Succeed())
 		Expect(env.Name).To(Equal("Tank \uFFFD"))
 	})
@@ -379,12 +386,12 @@ var _ = Describe("ResolveEncoding", func() {
 	) {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
 		Expect(enc.Extension()).To(Equal(".json"))
-		b := MustSucceed(enc.Encode(ctx, map[string]int{"value": 1}))
+		b := MustSucceed(enc.Encode(map[string]int{"value": 1}))
 		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
 	})
 	It("Should write markup literally rather than escaped", func(ctx SpecContext) {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
-		b := MustSucceed(enc.Encode(ctx, map[string]string{"svg": `<svg id="a"/>`}))
+		b := MustSucceed(enc.Encode(map[string]string{"svg": `<svg id="a"/>`}))
 		Expect(string(b)).To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})
 	It("Should write markup in an envelope body literally", func(ctx SpecContext) {
@@ -394,7 +401,7 @@ var _ = Describe("ResolveEncoding", func() {
 		}
 		env := imex.Envelope{Version: 1, Type: "symbol", Name: "valve"}
 		Expect(env.Encode(symbol{SVG: `<svg id="a"/>`})).To(Succeed())
-		Expect(string(MustSucceed(enc.Encode(ctx, env)))).
+		Expect(string(MustSucceed(enc.Encode(env)))).
 			To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})
 	It("Should reject an unsupported encoding", func() {

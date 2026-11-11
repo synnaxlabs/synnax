@@ -216,7 +216,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints) {
       if (ep.disabled) continue;
@@ -234,8 +234,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties))
-      await Device.setProperties(client, dev, SCHEMAS);
+    await Device.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

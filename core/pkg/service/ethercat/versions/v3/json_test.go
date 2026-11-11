@@ -56,6 +56,29 @@ var _ = Describe("JSON", func() {
 		})
 	})
 
+	Describe("SlaveStartupParameters", func() {
+		parameters := []v3.SlaveStartupParameters{{
+			Device: "d",
+			Parameters: []v3.StartupParameter{
+				{Index: 0x8040, SubIndex: 1, DataType: telem.Uint16T, Value: 6},
+			},
+		}}
+		encoded := `[{"device": "d", "parameters": [{
+			"index": 32832, "sub_index": 1, "data_type": "uint16", "value": 6,
+			"name": ""
+		}]}]`
+
+		It("Should encode the parameters of each slave", func() {
+			Expect(MustSucceed(json.Marshal(parameters))).To(MatchJSON(encoded))
+		})
+
+		It("Should decode the parameters of each slave", func() {
+			var decoded []v3.SlaveStartupParameters
+			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(parameters))
+		})
+	})
+
 	Describe("WriteChannel", func() {
 		channels := []v3.WriteChannel{
 			{Variant: v3.EntryWriteChannel{

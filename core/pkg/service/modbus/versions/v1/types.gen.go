@@ -520,6 +520,14 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
+}
+
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
 	task.WriteConfig
@@ -566,4 +574,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

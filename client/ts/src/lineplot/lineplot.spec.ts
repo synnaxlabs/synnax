@@ -46,6 +46,22 @@ describe("LinePlot", () => {
       expect(res.name).toEqual("Line Plot2");
     });
   });
+  describe("send", () => {
+    test("apply actions without an undo entry", async () => {
+      const proj = await client.projects.create({ name: "Line Plot" });
+      const linePlot = await client.lineplots.create({
+        project: proj.key,
+        name: "Line Plot",
+      });
+      await client.lineplots.send(
+        linePlot.key,
+        lineplot.set({ path: ["name"], value: "Sent" }),
+      );
+      const res = await client.lineplots.retrieve(linePlot.key);
+      expect(res.name).toEqual("Sent");
+      expect(client.lineplots.hasUndo(linePlot.key)).toBe(false);
+    });
+  });
   describe("project", () => {
     test("retrieve the lineplots of a project", async () => {
       const proj = await client.projects.create({ name: "Line Plot" });

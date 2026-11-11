@@ -38,7 +38,7 @@ func (*rejected) DecodeMsgpack(*msgpack.Decoder) error {
 
 var _ = Describe("Codec", func() {
 	It("Should keep a validation error in the error chain", func(ctx SpecContext) {
-		err := xmsgpack.Codec.Decode(ctx, []byte{0x80}, &rejected{})
+		err := xmsgpack.Codec.Decode([]byte{0x80}, &rejected{})
 		Expect(err).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("failed to decode")),
@@ -52,12 +52,12 @@ var _ = Describe("Codec", func() {
 		})
 	})
 	It("Should encode and decode", func(ctx SpecContext) {
-		b := MustSucceed(xmsgpack.Codec.Encode(ctx, toEncode{1}))
+		b := MustSucceed(xmsgpack.Codec.Encode(toEncode{1}))
 		var d toEncode
-		Expect(xmsgpack.Codec.Decode(ctx, b, &d)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(b, &d)).To(Succeed())
 		Expect(d).To(Equal(toEncode{1}))
 		var d2 toEncode
-		Expect(xmsgpack.Codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(xmsgpack.Codec.DecodeStream(bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2).To(Equal(toEncode{1}))
 	})
 	It("Should add error info with custom type", func(ctx SpecContext) {
@@ -65,7 +65,7 @@ var _ = Describe("Codec", func() {
 			Chan  chan int
 			Value int
 		}
-		Expect(xmsgpack.Codec.Encode(ctx, custom{Chan: make(chan int)})).Error().
+		Expect(xmsgpack.Codec.Encode(custom{Chan: make(chan int)})).Error().
 			To(MatchError(
 				SatisfyAll(
 					ContainSubstring("failed to encode value"),
@@ -74,7 +74,7 @@ var _ = Describe("Codec", func() {
 			))
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
-		_, err := xmsgpack.Codec.Encode(ctx, make(chan int))
+		_, err := xmsgpack.Codec.Encode(make(chan int))
 		Expect(err).To(MatchError(ContainSubstring("failed to encode value")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
@@ -82,7 +82,7 @@ var _ = Describe("Codec", func() {
 	})
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
 		var d toEncode
-		err := xmsgpack.Codec.Decode(ctx, []byte("invalid"), &d)
+		err := xmsgpack.Codec.Decode([]byte("invalid"), &d)
 		Expect(err).To(MatchError(ContainSubstring("failed to decode")))
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
@@ -300,9 +300,9 @@ var _ = Describe("EncodedJSON", func() {
 	})
 	It("Should work with Codec", func(ctx SpecContext) {
 		jsonStr := `{"name":"test","value":123}`
-		b := MustSucceed(xmsgpack.Codec.Encode(ctx, jsonStr))
+		b := MustSucceed(xmsgpack.Codec.Encode(jsonStr))
 		var result xmsgpack.EncodedJSON
-		Expect(xmsgpack.Codec.Decode(ctx, b, &result)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(b, &result)).To(Succeed())
 		Expect(result).To(Equal(xmsgpack.EncodedJSON{"name": "test", "value": 123.0}))
 	})
 })
