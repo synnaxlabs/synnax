@@ -1594,7 +1594,13 @@ func ({{$s.Receiver}} *{{$s.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
+{{- if .Optional}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$s.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $s.ConstraintChecks}}
 {{- $val := printf "%s.%s" $s.Receiver .GoName}}
@@ -1757,7 +1763,13 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.EnumChecks}}
+{{- if .Optional}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", *{{$vt.Receiver}}.{{.GoName}})
+	}
+{{- else}}
 	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
+{{- end}}
 {{- end}}
 {{- range $vt.ConstraintChecks}}
 {{- $val := printf "%s.%s" $vt.Receiver .GoName}}

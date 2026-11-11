@@ -123,6 +123,12 @@ func (RangeView) isViewVariant() {}
 // schema constraints.
 func (r RangeView) Validate() error {
 	v := validate.New("RangeView")
+	if r.Sort != nil {
+		v.Ternaryf("sort", !r.Sort.IsValid(), "invalid sort: %v", *r.Sort)
+	}
+	if r.Layout != nil {
+		v.Ternaryf("layout", !r.Layout.IsValid(), "invalid layout: %v", *r.Layout)
+	}
 	v.Exec(r.Base.Validate)
 	return v.Error()
 }

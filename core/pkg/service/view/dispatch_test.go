@@ -149,11 +149,11 @@ var _ = Describe("Dispatch", func() {
 				Expect(err).To(MatchError(ContainSubstring(matcher)))
 				Expect(retrieve(ctx)).To(Equal(v))
 			},
-			Entry("of the sort", set("sort", "random"), `sort: invalid sort "random"`),
+			Entry("of the sort", set("sort", "random"), "sort: invalid sort: random"),
 			Entry(
 				"of the layout",
 				set("layout", "grid"),
-				`layout: invalid layout "grid"`,
+				"layout: invalid layout: grid",
 			),
 		)
 	})
