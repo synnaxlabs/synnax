@@ -22,11 +22,7 @@ interface ItemIconProps {
 
 const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
   const { data } = Panel.useResultAppearance({ key: panelKey });
-  return data == null ? (
-    <Icon.Panel />
-  ) : (
-    Appearance.renderIcon({ ...data, fallback: Icon.Panel })
-  );
+  return Appearance.renderIcon({ ...data, fallback: Icon.Panel });
 };
 
 /** Lists the panels that sit in a group. */
