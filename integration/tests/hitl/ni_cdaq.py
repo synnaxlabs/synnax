@@ -14,8 +14,9 @@ Slot | Alias   | Module
 1    | SY2Mod1 | NI 9375, 16 DI on port 0, 16 DO on port 1
 2    | SY2Mod2 | NI 9211, 4 thermocouple inputs
 
-The NI 9375 has no supply on Vsup, so its outputs do not drive its inputs. The analog
-modules are in the cRIO, tested by `crio_ni`.
+The NI 9375 has no supply on Vsup, so its outputs do not drive its inputs. No test uses
+this NI 9211 yet. The cRIO has a second NI 9211, and `crio_ni` tests the analog modules
+there.
 """
 
 import synnax as sy
