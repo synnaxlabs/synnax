@@ -86,6 +86,10 @@ export const Frame = ({
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
   const [selected, setSelected] = useState(staticViews[0].key);
+  const select = (key: view.Key) => {
+    setSelected(key);
+    setSearchTerm("");
+  };
   const hasUpdatePermission = Access.useUpdateGranted(view.resourceID(selected));
   const [editable, setEditable] = useState(false);
   const getInitialView = () => {
@@ -95,7 +99,7 @@ export const Frame = ({
   };
   const deleteSynchronizer = (key: view.Key) => {
     if (key !== selected) return;
-    setSelected(staticViews[0].key);
+    select(staticViews[0].key);
   };
   PView.useDeleteSynchronizer(deleteSynchronizer);
   const contextValue: ContextValue = {
@@ -103,7 +107,7 @@ export const Frame = ({
     selected,
     editable: (alwaysEditable || editable) && hasUpdatePermission,
     staticViews: staticViewKeys,
-    select: setSelected,
+    select,
     getInitialView,
     searchInViews,
     searchTerm,
@@ -124,7 +128,7 @@ export const Frame = ({
           resourceType={resourceType}
           onFetchMore={remoteProps.more}
           staticViews={staticViews}
-          onSelect={setSelected}
+          onSelect={select}
           listProps={combinedProps}
           selected={selected}
         />
