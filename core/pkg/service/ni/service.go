@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -136,9 +137,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:              cfg.DB,
-			References:      analogWriteConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogWriteMigration},
+			DB:         cfg.DB,
+			References: analogWriteConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogWriteMigration,
+				v4.AnalogWriteMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
 			LegacyVersion:   legacy.LastVersion,

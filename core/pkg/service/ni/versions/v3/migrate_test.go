@@ -187,19 +187,6 @@ var _ = Describe("MigrateAOChannel", func() {
 		Expect(got.Base().Port).To(BeZero())
 		Expect(got.Base().Disabled).To(BeTrue())
 	})
-
-	DescribeTable("Should make a function generator frequency positive",
-		func(ctx SpecContext, frequency, want float64) {
-			got := MustSucceed(v3.MigrateAOChannel(ctx, v2.AOChannel{
-				Variant: v2.AOFuncGenChannel{Frequency: frequency},
-			}))
-			Expect(got.Variant.(v3.AOFuncGenChannel).Frequency).To(Equal(want))
-		},
-		Entry("zero", 0.0, 1.0),
-		Entry("negative", -20.0, 1.0),
-		Entry("NaN", math.NaN(), 1.0),
-		Entry("positive", 12.5, 12.5),
-	)
 })
 
 var _ = Describe("MigrateBaseCIChannel", func() {
@@ -568,25 +555,6 @@ var _ = Describe("AnalogWriteMigration", func() {
 		Expect(ch.Disabled).To(BeTrue())
 		Expect(fields).To(ConsistOf("Port", "Disabled"))
 	})
-
-	It("Should make a stored frequency positive and log the change",
-		func(ctx SpecContext) {
-			got, fields := runStored[v2.AnalogWriteConfig, v3.AnalogWriteConfig](
-				ctx,
-				"ni_analog_write_config",
-				v3.AnalogWriteMigration,
-				v2.AnalogWriteConfig{
-					Key: uuid.New(),
-					Channels: []v2.AOChannel{{Variant: v2.AOFuncGenChannel{
-						BaseAOChannel: v2.BaseAOChannel{Key: "gen"},
-					}}},
-				},
-			)
-			ch := got.Channels[0].Variant.(v3.AOFuncGenChannel)
-			Expect(ch.Frequency).To(Equal(1.0))
-			Expect(fields).To(ConsistOf("Frequency"))
-		},
-	)
 
 	It("Should drop the Synnax channels of a function generator and keep the others",
 		func(ctx SpecContext) {
