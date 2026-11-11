@@ -89,7 +89,9 @@ class SetChannelsPayload(BaseModel):
     """
 
     axis_key: YAxisKey
-    channels: list[channel_.Key] = Field(default_factory=list)
+    channels: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 class SetXChannelPayload(BaseModel):

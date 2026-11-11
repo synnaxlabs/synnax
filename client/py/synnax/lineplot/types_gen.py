@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -132,10 +132,18 @@ class Channels(BaseModel):
 
     x1: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     x2: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    y1: list[channel.Key] = Field(default_factory=list)
-    y2: list[channel.Key] = Field(default_factory=list)
-    y3: list[channel.Key] = Field(default_factory=list)
-    y4: list[channel.Key] = Field(default_factory=list)
+    y1: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y2: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y3: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y4: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 class ManualBounds(BaseModel):
