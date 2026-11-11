@@ -173,7 +173,10 @@ public:
                                          : node::RunReason::ChannelInput
                 };
                 this->time_module->set_now(cycle.now);
+                if (this->mod != nullptr) this->mod->reset_loop_budget();
                 this->clock.advance(this->scheduler->next(cycle));
+                // The node that ran out reported the error, so the runtime only stops.
+                if (this->mod != nullptr && this->mod->loop_budget_used()) return;
                 deadline = this->scheduler->next_deadline();
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();

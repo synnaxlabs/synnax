@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -183,6 +184,12 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 constexpr std::uint64_t MEMORY_RESERVATION = std::uint64_t{2} * 1024 * 1024;
 /// @brief size of each guard region around a module's linear memory.
 constexpr std::uint64_t MEMORY_GUARD_SIZE = std::uint64_t{64} * 1024;
+/// @brief name of the exported i64 global that counts the loop iterations and function
+/// calls a guest can still run. The guest traps when it takes the last one.
+constexpr auto LOOP_BUDGET_EXPORT = "loop_budget";
+/// @brief loop iterations and function calls that a program can run in one cycle by
+/// default.
+constexpr std::int64_t DEFAULT_LOOP_BUDGET = 100'000'000;
 
 struct ModuleConfig {
     program::Program program;
@@ -190,6 +197,9 @@ struct ModuleConfig {
     std::shared_ptr<stl::strings::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
+    /// @brief loop iterations and function calls that the guest can run between calls
+    /// to reset_loop_budget.
+    std::int64_t loop_budget = DEFAULT_LOOP_BUDGET;
 };
 
 class Module {
@@ -199,6 +209,7 @@ class Module {
     wasmtime::Store store;
     wasmtime::Memory memory;
     wasmtime::Instance instance;
+    wasmtime::Global loop_budget;
 
 public:
     Module(
@@ -207,14 +218,16 @@ public:
         wasmtime::Engine engine,
         wasmtime::Store store,
         wasmtime::Memory memory,
-        wasmtime::Instance instance
+        wasmtime::Instance instance,
+        wasmtime::Global loop_budget
     ):
         cfg(std::move(cfg)),
         module(std::move(module)),
         engine(std::move(engine)),
         store(std::move(store)),
         memory(memory),
-        instance(instance) {}
+        instance(instance),
+        loop_budget(loop_budget) {}
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
@@ -289,13 +302,28 @@ public:
             };
         auto mem = *mem_ptr;
 
+        const auto budget_opt = instance.get(store, LOOP_BUDGET_EXPORT);
+        const wasmtime::Global *budget_ptr = nullptr;
+        if (budget_opt) budget_ptr = std::get_if<wasmtime::Global>(&*budget_opt);
+        if (budget_ptr == nullptr || !budget_ptr->type(store)->is_mutable() ||
+            budget_ptr->get(store).kind() != wasmtime::ValKind::I64)
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    std::string("WASM module does not export a mutable i64 '") +
+                        LOOP_BUDGET_EXPORT + "' global"
+                )
+            };
+
         auto module = std::make_shared<Module>(
             cfg,
             mod,
             std::move(engine),
             std::move(store),
             mem,
-            instance
+            instance,
+            *budget_ptr
         );
         for (auto &m: module->cfg.modules)
             m->set_wasm_context(&module->store, &module->memory);
@@ -383,6 +411,13 @@ public:
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
+                if (this->module.loop_budget_used())
+                    return x::errors::Error(
+                        errors::LOOP_BUDGET,
+                        "The program ran more than " +
+                            std::to_string(this->module.cfg.loop_budget) +
+                            " loop iterations and function calls in one cycle."
+                    );
                 auto trap = result.err();
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
@@ -430,6 +465,21 @@ public:
             return x::errors::NIL;
         }
     };
+
+    /// @brief gives the guest its whole loop budget. Call it before each cycle.
+    void reset_loop_budget() {
+        // open checked that the global is a mutable i64, so the set cannot fail.
+        std::ignore = this->loop_budget.set(
+            this->store,
+            wasmtime::Val(this->cfg.loop_budget)
+        );
+    }
+
+    /// @brief returns true when the guest used its whole loop budget since the last
+    /// call to reset_loop_budget.
+    [[nodiscard]] bool loop_budget_used() {
+        return this->loop_budget.get(this->store).i64() <= 0;
+    }
 
     [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
         return this->cfg.strings;
