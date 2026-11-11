@@ -972,7 +972,7 @@ var _ = Describe("Payload decoding", func() {
 	})
 
 	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
-		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
 			"type": "set_config",
 			"set_config": map[string]any{
 				"key": "l1",
@@ -983,7 +983,7 @@ var _ = Describe("Payload decoding", func() {
 			},
 		}))
 		var a schematic.Action
-		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
+		Expect(msgpack.Codec.Decode(body, &a)).To(Succeed())
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))

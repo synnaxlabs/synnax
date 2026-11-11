@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -126,22 +127,109 @@ var _ = Describe("MigrateReadChannel", func() {
 			}},
 		),
 		Entry(
+			"register value without a data type",
+			v2.ReadChannel{Variant: v2.InputRegisterReadChannel{
+				BaseReadChannel: base,
+			}},
+			v3.ReadChannel{Variant: v3.InputRegisterReadChannel{
+				BaseReadChannel: base,
+				RegisterValue:   v3.RegisterValue{DataType: "uint8"},
+			}},
+		),
+		Entry(
 			"coil",
 			v2.ReadChannel{Variant: v2.CoilReadChannel{BaseReadChannel: base}},
 			v3.ReadChannel{Variant: v3.CoilReadChannel{BaseReadChannel: base}},
 		),
+	)
+})
+
+var _ = Describe("MigrateWriteChannel", func() {
+	base := v2.BaseWriteChannel{Key: "ch", Name: "ch", Channel: 7, Address: 12}
+	DescribeTable(
+		"Should lift each v2 variant to the same v3 variant",
+		func(ctx SpecContext, old v2.WriteChannel, expected v3.WriteChannel) {
+			Expect(v3.MigrateWriteChannel(ctx, old)).To(Equal(expected))
+		},
+		Entry("no variant", v2.WriteChannel{}, v3.WriteChannel{}),
 		Entry(
-			"register bit",
-			v2.ReadChannel{Variant: v2.InputRegisterBitReadChannel{
-				BaseReadChannel: base,
-				RegisterBit:     v2.RegisterBit{Bit: 3},
+			"coil",
+			v2.WriteChannel{Variant: v2.CoilWriteChannel{BaseWriteChannel: base}},
+			v3.WriteChannel{Variant: v3.CoilWriteChannel{BaseWriteChannel: base}},
+		),
+		Entry(
+			"holding register",
+			v2.WriteChannel{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue: v2.RegisterValue{
+					DataType:     "uint8",
+					BytesSwapped: new(true),
+				},
 			}},
-			v3.ReadChannel{Variant: v3.InputRegisterBitReadChannel{
-				BaseReadChannel: base,
-				RegisterBit:     v3.RegisterBit{Bit: 3},
+			v3.WriteChannel{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue: v3.RegisterValue{
+					DataType:     "uint8",
+					BytesSwapped: new(true),
+				},
+			}},
+		),
+		Entry(
+			"holding register without a data type",
+			v2.WriteChannel{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+			}},
+			v3.WriteChannel{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue:    v3.RegisterValue{DataType: "uint8"},
 			}},
 		),
 	)
+})
+
+var _ = Describe("RegisterValue", func() {
+	It("Should read a v2 register value without a data type as uint8",
+		func(ctx SpecContext) {
+			var old v2.ReadConfig
+			Expect(json.Unmarshal([]byte(`{"channels": [
+				{"type": "holding_register", "key": "a"},
+				{"type": "input_register", "key": "b"}
+			]}`), &old)).To(Succeed())
+			cfg := MustSucceed(v3.MigrateReadConfig(ctx, old))
+			Expect(cfg.Channels).To(HaveLen(2))
+			holding := cfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+			Expect(holding.DataType).To(BeEquivalentTo("uint8"))
+			input := cfg.Channels[1].Variant.(v3.InputRegisterReadChannel)
+			Expect(input.DataType).To(BeEquivalentTo("uint8"))
+		},
+	)
+
+	It("Should read an empty v2 data type as uint8", func(ctx SpecContext) {
+		var read v2.ReadConfig
+		Expect(json.Unmarshal([]byte(`{"channels": [
+			{"type": "holding_register", "key": "a", "data_type": ""}
+		]}`), &read)).To(Succeed())
+		readCfg := MustSucceed(v3.MigrateReadConfig(ctx, read))
+		holding := readCfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+		Expect(holding.DataType).To(BeEquivalentTo("uint8"))
+		var write v2.WriteConfig
+		Expect(json.Unmarshal([]byte(`{"channels": [
+			{"type": "holding_register", "key": "b", "data_type": ""}
+		]}`), &write)).To(Succeed())
+		writeCfg := MustSucceed(v3.MigrateWriteConfig(ctx, write))
+		written := writeCfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(written.DataType).To(BeEquivalentTo("uint8"))
+	})
+
+	It("Should read a v3 register value without a data type as uint16", func() {
+		var cfg v3.WriteConfig
+		Expect(json.Unmarshal(
+			[]byte(`{"channels": [{"type": "holding_register", "key": "a"}]}`),
+			&cfg,
+		)).To(Succeed())
+		holding := cfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(holding.DataType).To(BeEquivalentTo("uint16"))
+	})
 })
 
 var _ = Describe("MigrateReadConfig", func() {
@@ -223,5 +311,64 @@ var _ = Describe("ReadMigration", func() {
 			HaveKeyWithValue("old", BeEquivalentTo(400)),
 			HaveKeyWithValue("new", BeEquivalentTo(250)),
 		))
+	})
+})
+
+var _ = Describe("MigrateWriteConfig", func() {
+	It("Should lift every channel of the config", func(ctx SpecContext) {
+		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, v2.WriteConfig{
+			Device: "dev",
+			Channels: []v2.WriteChannel{
+				{Variant: v2.HoldingRegisterWriteChannel{
+					BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+					RegisterValue:    v2.RegisterValue{DataType: "float32"},
+				}},
+				{Variant: v2.CoilWriteChannel{
+					BaseWriteChannel: v2.BaseWriteChannel{Key: "coil"},
+				}},
+			},
+		}))
+		Expect(cfg.Device).To(Equal("dev"))
+		Expect(cfg.Channels).To(Equal([]v3.WriteChannel{
+			{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "reg"},
+				RegisterValue:    v3.RegisterValue{DataType: "float32"},
+			}},
+			{Variant: v3.CoilWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "coil"},
+			}},
+		}))
+	})
+})
+
+var _ = Describe("WriteMigration", func() {
+	It("Should lift stored write configs in place", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		stored := v2.WriteConfig{
+			Key: uuid.New(),
+			Channels: []v2.WriteChannel{{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+			}}},
+		}
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{
+			DB: db,
+		}))
+		Expect(gorp.NewCreate[uuid.UUID, v2.WriteConfig]().
+			Entry(&stored).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "modbus_write",
+			Migrations: []gorp.Migration{v3.WriteMigration},
+		})).To(Succeed())
+		var got v3.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.WriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.WriteConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels).To(Equal([]v3.WriteChannel{
+			{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "reg"},
+				RegisterValue:    v3.RegisterValue{DataType: "uint8"},
+			}},
+		}))
 	})
 })

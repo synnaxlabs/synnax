@@ -73,7 +73,7 @@ const feeds = (nodes: Element[]): unknown[] =>
 describe("Root", () => {
   describe.each([
     ["an unversioned build", null],
-    ["the newest train", resolve("0.61", TRAINS)],
+    ["the newest train", resolve("0.61", TRAINS, "0.61.0")],
   ])("on %s", (_, version) => {
     it("should let search engines index the pages", async () => {
       expect(robots(await render(version)).join()).not.toContain("noindex");
@@ -95,8 +95,12 @@ describe("Root", () => {
   });
 
   describe.each([
-    ["an earlier train", resolve("0.60", TRAINS), "These docs describe Synnax 0.60."],
-    ["next", resolve("next", TRAINS), "These docs describe unreleased work."],
+    [
+      "an earlier train",
+      resolve("0.60", TRAINS, "0.60.1"),
+      "These docs describe Synnax 0.60.",
+    ],
+    ["next", resolve("next", TRAINS, null), "These docs describe unreleased work."],
   ])("on %s", (_, version, notice) => {
     it("should keep search engines out", async () => {
       expect(robots(await render(version)).join()).toContain("noindex");

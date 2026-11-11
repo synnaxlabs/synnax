@@ -26,6 +26,8 @@ export interface Request<P = unknown> {
    * Returns a rollback.
    */
   apply?: () => destructor.Destructor;
+  /** Writes the response of the Core to the client cache, after the batch commits. */
+  applyResponse?: (res: unknown) => void;
 }
 
 const sendReqZ = z.object({
@@ -52,7 +54,8 @@ export class Client {
   /**
    * Runs the requests in order in one transaction. The first failure fails the whole
    * batch, and nothing commits. The cache writes of the requests apply before the batch
-   * runs, apply again when it commits, and roll back when it fails.
+   * runs, apply again when it commits, and roll back when it fails. Then each request
+   * writes its response to the cache.
    * @returns one response per request, in order.
    * @throws {ValidationError} if a request targets an endpoint the batch does not
    * accept, or if a request is invalid.
@@ -66,6 +69,7 @@ export class Client {
         await this.unary.send("/batch", { requests: wire }, sendReqZ, sendResZ),
     });
     applyAll(requests);
+    requests.forEach(({ applyResponse }, i) => applyResponse?.(res.responses[i]));
     return res.responses;
   }
 }

@@ -10,6 +10,7 @@
 import { device as deviceClient, NotFoundError, query } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,6 +19,7 @@ import { Device } from "@/feature/device";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
@@ -88,6 +90,36 @@ describe("device/tree", () => {
     await findTreeRow(chassis.name);
     expandTreeRow(chassis.name);
     expect(await findTreeRow(module.name)).toBeTruthy();
+  });
+
+  it("shows a status change of a device that a device holds", async () => {
+    const chassis = await createTestDevice(client);
+    const module = await client.devices.create({
+      key: uniqueName("module"),
+      name: uniqueName("module"),
+      rack: chassis.rack,
+      location: "slot1",
+      make: "make",
+      model: "model",
+      properties: {},
+      parent: chassis.key,
+    });
+    await renderDeviceTree(hostDevices(chassis));
+    await findTreeRow(chassis.name);
+    expandTreeRow(chassis.name);
+    const indicator = async () =>
+      (await findTreeRow(module.name)).querySelector(".pluto-device__status-indicator")
+        ?.outerHTML;
+    const before = await indicator();
+    expect(before).toBeDefined();
+    await client.statuses.set({
+      owner: deviceClient.resourceID(module.key),
+      name: "",
+      variant: "error",
+      message: uniqueName("message"),
+      time: TimeStamp.now(),
+    });
+    await waitFor(async () => expect(await indicator()).not.toBe(before));
   });
 
   it("renames a device from the context menu", async () => {
@@ -181,6 +213,18 @@ describe("device/tree", () => {
     fireEvent.click(await screen.findByText("Edit connection"));
     expect(await screen.findByText("Modbus server")).toBeTruthy();
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
+  });
+});
+
+describe("device location", () => {
+  it("should read the location in the format of the device's integration", async () => {
+    const dev = await createTestDevice(client, {
+      make: OPCUA.Device.MAKE,
+      location: "opc.tcp://10.0.0.5:4840",
+    });
+    await renderDeviceTree(hostDevices(dev));
+    expect(await screen.findByText("10.0.0.5")).toBeTruthy();
+    expect(screen.queryByText(/opc\.tcp/)).toBeNull();
   });
 });
 

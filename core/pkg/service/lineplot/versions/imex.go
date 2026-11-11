@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -50,6 +51,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 	}
 	if err != nil {
 		return LinePlot{}, err
+	}
+	// A Console state lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults. A Core export already decodes
+	// over them.
+	if env.Version <= legacy.LastVersion {
+		lp = defaults.Fill(lp)
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.

@@ -72,13 +72,11 @@ var (
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
 	]
-	renameDirectory   freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
 	dispatchDirectory freighter.UnaryHandler[
 		apiarc.DispatchDirectoryRequest,
 		struct{},
 	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
-	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
 	retrieve        freighter.UnaryHandler[
 		apiarc.RetrieveRequest,
 		apiarc.RetrieveResponse,
@@ -119,22 +117,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Held: apiauth.HeldTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		DB:            db,
-		Arc:           arcSvc,
-		Status:        svc.Status,
-		RBAC:          rbacSvc,
-		RenameChannel: bind.Write(binder, apiChannelSvc.Rename),
-		Stopper:       svc.TaskStopper,
+		DB:              db,
+		Arc:             arcSvc,
+		Status:          statusSvc,
+		RBAC:            rbacSvc,
+		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
+		Stopper:         svc.TaskStopper,
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.WritePrepared(binder, apiSvc.PrepareDelete, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	updateTask = bind.Write(binder, apiSvc.UpdateTask)
+	updateTask = bind.WritePrepared(binder, apiSvc.PrepareUpdateTask, apiSvc.UpdateTask)
 	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
-	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
 	dispatchDirectory = bind.Write(binder, apiSvc.DispatchDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
-	move = bind.Write(binder, apiSvc.Move)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
 	var r directory.Directory

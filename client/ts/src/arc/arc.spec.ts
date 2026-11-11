@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { AccessDeniedError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
@@ -68,14 +68,17 @@ describe("arc", () => {
     });
 
     it("should store a module's compile status under its status key", async () => {
+      // The Core writes the status after the create commits, and the cached answer
+      // reaches it through the change stream.
+      await waitForStreamLive(client.connection);
       const created = await client.arcs.create({
         name: `status_module_${id.create()}`,
         type: "module",
         source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
       });
-      const stat = await client.arcs.status.retrieve(created.key);
-      expect(stat?.message).toEqual("Compiled");
-      expect(stat?.name).toEqual(created.name);
+      await expect
+        .poll(async () => await client.arcs.status.retrieve(created.key))
+        .toMatchObject({ message: "Compiled", name: created.name });
     });
 
     it("should throw a NotFoundError for a missing key in a key list", async () => {
@@ -467,6 +470,36 @@ describe("arc", () => {
       const fresh = createTestClient();
       expect((await fresh.arcs.retrieve(created.key)).name).toEqual(created.name);
       expect((await fresh.tasks.retrieve(deployed.key)).name).toEqual(deployed.name);
+    });
+  });
+
+  describe("module name", () => {
+    const newModule = (name: string): arc.New => ({
+      name,
+      type: "module",
+      source: { mode: "text" },
+    });
+
+    const rejection = 'Name "bad name" must start with a letter or underscore';
+
+    it("should reject a module whose name is not an identifier", async () => {
+      const created = client.arcs.create(newModule("bad name"));
+      await expect(created).rejects.toSatisfy(ValidationError.matches);
+      await expect(created).rejects.toThrow(rejection);
+    });
+
+    it("should create an automation whose name is not an identifier", async () => {
+      const name = `bad name ${id.create()}`;
+      expect((await client.arcs.create(newTextArc(name))).name).toEqual(name);
+    });
+
+    it("should reject a module rename to a name that is not an identifier", async () => {
+      const name = `m_${id.create().replace(/-/g, "_")}`;
+      const created = await client.arcs.create(newModule(name));
+      const renamed = client.arcs.rename(created.key, "bad name");
+      await expect(renamed).rejects.toSatisfy(ValidationError.matches);
+      await expect(renamed).rejects.toThrow(rejection);
+      expect((await client.arcs.retrieve(created.key)).name).toEqual(created.name);
     });
   });
 

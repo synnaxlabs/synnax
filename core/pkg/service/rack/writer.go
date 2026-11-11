@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -50,6 +49,14 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
+// storedDetails returns the details of a stored rack status. A stored status can hold
+// any details, and details without a running flag read as not running.
+func storedDetails(details any) StatusDetails {
+	fields, _ := details.(map[string]any)
+	running, _ := fields["running"].(bool)
+	return StatusDetails{Running: running}
+}
+
 // resolveStatus returns the status to persist for r. The owner selects the status, so a
 // provided key is ignored.
 func resolveStatus(r *Rack) *Status {
@@ -78,7 +85,6 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 		r.Status = resolveStatus(r)
 		return w.status.Set(ctx, r.Status)
 	}
-	// A stored status can hold any details, so they do not decode as StatusDetails.
 	var held []status.Status[any]
 	if err := w.statuses.NewRetrieve[any]().
 		Where(status.MatchOwners[any](r.ResourceID())).
@@ -100,6 +106,7 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 		Time:        h.Time,
 		Labels:      h.Labels,
 		Owner:       h.Owner,
+		Details:     storedDetails(h.Details),
 	}
 	if h.Name == r.Name {
 		return nil
@@ -107,12 +114,11 @@ func (w Writer) writeStatus(ctx context.Context, r *Rack) error {
 	return w.status.Rename(ctx, h.Key, r.Name)
 }
 
-// Create creates or updates a rack and attaches a create action that holds it. If the
-// rack key is zero or a rack with the key does not exist, a new rack will be created
-// with the Driver role. An existing rack keeps its group and role. A status provided on
-// the rack replaces the stored status. With no provided status, the stored status stays
-// and takes the rack's name, and only a rack with no stored status gets the default
-// "unknown" status. Create sets r.Status to the resulting status.
+// Create creates a rack with the Driver role and attaches a create action that holds
+// it. A rack with a zero key gets a new key. Create stores the status provided on the
+// rack, or the default "unknown" status when none is provided, and sets r.Status to it.
+// Create returns an error wrapping validate.ErrValidation when a rack with the key
+// exists.
 func (w Writer) Create(ctx context.Context, r *Rack) error {
 	var err error
 	if r.Key.IsZero() {
@@ -124,33 +130,21 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = r.Validate(); err != nil {
 		return err
 	}
-	var existing Rack
-	err = w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Rack](r.Key)).
-		Entry(&existing).
-		Exec(ctx, w.tx)
-	if errors.Skip(err, query.ErrNotFound) != nil {
+	r.Role = w.driverRole
+	if err = group.CheckMember(
+		ctx,
+		w.tx,
+		r.Group,
+		resource.TypeRack,
+		nil,
+	); err != nil {
 		return err
 	}
-	if err == nil {
-		r.Group = existing.Group
-		r.Role = existing.Role
-	} else {
-		r.Role = w.driverRole
-		if err = group.CheckMember(
-			ctx,
-			w.tx,
-			r.Group,
-			resource.TypeRack,
-			nil,
-		); err != nil {
-			return err
-		}
-	}
-	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Exclusive().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.writeStatus(ctx, r); err != nil {
+	r.Status = resolveStatus(r)
+	if err = w.status.Set(ctx, r.Status); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, r.Key, NewCreateAction(CreatePayload{Rack: *r}))
@@ -169,8 +163,8 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// CreateMany creates the given racks. If racks with the same key already exist, they
-// will be overwritten.
+// CreateMany creates the given racks. It returns an error wrapping
+// validate.ErrValidation when a rack with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
 	for i := range *racks {
 		if err := w.Create(ctx, &(*racks)[i]); err != nil {

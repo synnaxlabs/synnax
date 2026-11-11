@@ -68,17 +68,15 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should import both read shapes released Cores stamped at version 2",
 			func(ctx SpecContext, data msgpack.EncodedJSON, nanFill bool) {
-				Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
+				dev := uuid.New().String()
+				Expect(tasks.CreateDevice(ctx, dev)).To(Succeed())
+				data["device"] = dev
 				out := MustSucceed(svc.Read.Normalize(ctx, db, 2, data))
 				Expect(out).To(HaveKeyWithValue("nan_fill_enabled", nanFill))
-				Expect(out).To(HaveKeyWithValue("device", "dev-1"))
+				Expect(out).To(HaveKeyWithValue("device", dev))
 			},
-			Entry("v2", msgpack.EncodedJSON{"device": "dev-1"}, false),
-			Entry(
-				"v3",
-				msgpack.EncodedJSON{"device": "dev-1", "nan_fill_enabled": true},
-				true,
-			),
+			Entry("v2", msgpack.EncodedJSON{}, false),
+			Entry("v3", msgpack.EncodedJSON{"nan_fill_enabled": true}, true),
 		)
 
 		It(
@@ -153,4 +151,24 @@ var _ = Describe("Service", func() {
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
 	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable("Should reject a read config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

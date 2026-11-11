@@ -182,11 +182,17 @@ export class Releases {
    */
   async documented(product: Product): Promise<string> {
     if (product === "desktop" || this.train == null) return await this.latest(product);
-    const version = highest(await this.list(), product, "stable", this.train);
+    return await this.onTrain(product, this.train);
+  }
+
+  /**
+   * Returns the newest stable release of a product on a train, such as `0.60`.
+   * @throws {Error} if the API is unreachable or lists no such release.
+   */
+  async onTrain(product: Product, train: string): Promise<string> {
+    const version = highest(await this.list(), product, "stable", train);
     if (version == null)
-      throw new Error(
-        `GitHub lists no stable ${product} release on train ${this.train}`,
-      );
+      throw new Error(`GitHub lists no stable ${product} release on train ${train}`);
     return version;
   }
 

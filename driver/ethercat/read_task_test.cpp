@@ -125,7 +125,7 @@ protected:
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = NETWORK_INTERFACE + ".Slot 1",
             .make = "DEWESoft",
@@ -735,6 +735,75 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     read_task->exec(stop);
 }
 
+/// @brief it should write the startup parameters of each slave to it, in order, when
+/// the task starts the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParameters) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {
+             {{"index", 0x8040},
+              {"sub_index", 0x1C},
+              {"data_type", "float32"},
+              {"value", 5}},
+             {{"index", 0x8040},
+              {"sub_index", 1},
+              {"data_type", "uint16"},
+              {"value", 6}},
+         }},
+    }};
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    const auto params = this->mock_master->config(1).startup_parameters;
+    ASSERT_EQ(params.size(), 2);
+    EXPECT_EQ(params[0].sub_index, 0x1C);
+    EXPECT_EQ(params[0].data_type, x::telem::FLOAT32_T);
+    EXPECT_EQ(params[0].value, 5);
+    EXPECT_EQ(params[1].sub_index, 1);
+    EXPECT_EQ(params[1].value, 6);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+}
+
+/// @brief it should reject a startup parameter whose value does not fit its data type.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAParameterThatDoesNotFitItsType) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", -1}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.parameters.0.value");
+    EXPECT_EQ(errors[0]["message"], "must be a whole number from 0 to 65535");
+}
+
 /// @brief it should run a slave in the mode chosen on its saved device when the bus
 /// starts.
 TEST_F(EtherCATReadTest, StartRunsTheModeChosenOnASavedDevice) {
@@ -949,8 +1018,10 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
         "on eth0 with different settings. Give them the same settings, or delete the "
         "device that is no longer on the bus."
     );
-    replacement.properties["enabled"] = false;
-    ASSERT_NIL(this->client->devices.create(replacement));
+    ASSERT_NIL(this->client->devices.dispatch(
+        replacement.key,
+        {synnax::device::set({.path = {"properties", "enabled"}, .value = false})}
+    ));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_FALSE(this->mock_master->config(2).enabled);

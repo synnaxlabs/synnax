@@ -16,7 +16,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -162,9 +167,35 @@ start => main`),
 		Entry("dotted call whose last segment is a keyword",
 			"sensor -> stable.for{duration=1s} -> out",
 			"sensor -> stable.for(duration=1s) -> out"),
-		Entry("expression call is unchanged",
+		Entry("expression call that starts a flow",
 			"len(ch) -> out",
-			"len(ch) -> out"),
+			"(len(ch)) -> out"),
+		Entry("expression calls in a routing table and a stage",
+			`sequence s {
+    stage a {
+        flag -> select{} -> {true: math.abs(x) -> y, false: 0 -> y}
+        len(ch) => b
+    }
+    stage b {}
+}`,
+			`sequence s {
+    stage a {
+        flag -> select() -> {true: (math.abs(x)) -> y, false: 0 -> y},
+        (len(ch)) => b
+    }
+    stage b {}
+}`),
+		Entry("expression call after a declaration that follows a flow",
+			"a -> b\nlimit := 1.0\nlen(ch) -> out",
+			"a -> b\nlimit := 1.0\n(len(ch)) -> out"),
+		Entry("expression call inside an expression is unchanged",
+			"x := 1 + len(ch)\nsensor -> scale{factor=len(ch)} -> out",
+			"x := 1 + len(ch)\nsensor -> scale(factor=len(ch)) -> out"),
+		Entry("expression call inside an index is unchanged",
+			"x := arr[len(ch)]", "x := arr[len(ch)]"),
+		Entry("name apart from its paren is unchanged",
+			"sensor -> filter (50.0) -> out\nsensor -> filter\n(50.0) -> out",
+			"sensor -> filter (50.0) -> out\nsensor -> filter\n(50.0) -> out"),
 		Entry("import and authority blocks are unchanged",
 			`import (
     time
@@ -201,6 +232,121 @@ time.interval(1s) -> valve`),
 		Entry("empty", "", ""),
 	)
 
+	It("Should rewrite a function call in a flow to a program that compiles",
+		func(ctx SpecContext) {
+			got := v4.SwapBrackets(`func median3(a f64, b f64, c f64) f64 {
+    return a
+}
+median3(pt_1, pt_2, pt_3) -> tank_pt`)
+			Expect(got).To(Equal(`func median3() {a f64, b f64, c f64} f64 {
+    return a
+}
+(median3(pt_1, pt_2, pt_3)) -> tank_pt`))
+			channels := []symbol.Symbol{{
+				Name: "tank_pt",
+				Kind: symbol.KindChannel,
+				Type: types.WriteChan(types.F64()),
+				ID:   4,
+			}}
+			for i, name := range []string{"pt_1", "pt_2", "pt_3"} {
+				channels = append(channels, symbol.Symbol{
+					Name: name,
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   i + 1,
+				})
+			}
+			root := symboltestutil.NewRoot(nil, channels...)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: got}))
+			ir, diags := text.Analyze(ctx, parsed, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			MustSucceed(text.Compile(ctx, ir))
+		})
+
+	DescribeTable("Should keep a wrapped call apart from the stage item before it",
+		func(old, want string) {
+			got := v4.SwapBrackets(old)
+			Expect(got).To(Equal(want))
+			prog := MustSucceed(parser.Parse(got))
+			stage := prog.TopLevelItem(0).SequenceDeclaration().SequenceItem(0).
+				StageDeclaration()
+			Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+		},
+		Entry(
+			"after a declaration",
+			"sequence s {\n  stage a {\n    n := 0\n    reset(n)\n  }\n}",
+			"sequence s {\n  stage a {\n    n := 0,\n    (reset(n))\n  }\n}",
+		),
+		Entry(
+			"after a flow that ends in an expression",
+			"sequence s {\n  stage a {\n    a -> b + 1\n    len(ch) -> out\n  }\n}",
+			"sequence s {\n  stage a {\n    a -> b + 1,\n    (len(ch)) -> out\n  }\n}",
+		),
+	)
+
+	DescribeTable("Should keep a wrapped call apart from the top-level item before it",
+		func(old, want string) {
+			got := v4.SwapBrackets(old)
+			Expect(got).To(Equal(want))
+			prog := MustSucceed(parser.Parse(got))
+			Expect(prog.AllTopLevelItem()).To(HaveLen(2))
+		},
+		Entry("after a declaration",
+			"limit := 100.0\nmedian3(pt_1, pt_2) -> tank_pt",
+			"limit := 100.0\n(median3(pt_1, pt_2)) -> tank_pt"),
+		Entry("after an assignment",
+			"count = 0\nlen(ch) -> out",
+			"count = 0\n(len(ch)) -> out"),
+		Entry("after a flow that ends in an expression",
+			"a -> b + 1\nlen(ch) -> out",
+			"a -> b + 1\nlen (ch) -> out"),
+		Entry("after a flow that ends in a channel",
+			"a -> b\nmath.abs(x) -> out",
+			"a -> b\nmath.abs (x) -> out"),
+		Entry("after a flow that ends in a stage",
+			"a => stage {\n  0 -> b\n} -> b + 1\nlen(ch) -> out",
+			"a => stage {\n  0 -> b\n} -> b + 1\nlen (ch) -> out"),
+	)
+
+	It("Should split a call from a top-level flow before it with the same graph",
+		func(ctx SpecContext) {
+			got := v4.SwapBrackets("a -> b + 1\nlen(ch) -> out")
+			Expect(got).To(Equal("a -> b + 1\nlen (ch) -> out"))
+			// An unused declaration ends the flow without adding to the graph.
+			want := analyzeAndCompile(
+				ctx,
+				"a -> b + 1\nfunc split() {}\n(len(ch)) -> out",
+			)
+			gotIR := analyzeAndCompile(ctx, got)
+			Expect(gotIR.Nodes).To(Equal(want.Nodes))
+			Expect(gotIR.Edges).To(Equal(want.Edges))
+			Expect(gotIR.Edges).To(HaveLen(3))
+		})
+
+	DescribeTable("Should lex names as a Core with dashed names did",
+		func(old, want string) {
+			cfg := parser.Config{AllowDashedNames: true}
+			got := v4.SwapBrackets(old, cfg)
+			Expect(got).To(Equal(want))
+			MustSucceed(parser.Parse(got, cfg))
+		},
+		Entry("dashed declaration",
+			"func my-fn{k f64}(x f64) f64 {\n    if x > k {\n        return 1.0\n    }"+
+				"\n    return 0.0\n}",
+			"func my-fn(k f64){x f64} f64 {\n    if x > k {\n        return 1.0\n    }"+
+				"\n    return 0.0\n}"),
+		Entry("dashed stage name",
+			"sequence s {\n  stage pre-press {\n    a -> b{x=1}\n  }\n}",
+			"sequence s {\n  stage pre-press {\n    a -> b(x=1)\n  }\n}"),
+		Entry("dashed call",
+			"tank-pt -> my-fn{k=2.0} -> out",
+			"tank-pt -> my-fn(k=2.0) -> out"),
+		Entry("dashed expression call", "my-fn(x) -> out", "(my-fn(x)) -> out"),
+		Entry("spaced subtraction",
+			"func f(a f64, b f64) f64 {\n    return a - b\n}",
+			"func f() {a f64, b f64} f64 {\n    return a - b\n}"),
+	)
+
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {
 			Expect(v4.SwapBrackets(src)).To(Equal(src))
@@ -228,6 +374,35 @@ time.interval(1s) -> valve`),
 			"func f(0,0,0,0,0,0,0,0,0,0) ", "func f() {0,0,0,0,0,0,0,0,0,0} ", 150),
 	)
 })
+
+func analyzeAndCompile(ctx SpecContext, src string) ir.IR {
+	GinkgoHelper()
+	root := symboltestutil.NewRoot(nil,
+		symbol.Symbol{
+			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		},
+		symbol.Symbol{
+			Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2,
+		},
+		symbol.Symbol{
+			Name: "ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.String()),
+			ID:   3,
+		},
+		symbol.Symbol{
+			Name: "out",
+			Kind: symbol.KindChannel,
+			Type: types.WriteChan(types.I64()),
+			ID:   4,
+		},
+	)
+	parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
+	program, diags := text.Analyze(ctx, parsed, root)
+	Expect(diags.Ok()).To(BeTrue(), diags.String())
+	MustSucceed(text.Compile(ctx, program))
+	return program
+}
 
 const growthFactor = 32
 

@@ -54,27 +54,17 @@ Policy struct {
 
         @doc value """
             replaces the policy with the given created state. Emitted by the Core when a
-            policy is created or overwritten whole; clients never dispatch it.
+            policy is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the policy."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the policy.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the policy."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the policy."
-    }
+    action Move = patch.Move
 
     @create
     @doc value       """

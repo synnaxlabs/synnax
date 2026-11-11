@@ -12,7 +12,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { type panel } from "@/panel";
 import { type project } from "@/project";
-import { type query } from "@/query";
 import { createPanelProject, createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
@@ -57,28 +56,19 @@ describe("Panel Client", () => {
     });
   });
 
-  describe("optimistic rename", () => {
-    const WRITE_FAILED = new Error("write failed");
-    const fail = () => {
-      throw WRITE_FAILED;
-    };
-
-    it("should cache the new name before the write commits", async () => {
+  describe("rename", () => {
+    it("should cache the new name before the send resolves", async () => {
       const pan = await createPanel();
-      let duringWrite: query.Cached<panel.Panel> | undefined;
-      await client.panels.rename(pan.key, "renamed", {
-        onOptimistic: () => {
-          duringWrite = client.panels.watch(pan.key).getCached();
-        },
-      });
-      expect(expectLive(duringWrite).name).toEqual("renamed");
+      const renamed = client.panels.rename(pan.key, "renamed");
+      expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
+        "renamed",
+      );
+      await renamed;
     });
 
-    it("should restore the previous name when the write fails", async () => {
+    it("should restore the previous name when the Core rejects it", async () => {
       const pan = await createPanel();
-      await expect(
-        client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
-      ).rejects.toBe(WRITE_FAILED);
+      await expect(client.panels.rename(pan.key, "")).rejects.toThrow("name: required");
       expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
         pan.name,
       );

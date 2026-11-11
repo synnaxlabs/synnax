@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -25,6 +25,8 @@ import {
   set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
+import { validateIdentifier } from "@/arc/identifier";
+import { arcKeyOf } from "@/arc/task/task";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
@@ -48,6 +50,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/where.gen";
+import { type batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
@@ -122,24 +125,13 @@ export interface UpdateTaskParams {
   performance?: Performance;
 }
 
-/** The type of the task that runs an Arc. */
-const TASK_TYPE = "arc";
-
-const taskConfigZ = z.object({ arcKey: keyZ });
-
-/** Returns the key of the Arc that the task runs, or undefined for any other task. */
-const arcKeyOf = (t: Pick<task.Task, "type" | "config">): Key | undefined => {
-  if (t.type !== TASK_TYPE) return undefined;
-  const parsed = taskConfigZ.safeParse(t.config);
-  return parsed.success ? parsed.data.arcKey : undefined;
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
   tasks: task.Client;
   cache: query.Cache;
   statuses: status.Client;
+  batch: batch.Client;
 }
 
 export class Client extends query.Retriever<
@@ -174,6 +166,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ, dispatchResZ),
       encode,
@@ -206,7 +199,12 @@ export class Client extends query.Retriever<
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
-    this.directories = new directory.Client({ unary: cfg.unary, cache, arcs: store });
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      cache,
+      arcs: store,
+      batch: cfg.batch,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
@@ -255,6 +253,7 @@ export class Client extends query.Retriever<
     const optimistic = array
       .toArray(arcs)
       .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
+    for (const a of optimistic) if (a.type === "module") validateIdentifier(a.name);
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -298,25 +297,9 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      query.partialUpdate(this.store, key, { name });
-      return () => query.partialUpdate(this.store, key, { name: prev });
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    if (this.store.get(key)?.type === "module") validateIdentifier(name);
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {

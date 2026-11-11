@@ -190,6 +190,10 @@ lighter step or the base step in dark mode.
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
+- An error about the whole form, such as a refused login, shows in an error note under
+  the submit button. The note keeps its space while empty, so nothing moves when it
+  shows. It is one plain sentence ("Incorrect username or password."), and it is empty
+  before the first attempt.
 - A span of time (a timeout, a delay, a window) is a typed duration field
   (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
   The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
@@ -299,6 +303,26 @@ bound, a log precision, or the line plot X channel.
   "Disconnected" from the status `connected` flag, in the color of the status variant.
   Its tooltip shows the message and the description. A word from the variant was
   rejected, because one variant covers both states.
+
+### Devices
+
+- Status sits at the right end. In a list, such as the device tree, select items, and
+  the find view, a device shows its status as a dot (`Device.StatusIndicator`), and a
+  Driver shows its heart. A closed device select shows a badge instead (see Menus and
+  selects). A list is for scanning, and a chosen device answers one question, so it gets
+  words.
+- The integration says how a device's location reads (`Device.LocationFormat`). The
+  telling part is gray l9 and the rest l7: the slot of an EtherCAT path, the host of an
+  address, and the first address of a list with a count. An address hides the schemes of
+  its integration, such as `https://` and `mqtts://`, because a scheme never tells two
+  of its devices apart. While any part is hidden or cut, a tooltip shows the whole
+  location.
+- A device tree item is one line: the logo, the name, and the location at the right end.
+  The location gives up its width first, down to its telling part, and then the name
+  fades. Two lines were rejected for the tree.
+- A device select item is two lines in 48 px: the name, then the location 3 px below it,
+  with the status dot at the right. It has no logo, because the select lists one make
+  and the closed select shows the logo.
 
 ### Lists with checkboxes
 

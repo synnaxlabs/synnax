@@ -10,11 +10,15 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -22,8 +26,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -764,25 +772,22 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should adopt an orphaned index when re-creating a calculated channel",
+				"Should adopt an orphaned index when creating a calculated channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
-					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+					// A Core older than 0.61 left the index of a deleted calculated
+					// channel behind.
+					orphan := channel.Channel{
+						Name:        name + "_time",
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).Create(ctx, &orphan)
 					})).To(Succeed())
-					originalIndex := calcCh.LocalIndex
-
-					// Deleting the calculated channel leaves its auto-created index
-					// behind; re-creating a calculated channel with the same name must
-					// reuse it rather than duplicating the index name.
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Delete(ctx, calcCh.Key(), false)
-					})).To(Succeed())
+					originalIndex := orphan.LocalKey
 					recreated := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,
@@ -979,89 +984,57 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Updating Calculated Channel Expression", func() {
+		Context("Calculated channel with an existing key", func() {
+			var calc channel.Channel
+			BeforeEach(func(ctx SpecContext) {
+				calc = channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float64T,
+					Expression: "return 1.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+			})
+			It("Should refuse a channel whose key exists", func(ctx SpecContext) {
+				again := calc
+				again.Name = UniqueChannelName()
+				again.Expression = "return 2.0"
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &again)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("channel %s already exists", calc.Key()),
+					),
+				))
+				var stored channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(calc.Key())).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.Name).To(Equal(calc.Name))
+				Expect(stored.Expression).To(Equal("return 1.0"))
+			})
 			It(
-				"Should update expression when Create() called with existing key",
+				"Should return the stored channel with RetrieveIfNameExists",
 				func(ctx SpecContext) {
-					// 0. Create the channel the calculated expression references.
-					sensor1 := channel.Channel{
-						Name:     "sensor1",
-						DataType: telem.Float64T,
-						Virtual:  true,
-					}
+					again := calc
+					again.Name = UniqueChannelName()
+					again.Expression = "return 2.0"
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &sensor1)
+						return svc.NewWriter(tx).
+							Create(ctx, &again, channel.RetrieveIfNameExists())
 					})).To(Succeed())
-
-					// 1. Create calculated channel
-					calcCh := channel.Channel{
-						Name:       "temperature_calc",
-						DataType:   telem.Float64T,
-						Expression: "return sensor1 * 2.5",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					originalKey := calcCh.Key()
-					originalIndexKey := calcCh.LocalIndex
-					originalName := calcCh.Name
-
-					// 2. Modify expression and call Create() again with same key
-					calcCh.Expression = "return sensor1 * 3.0 + 10"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// 3. Verify key unchanged
-					Expect(calcCh.Key()).To(Equal(originalKey))
-
-					// 4. Verify index unchanged
-					Expect(calcCh.LocalIndex).To(Equal(originalIndexKey))
-
-					// 5. Retrieve and verify expression updated, other fields preserved
-					var retrieved channel.Channel
+					Expect(again.Name).To(Equal(calc.Name))
+					Expect(again.Expression).To(Equal("return 1.0"))
+					var stored channel.Channel
 					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(originalKey)).
-						Entry(&retrieved).
+						Where(channel.MatchKeys(calc.Key())).
+						Entry(&stored).
 						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Expression).To(Equal("return sensor1 * 3.0 + 10"))
-					Expect(retrieved.Name).To(Equal(originalName))
-					Expect(retrieved.Key()).To(Equal(originalKey))
-				},
-			)
-
-			It(
-				"Should infer the calculated channel DataType from its expression on update",
-				func(ctx SpecContext) {
-					calcCh := channel.Channel{
-						Name:       UniqueChannelName(),
-						DataType:   telem.Float64T,
-						Expression: "return 1.0",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-					Expect(calcCh.DataType).To(Equal(telem.Float64T))
-					originalKey := calcCh.Key()
-
-					// 2. Update the expression. The DataType is always inferred from
-					// the expression, so the caller-provided DataType is ignored.
-					calcCh.Expression = "return 2.0"
-					calcCh.DataType = telem.Float32T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// 3. Retrieve from DB and verify DataType was updated
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(originalKey)).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-
-					Expect(retrieved.Expression).To(Equal("return 2.0"))
-					Expect(retrieved.DataType).To(Equal(telem.Float64T))
+					Expect(stored.Name).To(Equal(calc.Name))
+					Expect(stored.Expression).To(Equal("return 1.0"))
 				},
 			)
 		})
@@ -1371,30 +1344,115 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Calculated Channel Index", func() {
+		Context("Slow data removal", func() {
 			It(
-				"Should refuse an update that names an index that does not exist",
+				"Should not block Gorp reads while removing data",
 				func(ctx SpecContext) {
-					calc := channel.Channel{
-						Name:       UniqueChannelName(),
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Virtual:    true,
+					base := DeferClose(storagetestutil.OpenLayer(ctx))
+					fsys := xfstestutil.WrapFaultyFS(xfs.NewMem())
+					tsDB := DeferClose(
+						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
+					)
+					slow := testutil.NewNode(ctx, distribution.LayerConfig{
+						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+					})
+					slowSvc := openService(ctx, slow)
+					ch := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Leaseholder: 1,
+					}
+					Expect(slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return slowSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
+					removing := make(chan struct{})
+					release := make(chan struct{})
+					DeferCleanup(sync.OnceFunc(func() { close(release) }))
+					fsys.SetOptions(xfstestutil.WithBeforeRemove(sync.OnceFunc(func() {
+						close(removing)
+						<-release
+					})))
+					deleted := make(chan error, 1)
+					go func() {
+						deleted <- slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return slowSvc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+						})
+					}()
+					Eventually(removing).Should(BeClosed())
+					read := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						read <- MustSucceed(slowSvc.NewRetrieve().
+							Where(channel.MatchKeys(ch.Key())).
+							Exists(ctx, slow.DB))
+					}()
+					Eventually(read).Should(Receive(BeFalse()))
+					Eventually(deleted).Should(Receive(BeNil()))
+				},
+			)
+		})
+		Context("Open channel", func() {
+			It(
+				"Should delete no channel when one is open for writing",
+				func(ctx SpecContext) {
+					chs := []channel.Channel{
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
+						{
+							Name:        UniqueChannelName(),
+							DataType:    telem.TimestampT,
+							IsIndex:     true,
+							Leaseholder: 1,
+						},
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calc)
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
 					})).To(Succeed())
-					calc.LocalIndex = 99999
+					kept, open := chs[0].Key(), chs[1].Key()
+					Expect(dist.Storage.TS.WriteSeries(
+						ctx,
+						kept.StorageKey(),
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					)).To(Succeed())
+					w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, ts.WriterConfig{
+						Start:    20 * telem.SecondTS,
+						Channels: []ts.ChannelKey{open.StorageKey()},
+					}))
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calc)
-					})).To(MatchError(
-						ContainSubstring(fmt.Sprintf(
-							"index: channel %d does not exist",
-							distchannel.NewKey(node.KeyFree, 99999),
-						)),
+						return svc.NewWriter(tx).DeleteMany(
+							ctx,
+							channel.Keys{kept, open},
+							true,
+						)
+					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
+					Expect(w.Close()).To(Succeed())
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchKeys(kept)).
+						Exists(ctx, db)).To(BeTrue())
+					fr := MustSucceed(
+						dist.Storage.TS.Read(
+							ctx,
+							telem.TimeRangeMax,
+							kept.StorageKey(),
+						),
+					)
+					Expect(
+						fr.Get(kept.StorageKey()).Series[0],
+					).To(telem.MatchSeriesDataV(
+						10*telem.SecondTS,
+						11*telem.SecondTS,
+						12*telem.SecondTS,
 					))
 				},
 			)
+		})
+		Context("Calculated Channel Index", func() {
 			It(
 				"Should clear on open the index of a channel whose index does not exist",
 				func(ctx SpecContext) {
@@ -1563,12 +1621,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Rename", Ordered, func() {
 		var (
-			db  *gorp.DB
-			svc *channel.Service
+			dist testutil.Node
+			db   *gorp.DB
+			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist := testutil.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
@@ -1670,6 +1729,70 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[1].Name).To(Equal(names[1]))
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
+			It(
+				"Should send the renames of several writers to storage in one call",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
+					before := MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					)
+					first, second := UniqueChannelName(), UniqueChannelName()
+					var between ts.Channel
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := svc.NewWriter(tx).
+							Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						// Storage takes no rename before the hook of the last one.
+						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
+							between, err = dist.Storage.TS.RetrieveChannel(
+								ctx,
+								keys[0].StorageKey(),
+							)
+							return err
+						})
+						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
+					})).To(Succeed())
+					Expect(between.Name).To(Equal(before.Name))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[1].StorageKey()),
+					).Name).To(Equal(second))
+				},
+			)
+			It(
+				"Should rename a channel created after an earlier rename",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 1))
+					created := channel.Channel{
+						Name:     UniqueChannelName(),
+						Virtual:  true,
+						DataType: telem.Int64T,
+					}
+					first, second := UniqueChannelName(), UniqueChannelName()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := svc.NewWriter(tx)
+						if err := w.Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						if err := w.Create(ctx, &created); err != nil {
+							return err
+						}
+						return w.Rename(ctx, created.Key(), second, false)
+					})).To(Succeed())
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(
+							ctx,
+							created.Key().StorageKey(),
+						),
+					).Name).To(Equal(second))
+				},
+			)
 		})
 	})
 

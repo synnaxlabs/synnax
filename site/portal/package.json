@@ -17,7 +17,8 @@
     "cov": "vitest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "create-internal-organization": "node scripts/create_internal_organization.ts"
+    "create-internal-organization": "node scripts/create_internal_organization.ts",
+    "letter": "tsx scripts/letter.ts"
   },
   "dependencies": {
     "@astrojs/react": "catalog:",
@@ -53,6 +54,7 @@
     "eslint": "catalog:",
     "jsdom": "catalog:",
     "stylelint": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:ts6",
     "vitest": "catalog:"
   }

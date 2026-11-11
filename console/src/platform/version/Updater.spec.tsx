@@ -97,16 +97,16 @@ describe("version Provider", () => {
     const ipc = mockUpdater({ served: "1.6.0", latest: "1.5.3" });
     const { result } = await renderCheck({ coreVersion: null });
     await waitFor(() => expect(versionOf(result.current)).toBe("1.5.3"));
-    expect(result.current).toMatchObject({ available: { breaking: false } });
+    expect(result.current).toMatchObject({ available: { variant: "upgrade" } });
     expect(callsOf(ipc, "updater_check")).toHaveLength(0);
   });
 
-  it("should check the manifest of the selected Core", async () => {
+  it("should check the manifest of the selected Core at its version", async () => {
     const ipc = mockUpdater({ served: "1.4.0" });
-    await renderCheck();
+    await renderCheck({ coreVersion: "1.4.2" });
     await waitFor(() =>
       expect(callsOf(ipc, "updater_check")).toEqual([
-        ["updater_check", { endpoint: ENDPOINT }],
+        ["updater_check", { endpoint: ENDPOINT, coreVersion: "1.4.2", secure: false }],
       ]),
     );
   });
@@ -118,10 +118,35 @@ describe("version Provider", () => {
     expect(callsOf(ipc, "updater_check")).toHaveLength(1);
   });
 
-  it("should take an older minor version that the Core serves", async () => {
+  it("should offer an older release over TLS as a downgrade", async () => {
     mockUpdater({ version: "1.5.0", served: "1.4.2" });
-    const { result } = await renderCheck({ coreVersion: "1.4.1" });
+    const { result } = await renderCheck({ coreVersion: "1.4.1", secure: true });
     await waitFor(() => expect(versionOf(result.current)).toBe("1.4.2"));
+    expect(result.current).toMatchObject({ available: { variant: "downgrade" } });
+  });
+
+  it("should block a downgrade over an insecure connection", async () => {
+    const ipc = mockUpdater({ version: "1.5.0", served: "1.4.2" });
+    const { result } = await renderCheck({ coreVersion: "1.4.1" });
+    await waitFor(() =>
+      expect(result.current).toMatchObject({
+        variant: "blocked",
+        status: {
+          variant: "warning",
+          name: "Console",
+          message: "Cannot downgrade over an insecure connection",
+        },
+      }),
+    );
+    expect(callsOf(ipc, "updater_check")).toEqual([
+      ["updater_check", { endpoint: ENDPOINT, coreVersion: "1.4.1", secure: false }],
+    ]);
+  });
+
+  it("should not block a Core at an older patch over an insecure connection", async () => {
+    mockUpdater({ version: "1.5.2", served: null });
+    const { result } = await renderCheck({ coreVersion: "1.5.0" });
+    await waitFor(() => expect(result.current).toEqual(NONE));
   });
 
   it("should take a newer minor version that the Core serves", async () => {
@@ -130,23 +155,17 @@ describe("version Provider", () => {
     await waitFor(() => expect(versionOf(result.current)).toBe("1.6.0"));
   });
 
-  it("should take a newer patch that the Core serves", async () => {
+  it("should offer a newer patch that the Core serves as an upgrade", async () => {
     mockUpdater({ version: "1.5.0", served: "1.5.1" });
     const { result } = await renderCheck();
     await waitFor(() => expect(versionOf(result.current)).toBe("1.5.1"));
-  });
-
-  it("should skip and release an older patch that the Core serves", async () => {
-    const ipc = mockUpdater({ version: "1.5.2", served: "1.5.1" });
-    const { result } = await renderCheck();
-    await waitFor(() => expect(callsOf(ipc, "plugin:resources|close")).toHaveLength(1));
-    expect(result.current).toEqual(NONE);
+    expect(result.current).toMatchObject({ available: { variant: "upgrade" } });
   });
 
   it("should release the found update when it unmounts", async () => {
-    const ipc = mockUpdater({ served: "1.4.2" });
+    const ipc = mockUpdater({ served: "1.5.1" });
     const { result, unmount } = await renderCheck();
-    await waitFor(() => expect(versionOf(result.current)).toBe("1.4.2"));
+    await waitFor(() => expect(versionOf(result.current)).toBe("1.5.1"));
     unmount();
     await waitFor(() => expect(callsOf(ipc, "plugin:resources|close")).toHaveLength(1));
   });
@@ -186,12 +205,12 @@ describe("version Provider", () => {
   });
 
   it("should keep a silenced update silent when a new check finds it again", async () => {
-    const ipc = mockUpdater({ served: "1.4.2" });
+    const ipc = mockUpdater({ served: "1.5.1" });
     const setStatus = await renderProvider(<UncappedFeed />);
     await screen.findByText("Update available");
     fireEvent.click(getIconButton(document.body, "close"));
     await waitFor(() => expect(screen.queryByText("Update available")).toBeNull());
-    setStatus(createStatus("1.5.1"));
+    setStatus(createStatus("1.5.2"));
     await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(2));
     await act(async () => {});
     expect(screen.queryByText("Update available")).toBeNull();
@@ -207,7 +226,7 @@ describe("version Provider", () => {
       await waitFor(() =>
         expect(result.current).toMatchObject({
           variant: "success",
-          available: { breaking: true, coreVersion: "1.5.0" },
+          available: { variant: "breaking", coreVersion: "1.5.0" },
         }),
       );
       expect(versionOf(result.current)).toBe("1.6.0");

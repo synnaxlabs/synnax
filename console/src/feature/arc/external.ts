@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Editor } from "@/feature/arc/editor";
-import { Explorer } from "@/feature/arc/explorer";
 import { Selectable } from "@/feature/arc/Selectable";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/arc/commands";
 export * from "@/feature/arc/editor";
-export * from "@/feature/arc/explorer";
 export * from "@/feature/arc/link";
 export * from "@/feature/arc/notifications";
 export * from "@/feature/arc/search";
@@ -26,6 +24,5 @@ export * from "@/platform/arc/external";
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
 export const TABS: Panel.Tabs = {
-  ...Explorer.TABS,
   ...Editor.TABS,
 };

@@ -80,6 +80,18 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should refuse a table whose key exists", func(ctx SpecContext) {
+			stored := seed(ctx)
+			again := table.Table{Key: stored.Key, Project: &proj.Key, Name: "refused"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &again)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("table %s already exists", stored.Key)),
+			))
+			Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+		})
+
 		It(
 			"Should reject a table with neither a project nor a range",
 			func(ctx SpecContext) {
@@ -177,14 +189,15 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("SetProject", func() {
-		It("Should move the tables into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the table into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := table.Table{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res table.Table
 			Expect(svc.NewRetrieve().
 				Where(table.MatchKeys(v.Key)).
@@ -197,8 +210,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			v := table.Table{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
