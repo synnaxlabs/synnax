@@ -95,14 +95,19 @@ class ListEndObserver {
 
 beforeAll(() => vi.stubGlobal("IntersectionObserver", ListEndObserver));
 
-// Scrolls to the end of the list until the row renders, as a user does.
-const findRow = async (name: string): Promise<HTMLElement> =>
-  await waitFor(() => {
+// Scrolls to the end of the list until the row renders, as a user does. The list drops
+// a scroll that lands while it settles a read, and does not fetch again until its rows
+// change. A timer paces each scroll, so it runs only after the read settles.
+const findRow = async (name: string): Promise<HTMLElement> => {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
     const row = screen.queryByText(name);
     if (row != null) return row;
     listEnds.forEach((reachEnd) => reachEnd());
-    throw new Error(`no list item for ${name}`);
-  });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`no list item for ${name}`);
+};
 
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
