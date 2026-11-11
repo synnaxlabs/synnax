@@ -128,13 +128,12 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 	}
 }
 
-// And returns a filter that matches when ALL children match. Each
-// child's keys, raw, and eval constraints are composed independently:
-// keys are intersected, raw runs as a short-circuit AND pre-screen,
-// and eval runs as an AND-composed post-decode predicate. The raw
-// pre-screen survives composition, so MatchRaw children retain their
-// no-decode skip. Of several SortedIndex.FilterRange children, And reads the keys of
-// the narrowest range only.
+// And returns a filter that matches when ALL children match. Each child's keys, raw,
+// and eval constraints are composed independently: keys are intersected, raw runs as a
+// short-circuit AND pre-screen, and eval runs as an AND-composed post-decode predicate.
+// The raw pre-screen survives composition, so MatchRaw children retain their no-decode
+// skip. Of several SortedIndex.FilterRange children, And reads the keys of the
+// narrowest range only.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 	f.eval = andEval(filters)
