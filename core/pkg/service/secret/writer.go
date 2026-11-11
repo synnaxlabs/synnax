@@ -140,7 +140,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // IsFileName reports whether name is a file name, so a rack that joins it to a folder
 // stays in that folder. A colon starts a Windows drive, such as C:key.pem.
 func IsFileName(name string) bool {
-	return name != "." && name != ".." && !strings.ContainsAny(name, `/\:`)
+	return name != "" && name != "." && name != ".." &&
+		!strings.ContainsAny(name, `/\:`)
 }
 
 func validateSecret(s Secret, value []byte) error {
