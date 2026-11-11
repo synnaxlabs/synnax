@@ -39,8 +39,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 // Set creates the secret, or replaces the secret with the same key. For a stored
 // secret, value is the plain text, which Set encrypts and must not be empty. For a file
-// secret, value must be empty. Set gives a secret without a key a new one, and sets
-// Updated. The commit carries a create action that holds the secret without its value.
+// secret, value must be empty. A replace must keep the source of the secret. Set gives
+// a
+// secret without a key a new one, and sets Updated. The commit carries a create action
+// that holds the secret without its value.
 func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
@@ -48,6 +50,8 @@ func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	base := s.Base()
 	if base.Key == uuid.Nil() {
 		base.Key = uuid.New()
+	} else if err := w.checkSource(ctx, base.Key, s.Source()); err != nil {
+		return err
 	}
 	base.Updated = w.now()
 	s.SetBase(base)
@@ -65,6 +69,30 @@ func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	}
 	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Secret: created}))
 	return nil
+}
+
+// checkSource returns a validation error when a secret with key exists and has a source
+// other than source.
+func (w Writer) checkSource(ctx context.Context, key Key, source Source) error {
+	var prev []Secret
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Secret](key)).
+		SkipMissingKeys().
+		Entries(&prev).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	v := validate.New("secret")
+	for _, p := range prev {
+		v.Ternaryf(
+			"source",
+			p.Source() != source,
+			"cannot change from %s to %s",
+			p.Source(),
+			source,
+		)
+	}
+	return v.Error()
 }
 
 // Apply applies the actions to the secret with the given key and attaches them to the
