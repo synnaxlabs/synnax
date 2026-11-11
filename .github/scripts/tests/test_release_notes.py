@@ -381,3 +381,12 @@ class TestCherryPicks:
         )
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert notes.strip() == MINOR.strip()
+
+    def test_leaves_out_a_fix_whose_revert_was_reverted(self, train: Train) -> None:
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("revert", "--no-edit", "HEAD")
+        train.git("revert", "--no-edit", "HEAD")
+        train.git("tag", "core/v0.60.1")
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes

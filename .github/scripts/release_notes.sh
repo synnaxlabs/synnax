@@ -35,14 +35,14 @@ subject_pr() {
 }
 
 # Prints a "pick <commit> <carrier> <source>" line for each `cherry-pick -x` trailer of
-# a commit and a "revert <commit>" line for each commit it reverts. A squash merge drops
-# these lines from the message, so a commit with none reads the commits of the PR its
-# subject names, and each such commit is the carrier of its trailers.
+# a commit and a "revert <commit> <carrier> <target>" line for each commit it reverts.
+# A squash merge drops these lines from the message, so a commit with none reads the
+# commits of the PR its subject names, and each such commit is the carrier of its lines.
 links() {
     local found pr
     found=$(git log -1 --format=%B "$1" | sed -nE \
         -e "s/^\(cherry picked from commit ([0-9a-f]+)\)$/pick $1 $1 \1/p" \
-        -e 's/^This reverts commit ([0-9a-f]+).*/revert \1/p') || return
+        -e "s/^This reverts commit ([0-9a-f]+).*/revert $1 $1 \1/p") || return
     pr=$(subject_pr "$1") || return
     if [ -n "$found" ] || [ -z "$pr" ]; then
         echo "$found"
@@ -52,8 +52,8 @@ links() {
         .[] | .sha as $commit | .commit.message
         | (scan("\\(cherry picked from commit ([0-9a-f]+)\\)")
             | "pick \($commit) \(.[0])"),
-          (scan("This reverts commit ([0-9a-f]+)") | "revert \(.[0])")' \
-        | sed "s/^pick /pick $1 /"
+          (scan("This reverts commit ([0-9a-f]+)") | "revert \($commit) \(.[0])")' \
+        | sed -E "s/^(pick|revert) /\1 $1 /"
 }
 
 # The commits the previous tag holds that SHA does not are its cherry-picks. A source
@@ -81,13 +81,25 @@ while [ -n "$PICKS" ]; do
         fi
     done
 done
+# A commit counts as reverted only when a revert of it is not itself reverted.
 SOURCES=$(awk '
-    $1 == "revert" { reverted[$2] = 1 }
+    function reverted(x, i) {
+        if (x in memo) return memo[x]
+        memo[x] = 0
+        for (i = 1; i <= n; i++) {
+            if (target[i] == x && !reverted(commit[i]) && !reverted(carrier[i])) {
+                memo[x] = 1
+                break
+            }
+        }
+        return memo[x]
+    }
+    $1 == "revert" { n++; commit[n] = $2; carrier[n] = $3; target[n] = $4 }
     $1 == "pick" { picks[NR] = $0 }
     END {
         for (i in picks) {
             split(picks[i], f, " ")
-            if (!(f[2] in reverted) && !(f[3] in reverted)) print f[4]
+            if (!reverted(f[2]) && !reverted(f[3])) print f[4]
         }
     }' <<< "$LINKS" | sort -u | tr '\n' ' ')
 
