@@ -10,39 +10,37 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement, type ReactPortal, useState } from "react";
-import { createPortal } from "react-dom";
+import { type ReactElement } from "react";
 
-import { useContext, useFormContext } from "@/platform/view/context";
+import { useContext } from "@/platform/view/context";
 
-/**
- * Searches the resources of the view. It renders at the head of the views bar when the
- * frame puts the search there, and in place otherwise.
- */
-export const Search = (): ReactElement | ReactPortal | null => {
-  const { search } = useFormContext("View.Search");
-  const { editable, resourceType, searchInViews, searchSlot } =
+/** The search field of a frame, which holds the term. */
+export const SearchInput = (): ReactElement | null => {
+  const { editable, resourceType, searchInViews, searchTerm, setSearchTerm } =
     useContext("View.Search");
-  const [value, setValue] = useState("");
-  const handleChange = (v: string) => {
-    setValue(v);
-    search(v);
-  };
-  if (!editable || (searchInViews && searchSlot == null)) return null;
-  const input = (
+  if (!editable) return null;
+  return (
     <Input.Text
       size="small"
       level="h5"
       color={9}
       startContent={startContent}
       variant="text"
-      grow={searchSlot != null}
-      value={value}
-      onChange={handleChange}
+      grow={searchInViews}
+      value={searchTerm}
+      onChange={setSearchTerm}
       placeholder={`Search ${plural(resourceType)}...`}
     />
   );
-  return searchSlot == null ? input : createPortal(input, searchSlot);
 };
 
 const startContent = <Icon.Search color={9} />;
+
+/**
+ * Searches the resources of the view, in place. It renders nothing when the frame leads
+ * the views bar with the search.
+ */
+export const Search = (): ReactElement | null => {
+  const { searchInViews } = useContext("View.Search");
+  return searchInViews ? null : <SearchInput />;
+};

@@ -12,7 +12,13 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { FormContext, useContext } from "@/platform/view/context";
 
@@ -42,7 +48,14 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   onWhereChange,
   itemHeight,
 }: FormProps<K, E>): ReactElement | null => {
-  const { staticViews, getInitialView } = useContext("View.Form");
+  const { staticViews, getInitialView, searchTerm } = useContext("View.Form");
+  // The list of a new view starts with no term.
+  const searchedRef = useRef("");
+  useEffect(() => {
+    if (searchTerm === searchedRef.current) return;
+    searchedRef.current = searchTerm;
+    search(searchTerm);
+  }, [searchTerm]);
   const { form } = PView.useForm({
     query: null,
     initialValues: getInitialView(),
@@ -65,7 +78,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = { search, answered };
+  const contextValue = { answered };
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame

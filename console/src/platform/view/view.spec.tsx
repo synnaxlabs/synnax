@@ -268,10 +268,35 @@ describe("View", () => {
   it("leads the views with the search when the search sits in the views", async () => {
     await renderHarness(client, { searchInViews: true });
     const input = await screen.findByPlaceholderText("Search ranges...");
-    expect(input.closest(".console-view__search-slot")).not.toBeNull();
+    expect(input.closest(".console-view__search")).not.toBeNull();
     expect(screen.queryByLabelText("Enable editing")).toBeNull();
     const views = getBySelector(document.body, ".console-view__views");
     await waitFor(() => expect(queryIconButton(views, "add")).toBeTruthy());
+  });
+
+  it("keeps the search term of the views bar when another view opens", async () => {
+    const start = TimeStamp.now();
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+    const alpha = await client.ranges.create({
+      name: uniqueRangeName("alpha"),
+      timeRange,
+    });
+    const bravo = await client.ranges.create({
+      name: uniqueRangeName("bravo"),
+      timeRange,
+    });
+    const saved = await createView();
+    await renderHarness(client, { searchInViews: true });
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: alpha.name } });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => {
+      expect(selectedViewName()).toBe(saved.name);
+      expect(screen.getByText(String(alpha.key))).toBeTruthy();
+      expect(screen.queryByText(String(bravo.key))).toBeNull();
+    });
+    expect(input.value).toBe(alpha.name);
   });
 
   it("reveals the filter menu contents when the filter trigger is opened", async () => {

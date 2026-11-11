@@ -11,7 +11,6 @@ import { type view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
-  search: (term: string) => void;
   answered: boolean;
 }
 
@@ -33,8 +32,9 @@ export interface ContextValue {
   getInitialView: () => view.View;
   /** True when the search leads the views bar, over a filter bar. */
   searchInViews: boolean;
-  /** The element {@link Search} renders into while the search leads the views bar. */
-  searchSlot: HTMLElement | null;
+  /** The term the lists of every view are searched by. */
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({

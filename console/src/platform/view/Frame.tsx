@@ -36,6 +36,7 @@ import {
   type View,
 } from "@/platform/view/context";
 import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
+import { SearchInput } from "@/platform/view/Search";
 import { useCreateModal } from "@/platform/view/useCreateModal";
 import { Vis } from "@/platform/vis";
 
@@ -62,7 +63,7 @@ export const Frame = ({
   searchInViews = false,
   children,
 }: FrameProps): ReactElement => {
-  const [searchSlot, setSearchSlot] = useState<HTMLElement | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const staticViewKey = uuid.create();
   const staticViews: StaticView[] = [
     {
@@ -105,7 +106,8 @@ export const Frame = ({
     select: setSelected,
     getInitialView,
     searchInViews,
-    searchSlot: searchInViews ? searchSlot : null,
+    searchTerm,
+    setSearchTerm,
   };
 
   return (
@@ -125,7 +127,6 @@ export const Frame = ({
           onSelect={setSelected}
           listProps={combinedProps}
           selected={selected}
-          onSearchSlotChange={searchInViews ? setSearchSlot : undefined}
         />
         <Fragment key={selected}>{children}</Fragment>
       </Context>
@@ -144,8 +145,6 @@ interface SelectorProps {
   listProps: List.FrameProps<view.Key, View>;
   onFetchMore: () => void;
   icon: string;
-  /** Leads the views with a slot for the search, and sets it on mount. */
-  onSearchSlotChange?: (slot: HTMLElement | null) => void;
 }
 
 const Selector = ({
@@ -158,7 +157,6 @@ const Selector = ({
   listProps,
   selected,
   icon,
-  onSearchSlotChange,
 }: SelectorProps): ReactElement => {
   const contextMenuProps = Menu.useContextMenu();
   const hasCreatePermission = Access.useCreateGranted(view.TYPE_RESOURCE_ID);
@@ -177,7 +175,7 @@ const Selector = ({
   });
   const handleCreate = () => create({ name: "", type: resourceType });
   const [anchors, setAnchor] = Appearance.useAnchors();
-  const searchInViews = onSearchSlotChange != null;
+  const { searchInViews } = useContext("View.Selector");
   const creatable = hasCreatePermission && editable;
   return (
     <Select.Frame
@@ -219,7 +217,9 @@ const Selector = ({
           )}
         >
           {searchInViews && (
-            <div ref={onSearchSlotChange} className={CSS.BE("view", "search-slot")} />
+            <div className={CSS.BE("view", "search")}>
+              <SearchInput />
+            </div>
           )}
           <Strip
             onContextMenu={contextMenuProps.open}

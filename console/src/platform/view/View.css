@@ -41,7 +41,7 @@
 }
 
 /* The search leads the views, split from them by a hairline as tall as the bar. */
-.console-view__search-slot {
+.console-view__search {
     display: flex;
     flex-shrink: 0;
     align-items: center;
