@@ -1627,6 +1627,59 @@ var _ = Describe("Graph", func() {
 		)
 
 		It(
+			"Should not wait for the write lock on a report that changes nothing",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_repeat_dep")
+				calc := channel.Channel{
+					Name: "rt_repeat", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_repeat_dep + 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				report := func() {
+					GinkgoHelper()
+					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+						Name:    "rt_repeat",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					})).To(Succeed())
+				}
+				report()
+				// reportsUnderSnapshot reports whether a report finishes while another
+				// goroutine holds a snapshot for up to 100 ms. A writer that waits for
+				// the lock can hold the report back, so Eventually retries.
+				reportsUnderSnapshot := func() bool {
+					GinkgoHelper()
+					held, reported := make(chan struct{}), make(chan struct{})
+					timedOut := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						Expect(db.WithSnapshot(ctx, func(gorp.Snapshot) error {
+							close(held)
+							select {
+							case <-reported:
+								timedOut <- false
+							case <-time.After(100 * time.Millisecond):
+								timedOut <- true
+							}
+							return nil
+						})).To(Succeed())
+					}()
+					Eventually(held).Should(BeClosed())
+					report()
+					close(reported)
+					var expired bool
+					Eventually(timedOut).Should(Receive(&expired))
+					return !expired
+				}
+				Eventually(reportsUnderSnapshot, 2*time.Second).Should(BeTrue())
+			},
+		)
+
+		It(
 			"Should drop a report for a channel it holds as invalid",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)

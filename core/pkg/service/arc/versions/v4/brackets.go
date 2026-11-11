@@ -25,9 +25,10 @@ import (
 // that starts a top-level item after a flow becomes `name (...)` instead, since the
 // flow would read the wrapped call as a call on its last node. Comments, strings and
 // layout are kept. A bracket with no match leaves its construct unchanged. Text already
-// in the current grammar is not valid input.
-func SwapBrackets(src string) string {
-	s := newStream(src)
+// in the current grammar is not valid input. cfgs sets how names lex, as in
+// parser.Parse.
+func SwapBrackets(src string, cfgs ...parser.Config) string {
+	s := newStream(src, parser.ConfigOf(cfgs...))
 	e := editor{
 		src:     []rune(src),
 		replace: map[int]rune{},
@@ -109,8 +110,8 @@ type stream struct {
 	nextBrace []int
 }
 
-func newStream(src string) stream {
-	tokens := visibleTokens(src)
+func newStream(src string, cfg parser.Config) stream {
+	tokens := visibleTokens(src, cfg)
 	s := stream{
 		tokens:    tokens,
 		match:     make([]int, len(tokens)),
@@ -346,8 +347,8 @@ func adjacent(prev, next antlr.Token) bool {
 // visibleTokens lexes src and drops whitespace, comments and the end marker. Lexer
 // diagnostics are dropped too: a stored program that no longer lexes is rewritten as
 // far as its tokens allow.
-func visibleTokens(src string) []antlr.Token {
-	lexer := parser.NewArcLexer(antlr.NewInputStream(src))
+func visibleTokens(src string, cfg parser.Config) []antlr.Token {
+	lexer := parser.NewLexer(src, cfg)
 	lexer.RemoveErrorListeners()
 	all := lexer.GetAllTokens()
 	visible := make([]antlr.Token, 0, len(all))

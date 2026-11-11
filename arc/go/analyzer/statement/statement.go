@@ -1117,7 +1117,7 @@ func analyzeIndexedAssignment(
 	if len(indexExprs) != 1 {
 		return
 	}
-	expression.Analyze(ctx.Child(indexExprs[0]))
+	expression.AnalyzeIndex(ctx, indexExprs[0])
 
 	// 4. Analyze value expression and check type compatibility
 	valueExpr := ctx.AST.Expression()
@@ -1203,7 +1203,7 @@ func analyzeIndexedCompoundAssignment(
 	if len(indexExpressions) != 1 {
 		return
 	}
-	expression.Analyze(ctx.Child(indexExpressions[0]))
+	expression.AnalyzeIndex(ctx, indexExpressions[0])
 
 	expr := ctx.AST.Expression()
 	if expr == nil {

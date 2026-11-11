@@ -16,14 +16,13 @@ import (
 	"slices"
 	"uuid"
 
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -57,15 +56,14 @@ type Writer struct {
 	// directoryDispatcher attaches the actions that change directories.
 	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
 	editedModules       *gorp.Attachment[Key]
-	compile             func(
-		context.Context, gorp.Snapshot, AutomationArc,
-	) (arc.Program, []string, error)
-	analyze     func(context.Context, gorp.Snapshot, ModuleArc) error
+	pathChanges         *gorp.Attachment[struct{}]
+	rebuild             func(
+		context.Context, gorp.Snapshot, *channel.Lookups, Key,
+	) (Build, error)
 	hashModules func(
 		context.Context, gorp.Snapshot, []string,
 	) (map[string]string, error)
-	now    func() telem.TimeStamp
-	parser parser.Config
+	now func() telem.TimeStamp
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -112,12 +110,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		return err
 	}
 	if module {
-		if err := w.resyncImporting(ctx); err != nil {
-			return err
-		}
-	}
-	if err := w.sync(ctx, *a); err != nil {
-		return err
+		w.pathChanges.Add(w.tx, struct{}{})
+		w.resyncs.Add(w.tx, b.Key)
 	}
 	w.dispatcher.Attach(
 		w.tx,
@@ -146,13 +140,26 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 	}
-	if err := w.table.NewDelete().
+	module, err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Where(gorp.Match(func(_ gorp.Context, a *Arc) (bool, error) {
+			return a.Type() == TypeModule, nil
+		})).
+		SkipMissingKeys().
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if err = w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Arc](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.deletes.Add(w.tx, keys...)
-	return w.resyncImporting(ctx)
+	if module {
+		w.pathChanges.Add(w.tx, struct{}{})
+	}
+	return nil
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
@@ -169,9 +176,9 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	return nil
 }
 
-// liveTasks matches the tasks of the arc with the given key that are not snapshots.
-func (w Writer) liveTasks(key Key) task.Filter {
-	return task.And(w.matchTasks(key), task.MatchSnapshot(false))
+// liveTasks matches the tasks of the arc with key that are not snapshots.
+func liveTasks(matchTasks func(arcs ...Key) task.Filter, key Key) task.Filter {
+	return task.And(matchTasks(key), task.MatchSnapshot(false))
 }
 
 func retrieveTaskKeys(
@@ -201,6 +208,9 @@ type TaskUpdate struct {
 	Rack *rack.Key
 	// Performance sets how closely the task's runtime holds timer deadlines.
 	Performance *taskversions.Performance
+	// Build is the arc's compile from Service.Build. UpdateTask compiles the arc in its
+	// transaction instead when Build is zero or a write changed what Build read.
+	Build Build
 }
 
 // UpdateTask changes the task of the arc with the given key. It returns the task, or
@@ -212,7 +222,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(key))
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, liveTasks(w.matchTasks, key))
 	if err != nil {
 		return nil, err
 	}
@@ -261,8 +271,12 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
+	b, err := w.current(ctx, update.Build, key)
+	if err != nil {
+		return nil, err
+	}
 	var hashes drift.Hashes
-	if cfg.Hash, hashes, err = w.build(ctx, a, rec.Stored); err != nil {
+	if cfg.Hash, hashes, err = w.hash(ctx, a, rec.Stored, b); err != nil {
 		return nil, err
 	}
 	written, err := w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
@@ -276,26 +290,40 @@ func (w Writer) UpdateTask(
 	return written, nil
 }
 
-// build returns the hash of a's compiled program and the hashes of its content. The
-// program holds the code of every module a imports. An automation that does not
-// compile hashes its text and the modules in previous, rehashed.
-func (w Writer) build(
+// current returns b when each lookup that b made gives the same answer in w.tx, and
+// otherwise builds the Arc with key in w.tx.
+func (w Writer) current(ctx context.Context, b Build, key Key) (Build, error) {
+	if b.lookups != nil {
+		same, err := b.lookups.Unchanged(ctx, w.tx)
+		if err != nil {
+			return Build{}, err
+		}
+		if same {
+			return b, nil
+		}
+	}
+	return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
+}
+
+// hash returns the hash of a's compiled program in b and the hashes of its content. The
+// program holds the code of every module a imports. An automation that does not compile
+// hashes its text and the modules in previous, rehashed.
+func (w Writer) hash(
 	ctx context.Context,
 	a Arc,
 	previous drift.Hashes,
+	b Build,
 ) (string, drift.Hashes, error) {
 	text, err := Hash(a.Base())
 	if err != nil {
 		return "", drift.Hashes{}, err
 	}
-	automation, ok := a.Variant.(AutomationArc)
-	if !ok {
+	if _, ok := a.Variant.(AutomationArc); !ok {
 		return text, drift.Hashes{Text: text, Modules: previous.Modules}, nil
 	}
 	paths := slices.Collect(maps.Keys(previous.Modules))
-	prog, loaded, compileErr := w.compile(ctx, w.tx, automation)
-	if compileErr == nil {
-		paths = loaded
+	if b.err == nil {
+		paths = b.loaded
 	}
 	modules, err := w.hashModules(ctx, w.tx, paths)
 	if err != nil {
@@ -303,8 +331,8 @@ func (w Writer) build(
 	}
 	hashes := drift.Hashes{Text: text, Modules: modules}
 	var hash string
-	if compileErr == nil {
-		hash, err = HashProgram(prog)
+	if b.err == nil {
+		hash, err = HashProgram(b.program)
 	} else {
 		hash, err = HashContent(hashes)
 	}
@@ -314,17 +342,17 @@ func (w Writer) build(
 	return hash, hashes, nil
 }
 
-// sync rewrites an automation's task config or a module's compile status from its
-// content.
-func (w Writer) sync(ctx context.Context, a Arc) error {
+// sync rewrites an automation's task config or a module's compile status from b, a
+// build of its content.
+func (w Writer) sync(ctx context.Context, a Arc, b Build) error {
 	if module, ok := a.Variant.(ModuleArc); ok {
-		return w.syncStatus(ctx, module)
+		return w.syncStatus(ctx, module, b)
 	}
-	return w.syncTask(ctx, a)
+	return w.syncTask(ctx, a, b)
 }
 
-// syncStatus compiles the module and stores the result as its status.
-func (w Writer) syncStatus(ctx context.Context, module ModuleArc) error {
+// syncStatus stores the result of b, the module's analysis, as its status.
+func (w Writer) syncStatus(ctx context.Context, module ModuleArc, b Build) error {
 	stat := Status{
 		Owner:   new(ResourceID(module.Key)),
 		Name:    module.Name,
@@ -332,10 +360,10 @@ func (w Writer) syncStatus(ctx context.Context, module ModuleArc) error {
 		Message: "Compiled",
 		Time:    w.now(),
 	}
-	if err := w.analyze(ctx, w.tx, module); err != nil {
+	if b.err != nil {
 		stat.Variant = status.VariantError
 		stat.Message = "Failed to compile"
-		stat.Description = err.Error()
+		stat.Description = b.err.Error()
 	}
 	return w.status.NewWriter(w.tx).Set(ctx, &stat)
 }
@@ -405,9 +433,11 @@ func (w Writer) retrieveTask(
 // syncTask applies the arc's name and compiled hash to the arc's task, and rewrites its
 // drift record, when an edit changed either. A no-op for arcs with no rack bound and
 // for edits, like graph layout moves, that change neither.
-func (w Writer) syncTask(ctx context.Context, a Arc) error {
+func (w Writer) syncTask(ctx context.Context, a Arc, built Build) error {
 	b := a.Base()
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(b.Key))
+	existing, err := retrieveTaskKeys(
+		ctx, w.tasks, w.tx, liveTasks(w.matchTasks, b.Key),
+	)
 	if err != nil || len(existing) == 0 {
 		return err
 	}
@@ -419,7 +449,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	if err != nil {
 		return err
 	}
-	hash, hashes, err := w.build(ctx, a, rec.Stored)
+	hash, hashes, err := w.hash(ctx, a, rec.Stored, built)
 	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
 		return err
 	}

@@ -12,6 +12,7 @@ package series
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -135,6 +136,16 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "length", Type: i64}},
 		),
 		symbol.InternalHostFunc(
+			"index_from_i64",
+			types.Params{{Name: "idx", Type: i64}},
+			types.Params{{Name: "idx", Type: i32}},
+		),
+		symbol.InternalHostFunc(
+			"index_from_u64",
+			types.Params{{Name: "idx", Type: types.U64()}},
+			types.Params{{Name: "idx", Type: i32}},
+		),
+		symbol.InternalHostFunc(
 			"slice",
 			types.Params{
 				{Name: "handle", Type: i32},
@@ -187,6 +198,20 @@ func NewHost(
 			return 0
 		}).Export("len")
 	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, index int64) int32 {
+			if index < math.MinInt32 || index > math.MaxInt32 {
+				panic(fmt.Sprintf(indexOverflow, index))
+			}
+			return int32(index)
+		}).Export("index_from_i64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, index uint64) int32 {
+			if index > math.MaxInt32 {
+				panic(fmt.Sprintf(indexOverflow, index))
+			}
+			return int32(index)
+		}).Export("index_from_u64")
+	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, start, end uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
@@ -220,6 +245,8 @@ func NewHost(
 	}
 	return h, nil
 }
+
+const indexOverflow = "index %d out of bounds for an i32 series index"
 
 // mustIndex returns index as an offset into ser, where a negative index counts from
 // the end. It panics when index is outside ser, which traps the guest call.

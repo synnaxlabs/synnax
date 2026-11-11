@@ -416,30 +416,50 @@ func (w *bundleWalk) encodePanels(files zip.Files, encoder encoding.FileEncoder)
 	return nil
 }
 
-// Import creates a fresh project from the bundle in files on tx: the manifest (or the
-// extension-stripped fileName) names it, directories become groups, members import
-// through the leaf registry, and panels are recreated with their resource tabs resolved
-// to the minted IDs. A root LAYOUT.json with no manifest is the legacy (version 0)
-// format. Invalid bundles return validation errors naming the offending file.
-func (s *Service) Import(
+// Bundle is a project bundle that Decode read, ready for Import.
+type Bundle struct {
+	// name names the project that Import creates.
+	name string
+	// members are the members of a version 1 bundle.
+	members []importMember
+	// layout is the LAYOUT.json of a legacy (version 0) bundle, and nil for a version 1
+	// bundle.
+	layout []byte
+	// legacyMembers are the members of a legacy bundle.
+	legacyMembers []legacy.Member
+}
+
+// Decode reads the bundle in files. It needs no transaction, so a caller can run it
+// before taking the write lock. The manifest, or the extension-stripped fileName, names
+// the project. A root LAYOUT.json with no manifest is the legacy (version 0) format.
+// Invalid bundles return validation errors naming the offending file.
+func (s *Service) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	files zip.Files,
 	fileName string,
-) (project.Project, error) {
+) (Bundle, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
 	if !ok {
-		if layoutData, ok := files[legacy.LayoutFileName]; ok {
-			return s.importLegacy(ctx, tx, layoutData, files, fileName)
+		layout, ok := files[legacy.LayoutFileName]
+		if !ok {
+			return Bundle{}, errors.Wrapf(
+				validate.ErrValidation, "bundle holds no %s", manifestFileName,
+			)
 		}
-		return project.Project{}, errors.Wrapf(
-			validate.ErrValidation, "bundle holds no %s", manifestFileName,
-		)
+		members, err := legacy.Members(ctx, layout, files)
+		if err != nil {
+			return Bundle{}, err
+		}
+		return Bundle{
+			name:          filename.Stem(fileName),
+			layout:        layout,
+			legacyMembers: members,
+		}, nil
 	}
 	manifest, err := decodeManifest(manifestData, manifestFileName)
 	if err != nil {
-		return project.Project{}, err
+		return Bundle{}, err
 	}
 	name := manifest.Name
 	if name == "" {
@@ -447,19 +467,33 @@ func (s *Service) Import(
 	}
 	members, err := s.bundleMembers(files)
 	if err != nil {
-		return project.Project{}, err
+		return Bundle{}, err
 	}
-	proj := project.Project{Name: name}
-	if err = s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+	return Bundle{name: name, members: members}, nil
+}
+
+// Import creates a fresh project from b on tx: directories become groups, members
+// import through the leaf registry, and panels are recreated with their resource tabs
+// resolved to the minted IDs.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	b Bundle,
+) (project.Project, error) {
+	if b.layout != nil {
+		return s.importLegacy(ctx, tx, b)
+	}
+	proj := project.Project{Name: b.name}
+	if err := s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
 		return project.Project{}, err
 	}
 	projID := project.ResourceID(proj.Key)
-	groups, err := s.createGroups(ctx, tx, projID, members)
+	groups, err := s.createGroups(ctx, tx, projID, b.members)
 	if err != nil {
 		return project.Project{}, err
 	}
-	refs := make(map[string]resource.ID, len(members))
-	for _, m := range members {
+	refs := make(map[string]resource.ID, len(b.members))
+	for _, m := range b.members {
 		if m.env.Type == string(resource.TypePanel) {
 			continue
 		}
@@ -474,7 +508,7 @@ func (s *Service) Import(
 		refs[m.path] = id
 	}
 	panelWriter := s.cfg.Panel.NewWriter(tx)
-	for _, m := range members {
+	for _, m := range b.members {
 		if m.env.Type != string(resource.TypePanel) {
 			continue
 		}
@@ -494,27 +528,21 @@ func (s *Service) Import(
 	return proj, nil
 }
 
-// importLegacy recreates a legacy (version 0) project directory, named after the
-// extension-stripped fileName: the documents its layout records reference, then each
-// window's mosaic tiling as a panel of resource tabs.
+// importLegacy recreates a legacy (version 0) project directory: the documents its
+// layout records reference, then each window's mosaic tiling as a panel of resource
+// tabs.
 func (s *Service) importLegacy(
 	ctx context.Context,
 	tx gorp.Tx,
-	layoutData []byte,
-	files zip.Files,
-	fileName string,
+	b Bundle,
 ) (project.Project, error) {
-	members, err := legacy.Members(ctx, layoutData, files)
-	if err != nil {
-		return project.Project{}, err
-	}
-	proj := project.Project{Name: filename.Stem(fileName)}
-	if err = s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+	proj := project.Project{Name: b.name}
+	if err := s.cfg.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
 		return project.Project{}, err
 	}
 	projID := project.ResourceID(proj.Key)
-	refs := make(map[string]resource.ID, len(members))
-	for _, m := range members {
+	refs := make(map[string]resource.ID, len(b.legacyMembers))
+	for _, m := range b.legacyMembers {
 		id, err := s.cfg.ImEx.Import(ctx, tx, m.Env, imex.ImportOptions{
 			FileName: m.Path,
 			Parent:   projID,
@@ -524,8 +552,8 @@ func (s *Service) importLegacy(
 		}
 		refs[m.LayoutKey] = id
 	}
-	if err = legacy.CreatePanels(
-		ctx, tx, s.cfg.Panel, proj.Key, layoutData, refs,
+	if err := legacy.CreatePanels(
+		ctx, tx, s.cfg.Panel, proj.Key, b.layout, refs,
 	); err != nil {
 		return project.Project{}, err
 	}

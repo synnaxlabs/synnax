@@ -86,7 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:         (*ReadConfig).Patch,
 			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
+			ValidateEntry:      validateReadConfig,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -105,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:         (*WriteConfig).Patch,
 			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
+			ValidateEntry:      validateWriteConfig,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

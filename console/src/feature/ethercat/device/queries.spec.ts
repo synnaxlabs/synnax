@@ -237,6 +237,7 @@ describe("useCommonNetwork", () => {
       await Device.setProperties(
         client,
         { key: dev.key, properties: { ...dev.properties, network: "updated-network" } },
+        dev.properties,
         EtherCAT.Device.SLAVE_SCHEMAS,
       );
     });

@@ -293,7 +293,7 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([match.key]));
   });
 
-  it("should report a failed read and show no records of the last query", async () => {
+  it("should show no records of the last query on a failed read or its retry", async () => {
     await create("a");
     const local = createTestClient();
     const { result } = renderHook(
@@ -316,6 +316,34 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.variant).toEqual("error"));
     expect(result.current.data).toEqual([]);
     expect(result.current.answered).toBe(false);
+    act(() => result.current.more());
+    expect(result.current.variant).toEqual("loading");
+    expect(result.current.data).toEqual([]);
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+  });
+
+  it("should read the first page again on more after it fails", async () => {
+    const a = await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    const reject = rejectRequests(
+      local,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null,
+      new Error("boom"),
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+    reject.mockRestore();
+    act(() => result.current.more());
+    await waitFor(() => {
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.data).toEqual([a.key]);
+    });
   });
 
   it("should read nothing on more while a read runs", async () => {

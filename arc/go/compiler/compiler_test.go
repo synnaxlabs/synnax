@@ -10,6 +10,7 @@
 package compiler_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -2209,6 +2210,414 @@ var _ = Describe("Compiler", func() {
 		)
 	})
 
+	Describe("Integer width", func() {
+		BeforeEach(func(ctx SpecContext) {
+			bindDefaultModules(ctx, r)
+		})
+
+		narrowResult := func(ctx SpecContext, body string, expected float64) {
+			source := fmt.Sprintf(`func test() i64 %s`, body)
+			output := MustSucceed(compileWithHostImports(ctx, source, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			test := mod.ExportedFunction("test")
+			Expect(test).ToNot(BeNil())
+			results := MustSucceed(test.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(decodeNumeric("i64", results[0])).To(Equal(expected))
+		}
+
+		DescribeTable("arithmetic should wrap to the width of the type",
+			narrowResult,
+			Entry("u8 subtract below zero", `{
+				n u8 := 0
+				return i64(n - 1)
+			}`, float64(255)),
+			Entry("u8 add above the maximum", `{
+				n u8 := 255
+				return i64(n + 1)
+			}`, float64(0)),
+			Entry("u8 add two variables", `{
+				a u8 := 200
+				b u8 := 100
+				return i64(a + b)
+			}`, float64(44)),
+			Entry("u8 multiply", `{
+				n u8 := 16
+				return i64(n * n)
+			}`, float64(0)),
+			Entry("u8 negate", `{
+				n u8 := 1
+				return i64(-n)
+			}`, float64(255)),
+			Entry("u8 compound add", `{
+				n u8 := 255
+				n += 1
+				return i64(n)
+			}`, float64(0)),
+			Entry("u8 compound subtract", `{
+				n u8 := 0
+				n -= 1
+				return i64(n)
+			}`, float64(255)),
+			Entry("u8 in range", `{
+				n u8 := 100
+				return i64(n + 100)
+			}`, float64(200)),
+			Entry("u16 subtract below zero", `{
+				n u16 := 0
+				return i64(n - 1)
+			}`, float64(65535)),
+			Entry("u16 add above the maximum", `{
+				n u16 := 65535
+				return i64(n + 1)
+			}`, float64(0)),
+			Entry("u16 multiply", `{
+				n u16 := 300
+				return i64(n * n)
+			}`, float64(24464)),
+			Entry("u16 compound multiply", `{
+				n u16 := 300
+				n *= 300
+				return i64(n)
+			}`, float64(24464)),
+			Entry("u16 in range", `{
+				n u16 := 30000
+				return i64(n + 30000)
+			}`, float64(60000)),
+			Entry("i8 subtract below zero", `{
+				n i8 := 0
+				return i64(n - 1)
+			}`, float64(-1)),
+			Entry("i8 add above the maximum", `{
+				n i8 := 127
+				return i64(n + 1)
+			}`, float64(-128)),
+			Entry("i8 subtract below the minimum", `{
+				n i8 := -127
+				return i64(n - 2)
+			}`, float64(127)),
+			Entry("i8 multiply", `{
+				n i8 := 100
+				return i64(n * 2)
+			}`, float64(-56)),
+			Entry("i8 negate the minimum", `{
+				n i8 := -127
+				m i8 := n - 1
+				return i64(-m)
+			}`, float64(-128)),
+			Entry("i8 divide the minimum by -1", `{
+				n i8 := -127
+				m i8 := n - 1
+				d i8 := -1
+				return i64(m / d)
+			}`, float64(-128)),
+			Entry("i8 compound add", `{
+				n i8 := 127
+				n += 1
+				return i64(n)
+			}`, float64(-128)),
+			Entry("i8 in range", `{
+				n i8 := -100
+				return i64(n + 50)
+			}`, float64(-50)),
+			Entry("i16 add above the maximum", `{
+				n i16 := 32767
+				return i64(n + 1)
+			}`, float64(-32768)),
+			Entry("i16 subtract below the minimum", `{
+				n i16 := -32767
+				return i64(n - 2)
+			}`, float64(32767)),
+			Entry("i16 multiply", `{
+				n i16 := 1000
+				return i64(n * 40)
+			}`, float64(-25536)),
+			Entry("i16 in range", `{
+				n i16 := -1000
+				return i64(n * 30)
+			}`, float64(-30000)),
+			Entry("u32 subtract below zero", `{
+				n u32 := 0
+				return i64(n - 1)
+			}`, float64(4294967295)),
+			Entry("i32 add above the maximum", `{
+				n i32 := 2147483647
+				return i64(n + 1)
+			}`, float64(-2147483648)),
+		)
+
+		DescribeTable("a stepped range loop should end at the bound of the type",
+			narrowResult,
+			Entry("u8 to the maximum", `{
+				count i64 := 0
+				for i := range(u8(0), u8(255), u8(2)) {
+					count += 1
+				}
+				return count
+			}`, float64(128)),
+			Entry("u16 to the maximum", `{
+				count i64 := 0
+				for i := range(u16(0), u16(65535), u16(30000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i8 to the maximum", `{
+				count i64 := 0
+				for i := range(i8(0), i8(127), i8(10)) {
+					count += 1
+				}
+				return count
+			}`, float64(13)),
+			Entry("i8 with a negative step", `{
+				count i64 := 0
+				for i := range(i8(0), i8(-125), i8(-10)) {
+					count += 1
+				}
+				return count
+			}`, float64(13)),
+			Entry("i16 to the maximum", `{
+				count i64 := 0
+				for i := range(i16(0), i16(32767), i16(10000)) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("i16 with a negative step", `{
+				count i64 := 0
+				for i := range(i16(0), i16(-32000), i16(-10000)) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("i32 to the maximum", `{
+				count i64 := 0
+				for i := range(i32(0), i32(2147483647), i32(1000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i32 with a negative step", `{
+				count i64 := 0
+				for i := range(i32(0), i32(-2147483647), i32(-1000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("u32 to the maximum", `{
+				count i64 := 0
+				for i := range(u32(0), u32(4294967295), u32(2000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 to the maximum", `{
+				count i64 := 0
+				for i := range(0, 9223372036854775807, 4000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 with a negative step", `{
+				count i64 := 0
+				for i := range(0, -9223372036854775807, -4000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("u64 to the maximum", `{
+				count i64 := 0
+				limit u64 := 0
+				limit -= 1
+				for i := range(u64(0), limit, u64(8000000000000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i8 across the full range", `{
+				count i64 := 0
+				for i := range(i8(-127), i8(127), i8(100)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i32 across the full range", `{
+				count i64 := 0
+				for i := range(i32(-2147483647), i32(2147483647), i32(2000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 across the full range", `{
+				count i64 := 0
+				for i := range(-9223372036854775807, 9223372036854775807, 9000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("step that lands on the limit", `{
+				count i64 := 0
+				for i := range(0, 10, 5) {
+					count += 1
+				}
+				return count
+			}`, float64(2)),
+			Entry("step that passes the limit", `{
+				count i64 := 0
+				for i := range(0, 10, 3) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("step larger than the range", `{
+				count i64 := 0
+				for i := range(0, 10, 100) {
+					count += 1
+				}
+				return count
+			}`, float64(1)),
+			Entry("negative step that lands on the limit", `{
+				count i64 := 0
+				for i := range(10, 0, -5) {
+					count += 1
+				}
+				return count
+			}`, float64(2)),
+			Entry("negative step larger than the range", `{
+				count i64 := 0
+				for i := range(5, 0, -100) {
+					count += 1
+				}
+				return count
+			}`, float64(1)),
+			Entry("empty range with a step", `{
+				count i64 := 0
+				for i := range(10, 0, 2) {
+					count += 1
+				}
+				return count
+			}`, float64(0)),
+			Entry("u8 loop variable keeps its value", `{
+				total i64 := 0
+				for i := range(u8(0), u8(255), u8(2)) {
+					total += i64(i)
+				}
+				return total
+			}`, float64(16256)),
+			Entry("i8 loop variable keeps its value", `{
+				total i64 := 0
+				for i := range(i8(0), i8(-125), i8(-10)) {
+					total += i64(i)
+				}
+				return total
+			}`, float64(-780)),
+		)
+
+		DescribeTable("an integer cast should wrap to the width of the target",
+			narrowResult,
+			Entry("i32 above the range to u8", `{
+				x i32 := 300
+				return i64(u8(x))
+			}`, float64(44)),
+			Entry("negative i32 to u8", `{
+				x i32 := -1
+				return i64(u8(x))
+			}`, float64(255)),
+			Entry("i32 to i8", `{
+				x i32 := 200
+				return i64(i8(x))
+			}`, float64(-56)),
+			Entry("i32 to u16", `{
+				x i32 := 70000
+				return i64(u16(x))
+			}`, float64(4464)),
+			Entry("i32 to i16", `{
+				x i32 := 40000
+				return i64(i16(x))
+			}`, float64(-25536)),
+			Entry("i64 to u8", `{
+				x i64 := 300
+				return i64(u8(x))
+			}`, float64(44)),
+			Entry("i64 to i16", `{
+				x i64 := 40000
+				return i64(i16(x))
+			}`, float64(-25536)),
+			Entry("u16 to u8", `{
+				x u16 := 300
+				return i64(u8(x))
+			}`, float64(44)),
+			Entry("u8 to i8", `{
+				x u8 := 200
+				return i64(i8(x))
+			}`, float64(-56)),
+			Entry("negative i8 to u8", `{
+				x i8 := -1
+				return i64(u8(x))
+			}`, float64(255)),
+			Entry("negative i8 to u16", `{
+				x i8 := -1
+				return i64(u16(x))
+			}`, float64(65535)),
+			Entry("u8 to u16 keeps the value", `{
+				x u8 := 200
+				return i64(u16(x))
+			}`, float64(200)),
+			Entry("i8 to i16 keeps the value", `{
+				x i8 := -5
+				return i64(i16(x))
+			}`, float64(-5)),
+			Entry("i32 in range to u8", `{
+				x i32 := 42
+				return i64(u8(x))
+			}`, float64(42)),
+		)
+
+		DescribeTable("a float cast should saturate at the bounds of the target",
+			narrowResult,
+			Entry("f64 above the range to u8", `{
+				x f64 := 300.0
+				return i64(u8(x))
+			}`, float64(255)),
+			Entry("negative f64 to u8", `{
+				x f64 := -5.0
+				return i64(u8(x))
+			}`, float64(0)),
+			Entry("f64 above the range to i8", `{
+				x f64 := 200.0
+				return i64(i8(x))
+			}`, float64(127)),
+			Entry("f64 below the range to i8", `{
+				x f64 := -200.0
+				return i64(i8(x))
+			}`, float64(-128)),
+			Entry("f64 above the range to u16", `{
+				x f64 := 70000.0
+				return i64(u16(x))
+			}`, float64(65535)),
+			Entry("f64 below the range to i16", `{
+				x f64 := -40000.0
+				return i64(i16(x))
+			}`, float64(-32768)),
+			Entry("f32 above the range to u8", `{
+				x f32 := 300.0
+				return i64(u8(x))
+			}`, float64(255)),
+			Entry("f32 below the range to i8", `{
+				x f32 := -200.0
+				return i64(i8(x))
+			}`, float64(-128)),
+			Entry("f64 in range to u8 truncates", `{
+				x f64 := 42.9
+				return i64(u8(x))
+			}`, float64(42)),
+			Entry("f64 in range to i8 truncates", `{
+				x f64 := -42.9
+				return i64(i8(x))
+			}`, float64(-42)),
+		)
+	})
+
 	Describe("Cast of a mixed expression (SY-5167)", func() {
 		BeforeEach(func(ctx SpecContext) {
 			bindDefaultModules(ctx, r)
@@ -2281,10 +2690,10 @@ var _ = Describe("Compiler", func() {
 				n i64 := 7
 				return f64(15 / n)
 			}`, 2.0),
-			Entry("u8 operand adds at i32 width before a f64 cast", "f64", `{
+			Entry("u8 operand wraps before a f64 cast", "f64", `{
 				n u8 := 200
 				return f64(100 + n)
-			}`, float64(300)),
+			}`, float64(44)),
 			Entry("i64 operand narrowed to i32", "i32", `{
 				n i64 := 7
 				return i32(2 * n)
@@ -2293,14 +2702,14 @@ var _ = Describe("Compiler", func() {
 				n i32 := 7
 				return i64(3 * n + 1)
 			}`, float64(22)),
-			Entry("i16 operand to i64", "i64", `{
+			Entry("i16 operand wraps before an i64 cast", "i64", `{
 				n i16 := 1000
 				return i64(40 * n)
-			}`, float64(40000)),
-			Entry("u8 operand adds at i32 width before an i32 cast", "i32", `{
+			}`, float64(-25536)),
+			Entry("u8 operand wraps before an i32 cast", "i32", `{
 				n u8 := 200
 				return i32(100 + n)
-			}`, float64(300)),
+			}`, float64(44)),
 			Entry("u32 operand extends unsigned to i64", "i64", `{
 				n u32 := 4000000000
 				return i64(1 + n)
@@ -2742,6 +3151,220 @@ var _ = Describe("Compiler", func() {
 				r := -x
 				return r[1]
 			}`, float64(-2.0)),
+		)
+
+		DescribeTable("index wider than an i32",
+			func(ctx SpecContext, body string, expected any) {
+				source := fmt.Sprintf(
+					`func test() %s %s`,
+					inferReturnType(expected),
+					body,
+				)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("len index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				return s[len(s) - 1]
+			}`, 3.0),
+			Entry("range index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				acc := 0.0
+				for i := range(len(s)) {
+					acc = acc + s[i]
+				}
+				return acc
+			}`, 6.0),
+			Entry("u64 index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 1
+				return s[i]
+			}`, 2.0),
+			Entry("u32 index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 2
+				return s[i]
+			}`, 3.0),
+			Entry("literal-first index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 1
+				return s[1 + i]
+			}`, 3.0),
+			Entry("indexed assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s[len(s) - 1] = 9.0
+				return s[2]
+			}`, 9.0),
+			Entry("indexed compound assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s[len(s) - 1] += 9.0
+				return s[2]
+			}`, 12.0),
+			Entry("slice start", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				t series f64 := s[len(s) - 2:]
+				return t[0]
+			}`, 2.0),
+			Entry("slice end", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				t series f64 := s[1:len(s)]
+				return t[1]
+			}`, 3.0),
+		)
+
+		DescribeTable("64-bit index outside the series traps",
+			func(ctx SpecContext, index string) {
+				source := fmt.Sprintf(`func test() f64 {
+					s series f64 := [1.0, 2.0, 3.0]
+					i i64 := %s
+					return s[i]
+				}`, index)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				Expect(test.Call(ctx)).Error().To(MatchError(ContainSubstring(
+					"index " + index + " out of bounds for series of size 3",
+				)))
+			},
+			Entry("past the end", "3"),
+			Entry("before the start", "-4"),
+		)
+
+		It("should count a negative 64-bit index from the end", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `func test() f64 {
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -3
+				return s[i]
+			}`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			results := MustSucceed(mod.ExportedFunction("test").Call(ctx))
+			assertResult(results[0], 1.0)
+		})
+
+		Describe("Index function", func() {
+			// The body of the function before and after its host call. The host
+			// call sits inside the if block, so an index in range does not reach it.
+			var (
+				maxI32 = []byte{0x42, 0xff, 0xff, 0xff, 0xff, 0x07}
+				minI32 = []byte{0x42, 0x80, 0x80, 0x80, 0x80, 0x78}
+				get    = []byte{0x20, 0x00}
+				report = append([]byte{0x04, 0x40}, append(get, 0x10)...)
+				signed = bytes.Join([][]byte{
+					get, maxI32, {0x55}, get, minI32, {0x53}, {0x72}, report,
+				}, nil)
+				unsigned = bytes.Join([][]byte{get, maxI32, {0x56}, report}, nil)
+				tail     = []byte{0x1a, 0x0b, 0x20, 0x00, 0xa7}
+			)
+			source := func(indexType string) string {
+				return fmt.Sprintf(`func test() f64 {
+					s series f64 := [1.0, 2.0, 3.0]
+					i %s := 1
+					return s[i]
+				}`, indexType)
+			}
+
+			DescribeTable("should check the range in WASM",
+				func(ctx SpecContext, indexType string, head, absent []byte) {
+					output := MustSucceed(
+						compileWithHostImports(ctx, source(indexType), nil),
+					)
+					Expect(bytes.Contains(output.WASM, head)).To(BeTrue())
+					Expect(bytes.Contains(output.WASM, tail)).To(BeTrue())
+					Expect(bytes.Contains(output.WASM, absent)).To(BeFalse())
+				},
+				Entry("i64", "i64", signed, unsigned),
+				Entry("u64", "u64", unsigned, signed),
+				Entry("u32", "u32", signed, unsigned),
+			)
+
+			It("should not export the function", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, source("i64"), nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				Expect(mod.ExportedFunction("$index_from_i64")).To(BeNil())
+			})
+
+			It("should leave the function out of a program with no 64-bit index",
+				func(ctx SpecContext) {
+					output := MustSucceed(
+						compileWithHostImports(ctx, source("i32"), nil),
+					)
+					Expect(bytes.Contains(output.WASM, signed)).To(BeFalse())
+					Expect(bytes.Contains(output.WASM, unsigned)).To(BeFalse())
+				},
+			)
+		})
+
+		DescribeTable("index that does not fit in an i32 traps",
+			func(ctx SpecContext, body, index string) {
+				source := fmt.Sprintf(`func test() f64 %s`, body)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				Expect(test.Call(ctx)).Error().To(MatchError(ContainSubstring(
+					"index " + index + " out of bounds for an i32 series index",
+				)))
+			},
+			Entry("i64 above the range", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				return s[i]
+			}`, "4294967297"),
+			Entry("i64 below the range", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -4294967297
+				return s[i]
+			}`, "-4294967297"),
+			Entry("u64 of 2^31", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 2147483648
+				return s[i]
+			}`, "2147483648"),
+			Entry("u64 counter below zero", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 0
+				return s[i - 1]
+			}`, "18446744073709551615"),
+			Entry("u32 of 2^32 - 1", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 4294967295
+				return s[i]
+			}`, "4294967295"),
+			Entry("u32 counter below zero", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 0
+				return s[i - 1]
+			}`, "4294967295"),
+			Entry("indexed assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				s[i] = 9.0
+				return s[0]
+			}`, "4294967297"),
+			Entry("indexed compound assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				s[i] += 9.0
+				return s[0]
+			}`, "4294967297"),
+			Entry("slice start", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				t series f64 := s[i:]
+				return t[0]
+			}`, "4294967297"),
+			Entry("slice end", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				t series f64 := s[0:i]
+				return t[0]
+			}`, "4294967297"),
 		)
 	})
 

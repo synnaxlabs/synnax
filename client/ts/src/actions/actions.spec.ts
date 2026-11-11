@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type patch, zod } from "@synnaxlabs/x";
-import { type Draft, produce } from "immer";
+import { caseconv, type patch, record, zod } from "@synnaxlabs/x";
+import { type Draft, freeze, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -266,6 +266,16 @@ describe("applyField", () => {
     );
     expect(next).toBe(DOC);
     expect(result).toBe(actions.NO_OP_RESULT);
+  });
+
+  it("should apply two actions to one field of a frozen document", () => {
+    const documentZ = z.object({ props: record.unknownZ() });
+    const doc = freeze({ key: "a", props: { a: { b: {} }, c: 1 } }, true);
+    const next = produce(doc, (draft) => {
+      actions.applyField(draft, setAt(["props", "c"], 2), documentZ);
+      actions.applyField(draft, setAt(["props", "a", "b", "d"], 3), documentZ);
+    });
+    expect(next).toEqual({ key: "a", props: { a: { b: { d: 3 } }, c: 2 } });
   });
 });
 

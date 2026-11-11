@@ -403,6 +403,16 @@ func consumer() {v f32 bar} {}
 producer() -> consumer()
 """
 
+# A float series index is rejected at configure time.
+ARC_FLOAT_SERIES_INDEX = """
+func pick() f64 {
+    data series f64 := [1.0, 2.0, 3.0]
+    i f32 := 1.0
+    return data[i]
+}
+func consumer() {v f64} {}
+pick() -> consumer()
+"""
 
 # A slice is a series, so a function that returns f64 cannot return it.
 ARC_SLICE_RETURNED_AS_SCALAR = """
@@ -454,6 +464,11 @@ TYPE_MISMATCH_CASES = [
         "SliceWrittenToScalarChannel",
         ARC_SLICE_WRITTEN_TO_SCALAR_CHANNEL,
         "cannot write series f32 to channel 'edge_diamond' (type f32)",
+    ),
+    Case(
+        "FloatSeriesIndex",
+        ARC_FLOAT_SERIES_INDEX,
+        "series index must be an integer type, got f32",
     ),
 ]
 

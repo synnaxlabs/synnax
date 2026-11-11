@@ -23,10 +23,15 @@
 namespace driver::ethercat::coe {
 /// @brief an SDO read of an object that the slave does not have.
 const x::errors::Error OBJECT_MISSING = errors::SDO_READ_ERROR.sub("object_missing");
+/// @brief an SDO read of a sub-index that an object of the slave does not have.
+const x::errors::Error SUBINDEX_MISSING = errors::SDO_READ_ERROR.sub(
+    "subindex_missing"
+);
 
 /// @brief returns the error for an SDO read of index:sub_index that the slave aborted
 /// with abort_code, or that got no answer when abort_code is 0. Matches OBJECT_MISSING
-/// when the slave does not have the object.
+/// when the slave does not have the object, and SUBINDEX_MISSING when the object does
+/// not have the sub-index.
 x::errors::Error read_error(uint16_t index, uint8_t sub_index, uint32_t abort_code);
 
 /// @brief reads an unsigned value of at most four bytes from the object dictionary of

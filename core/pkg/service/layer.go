@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -770,6 +771,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
+		Parser: parser.Config{
+			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+		},
 	})
 	if !ok(err, arcTable) {
 		return nil, err

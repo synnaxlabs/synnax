@@ -185,6 +185,85 @@ var _ = Describe("Service", func() {
 				"holding_register_bit",
 			),
 		)
+
+		DescribeTable("Should refuse a register value the Driver cannot read",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				channelType string,
+				dataType string,
+				msg string,
+			) {
+				Expect(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":          channelType,
+						"key":           "chan-1",
+						"data_type":     dataType,
+						"string_length": 4,
+					}},
+				})).Error().To(MatchError(
+					HaveSuffix("channels.0.data_type: " + msg),
+				))
+			},
+			Entry(
+				"0.60 holding register string read",
+				func() config.Store { return svc.Read },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string; read a string with a "+
+					"register string channel",
+			),
+			Entry(
+				"0.60 input register string read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"string",
+				"must be a numeric data type, not string; read a string with a "+
+					"register string channel",
+			),
+			Entry(
+				"holding register string write",
+				func() config.Store { return svc.Write },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string",
+			),
+			Entry(
+				"timestamp read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"timestamp",
+				"must be a numeric data type, not timestamp",
+			),
+		)
+
+		DescribeTable("Should accept every numeric register value type",
+			func(ctx SpecContext, store func() config.Store, dataType string) {
+				MustSucceed(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{register(map[string]any{"data_type": dataType})},
+				}))
+			},
+			Entry("int8 read", func() config.Store { return svc.Read }, "int8"),
+			Entry("uint8 read", func() config.Store { return svc.Read }, "uint8"),
+			Entry("int16 read", func() config.Store { return svc.Read }, "int16"),
+			Entry("uint16 read", func() config.Store { return svc.Read }, "uint16"),
+			Entry("int32 read", func() config.Store { return svc.Read }, "int32"),
+			Entry("uint32 read", func() config.Store { return svc.Read }, "uint32"),
+			Entry("int64 read", func() config.Store { return svc.Read }, "int64"),
+			Entry("uint64 read", func() config.Store { return svc.Read }, "uint64"),
+			Entry("float32 read", func() config.Store { return svc.Read }, "float32"),
+			Entry("float64 read", func() config.Store { return svc.Read }, "float64"),
+			Entry("int8 write", func() config.Store { return svc.Write }, "int8"),
+			Entry("uint8 write", func() config.Store { return svc.Write }, "uint8"),
+			Entry("int16 write", func() config.Store { return svc.Write }, "int16"),
+			Entry("uint16 write", func() config.Store { return svc.Write }, "uint16"),
+			Entry("int32 write", func() config.Store { return svc.Write }, "int32"),
+			Entry("uint32 write", func() config.Store { return svc.Write }, "uint32"),
+			Entry("int64 write", func() config.Store { return svc.Write }, "int64"),
+			Entry("uint64 write", func() config.Store { return svc.Write }, "uint64"),
+			Entry("float32 write", func() config.Store { return svc.Write }, "float32"),
+			Entry("float64 write", func() config.Store { return svc.Write }, "float64"),
+		)
 	})
 
 	Describe("Byte and word order", func() {

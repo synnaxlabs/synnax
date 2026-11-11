@@ -240,16 +240,32 @@ type (
 	}
 )
 
-// UpdateTask creates, moves, or changes the arc's task. A zero rack unbinds the arc,
-// deleting its task; unbinding a running arc is rejected.
+// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction. An
+// unbind compiles nothing. It returns query.ErrNotFound when the arc to compile does
+// not exist.
+func (s *Service) PrepareUpdateTask(
+	ctx context.Context,
+	req UpdateTaskRequest,
+) (arc.Build, error) {
+	if req.Rack != nil && *req.Rack == 0 {
+		return arc.Build{}, nil
+	}
+	return s.internal.Build(ctx, req.Key)
+}
+
+// UpdateTask creates, moves, or changes the arc's task with the compile from
+// PrepareUpdateTask. A zero rack unbinds the arc, deleting its task; unbinding a
+// running arc is rejected.
 func (s *Service) UpdateTask(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateTaskRequest,
+	b arc.Build,
 ) (UpdateTaskResponse, error) {
 	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
 		Rack:        req.Rack,
 		Performance: req.Performance,
+		Build:       b,
 	})
 	if err != nil {
 		return UpdateTaskResponse{}, err
