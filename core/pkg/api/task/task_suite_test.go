@@ -84,7 +84,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: svc.Project,
 		Bundle:  svc.Bundle,
 	}))
-	importBundle = bind.Write(binder, projectSvc.Import)
+	importBundle = bind.WritePrepared(
+		binder,
+		projectSvc.PrepareImport,
+		projectSvc.Import,
+	)
 })
 
 // createUser creates a user that can do nothing.
