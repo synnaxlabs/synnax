@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -26,10 +28,12 @@ var _ = Describe("Migration", func() {
 	It("Should keep every field of a stored range", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		parent := uuid.New()
+		c := MustSucceed(color.FromHex("#ff0000"))
 		old := v2.Range{
 			Key:       uuid.New(),
 			Name:      "Range",
 			TimeRange: telem.NewRangeSeconds(1, 2),
+			Color:     &c,
 			Parent:    &parent,
 			Labels:    []uuid.UUID{uuid.New()},
 		}
@@ -48,6 +52,7 @@ var _ = Describe("Migration", func() {
 			Key:       old.Key,
 			Name:      old.Name,
 			TimeRange: old.TimeRange,
+			Color:     old.Color,
 			Parent:    old.Parent,
 			Labels:    old.Labels,
 		}))
@@ -58,15 +63,21 @@ var _ = Describe("MigrateWhere", func() {
 	It("Should keep each line through every branch", func(ctx SpecContext) {
 		label, rng := uuid.New(), uuid.New()
 		tr := telem.NewRangeSeconds(1, 2)
+		key := &filter.Set[uuid.UUID]{In: []uuid.UUID{rng}}
+		name := &filter.String{Contains: new("run")}
 		old := v2.Where{
-			And: []v2.Where{{Labels: []uuid.UUID{label}}},
-			Or:  []v2.Where{{Parents: []uuid.UUID{rng}}, {Overlaps: &tr}},
-			Not: &v2.Where{Labels: []uuid.UUID{label}},
+			And:  []v2.Where{{Labels: []uuid.UUID{label}}},
+			Or:   []v2.Where{{Parents: []uuid.UUID{rng}}, {Overlaps: &tr}},
+			Not:  &v2.Where{Labels: []uuid.UUID{label}},
+			Key:  key,
+			Name: name,
 		}
 		Expect(v3.MigrateWhere(ctx, old)).To(Equal(v3.Where{
-			And: []v3.Where{{Labels: []uuid.UUID{label}}},
-			Or:  []v3.Where{{Parents: []uuid.UUID{rng}}, {Overlaps: &tr}},
-			Not: &v3.Where{Labels: []uuid.UUID{label}},
+			And:  []v3.Where{{Labels: []uuid.UUID{label}}},
+			Or:   []v3.Where{{Parents: []uuid.UUID{rng}}, {Overlaps: &tr}},
+			Not:  &v3.Where{Labels: []uuid.UUID{label}},
+			Key:  key,
+			Name: name,
 		}))
 	})
 })
