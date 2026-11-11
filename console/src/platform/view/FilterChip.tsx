@@ -93,6 +93,7 @@ export const FilterChipRemove = ({
     square
     sharp
     textColor={8}
+    className={CSS.BE("view", "filter-remove")}
     aria-label={`Remove ${name} filter`}
     tooltip="Remove filter"
     tooltipLocation="bottom"

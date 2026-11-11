@@ -374,11 +374,11 @@ bound, a log precision, or the line plot X channel.
 ### Filter chips
 
 - A chip is a row of parts: name, operator, value, and remove. It has an l2 fill, an l5
-  border, the medium radius, and l4 lines between its parts.
+  border, the medium radius, and l6 lines between its parts.
 - A chip is 26 px tall, and each part has 10.5 px of padding on each side. The text is
   13 px.
-- The name icon and the operator are muted (l9). The remove icon is 12 px and l8, and it
-  takes the text color on hover.
+- The name icon and the operator are muted (l9). The remove part is 28 px wide. Its icon
+  is 12 px and l8, and it takes the text color on hover.
 - A part that opens something gets l3 on hover and l4 on press.
 - The dots of a labels value overlap a little, as one group.
 
