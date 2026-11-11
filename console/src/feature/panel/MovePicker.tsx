@@ -19,12 +19,12 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { renderIcon } from "@/feature/panel/icon";
 import {
   type TabOrigin,
   useMoveTab,
   useMoveTabToNewPanel,
 } from "@/feature/panel/useMoveTab";
+import { Appearance } from "@/platform/appearance";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
@@ -43,7 +43,7 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const color = Panel.useColor({ key: props.itemKey });
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
-      {renderIcon({ icon, color })}
+      {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}
       <Text.Text overflow="fade">{name}</Text.Text>
     </Select.Item>
   );
