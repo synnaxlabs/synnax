@@ -62,15 +62,17 @@ The device properties store it under `hardware`. RFC 0081 Phase 4 makes it a fie
 | `digital_ports[]`: `port`, `lines`, `input`, `output`                                         | `Dev_DI_Ports`, `Dev_DO_Ports`, `PhysicalChan_DI_PortWidth`, `PhysicalChan_DO_PortWidth`   | Line grid                |
 | `terminals`                                                                                   | `Dev_Terminals`                                                                            | Counter terminal selects |
 | `ai_min_rate`, `ai_max_single_channel_rate`, `ai_max_multi_channel_rate`, `ao_max_rate`       | `Dev_AI_MinRate`, `Dev_AI_MaxSingleChanRate`, `Dev_AI_MaxMultiChanRate`, `Dev_AO_MaxRate`  | Sample rate check        |
-| `ai_voltage_ranges`, `ai_current_ranges`, `ao_voltage_ranges`, `ao_current_ranges`            | `Dev_AI_VoltageRngs`, `Dev_AI_CurrentRngs`, `Dev_AO_VoltageRngs`, `Dev_AO_CurrentRngs`     | Stored only              |
+| `ai_voltage_ranges`, `ai_current_ranges`, `ao_voltage_ranges`, `ao_current_ranges`            | `Dev_AI_VoltageRngs`, `Dev_AI_CurrentRngs`, `Dev_AO_VoltageRngs`, `Dev_AO_CurrentRngs`     | Range check              |
 
 `port` is the number in the DAQmx name (`ai3` is 3), which is the number a task channel
 stores (`schemas/synnax/ni.oracle:486`). Names are relative to the device, and
 `terminals` drops the `/Dev1/` prefix. `types` holds the task's channel type names, such
 as `ai_voltage`, so the form filters its type select with no table. The Driver drops a
-DAQmx type that has no Synnax channel type, because no form can offer it. Ranges do not
-restrict the form: NI gives them per device, not per terminal configuration, so a
-USB-6008 lists ±20 V although only Differential reaches it.
+DAQmx type that has no Synnax channel type, because no form can offer it. The form marks
+a channel whose minimum and maximum fit in no range of its type. It skips a channel with
+a custom scale and a current channel with an external shunt. NI gives ranges per device,
+not per terminal configuration, so they are a superset: a USB-6008 lists ±20 V although
+only Differential reaches it.
 
 The Console's `propertiesZ` gets `hardware: ni.hardwareZ.optional()`. Without it, every
 Console write deletes the key, because `propertiesZ` drops unknown keys. EtherCAT keeps
