@@ -92,8 +92,21 @@ class TestReleaseNotes:
         assert "configuration_file_path=.github/release/driver.yml" in args
 
     def test_starts_after_the_previous_tag(self, harness: Harness) -> None:
-        harness.run("driver/v0.1.1", "abc", "c.yml", "driver/v0.1.0")
+        harness.git("tag", "driver/v0.1.0")
+        harness.run("driver/v0.1.1", "HEAD", "c.yml", "driver/v0.1.0")
         assert "previous_tag_name=driver/v0.1.0" in harness.gh_args()
+
+    def test_fails_when_the_previous_tag_does_not_exist(self, harness: Harness) -> None:
+        result = subprocess.run(
+            [str(SCRIPT), "driver/v0.1.1", "HEAD", "c.yml", "driver/v0.1.0"],
+            cwd=harness.path,
+            env=harness.env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "driver/v0.1.0" in result.stderr
+        assert not harness.gh.calls()
 
     def test_omits_the_previous_tag_for_a_first_release(self, harness: Harness) -> None:
         harness.run("driver/v0.1.0", "abc", "c.yml")
@@ -156,12 +169,9 @@ class Train(Harness):
         super().__init__(path=path, body=MINOR)
         self.git("tag", "core/v0.60.0")
         self.stall = self.commit("Fix a stall (#11)")
-        self.commit("Fix a leak (#12)")
+        self.leak = self.commit("Fix a leak (#12)")
         self.stage = self.commit("Fix a stage (#14)")
         self.git("checkout", "-q", "-b", "release/core-0.60", "core/v0.60.0")
-        # A pick that keeps its subject names the source PR, whose commits hold no
-        # trailers.
-        self.gh.serve("api */pulls/1[124]/commits")
 
 
 @pytest.fixture
@@ -172,6 +182,9 @@ def train(tmp_path: Path) -> Train:
 def picked(subject: str, sha: str) -> dict[str, dict[str, str]]:
     """Returns a PR commit that `cherry-pick -x` made from sha."""
     return {"commit": {"message": f"{subject}\n\n(cherry picked from commit {sha})"}}
+
+
+MERGED_11 = [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}]
 
 
 class TestCherryPicks:
@@ -223,10 +236,8 @@ class TestCherryPicks:
         train.commit("Pick the stall fix (0.60.1) (#13)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
-        train.gh.serve(
-            f"api */commits/{branch}/pulls",
-            [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}],
-        )
+        train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
+        train.gh.serve("api */pulls/11/commits", [{"sha": branch}])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
@@ -237,13 +248,49 @@ class TestCherryPicks:
         train.git("checkout", "-q", "release/core-0.60")
         train.git("cherry-pick", "-x", branch)
         train.git("tag", "core/v0.60.1")
-        train.gh.serve(
-            f"api */commits/{branch}/pulls",
-            [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}],
-        )
+        train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
+        train.gh.serve("api */pulls/11/commits", [{"sha": branch}])
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
+
+    def test_keeps_a_pr_whose_branch_was_picked_in_part(self, train: Train) -> None:
+        branch = "0123456789abcdef0123456789abcdef01234567"
+        later = "89abcdef0123456789abcdef0123456789abcdef"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
+        train.gh.serve("api */pulls/11/commits", [{"sha": branch}, {"sha": later}])
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert notes.strip() == MINOR.strip()
+
+    def test_leaves_out_a_fix_picked_from_an_older_train(self, train: Train) -> None:
+        train.git("checkout", "-q", "-b", "release/core-0.59", "core/v0.60.0")
+        older = train.commit("Pick the stall fix (0.59.2) (#20)")
+        train.gh.serve(
+            "api */pulls/20/commits", [picked("Fix a stall (#11)", train.stall)]
+        )
+        train.git("checkout", "-q", "release/core-0.60")
+        train.commit("Pick the stall fix (0.60.1) (#21)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/21/commits",
+            [picked("Pick the stall fix (0.59.2) (#20)", older)],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
+
+    def test_reads_no_pr_commits_for_a_pick_with_a_trailer(self, train: Train) -> None:
+        train.git("cherry-pick", "-x", train.stall)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            "api */pulls/11/commits", [picked("Fix a leak (#12)", train.leak)]
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a leak by @someone in {PULL}/12" in notes
 
     def test_keeps_every_fix_when_github_lacks_the_source(self, train: Train) -> None:
         local = "0123456789abcdef0123456789abcdef01234567"

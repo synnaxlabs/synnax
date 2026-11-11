@@ -29,43 +29,83 @@ if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
     exit 1
 fi
 
-# The commits the previous tag holds that SHA does not are its cherry-picks. Each names
-# its source in a `cherry-pick -x` trailer. A squash merge drops the trailers, so the
-# commits of the PR it closed are read too.
-MESSAGES=""
+# Prints the PR number at the end of a commit's subject.
+subject_pr() {
+    git log -1 --format=%s "$1" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p'
+}
+
+# Prints the sources a commit names in `cherry-pick -x` trailers. A squash merge drops
+# the trailers, so a commit with none reads the commits of the PR its subject names.
+sources() {
+    local trailer='s/^\(cherry picked from commit ([0-9a-f]+)\)$/\1/p'
+    local found pr
+    found=$(git log -1 --format=%B "$1" | sed -nE "$trailer") || return
+    pr=$(subject_pr "$1") || return
+    if [ -n "$found" ] || [ -z "$pr" ]; then
+        echo "$found"
+        return
+    fi
+    "$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate \
+        --jq '.[].commit.message' | sed -nE "$trailer"
+}
+
+# The commits the previous tag holds that SHA does not are its cherry-picks. A source
+# off SHA is itself a pick, such as one from an older train's branch, so its own
+# sources are read too.
+SOURCES=""
+PICKS=""
 if [ -n "$PREVIOUS_TAG" ]; then
-    for commit in $(git rev-list --no-merges "$PREVIOUS_TAG" "^$SHA"); do
-        MESSAGES+=$(git log -1 --format=%B "$commit")$'\n'
-        PR=$(git log -1 --format=%s "$commit" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')
-        if [ -n "$PR" ]; then
-            MESSAGES+=$("$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" \
-                --paginate --jq '.[].commit.message')$'\n'
+    PICKS=$(git rev-list --no-merges "$PREVIOUS_TAG" "^$SHA")
+fi
+while [ -n "$PICKS" ]; do
+    FOUND=""
+    for commit in $PICKS; do
+        FOUND+=$(sources "$commit")$'\n'
+    done
+    PICKS=""
+    for source in $FOUND; do
+        if [[ " $SOURCES " == *" $source "* ]]; then continue; fi
+        SOURCES+=" $source"
+        if git cat-file -e "$source^{commit}" 2> /dev/null \
+            && ! git merge-base --is-ancestor "$source" "$SHA"; then
+            PICKS+=" $source"
         fi
     done
-fi
+done
 
-# A source on `main` names its PR in its subject. GitHub resolves the merged PR of any
-# other source, such as one picked from a PR branch. A source picked from a commit that
+# A source with a PR in its subject is that PR's squash merge. GitHub resolves the
+# merged PR of any other source, such as a commit of a PR branch. That PR counts as
+# shipped only when all of its commits were picked. A source picked from a commit that
 # was never pushed has no PR.
 SHIPPED=""
-SOURCES=$(sed -nE 's/^\(cherry picked from commit ([0-9a-f]+)\)$/\1/p' \
-    <<< "$MESSAGES" | sort -u)
 ERR=$(mktemp)
 trap 'rm -f "$ERR"' EXIT
 for source in $SOURCES; do
     PR=""
     if git cat-file -e "$source^{commit}" 2> /dev/null; then
-        PR=$(git log -1 --format=%s "$source" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')
+        PR=$(subject_pr "$source")
     fi
     if [ -n "$PR" ]; then
         SHIPPED+=" $PR"
-    elif PRS=$("$GH_API" "repos/$GITHUB_REPOSITORY/commits/$source/pulls" \
-        --jq '.[] | select(.merged_at) | .number' 2> "$ERR"); then
-        SHIPPED+=" $PRS"
-    elif ! grep -q "No commit found for SHA" "$ERR"; then
-        cat "$ERR" >&2
-        exit 1
+        continue
     fi
+    if ! PRS=$("$GH_API" "repos/$GITHUB_REPOSITORY/commits/$source/pulls" \
+        --jq '.[] | select(.merged_at) | .number' 2> "$ERR"); then
+        if ! grep -q "No commit found for SHA" "$ERR"; then
+            cat "$ERR" >&2
+            exit 1
+        fi
+        continue
+    fi
+    for pr in $PRS; do
+        COMMITS=$("$GH_API" "repos/$GITHUB_REPOSITORY/pulls/$pr/commits" --paginate \
+            --jq '.[].sha')
+        ALL=true
+        for commit in $COMMITS; do
+            if [[ " $SOURCES " != *" $commit "* ]]; then ALL=false; fi
+        done
+        if [ "$ALL" = true ]; then SHIPPED+=" $pr"; fi
+    done
 done
 
 ARGS=(-f tag_name="$TAG" -f target_commitish="$SHA")
