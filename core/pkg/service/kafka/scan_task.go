@@ -129,9 +129,12 @@ func (s scanner) ping(ctx context.Context, props Properties) error {
 }
 
 func validateScanConfig(cfg *ScanConfig) error {
-	if cfg.Rate <= 0 || cfg.Rate.Period() <= 0 {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if cfg.Rate.Period() <= 0 {
 		return errors.Wrapf(
-			validate.ErrValidation, "rate: must be positive, got %s", cfg.Rate,
+			validate.ErrValidation, "rate: %s is too high", cfg.Rate,
 		)
 	}
 	return nil

@@ -149,6 +149,14 @@ func (s *ScanConfig) SetDefaults() {
 	s.Rate = 0.2
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.GreaterThan("rate", s.Rate, 0)
+	return v.Error()
+}
+
 // ScaleType is the "type" value that selects a variant of Scale.
 type ScaleType string
 

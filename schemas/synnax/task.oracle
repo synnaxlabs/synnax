@@ -260,8 +260,9 @@ WriteConfig struct extends PersistConfig {
 
 ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in Hertz."
-        @ts type   "number"
+        @doc value   "is the rate at which the scan runs, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     disabled bool = false {
         @doc value "is true when scanning is paused."

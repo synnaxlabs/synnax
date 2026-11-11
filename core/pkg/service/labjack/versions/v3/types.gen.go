@@ -517,5 +517,6 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (s ScanConfig) Validate() error {
 	v := validate.New("ScanConfig")
 	v.GreaterThanEq("tcp_scan_multiplier", s.TCPScanMultiplier, 1)
+	v.Exec(s.ScanConfig.Validate)
 	return v.Error()
 }
