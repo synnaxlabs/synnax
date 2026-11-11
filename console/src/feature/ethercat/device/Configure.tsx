@@ -365,79 +365,83 @@ export const Configure = ({
             inputProps={NAME_INPUT_PROPS}
           />
           <SetupNote deviceKey={deviceKey} />
-          <Form.Sections>
-            <Form.Section title="General">
-              <Form.TextField
-                path={path.properties.identifier}
-                label="Identifier"
-                padHelpText={false}
-                inputProps={{ placeholder: "dev1" }}
-              />
-              <Flex.Box y gap="small">
-                <Text.Text level="small" color={9}>
-                  A short prefix for every channel on this device.
-                </Text.Text>
-                <Flex.Box x align="center">
-                  <Icon.Bolt />
-                  {strings.createShortIdentifiers(name ?? "").map((id) => (
-                    <Button.Button
-                      key={id}
-                      onClick={() => form.set(path.properties.identifier, id)}
-                      size="small"
-                      variant="text"
-                    >
-                      {id}
-                    </Button.Button>
-                  ))}
-                </Flex.Box>
-              </Flex.Box>
-            </Form.Section>
-            <Form.Section title="Sync mode">
-              <Input.Item label="Mode" padHelpText={false}>
-                <ModeSelect
-                  modes={modes}
-                  catalog={catalog}
-                  value={choice}
-                  stale={stale}
-                  onChange={setChoice}
+          <div className={CSS.BE("ethercat-configure", "columns")}>
+            <Form.Sections>
+              <Form.Section title="General">
+                <Form.TextField
+                  path={path.properties.identifier}
+                  label="Identifier"
+                  padHelpText={false}
+                  inputProps={{ placeholder: "dev1" }}
                 />
-              </Input.Item>
-              {mode != null && index != null && (
-                <Flex.Box x>
-                  <CycleField
-                    label="SYNC0 cycle"
-                    value={choice == null ? 0 : choice.sync0Cycle}
-                    problem={sync0Problem == null ? undefined : severity}
-                    onChange={(ns) =>
-                      setChoice(
-                        withCycle(modes, choice, catalog, index, "sync0Cycle", ns),
-                      )
-                    }
-                  />
-                  <CycleField
-                    label="SYNC1 cycle"
-                    value={choice == null ? 0 : choice.sync1Cycle}
-                    problem={sync1Problem == null ? undefined : severity}
-                    onChange={(ns) =>
-                      setChoice(
-                        withCycle(modes, choice, catalog, index, "sync1Cycle", ns),
-                      )
-                    }
-                  />
+                <Flex.Box y gap="small">
+                  <Text.Text level="small" color={9}>
+                    A short prefix for every channel on this device.
+                  </Text.Text>
+                  <Flex.Box x align="center">
+                    <Icon.Bolt />
+                    {strings.createShortIdentifiers(name ?? "").map((id) => (
+                      <Button.Button
+                        key={id}
+                        onClick={() => form.set(path.properties.identifier, id)}
+                        size="small"
+                        variant="text"
+                      >
+                        {id}
+                      </Button.Button>
+                    ))}
+                  </Flex.Box>
                 </Flex.Box>
-              )}
-              <Flex.Box y gap="small">
-                <Help {...help} />
-                <Text.Text level="small" color={9}>
-                  {APPLY_NOTE}
-                </Text.Text>
-              </Flex.Box>
-            </Form.Section>
-            <SlaveSettings />
-            <Form.Section title="Startup parameters">
-              <StartupParameters />
-            </Form.Section>
-          </Form.Sections>
+              </Form.Section>
+              <Form.Section title="Sync mode">
+                <Input.Item label="Mode" padHelpText={false}>
+                  <ModeSelect
+                    modes={modes}
+                    catalog={catalog}
+                    value={choice}
+                    stale={stale}
+                    onChange={setChoice}
+                  />
+                </Input.Item>
+                {mode != null && index != null && (
+                  <Flex.Box x>
+                    <CycleField
+                      label="SYNC0 cycle"
+                      value={choice == null ? 0 : choice.sync0Cycle}
+                      problem={sync0Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(
+                          withCycle(modes, choice, catalog, index, "sync0Cycle", ns),
+                        )
+                      }
+                    />
+                    <CycleField
+                      label="SYNC1 cycle"
+                      value={choice == null ? 0 : choice.sync1Cycle}
+                      problem={sync1Problem == null ? undefined : severity}
+                      onChange={(ns) =>
+                        setChoice(
+                          withCycle(modes, choice, catalog, index, "sync1Cycle", ns),
+                        )
+                      }
+                    />
+                  </Flex.Box>
+                )}
+                <Flex.Box y gap="small">
+                  <Help {...help} />
+                  <Text.Text level="small" color={9}>
+                    {APPLY_NOTE}
+                  </Text.Text>
+                </Flex.Box>
+              </Form.Section>
+            </Form.Sections>
+            <Form.Sections>
+              <SlaveSettings />
+              <Form.Section title="Startup parameters">
+                <StartupParameters />
+              </Form.Section>
+            </Form.Sections>
+          </div>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>

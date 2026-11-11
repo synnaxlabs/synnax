@@ -10,7 +10,8 @@
  */
 
 .console-ethercat-configure__frame {
-    width: 110rem;
+    width: 200rem;
+    max-width: 94vw;
 }
 
 .console-ethercat-sync__cycle {
@@ -24,4 +25,18 @@
 
 .console-ethercat-sync__badge {
     margin-left: auto;
+}
+
+.console-ethercat-configure__columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10rem;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .console-ethercat-configure__columns {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 5rem;
+    }
 }
