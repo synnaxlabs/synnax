@@ -10,7 +10,7 @@
 import { label } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Access, Label } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Button } from "@/platform/button";
 import { useEditModal } from "@/platform/label/useEditModal";
@@ -38,6 +38,16 @@ const CreateButton = () => {
 const useCreateFooter = (): ReactElement | undefined =>
   Access.useCreateGranted(label.TYPE_RESOURCE_ID) ? <CreateButton /> : undefined;
 
-export const SelectMultiple = (props: Label.SelectMultipleProps) => (
-  <Label.SelectMultiple {...props} footer={useCreateFooter()} />
-);
+/**
+ * Selects labels. Until the user first opens it, it shows only the labels of the value:
+ * the list of all labels and its dialog mount on the first open, since a page can hold
+ * one of these per item.
+ */
+export const SelectMultiple = (props: Label.SelectMultipleProps): ReactElement => {
+  const [opened, setOpened] = useState(false);
+  // Resolved before the first open, so the list does not mount again when it resolves.
+  const footer = useCreateFooter();
+  if (opened || props.visible === true)
+    return <Label.SelectMultiple initialVisible={opened} {...props} footer={footer} />;
+  return <Label.SelectMultipleTrigger {...props} onOpen={() => setOpened(true)} />;
+};
