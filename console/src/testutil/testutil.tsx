@@ -39,7 +39,6 @@ import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "r
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
-import { Core } from "@/platform/core";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -456,7 +455,13 @@ export const renderWithStatus = async (
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const connParams = Core.useConnParams();
+  const core = Session.Core.useSelectSelected();
+  // The provider compares params by value, so a cached cluster key must not count.
+  let connParams: SynnaxParams | undefined;
+  if (core != null) {
+    const { clusterKey: _, ...params } = core;
+    connParams = params;
+  }
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
