@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Version bump
+        description: Version bump (patch only from release/desktop-X.Y)
         type: choice
         options:
           - patch

@@ -17,8 +17,8 @@
 # release/<console|core|driver>-X.Y, or release/desktop-X.Y for Desktop.
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
-# tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the train has no
-# tag.
+# tag, and fails when that tag names HEAD. A release branch resolves the next patch on
+# X.Y, or X.Y.0 when the train has no tag.
 #
 # ts and py share the Core's minor, since the clients connect only to a Core with the
 # same major.minor. From main, they release only with the Core: core is the stable
@@ -27,10 +27,9 @@
 # X.Y. For a stable run, a package tag at HEAD on that train resolves to itself, so a
 # release branch cut at a run's commit finishes that run's publish.
 #
-# Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
-# counts from the highest tag on that minor. release/desktop-X.Y takes only a patch, on
-# X.Y. The first Desktop release must be a major bump from 0.0.0, so it outranks the
-# 1.0.0 candidates.
+# Desktop: main takes a minor or major bump on the highest Desktop tag reachable from
+# HEAD. release/desktop-X.Y takes only a patch, the next one on X.Y. The first Desktop
+# release must be a major bump from 0.0.0, so it outranks the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
 # rule caps every product but Desktop at one minor ahead of the Core's newest stable.
@@ -65,7 +64,7 @@ next_patch() {
 
 # Prints X.Y when the ref is a release branch of one of the products in pattern $1.
 release_train() {
-    if [[ $REF =~ ^release/($1)-([0-9]+\.[0-9]+)$ ]]; then
+    if [[ $REF =~ ^release/($1)-((0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
         echo "${BASH_REMATCH[2]}"
     fi
 }
@@ -110,6 +109,13 @@ case "$PRODUCT" in
                 echo "no stable $PRODUCT tag exists" >&2
                 exit 1
             fi
+            if [[ ! $PRODUCT =~ ^(ts|py)$ ]] \
+                && [ "$(git rev-parse "$PRODUCT/v$BASE^{commit}")" \
+                    = "$(git rev-parse HEAD)" ]; then
+                echo "$PRODUCT/v$BASE already names HEAD. Rerun the failed jobs, or" \
+                    "release from release/$PRODUCT-${BASE%.*}" >&2
+                exit 1
+            fi
             IFS=. read -r MAJOR MINOR _ <<< "$BASE"
             NEXT="$MAJOR.$((MINOR + 1)).0"
         fi
@@ -131,6 +137,10 @@ case "$PRODUCT" in
             echo "$REF releases only patches, not a $BUMP bump" >&2
             exit 1
         fi
+        if [ -z "$TRAIN" ] && [ "$BUMP" = patch ]; then
+            echo "desktop releases patches only from release/desktop-X.Y" >&2
+            exit 1
+        fi
         BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
         if [ -z "$BASE" ]; then
             if [ "$BUMP" != major ]; then
@@ -141,7 +151,7 @@ case "$PRODUCT" in
         fi
         IFS=. read -r MAJOR MINOR _ <<< "$BASE"
         case "$BUMP" in
-            patch) NEXT=$(next_patch "${TRAIN:-$MAJOR.$MINOR}") ;;
+            patch) NEXT=$(next_patch "$TRAIN") ;;
             minor) NEXT="$MAJOR.$((MINOR + 1)).0" ;;
             major) NEXT="$((MAJOR + 1)).0.0" ;;
             *)

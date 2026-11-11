@@ -121,6 +121,8 @@ class TestMain:
             "",
             "release/core-0.58.x",
             "release/Core-0.58",
+            "release/core-0.058",
+            "release/core-00.58",
             "release/desktop-1.0",
         ],
     )
@@ -136,6 +138,15 @@ class TestMain:
 
     def test_should_reject_a_bump(self, repo: Repo) -> None:
         assert "takes no bump" in repo.resolve_error("core", bump="patch")
+
+    @pytest.mark.parametrize("product", ["console", "core", "driver"])
+    def test_should_reject_a_rerun_at_a_released_commit(
+        self, repo: Repo, product: str
+    ) -> None:
+        repo.tag(f"{product}/v0.59.0")
+        error = repo.resolve_error(product)
+        assert f"{product}/v0.59.0 already names HEAD" in error
+        assert f"release/{product}-0.59" in error
 
     def test_should_fail_without_a_stable_tag(self, tmp_path: Path) -> None:
         repo = Repo(tmp_path)
@@ -245,20 +256,18 @@ class TestDesktop:
         assert out["previous_tag"] == ""
         assert out["latest"] == "true"
 
-    @pytest.mark.parametrize("bump", ["patch", "minor"])
     def test_should_require_a_major_bump_for_the_first_release(
-        self, repo: Repo, bump: str
+        self, repo: Repo
     ) -> None:
         repo.tag("desktop/v1.0.0-rc.1")
-        assert f"bump must be major, not {bump}" in repo.resolve_error(
-            "desktop", bump=bump
-        )
+        error = repo.resolve_error("desktop", bump="minor")
+        assert "bump must be major, not minor" in error
 
     def test_should_bump_from_the_reachable_desktop_tag(self, repo: Repo) -> None:
         repo.tag("desktop/v1.2.0")
         repo.commit("more")
-        out = repo.resolve("desktop", bump="patch")
-        assert out["version"] == "1.2.1"
+        out = repo.resolve("desktop", bump="minor")
+        assert out["version"] == "1.3.0"
         assert out["previous_tag"] == "desktop/v1.2.0"
         assert repo.resolve("desktop", bump="major")["version"] == "2.0.0"
 
@@ -279,7 +288,14 @@ class TestDesktop:
         assert f"releases only patches, not a {bump} bump" in error
 
     @pytest.mark.parametrize(
-        "ref", ["sy-1-feature", "", "release/core-0.58", "release/desktop-1.0.x"]
+        "ref",
+        [
+            "sy-1-feature",
+            "",
+            "release/core-0.58",
+            "release/desktop-1.0.x",
+            "release/desktop-01.0",
+        ],
     )
     @pytest.mark.parametrize("prerelease", [False, True])
     def test_should_reject_any_other_branch(
@@ -292,14 +308,11 @@ class TestDesktop:
             result.stderr
         )
 
-    def test_should_patch_past_an_unreachable_desktop_tag(self, repo: Repo) -> None:
+    def test_should_reject_a_patch_from_main(self, repo: Repo) -> None:
         repo.tag("desktop/v1.0.0")
-        repo.branch("release/desktop-1.0")
-        repo.commit("hotfix")
-        repo.tag("desktop/v1.0.1")
-        repo.git("checkout", "-q", "main")
         repo.commit("more")
-        assert repo.resolve("desktop", bump="patch")["version"] == "1.0.2"
+        error = repo.resolve_error("desktop", bump="patch")
+        assert "patches only from release/desktop-X.Y" in error
 
     def test_should_skip_the_train_rule(self, repo: Repo) -> None:
         repo.tag("desktop/v1.4.0")
@@ -467,7 +480,3 @@ class TestPackages:
         repo.commit("hotfix")
         repo.tag("py/v0.58.3")
         assert repo.resolve("py", ref="release/core-0.58")["version"] == "0.58.3"
-
-    def test_should_not_keep_a_console_tag_at_head(self, repo: Repo) -> None:
-        repo.tag("core/v0.59.0", "console/v0.59.0")
-        assert repo.resolve("console")["version"] == "0.60.0"

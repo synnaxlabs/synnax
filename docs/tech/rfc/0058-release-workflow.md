@@ -47,8 +47,9 @@ template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main`
 `release/**` build and test only.
 
 Every release, candidates included, runs only from `main` or a release branch,
-`release/<console|core|driver>-X.Y`; Desktop also allows `release/desktop-X.Y`, which
-takes only a patch bump. Any other branch fails.
+`release/<console|core|driver>-X.Y`; Desktop also allows `release/desktop-X.Y`. Desktop
+takes a minor or major bump from `main` and only a patch bump from its release branch.
+Any other branch fails.
 
 The branch sets the version of the Console, Core, Driver, and packages. A release of the
 Console, Core, or Driver from `main` is always the next minor: when the newest stable
