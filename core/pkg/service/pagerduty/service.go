@@ -92,11 +92,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:  (*TaskConfig).Patch,
 			HashEntry:   (*TaskConfig).HashContent,
 			ResolveEntry: func(
-				_ context.Context,
-				_ gorp.Snapshot,
+				ctx context.Context,
+				snap gorp.Snapshot,
 				name string,
 				c *TaskConfig,
 			) (func(context.Context, gorp.Tx) error, error) {
+				if err := checkStored(ctx, snap, cfg.Secret, c.RoutingKey); err != nil {
+					return nil, err
+				}
 				return v2.ResolveTaskConfig(create, name, c), nil
 			},
 		},
@@ -113,6 +116,34 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Alert}
+}
+
+// checkStored refuses a routing key that names a file secret, since the Core cannot
+// read
+// a file. The config references refuse a key that names no secret.
+func checkStored(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	svc *secret.Service,
+	key *secret.Key,
+) error {
+	if key == nil {
+		return nil
+	}
+	var found []secret.Secret
+	if err := svc.NewRetrieve().
+		Where(secret.MatchKeys(*key)).
+		SkipMissingKeys().
+		Entries(&found).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	v := validate.New("pagerduty.task_config")
+	for _, s := range found {
+		_, file := s.Variant.(secret.FileSecret)
+		v.Ternary("routing_key", file, "must be a stored secret, not a file")
+	}
+	return v.Error()
 }
 
 func createSecret(svc *secret.Service) v2.CreateSecret {

@@ -268,6 +268,21 @@ var _ = Describe("Service", func() {
 			Expect(deleteKey(ctx)).To(Succeed())
 		})
 
+		It("Should reject a routing key that names a file secret", func(
+			ctx SpecContext,
+		) {
+			s := secret.Secret{Variant: secret.FileSecret{
+				Base:     secret.Base{Name: "Routing key"},
+				FileName: "routing.key",
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return secrets.NewWriter(tx).Set(ctx, &s, nil)
+			})).To(Succeed())
+			Expect(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
+				"routing_key": s.Base().Key.String(),
+			})).Error().To(MatchError("routing_key: must be a stored secret, not a file"))
+		})
+
 		It("Should reject a routing key that does not exist", func(ctx SpecContext) {
 			Expect(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
 				"routing_key": uuid.New().String(),
