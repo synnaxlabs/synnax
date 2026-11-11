@@ -26,6 +26,9 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Vcs } from "@/platform/vcs";
 
+const repoName = (url: string): string =>
+  url.replace(/^[a-z]+:\/\//, "").replace(/\.git$/, "");
+
 const Connect = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
   const { status } = Vcs.useStatus();
@@ -58,7 +61,7 @@ const Connect = ({ close }: Modals.ContentProps<Record<never, never>, void>) => 
           message: started ? "Saved connection" : "Started version control",
           description:
             next.remoteUrl.length > 0
-              ? `Commits push to ${next.remoteUrl}.`
+              ? `New commits go to ${repoName(next.remoteUrl)}.`
               : "Commits stay on this Core until you add a Git URL.",
         });
         close();
