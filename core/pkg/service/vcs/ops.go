@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"context"
 	"maps"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -57,6 +58,16 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if req.Token == "" && s.conn.Token != "" && req.RemoteURL != "" &&
+		host(req.RemoteURL) != host(s.conn.RemoteURL) {
+		return Status{}, errors.Mark(
+			errors.New(
+				"Enter the access token again. The Core never sends a saved token "+
+					"to a new host.",
+			),
+			validate.ErrValidation,
+		)
+	}
 	conn := s.conn
 	conn.Configuration = req.Configuration
 	conn.RemoteURL = req.RemoteURL
@@ -77,31 +88,51 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 		return Status{}, err
 	}
 	s.conn = conn
-	_, hasLocal, err := s.repo.ref(branchRef(conn.Configuration))
-	if err != nil {
+	if err := s.startTracking(ctx, req.Author); err != nil {
+		s.cache(nil)
 		return Status{}, err
 	}
-	_, hasOrigin, err := s.repo.ref(remoteRef(conn.Configuration))
+	return s.recompute(ctx)
+}
+
+// startTracking makes the first commit of the configuration when neither the Core nor
+// the
+// remote has one, and pushes what the remote lacks.
+func (s *Service) startTracking(ctx context.Context, author Author) error {
+	_, hasLocal, err := s.repo.ref(branchRef(s.conn.Configuration))
 	if err != nil {
-		return Status{}, err
+		return err
+	}
+	_, hasOrigin, err := s.repo.ref(remoteRef(s.conn.Configuration))
+	if err != nil {
+		return err
 	}
 	if !hasLocal && !hasOrigin {
 		work, err := s.working(ctx)
 		if err != nil {
-			return Status{}, err
+			return err
 		}
-		h, err := s.repo.commit(work.raw, startMessage, req.Author)
+		h, err := s.repo.commit(work.raw, startMessage, author)
 		if err != nil {
-			return Status{}, err
+			return err
 		}
-		if err = s.repo.setRef(branchRef(conn.Configuration), h); err != nil {
-			return Status{}, err
+		if err = s.repo.setRef(branchRef(s.conn.Configuration), h); err != nil {
+			return err
 		}
 	}
 	if hasLocal || !hasOrigin {
 		s.push(ctx)
 	}
-	return s.recompute(ctx)
+	return nil
+}
+
+// host returns the host of a remote URL, or an empty string for a path.
+func host(remoteURL string) string {
+	u, err := url.Parse(remoteURL)
+	if err != nil {
+		return ""
+	}
+	return u.Host
 }
 
 // recompute drops the cached status and computes it again.
@@ -114,9 +145,8 @@ var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
 
 // validateName checks that name can name a configuration.
 func validateName(name string) error {
-	if !namePattern.MatchString(name) || strings.Contains(name, "..") ||
-		strings.HasSuffix(name, "/") || strings.HasSuffix(name, ".lock") ||
-		strings.HasPrefix(name, reviewPrefix) {
+	if !namePattern.MatchString(name) || name == "HEAD" ||
+		strings.HasPrefix(name, reviewPrefix) || branchRef(name).Validate() != nil {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"configuration: %q is not a valid name",
@@ -229,8 +259,10 @@ func (s *Service) Commit(
 	if err = writeConnection(s.dir, s.conn); err != nil {
 		return Commit{}, "", err
 	}
-	_, err = s.recompute(ctx)
-	return c, review.URL, err
+	if _, err = s.recompute(ctx); err != nil {
+		return Commit{}, "", err
+	}
+	return c, review.URL, nil
 }
 
 func idStrings(ids []resource.ID) []string {
@@ -304,7 +336,7 @@ func (s *Service) DefaultWrite(
 
 // Discard puts the selected resources back as the head holds them, through write. It
 // returns what undoes the discard. Empty resources discards every change. It returns a
-// validation error for a selected resource with no change.
+// validation error for a selected resource with no change, and for a new channel.
 func (s *Service) Discard(
 	ctx context.Context,
 	resources []string,
@@ -332,6 +364,15 @@ func (s *Service) Discard(
 		st := step{id: id}
 		if _, ok := headTree.items[id]; ok {
 			st.from = headTree
+		} else if id.Type == resource.TypeChannel {
+			return Inverse{}, errors.Mark(
+				errors.Newf(
+					"Version control never deletes channels, so it cannot discard "+
+						"the new channel %s.",
+					work.items[id].name,
+				),
+				validate.ErrValidation,
+			)
 		}
 		steps = append(steps, st)
 	}
@@ -339,8 +380,10 @@ func (s *Service) Discard(
 	if err != nil {
 		return Inverse{}, err
 	}
-	_, err = s.recompute(ctx)
-	return inv, err
+	if _, err = s.recompute(ctx); err != nil {
+		return Inverse{}, err
+	}
+	return inv, nil
 }
 
 // applySteps runs steps on the live configuration through write, restarts each running
@@ -359,7 +402,8 @@ func (s *Service) applySteps(
 	if err != nil {
 		return Inverse{}, err
 	}
-	if err = s.stopRemoved(ctx, steps, live); err != nil {
+	stopped, err := s.stopRemoved(ctx, steps, live)
+	if err != nil {
 		return Inverse{}, err
 	}
 	if err = write(ctx, func(ctx context.Context, tx gorp.Tx) error {
@@ -369,6 +413,9 @@ func (s *Service) applySteps(
 		}
 		return a.run(ctx, steps)
 	}); err != nil {
+		if len(stopped) > 0 {
+			err = errors.Combine(err, s.cfg.TaskStopper.Restart(ctx, stopped))
+		}
 		return Inverse{}, err
 	}
 	if err = s.restart(ctx, restarts, hashes); err != nil {
@@ -473,7 +520,10 @@ func (s *Service) treeOf(ctx context.Context, rev string) (*tree, error) {
 		return s.working(ctx)
 	case rev == RevHead:
 		_, t, err := s.head()
-		return t, err
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
 	case strings.HasPrefix(rev, revConfigurationPrefix):
 		h, err := s.tip(strings.TrimPrefix(rev, revConfigurationPrefix))
 		if err != nil {
@@ -493,8 +543,11 @@ func (s *Service) treeOf(ctx context.Context, rev string) (*tree, error) {
 func (s *Service) tip(name string) (plumbing.Hash, error) {
 	for _, ref := range []plumbing.ReferenceName{branchRef(name), remoteRef(name)} {
 		h, ok, err := s.repo.ref(ref)
-		if err != nil || ok {
-			return h, err
+		if err != nil {
+			return plumbing.ZeroHash, err
+		}
+		if ok {
+			return h, nil
 		}
 	}
 	return plumbing.ZeroHash, errors.Wrapf(
@@ -587,7 +640,10 @@ func (s *Service) Log(ctx context.Context, req LogRequest) ([]Commit, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return out, walkErr
+	if walkErr != nil {
+		return nil, walkErr
+	}
+	return out, nil
 }
 
 // Show returns the commit with the given hash and the resources it changed.
@@ -605,8 +661,10 @@ func (s *Service) Show(_ context.Context, hash string) (Commit, error) {
 	if err != nil {
 		return Commit{}, err
 	}
-	c.Changes, err = s.repo.changesOf(h)
-	return c, err
+	if c.Changes, err = s.repo.changesOf(h); err != nil {
+		return Commit{}, err
+	}
+	return c, nil
 }
 
 // Configurations returns every configuration of the repository and the remote.
@@ -745,7 +803,7 @@ func (s *Service) Snapshot(
 		}
 	}
 	now := time.Now()
-	name := tagPrefix + rangeKey + "/" + strconv.FormatInt(now.UnixMilli(), 10)
+	name := tagPrefix + rangeKey + "/" + strconv.FormatInt(now.UnixNano(), 10)
 	sig := committer(now)
 	if _, err = s.repo.git.CreateTag(name, target, &git.CreateTagOptions{
 		Tagger:  &sig,
@@ -754,10 +812,9 @@ func (s *Service) Snapshot(
 		return Snapshot{}, err
 	}
 	if s.conn.RemoteURL != "" {
-		if err = s.repo.pushTags(ctx, s.conn.remote()); err != nil {
-			s.fail("push", err)
-			s.refresh(ctx)
-		}
+		s.tagsWaiting = true
+		s.pushTags(ctx)
+		s.refresh(ctx)
 	}
 	c, err := s.repo.toCommit(target)
 	if err != nil {
@@ -796,8 +853,8 @@ func (s *Service) Snapshots(_ context.Context, rangeKey string) ([]Snapshot, err
 	prefix := tagPrefix + rangeKey + "/"
 	type dated struct {
 		snap Snapshot
-		// ms is the time in the tag name, which is finer than the time of the tag.
-		ms int64
+		// ns is the time in the tag name, which is finer than the time of the tag.
+		ns int64
 	}
 	var found []dated
 	if err = refs.ForEach(func(ref *plumbing.Reference) error {
@@ -805,15 +862,19 @@ func (s *Service) Snapshots(_ context.Context, rangeKey string) ([]Snapshot, err
 		if !strings.HasPrefix(name, prefix) {
 			return nil
 		}
+		// The remote can hold range tags that no Core made, which are no snapshots.
 		tag, err := s.repo.git.TagObject(ref.Hash())
+		if errors.Is(err, plumbing.ErrObjectNotFound) {
+			return nil
+		}
 		if err != nil {
 			return err
+		}
+		ns, err := strconv.ParseInt(strings.TrimPrefix(name, prefix), 10, 64)
+		if err != nil {
+			return nil
 		}
 		c, err := s.repo.toCommit(tag.Target)
-		if err != nil {
-			return err
-		}
-		ms, err := strconv.ParseInt(strings.TrimPrefix(name, prefix), 10, 64)
 		if err != nil {
 			return err
 		}
@@ -823,16 +884,16 @@ func (s *Service) Snapshots(_ context.Context, rangeKey string) ([]Snapshot, err
 				snap.Configuration = v
 			} else if v, ok := strings.CutPrefix(line, uncommittedLine); ok {
 				if snap.Uncommitted, err = strconv.Atoi(v); err != nil {
-					return err
+					return nil
 				}
 			}
 		}
-		found = append(found, dated{snap: snap, ms: ms})
+		found = append(found, dated{snap: snap, ns: ns})
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	slices.SortFunc(found, func(a, b dated) int { return cmp.Compare(b.ms, a.ms) })
+	slices.SortFunc(found, func(a, b dated) int { return cmp.Compare(b.ns, a.ns) })
 	out := make([]Snapshot, len(found))
 	for i, d := range found {
 		out[i] = d.snap

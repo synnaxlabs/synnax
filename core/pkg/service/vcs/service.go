@@ -216,12 +216,14 @@ type Service struct {
 	dir string
 	// temp is true when the Service made dir and removes it on Close.
 	temp bool
-	// mu guards repo, conn, fetchedAt, and lastErr.
+	// mu guards repo, conn, fetchedAt, lastErr, and tagsWaiting.
 	mu        sync.Mutex
 	repo      *repo
 	conn      connection
 	fetchedAt telem.TimeStamp
 	lastErr   string
+	// tagsWaiting is true while a snapshot tag waits for a push.
+	tagsWaiting bool
 	// statusMu guards status, so Status does not wait for a running fetch.
 	statusMu sync.RWMutex
 	status   *Status
@@ -350,7 +352,8 @@ func (s *Service) requireEnabled() error {
 	return nil
 }
 
-// fetch fetches the remote and records the outcome in the status.
+// fetch fetches the remote, then pushes the commits and snapshot tags that an earlier
+// push left waiting. It records the outcome in the status.
 func (s *Service) fetch(ctx context.Context) {
 	if err := s.repo.fetch(ctx, s.conn.remote()); err != nil {
 		s.fail("fetch", err)
@@ -358,6 +361,37 @@ func (s *Service) fetch(ctx context.Context) {
 	}
 	s.fetchedAt = telem.Now()
 	s.lastErr = ""
+	if s.tagsWaiting {
+		s.pushTags(ctx)
+	}
+	head, _, err := s.repo.ref(branchRef(s.conn.Configuration))
+	if err != nil {
+		s.fail("fetch", err)
+		return
+	}
+	origin, _, err := s.repo.ref(remoteRef(s.conn.Configuration))
+	if err != nil {
+		s.fail("fetch", err)
+		return
+	}
+	// A configuration behind the remote pushes only after a pull replays its commits.
+	incoming, err := s.repo.between(origin, head)
+	if err != nil {
+		s.fail("fetch", err)
+		return
+	}
+	if head != origin && len(incoming) == 0 {
+		s.push(ctx)
+	}
+}
+
+// pushTags pushes the snapshot tags and records a failure in the status.
+func (s *Service) pushTags(ctx context.Context) {
+	if err := s.repo.pushTags(ctx, s.conn.remote()); err != nil {
+		s.fail("push", err)
+		return
+	}
+	s.tagsWaiting = false
 }
 
 // push pushes the tracked configuration and records a failure in the status. A failed
@@ -479,8 +513,15 @@ func (s *Service) compute(ctx context.Context) (Status, error) {
 		if err != nil {
 			return Status{}, err
 		}
-		if st.IncomingChanges, err = s.diffCommits(base, origin); err != nil {
-			return Status{}, err
+		// Anyone can push a bad file to the remote, so the status reports it and
+		// stays available. A pull of it then fails with the same error.
+		changes, err := s.diffCommits(base, origin)
+		if err != nil {
+			if st.Error == "" {
+				st.Error = "The remote has a file the Core cannot read: " + err.Error()
+			}
+		} else {
+			st.IncomingChanges = changes
 		}
 	}
 	waiting, err := s.repo.between(head, origin)

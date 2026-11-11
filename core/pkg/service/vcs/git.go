@@ -319,14 +319,16 @@ func (r *repo) between(tip, base plumbing.Hash) ([]*object.Commit, error) {
 		}
 	}
 	var out []*object.Commit
-	err := r.walk(tip, func(c *object.Commit) bool {
+	if err := r.walk(tip, func(c *object.Commit) bool {
 		if stop.Contains(c.Hash) {
 			return false
 		}
 		out = append(out, c)
 		return true
-	})
-	return out, err
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // walk visits the first-parent chain from h, newest first, until visit returns false.
@@ -355,14 +357,16 @@ func (r *repo) mergeBase(a, b plumbing.Hash) (plumbing.Hash, error) {
 		return plumbing.ZeroHash, err
 	}
 	base := plumbing.ZeroHash
-	err := r.walk(a, func(c *object.Commit) bool {
+	if err := r.walk(a, func(c *object.Commit) bool {
 		if onB.Contains(c.Hash) {
 			base = c.Hash
 			return false
 		}
 		return true
-	})
-	return base, err
+	}); err != nil {
+		return plumbing.ZeroHash, err
+	}
+	return base, nil
 }
 
 // resolve returns the commit with the full or short hash rev.
@@ -416,17 +420,35 @@ func (r *repo) setRemote(url string) error {
 
 // fetch updates the remote branches and range tags. An empty remote is no error.
 func (r *repo) fetch(ctx context.Context, rm remote) error {
+	if err := r.fetchRefs(
+		ctx,
+		rm,
+		true,
+		"+refs/heads/*:refs/remotes/"+remoteName+"/*",
+	); err != nil {
+		return err
+	}
+	// A prune would delete each snapshot tag that still waits for its push.
+	return r.fetchRefs(
+		ctx,
+		rm,
+		false,
+		"+refs/tags/"+tagPrefix+"*:refs/tags/"+tagPrefix+"*",
+	)
+}
+
+func (r *repo) fetchRefs(
+	ctx context.Context,
+	rm remote,
+	prune bool,
+	spec gitconfig.RefSpec,
+) error {
 	err := r.git.FetchContext(ctx, &git.FetchOptions{
 		RemoteName: remoteName,
-		RefSpecs: []gitconfig.RefSpec{
-			gitconfig.RefSpec("+refs/heads/*:refs/remotes/" + remoteName + "/*"),
-			gitconfig.RefSpec(
-				"+refs/tags/" + tagPrefix + "*:refs/tags/" + tagPrefix + "*",
-			),
-		},
-		Auth:  rm.auth(),
-		Tags:  git.NoTags,
-		Prune: true,
+		RefSpecs:   []gitconfig.RefSpec{spec},
+		Auth:       rm.auth(),
+		Tags:       git.NoTags,
+		Prune:      prune,
 	})
 	if errors.Is(err, git.NoErrAlreadyUpToDate) ||
 		errors.Is(err, transport.ErrEmptyRemoteRepository) {
@@ -518,6 +540,9 @@ func (r *repo) branches() ([]string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 	slices.Sort(names)
-	return slices.Compact(names), err
+	return slices.Compact(names), nil
 }

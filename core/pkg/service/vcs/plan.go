@@ -427,8 +427,12 @@ func (s *Service) running(ctx context.Context, keys []task.Key) ([]task.Key, err
 }
 
 // stopRemoved stops the running tasks that steps delete, with the tasks of each Arc
-// they delete, so the Driver frees their channels.
-func (s *Service) stopRemoved(ctx context.Context, steps []step, live *tree) error {
+// they delete, so the Driver frees their channels. It returns the tasks it stopped.
+func (s *Service) stopRemoved(
+	ctx context.Context,
+	steps []step,
+	live *tree,
+) ([]task.Task, error) {
 	var keys []task.Key
 	for _, st := range steps {
 		if st.from != nil {
@@ -441,23 +445,34 @@ func (s *Service) stopRemoved(ctx context.Context, steps []step, live *tree) err
 		case resource.TypeTask:
 			key, err := resource.ParseUUIDKey(st.id)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			keys = append(keys, key)
 		case resource.TypeArc:
 			tasks, err := s.arcTasks(ctx, st.id)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			for _, t := range tasks {
 				keys = append(keys, t.Key)
 			}
 		}
 	}
-	if len(keys) == 0 {
-		return nil
+	running, err := s.running(ctx, keys)
+	if err != nil || len(running) == 0 {
+		return nil, err
 	}
-	return s.cfg.TaskStopper.Stop(ctx, keys)
+	var stopped []task.Task
+	if err = s.cfg.Task.NewRetrieve().
+		Where(task.MatchKeys(running...)).
+		Entries(&stopped).
+		Exec(ctx, s.cfg.DB); err != nil {
+		return nil, err
+	}
+	if err = s.cfg.TaskStopper.Stop(ctx, running); err != nil {
+		return nil, err
+	}
+	return stopped, nil
 }
 
 // arcTaskHashes returns the config hash of each task of the Arcs in items, so a restart

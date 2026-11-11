@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -25,6 +26,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -46,10 +48,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/vcs"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var ada = vcs.Author{Name: "Ada", Email: "ada@synnax.local"}
@@ -62,6 +66,7 @@ var _ = Describe("VCS", func() {
 		svc       *vcs.Service
 		remoteDir string
 		remoteURL string
+		dataDir   string
 		proj      project.Project
 	)
 
@@ -127,6 +132,17 @@ var _ = Describe("VCS", func() {
 		return s
 	}
 
+	// beInvalid matches a validation error with the message.
+	beInvalid := func(msg string) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(
+				func(err error) bool { return errors.Is(err, validate.ErrValidation) },
+				"validate.ErrValidation",
+			),
+			MatchError(ContainSubstring(msg)),
+		)
+	}
+
 	connect := func(ctx SpecContext, url string) vcs.Status {
 		GinkgoHelper()
 		return MustSucceed(svc.Connect(ctx, vcs.ConnectRequest{
@@ -183,7 +199,8 @@ var _ = Describe("VCS", func() {
 		remoteDir = filepath.Join(GinkgoT().TempDir(), "remote.git")
 		MustSucceed(git.PlainInit(remoteDir, true))
 		remoteURL = "file://" + remoteDir
-		svc = openService(ctx, GinkgoT().TempDir())
+		dataDir = GinkgoT().TempDir()
+		svc = openService(ctx, dataDir)
 		proj = project.Project{Name: "Test Stand"}
 		tx(ctx, func(tx gorp.Tx) error {
 			return layer.Project.NewWriter(tx).Create(ctx, &proj)
@@ -282,6 +299,29 @@ var _ = Describe("VCS", func() {
 			Expect(svc.Connect(ctx, vcs.ConnectRequest{Configuration: "../x"})).
 				Error().To(MatchError(ContainSubstring("is not a valid name")))
 		})
+
+		It(
+			"Should ask for the token again before it goes to a new host",
+			func(ctx SpecContext) {
+				MustSucceed(svc.Connect(ctx, vcs.ConnectRequest{
+					Configuration: "main",
+					RemoteURL:     remoteURL,
+					Token:         "secret",
+					Author:        ada,
+				}))
+				Expect(svc.Connect(ctx, vcs.ConnectRequest{
+					Configuration: "main",
+					RemoteURL:     "https://example.com/stand.git",
+					Author:        ada,
+				})).Error().To(beInvalid(
+					"Enter the access token again. The Core never sends a saved " +
+						"token to a new host.",
+				))
+				st := MustSucceed(svc.Status(ctx))
+				Expect(st.RemoteURL).To(Equal(remoteURL))
+				Expect(st.TokenSet).To(BeTrue())
+			},
+		)
 
 		DescribeTable(
 			"Should say what to fix when the remote refuses",
@@ -492,6 +532,29 @@ var _ = Describe("VCS", func() {
 		})
 	})
 
+	Describe("Discard of a channel", func() {
+		It("Should refuse to discard a new channel", func(ctx SpecContext) {
+			connect(ctx, "")
+			ch := channel.Channel{
+				Name:     "vcs_new_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			tx(ctx, func(tx gorp.Tx) error {
+				return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			})
+			id := channel.ResourceID(ch.Key()).String()
+			Eventually(func(g Gomega) {
+				g.Expect(MustSucceed(svc.Status(ctx)).Changes).To(HaveLen(1))
+			}).Should(Succeed())
+			Expect(svc.Discard(ctx, []string{id}, svc.DefaultWrite)).
+				Error().To(beInvalid(
+				"Version control never deletes channels, so it cannot discard " +
+					"the new channel vcs_new_time.",
+			))
+		})
+	})
+
 	Describe("Restore", func() {
 		It("Should restore a resource in place, with its key", func(ctx SpecContext) {
 			s := createSchematic(ctx, "Valves")
@@ -576,6 +639,49 @@ var _ = Describe("VCS", func() {
 				Expect(st.Waiting).To(BeZero())
 			},
 		)
+
+		It(
+			"Should push a waiting commit and snapshot tag on the next fetch",
+			func(ctx SpecContext) {
+				connect(ctx, remoteURL)
+				away := remoteDir + ".away"
+				Expect(os.Rename(remoteDir, away)).To(Succeed())
+				createSchematic(ctx, "Valves")
+				c := commit(ctx, "Add valves")
+				snap := MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada))
+				st := MustSucceed(svc.Status(ctx))
+				Expect(st.Waiting).To(Equal(1))
+				Expect(st.Error).ToNot(BeEmpty())
+				Expect(os.Rename(away, remoteDir)).To(Succeed())
+				st = MustSucceed(svc.Fetch(ctx))
+				Expect(st.Waiting).To(BeZero())
+				Expect(st.Error).To(BeEmpty())
+				remote := MustSucceed(git.PlainOpen(remoteDir))
+				ref := MustSucceed(
+					remote.Reference(plumbing.NewBranchReferenceName("main"), true),
+				)
+				Expect(ref.Hash().String()).To(Equal(c.Hash))
+				MustSucceed(
+					remote.Reference(plumbing.NewTagReferenceName(snap.Tag), true),
+				)
+			},
+		)
+
+		It("Should report a remote file the Core cannot read", func(ctx SpecContext) {
+			createSchematic(ctx, "Valves")
+			connect(ctx, remoteURL)
+			pushFromElsewhere(
+				"projects/Test Stand/Valves.schematic.json",
+				"projects/Test Stand/Valves.schematic.json",
+				func([]byte) []byte { return []byte("{not json") },
+			)
+			st := MustSucceed(svc.Fetch(ctx))
+			Expect(st.Incoming).To(HaveLen(1))
+			Expect(st.IncomingChanges).To(BeEmpty())
+			Expect(
+				st.Error,
+			).To(HavePrefix("The remote has a file the Core cannot read: "))
+		})
 
 		It("Should keep mine and replay a waiting commit", func(ctx SpecContext) {
 			s := createSchematic(ctx, "Valves")
@@ -666,6 +772,21 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		DescribeTable(
+			"Should reject a name that Git cannot hold as a branch",
+			func(ctx SpecContext, name string) {
+				connect(ctx, "")
+				Expect(
+					svc.Clone(ctx, name),
+				).Error().
+					To(beInvalid("is not a valid name"))
+			},
+			Entry("an empty path element", "a//b"),
+			Entry("the name of the head", "HEAD"),
+			Entry("a lock file", "x.lock/y"),
+			Entry("a trailing dot", "v1."),
+		)
+
 		It("Should reject a clone onto a taken name", func(ctx SpecContext) {
 			connect(ctx, "")
 			Expect(
@@ -701,12 +822,31 @@ var _ = Describe("VCS", func() {
 		})
 	})
 
+	Describe("Snapshots", func() {
+		It("Should skip range tags that no Core made", func(ctx SpecContext) {
+			head := connect(ctx, "").Head
+			rng := uuid.New().String()
+			snap := MustSucceed(svc.Snapshot(ctx, rng, ada))
+			r := MustSucceed(git.PlainOpen(filepath.Join(dataDir, "vcs", "repo")))
+			hash := plumbing.NewHash(head.Hash)
+			MustSucceed(r.CreateTag("range/"+rng+"/1", hash, nil))
+			MustSucceed(r.CreateTag("range/"+rng+"/latest", hash, &git.CreateTagOptions{
+				Tagger:  &object.Signature{Name: "Bob", When: time.Now()},
+				Message: "Not a snapshot",
+			}))
+			snaps := MustSucceed(svc.Snapshots(ctx, rng))
+			Expect(snaps).To(HaveLen(1))
+			Expect(snaps[0].Tag).To(Equal(snap.Tag))
+		})
+	})
+
 	Describe("Round trip", func() {
 		var (
 			idx  channel.Channel
 			data channel.Channel
 			tsk  task.Task
 			auto arc.Arc
+			seqs directory.Key
 		)
 
 		BeforeEach(func(ctx SpecContext) {
@@ -747,6 +887,7 @@ var _ = Describe("VCS", func() {
 			tx(ctx, func(tx gorp.Tx) error {
 				return layer.Arc.NewWriter(tx).CreateDirectory(ctx, &dir, root)
 			})
+			seqs = dir.Key
 			auto = arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 				Name: "Press",
 				Source: arc.Source{Variant: arc.TextSource{
@@ -871,6 +1012,59 @@ var _ = Describe("VCS", func() {
 				Expect(working(ctx)).To(Equal(before))
 				target := vcs.Target{Kind: vcs.TargetRestore, Commit: head.Hash}
 				Expect(MustSucceed(svc.Plan(ctx, target)).Items).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should give each resource of a folder its own name, case aside",
+			func(ctx SpecContext) {
+				other := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "press",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "func press() {\n}\n"},
+					}},
+				}}}
+				tx(ctx, func(tx gorp.Tx) error {
+					w := layer.Arc.NewWriter(tx)
+					if err := w.Create(ctx, &other); err != nil {
+						return err
+					}
+					return w.Apply(ctx, other.Base().Key, arc.NewSetDirectoryAction(
+						arc.SetDirectoryPayload{Directory: seqs},
+					))
+				})
+				folded := set.New[string]()
+				var arcs []string
+				for _, f := range working(ctx) {
+					if strings.HasPrefix(f.Path, "arc/Sequences/") &&
+						!strings.HasSuffix(f.Path, "_directory.json") {
+						arcs = append(arcs, f.Path)
+						folded.Add(strings.ToLower(f.Path))
+					}
+				}
+				Expect(arcs).To(HaveLen(4))
+				Expect(folded).To(HaveLen(4))
+				Expect(arcs).To(ContainElement(HaveSuffix(" (1).arc")))
+				Expect(arcs).To(ContainElement(HaveSuffix(" (1).json")))
+			},
+		)
+
+		It(
+			"Should refuse to write a channel that does not exist",
+			func(ctx SpecContext) {
+				fs := working(ctx)
+				for i := range fs {
+					if fs[i].Path == "channels/vcs_pressure.json" {
+						fs[i].Content = strings.Replace(
+							fs[i].Content,
+							`"key": `+strconv.Itoa(int(data.Key())),
+							`"key": 999999`,
+							1,
+						)
+					}
+				}
+				Expect(svc.Write(ctx, vcs.Inverse{Files: fs}, svc.DefaultWrite)).
+					To(beInvalid("Channel vcs_pressure does not exist on this Core."))
 			},
 		)
 

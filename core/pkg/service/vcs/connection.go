@@ -45,7 +45,10 @@ func readConnection(dir string) (connection, error) {
 		return connection{}, err
 	}
 	var c connection
-	return c, decode(b, &c)
+	if err = decode(b, &c); err != nil {
+		return connection{}, err
+	}
+	return c, nil
 }
 
 func writeConnection(dir string, c connection) error {

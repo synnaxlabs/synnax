@@ -188,7 +188,11 @@ func body(t *tree, id resource.ID) []byte {
 // decodeAs decodes the main file of the resource with id in t.
 func decodeAs[T any](t *tree, id resource.ID) (T, error) {
 	var v T
-	return v, decode(body(t, id), &v)
+	if err := decode(body(t, id), &v); err != nil {
+		var zero T
+		return zero, err
+	}
+	return v, nil
 }
 
 func (a *applier) exists(id resource.ID) bool {
@@ -309,10 +313,9 @@ func (a *applier) remove(ctx context.Context, id resource.ID) error {
 	panic(errors.Newf("vcs: no remove for resource type %s", id.Type))
 }
 
-// putChannel creates a channel that does not exist, or renames and edits the
-// calculation of one that does. A new channel gets a key from the Core, and one with
-// the name of an existing channel takes that channel. The index of a new channel goes
-// first.
+// putChannel renames and edits the calculation of an existing channel. It returns a
+// validation error for a channel that does not exist on the Core, since a new channel
+// gets a new key and tasks and visualizations name channels by key.
 func (a *applier) putChannel(ctx context.Context, t *tree, id resource.ID) error {
 	f, err := decodeAs[channelFile](t, id)
 	if err != nil {
@@ -354,28 +357,14 @@ func (a *applier) putChannel(ctx context.Context, t *tree, id resource.ID) error
 	if !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	ch := channel.Channel{
-		Name:       channel.Name(f.Name),
-		DataType:   f.DataType,
-		IsIndex:    f.IsIndex,
-		Virtual:    f.Virtual,
-		Expression: f.Expression,
-		Operations: f.Operations,
-	}
-	if f.Index != 0 && !f.IsIndex {
-		index := resource.ID{Type: resource.TypeChannel, Key: f.Index.String()}
-		if _, ok := t.items[index]; ok {
-			if err = a.putChannel(ctx, t, index); err != nil {
-				return err
-			}
-		}
-		ch.LocalIndex = lo.ValueOr(a.channels, f.Index, f.Index).LocalKey()
-	}
-	if err = w.Create(ctx, &ch, channel.RetrieveIfNameExists()); err != nil {
-		return err
-	}
-	a.channels[f.Key] = ch.Key()
-	return nil
+	return errors.Mark(
+		errors.Newf(
+			"Channel %s does not exist on this Core. Version control cannot create "+
+				"it, since tasks and visualizations name channels by key.",
+			f.Name,
+		),
+		validate.ErrValidation,
+	)
 }
 
 func (a *applier) putTask(ctx context.Context, t *tree, id resource.ID) error {
@@ -484,7 +473,10 @@ func sameGraph(cur arc.GraphSource, f arcFile) (bool, error) {
 		return false, err
 	}
 	b, err := encode(*f.Graph)
-	return bytes.Equal(a, b), err
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(a, b), nil
 }
 
 // textActions returns the character edits that turn doc into next: a delete of the

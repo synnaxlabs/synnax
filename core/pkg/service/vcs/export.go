@@ -13,6 +13,7 @@ import (
 	"context"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/arc/graph"
@@ -21,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -117,30 +117,57 @@ func (l *layout) file(parent *node, id resource.ID, name, ext string, fs files) 
 	l.nodes = append(l.nodes, n)
 }
 
-// resolve claims a path element for every child of root, folders and files apart, in a
-// walk sorted by name then key.
+// resolve claims a path element for every child of root, in a walk sorted by name then
+// key. Folders and files share the claims, and a file claims the name of each of its
+// files, so no two entries of a folder share a name.
 func (l *layout) resolve(root *node) error {
 	kids := l.children[root]
 	slices.SortFunc(kids, func(a, b *node) int {
 		return cmpStrings(a.name, b.name, a.key, b.key)
 	})
-	dirs := imex.NewClaims()
-	leaves := imex.NewClaims(groupFile, projectFile, directoryFile)
+	taken := set.New[string]()
+	for _, r := range []string{groupFile, projectFile, directoryFile} {
+		taken.Add(filename.Fold(r))
+	}
 	for _, k := range kids {
 		name, err := filename.Sanitize(k.name, k.ext)
 		if err != nil {
 			return err
 		}
+		exts := []string{k.ext}
+		for ext := range k.files {
+			if ext != k.ext {
+				exts = append(exts, ext)
+			}
+		}
+		k.claimed = claim(taken, name, k.ext, exts)
 		if k.folder {
-			k.claimed = dirs.Claim(name, "")
 			if err = l.resolve(k); err != nil {
 				return err
 			}
-		} else {
-			k.claimed = leaves.Claim(name, k.ext)
 		}
 	}
 	return nil
+}
+
+// claim returns name, or name with the first numeric suffix that frees it, such that
+// the name with each of exts in place of ext is free. It takes all of those names.
+func claim(taken set.Set[string], name, ext string, exts []string) string {
+	free := func(n string) bool {
+		base := strings.TrimSuffix(n, ext)
+		return !slices.ContainsFunc(exts, func(e string) bool {
+			return taken.Contains(filename.Fold(base + e))
+		})
+	}
+	claimed := name
+	for i := 1; !free(claimed); i++ {
+		claimed = filename.WithSuffix(name, " ("+strconv.Itoa(i)+")", ext)
+	}
+	base := strings.TrimSuffix(claimed, ext)
+	for _, e := range exts {
+		taken.Add(filename.Fold(base + e))
+	}
+	return claimed
 }
 
 func (n *node) path() string {
