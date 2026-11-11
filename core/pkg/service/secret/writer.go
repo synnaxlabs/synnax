@@ -136,9 +136,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// isFileName reports whether name stays in the folder that a rack joins it to. A colon
-// starts a Windows drive, such as C:key.pem.
-func isFileName(name string) bool {
+// IsFileName reports whether name is a file name, so a rack that joins it to a folder
+// stays in that folder. A colon starts a Windows drive, such as C:key.pem.
+func IsFileName(name string) bool {
 	return name != "." && name != ".." && !strings.ContainsAny(name, `/\:`)
 }
 
@@ -151,7 +151,7 @@ func validateSecret(s Secret, value []byte) error {
 		v.NotEmptyString("file_name", variant.FileName)
 		v.Ternary(
 			"file_name",
-			!isFileName(variant.FileName),
+			!IsFileName(variant.FileName),
 			"must be a file name, not a path",
 		)
 		v.Ternary("value", len(value) != 0, "must be empty for a file secret")
