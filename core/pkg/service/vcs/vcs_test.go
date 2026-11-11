@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -43,6 +44,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -754,6 +756,79 @@ var _ = Describe("VCS", func() {
 				MustSucceed(svc.Fetch(ctx))
 				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite)).
 					Error().To(MatchError(vcs.ErrMoved))
+			},
+		)
+
+		It(
+			"Should restart a running Arc only when its program changes",
+			func(ctx SpecContext) {
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "Press",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "func press() {\n}\n"},
+					}},
+				}}}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Arc.NewWriter(tx).Create(ctx, &a)
+				})
+				t := task.Task{
+					Name:   "Press runner",
+					Type:   arctask.Type,
+					Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Task.NewWriter(tx).Create(ctx, &t)
+				})
+				running := task.Status{
+					Owner:   new(t.ResourceID()),
+					Variant: status.VariantSuccess,
+					Message: "Running",
+					Time:    telem.Now(),
+					Details: task.StatusDetails{Running: true},
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Status.NewWriter(tx).Set(ctx, &running)
+				})
+				connect(ctx, remoteURL)
+				var src, meta string
+				for _, f := range working(ctx) {
+					switch f.Path {
+					case "arc/Press.arc":
+						src = f.Path
+					case "arc/Press.json":
+						meta = f.Path
+					}
+				}
+				Expect(src).ToNot(BeEmpty())
+				Expect(meta).ToNot(BeEmpty())
+				restarts := func() bool {
+					GinkgoHelper()
+					MustSucceed(svc.Fetch(ctx))
+					plan := MustSucceed(svc.Plan(ctx, vcs.Target{Kind: vcs.TargetPull}))
+					Expect(plan.Items).To(HaveLen(1))
+					Expect(plan.Items[0].Running).To(BeTrue())
+					return plan.Items[0].Restarts
+				}
+				pushFromElsewhere(meta, "arc/Pressure.json", func(b []byte) []byte {
+					return bytes.Replace(b, []byte(`"Press"`), []byte(`"Pressure"`), 1)
+				})
+				pushFromElsewhere(src, "arc/Pressure.arc", func(b []byte) []byte {
+					return b
+				})
+				Expect(restarts()).To(BeFalse())
+				pushFromElsewhere(
+					"arc/Pressure.arc",
+					"arc/Pressure.arc",
+					func(b []byte) []byte {
+						return bytes.Replace(
+							b,
+							[]byte("{\n}"),
+							[]byte("{\n    wait()\n}"),
+							1,
+						)
+					},
+				)
+				Expect(restarts()).To(BeTrue())
 			},
 		)
 
