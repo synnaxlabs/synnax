@@ -54,7 +54,7 @@ describe("Login", () => {
     expect(input.autocomplete).toBe("username");
   });
 
-  it("should tell a visitor who logs in with Google that accounts get release notes", () => {
+  it("should tell a visitor at login that accounts get release notes", () => {
     render(<Login target="/" invited={null} />);
     expect(
       screen.getByText(
