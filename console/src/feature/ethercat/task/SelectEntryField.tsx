@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { onlyReaderOf } from "@/feature/ethercat/device/setup";
+import { canSwitch, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   addressKey,
   type Channel,
@@ -54,7 +54,10 @@ export const SelectEntryField = ({
   let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
   else if (reader != null)
-    emptyContent = `Set up for ${reader}. In Configure, switch it to Synnax.`;
+    emptyContent =
+      slave != null && canSwitch(slave.properties)
+        ? `Set up for ${reader}. In Configure, switch it to Synnax.`
+        : `Set up for ${reader}.`;
   const unresolvedProps =
     ch.type === "unresolved"
       ? {
