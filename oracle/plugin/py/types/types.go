@@ -601,7 +601,7 @@ func typeDefBaseToPython(
 	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
 	// special-cases distinct bases and would yield Any for a struct element.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
+		elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
 		if typeRef.ArraySize != nil {
 			data.imports.addTyping("Tuple")
@@ -1650,8 +1650,9 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// boundedArgToPython returns the Python type of a map key or value. A sized integer
-// carries its range in its type, since the bounds of a field do not reach into a dict.
+// boundedArgToPython returns the Python type of a map key, map value, or list element.
+// A sized integer carries its range in its type, since field bounds do not reach into
+// a collection.
 func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -1743,7 +1744,7 @@ func typeToPython(
 	// so wrapping here would double-wrap. Alias contexts that need list[...] use
 	// typeDefBaseToPython / typeRefToPythonAlias instead.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
+		elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
 		if typeRef.ArraySize != nil {
 			data.imports.addTyping("Tuple")
@@ -1858,7 +1859,10 @@ func typeRefToPythonAlias(
 	// than falling through to the scalar/struct path below.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
 		typeRef.ArraySize == nil {
-		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
+		return fmt.Sprintf(
+			"list[%s]",
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+		)
 	}
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
