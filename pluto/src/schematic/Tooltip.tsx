@@ -46,13 +46,15 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
 // Channels the symbol already streams come first, so the row adds no subscription.
 const SAMPLE_AGE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
 
-const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
+const FIELD_ROWS: { field: Field; label?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
   { field: "clickable" },
-  { field: "onClickDelay", unit: "ms" },
+  { field: "onClickDelay" },
   { field: "stalenessTimeout", label: "Stale timeout" },
 ];
+
+const SPAN_FIELDS = new Set<Field>(["onClickDelay", "stalenessTimeout"]);
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
   if (ch.isIndex) return Icon.Time;
@@ -166,15 +168,14 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
   );
-  const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
+  const fields = FIELD_ROWS.flatMap(({ field, label }) => {
     const value = values[field];
     if (value == null) return [];
     // A zero click delay means none, so the row would only be noise.
     if (field === "onClickDelay" && value === 0) return [];
-    const text =
-      field === "stalenessTimeout"
-        ? TimeSpan.seconds(Number(value)).toString("semantic")
-        : `${String(value)}${unit ?? ""}`;
+    const text = SPAN_FIELDS.has(field)
+      ? new TimeSpan(Number(value)).toString("full")
+      : String(value);
     return (
       <Row
         key={field}

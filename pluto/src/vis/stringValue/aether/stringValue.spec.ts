@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, scale, xy } from "@synnaxlabs/x";
+import { box, color, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -207,7 +207,10 @@ describe("stringValue.StringValue", () => {
     it("should stay live before the source has ever sent", () => {
       const { component, recorder } = setup({
         value: "IDLE",
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       vi.advanceTimersByTime(10000);
       recorder.clear();
@@ -217,7 +220,10 @@ describe("stringValue.StringValue", () => {
 
     it("should repaint in the staleness color once the source goes quiet", () => {
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("ARMED");
       recorder.clear();
@@ -227,7 +233,9 @@ describe("stringValue.StringValue", () => {
     });
 
     it("should fall back to the warning color when no staleness color is set", () => {
-      const { source, recorder } = setup({ state: { stalenessTimeout: 1 } });
+      const { source, recorder } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1250);
       expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.warning.m1));
@@ -235,7 +243,10 @@ describe("stringValue.StringValue", () => {
 
     it("should restart the countdown on every received value", () => {
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 2, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(2).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1500);
@@ -248,7 +259,10 @@ describe("stringValue.StringValue", () => {
 
     it("should return to the text color when a value arrives after going stale", () => {
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1250);
@@ -260,7 +274,10 @@ describe("stringValue.StringValue", () => {
     // present a stale value as fresh.
     it("should stay stale across an update that does not carry a value", () => {
       const { h, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("ARMED");
       vi.advanceTimersByTime(1250);

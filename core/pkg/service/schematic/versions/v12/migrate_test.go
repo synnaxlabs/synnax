@@ -22,6 +22,7 @@ import (
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -515,5 +516,219 @@ var _ = Describe("Stored migration", func() {
 		Expect(got.Edges[0].Variant).To(Equal(v12.EdgeVariantData))
 		Expect(got.Edges[0].StrokeWidth).To(BeEquivalentTo(2))
 		Expect(got.Configs).To(BeEmpty())
+	})
+})
+
+var _ = Describe("MigrateStalenessConfig", func() {
+	DescribeTable("Should convert the timeout from seconds to a span", func(
+		ctx SpecContext,
+		in float64,
+		out telem.TimeSpan,
+	) {
+		cfg := MustSucceed(v12.MigrateStalenessConfig(
+			ctx,
+			v11.StalenessConfig{StalenessTimeout: in},
+		))
+		Expect(cfg.StalenessTimeout).To(Equal(out))
+	},
+		Entry("whole", 5.0, 5*telem.Second),
+		Entry("fraction", 1.5, 1500*telem.Millisecond),
+		Entry("zero", 0.0, 5*telem.Second),
+		Entry("negative", -2.0, 5*telem.Second),
+		Entry("NaN", math.NaN(), 5*telem.Second),
+		Entry("too large", 1e12, telem.TimeSpanMax),
+		Entry("infinite", math.Inf(1), telem.TimeSpanMax),
+	)
+
+	It("Should keep the staleness color", func(ctx SpecContext) {
+		stale := color.Color{R: 255, A: 1}
+		cfg := MustSucceed(v12.MigrateStalenessConfig(
+			ctx,
+			v11.StalenessConfig{StalenessTimeout: 2, StalenessColor: &stale},
+		))
+		Expect(cfg.StalenessColor).To(HaveValue(Equal(stale)))
+	})
+})
+
+var _ = Describe("MigrateToggleConfig", func() {
+	DescribeTable("Should convert the click delay from milliseconds to a span", func(
+		ctx SpecContext,
+		in float64,
+		out telem.TimeSpan,
+	) {
+		cfg := MustSucceed(v12.MigrateToggleConfig(
+			ctx,
+			v11.ToggleConfig{OnClickDelay: in},
+		))
+		Expect(cfg.OnClickDelay).To(Equal(out))
+	},
+		Entry("whole", 250.0, 250*telem.Millisecond),
+		Entry("fraction", 0.5, 500*telem.Microsecond),
+		Entry("zero", 0.0, telem.TimeSpan(0)),
+		Entry("negative", -10.0, telem.TimeSpan(0)),
+		Entry("NaN", math.NaN(), telem.TimeSpan(0)),
+		Entry("too large", 1e15, telem.TimeSpanMax),
+	)
+})
+
+var _ = Describe("MigrateNumericTelemConfig rolling average", func() {
+	DescribeTable("Should clamp the rolling average", func(
+		ctx SpecContext,
+		in *int32,
+		out *uint16,
+	) {
+		cfg := MustSucceed(v12.MigrateNumericTelemConfig(
+			ctx,
+			v11.NumericTelemConfig{RollingAverage: in},
+		))
+		Expect(cfg.RollingAverage).To(Equal(out))
+	},
+		Entry("missing", nil, nil),
+		Entry("whole", new(int32(10)), new(uint16(10))),
+		Entry("zero", new(int32(0)), new(uint16(1))),
+		Entry("negative", new(int32(-4)), new(uint16(1))),
+		Entry("too large", new(int32(70000)), new(uint16(65535))),
+	)
+})
+
+var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
+	DescribeTable("Should round and clamp a pixel size",
+		func(ctx SpecContext, old v11.NodeConfigVariant, field string, want uint16) {
+			out := MustSucceed(v12.MigrateNodeConfig(
+				ctx,
+				v11.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField(field, Equal(want)))
+		},
+		Entry("input inline size", v11.InputNodeConfig{InlineSize: 150.6},
+			"InlineSize", uint16(151)),
+		Entry("select inline size at NaN",
+			v11.SelectNodeConfig{InlineSize: math.NaN()}, "InlineSize", uint16(100)),
+		Entry("setpoint inline size negative",
+			v11.SetpointNodeConfig{InlineSize: -5}, "InlineSize", uint16(0)),
+		Entry(
+			"state indicator inline size too large",
+			v11.StateIndicatorNodeConfig{
+				InlineSize: 1e9,
+			},
+			"InlineSize",
+			uint16(65535),
+		),
+		Entry("string display inline size",
+			v11.StringDisplayNodeConfig{InlineSize: 99.4}, "InlineSize", uint16(99)),
+		Entry("value inline size at NaN",
+			v11.ValueNodeConfig{InlineSize: math.NaN()}, "InlineSize", uint16(70)),
+		Entry("text box width", v11.TextBoxNodeConfig{Width: 80.5},
+			"InlineSize", uint16(81)),
+		Entry("text box width at NaN", v11.TextBoxNodeConfig{Width: math.NaN()},
+			"InlineSize", uint16(75)),
+		Entry("circle radius", v11.CircleNodeConfig{Radius: 20.2},
+			"Radius", uint16(20)),
+		Entry("circle radius at NaN", v11.CircleNodeConfig{Radius: math.NaN()},
+			"Radius", uint16(20)),
+		Entry("polygon side length", v11.PolygonNodeConfig{SideLength: 24.7},
+			"SideLength", uint16(25)),
+		Entry("polygon corner rounding", v11.PolygonNodeConfig{CornerRounding: 4.4},
+			"BorderRadius", uint16(4)),
+		Entry("polygon corner rounding negative",
+			v11.PolygonNodeConfig{CornerRounding: -1}, "BorderRadius", uint16(0)),
+		Entry("box border radius", v11.BoxNodeConfig{BorderRadius: 3.5},
+			"BorderRadius", uint16(4)),
+		Entry("box border radius at NaN",
+			v11.BoxNodeConfig{BorderRadius: math.NaN()}, "BorderRadius", uint16(3)),
+		Entry("gauge bar width", v11.GaugeNodeConfig{BarWidth: 9.6},
+			"BarWidth", uint16(10)),
+		Entry("gauge bar width too large", v11.GaugeNodeConfig{BarWidth: 1e6},
+			"BarWidth", uint16(65535)),
+	)
+
+	DescribeTable("Should clamp the polygon sides to 3 through 255",
+		func(ctx SpecContext, in float64, want uint8) {
+			out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+				Variant: v11.PolygonNodeConfig{NumSides: in},
+			}))
+			Expect(out.Variant).To(HaveField("NumSides", Equal(want)))
+		},
+		Entry("whole", 6.0, uint8(6)),
+		Entry("fraction", 7.6, uint8(8)),
+		Entry("below 3", 2.0, uint8(3)),
+		Entry("negative", -5.0, uint8(3)),
+		Entry("too large", 1000.0, uint8(255)),
+		Entry("NaN", math.NaN(), uint8(6)),
+	)
+
+	DescribeTable(
+		"Should convert the click delay of an actuated symbol",
+		func(ctx SpecContext, old v11.NodeConfigVariant) {
+			out := MustSucceed(v12.MigrateNodeConfig(
+				ctx,
+				v11.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(
+				HaveField("OnClickDelay", Equal(250*telem.Millisecond)),
+			)
+		},
+		Entry("button", v11.ButtonNodeConfig{OnClickDelay: 250}),
+		Entry("input", v11.InputNodeConfig{OnClickDelay: 250}),
+		Entry("select", v11.SelectNodeConfig{OnClickDelay: 250}),
+		Entry("setpoint", v11.SetpointNodeConfig{OnClickDelay: 250}),
+		Entry(
+			"valve",
+			v11.ValveNodeConfig{ToggleSymbolConfig: v10.ToggleSymbolConfig{
+				ToggleConfig: v10.ToggleConfig{OnClickDelay: 250},
+			}},
+		),
+	)
+
+	It("Should keep the double-click navigation setting", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+			Variant: v11.OffPageReferenceNodeConfig{DblClickNavDisabled: true},
+		}))
+		Expect(out.Variant).To(HaveField("DoubleClickNavigationDisabled", BeTrue()))
+	})
+
+	It("Should migrate the staleness and rolling average of a tank", func(
+		ctx SpecContext,
+	) {
+		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+			Variant: v11.TankNodeConfig{
+				StalenessTimeout: 2,
+				RollingAverage:   new(int32(0)),
+			},
+		}))
+		tank := out.Variant.(v12.TankNodeConfig)
+		Expect(tank.StalenessTimeout).To(Equal(2 * telem.Second))
+		Expect(tank.RollingAverage).To(HaveValue(BeEquivalentTo(1)))
+	})
+
+	It("Should convert the staleness timeout of a value", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+			Variant: v11.ValueNodeConfig{
+				StalenessConfig: v10.StalenessConfig{StalenessTimeout: 10},
+			},
+		}))
+		Expect(out.Variant).To(HaveField("StalenessTimeout", Equal(10*telem.Second)))
+	})
+
+	DescribeTable("Should fill the default of a field a saved symbol is missing",
+		func(ctx SpecContext, variant, field string, want any) {
+			Expect(migrateConfig(ctx, msgpack.EncodedJSON{"variant": variant})).
+				To(HaveField(field, Equal(want)))
+		},
+		Entry("input inline size", "input", "InlineSize", uint16(150)),
+		Entry("text box inline size", "text_box", "InlineSize", uint16(75)),
+		Entry("circle radius", "circle", "Radius", uint16(20)),
+		Entry("polygon sides", "polygon", "NumSides", uint8(6)),
+		Entry("polygon border radius", "polygon", "BorderRadius", uint16(0)),
+		Entry("gauge bar width", "gauge", "BarWidth", uint16(10)),
+		Entry("button click delay", "button", "OnClickDelay", telem.TimeSpan(0)),
+		Entry("value staleness timeout", "value", "StalenessTimeout", 5*telem.Second),
+		Entry("off-page reference navigation", "off_page_reference",
+			"DoubleClickNavigationDisabled", false),
+	)
+
+	It("Should keep a renamed field through storage", func(ctx SpecContext) {
+		cfg := migrateStoredConfig(ctx, v10.TextBoxElementConfig{Width: 120})
+		Expect(cfg.Variant).To(HaveField("InlineSize", BeEquivalentTo(120)))
 	})
 })

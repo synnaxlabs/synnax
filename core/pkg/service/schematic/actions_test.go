@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
@@ -1034,7 +1035,7 @@ var _ = Describe("Payload decoding", func() {
 			"config": {"variant": "switch"}}}`)
 		cfg := a.SetConfig.Config.Variant.(schematic.SwitchNodeConfig)
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
-		Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
+		Expect(cfg.StalenessTimeout).To(Equal(5 * telem.Second))
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 

@@ -8,19 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 const path = deep.path<{ onClickDelay?: number }>();
 
-export const ActivationDelayField = (
-  props: Partial<Form.TimeSpanFieldProps>,
-): ReactElement => (
-  <Form.TimeSpanField
+/** Edits the click delay in nanoseconds. A number typed alone is milliseconds. */
+export const ActivationDelayField = (): ReactElement => (
+  <Form.Field<number | undefined>
     label="Delay"
     path={path.onClickDelay}
-    unit={TimeSpan.MILLISECOND}
     padHelpText={false}
-    {...props}
-  />
+  >
+    {({ value, onChange, ...p }) => (
+      <Input.TimeSpan
+        {...p}
+        inline
+        unit={TimeSpan.MILLISECOND}
+        value={value}
+        onChange={onChange}
+      />
+    )}
+  </Form.Field>
 );

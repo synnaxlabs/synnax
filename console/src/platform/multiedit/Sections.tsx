@@ -35,7 +35,10 @@ const checkStalenessTimeout = (span: TimeSpan): string | null =>
 export interface StalenessSectionProps {
   /** The staleness color of each element that has the field. */
   colors: ColorValue[];
+  /** The timeout, in `unit`. */
   timeout?: number;
+  /** The unit of the stored timeout. Defaults to nanoseconds. */
+  unit?: TimeSpan;
   onColorChange: (value?: color.Color) => void;
   onTimeoutChange: (value: number) => void;
 }
@@ -43,7 +46,8 @@ export interface StalenessSectionProps {
 /** Edits the staleness color and timeout of several elements. */
 export const StalenessSection = ({
   colors,
-  timeout = Staleness.DEFAULT_TIMEOUT,
+  timeout,
+  unit = TimeSpan.NANOSECOND,
   onColorChange,
   onTimeoutChange,
 }: StalenessSectionProps): ReactElement => (
@@ -52,8 +56,12 @@ export const StalenessSection = ({
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline
-        value={Number(TimeSpan.seconds(timeout).valueOf())}
-        onChange={(ns) => onTimeoutChange(new TimeSpan(ns).seconds)}
+        value={
+          timeout == null
+            ? Staleness.DEFAULT_TIMEOUT
+            : Number(unit.mult(timeout).valueOf())
+        }
+        onChange={(ns) => onTimeoutChange(ns / Number(unit.valueOf()))}
         check={checkStalenessTimeout}
       />
     </Input.Item>

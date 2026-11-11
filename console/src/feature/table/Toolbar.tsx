@@ -25,7 +25,7 @@ import {
   Staleness,
   Table,
 } from "@synnaxlabs/pluto";
-import { deep, type text } from "@synnaxlabs/x";
+import { deep, type text, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -268,6 +268,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
             Staleness.resolveColor(undefined, theme),
           )}
           timeout={selection.first("stalenessTimeout")}
+          unit={TimeSpan.SECOND}
           onColorChange={(c) => selection.set("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
         />

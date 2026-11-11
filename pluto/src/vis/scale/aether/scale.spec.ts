@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, xy } from "@synnaxlabs/x";
+import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -192,7 +192,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
@@ -205,7 +205,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       for (let i = 0; i < 5; i++) {
         source.setValue(50 + i);
@@ -219,7 +219,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showFill: false,
         showScale: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);
@@ -231,7 +231,7 @@ describe("scale/aether/Scale", () => {
         color: ACCENT,
         showScale: false,
         showCaret: false,
-        stalenessTimeout: 1,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
       });
       source.setValue(50);
       vi.advanceTimersByTime(2000);

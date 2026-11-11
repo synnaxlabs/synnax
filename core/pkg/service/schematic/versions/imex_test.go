@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -57,7 +58,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 			Orientation:      "left",
 			Scale:            1,
-			StalenessTimeout: 5,
+			StalenessTimeout: 5 * telem.Second,
 		}))
 	})
 
@@ -83,7 +84,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 			Orientation:      "left",
 			Scale:            1,
-			StalenessTimeout: 5,
+			StalenessTimeout: 5 * telem.Second,
 		}))
 	})
 
@@ -104,7 +105,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges[0].Source).
 			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
-		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
+		Expect(valveConfig(sch, "n1").OnClickDelay).To(Equal(2 * telem.Millisecond))
 	})
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
@@ -196,18 +197,20 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Entry("older version", "testdata/import_v8_zeros.json"),
 	)
 
-	DescribeTable("Should import a zero scale as 1 and keep the other zeros", func(
-		ctx SpecContext,
-		path string,
-	) {
-		sch := decode(ctx, path)
-		valve := valveConfig(sch, "v1")
-		Expect(valve.Scale).To(Equal(1.0))
-		Expect(valve.StalenessTimeout).To(BeZero())
-		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeNodeConfig)
-		Expect(ok).To(BeTrue())
-		Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
-	},
+	DescribeTable(
+		"Should import a zero scale as 1, a zero timeout as 5s, and keep other zeros",
+		func(
+			ctx SpecContext,
+			path string,
+		) {
+			sch := decode(ctx, path)
+			valve := valveConfig(sch, "v1")
+			Expect(valve.Scale).To(Equal(1.0))
+			Expect(valve.StalenessTimeout).To(Equal(5 * telem.Second))
+			gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		},
 		Entry("current version", "testdata/import_v10_zero_scale.json"),
 		Entry("older version", "testdata/import_v8_zero_scale.json"),
 	)

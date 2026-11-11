@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { TimeSpan } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -28,7 +29,9 @@ const Host = ({ values }: { values: z.infer<typeof schema> }): ReactElement => {
 
 describe("ActivationDelayField", () => {
   it("should show the saved delay", () => {
-    const c = render(<Host values={{ onClickDelay: 250 }} />);
+    const c = render(
+      <Host values={{ onClickDelay: TimeSpan.milliseconds(250).nanoseconds }} />,
+    );
     expect(c.getByLabelText(/Delay/)).toHaveProperty("value", "250ms");
   });
 

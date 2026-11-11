@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
@@ -62,7 +63,7 @@ var (
 		},
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
-		StalenessTimeout: 10.5,
+		StalenessTimeout: telem.TimeSpan(11),
 		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
@@ -78,7 +79,7 @@ var (
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
 		}),
-		OnClickDelay: 24.5,
+		OnClickDelay: telem.TimeSpan(25),
 		StrokeColor: new(color.Color{
 			R: 27,
 			G: 28,
@@ -99,12 +100,12 @@ var (
 	}
 	fullyPopulatedNumericTelemConfig = v12.NumericTelemConfig{
 		Channel:        new(channel.Key(2)),
-		RollingAverage: new(int32(3)),
+		RollingAverage: new(uint16(3)),
 		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
 	}
 	fullyPopulatedStalenessConfig = v12.StalenessConfig{
-		StalenessTimeout: 1.5,
+		StalenessTimeout: telem.TimeSpan(2),
 		StalenessColor: new(color.Color{
 			R: 4,
 			G: 5,
@@ -115,10 +116,10 @@ var (
 	fullyPopulatedScaledConfig         = v12.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v12.ScaleIndicatorConfig{
 		Channel:          new(channel.Key(2)),
-		RollingAverage:   new(int32(3)),
+		RollingAverage:   new(uint16(3)),
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
-		StalenessTimeout: 5.5,
+		StalenessTimeout: telem.TimeSpan(6),
 		StalenessColor: new(color.Color{
 			R: 8,
 			G: 9,
@@ -183,7 +184,7 @@ var (
 		},
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
-		StalenessTimeout: 10.5,
+		StalenessTimeout: telem.TimeSpan(11),
 		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
@@ -199,7 +200,7 @@ var (
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
 		}),
-		OnClickDelay: 24.5,
+		OnClickDelay: telem.TimeSpan(25),
 	}
 )
 
@@ -416,14 +417,14 @@ var _ = Describe("Codec", func() {
 					A: 10.5,
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-				BorderRadius: 14.5,
+				BorderRadius: 15,
 				StrokeWidth:  16,
 			}}),
 			Entry("button variant", v12.NodeConfig{Variant: v12.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v12.ComponentSize("tiny"),
 				Level:          text.Level("h1"),
-				OnClickDelay:   3.5,
+				OnClickDelay:   telem.TimeSpan(4),
 				CommandChannel: new(channel.Key(5)),
 				Mode:           v12.ButtonMode("fire"),
 				FillColor: new(color.Color{
@@ -442,7 +443,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("circle variant", v12.NodeConfig{Variant: v12.CircleNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				Radius:        1.5,
+				Radius:        2,
 				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
@@ -469,7 +470,7 @@ var _ = Describe("Codec", func() {
 					A: 8.5,
 				}),
 				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-				BarWidth: 12.5,
+				BarWidth: 13,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
@@ -492,8 +493,8 @@ var _ = Describe("Codec", func() {
 					A: 12.5,
 				}),
 				Disabled:     true,
-				InlineSize:   14.5,
-				OnClickDelay: 15.5,
+				InlineSize:   15,
+				OnClickDelay: telem.TimeSpan(16),
 				Control: new(v12.ControlStateConfig{
 					Authority:       new(uint8(18)),
 					Hidden:          false,
@@ -540,15 +541,15 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 5.5,
 				}),
-				Page:                new(v12.Page{Type: v12.PageType("schematic"), Key: "test_8"}),
-				DblClickNavDisabled: true,
+				Page:                          new(v12.Page{Type: v12.PageType("schematic"), Key: "test_8"}),
+				DoubleClickNavigationDisabled: true,
 			}}),
 			Entry("polygon variant", v12.NodeConfig{Variant: v12.PolygonNodeConfig{
-				LabeledConfig:  fullyPopulatedLabeledConfig,
-				NumSides:       1.5,
-				SideLength:     2.5,
-				Rotation:       3.5,
-				CornerRounding: 4.5,
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				NumSides:      2,
+				SideLength:    3,
+				Rotation:      3.5,
+				BorderRadius:  5,
 				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
@@ -576,7 +577,7 @@ var _ = Describe("Codec", func() {
 					B: 9,
 					A: 9.5,
 				}),
-				InlineSize: 10.5,
+				InlineSize: 11,
 				Options: []v12.StateMapping{
 					{
 						Key:   "test_12",
@@ -591,7 +592,7 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Disabled:     false,
-				OnClickDelay: 21.5,
+				OnClickDelay: telem.TimeSpan(22),
 				Control: new(v12.ControlStateConfig{
 					Authority:       new(uint8(24)),
 					Hidden:          false,
@@ -622,8 +623,8 @@ var _ = Describe("Codec", func() {
 				}),
 				Units:        "test_13",
 				Disabled:     false,
-				InlineSize:   15.5,
-				OnClickDelay: 16.5,
+				InlineSize:   16,
+				OnClickDelay: telem.TimeSpan(17),
 				Control: new(v12.ControlStateConfig{
 					Authority:       new(uint8(19)),
 					Hidden:          true,
@@ -642,7 +643,7 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				InlineSize: 7.5,
+				InlineSize: 8,
 				Options: []v12.StateMapping{
 					{
 						Key:   "test_9",
@@ -675,7 +676,7 @@ var _ = Describe("Codec", func() {
 					A: 10.5,
 				}),
 				Tooltip:    []string{"test_11"},
-				InlineSize: 12.5,
+				InlineSize: 13,
 				Channel:    new(channel.Key(14)),
 				Level:      text.Level("h1"),
 			}}),
@@ -688,7 +689,7 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 5.5,
 				}),
-				Width:           6.5,
+				InlineSize:      7,
 				Align:           v12.FlexAlignment("start"),
 				AutoFitDisabled: false,
 				Level:           text.Level("h1"),
@@ -730,7 +731,7 @@ var _ = Describe("Codec", func() {
 					Smooth: false,
 				},
 				Units:      "test_27",
-				InlineSize: 28.5,
+				InlineSize: 29,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -894,10 +895,10 @@ var _ = Describe("Codec", func() {
 			Entry("tank variant", v12.NodeConfig{Variant: v12.TankNodeConfig{
 				LabeledConfig:    fullyPopulatedLabeledConfig,
 				Channel:          new(channel.Key(2)),
-				RollingAverage:   new(int32(3)),
+				RollingAverage:   new(uint16(3)),
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
-				StalenessTimeout: 5.5,
+				StalenessTimeout: telem.TimeSpan(6),
 				StalenessColor: new(color.Color{
 					R: 8,
 					G: 9,
@@ -1031,7 +1032,7 @@ var _ = Describe("Codec", func() {
 				RollingAverage:   nil,
 				Precision:        nil,
 				Notation:         notation.Notation(""),
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
 				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 				LevelColor:       nil,
@@ -1108,6 +1109,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("StalenessConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.StalenessConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.StalenessConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedStalenessConfig),
+			Entry("zero values", v12.StalenessConfig{StalenessTimeout: telem.TimeSpan(0), StalenessColor: nil}),
+		)
+	})
 	Describe("StaticSymbolConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v12.StaticSymbolConfig) {
@@ -1158,12 +1174,12 @@ var _ = Describe("Codec", func() {
 				},
 				Orientation:      spatial.OuterLocation(""),
 				Scale:            0,
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
 				StateChannel:     nil,
 				CommandChannel:   nil,
 				Control:          nil,
-				OnClickDelay:     0,
+				OnClickDelay:     telem.TimeSpan(0),
 			}),
 		)
 	})
@@ -1190,12 +1206,12 @@ var _ = Describe("Codec", func() {
 				},
 				Orientation:      spatial.OuterLocation(""),
 				Scale:            0,
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
 				StateChannel:     nil,
 				CommandChannel:   nil,
 				Control:          nil,
-				OnClickDelay:     0,
+				OnClickDelay:     telem.TimeSpan(0),
 				StrokeColor:      nil,
 			}),
 		)
@@ -1380,6 +1396,23 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v12.Schematic
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStalenessConfig(b *testing.B) {
+	seed := fullyPopulatedStalenessConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.StalenessConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1919,7 +1952,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 10.5,
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-			BorderRadius: 14.5,
+			BorderRadius: 15,
 			StrokeWidth:  16,
 		}}
 		w := orc.NewWriter(0)
@@ -1933,7 +1966,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v12.ComponentSize("tiny"),
 			Level:          text.Level("h1"),
-			OnClickDelay:   3.5,
+			OnClickDelay:   telem.TimeSpan(4),
 			CommandChannel: new(channel.Key(5)),
 			Mode:           v12.ButtonMode("fire"),
 			FillColor: new(color.Color{
@@ -1959,7 +1992,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v12.NodeConfig{Variant: v12.CircleNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			Radius:        1.5,
+			Radius:        2,
 			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
@@ -1993,7 +2026,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 8.5,
 			}),
 			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-			BarWidth: 12.5,
+			BarWidth: 13,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
@@ -2023,8 +2056,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 12.5,
 			}),
 			Disabled:     true,
-			InlineSize:   14.5,
-			OnClickDelay: 15.5,
+			InlineSize:   15,
+			OnClickDelay: telem.TimeSpan(16),
 			Control: new(v12.ControlStateConfig{
 				Authority:       new(uint8(18)),
 				Hidden:          false,
@@ -2092,8 +2125,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 5,
 				A: 5.5,
 			}),
-			Page:                new(v12.Page{Type: v12.PageType("schematic"), Key: "test_8"}),
-			DblClickNavDisabled: true,
+			Page:                          new(v12.Page{Type: v12.PageType("schematic"), Key: "test_8"}),
+			DoubleClickNavigationDisabled: true,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2103,11 +2136,11 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v12.NodeConfig{Variant: v12.PolygonNodeConfig{
-			LabeledConfig:  fullyPopulatedLabeledConfig,
-			NumSides:       1.5,
-			SideLength:     2.5,
-			Rotation:       3.5,
-			CornerRounding: 4.5,
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			NumSides:      2,
+			SideLength:    3,
+			Rotation:      3.5,
+			BorderRadius:  5,
 			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
@@ -2142,7 +2175,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 9,
 				A: 9.5,
 			}),
-			InlineSize: 10.5,
+			InlineSize: 11,
 			Options: []v12.StateMapping{
 				{
 					Key:   "test_12",
@@ -2157,7 +2190,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				},
 			},
 			Disabled:     false,
-			OnClickDelay: 21.5,
+			OnClickDelay: telem.TimeSpan(22),
 			Control: new(v12.ControlStateConfig{
 				Authority:       new(uint8(24)),
 				Hidden:          false,
@@ -2202,8 +2235,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Units:        "test_13",
 			Disabled:     false,
-			InlineSize:   15.5,
-			OnClickDelay: 16.5,
+			InlineSize:   16,
+			OnClickDelay: telem.TimeSpan(17),
 			Control: new(v12.ControlStateConfig{
 				Authority:       new(uint8(19)),
 				Hidden:          true,
@@ -2229,7 +2262,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			InlineSize: 7.5,
+			InlineSize: 8,
 			Options: []v12.StateMapping{
 				{
 					Key:   "test_9",
@@ -2269,7 +2302,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 10.5,
 			}),
 			Tooltip:    []string{"test_11"},
-			InlineSize: 12.5,
+			InlineSize: 13,
 			Channel:    new(channel.Key(14)),
 			Level:      text.Level("h1"),
 		}}
@@ -2296,7 +2329,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 5,
 				A: 5.5,
 			}),
-			Width:           6.5,
+			InlineSize:      7,
 			Align:           v12.FlexAlignment("start"),
 			AutoFitDisabled: false,
 			Level:           text.Level("h1"),
@@ -2345,7 +2378,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				Smooth: false,
 			},
 			Units:      "test_27",
-			InlineSize: 28.5,
+			InlineSize: 29,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -2915,10 +2948,10 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v12.NodeConfig{Variant: v12.TankNodeConfig{
 			LabeledConfig:    fullyPopulatedLabeledConfig,
 			Channel:          new(channel.Key(2)),
-			RollingAverage:   new(int32(3)),
+			RollingAverage:   new(uint16(3)),
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
-			StalenessTimeout: 5.5,
+			StalenessTimeout: telem.TimeSpan(6),
 			StalenessColor: new(color.Color{
 				R: 8,
 				G: 9,
@@ -3128,7 +3161,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			RollingAverage:   nil,
 			Precision:        nil,
 			Notation:         notation.Notation(""),
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
 			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 			LevelColor:       nil,
@@ -3262,6 +3295,45 @@ func FuzzDecodeSchematic(f *testing.F) {
 	})
 }
 
+func FuzzDecodeStalenessConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedStalenessConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.StalenessConfig{StalenessTimeout: telem.TimeSpan(0), StalenessColor: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.StalenessConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.StalenessConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 	{
 		seed := fullyPopulatedStaticSymbolConfig
@@ -3334,12 +3406,12 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 			},
 			Orientation:      spatial.OuterLocation(""),
 			Scale:            0,
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
 			StateChannel:     nil,
 			CommandChannel:   nil,
 			Control:          nil,
-			OnClickDelay:     0,
+			OnClickDelay:     telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3390,12 +3462,12 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 			},
 			Orientation:      spatial.OuterLocation(""),
 			Scale:            0,
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
 			StateChannel:     nil,
 			CommandChannel:   nil,
 			Control:          nil,
-			OnClickDelay:     0,
+			OnClickDelay:     telem.TimeSpan(0),
 			StrokeColor:      nil,
 		}
 		w := orc.NewWriter(0)

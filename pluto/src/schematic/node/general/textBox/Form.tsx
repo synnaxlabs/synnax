@@ -28,6 +28,7 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 2000 },
   dragScale: 5,
   endContent: "px",
+  integer: true,
 };
 
 export const TextBoxForm = (): ReactElement => {
@@ -51,7 +52,7 @@ export const TextBoxForm = (): ReactElement => {
         <Form.ColorField path={path.textColor} label="Text" />
         <Base.Field
           onChange={(_, { set }) => set(path.autoFitDisabled, true)}
-          path={path.width}
+          path={path.inlineSize}
           label="Wrap width"
           padHelpText={false}
         >

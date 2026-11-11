@@ -16,6 +16,7 @@ import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v1"
 import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
 import "schemas/x/versions/text/v0"
 
 Key = v0.Key
@@ -89,10 +90,17 @@ LabeledConfig struct extends v9.LabeledConfig {}
 
 ScaledConfig = v9.ScaledConfig
 
-StalenessConfig = v9.StalenessConfig
+StalenessConfig struct extends v9.StalenessConfig {
+    staleness_timeout telem.TimeSpan = 5000000000 {
+        @doc value "is the span after which the value is considered stale."
+    }
+}
 
 NumericTelemConfig struct extends v9.NumericTelemConfig {
-    precision uint8? {
+    rolling_average uint16? {
+        @doc value "is the number of samples in the rolling average."
+    }
+    precision       uint8?  {
         @doc value    """
             is the number of decimal places shown, from 0 to 17. Absent shows 2.
         """
@@ -102,7 +110,11 @@ NumericTelemConfig struct extends v9.NumericTelemConfig {
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig struct extends v9.ToggleConfig {}
+ToggleConfig struct extends v9.ToggleConfig {
+    on_click_delay telem.TimeSpan = 0 {
+        @doc value "is the debounce delay applied to clicks."
+    }
+}
 
 StaticSymbolConfig struct extends v9.StaticSymbolConfig {}
 
@@ -120,18 +132,32 @@ Page = v9.Page
 
 NodeConfig union on variant extends v10.NodeConfig {
     box {
-        stroke_width uint8 = 2 {
+        border_radius uint16 = 3 {
+            @doc value "is the uniform corner radius of the box in pixels."
+        }
+        stroke_width  uint8 = 2 {
             @doc value "is the border stroke width in pixels."
         }
     }
     button {
-        level text.Level = text.LevelH4 {
+        on_click_delay telem.TimeSpan = 0 {
+            @doc value "is the debounce delay applied to clicks."
+        }
+        level          text.Level = text.LevelH4 {
             @doc value "is the typography level of the button text."
         }
     }
     circle {
+        radius       uint16 = 20 {
+            @doc value "is the radius of the circle in pixels."
+        }
         stroke_width uint8 = 2 {
             @doc value "is the border stroke width in pixels."
+        }
+    }
+    gauge {
+        bar_width uint16 = 10 {
+            @doc value "is the thickness of the gauge arc in pixels."
         }
     }
     line {
@@ -139,33 +165,95 @@ NodeConfig union on variant extends v10.NodeConfig {
             @doc value "is the stroke width of the line in pixels."
         }
     }
+    off_page_reference {
+        -dbl_click_nav_disabled
+        page
+        double_click_navigation_disabled bool = false {
+            @doc value "stops double-clicking from navigating to the linked page."
+        }
+    }
     polygon {
-        stroke_width uint8 = 2 {
+        -corner_rounding
+        num_sides     uint8 = 6 {
+            @doc value "is the number of sides of the polygon."
+        }
+        side_length   uint16 = 20 {
+            @doc value "is the length of each side in pixels."
+        }
+        rotation
+        border_radius uint16 = 0 {
+            @doc value "is the corner radius of the polygon in pixels."
+        }
+        stroke_width  uint8 = 2 {
             @doc value "is the border stroke width in pixels."
         }
     }
     input {
         size
-        level text.Level = text.LevelH4 {
+        level          text.Level = text.LevelH4 {
             @doc value "is the typography level of the input text."
+        }
+        inline_size    uint16 = 150 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+        on_click_delay telem.TimeSpan = 0 {
+            @doc value "is the debounce delay applied to clicks."
         }
     }
     select {
         size
-        level text.Level = text.LevelH4 {
+        level          text.Level = text.LevelH4 {
             @doc value "is the typography level of the select text."
+        }
+        inline_size    uint16 = 100 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+        on_click_delay telem.TimeSpan = 0 {
+            @doc value "is the debounce delay applied to clicks."
         }
     }
     setpoint {
         size
-        level text.Level = text.LevelH4 {
+        level          text.Level = text.LevelH4 {
             @doc value "is the typography level of the setpoint text."
+        }
+        inline_size    uint16 = 100 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+        on_click_delay telem.TimeSpan = 0 {
+            @doc value "is the debounce delay applied to clicks."
         }
     }
     state_indicator {
         size
-        level text.Level = text.LevelH4 {
+        level       text.Level = text.LevelH4 {
             @doc value "is the typography level of the indicator text."
+        }
+        inline_size uint16 = 100 {
+            @doc value "is the inline size of the indicator in pixels."
+        }
+    }
+    string_display {
+        inline_size uint16 = 100 {
+            @doc value "is the inline size of the display in pixels."
+        }
+    }
+    text_box {
+        -width
+        text_color
+        inline_size uint16 = 75 {
+            @doc value "is the rendered inline size of the text box in pixels."
+        }
+    }
+    value {
+        inline_size uint16 = 70 {
+            @doc value "is the inline size of the value in pixels."
         }
     }
 }

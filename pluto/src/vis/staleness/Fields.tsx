@@ -9,6 +9,7 @@
 
 import { Color } from "@synnaxlabs/lyra/color";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -17,13 +18,21 @@ import { staleness } from "@/vis/staleness/aether";
 
 const path = deep.path<{ stalenessColor?: color.Color; stalenessTimeout?: number }>();
 
+export interface FieldsProps {
+  /** The unit of the stored timeout. Defaults to nanoseconds. */
+  unit?: TimeSpan;
+}
+
+const checkTimeout = (span: TimeSpan): string | null =>
+  span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
+
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its
  * source stops sending. It renders as a pair of siblings, so the caller places it in a
  * row of its own choosing. An unchosen color is absent, so the swatch shows the theme
- * color it resolves to until a pick writes one.
+ * color it resolves to until a pick writes one. A number typed alone is seconds.
  */
-export const Fields = (): ReactElement => {
+export const Fields = ({ unit = TimeSpan.NANOSECOND }: FieldsProps): ReactElement => {
   const theme = Theming.use();
   return (
     <>
@@ -31,18 +40,24 @@ export const Fields = (): ReactElement => {
         path={path.stalenessColor}
         fallback={staleness.resolveColor(undefined, theme)}
       />
-      <Form.TimeSpanField
+      <Form.Field<number | undefined>
         path={path.stalenessTimeout}
         label="Timeout"
-        unit={TimeSpan.SECOND}
-        bounds={BOUNDS}
         padHelpText={false}
-        inputProps={INPUT_PROPS}
-      />
+      >
+        {({ value, onChange, ...p }) => (
+          <Input.TimeSpan
+            {...p}
+            {...INPUT_PROPS}
+            inline
+            value={value == null ? undefined : Number(unit.mult(value).valueOf())}
+            onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
+            check={checkTimeout}
+          />
+        )}
+      </Form.Field>
     </>
   );
 };
-
-const BOUNDS = { lower: TimeSpan.SECOND };
 
 const INPUT_PROPS = { style: { maxWidth: "18rem" } } as const;

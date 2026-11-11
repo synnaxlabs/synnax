@@ -24,7 +24,9 @@ export const spec: Spec<"circle", schematic.CircleNodeConfig> = {
   Form: CircleForm,
   Node: Label.createLabeled<schematic.CircleNodeConfig>(Circle, {
     grid: { allowRotate: false, keepAspectRatio: true },
-    onResize: ({ width }) => ({ radius: width / (2 * Primitive.BASE_SCALE) }),
+    onResize: ({ width }) => ({
+      radius: Math.round(width / (2 * Primitive.BASE_SCALE)),
+    }),
   }),
   Preview: Component.removeProps(Circle, ["clickable"]),
   zIndex: 2,
