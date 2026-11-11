@@ -3857,6 +3857,35 @@ Node union on variant {
 				`union Shape variant "lines" must reference a struct type`,
 			))
 		})
+
+		DescribeTable(
+			"Should reject an optional type argument",
+			func(ctx SpecContext, fieldType, arg string) {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					value ` + fieldType + `
+				}
+			`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"type argument " + arg + " cannot be optional",
+				))
+			},
+			Entry("map value", "map<string, uint8[]?>", "uint8[]?"),
+			Entry("map key", "map<string?, uint8>", "string?"),
+			Entry(
+				"nested map",
+				"map<string, map<string, int32>?>",
+				"map<string,int32>?",
+			),
+			Entry("generic argument", "Box<string?>", "string?"),
+			Entry("argument in a map", "map<string, Box<int32?>>", "int32?"),
+		)
 	})
 
 	Describe("Recursive Types", func() {

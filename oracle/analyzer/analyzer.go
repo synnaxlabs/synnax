@@ -1037,7 +1037,7 @@ func collectTypeRef(
 
 	if args := normalCtx.TypeArgs(); args != nil {
 		for _, arg := range args.AllTypeRef() {
-			ref.TypeArgs = append(ref.TypeArgs, collectTypeRef(c, arg, typeParams))
+			ref.TypeArgs = append(ref.TypeArgs, collectTypeArg(c, arg, typeParams))
 		}
 	}
 
@@ -1051,6 +1051,31 @@ func collectTypeRef(
 		array.ArraySize = &size
 	}
 	return array
+}
+
+func collectTypeArg(
+	c *analysisCtx,
+	tr parser.ITypeRefContext,
+	typeParams []resolution.TypeParam,
+) resolution.TypeRef {
+	if typeRefOptional(tr) {
+		c.report(diagnostics.Errorf(
+			tr,
+			"type argument %s cannot be optional: only a field can be absent",
+			tr.GetText(),
+		))
+	}
+	return collectTypeRef(c, tr, typeParams)
+}
+
+func typeRefOptional(tr parser.ITypeRefContext) bool {
+	switch t := tr.(type) {
+	case *parser.TypeRefNormalContext:
+		return modifiersFrom(t.TypeModifiers())
+	case *parser.TypeRefMapContext:
+		return modifiersFrom(t.TypeModifiers())
+	}
+	return false
 }
 
 // plainTypeRef reports whether tr names a type with no type arguments, array
@@ -1071,8 +1096,8 @@ func collectMapTypeRef(
 
 	ref := resolution.TypeRef{Name: "Map"}
 	if len(typeRefs) >= 2 {
-		keyRef := collectTypeRef(c, typeRefs[0], typeParams)
-		valueRef := collectTypeRef(c, typeRefs[1], typeParams)
+		keyRef := collectTypeArg(c, typeRefs[0], typeParams)
+		valueRef := collectTypeArg(c, typeRefs[1], typeParams)
 		ref.TypeArgs = []resolution.TypeRef{keyRef, valueRef}
 	}
 	return ref
@@ -1091,11 +1116,7 @@ func collectField(c *analysisCtx,
 	// A field may omit its type to partially override an inherited field, in which case
 	// the type and optionality are resolved from the parent later.
 	if tr := def.TypeRef(); tr != nil {
-		if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
-			field.Optional = extractTypeModifiersNormal(normalCtx)
-		} else if mapCtx, ok := tr.(*parser.TypeRefMapContext); ok {
-			field.Optional = extractTypeModifiersMap(mapCtx)
-		}
+		field.Optional = typeRefOptional(tr)
 		field.Type = collectTypeRef(c, tr, typeParams)
 	} else if mods := def.TypeModifiers(); mods != nil {
 		// Typeless override that overrides only nullability (key?); the type is
@@ -1888,14 +1909,6 @@ func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 		return false
 	}
 	return mods.QUESTION() != nil
-}
-
-func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (optional bool) {
-	return modifiersFrom(tr.TypeModifiers())
-}
-
-func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (optional bool) {
-	return modifiersFrom(tr.TypeModifiers())
 }
 
 func detectRecursiveTypes(table *resolution.Table) {
