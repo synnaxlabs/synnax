@@ -11,7 +11,6 @@ import base64
 import json
 from typing import Annotated, Protocol, TypeVar, override
 
-import msgpack
 from pydantic import BaseModel, BeforeValidator, PlainSerializer
 
 P = TypeVar("P", bound=BaseModel)
@@ -30,7 +29,7 @@ Bytes = Annotated[
     BeforeValidator(_decode_base64),
     PlainSerializer(_encode_base64, when_used="json"),
 ]
-"""Binary data that crosses JSON as base64 text and MessagePack as raw bytes."""
+"""Binary data that crosses JSON as base64 text."""
 
 
 class Codec(Protocol):
@@ -58,27 +57,6 @@ class Codec(Protocol):
         :returns: The decoded payload.
         """
         ...
-
-
-class MessagePackCodec(Codec):
-    """A MessagePack implementation of Codec."""
-
-    @override
-    def content_type(self) -> str:
-        return "application/msgpack"
-
-    @override
-    def encode(self, payload: BaseModel) -> bytes:
-        packed = msgpack.packb(payload.model_dump(by_alias=True))
-        if not isinstance(packed, bytes):
-            raise ValueError(
-                f"MessagePack failed to encode payload of type {type(payload).__name__}"
-            )
-        return packed
-
-    @override
-    def decode(self, data: bytes, pld_t: type[P]) -> P:
-        return pld_t.model_validate(msgpack.unpackb(data))
 
 
 class JSONCodec(Codec):

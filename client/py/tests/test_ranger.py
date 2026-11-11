@@ -20,7 +20,6 @@ import synnax as sy
 from synnax import label, ranger
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
-from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
 
@@ -205,7 +204,7 @@ class TestRangeClient:
     def test_retrieve_unnamed_parameter(self, client: sy.Synnax) -> None:
         """Should raise an error when unnamed parameters are passed in"""
         retrieve = cast(Callable[..., object], client.ranges.retrieve)
-        with pytest.raises(RequiresNamedParams):
+        with pytest.raises(sy.Error, match="only accepts named"):
             retrieve("cat")
 
     def test_retrieve_by_name_not_found(
