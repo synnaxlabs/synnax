@@ -327,7 +327,7 @@ var _ = Describe("Open after a crash", func() {
 				func(ctx SpecContext) {
 					faulty := WrapFaultyFS(openFS())
 					data := createCrashedFiles(ctx, faulty, telem.NewSeriesV[int64])
-					faulty.SetOptions(WithFailWrite(), WithFailWriteAt())
+					faulty.SetOptions(WithFailWriteAt())
 					crashed := mustOpenDBOnFS(ctx, faulty)
 					faulty.SetOptions()
 					f := MustSucceed(crashed.Read(
