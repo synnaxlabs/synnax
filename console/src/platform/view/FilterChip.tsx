@@ -9,25 +9,95 @@
 
 import "@/platform/view/FilterChip.css";
 
-import { type Generic } from "@synnaxlabs/lyra/generic";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-export type FilterChipProps<E extends Generic.ElementType = "p"> = Text.TextProps<E>;
+const SEGMENT_CLASS = CSS.BE("view", "filter-segment");
 
-/** The lead chip naming an active filter in a chip pack. */
-export const FilterChip = <E extends Generic.ElementType = "p">({
-  className,
-  ...rest
-}: FilterChipProps<E>): ReactElement => (
-  <Text.Text<E>
+export interface FilterChipProps extends Flex.BoxProps {}
+
+/**
+ * One condition of a view's filter, as parts split by lines: a {@link FilterChipName},
+ * a {@link FilterChipOperator}, a {@link FilterChipValue}, and a
+ * {@link FilterChipRemove}.
+ */
+export const FilterChip = ({ className, ...rest }: FilterChipProps): ReactElement => (
+  <Flex.Box
+    x
+    align="stretch"
+    empty
     bordered
-    size="small"
-    borderColor={6}
-    level="tiny"
+    borderColor={5}
+    rounded="medium"
+    background={2}
     className={CSS.cls(CSS.BE("view", "filter-chip"), className)}
-    {...(rest as Text.TextProps<E>)}
+    {...rest}
   />
+);
+
+export interface FilterChipNameProps extends PropsWithChildren {
+  /** The icon of the property the condition tests. */
+  icon: Icon.FC;
+}
+
+/** The name of the property a {@link FilterChip} tests, after its icon. */
+export const FilterChipName = ({
+  icon: PropertyIcon,
+  children,
+}: FilterChipNameProps): ReactElement => (
+  <Text.Text gap="small" align="center" className={SEGMENT_CLASS}>
+    <PropertyIcon color={9} />
+    {children}
+  </Text.Text>
+);
+
+export interface FilterChipOperatorProps extends PropsWithChildren {}
+
+/** How a {@link FilterChip} compares the property to its value, such as "is". */
+export const FilterChipOperator = ({
+  children,
+}: FilterChipOperatorProps): ReactElement => (
+  <Text.Text color={9} align="center" className={SEGMENT_CLASS}>
+    {children}
+  </Text.Text>
+);
+
+export interface FilterChipValueProps extends PropsWithChildren {}
+
+/** The value a {@link FilterChip} compares the property to. */
+export const FilterChipValue = ({ children }: FilterChipValueProps): ReactElement => (
+  <Text.Text gap="small" align="center" className={SEGMENT_CLASS}>
+    {children}
+  </Text.Text>
+);
+
+export interface FilterChipRemoveProps {
+  /** The name of the property, which names the button for assistive technology. */
+  name: string;
+  onClick: () => void;
+}
+
+/** Removes the condition of a {@link FilterChip} from the filter. */
+export const FilterChipRemove = ({
+  name,
+  onClick,
+}: FilterChipRemoveProps): ReactElement => (
+  <Button.Button
+    variant="text"
+    size="small"
+    square
+    sharp
+    textColor={8}
+    aria-label={`Remove ${name} filter`}
+    tooltip="Remove filter"
+    tooltipLocation="bottom"
+    onClick={onClick}
+  >
+    <Icon.Close />
+  </Button.Button>
 );

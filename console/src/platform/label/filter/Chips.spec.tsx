@@ -22,7 +22,6 @@ import { enableEditing } from "@/platform/view/testutil";
 import {
   awaitGranted,
   createConsoleWrapper,
-  findTagCloseButton,
   renderSuspended,
   uniqueName,
 } from "@/testutil";
@@ -51,44 +50,71 @@ const Fixture = ({ labels }: { labels?: label.Key[] }): ReactElement => {
 };
 Fixture.displayName = "Fixture";
 
+const removeButton = (): HTMLElement | null =>
+  screen.queryByRole("button", { name: "Remove Labels filter" });
+
+const createLabels = async (count: number): Promise<label.Label[]> =>
+  await Promise.all(
+    Array.from(
+      { length: count },
+      async (_, i) =>
+        await client.labels.create({
+          name: uniqueName(`label-${i}`),
+          color: "#F00000",
+        }),
+    ),
+  );
+
+const renderFixture = async (labels?: label.Key[]): Promise<void> => {
+  // Warm the subject's policy and role caches so the edit affordance's permission
+  // check does not wait on the network mid-test.
+  await awaitGranted(client, view.resourceID(uuid.create()), "update");
+  const { wrapper } = await createConsoleWrapper({ client });
+  await renderSuspended(<Fixture labels={labels} />, { wrapper });
+};
+
 describe("Label.Filter.Chips", () => {
-  it("should remove the label's key from the where when its chip is closed", async () => {
-    const kept = await client.labels.create({
-      name: uniqueName("kept"),
-      color: "#F00000",
-    });
-    const removed = await client.labels.create({
-      name: uniqueName("removed"),
-      color: "#00F000",
-    });
-    // Warm the subject's policy and role caches so the edit affordance's permission
-    // check does not wait on the network mid-test.
-    await awaitGranted(client, view.resourceID(uuid.create()), "update");
-    const { wrapper } = await createConsoleWrapper({ client });
-    await renderSuspended(<Fixture labels={[kept.key, removed.key]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());
-    await enableEditing();
-    const close = await waitFor(() => findTagCloseButton(removed.name));
-    fireEvent.click(close);
-    await waitFor(() => {
-      expect(screen.getByText(`value:${kept.key}`)).toBeTruthy();
-      expect(screen.queryByText(removed.name)).toBeNull();
-      expect(screen.getByText(kept.name)).toBeTruthy();
-    });
+  it("should name one label after has", async () => {
+    const [only] = await createLabels(1);
+    await renderFixture([only.key]);
+    await waitFor(() => expect(screen.getByText(only.name)).toBeTruthy());
+    expect(screen.getByText("Labels")).toBeTruthy();
+    expect(screen.getByText("has")).toBeTruthy();
   });
 
-  it("should drop the labels line when the last chip is closed", async () => {
-    const only = await client.labels.create({
-      name: uniqueName("only"),
-      color: "#0000F0",
-    });
-    await awaitGranted(client, view.resourceID(uuid.create()), "update");
-    const { wrapper } = await createConsoleWrapper({ client });
-    await renderSuspended(<Fixture labels={[only.key]} />, { wrapper });
+  it("should name two labels after has any of", async () => {
+    const [first, second] = await createLabels(2);
+    await renderFixture([first.key, second.key]);
+    await waitFor(() =>
+      expect(screen.getByText(`${first.name}, ${second.name}`)).toBeTruthy(),
+    );
+    expect(screen.getByText("has any of")).toBeTruthy();
+  });
+
+  it("should count three or more labels", async () => {
+    const labels = await createLabels(3);
+    await renderFixture(labels.map(({ key }) => key));
+    await waitFor(() => expect(screen.getByText("3 labels")).toBeTruthy());
+  });
+
+  it("should withhold the remove button until the view is editable", async () => {
+    const [only] = await createLabels(1);
+    await renderFixture([only.key]);
     await waitFor(() => expect(screen.getByText(only.name)).toBeTruthy());
+    expect(removeButton()).toBeNull();
     await enableEditing();
-    fireEvent.click(await waitFor(() => findTagCloseButton(only.name)));
+    await waitFor(() => expect(removeButton()).not.toBeNull());
+  });
+
+  it("should drop the labels line when the chip is removed", async () => {
+    const [first, second] = await createLabels(2);
+    await renderFixture([first.key, second.key]);
+    await enableEditing();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Labels filter" }),
+    );
     await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
+    expect(screen.queryByText("Labels")).toBeNull();
   });
 
   it("should render nothing when no labels are selected", async () => {

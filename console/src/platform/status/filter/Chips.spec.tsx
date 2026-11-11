@@ -19,7 +19,7 @@ import { z } from "zod";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
-import { createConsoleWrapper, findTagCloseButton } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const path = deep.path<z.infer<typeof schema>>();
 
@@ -49,40 +49,48 @@ const Fixture = ({ variant }: FixtureProps): ReactElement => {
 };
 Fixture.displayName = "Fixture";
 
+const removeButton = (): HTMLElement | null =>
+  screen.queryByRole("button", { name: "Remove Variants filter" });
+
+const renderFixture = async (variant?: status.Where["variant"]): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<Fixture variant={variant} />, { wrapper });
+};
+
 describe("Status.Filter.Chips", () => {
-  it("should remove the variant from the where when its chip is closed", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variant={{ in: ["error", "success"] }} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
-    await enableEditing();
-    const close = await waitFor(() => findTagCloseButton("Error"));
-    fireEvent.click(close);
-    await waitFor(() => expect(screen.getByText("value:success")).toBeTruthy());
-    expect(screen.queryByText("Error")).toBeNull();
-    expect(screen.getByText("Success")).toBeTruthy();
+  it("should name the variants after is any of", async () => {
+    await renderFixture({ in: ["error", "success"] });
+    await waitFor(() => expect(screen.getByText("Error, Success")).toBeTruthy());
+    expect(screen.getByText("Variants")).toBeTruthy();
+    expect(screen.getByText("is any of")).toBeTruthy();
   });
 
-  it("should drop the variant line when the last chip is closed", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variant={{ in: ["error"] }} />, { wrapper });
+  it("should show a variant that the where selects with eq", async () => {
+    await renderFixture({ eq: "error" });
     await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
+    expect(screen.getByText("is")).toBeTruthy();
+  });
+
+  it("should withhold the remove button until the view is editable", async () => {
+    await renderFixture({ in: ["error"] });
+    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
+    expect(removeButton()).toBeNull();
     await enableEditing();
-    fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
+    await waitFor(() => expect(removeButton()).not.toBeNull());
+  });
+
+  it("should drop the variant line when the chip is removed", async () => {
+    await renderFixture({ in: ["error", "success"] });
+    await enableEditing();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Variants filter" }),
+    );
     await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
-  });
-
-  it("should show and remove a variant that the where selects with eq", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variant={{ eq: "error" }} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
-    await enableEditing();
-    fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
-    await waitFor(() => expect(screen.queryByText("Variants")).toBeNull());
+    expect(screen.queryByText("Variants")).toBeNull();
   });
 
   it("should render nothing when no variants are selected", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture />, { wrapper });
+    await renderFixture();
     await waitFor(() => expect(screen.getByText("All statuses")).toBeTruthy());
     expect(screen.queryByText("Variants")).toBeNull();
   });

@@ -243,10 +243,7 @@ class Explorer(Surface):
         """
         self.views.select_filter("Labels", label_name)
 
-    def clear_label_filter(self, label_name: str) -> None:
-        """Remove a label from the active filter by clicking its chip close
-        button.
-
-        :param label_name: The name of the label chip to remove.
-        """
-        self.views.clear_filter(label_name)
+    def clear_label_filter(self) -> None:
+        """Remove the labels from the active filter with the remove button of their
+        chip."""
+        self.views.clear_filter("Labels")

@@ -7,43 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/label/filter/Chips.css";
+
 import { type label } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Label } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { View } from "@/platform/view";
 
 const path = deep.path<{ where?: { labels?: label.Key[] } }>();
 
-interface TagsProps {
+/** @returns the names, or a count when there are more than two. */
+const summarize = (names: string[]): string =>
+  names.length > 2 ? `${names.length} labels` : names.join(", ");
+
+interface ValueProps {
   keys: label.Key[];
-  onClose?: (key: label.Key) => void;
 }
 
-const Tags = ({ keys, onClose }: TagsProps): ReactElement => {
+const Value = ({ keys }: ValueProps): ReactElement => {
   const labels = Label.useMultiple({ keys });
   return (
     <>
-      {labels.map(({ color, key, name }) => (
-        <Tag.Tag
-          key={key}
-          color={color}
-          size="small"
-          onClose={onClose == null ? undefined : () => onClose(key)}
-        >
-          {name}
-        </Tag.Tag>
-      ))}
+      <Flex.Box x empty className={CSS.BE("label-filter", "dots")}>
+        {labels.map(({ key, color }) => (
+          <Icon.Circle key={key} color={color} />
+        ))}
+      </Flex.Box>
+      {summarize(labels.map(({ name }) => name))}
     </>
   );
 };
 
+/** A chip for the labels in the filter of the view. Without labels, it is absent. */
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
   const field = Form.useField(deep.present(path.where).labels, {
@@ -51,19 +53,23 @@ export const Chips = (): ReactElement | null => {
   });
   const labels = field?.value;
   if (field == null || labels == null || labels.length === 0) return null;
-  const handleClose = (key: label.Key) => {
-    const next = labels.filter((l) => l !== key);
-    field.onChange(next.length === 0 ? undefined : next);
-  };
   return (
-    <Flex.Box x pack background={0}>
-      <View.FilterChip>
-        <Icon.Label />
-        Labels
-      </View.FilterChip>
-      <Errors.SuspenseBoundary loading={null}>
-        <Tags keys={labels} onClose={editable ? handleClose : undefined} />
-      </Errors.SuspenseBoundary>
-    </Flex.Box>
+    <View.FilterChip>
+      <View.FilterChipName icon={Icon.Label}>Labels</View.FilterChipName>
+      <View.FilterChipOperator>
+        {labels.length === 1 ? "has" : "has any of"}
+      </View.FilterChipOperator>
+      <View.FilterChipValue>
+        <Errors.SuspenseBoundary loading={null}>
+          <Value keys={labels} />
+        </Errors.SuspenseBoundary>
+      </View.FilterChipValue>
+      {editable && (
+        <View.FilterChipRemove
+          name="Labels"
+          onClick={() => field.onChange(undefined)}
+        />
+      )}
+    </View.FilterChip>
   );
 };
