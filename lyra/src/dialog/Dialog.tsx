@@ -31,7 +31,6 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
  * Any other dialog takes the place right after its trigger in the tab order.
  */
 export const Dialog = ({
-  ref,
   style,
   background = 0,
   className,
@@ -42,7 +41,7 @@ export const Dialog = ({
   ...rest
 }: DialogProps) => {
   const {
-    ref: frameRef,
+    ref,
     id,
     targetCorner,
     dialogCorner,
@@ -55,7 +54,7 @@ export const Dialog = ({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const trap = useFocusTrap(surfaceRef, modal && visible);
   const dropdown = useDropdownFocus(!modal, trigger, close);
-  const combinedRef = useCombinedRefs(frameRef, surfaceRef, dropdown.ref, ref);
+  const combinedRef = useCombinedRefs(ref, surfaceRef, dropdown.ref);
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     onKeyDown?.(e);
     dropdown.onKeyDown(e);

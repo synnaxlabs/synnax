@@ -9,23 +9,17 @@
 
 import "@/menu/Item.css";
 
-import { type ReactElement, use } from "react";
+import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs } from "@/hooks";
 import { useContext } from "@/menu/Menu";
-import { ControllerContext } from "@/menu/useSubmenus";
 
-export interface ItemProps extends Omit<
-  Button.ButtonProps,
-  "onPointerEnter" | "onPointerMove" | "onPointerLeave"
-> {
+export interface ItemProps extends Button.ButtonProps {
   itemKey: string;
 }
 
 export const Item = ({
-  ref,
   itemKey,
   className,
   onClick,
@@ -33,8 +27,6 @@ export const Item = ({
   ...rest
 }: ItemProps): ReactElement => {
   const { onClick: ctxOnClick, selected, level = "p", gap } = useContext();
-  const { ref: submenusRef, ...submenus } = use(ControllerContext)?.item() ?? {};
-  const combinedRef = useCombinedRefs(ref, submenusRef);
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
     onClick?.(e);
@@ -42,7 +34,6 @@ export const Item = ({
   const _selected = selected === itemKey;
   return (
     <Button.Button
-      ref={combinedRef}
       level={level}
       overflow="nowrap"
       onClick={handleClick}
@@ -52,7 +43,6 @@ export const Item = ({
       gap={gap}
       propagateClick
       role="menuitem"
-      {...submenus}
       {...rest}
     />
   );
