@@ -26,9 +26,13 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
@@ -284,7 +288,9 @@ func (hrrc *HoldingRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&hrrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&hrrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&hrrc.RegisterValue.DataType, c.Next(), func(def *HoldingRegisterReadChannel) {
+			hrrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&hrrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
@@ -329,7 +335,9 @@ func (irrc *InputRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&irrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&irrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&irrc.RegisterValue.DataType, c.Next(), func(def *InputRegisterReadChannel) {
+			irrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&irrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
