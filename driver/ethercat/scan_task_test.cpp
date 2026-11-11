@@ -1088,19 +1088,13 @@ TEST_F(EtherCATScanModeTest, OffersOnlyTheSwitchForASingleBusSlave) {
     );
 }
 
-/// @brief it should warn about a slave in dual mode when Synnax is on the bus of
-/// DewesoftX.
-TEST_F(EtherCATScanModeTest, WarnsAboutADualSlaveOnBus1) {
+/// @brief it should not warn about a slave in dual mode on bus 1 that sends no data
+/// that only DewesoftX reads.
+TEST_F(EtherCATScanModeTest, ShowsDiscoveryOfADualSlaveOnBus1) {
     this->start(true, 0x6041);
     const auto status = this->scan_status();
-    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Set up for DewesoftX");
-    EXPECT_EQ(
-        status.description,
-        "The device runs in dual mode, and Synnax is on EtherCAT bus 1 IN, which "
-        "DewesoftX uses. In Configure, switch the device to Synnax only, or connect "
-        "Synnax to EtherCAT bus 2 IN."
-    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
 }
 
 /// @brief it should ask for bus 1 when a slave that runs Synnax only is on bus 2.

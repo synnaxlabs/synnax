@@ -136,7 +136,6 @@ bool set_setup_status(const slave::Properties &props, synnax::device::Status &st
     const bool switched = !reader.empty() && mode.contains("switch") &&
                           mode.at("switch").empty();
     if (reader.empty()) reader = mode.value("only_read_by", "");
-    const auto shared_with = mode.value("shared_with", "");
     if (switched) {
         status.message = "Waiting for a power restart";
         status.description = "The device runs Synnax only after a power restart. Until "
@@ -155,14 +154,6 @@ bool set_setup_status(const slave::Properties &props, synnax::device::Status &st
         else
             status.description += "In Configure, switch the device to Synnax only, or "
                                   "connect Synnax to EtherCAT bus 2 IN.";
-    } else if (!shared_with.empty() && bus == 1) {
-        status.message = "Set up for " + shared_with;
-        status
-            .description = "The device runs in dual mode, and Synnax is on EtherCAT "
-                           "bus 1 IN, which " +
-                           shared_with +
-                           " uses. In Configure, switch the device to Synnax only, or "
-                           "connect Synnax to EtherCAT bus 2 IN.";
     } else if (bus == 2 && !mode.value("shared", false)) {
         status.message = "Connect Synnax to EtherCAT bus 1 IN";
         status.description = "The device runs Synnax only, which uses EtherCAT bus 1 "

@@ -144,21 +144,25 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
     return (
       <NoteBody variant="info" title={`Set up by ${reader}`}>
         <Detail>
-          {caseconv.capitalize(reader)} sets up the device. Synnax reads its data, but
+          {caseconv.capitalize(reader)} sets up the device. Synnax uses its data, but
           does not change its settings. To set up the device in Synnax, switch it to
           Synnax only.
         </Detail>
+        {bus === 1 && (
+          <Detail>
+            In dual mode, EtherCAT bus 1 IN is for {reader}. To run {reader} at the same
+            time, connect {reader} to bus 1 IN and Synnax to bus 2 IN.
+          </Detail>
+        )}
         {switchChoice}
       </NoteBody>
     );
-  const secondBus = setup.kind === "dual" || setup.secondBus;
+  const { secondBus } = setup;
   return (
     <NoteBody variant="warning" title={`Set up for ${reader}`}>
       <Detail>
-        {setup.kind === "dual"
-          ? `The device runs in dual mode, and Synnax is on EtherCAT bus 1 IN, which ${reader} uses.`
-          : `${secondBus ? "On EtherCAT bus 1 IN, the" : "The"} device sends data that only ${reader} reads.`}{" "}
-        Choose how to use the device.
+        {secondBus ? "On EtherCAT bus 1 IN, the" : "The"} device sends data that only{" "}
+        {reader} reads. Choose how to use the device.
       </Detail>
       {switchChoice}
       {secondBus && (

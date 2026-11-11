@@ -88,9 +88,9 @@ describe("of", () => {
     });
   });
 
-  it("should find a dual card on bus 1 that sends no DewesoftX data dual", () => {
+  it("should find a dual card on bus 1 that sends no DewesoftX data shared", () => {
     expect(of(props(createDewesoftXSettings(true), [STRAIN_ENTRY]))).toEqual({
-      kind: "dual",
+      kind: "shared",
       reader: "DewesoftX",
     });
   });

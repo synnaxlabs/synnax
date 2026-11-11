@@ -15,8 +15,7 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
  * - synnax: Synnax alone sets it up, or its catalog describes no mode.
  * - other: it sends data that only reader reads. secondBus is whether Synnax can read
  *   it on EtherCAT bus 2 IN while reader sets it up.
- * - dual: reader sets it up in dual mode, and Synnax is on bus 1 IN, the bus of reader.
- * - shared: reader sets it up, and Synnax reads its data.
+ * - shared: reader sets it up, and Synnax uses its data.
  * - bus: it runs Synnax only, which uses bus 1 IN, but Synnax is on bus 2 IN.
  * - switched: it holds Synnax only, but it sends data that only reader reads until its
  *   power restarts.
@@ -25,7 +24,6 @@ export type Setup =
   | { kind: "synnax" }
   | { kind: "bus" }
   | { kind: "other"; reader: string; secondBus: boolean }
-  | { kind: "dual"; reader: string }
   | { kind: "shared"; reader: string }
   | { kind: "switched"; reader: string };
 
@@ -96,7 +94,7 @@ export const of = (props: SlaveProperties): Setup => {
       secondBus: mode?.bus == null ? !named && sent != null : mode.bus === 1,
     };
   const reader = setUpBy(props);
-  if (reader != null) return { kind: mode?.bus === 1 ? "dual" : "shared", reader };
+  if (reader != null) return { kind: "shared", reader };
   if (mode?.bus === 2) return { kind: "bus" };
   return { kind: "synnax" };
 };

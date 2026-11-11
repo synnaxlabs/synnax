@@ -847,15 +847,16 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(screen.queryByText("Synnax and DewesoftX")).toBeNull();
     });
 
-    it("should warn that a dual card on bus 1 is on the bus of DewesoftX", async () => {
+    it("should say how to run DewesoftX too for a dual card on bus 1", async () => {
       await setup({ settings: createDewesoftXSettings(true), inputs: [STRAIN_ENTRY] });
+      expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
       expect(
-        await screen.findByText(
-          /^The device runs in dual mode, and Synnax is on EtherCAT bus 1 IN/,
+        screen.getByText(
+          "In dual mode, EtherCAT bus 1 IN is for DewesoftX. To run DewesoftX at the " +
+            "same time, connect DewesoftX to bus 1 IN and Synnax to bus 2 IN.",
         ),
       ).toBeTruthy();
       expect(findButton("Switch to Synnax only")).toBeTruthy();
-      expect(screen.getByText("Synnax and DewesoftX")).toBeTruthy();
     });
 
     it("should ask for bus 1 for a standalone card on bus 2", async () => {
@@ -927,8 +928,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
       expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
       expect(
-        screen.getByText(/^DewesoftX sets up the device\. Synnax reads its data/),
+        screen.getByText(/^DewesoftX sets up the device\. Synnax uses its data/),
       ).toBeTruthy();
+      expect(screen.queryByText(/^In dual mode, EtherCAT bus 1 IN/)).toBeNull();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
       expect(findButton("Switch to Synnax only")).toBeTruthy();
     });
