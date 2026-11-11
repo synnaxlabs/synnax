@@ -16,12 +16,6 @@
  * expression is true when `DESKTOP` is. Each entry names its owner, its Linear
  * umbrella issue, and the release that removes it.
  */
-const INTEGRATION = import.meta.env.VITE_FLAGS_ENABLED === "true";
-
-export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-5552. Removed in the release that moves
-  // PagerDuty to secrets.
-  credentials: IS_DEV || DESKTOP || INTEGRATION,
-} as const satisfies Record<string, boolean>;
+export const FLAGS = {} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
