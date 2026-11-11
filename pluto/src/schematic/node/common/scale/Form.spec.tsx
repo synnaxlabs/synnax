@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
@@ -26,10 +26,22 @@ const CONFIG_Z = schematic.nodeConfigZ;
 interface FormWrapperProps {
   values: schematic.NodeConfig;
   children: ReactElement;
+  onPrecisionChange?: (precision: number) => void;
 }
 
-const FormWrapper = ({ values, children }: FormWrapperProps): ReactElement => {
-  const methods = Form.use<typeof CONFIG_Z>({ values, schema: CONFIG_Z });
+const FormWrapper = ({
+  values,
+  children,
+  onPrecisionChange,
+}: FormWrapperProps): ReactElement => {
+  const methods = Form.use<typeof CONFIG_Z>({
+    values,
+    schema: CONFIG_Z,
+    onChange: ({ path, values }) => {
+      if (path === "precision" && "precision" in values)
+        onPrecisionChange?.(values.precision);
+    },
+  });
   return (
     <SynnaxWrapper>
       <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
@@ -101,5 +113,38 @@ describe("tank colors", () => {
     expect(swatchColor(container, "Stroke")).toBe("rgba(255, 0, 0, 1)");
     fireEvent.click(getByRole("tab", { name: "Fill" }));
     expect(swatchColor(container, "Axis")).toBe("rgba(0, 255, 0, 1)");
+  });
+});
+
+describe("box border radius", () => {
+  it("should show one border radius field and no corner fields", () => {
+    const { getByText, queryByText } = render(
+      <FormWrapper values={Node.createConfig({ variant: "box" })}>
+        <TankForm showBorderRadius showStrokeWidth />
+      </FormWrapper>,
+    );
+    expect(getByText("Border radius")).toBeTruthy();
+    expect(queryByText("X border radius")).toBeNull();
+  });
+});
+
+describe("precision", () => {
+  it("should round a typed fraction to a whole number", () => {
+    const onPrecisionChange = vi.fn();
+    const { getByText } = render(
+      <FormWrapper
+        values={Node.createConfig({ variant: "scale" })}
+        onPrecisionChange={onPrecisionChange}
+      >
+        <ScaleForm tab="telemetry" onTabChange={vi.fn()} />
+      </FormWrapper>,
+    );
+    const input = getByText("Precision")
+      .closest(".lyra-input__item")
+      ?.querySelector("input");
+    assert(input != null);
+    fireEvent.change(input, { target: { value: "2.6" } });
+    fireEvent.blur(input);
+    expect(onPrecisionChange).toHaveBeenLastCalledWith(3);
   });
 });

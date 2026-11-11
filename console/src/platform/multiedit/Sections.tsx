@@ -31,7 +31,6 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
 
 const checkStalenessTimeout = (span: TimeSpan): string | null =>
   span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
-const PRECISION_BOUNDS = { lower: 0, upper: 10 };
 
 export interface StalenessSectionProps {
   /** The staleness color of each element that has the field. */
@@ -80,11 +79,7 @@ export const NumberFormatSection = ({
       <Notation.Select value={notation} onChange={onNotationChange} />
     </Input.Item>
     <Input.Item label="Precision" align="start" padHelpText={false}>
-      <Input.Numeric
-        bounds={PRECISION_BOUNDS}
-        value={precision}
-        onChange={onPrecisionChange}
-      />
+      <Notation.Precision value={precision} onChange={onPrecisionChange} />
     </Input.Item>
   </Form.Section>
 );

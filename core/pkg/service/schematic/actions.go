@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -211,7 +210,7 @@ func (p *SetNodePayload) fromRaw(raw rawSetNodePayload) error {
 	if raw.Config == nil {
 		return nil
 	}
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := decodeConfig(raw.Config)
 	if err != nil {
 		return err
 	}
@@ -239,12 +238,28 @@ func (p *SetConfigPayload) UnmarshalMsgpack(data []byte) error {
 }
 
 func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
-	cfg, err := v10.DecodeWithDefaults(raw.Config)
+	cfg, err := decodeConfig(raw.Config)
 	if err != nil {
 		return err
 	}
 	*p = SetConfigPayload{Key: raw.Key, Config: cfg}
 	return nil
+}
+
+func decodeConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	var cfg ElementConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	return cfg, nil
 }
 
 // Handle applies the set to the schematic's name, group, project, or element configs.

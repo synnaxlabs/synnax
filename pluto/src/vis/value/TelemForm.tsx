@@ -70,9 +70,8 @@ export const TelemForm = (): ReactElement => {
           />
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
-          <Input.Numeric
+          <Notation.Precision
             value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
             onChange={handlePrecisionChange}
           />
         </Input.Item>

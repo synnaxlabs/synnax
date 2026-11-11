@@ -173,7 +173,7 @@ export const numericTelemConfigZ = z.object({
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
   /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
+  precision: zod.uint8.max(17).default(2),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
 });

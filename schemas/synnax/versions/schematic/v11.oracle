@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
+import "schemas/synnax/versions/symbol/v2"
+import "schemas/x/versions/border/v0"
+import "schemas/x/versions/color/v1"
+import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
 
 Key = v0.Key
 
@@ -39,7 +46,11 @@ ScaledConfig = v9.ScaledConfig
 
 StalenessConfig = v9.StalenessConfig
 
-NumericTelemConfig = v9.NumericTelemConfig
+NumericTelemConfig struct extends v9.NumericTelemConfig {
+    precision uint8 = 2 {
+        @doc value "is the number of decimal places shown."
+    }
+}
 
 ControlStateConfig = v9.ControlStateConfig
 
@@ -51,7 +62,7 @@ ToggleSymbolConfig = v9.ToggleSymbolConfig
 
 DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
 
-ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+ScaleIndicatorConfig struct extends v9.ScaleIndicatorConfig {}
 
 StateMapping = v9.StateMapping
 
@@ -59,9 +70,9 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig = v10.NodeConfig
+NodeConfig union on variant extends v10.NodeConfig {}
 
-ElementConfig = v10.ElementConfig
+ElementConfig union on variant extends v10.ElementConfig {}
 
 Schematic struct extends v10.Schematic {
     group   group.Key?   {
