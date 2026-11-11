@@ -510,6 +510,13 @@ describe("AnalogRead ports", () => {
 
   it.each<[string, (device: string) => NI.Task.AIChannel[], number, string, string]>([
     [
+      "an error below the minimum",
+      (device) => [createChannel("ai_voltage", 0, { device })],
+      0.5,
+      "samples at least 1 Hz",
+      "error",
+    ],
+    [
       "an error above the single channel maximum",
       (device) => [createChannel("ai_voltage", 0, { device })],
       3_000_000,
@@ -547,8 +554,34 @@ describe("AnalogRead ports", () => {
     },
   );
 
+  it("should not mark a low sample rate on a device with no minimum", async () => {
+    const hardware = createHardware();
+    hardware.aiMinRate = 0;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 0.5,
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
+    await screen.findByText("Ports");
+    expect(screen.queryByText(/samples at least/)).toBeNull();
+  });
+
+  it("should round the displayed minimum rate up to a rate that passes", async () => {
+    const hardware = createHardware();
+    hardware.aiMinRate = 20e6 / 2 ** 32;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 0.00465661,
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
+    expect(await screen.findByText(/samples at least 0.00465662 Hz/)).toBeTruthy();
+  });
+
   it("should not mark the sample rate of a device that reports no rates", async () => {
     const hardware = createHardware();
+    hardware.aiMinRate = 0;
     hardware.aiMaxSingleChannelRate = 0;
     hardware.aiMaxMultiChannelRate = 0;
     const dev = await createNIDevice(client, { properties: { hardware } });
