@@ -19,6 +19,7 @@ import { type Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
+import { ReleaseNotes } from "@/ui/auth/ReleaseNotes";
 import { start } from "@/ui/auth/session";
 import { useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
@@ -129,9 +130,7 @@ export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
       error={create.error ?? oauthError}
       footer={
         <>
-          <Text.Text level="small" color={9}>
-            We email you our release notes. You can unsubscribe at any time.
-          </Text.Text>
+          <ReleaseNotes />
           <Text.Text level="small" color={9}>
             Already have an account?{" "}
             <Text.Text
