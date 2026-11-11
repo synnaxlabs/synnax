@@ -305,27 +305,16 @@ public:
         const auto budget_opt = instance.get(store, LOOP_BUDGET_EXPORT);
         const wasmtime::Global *budget_ptr = nullptr;
         if (budget_opt) budget_ptr = std::get_if<wasmtime::Global>(&*budget_opt);
-        if (budget_ptr == nullptr)
+        if (budget_ptr == nullptr || !budget_ptr->type(store)->is_mutable() ||
+            budget_ptr->get(store).kind() != wasmtime::ValKind::I64)
             return {
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    std::string("WASM module does not export a '") +
+                    std::string("WASM module does not export a mutable i64 '") +
                         LOOP_BUDGET_EXPORT + "' global"
                 )
             };
-        const auto set_result = budget_ptr->set(store, wasmtime::Val(cfg.loop_budget));
-        if (!set_result) {
-            const auto msg = set_result.err().message();
-            return {
-                nullptr,
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    std::string("failed to set the '") + LOOP_BUDGET_EXPORT +
-                        "' global: " + std::string(msg.data(), msg.size())
-                )
-            };
-        }
 
         auto module = std::make_shared<Module>(
             cfg,
@@ -479,7 +468,7 @@ public:
 
     /// @brief gives the guest its whole loop budget. Call it before each cycle.
     void reset_loop_budget() {
-        // open set the global, so it is a mutable i64 and the set cannot fail.
+        // open checked that the global is a mutable i64, so the set cannot fail.
         std::ignore = this->loop_budget.set(
             this->store,
             wasmtime::Val(this->cfg.loop_budget)
