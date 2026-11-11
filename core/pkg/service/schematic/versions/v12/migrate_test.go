@@ -173,7 +173,6 @@ var _ = Describe("MigrateSchematic", func() {
 			v10.PolygonElementConfig{StrokeWidth: 1e9}, uint8(20)),
 	)
 
-
 	It("Should set a saved button's level and keep its wrap width", func(
 		ctx SpecContext,
 	) {
@@ -418,9 +417,7 @@ var _ = Describe("MigrateLabeledConfig", func() {
 var _ = Describe("MigrateToggleConfig", func() {
 	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
 		cfg := MustSucceed(v12.MigrateToggleConfig(ctx, v11.ToggleConfig{
-			LabeledConfig: v11.LabeledConfig{
-				Label: v11.LabelConfig{Label: "P1", MaxInlineSize: 0},
-			},
+			Label: v11.LabelConfig{Label: "P1", MaxInlineSize: 0},
 		}))
 		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
 		Expect(cfg.Label.Label).To(Equal("P1"))
@@ -455,10 +452,12 @@ var _ = Describe("MigrateNodeConfig", func() {
 	DescribeTable(
 		"Should keep the wrap width of a labeled symbol",
 		func(ctx SpecContext, label msgpack.EncodedJSON, width uint16) {
-			out := MustSucceed(v12.MigrateNodeConfig(ctx, storedNode(msgpack.EncodedJSON{
-				"variant": "value",
-				"label":   label,
-			})))
+			out := MustSucceed(
+				v12.MigrateNodeConfig(ctx, storedNode(msgpack.EncodedJSON{
+					"variant": "value",
+					"label":   label,
+				})),
+			)
 			Expect(out.Variant).To(
 				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
 			)
