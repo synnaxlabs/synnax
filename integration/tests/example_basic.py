@@ -11,6 +11,7 @@ import synnax as sy
 from framework.test_case import TestCase, param
 
 
+# Checks that a client connects.
 class CheckConnectionBasic(TestCase):
     """
     Check if the test case is connected to the synnax server.
