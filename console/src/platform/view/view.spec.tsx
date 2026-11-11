@@ -18,6 +18,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
@@ -91,7 +92,13 @@ const renderHarness = async (
   props: HarnessProps = {},
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(<Harness {...props} />, { wrapper });
+  render(
+    <>
+      <Harness {...props} />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
 };
 
 /** @returns the icon the tab of the named view draws. */
@@ -209,15 +216,19 @@ describe("View", () => {
     fireEvent.click(add);
     const input = await screen.findByPlaceholderText<HTMLInputElement>("View name");
     expect(input.value).toBe("");
-    const create = screen.getByRole("button", { name: /^Create/ });
-    expect(create.hasAttribute("disabled")).toBe(true);
+    // The create view button names itself with a tooltip, and holds no text.
+    const create = screen
+      .getAllByRole("button", { name: /^Create/ })
+      .find((b) => b.textContent?.startsWith("Create"));
+    expect(create?.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByLabelText("Change icon"));
     await act(async () => {
       fireEvent.click(await screen.findByLabelText("Valve"));
     });
     const name = uniqueName("created");
     fireEvent.change(input, { target: { value: name } });
-    fireEvent.click(create);
+    expect(create?.getAttribute("aria-disabled")).toBeNull();
+    fireEvent.click(create as HTMLButtonElement);
     await waitFor(() => expect(selectedViewName()).toBe(name));
     expect(tabIcon(name).classList).toContain("lyra-icon--valve");
     const stored = await client.views.retrieve({ where: { name: { eq: name } } });

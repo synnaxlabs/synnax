@@ -71,7 +71,7 @@ export interface FilterChipValueProps extends PropsWithChildren {}
 
 /** The value a {@link FilterChip} compares the property to. */
 export const FilterChipValue = ({ children }: FilterChipValueProps): ReactElement => (
-  <Text.Text gap="small" align="center" className={SEGMENT_CLASS}>
+  <Text.Text el="div" gap="small" align="center" className={SEGMENT_CLASS}>
     {children}
   </Text.Text>
 );
