@@ -603,6 +603,18 @@ var _ = Describe("CastOf", func() {
 		Expect(MustBeOk(atypes.CastOf(err))).To(Equal("f64"))
 	})
 
+	DescribeTable("Should give no type for a channel or a series",
+		func(expected, actual types.Type) {
+			err := atypes.Check(constraints.New(), expected, actual, nil, "")
+			Expect(err).To(MatchError(ContainSubstring("type mismatch")))
+			_, ok := atypes.CastOf(err)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("a series argument", types.F32(), types.Series(types.I32())),
+		Entry("a series parameter", types.Series(types.F32()), types.F32()),
+		Entry("channel elements", types.Chan(types.F32()), types.Chan(types.I32())),
+	)
+
 	It("Should give no type for a mismatch that a cast does not fix", func() {
 		err := atypes.Check(constraints.New(), types.F64(), types.String(), nil, "")
 		Expect(err).To(MatchError(ContainSubstring("type mismatch")))

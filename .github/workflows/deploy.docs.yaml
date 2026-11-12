@@ -19,6 +19,7 @@ on:
     paths:
       - .github/workflows/deploy.docs.yaml
       - alamos/ts/**
+      - arc/go/analyzer/codes/codes.gen.json
       - client/ts/**
       - configs/ts/**
       - configs/vite/**

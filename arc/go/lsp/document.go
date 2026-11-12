@@ -41,8 +41,10 @@ type document struct {
 	URI         uri.URI
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
-	Version     int32
-	debouncer   *debounce.Debouncer
+	// analyzed is the content that IR and Diagnostics come from.
+	analyzed  string
+	Version   int32
+	debouncer *debounce.Debouncer
 }
 
 func (d *document) isBlock() bool {
@@ -57,8 +59,13 @@ func (d *document) toDocPosition(pos protocol.Position) protocol.Position {
 	if !d.isBlock() {
 		return pos
 	}
+	return unwrapPosition(pos)
+}
+
+// unwrapPosition moves a position in a parsed block to its place in the document.
+func unwrapPosition(pos protocol.Position) protocol.Position {
 	if pos.Line == 0 && pos.Character > 0 {
-		return protocol.Position{Line: pos.Line, Character: pos.Character - 1}
+		pos.Character--
 	}
 	return pos
 }

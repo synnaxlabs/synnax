@@ -44,12 +44,14 @@ var (
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "%s with %s is always %t, use %s instead",
 	}
+	// TruthyCondition is a number or a string used as a condition.
 	TruthyCondition = diagnostics.Kind{
 		Code:     "ARC2005",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "non-boolean conditions are deprecated, use an explicit comparison like x != 0",
 	}
 
+	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
 		Code:     "ARC3001",
 		Severity: protocol.DiagnosticSeverityError,
@@ -60,34 +62,40 @@ var (
 		Code:     "ARC3002",
 		Severity: protocol.DiagnosticSeverityError,
 	}
+	// FuncArgExtra is a call with more arguments than parameters.
 	FuncArgExtra = diagnostics.Kind{
 		Code:     "ARC3003",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "too many arguments for func '%s': expected at most %d",
 	}
 
+	// DeprecatedSymbol is a reference to a name that has a replacement.
 	DeprecatedSymbol = diagnostics.Kind{
 		Code:     "ARC4003",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "'%s' is deprecated, use '%s' instead",
 	}
+	// DeclarationAfterStep is a variable declared after a step of its scope.
 	DeclarationAfterStep = diagnostics.Kind{
 		Code:     "ARC4004",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "declare variables at the top of a stage or sequence",
 	}
 
+	// UnusedImport is an imported module that nothing references.
 	UnusedImport = diagnostics.Kind{
 		Code:     "ARC5001",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "imported module %q is unused",
 	}
 
+	// ConstantOverflow is a constant integer that does not fit its type.
 	ConstantOverflow = diagnostics.Kind{
 		Code:     "ARC6001",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "constant %s overflows %s",
 	}
+	// DivisionByZero is a constant integer division or modulo by zero.
 	DivisionByZero = diagnostics.Kind{
 		Code:     "ARC6002",
 		Severity: protocol.DiagnosticSeverityError,

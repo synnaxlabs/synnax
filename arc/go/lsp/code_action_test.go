@@ -266,6 +266,62 @@ var _ = Describe("CodeAction", func() {
 		)
 	})
 
+	Describe("Analyzer fixes", func() {
+		It("should move the fix to the positions of a block document",
+			func(ctx SpecContext) {
+				const block = "arc://block/test"
+				OpenArcDocument(server, ctx, block, "if 1 { return 1 }\nreturn 0")
+				var diags []protocol.Diagnostic
+				for _, d := range client.Diagnostics() {
+					if DiagnosticCode(d) == string(codes.TruthyCondition.Code) {
+						diags = append(diags, d)
+					}
+				}
+				actions := asCodeActions(MustSucceed(
+					server.CodeAction(ctx, &protocol.CodeActionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: block},
+						Context:      protocol.CodeActionContext{Diagnostics: diags},
+					}),
+				))
+				Expect(actions).To(HaveLen(1))
+				Expect(actions[0].Edit.Changes[block]).To(Equal([]protocol.TextEdit{{
+					Range: protocol.Range{
+						Start: protocol.Position{Character: 3},
+						End:   protocol.Position{Character: 4},
+					},
+					NewText: "true",
+				}}))
+			})
+
+		It("should give no fix from the analysis of older content",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					uri,
+					"sequence main {\n    stage a { 1 => next }\n    stage b {}\n}\n",
+				)
+				diags := client.Diagnostics()
+				Expect(diags).To(HaveLen(1))
+				Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+					TextDocument: protocol.VersionedTextDocumentIdentifier{
+						URI:     uri,
+						Version: 2,
+					},
+					ContentChanges: []protocol.TextDocumentContentChangeEvent{
+						&protocol.TextDocumentContentChangeWholeDocument{
+							Text: "sequence main {\n    stage a { 12 => next }\n" +
+								"    stage b {}\n}\n",
+						},
+					},
+				})).To(Succeed())
+				actions := asCodeActions(
+					MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+				)
+				Expect(actions).To(BeEmpty())
+			})
+	})
+
 	Describe("Unused import quick fix", func() {
 		It(
 			"should delete the whole statement when it imports a single module",
