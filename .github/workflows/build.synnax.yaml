@@ -936,7 +936,7 @@ jobs:
   # The Core embeds the Driver, so this build waits for the signed Driver. It takes the
   # Driver and the Console assets of this run as it takes those of a cached run.
   build-macos-core:
-    name: Build Core (macos-build-bot)
+    name: Build Core (${{ matrix.os }})
     needs: [setup, sign-macos-driver]
     if: inputs.sign_binaries && inputs.macos && inputs.driver && inputs.core
     timeout-minutes: 30
