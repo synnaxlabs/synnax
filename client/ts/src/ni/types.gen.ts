@@ -440,7 +440,7 @@ export const doChannelZ = z.object({
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
 export const writeConfigZ = task.writeConfigZ.extend({
-  stateRate: z.number().default(10),
+  stateRate: z.number().gt(0).default(10),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 

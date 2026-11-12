@@ -187,7 +187,7 @@ class SplitNode(BaseModel):
 
     variant: Literal["split"] = "split"
     direction: spatial.Direction
-    size: spatial.Decimal
+    size: spatial.Decimal = Field(ge=0, le=1, allow_inf_nan=False)
     first: Node
     last: Node
 
