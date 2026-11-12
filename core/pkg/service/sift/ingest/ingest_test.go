@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -590,6 +591,49 @@ var _ = Describe("Engine", func() {
 				HaveField("StopTime.AsTime()", time.Unix(9, 0).UTC()),
 				HaveField("Tags", BeEmpty()),
 			)))
+		})
+
+		It("Should keep one run of a range for each asset", func(ctx SpecContext) {
+			stand := open(ctx, channel.Keys{ch.Key()})
+			bench := open(ctx, channel.Keys{ch.Key()}, ingest.Config{Asset: "bench"})
+			standID := MustSucceed(stand.SetRun(ctx, run))
+			benchID := MustSucceed(bench.SetRun(ctx, run))
+			rng := uuid.MustParse(run.Key)
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(
+					HaveField("RunId", standID),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "stand").String(),
+					))),
+				),
+				SatisfyAll(
+					HaveField("RunId", benchID),
+					HaveField("AssetIds", ConsistOf("asset-bench")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "bench").String(),
+					))),
+				),
+			))
+			run.Name = "renamed"
+			Expect(stand.SetRun(ctx, run)).To(Equal(standID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "hotfire 1")),
+			))
+			Expect(bench.SetRun(ctx, run)).To(Equal(benchID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "renamed")),
+			))
+		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			run.Key = "hotfire"
+			Expect(e.SetRun(ctx, run)).Error().
+				To(MatchError(`run key "hotfire" is not a UUID: invalid uuid`))
+			Expect(server.Runs()).To(BeEmpty())
 		})
 
 		It("Should leave a run that already matches", func(ctx SpecContext) {
