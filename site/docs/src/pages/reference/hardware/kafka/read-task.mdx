@@ -212,15 +212,15 @@ A record has these settings:
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                                    |
-| ----------------------------------------- | --------- | -------------------------------------------------------- |
-| Type <small>`type`</small>                |           | The kind of value, which must match the channel.         |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value. Cannot be empty.          |
-| Channel <small>`channel`</small>          |           | The channel that records the value.                      |
-| Data type <small>`data_type`</small>      | Per type  | The data type of a new channel. Numeric types only.      |
-| Time format <small>`time_format`</small>  | `iso8601` | The encoding of a `timestamp` value.                     |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the record to channel values.        |
-| Fill <small>`fill`</small>                | None      | The value an absent field writes. None skips the record. |
+| Setting                                   | Default  | Notes                                                                                             |
+| ----------------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| Type <small>`type`</small>                |          | The kind of value, which must match the channel.                                                  |
+| Pointer <small>`pointer`</small>          |          | The JSON pointer to the value. Cannot be empty.                                                   |
+| Channel <small>`channel`</small>          |          | The channel that records the value.                                                               |
+| Data type <small>`data_type`</small>      | Per type | The data type of a new channel. Numeric types only.                                               |
+| Time format <small>`time_format`</small>  |          | Required for a `timestamp` field, such as `iso8601`.                                              |
+| Enum mapping <small>`enum_values`</small> | None     | Maps text labels in the record to channel values. Not on `timestamp`, `json`, `uuid`, or `bytes`. |
+| Fill <small>`fill`</small>                | None     | The value an absent value writes. None skips the record. Not on `json`, `uuid`, or `bytes`.       |
 
 The type is `float`, `integer`, `unsigned`, `string`, `boolean`, `timestamp`, `json`,
 `uuid`, or `bytes`. In Python, each type has its own class, such as
