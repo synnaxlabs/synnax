@@ -130,6 +130,8 @@ def upload(
     :returns: The key of the status of the upload.
     :raises RuntimeError: If the Core does not queue the upload, such as when neither
         or both of range_key and time_range are set.
+    :raises TimeoutError: If the Core does not answer within timeout.
+    :raises NotFoundError: If the rack of the device has no Sift scan task.
     """
     args: dict[str, object] = {
         "device": dev.key,
