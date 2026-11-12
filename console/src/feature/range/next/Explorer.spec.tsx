@@ -10,8 +10,8 @@
 import { type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Explorer } from "@/feature/range/next/Explorer";
 import { Modals } from "@/platform/modals";
@@ -74,6 +74,55 @@ const search = (term: string): void => {
 /** @returns the list item of the named range. */
 const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { name });
 
+const SWAP = "console-range-filter__picker--swap";
+
+/** jsdom lays nothing out, so a spec places the values beside the menu by hand. */
+const BESIDE: DOMRect = {
+  left: 150,
+  top: 0,
+  width: 200,
+  height: 200,
+  right: 350,
+  bottom: 200,
+  x: 150,
+  y: 0,
+  toJSON: () => "",
+};
+
+/** Opens the filter menu, then holds the clock so its timers run on demand. */
+const openFilterMenu = async (): Promise<void> => {
+  await renderExplorer();
+  fireEvent.click(await screen.findByRole("button", { name: "Filter" }));
+  await screen.findByRole("button", { name: "Labels", expanded: false });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+};
+
+/** @returns the closed property of the filter menu with the name. */
+const closed = (name: string): HTMLElement =>
+  screen.getByRole("button", { name, expanded: false });
+
+/** @returns the open values of the property with the name. */
+const values = (name: string): HTMLElement => screen.getByRole("dialog", { name });
+
+const move = (target: HTMLElement, clientX: number, clientY: number): void => {
+  fireEvent.pointerMove(target, { pointerType: "mouse", clientX, clientY });
+};
+
+const advance = (ms: number): void => {
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
+};
+
+/** Opens the labels, then moves the pointer across stage toward their values. */
+const aimAtLabels = async (): Promise<void> => {
+  await openFilterMenu();
+  fireEvent.keyDown(closed("Labels"), { key: "ArrowRight" });
+  vi.spyOn(values("Labels"), "getBoundingClientRect").mockReturnValue(BESIDE);
+  move(screen.getByRole("button", { name: "Labels", expanded: true }), 100, 14);
+  move(closed("Stage"), 140, 32);
+};
+
 describe("range/next/Explorer", () => {
   describe("filter", () => {
     it("should keep the ranges with a picked label and restore the rest when its chip goes", async () => {
@@ -111,6 +160,74 @@ describe("range/next/Explorer", () => {
       await screen.findByText(labeled.name);
       expect(screen.getByRole("button", { name: "Remove Labels filter" })).toBeTruthy();
       expect(screen.queryByText(other.name)).toBeNull();
+    });
+  });
+
+  describe("filter menu", () => {
+    afterEach(() => {
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+      vi.useRealTimers();
+    });
+
+    it("should open the values of a property once the pointer rests on it", async () => {
+      await openFilterMenu();
+      move(closed("Time"), 50, 70);
+      advance(100);
+      expect(values("Time").className).not.toContain(SWAP);
+    });
+
+    it("should not open the values of a property the pointer only passes", async () => {
+      await openFilterMenu();
+      move(closed("Stage"), 50, 42);
+      advance(60);
+      move(closed("Time"), 50, 70);
+      advance(100);
+      // Values that opened over the values of stage would carry the swap.
+      expect(values("Time").className).not.toContain(SWAP);
+      expect(screen.queryByRole("dialog", { name: "Stage" })).toBeNull();
+    });
+
+    it("should open the values on ArrowRight and close them on ArrowLeft", async () => {
+      await openFilterMenu();
+      const labels = closed("Labels");
+      fireEvent.keyDown(labels, { key: "ArrowRight" });
+      fireEvent.keyDown(screen.getByPlaceholderText("Search labels..."), {
+        key: "ArrowLeft",
+      });
+      expect(screen.queryByRole("dialog", { name: "Labels" })).toBeNull();
+      expect(document.activeElement).toBe(labels);
+    });
+
+    it("should keep the open values while the pointer crosses another property toward them", async () => {
+      await aimAtLabels();
+      advance(250);
+      move(screen.getByPlaceholderText("Search labels..."), 200, 50);
+      advance(300);
+      expect(values("Labels")).toBeTruthy();
+      expect(screen.queryByRole("dialog", { name: "Stage" })).toBeNull();
+    });
+
+    it("should swap in the values under the pointer once the aim lapses", async () => {
+      await aimAtLabels();
+      advance(300);
+      expect(values("Stage").className).toContain(SWAP);
+      expect(screen.queryByRole("dialog", { name: "Labels" })).toBeNull();
+    });
+
+    it("should end the aim when the pointer heads past the values", async () => {
+      await aimAtLabels();
+      move(closed("Stage"), 145, 180);
+      advance(100);
+      expect(values("Stage").className).toContain(SWAP);
+    });
+
+    it("should end the aim when the pointer drops without moving toward the values", async () => {
+      await aimAtLabels();
+      move(closed("Stage"), 141, 50);
+      advance(100);
+      expect(values("Stage").className).toContain(SWAP);
     });
   });
 
