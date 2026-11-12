@@ -159,6 +159,15 @@ var _ = Describe("Factory", func() {
 				})
 		})
 
+		It("Should reject a command it does not know", func(ctx SpecContext) {
+			stat := exec(ctx, "restart", map[string]any{})
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to execute command"))
+			Expect(stat.Description).To(Equal(
+				"The task does not accept the 'restart' command.",
+			))
+		})
+
 		Describe("test_connection", func() {
 			It("Should connect with an API key the grant names",
 				func(ctx SpecContext) {
@@ -247,6 +256,25 @@ var _ = Describe("Factory", func() {
 		})
 
 		Describe("list_assets", func() {
+			It("Should list the assets of every page", func(ctx SpecContext) {
+				// Sift returns at most 1000 assets in a page.
+				names := make([]string, 1001)
+				for i := range names {
+					names[i] = fmt.Sprintf("asset-%04d", i)
+				}
+				paged := MustOpen(fake.Open(fake.Config{APIKey: apiKey, Assets: names}))
+				dev := createDevice(ctx, sift.Properties{
+					URI:    paged.Address(),
+					APIKey: createAPIKey(ctx, apiKey),
+				})
+				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Details.Data).To(HaveKeyWithValue("assets", SatisfyAll(
+					HaveLen(len(names)),
+					ContainElement(names[len(names)-1]),
+				)))
+			})
+
 			It("Should list the assets the device can see", func(ctx SpecContext) {
 				dev := createDevice(ctx, sift.Properties{
 					URI:    server.Address(),
