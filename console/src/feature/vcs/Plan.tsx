@@ -195,15 +195,16 @@ export const Review = ({ view }: ReviewProps): ReactElement => {
   ).length;
   const ready = plan != null && isReady(plan, choices);
   const n = plan != null ? changeCount(plan, choices) : 0;
-  const handleApply = () =>
-    handleError(
-      async () => {
-        if (plan == null) return;
-        setApplying(true);
-        await apply(plan, choices, view).finally(() => setApplying(false));
-      },
-      { message: "Failed to apply changes", name: view.title },
-    );
+  const handleApply = async () => {
+    if (plan == null) return;
+    setApplying(true);
+    try {
+      await apply(plan, choices, view);
+    } catch (e) {
+      handleError(e, { message: "Failed to apply changes", name: view.title });
+    }
+    setApplying(false);
+  };
   let body: ReactElement;
   if (error != null)
     body = (
@@ -317,7 +318,7 @@ export const Review = ({ view }: ReviewProps): ReactElement => {
           full="x"
           disabled={disabled}
           status={applying ? "loading" : undefined}
-          onClick={nothingToDo ? back : handleApply}
+          onClick={nothingToDo ? back : () => void handleApply()}
           trigger={disabled ? undefined : Triggers.SAVE}
           triggerIndicator={nothingToDo ? undefined : Triggers.SAVE}
         >

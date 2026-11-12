@@ -139,9 +139,8 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   const poll = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
-    await refresh().finally(() => {
-      inFlight.current = false;
-    });
+    await refresh();
+    inFlight.current = false;
   };
 
   useEffect(() => {

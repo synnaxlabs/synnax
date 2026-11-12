@@ -36,17 +36,21 @@ const FetchAction = (): ReactElement => {
   const setStatus = Vcs.useSetStatus();
   const handleError = Status.useErrorHandler();
   const [loading, setLoading] = useState(false);
-  const handleClick = () =>
-    handleError(async () => {
-      if (client == null) return;
-      setLoading(true);
-      setStatus(await client.vcs.fetch().finally(() => setLoading(false)));
-    }, "Failed to fetch");
+  const handleClick = async () => {
+    if (client == null) return;
+    setLoading(true);
+    try {
+      setStatus(await client.vcs.fetch());
+    } catch (e) {
+      handleError(e, "Failed to fetch");
+    }
+    setLoading(false);
+  };
   return (
     <Toolbar.Action
       tooltip="Fetch from the remote"
       aria-label="Fetch from the remote"
-      onClick={handleClick}
+      onClick={() => void handleClick()}
       status={loading ? "loading" : undefined}
     >
       <Icon.Refresh />

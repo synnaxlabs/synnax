@@ -46,20 +46,19 @@ const Clone = ({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const invalid = validate(name);
     if (invalid != null) return setError(invalid);
     if (client == null) return;
     setLoading(true);
-    client.vcs
-      .clone(name)
-      .then((next) => {
-        setStatus(next);
-        addStatus({ variant: "success", name, message: "Created configuration" });
-        close(name);
-      })
-      .catch((e: unknown) => setError(errors.fromUnknown(e).message))
-      .finally(() => setLoading(false));
+    try {
+      setStatus(await client.vcs.clone(name));
+      addStatus({ variant: "success", name, message: "Created configuration" });
+      close(name);
+    } catch (e) {
+      setError(errors.fromUnknown(e).message);
+    }
+    setLoading(false);
   };
   return (
     <Modal.Frame>
@@ -96,7 +95,7 @@ const Clone = ({
             variant="filled"
             status={loading ? "loading" : undefined}
             disabled={client == null || name.length === 0}
-            onClick={handleCreate}
+            onClick={() => void handleCreate()}
             trigger={Triggers.SAVE}
             triggerIndicator
           >

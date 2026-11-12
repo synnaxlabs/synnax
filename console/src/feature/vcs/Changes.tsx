@@ -205,25 +205,24 @@ const CommitBox = ({ status, checked }: CommitBoxProps): ReactElement => {
   const github =
     URL.canParse(status.remoteUrl) &&
     new URL(status.remoteUrl).hostname === "github.com";
-  const run = (pullRequest: boolean) => {
+  const run = async (pullRequest: boolean) => {
     if (disabled) return;
-    handleError(
-      async () => {
-        setLoading(pullRequest ? "pullRequest" : "commit");
-        await commit({ message: trimmed, resources: checked, pullRequest }).finally(
-          () => setLoading(null),
-        );
-      },
-      {
-        message: pullRequest ? "Failed to open pull request" : "Failed to commit",
-        name: status.configuration,
-      },
-    );
+    setLoading(pullRequest ? "pullRequest" : "commit");
+    const heading = {
+      message: pullRequest ? "Failed to open pull request" : "Failed to commit",
+      name: status.configuration,
+    };
+    try {
+      await commit({ message: trimmed, resources: checked, pullRequest });
+    } catch (e) {
+      handleError(e, heading);
+    }
+    setLoading(null);
   };
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
     e.preventDefault();
-    run(false);
+    void run(false);
   };
   let tooltip = "Commits to the repository on this Core";
   if (status.remoteUrl.length > 0)
@@ -246,7 +245,7 @@ const CommitBox = ({ status, checked }: CommitBoxProps): ReactElement => {
           justify="center"
           disabled={disabled}
           status={loading === "commit" ? "loading" : undefined}
-          onClick={() => run(false)}
+          onClick={() => void run(false)}
           tooltip={tooltip}
           triggerIndicator={Triggers.SAVE}
         >
@@ -268,7 +267,7 @@ const CommitBox = ({ status, checked }: CommitBoxProps): ReactElement => {
               <Icon.Caret.Up />
             </Dialog.Trigger>
             <Dialog.Dialog background={1} pack={false} bordered>
-              <CommitMenu onPullRequest={() => run(true)} />
+              <CommitMenu onPullRequest={() => void run(true)} />
             </Dialog.Dialog>
           </Dialog.Frame>
         )}
@@ -312,12 +311,16 @@ const Notices = ({ status }: NoticesProps): ReactElement | null => {
   const { waiting, error, remoteUrl } = status;
   const pending = waiting > 0 && remoteUrl.length > 0;
   if (!pending && error.length === 0) return null;
-  const retry = () =>
-    handleError(async () => {
-      if (client == null) return;
-      setLoading(true);
-      setStatus(await client.vcs.fetch().finally(() => setLoading(false)));
-    }, "Failed to sync");
+  const retry = async () => {
+    if (client == null) return;
+    setLoading(true);
+    try {
+      setStatus(await client.vcs.fetch());
+    } catch (e) {
+      handleError(e, "Failed to sync");
+    }
+    setLoading(false);
+  };
   return (
     <Flex.Box
       x
@@ -347,7 +350,7 @@ const Notices = ({ status }: NoticesProps): ReactElement | null => {
         size="small"
         textColor={9}
         status={loading ? "loading" : undefined}
-        onClick={retry}
+        onClick={() => void retry()}
       >
         Retry
       </Button.Button>

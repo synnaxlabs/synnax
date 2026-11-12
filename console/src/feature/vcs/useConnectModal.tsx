@@ -9,6 +9,7 @@
 
 import "@/feature/vcs/useConnectModal.css";
 
+import { type vcs } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -43,31 +44,33 @@ const Connect = ({ close }: Modals.ContentProps<Record<never, never>, void>) => 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const tokenSet = status?.tokenSet === true;
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (client == null) return;
     setLoading(true);
     setError(null);
-    client.vcs
-      .connect({
+    let next: vcs.Status | null = null;
+    try {
+      next = await client.vcs.connect({
         configuration: configuration.trim(),
         remoteUrl: remoteURL.trim(),
         token,
-      })
-      .then((next) => {
-        setStatus(next);
-        addStatus({
-          variant: "success",
-          name: next.configuration,
-          message: started ? "Saved connection" : "Started version control",
-          description:
-            next.remoteUrl.length > 0
-              ? `New commits go to ${repoName(next.remoteUrl)}.`
-              : "Commits stay on this Core until you add a Git URL.",
-        });
-        close();
-      })
-      .catch((e: unknown) => setError(errors.fromUnknown(e).message))
-      .finally(() => setLoading(false));
+      });
+    } catch (e) {
+      setError(errors.fromUnknown(e).message);
+    }
+    setLoading(false);
+    if (next == null) return;
+    setStatus(next);
+    addStatus({
+      variant: "success",
+      name: next.configuration,
+      message: started ? "Saved connection" : "Started version control",
+      description:
+        next.remoteUrl.length > 0
+          ? `New commits go to ${repoName(next.remoteUrl)}.`
+          : "Commits stay on this Core until you add a Git URL.",
+    });
+    close();
   };
   return (
     <Modal.Frame>
@@ -134,7 +137,7 @@ const Connect = ({ close }: Modals.ContentProps<Record<never, never>, void>) => 
             variant="filled"
             status={loading ? "loading" : undefined}
             disabled={client == null || configuration.trim().length === 0}
-            onClick={handleConnect}
+            onClick={() => void handleConnect()}
             trigger={Triggers.SAVE}
             triggerIndicator
           >
