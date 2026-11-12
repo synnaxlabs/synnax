@@ -29,10 +29,7 @@ const listResultZ = z.object({ uploads: status.keyZ.array() });
  *
  * @throws if the scan task fails the command.
  */
-const list = async (
-  client: Synnax,
-  range: ranger.Key,
-): Promise<status.Key[]> => {
+const list = async (client: Synnax, range: ranger.Key): Promise<status.Key[]> => {
   const [rack] = await client.racks.retrieve({
     where: { embedded: { eq: true }, integrations: { any: [INTEGRATION] } },
     limit: 1,
