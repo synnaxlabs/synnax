@@ -170,6 +170,29 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(ctx->statuses.size(), count);
 }
 
+/// @brief a failed start should send the field errors of its error, and the next
+/// start should drop them.
+TEST(TestTaskStateHandler, StartSendsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+    x::json::Parser parser(x::json::json::object());
+    parser.field_err("channels.2.min_val", "Must be between -10 and 10");
+    handler.error(parser.error(), "Failed to start task");
+    handler.send_start("start_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto failed = ctx->statuses[0];
+    EXPECT_EQ(failed.message, "Failed to start task");
+    EXPECT_EQ(failed.description, "channels.2.min_val: Must be between -10 and 10");
+    ASSERT_TRUE(failed.details.data.has_value());
+    EXPECT_EQ(x::json::json(*failed.details.data), parser.error_json());
+    handler.reset();
+    handler.send_start("start_cmd_2");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].message, "Started task");
+    EXPECT_FALSE(ctx->statuses[1].details.data.has_value());
+}
+
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -569,6 +592,32 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
         ctx->statuses[0].description,
         "device: this field is required\nchannels.0.port: must be positive"
     );
+}
+
+/// @brief a config error should send its field errors in the status details.
+TEST(TestHandleConfigErr, SendsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    x::json::Parser parser(x::json::json::object());
+    parser.field_err("channels.0.port", "must be positive");
+    handle_config_err(ctx, task, {ConfigureResult{}, parser.error()}, "start_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    ASSERT_TRUE(ctx->statuses[0].details.data.has_value());
+    EXPECT_EQ(x::json::json(*ctx->statuses[0].details.data), parser.error_json());
+}
+
+/// @brief a config error with no field errors should send no status data.
+TEST(TestHandleConfigErr, SendsNoDataForPlainError) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "start_cmd"
+    );
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_FALSE(ctx->statuses[0].details.data.has_value());
 }
 
 /// @brief a config error at boot with no auto-start should not write a status.
