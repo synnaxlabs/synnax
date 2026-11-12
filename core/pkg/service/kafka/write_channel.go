@@ -76,6 +76,8 @@ func fieldOf(wc WriteChannel, dt telem.DataType) (xjson.Field, error) {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat)); err != nil {
 			return xjson.Field{}, err
 		}
+	case JsonWriteChannel:
+		f.Type = xjson.JSON
 	}
 	return f, nil
 }
@@ -230,8 +232,10 @@ func checkWriteChannel(wc WriteChannel, dt telem.DataType) error {
 	if err != nil {
 		return err
 	}
-	_, err = xjson.NewEncoder(f)
-	return err
+	if _, err = xjson.NewEncoder(f); err != nil {
+		return err
+	}
+	return xjson.CheckEnums(f)
 }
 
 // reconcileWriteConfig changes each channel of cfg to agree with its Synnax channel,

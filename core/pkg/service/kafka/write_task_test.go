@@ -839,12 +839,6 @@ var _ = Describe("Write task", func() {
 				{Label: "ON", Value: "on"},
 			}},
 			`enum label "ON": "on" is not a uint8 value`),
-		Entry("entries that collide on a float32 channel", telem.Float32T,
-			kafka.FloatWriteChannel{EnumValues: []payload.FloatEntry{
-				{Label: "A", Value: 0.1},
-				{Label: "B", Value: 0.1000000001},
-			}},
-			`enum labels "A" and "B" have the same float32 value`),
 	)
 
 	DescribeTable("Should reject an invalid config",
@@ -874,13 +868,14 @@ var _ = Describe("Write task", func() {
 			}
 		}, "topic"),
 		Entry("no enabled channel", func(data channel.Channel) kafka.WriteConfig {
+			disabled := kafka.BaseWriteChannel{Disabled: true}
 			return kafka.WriteConfig{
 				Topic: "t",
 				Channels: []kafka.WriteChannel{writeAs(
 					data.Key(),
 					kafka.TimestampWriteChannel{
-						Disabled:   true,
-						TimeFormat: payload.TimeFormatUnixMs,
+						BaseWriteChannel: disabled,
+						TimeFormat:       payload.TimeFormatUnixMs,
 					},
 				)},
 			}

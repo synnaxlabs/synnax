@@ -18,16 +18,18 @@ import (
 )
 
 // MigrateWriteChannel lifts a v0 write channel to v1 by its stored shape, without its
-// Synnax channel. A time format makes it a timestamp channel. A number, or a string
-// with entries, becomes a float channel that keeps the entries. A string with no
-// entries stays a string, and a boolean becomes a boolean with no entries. The kind
-// may not fit the Synnax channel, so the caller reconciles it against the channel.
+// Synnax channel. A number with a time format and no entries, the only timestamp shape
+// v0 ran, becomes a timestamp channel. Another number, or a string with entries,
+// becomes a float channel that keeps the entries. A string with no entries stays a
+// string, and a boolean becomes a boolean with no entries. The kind may not fit the
+// Synnax channel, so the caller reconciles it against the channel.
 func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, error) {
 	old.ApplyDefaults()
 	base := BaseWriteChannel{Key: old.Key, Disabled: old.Disabled, Channel: old.Channel}
 	var v WriteChannelVariant
 	switch {
-	case old.TimeFormat != nil:
+	case old.TimeFormat != nil && old.JSONType == payload.JSONTypeNumber &&
+		len(old.EnumValues) == 0:
 		v = TimestampWriteChannel{BaseWriteChannel: base, TimeFormat: *old.TimeFormat}
 	case old.JSONType == payload.JSONTypeBoolean:
 		v = BooleanWriteChannel{BaseWriteChannel: base}
@@ -56,11 +58,13 @@ func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, e
 	if err != nil {
 		return WriteConfig{}, err
 	}
-	cfg.Channels, err = lo.MapErr(
+	if cfg.Channels, err = lo.MapErr(
 		old.Channels,
 		func(c v0.WriteChannel, _ int) (WriteChannel, error) {
 			return MigrateWriteChannel(ctx, c)
 		},
-	)
-	return cfg, err
+	); err != nil {
+		return WriteConfig{}, err
+	}
+	return cfg, nil
 }
