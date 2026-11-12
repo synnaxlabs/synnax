@@ -1202,6 +1202,7 @@ jobs:
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners
   # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
+  # A job that no runner takes ends as cancelled, and counts as failed.
   fail-fast:
     name: Fail fast
     if: github.event_name == 'merge_group'
@@ -1222,7 +1223,8 @@ jobs:
               continue
             fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out") | .name' <<< "$jobs")
+              or .conclusion == "timed_out" or .conclusion == "cancelled")
+              | .name' <<< "$jobs")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
