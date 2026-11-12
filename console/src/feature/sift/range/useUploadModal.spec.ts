@@ -132,6 +132,44 @@ describe("Sift.Range.useUploadModal", () => {
     await waitFor(() => expect(screen.queryByText("stand")).toBeNull());
   });
 
+  it("should leave the asset empty when the assets of a new device fail to list", async () => {
+    const { rack, scan } = await createScanTask();
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(first.name);
+    await listedFirst;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      variant: "error",
+      message: "Sift is unreachable",
+    });
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: second.name },
+    });
+    fireEvent.click(await screen.findByText(second.name));
+    await listedSecond;
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to list Sift assets"),
+    );
+    expect(screen.queryByText("stand")).toBeNull();
+  });
+
   it("should name a new asset only through New asset", async () => {
     const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });

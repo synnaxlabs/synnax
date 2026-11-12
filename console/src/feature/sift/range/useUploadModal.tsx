@@ -31,7 +31,6 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -154,8 +153,7 @@ const Upload = ({
             Upload {rangeName} to Sift
           </Text.Text>
           <Flex.Box x gap="large">
-            <SelectDevice />
-            <Asset.Field
+            <Asset.Destination
               path={path.config.asset}
               devicePath={path.config.device}
               grow
