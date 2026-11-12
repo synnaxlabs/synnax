@@ -43,7 +43,7 @@ on:
         type: boolean
         default: false
       migration_audit:
-        description: Run the migration audit before any draft
+        description: Run the migration audit before any publish
         type: boolean
         default: true
       console_version:
@@ -71,6 +71,10 @@ env:
   GH_REPO: ${{ github.repository }}
   GH_TOKEN: ${{ github.token }}
 
+# The drafts and the builds start at dispatch. CI and the migration audit gate only the
+# publish jobs, so a run that fails either one leaves only drafts, and the next run
+# clears them. An `if` with `!cancelled()` drops the implicit success check, so the
+# product and package publish jobs state both gates. The image and the docs follow them.
 jobs:
   ci:
     name: CI
@@ -105,7 +109,7 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  # A stored shape that changed without a migration stops the release before any draft.
+  # A stored shape that changed without a migration stops every publish of the run.
   migration-audit:
     name: Migration audit
     permissions:
@@ -239,11 +243,8 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci, migration-audit]
-    if: >-
-      !cancelled() && inputs.console && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success')
+    needs: resolve
+    if: inputs.console
     permissions:
       actions: read
       contents: write
@@ -303,8 +304,11 @@ jobs:
 
   publish-console:
     name: Publish Console
-    needs: [resolve, build-console]
-    if: ${{ !cancelled() && needs.build-console.result == 'success' }}
+    needs: [resolve, ci, migration-audit, build-console]
+    if: >-
+      !cancelled() && needs.build-console.result == 'success' && needs.ci.result ==
+      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
+      'success')
     permissions:
       actions: read
       contents: write
@@ -327,11 +331,8 @@ jobs:
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci, migration-audit]
-    if: >-
-      !cancelled() && inputs.driver && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success')
+    needs: resolve
+    if: inputs.driver
     permissions:
       actions: read
       contents: write
@@ -390,8 +391,11 @@ jobs:
 
   publish-driver:
     name: Publish Driver
-    needs: [resolve, build-driver]
-    if: ${{ !cancelled() && needs.build-driver.result == 'success' }}
+    needs: [resolve, ci, migration-audit, build-driver]
+    if: >-
+      !cancelled() && needs.build-driver.result == 'success' && needs.ci.result ==
+      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
+      'success')
     permissions:
       actions: read
       contents: write
@@ -407,11 +411,12 @@ jobs:
   # workflow.
   publish-ts:
     name: Publish TypeScript packages
-    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    needs: [resolve, ci, migration-audit, publish-console, publish-driver, publish-core]
     # Packages go out after every product this run releases, and never after one fails.
     if: >-
       !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
-      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      'success' && needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && (!inputs.console ||
       needs.publish-console.result == 'success') && (!inputs.driver ||
       needs.publish-driver.result == 'success') && (!inputs.core ||
       needs.publish-core.result == 'success')
@@ -546,11 +551,12 @@ jobs:
 
   publish-py:
     name: Publish Python packages
-    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    needs: [resolve, ci, migration-audit, publish-console, publish-driver, publish-core]
     # Packages go out after every product this run releases, and never after one fails.
     if: >-
       !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
-      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      'success' && needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && (!inputs.console ||
       needs.publish-console.result == 'success') && (!inputs.driver ||
       needs.publish-driver.result == 'success') && (!inputs.core ||
       needs.publish-core.result == 'success')
@@ -626,16 +632,15 @@ jobs:
           fi
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
-  # and never runs after one fails.
+  # and never runs after one fails. A skipped publish job still waits for CI, so the
+  # Core draft starts after CI ends, even in a run with only the Core.
   draft-core:
     name: Draft Core
-    needs: [resolve, ci, migration-audit, publish-console, publish-driver]
+    needs: [resolve, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success') && (!inputs.console ||
-      needs.publish-console.result == 'success') && (!inputs.driver ||
-      needs.publish-driver.result == 'success')
+      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
+      || needs.publish-driver.result == 'success')
     permissions:
       actions: read
       contents: write
@@ -760,8 +765,11 @@ jobs:
 
   publish-core:
     name: Publish Core
-    needs: [resolve, build-core, windows-installer]
-    if: ${{ !cancelled() && needs.windows-installer.result == 'success' }}
+    needs: [resolve, ci, migration-audit, build-core, windows-installer]
+    if: >-
+      !cancelled() && needs.windows-installer.result == 'success' && needs.ci.result ==
+      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
+      'success')
     permissions:
       actions: read
       contents: write

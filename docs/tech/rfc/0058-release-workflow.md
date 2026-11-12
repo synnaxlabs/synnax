@@ -94,15 +94,18 @@ Each selected product runs four stages:
    for that version, and a stable release from the same branch promotes it. The action
    also emits the previous stable product tag; a candidate uses the same baseline, so
    its notes cover every change since the last stable.
-2. **Verify**: The commit's required checks must have passed. The integration suite runs
-   as a `workflow_call` job, once per run.
+2. **Verify**: `ci.yaml` runs with `full` as a `workflow_call` job, once per run, and
+   the migration audit runs when its input is set. Both run in parallel with the Console
+   and Driver builds and gate only the publish (RFC 0111 §2). The Core build waits for
+   the Console and Driver publish jobs, so it starts after CI ends.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
-   product, then clear the draft. The release creates the tag, so a failed build leaves
-   none. Concurrency group `release` serializes releases.
+   product, then clear the draft after Verify passes. The release creates the tag, so a
+   failed build or a failed Verify leaves only a draft and no tag. Concurrency group
+   `release` serializes releases.
 
 Assets per product:
 
