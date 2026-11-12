@@ -62,6 +62,14 @@ describe("createChannel", () => {
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.channel).toBe(0);
     });
+    it("should take a line on the port of the copied channel without port data", () => {
+      const channels: NI.Task.DIChannel[] = [
+        { ...NI.Task.createDIChannel(), key: "1", port: 1, line: 0 },
+        { ...NI.Task.createDIChannel(), key: "2", port: 2, line: 0 },
+      ];
+      const result = createNextDIChannel(channels, { copy: "1" });
+      expect(result).toMatchObject({ port: 1, line: 1 });
+    });
   });
 
   describe("createNextDOChannel", () => {

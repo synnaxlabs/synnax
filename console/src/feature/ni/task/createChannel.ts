@@ -136,6 +136,8 @@ export const createNextCIChannel = (
 export interface LinePlacement {
   port?: number;
   line?: number;
+  /** The channel whose port to fill without port data. Defaults to the last channel. */
+  copy?: string;
 }
 
 const createDigitalChannel = <C extends DigitalChannel>(
@@ -156,7 +158,8 @@ const createDigitalChannel = <C extends DigitalChannel>(
     for (let line = 0; line < lines; line++)
       if (!taken.has(lineName(port, line))) return { ...next, port, line };
   }
-  const port = placement.port ?? channels.at(-1)?.port ?? next.port;
+  const source = channels.find(({ key }) => key === placement.copy) ?? channels.at(-1);
+  const port = placement.port ?? source?.port ?? next.port;
   let line = 0;
   while (taken.has(lineName(port, line))) line++;
   return { ...next, port, line };
@@ -164,7 +167,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
 
 /**
  * Creates a digital input channel on the lowest free line of the device. Without port
- * data, it takes the lowest free line of the last channel's port.
+ * data, it takes the lowest free line of the copied channel's port.
  */
 export const createNextDIChannel = (
   channels: DIChannel[],

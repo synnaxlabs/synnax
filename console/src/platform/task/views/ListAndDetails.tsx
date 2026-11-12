@@ -63,7 +63,6 @@ export const ListAndDetails = <C extends Channel>({
   const { path } = rest;
   const [selected, setSelected] = useState<string[]>([]);
   const [view, setView] = useState<View>("list");
-  const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];
     keys.forEach((key) => {
@@ -72,11 +71,7 @@ export const ListAndDetails = <C extends Channel>({
     });
     return newlyMade;
   };
-  const handleAdd = useAdd({
-    path,
-    createChannel: handleCreateChannel,
-    onSelect: setSelected,
-  });
+  const handleAdd = useAdd({ path, createChannel, onSelect: setSelected });
   const isPreview = useIsPreview();
   const detailsPath = selected.length > 0 ? path[selected[0]] : null;
   const multi = multiDetails != null && selected.length > 1;
@@ -106,7 +101,7 @@ export const ListAndDetails = <C extends Channel>({
           }
           selected={selected}
           onSelect={setSelected}
-          createChannel={handleCreateChannel}
+          createChannel={createChannel}
           createChannels={handleDuplicateChannels}
         />
       }

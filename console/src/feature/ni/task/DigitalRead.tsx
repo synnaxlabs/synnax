@@ -100,7 +100,7 @@ const Form: FC = () => {
   return (
     <Task.Views.List<DIChannel>
       path={root.config.channels}
-      createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
+      createChannel={(channels, copy) => createNextDIChannel(channels, { copy }, dev)}
       listItem={listItem}
       columns={PORT_LINE_COLUMNS}
       checkable
