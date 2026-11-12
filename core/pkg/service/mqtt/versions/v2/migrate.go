@@ -15,9 +15,11 @@ import (
 	"strconv"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
@@ -33,38 +35,44 @@ import (
 // Each kind but string drops an entry with an empty label, which it can never match.
 // An empty data type is the v1 default, float64. An unknown one lifts to the float
 // kind with no data type, so that reconciling with the channel can set the kind. A
-// field with a time format lifts to the timestamp kind and keeps it, because v1 read
-// the data type of the channel and used the time format only on a timestamp channel.
+// float64 field with a time format lifts to the timestamp kind and keeps the format,
+// because v1 left the data type at its default and read the channel's data type.
 func MigrateReadField(old v1.ReadField) (ReadField, []string) {
+	return migrateReadField(old, nil)
+}
+
+// migrateReadField is MigrateReadField with the field's channel, when known. The
+// channel's data type then picks the kind, as v1 read it, and a numeric kind takes no
+// data type, because the channel exists.
+func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 	var changes []string
+	note := func(format string, args ...any) {
+		changes = append(changes, fmt.Sprintf(format, args...))
+	}
 	dt := telem.DataType(old.DataType)
 	if dt == "" {
 		dt = telem.Float64T
 	}
+	if ch != nil && ch.DataType != dt {
+		note("data type %s became %s, the data type of its channel", dt, ch.DataType)
+		dt = ch.DataType
+	}
 	kind, known := payload.KindOf(dt)
 	switch {
-	case old.TimeFormat != nil && kind != payload.KindTimestamp:
-		kind, known = payload.KindTimestamp, true
-		changes = append(changes, fmt.Sprintf(
-			"data type %s became the timestamp kind, which its time format reads",
-			old.DataType,
-		))
+	case ch == nil && old.TimeFormat != nil && dt == telem.Float64T:
+		kind = payload.KindTimestamp
+		note("data type %s became the timestamp kind, which its time format reads", dt)
 	case !known:
 		kind = payload.KindFloat
-		changes = append(changes, fmt.Sprintf(
-			"unknown data type %q became the float kind", old.DataType,
-		))
+		note("unknown data type %q became the float kind", dt)
 	}
 	r := payload.Read{Kind: kind}
 	drop := func(e payload.EnumEntry, why string) {
-		changes = append(
-			changes,
-			fmt.Sprintf("enum label %q was dropped: %s", e.Label, why),
-		)
+		note("enum label %q was dropped: %s", e.Label, why)
 	}
 	switch kind {
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
-		if known {
+		if known && ch == nil {
 			r.Number.DataType = &dt
 		}
 		for _, e := range old.EnumValues {
@@ -116,11 +124,12 @@ func MigrateReadField(old v1.ReadField) (ReadField, []string) {
 	}, r), changes
 }
 
-// migrateReadConfig lifts a v1 read config to v2 and calls note with the path of each
-// field that drops an entry, and a description of the drop.
+// migrateReadConfig lifts a v1 read config to v2, with the channels of its fields in
+// found, and calls note with the path and a description of each change to a field.
 func migrateReadConfig(
 	ctx context.Context,
 	old v1.ReadConfig,
+	found map[channel.Key]Channel,
 	note func(field, change string),
 ) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
@@ -136,7 +145,11 @@ func migrateReadConfig(
 		for j, f := range plain.Fields {
 			path := "entries." + strconv.Itoa(i) + ".fields." + strconv.Itoa(j)
 			var changes []string
-			fields[j], changes = MigrateReadField(f)
+			var ch *Channel
+			if c, ok := found[f.Channel]; ok {
+				ch = &c
+			}
+			fields[j], changes = migrateReadField(f, ch)
 			for _, c := range changes {
 				note(path, c)
 			}
@@ -154,12 +167,12 @@ func migrateReadConfig(
 // MigrateReadConfig lifts a v1 read config to v2, as MigrateReadField lifts each of its
 // fields.
 func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
-	return migrateReadConfig(ctx, old, func(string, string) {})
+	return migrateReadConfig(ctx, old, nil, func(string, string) {})
 }
 
-// NewReadMigration returns the migration that lifts stored read configs to v2, then
-// reconciles each field with its channel through channels. It logs each entry it drops
-// and each change that reconciling makes.
+// NewReadMigration returns the migration that lifts stored read configs to v2, with the
+// kind of each field's channel read through channels, then reconciles each field with
+// its channel. It logs each change to a field.
 func NewReadMigration(channels Channels) gorp.Migration {
 	return migrate.New(
 		"v62_mqtt_read_typed_fields",
@@ -172,14 +185,23 @@ func NewReadMigration(channels Channels) gorp.Migration {
 			}
 			news := make([]ReadConfig, 0, len(olds))
 			for _, old := range olds {
-				cfg, err := migrateReadConfig(ctx, old, func(field, change string) {
-					ins.L.Warn(
-						"changed an MQTT read field to v2",
-						zap.Stringer("config", old.Key),
-						zap.String("field", field),
-						zap.String("change", change),
-					)
-				})
+				found, err := v1FieldChannels(ctx, tx, channels, old)
+				if err != nil {
+					return errors.Wrapf(err, "config %s", old.Key)
+				}
+				cfg, err := migrateReadConfig(
+					ctx,
+					old,
+					found,
+					func(field, change string) {
+						ins.L.Warn(
+							"changed an MQTT read field to v2",
+							zap.Stringer("config", old.Key),
+							zap.String("field", field),
+							zap.String("change", change),
+						)
+					},
+				)
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
@@ -191,4 +213,26 @@ func NewReadMigration(channels Channels) gorp.Migration {
 			return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
 		},
 	)
+}
+
+func v1FieldChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels Channels,
+	cfg v1.ReadConfig,
+) (map[channel.Key]Channel, error) {
+	var keys []channel.Key
+	for _, e := range cfg.Entries {
+		if plain, ok := e.Variant.(v1.PlainReadEntry); ok {
+			for _, f := range plain.Fields {
+				if f.Channel != 0 {
+					keys = append(keys, f.Channel)
+				}
+			}
+		}
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return channels(ctx, tx, lo.Uniq(keys))
 }
