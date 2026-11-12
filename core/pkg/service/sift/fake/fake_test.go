@@ -199,6 +199,17 @@ var _ = Describe("Server", func() {
 			})
 	})
 
+	Describe("Streams", func() {
+		It("Should count each stream a client opens", func(ctx SpecContext) {
+			open(fake.Config{})
+			id := createConfig(ctx, "")
+			stream := MustSucceed(ingest.IngestWithConfigDataStream(ctx))
+			Expect(stream.Send(request(id, at, double(1.5)))).To(Succeed())
+			Eventually(server.Streams).Should(Equal(1))
+			MustSucceed(stream.CloseAndRecv())
+		})
+	})
+
 	Describe("Pause", func() {
 		It("Should hold streams until Resume", func(ctx SpecContext) {
 			open(fake.Config{})
