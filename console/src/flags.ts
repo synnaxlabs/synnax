@@ -17,7 +17,8 @@
  * umbrella issue, and the release that removes it.
  */
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-1746. Removed when version control ships.
+  // Owner: Emiliano Bonilla. Umbrella: SY-1746. Removed in 0.62, when version control
+  // ships.
   versionControl: IS_DEV,
 } as const satisfies Record<string, boolean>;
 

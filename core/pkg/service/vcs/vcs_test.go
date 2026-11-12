@@ -1372,6 +1372,77 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		It(
+			"Should restart only the tasks of an Arc that ran before the apply",
+			func(ctx SpecContext) {
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "Press",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "func press() {\n}\n"},
+					}},
+				}}}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Arc.NewWriter(tx).Create(ctx, &a)
+				})
+				config := msgpack.EncodedJSON{"arc_key": a.Base().Key.String()}
+				runner := task.Task{Name: "Runner", Type: arctask.Type, Config: config}
+				spare := task.Task{Name: "Spare", Type: arctask.Type, Config: config}
+				tx(ctx, func(tx gorp.Tx) error {
+					w := layer.Task.NewWriter(tx)
+					if err := w.Create(ctx, &runner); err != nil {
+						return err
+					}
+					return w.Create(ctx, &spare)
+				})
+				running := task.Status{
+					Owner:   new(runner.ResourceID()),
+					Variant: status.VariantSuccess,
+					Message: "Running",
+					Time:    telem.Now(),
+					Details: task.StatusDetails{Running: true},
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Status.NewWriter(tx).Set(ctx, &running)
+				})
+				connect(ctx, remoteURL)
+				pushFromElsewhere(
+					"arc/Press.arc",
+					"arc/Press.arc",
+					func(b []byte) []byte {
+						return bytes.Replace(
+							b,
+							[]byte("{\n}"),
+							[]byte("{\n    wait()\n}"),
+							1,
+						)
+					},
+				)
+				commands := streamCommands(ctx)
+				quick := openService(
+					ctx,
+					dataDir,
+					vcs.Config{RestartTimeout: 50 * time.Millisecond},
+				)
+				MustSucceed(quick.Fetch(ctx))
+				MustSucceed(quick.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetPull},
+					nil,
+					quick.DefaultWrite,
+					allow,
+				))
+				var res framer.StreamerResponse
+				Eventually(commands).Should(Receive(&res))
+				Expect(
+					MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[task.Command]()),
+				).To(ConsistOf(SatisfyAll(
+					HaveField("Task", runner.Key),
+					HaveField("Type", "start"),
+				)))
+				Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+			},
+		)
+
 		It("Should report a remote file the Core cannot read", func(ctx SpecContext) {
 			createSchematic(ctx, "Valves")
 			connect(ctx, remoteURL)

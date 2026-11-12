@@ -663,8 +663,8 @@ func (s *Service) stopRemoved(
 	return stopped, nil
 }
 
-// arcTaskHashes returns the config hash of each task of the Arcs in items, so a restart
-// can wait for the Core to compile the new source.
+// arcTaskHashes returns the config hash of each running task of the Arcs in items. A
+// restart starts only these tasks, once the Core compiles the new source.
 func (s *Service) arcTaskHashes(
 	ctx context.Context,
 	items []PlanItem,
@@ -682,16 +682,26 @@ func (s *Service) arcTaskHashes(
 		if err != nil {
 			return nil, err
 		}
+		running, err := s.running(
+			ctx,
+			lo.Map(tasks, func(t task.Task, _ int) task.Key { return t.Key }),
+		)
+		if err != nil {
+			return nil, err
+		}
 		for _, t := range tasks {
-			hashes[t.Key] = t.ConfigHash
+			if slices.Contains(running, t.Key) {
+				hashes[t.Key] = t.ConfigHash
+			}
 		}
 	}
 	return hashes, nil
 }
 
-// restart restarts the tasks of items once each has its new config. An Arc task gets
-// its config from a compile after the commit, so restart waits for its hash to change
-// from the one in before, up to the restart timeout.
+// restart restarts the tasks of items once each has its new config. Of an Arc, it
+// restarts only the tasks in before, which ran before the apply. An Arc task gets its
+// config from a compile after the commit, so restart waits for its hash to change from
+// the one in before, up to the restart timeout.
 func (s *Service) restart(
 	ctx context.Context,
 	items []PlanItem,
@@ -742,6 +752,10 @@ func (s *Service) awaitArcTasks(
 		if err != nil {
 			return nil, err
 		}
+		tasks = lo.Filter(tasks, func(t task.Task, _ int) bool {
+			_, ok := before[t.Key]
+			return ok
+		})
 		if !slices.ContainsFunc(tasks, func(t task.Task) bool {
 			return t.ConfigHash == before[t.Key]
 		}) || time.Now().After(deadline) {
