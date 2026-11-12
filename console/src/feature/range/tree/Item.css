@@ -17,6 +17,22 @@
     flex-shrink: 0;
     width: calc(var(--console-range-depth, 0) * 3rem);
     margin-right: -1rem;
+
+    /* One line under the caret of each ancestor, as tall as the item. With no left, the
+       box starts where the indent does. */
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: inherit;
+        background: repeating-linear-gradient(
+            to right,
+            transparent 0 calc(1.5rem - 0.5px),
+            var(--pluto-gray-l6) calc(1.5rem - 0.5px) calc(1.5rem + 0.5px),
+            transparent calc(1.5rem + 0.5px) 3rem
+        );
+    }
 }
 
 .console-range-item__caret {
