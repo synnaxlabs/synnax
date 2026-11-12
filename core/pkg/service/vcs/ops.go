@@ -97,6 +97,7 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 		return Status{}, err
 	}
 	s.conn = conn
+	s.tagErr = ""
 	if err := s.startTracking(ctx, req.Author); err != nil {
 		s.cache(nil)
 		return Status{}, err

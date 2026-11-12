@@ -13,6 +13,7 @@
 package vcs
 
 import (
+	"cmp"
 	"context"
 	"io"
 	"net/http"
@@ -221,12 +222,15 @@ type Service struct {
 	dir string
 	// temp is true when the Service made dir and removes it on Close.
 	temp bool
-	// mu guards repo, conn, fetchedAt, and lastErr.
+	// mu guards repo, conn, fetchedAt, lastErr, and tagErr.
 	mu        sync.Mutex
 	repo      *repo
 	conn      connection
 	fetchedAt telem.TimeStamp
 	lastErr   string
+	// tagErr is the error of the last tag push, kept apart so a branch push does not
+	// clear it.
+	tagErr string
 	// statusMu guards status, so Status does not wait for a running fetch.
 	statusMu sync.RWMutex
 	status   *Status
@@ -355,8 +359,8 @@ func (s *Service) requireEnabled() error {
 	return nil
 }
 
-// fetch fetches the remote, then pushes the commits and snapshot tags that an earlier
-// push left waiting. It records the outcome in the status.
+// fetch pushes the snapshot tags that wait for a push, fetches the remote, then pushes
+// the commits that an earlier push left waiting. It records the outcome in the status.
 func (s *Service) fetch(ctx context.Context) {
 	if len(s.conn.WaitingTags) > 0 {
 		s.pushTags(ctx)
@@ -368,9 +372,7 @@ func (s *Service) fetch(ctx context.Context) {
 		return
 	}
 	s.fetchedAt = telem.Now()
-	if pruneTags {
-		s.lastErr = ""
-	}
+	s.lastErr = ""
 	head, _, err := s.repo.ref(branchRef(s.conn.Configuration))
 	if err != nil {
 		s.fail("fetch", err)
@@ -396,16 +398,22 @@ func (s *Service) fetch(ctx context.Context) {
 // status.
 func (s *Service) pushTags(ctx context.Context) {
 	if err := s.repo.pushTags(ctx, s.conn.remote(), s.conn.WaitingTags); err != nil {
-		s.fail("push", err)
+		s.failTags(err)
 		return
 	}
 	conn := s.conn
 	conn.WaitingTags = nil
 	if err := writeConnection(s.dir, conn); err != nil {
-		s.fail("push", err)
+		s.failTags(err)
 		return
 	}
 	s.conn = conn
+	s.tagErr = ""
+}
+
+func (s *Service) failTags(err error) {
+	s.tagErr = err.Error()
+	s.cfg.L.Warn("version control tag push failed", zap.Error(err))
 }
 
 // push pushes the tracked configuration and records a failure in the status. A failed
@@ -486,7 +494,7 @@ func (s *Service) compute(ctx context.Context) (Status, error) {
 		Incoming:        []Commit{},
 		IncomingChanges: []Change{},
 		FetchedAt:       int64(s.fetchedAt),
-		Error:           s.lastErr,
+		Error:           cmp.Or(s.lastErr, s.tagErr),
 	}
 	if !st.Enabled {
 		return st, nil

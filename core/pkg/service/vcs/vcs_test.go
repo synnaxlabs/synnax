@@ -744,6 +744,29 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		It(
+			"Should keep a failed tag push in the status after a branch push",
+			func(ctx SpecContext) {
+				connect(ctx, remoteURL)
+				hook := filepath.Join(remoteDir, "hooks", "pre-receive")
+				Expect(os.MkdirAll(filepath.Dir(hook), 0o755)).To(Succeed())
+				Expect(os.WriteFile(hook, []byte(
+					"#!/bin/sh\nwhile read old new ref; do\n"+
+						"  case $ref in refs/tags/*) echo protected >&2; exit 1;; esac\n"+
+						"done\n",
+				), 0o755)).To(Succeed())
+				MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada, allow))
+				createSchematic(ctx, "Valves")
+				c := commit(ctx, "Add the valves")
+				remote := MustSucceed(git.PlainOpen(remoteDir))
+				ref := MustSucceed(
+					remote.Reference(plumbing.NewBranchReferenceName("main"), true),
+				)
+				Expect(ref.Hash().String()).To(Equal(c.Hash))
+				Expect(MustSucceed(svc.Status(ctx)).Error).ToNot(BeEmpty())
+			},
+		)
+
 		It("Should push a waiting snapshot tag after a restart", func(ctx SpecContext) {
 			connect(ctx, remoteURL)
 			away := remoteDir + ".away"
