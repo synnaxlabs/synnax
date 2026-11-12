@@ -187,7 +187,8 @@ upload actions, as `feature/task` and `feature/device` import each integration.
   "New asset" choice, and the field starts at the asset last used with that connection.
 - **Range overview**: Shows the range's Sift upload statuses with progress, from
   `list_uploads`. A button cancels or removes each one.
-- **Streaming task form**: Connection, asset, channels, and run labels.
+- **Streaming task form**: Connection, asset, channels, and run labels. A progress
+  section shows the `sift_stream` status once the task writes it.
 - **Notifications**: A status that no thing owns notifies on every write, so the
   notification forwarder also takes rules by key prefix (`Notifications.KeyRules`). The
   Sift upload and stream statuses notify only on a warning or an error.
