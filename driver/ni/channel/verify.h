@@ -65,8 +65,16 @@ inline std::string format_number(const std::string &value) {
     return out.str();
 }
 
+/// @brief the config value of each DAQmx value that differs from its DAQmx name. A
+/// terminal configuration such as "RSE" has its DAQmx name.
+const std::unordered_map<std::string, std::string> CONFIG_VALUES = {
+    {"BuiltIn", "built_in"},
+    {"ConstVal", "const_val"},
+    {"Chan", "chan"},
+};
+
 /// @brief returns the config values in a DAQmx "Possible Values" list, such as "RSE"
-/// for "DAQmx_Val_RSE".
+/// for "DAQmx_Val_RSE" and "built_in" for "DAQmx_Val_BuiltIn".
 inline std::vector<std::string> possible_values(const std::string &text) {
     const std::string prefix = "DAQmx_Val_";
     std::vector<std::string> values;
@@ -75,6 +83,8 @@ inline std::vector<std::string> possible_values(const std::string &text) {
     while (std::getline(list, value, ',')) {
         value = x::strings::trim(value);
         if (value.starts_with(prefix)) value = value.substr(prefix.size());
+        if (const auto it = CONFIG_VALUES.find(value); it != CONFIG_VALUES.end())
+            value = it->second;
         if (!value.empty()) values.push_back(value);
     }
     return values;
@@ -159,7 +169,8 @@ verify_alone(const std::shared_ptr<daqmx::SugaredAPI> &dmx, const Channel &ch) {
 /// @brief runs DAQmx Verify on the task, which holds the given channels. A failure on a
 /// field that the config sets comes back as a field error. When DAQmx does not name
 /// the channel, each channel is verified alone in a scratch task to find it. When no
-/// channel fails alone, the error comes back as DAQmx gave it.
+/// channel fails alone, the error comes back as DAQmx gave it. When a scratch task
+/// fails, the error comes back with the scratch task error added.
 template<typename Channels>
 x::errors::Error verify(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -176,7 +187,11 @@ x::errors::Error verify(
         if (!name.empty() && ch->cfg_path == name) return at_channel(err, *ch);
     for (const auto &ch: channels) {
         const auto [alone, scratch_err] = verify_alone(dmx, *ch);
-        if (scratch_err) return scratch_err;
+        if (scratch_err)
+            return {
+                err,
+                err.data + "\n\nFailed to find the channel: " + scratch_err.data
+            };
         if (line_value(alone.data, "Property") == property) return at_channel(err, *ch);
     }
     return err;
