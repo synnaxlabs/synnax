@@ -449,6 +449,23 @@ var _ = Describe("Field", func() {
 					Enums:    []xjson.Enum{xjson.NewEnum("ON", true)},
 				},
 				[]byte{1}, `"ON"`),
+			Entry("a nonzero number as the label of its truth value",
+				xjson.Field{
+					DataType: telem.Float64T,
+					Type:     xjson.Boolean,
+					Enums: []xjson.Enum{
+						xjson.NewEnum("OFF", false),
+						xjson.NewEnum("ON", true),
+					},
+				},
+				sample(0.5), `"ON"`),
+			Entry("a negative integer as the label of true",
+				xjson.Field{
+					DataType: telem.Int64T,
+					Type:     xjson.Boolean,
+					Enums:    []xjson.Enum{xjson.NewEnum("ON", true)},
+				},
+				sample(int64(-2)), `"ON"`),
 			Entry("NaN as text",
 				xjson.Field{DataType: telem.Float64T, Type: xjson.String},
 				sample(math.NaN()), `"NaN"`),
@@ -463,6 +480,10 @@ var _ = Describe("Field", func() {
 				sample(math.Inf(-1)), "true"),
 			Entry("a string", xjson.Field{DataType: telem.StringT, Type: xjson.String},
 				[]byte("a\"b"), `"a\"b"`),
+			Entry("a JSON object as it is", xjson.Field{DataType: telem.JSONT},
+				[]byte(`{"a":[1,"b"]}`), `{"a":[1,"b"]}`),
+			Entry("a JSON string as a string", xjson.Field{DataType: telem.JSONT},
+				[]byte(`"on"`), `"on"`),
 			Entry("a UUID", xjson.Field{DataType: telem.UUIDT, Type: xjson.String},
 				id[:], `"`+id.String()+`"`),
 			Entry("bytes as base64",
@@ -513,7 +534,55 @@ var _ = Describe("Field", func() {
 			Entry("NaN as a boolean",
 				xjson.Field{DataType: telem.Float32T, Type: xjson.Boolean},
 				sample(float32(math.NaN())), "NaN is not a JSON boolean"),
+			Entry("NaN as a boolean with a true label",
+				xjson.Field{
+					DataType: telem.Float64T,
+					Type:     xjson.Boolean,
+					Enums:    []xjson.Enum{xjson.NewEnum("ON", true)},
+				},
+				sample(math.NaN()), "NaN is not a JSON boolean"),
 		)
+
+		DescribeTable("Should reject enum values that convert to the same sample",
+			func(dt telem.DataType, a, b xjson.Enum, message string) {
+				Expect(xjson.NewEncoder(xjson.Field{
+					DataType: dt,
+					Type:     xjson.String,
+					Enums:    []xjson.Enum{a, b},
+				})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("floats that narrow to one float32", telem.Float32T,
+				xjson.NewEnum("A", 0.1), xjson.NewEnum("B", 0.1000000001),
+				`enum labels "A" and "B" have the same float32 value`),
+			Entry("zero and negative zero", telem.Float64T,
+				xjson.NewEnum("A", 0.0), xjson.NewEnum("B", math.Copysign(0, -1)),
+				`enum labels "A" and "B" have the same float64 value`),
+			Entry("two NaNs", telem.Float64T,
+				xjson.NewEnum("A", math.NaN()), xjson.NewEnum("B", math.NaN()),
+				`enum labels "A" and "B" have the same float64 value`),
+			Entry("a boolean and one", telem.BooleanT,
+				xjson.NewEnum("A", true), xjson.NewEnum("B", uint8(1)),
+				`enum labels "A" and "B" have the same boolean value`),
+			Entry("two strings", telem.StringT,
+				xjson.NewEnum("A", "on"), xjson.NewEnum("B", "on"),
+				`enum labels "A" and "B" have the same string value`),
+		)
+
+		It("Should let two values share a label", func() {
+			e := MustSucceed(xjson.NewEncoder(xjson.Field{
+				DataType: telem.Uint8T,
+				Enums: []xjson.Enum{
+					xjson.NewEnum("A", uint8(0)),
+					xjson.NewEnum("A", uint8(1)),
+				},
+			}))
+			Expect(
+				string(MustSucceed(e.Append(nil, sample[uint8](1)))),
+			).To(Equal(`"A"`))
+		})
 
 		DescribeTable("Should reject a JSON type that cannot hold the data type",
 			func(dt telem.DataType, t xjson.Type) {
@@ -525,7 +594,6 @@ var _ = Describe("Field", func() {
 			},
 			Entry("a string as a number", telem.StringT, xjson.Number),
 			Entry("a UUID as a boolean", telem.UUIDT, xjson.Boolean),
-			Entry("JSON as a number", telem.JSONT, xjson.Number),
 			Entry("bytes as a number", telem.BytesT, xjson.Number),
 		)
 	})
