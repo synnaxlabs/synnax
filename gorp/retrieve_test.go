@@ -18,10 +18,37 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// closeFailingDB is a kv.DB whose iterators return err when they close.
+type closeFailingDB struct {
+	kv.DB
+	err error
+}
+
+func (d closeFailingDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	iter, err := d.DB.OpenIterator(opts)
+	if err != nil {
+		return nil, err
+	}
+	return closeFailingIterator{Iterator: iter, err: d.err}, nil
+}
+
+type closeFailingIterator struct {
+	kv.Iterator
+	err error
+}
+
+func (i closeFailingIterator) Close() error {
+	if err := i.Iterator.Close(); err != nil {
+		return err
+	}
+	return i.err
+}
 
 var _ = Describe("Retrieve", func() {
 	var (
@@ -71,17 +98,6 @@ var _ = Describe("Retrieve", func() {
 			It("Should return true when a limit is set", func() {
 				q := gorp.NewRetrieve[int32, entry]().Limit(10)
 				Expect(q.HasLimit()).To(BeTrue())
-			})
-		})
-
-		Describe("HasOffset", func() {
-			It("Should return false when no offset is set", func() {
-				q := gorp.NewRetrieve[int32, entry]()
-				Expect(q.HasOffset()).To(BeFalse())
-			})
-			It("Should return true when an offset is set", func() {
-				q := gorp.NewRetrieve[int32, entry]().Offset(5)
-				Expect(q.HasOffset()).To(BeTrue())
 			})
 		})
 
@@ -478,6 +494,25 @@ var _ = Describe("Retrieve", func() {
 					Expect(res).To(HaveLen(2))
 				},
 			)
+
+			It(
+				"Should return nothing when the cursor sorts past the prefix",
+				func(ctx SpecContext) {
+					es := []prefixEntry{{ID: 1, Data: "a"}, {ID: 2, Data: "b"}}
+					Expect(
+						gorp.NewCreate[string, prefixEntry]().Entries(&es).
+							Exec(ctx, tx),
+					).To(Succeed())
+					var res []prefixEntry
+					Expect(gorp.NewRetrieve[string, prefixEntry]().
+						WherePrefix([]byte("prefix-1")).
+						After("prefix-2").
+						Entries(&res).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 
@@ -590,6 +625,16 @@ var _ = Describe("Retrieve", func() {
 					)).
 					Exists(ctx, tx)).To(BeTrue())
 			})
+			It("Should stop scanning at the first match", func(ctx SpecContext) {
+				matched := 0
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.Match(func(gorp.Context, *entry) (bool, error) {
+						matched++
+						return true, nil
+					})).
+					Exists(ctx, tx)).To(BeTrue())
+				Expect(matched).To(Equal(1))
+			})
 			It(
 				"Should return false if ALL entries do not exist",
 				func(ctx SpecContext) {
@@ -624,6 +669,21 @@ var _ = Describe("Retrieve", func() {
 				).To(Succeed())
 				Expect(res).To(HaveLen(10))
 			})
+			It("Should stop scanning a filter at the limit", func(ctx SpecContext) {
+				matched := 0
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.Match(func(gorp.Context, *entry) (bool, error) {
+						matched++
+						return true, nil
+					})).
+					Limit(1).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(Equal(entries[:1]))
+				Expect(matched).To(Equal(1))
+			})
 		})
 		Describe("Limit with keys", func() {
 			It(
@@ -640,11 +700,10 @@ var _ = Describe("Retrieve", func() {
 					Expect(gorp.NewRetrieve[int32, entry]().
 						Entries(&res).
 						Where(gorp.And(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5), idGT(1))).
-						Offset(1).
 						Limit(2).
 						Exec(ctx, counting)).To(Succeed())
-					Expect(res).To(Equal([]entry{entries[3], entries[4]}))
-					Expect(codec.decodeCount).To(Equal(4))
+					Expect(res).To(Equal([]entry{entries[2], entries[3]}))
+					Expect(codec.decodeCount).To(Equal(3))
 				},
 			)
 
@@ -660,43 +719,84 @@ var _ = Describe("Retrieve", func() {
 				})
 		})
 
-		Describe("Offset", func() {
-			It("Should offset the entries returned", func(ctx SpecContext) {
-				toCreate := 100
-				entries := make([]entry, toCreate)
-				for i := range toCreate {
-					entries[i] = entry{ID: int32(i), Data: "data"}
+		Describe("After", func() {
+			BeforeEach(func(ctx SpecContext) {
+				more := make([]entry, 300)
+				for i := range more {
+					more[i] = entry{ID: int32(1000 + i), Data: "data"}
 				}
 				Expect(
-					gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
+					gorp.NewCreate[int32, entry]().Entries(&more).Exec(ctx, tx),
 				).To(Succeed())
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Offset(10).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(HaveLen(90))
 			})
-		})
-		Describe("Limit + Offset", func() {
-			It("Should limit and offset the entries returned", func(ctx SpecContext) {
-				toCreate := 100
-				entries := make([]entry, toCreate)
-				for i := range toCreate {
-					entries[i] = entry{ID: int32(i), Data: "data"}
-				}
-				Expect(
-					gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
-				).To(Succeed())
+
+			It("Should start a scan strictly past the key", func(ctx SpecContext) {
 				var res []entry
 				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
-					Limit(10).
-					Offset(10).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(HaveLen(10))
+					After(1001).
+					Limit(2).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1002, Data: "data"},
+					{ID: 1003, Data: "data"},
+				}))
+			})
+
+			It("Should start past a key with no entry", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					After(999).
+					Limit(1).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{{ID: 1000, Data: "data"}}))
+			})
+
+			It("Should return nothing past the last key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					After(1299).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(BeEmpty())
+			})
+
+			It("Should page through a key filter", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.And(
+						gorp.MatchKeys[int32, entry](1005, 1001, 1003, 1002),
+						gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
+							return e.ID != 1003, nil
+						}),
+					)).
+					After(1001).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1002, Data: "data"},
+					{ID: 1005, Data: "data"},
+				}))
+			})
+
+			It("Should drop the filter keys up to the key", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeys[int32, entry](1005, 1000, 1001, 1003)).
+					After(1001).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{
+					{ID: 1003, Data: "data"},
+					{ID: 1005, Data: "data"},
+				}))
+			})
+
+			It("Should count only the entries past the key", func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					After(1289).
+					Count(ctx, tx)).To(Equal(10))
 			})
 		})
 	})
@@ -768,6 +868,18 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal(entries))
+		})
+		It("Should return the error of closing the iterator", func(ctx SpecContext) {
+			closeErr := errors.New("close failed")
+			failing := DeferClose(gorp.Wrap(
+				closeFailingDB{DB: memkv.New(), err: closeErr},
+				gorp.WithCodec(msgpack.Codec),
+			))
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Exec(ctx, failing),
+			).To(MatchError(closeErr))
 		})
 	})
 	Describe("GetFilterKeys", func() {

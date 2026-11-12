@@ -13,11 +13,12 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -37,7 +38,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name   *gorp.LookupIndex[Key, Channel, Name]
+	name   *gorp.SortedIndex[Key, Channel, string]
 	group  *gorp.KeyReference[Key, Channel, group.Key]
 	search *gorp.SearchIndex[Key, Channel]
 }
@@ -47,9 +48,9 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		name: gorp.NewLookupIndex[Key, Channel, Name](
+		name: gorp.NewSortedIndex[Key, Channel, string](
 			"name",
-			func(e *Channel) Name { return e.Name },
+			func(e *Channel) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, group.Key]{
 			Name:     "group",
@@ -95,6 +96,37 @@ func (i indexes) references() []gorp.Reference[Key, Channel] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Channel]
+
+// OrderBy walks the channels in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Channel] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value Name,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Channel] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -155,7 +187,17 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchNames(vals ...Name) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		return r.indexes.name.Filter(vals...)
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		want := set.New(vals...)
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
 	}
 }
 
@@ -164,8 +206,9 @@ func MatchNames(vals ...Name) Filter {
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.Leaseholder), nil
+			return want.Contains(e.Leaseholder), nil
 		})
 	}
 }
@@ -175,8 +218,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.DataType), nil
+			return want.Contains(e.DataType), nil
 		})
 	}
 }
@@ -260,10 +304,10 @@ func (r Retrieve) Entries(es *[]Channel) Retrieve {
 // Limit sets the maximum number of channels to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the channels to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 

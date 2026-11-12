@@ -10,6 +10,7 @@
 package index_test
 
 import (
+	"cmp"
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,7 +64,9 @@ func (m singleValue) Stage(s *scope, key int, value string) {
 var _ = Describe("Index", func() {
 	engines := map[string]func() engine{
 		"Lookup": func() engine { return index.NewLookup[*scope, int, string]() },
-		"Sorted": func() engine { return index.NewSorted[*scope, int, string]() },
+		"Sorted": func() engine {
+			return index.NewSorted[*scope, int, string](cmp.Compare[int])
+		},
 		"Multi": func() engine {
 			return singleValue{index.NewMulti[*scope, int, string]()}
 		},
@@ -232,8 +235,16 @@ var _ = Describe("Index", func() {
 
 	Describe("Sorted walk", func() {
 		var s *index.Sorted[*scope, int, int]
+		type entry = index.Entry[int, int]
+		keys := func(entries []entry) []int {
+			out := make([]int, len(entries))
+			for i, e := range entries {
+				out[i] = e.Key
+			}
+			return out
+		}
 		BeforeEach(func() {
-			s = index.NewSorted[*scope, int, int]()
+			s = index.NewSorted[*scope, int, int](cmp.Compare[int])
 			insert, finish := s.Populate()
 			for _, k := range []int{5, 3, 1, 4, 2} {
 				insert(k, k*10)
@@ -242,16 +253,23 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should walk in ascending value order", func() {
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
 		})
 
 		It("Should walk in descending value order", func() {
-			Expect(s.Walk(true, nil, 0)).To(Equal([]int{5, 4, 3, 2, 1}))
+			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 3, 2, 1}))
+		})
+
+		It("Should return the value of each entry", func() {
+			Expect(s.Walk(false, nil, 2)).To(Equal([]entry{
+				{Key: 1, Value: 10},
+				{Key: 2, Value: 20},
+			}))
 		})
 
 		It("Should stop at the limit", func() {
-			Expect(s.Walk(false, nil, 2)).To(Equal([]int{1, 2}))
-			Expect(s.Walk(true, nil, 2)).To(Equal([]int{5, 4}))
+			Expect(keys(s.Walk(false, nil, 2))).To(Equal([]int{1, 2}))
+			Expect(keys(s.Walk(true, nil, 2))).To(Equal([]int{5, 4}))
 		})
 
 		It("Should return nil for a negative limit", func() {
@@ -259,41 +277,110 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should resume strictly past the cursor", func() {
-			after := 20
-			Expect(s.Walk(false, &after, 2)).To(Equal([]int{3, 4}))
-			Expect(s.Walk(true, &after, 0)).To(Equal([]int{1}))
+			after := entry{Key: 2, Value: 20}
+			Expect(keys(s.Walk(false, &after, 2))).To(Equal([]int{3, 4}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{1}))
+		})
+
+		It("Should resume past a cursor that names no entry", func() {
+			after := entry{Key: 9, Value: 25}
+			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{3, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{2, 1}))
+		})
+
+		It("Should order entries with equal values by key", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 3, 7, 4, 5}))
+			Expect(keys(s.Walk(true, nil, 0))).To(Equal([]int{5, 4, 7, 3, 0, 2, 1}))
+		})
+
+		It("Should resume between entries with equal values", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			after := entry{Key: 3, Value: 30}
+			Expect(keys(s.Walk(false, &after, 0))).To(Equal([]int{7, 4, 5}))
+			Expect(keys(s.Walk(true, &after, 0))).To(Equal([]int{0, 2, 1}))
 		})
 
 		It("Should keep value order through committed writes", func() {
 			s.Set(1, 35)
 			s.Set(6, 0)
 			s.Delete(4)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{6, 2, 3, 1, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 1, 5}))
+		})
+
+		It("Should remove the moved entry among equal values", func() {
+			s.Set(7, 30)
+			s.Set(0, 30)
+			s.Set(3, 45)
+			s.Delete(7)
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 0, 4, 3, 5}))
 		})
 
 		It("Should not see staged changes", func() {
 			txn := &scope{}
 			s.Stage(txn, 6, 0)
 			s.StageDelete(txn, 1)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{1, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{1, 2, 3, 4, 5}))
 			txn.end(true)
-			Expect(s.Walk(false, nil, 0)).To(Equal([]int{6, 2, 3, 4, 5}))
+			Expect(keys(s.Walk(false, nil, 0))).To(Equal([]int{6, 2, 3, 4, 5}))
 		})
 
 		It("Should return nil when the load failed", func() {
-			failed := index.NewSorted[*scope, int, int]()
+			failed := index.NewSorted[*scope, int, int](cmp.Compare[int])
 			insert, finish := failed.Populate()
 			insert(2, 20)
 			insert(1, 10)
 			finish(errLoad)
 			Expect(failed.Walk(false, nil, 0)).To(BeNil())
+			Expect(failed.Order([]int{1, 2}, false, nil)).To(BeNil())
 		})
 
 		It("Should return nil for an empty index", func() {
-			empty := index.NewSorted[*scope, int, int]()
+			empty := index.NewSorted[*scope, int, int](cmp.Compare[int])
 			_, finish := empty.Populate()
 			finish(nil)
 			Expect(empty.Walk(false, nil, 0)).To(BeNil())
 		})
+
+		Describe("Order", func() {
+			It("Should order the given keys as a walk does", func() {
+				s.Set(0, 30)
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, nil))).
+					To(Equal([]int{1, 0, 3, 5}))
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, true, nil))).
+					To(Equal([]int{5, 3, 0, 1}))
+			})
+
+			It("Should drop keys that the index does not hold", func() {
+				Expect(keys(s.Order([]int{9, 2, 8}, false, nil))).To(Equal([]int{2}))
+			})
+
+			It("Should start strictly past the cursor", func() {
+				s.Set(0, 30)
+				after := entry{Key: 0, Value: 30}
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, &after))).
+					To(Equal([]int{3, 5}))
+				Expect(keys(s.Order([]int{5, 0, 1, 3}, true, &after))).
+					To(Equal([]int{1}))
+			})
+		})
 	})
+
+	DescribeTable(
+		"AnyOf",
+		func(count, value int, expected bool) {
+			values := make([]int, count)
+			for i := range values {
+				values[i] = i
+			}
+			Expect(index.AnyOf(values)(value)).To(Equal(expected))
+		},
+		Entry("a few values holding the value", 3, 2, true),
+		Entry("a few values missing the value", 3, 3, false),
+		Entry("many values holding the value", 100, 99, true),
+		Entry("many values missing the value", 100, 100, false),
+		Entry("no values", 0, 0, false),
+	)
 })

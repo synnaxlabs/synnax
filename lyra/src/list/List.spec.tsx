@@ -266,6 +266,35 @@ describe("List", () => {
           fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
         });
+
+        it("should call onFetchMore again when empty list items are re-mounted", () => {
+          const fetchMore = vi.fn();
+          const Component = () => {
+            const [listItemsVisible, setListItemsVisible] = useState(true);
+            const [renders, setRenders] = useState(0);
+            return (
+              <List.Frame data={[]} virtual={context.virtual} onFetchMore={fetchMore}>
+                <Button.Button onClick={() => setListItemsVisible(!listItemsVisible)}>
+                  Toggle
+                </Button.Button>
+                <Button.Button onClick={() => setRenders(renders + 1)}>
+                  Render
+                </Button.Button>
+                {listItemsVisible && (
+                  <List.Scroll>
+                    <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+                  </List.Scroll>
+                )}
+              </List.Frame>
+            );
+          };
+          const result = render(<Component />);
+          fireEvent.click(result.getByText("Render"));
+          expect(fetchMore).toHaveBeenCalledTimes(1);
+          fireEvent.click(result.getByText("Toggle"));
+          fireEvent.click(result.getByText("Toggle"));
+          expect(fetchMore).toHaveBeenCalledTimes(2);
+        });
       });
     });
   });

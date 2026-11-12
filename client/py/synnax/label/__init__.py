@@ -10,8 +10,10 @@
 from synnax.label.client import Client
 from synnax.label.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
     Label,
+    Order,
     Where,
     WhereInput,
     resource_id,
@@ -20,8 +22,10 @@ from synnax.label.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Key",
     "Label",
+    "Order",
     "Where",
     "WhereInput",
     "resource_id",

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -187,6 +188,94 @@ TEST_F(RackConfigTest, EnrollSavedRack) {
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
 }
 
+/// @brief it should log in as the saved rack that needs enrollment, so the Driver keeps
+/// the rack after an upgrade.
+TEST_F(RackConfigTest, LoginKeepsSavedRack) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("upgraded rack"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, rack.key);
+    const auto state = read_state();
+    ASSERT_EQ(state["remote_info"]["cluster_key"], cluster_key.to_string());
+    ASSERT_FALSE(state["conn_params"].contains("password"));
+}
+
+/// @brief it should log in as the rack that the saved API key logs in as, so a second
+/// login keeps the rack.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRack) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+    ASSERT_NE(second.connection.api_key, first.connection.api_key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, first.rack.key);
+}
+
+/// @brief it should log in as the rack of the saved API key when the saved state has no
+/// cluster key.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRackWithoutClusterKey) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NIL(Config::save_remote_info(args, RemoteInfo{}));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key to a Core at another address.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyAtOtherAddress) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto other = key_conn(first.connection.api_key);
+    other.port = 1;
+    ASSERT_NIL(Config::save_api_key(args, other));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key without TLS when it was saved with TLS.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyWithoutTLS) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto secure = key_conn(first.connection.api_key);
+    secure.secure = true;
+    ASSERT_NIL(Config::save_api_key(args, secure));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should create a new rack when the Core rejects the saved API key.
+TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto client = new_test_client();
+    const auto keys = ASSERT_NIL_P(
+        client.api_keys.retrieve({{"rack", std::to_string(first.rack.key)}})
+    );
+    std::vector<std::string> key_ids;
+    for (const auto &k: keys)
+        key_ids.push_back(k.key);
+    ASSERT_NIL(client.api_keys.del(key_ids));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, 0);
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should enroll the saved rack when the saved API key logs in as a user.
+TEST_F(RackConfigTest, LoginKeepsSavedRackWithUserKey) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("user key rack"));
+    const auto user_key = ASSERT_NIL_P(client.api_keys.create("user key"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    ASSERT_NIL(Config::save_api_key(args, key_conn(user_key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+}
+
 /// @brief it should keep the saved rack and the password when the caller cannot create
 /// an API key for the rack.
 TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
@@ -260,6 +349,24 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.connection.api_key, key.token);
+}
+
+/// @brief it should replace the integrations and version of the rack it loads, and keep
+/// the other fields of the rack.
+TEST_F(RackConfigTest, LoadSetsRackIntegrationsAndVersion) {
+    const auto client = new_test_client();
+    auto rack = synnax::rack::Rack{.name = "stale rack", .integrations = {"stale"}};
+    ASSERT_NIL(client.racks.create(rack));
+    const auto key = ASSERT_NIL_P(
+        client.api_keys.create("test", {"rack", std::to_string(rack.key)})
+    );
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(rack.key));
+    EXPECT_EQ(got.name, "stale rack");
+    EXPECT_EQ(got.version, SYNNAX_DRIVER_VERSION);
+    EXPECT_EQ(got.integrations, cfg.rack.integrations);
+    EXPECT_EQ(std::ranges::find(got.integrations, "stale"), got.integrations.end());
 }
 
 /// @brief it should refuse an API key that logs in as a user.

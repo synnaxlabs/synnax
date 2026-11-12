@@ -25,10 +25,21 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Credentials = auth.Credentials
+
+// HeldTables returns the tables of the records that a user or rack holds: its API keys,
+// password, and sessions. Pass them as bind.ServiceConfig.Held.
+func HeldTables() []string {
+	return []string{
+		types.Name[apikey.APIKey](),
+		types.Name[password.Password](),
+		types.Name[auth.Session](),
+	}
+}
 
 // ClusterInfo is general information about the cluster and node that the request was
 // sent to.
@@ -140,7 +151,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type LoginResponse struct {
 	// User is the user the token is associated with.
-	User user.User `json:"user" msgpack:"user"`
+	User User `json:"user" msgpack:"user"`
 	// Token is the session token to send with every later request.
 	Token string `json:"token" msgpack:"token"`
 	// ClusterInfo is the information about the cluster.
@@ -212,7 +223,7 @@ func (s *Service) ChangePassword(
 ) (struct{}, error) {
 	identity, _ := hash.Proven()
 	if err := s.password.NewWriter(tx).
-		ChangePassword(ctx, identity.Subject, hash); err != nil {
+		Apply(ctx, identity.Subject, password.NewSetHashAction(hash)); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, identity.Credential)

@@ -51,7 +51,7 @@ std::pair<Task, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value() || options.offset != 0)
+    if (options.limit.has_value() || options.after.has_value())
         return {Task{}, errors::paged_one_error()};
     auto [tasks, err] = this->retrieve(where, options);
     if (err) return {Task{}, err};
@@ -74,6 +74,15 @@ x::errors::Error Client::create(Task &task) const {
     task.key = key;
     task.config_hash = res.tasks().at(0).config_hash();
     return x::errors::NIL;
+}
+
+x::errors::Error
+Client::dispatch(const Key key, const std::vector<Action> &actions) const {
+    grpc::task::DispatchRequest req;
+    req.set_key(key.to_string());
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->task_dispatch_client->send("/task/dispatch", req).second;
 }
 
 x::errors::Error Client::del(const Key key) const {

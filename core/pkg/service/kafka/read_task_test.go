@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -238,6 +239,43 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should skip a later poll's record stamped by Kafka before the last stamp",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+			partitioned := newKafkaClient(
+				kgo.RecordPartitioner(kgo.ManualPartitioner()),
+			)
+			produce := func(partition int32, ms int64, value float64) {
+				GinkgoHelper()
+				Expect(partitioned.ProduceSync(ctx, &kgo.Record{
+					Topic:     topic,
+					Partition: partition,
+					Value:     MustSucceed(json.Marshal(map[string]any{"v": value})),
+					Timestamp: time.UnixMilli(ms),
+				}).FirstErr()).To(Succeed())
+			}
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			})
+			start(ctx, dt, t)
+			produce(0, 10_000, 1)
+			expectStored(ctx, data.Key(), 1)
+			produce(1, 9_000, 2)
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring("is not after the last written"))
+			produce(1, 10_000, 3)
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 3}))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS, 10*telem.SecondTS + 1}))
+		},
+	)
+
 	It("Should silently skip the replay of records stamped by Kafka",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -331,6 +369,59 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Details.Data).To(BeNil())
 			Expect(stat.Details.Running).To(BeTrue())
+		},
+	)
+
+	// holdWrite holds the first write to fs until release is called or the spec ends.
+	// The returned channel closes once that write is held.
+	holdWrite := func(fs *FaultyFS) (<-chan struct{}, func()) {
+		GinkgoHelper()
+		var (
+			writing = make(chan struct{})
+			resume  = make(chan struct{})
+			hold    = sync.OnceFunc(func() {
+				GinkgoHelper()
+				defer GinkgoRecover()
+				close(writing)
+				Eventually(resume).WithTimeout(40 * time.Second).Should(BeClosed())
+			})
+			release = sync.OnceFunc(func() { close(resume) })
+		)
+		fs.SetOptions(WithBeforeWrite(hold))
+		DeferCleanup(func() { fs.SetOptions() })
+		DeferCleanup(release)
+		return writing, release
+	}
+
+	It(
+		"Should finish the write in progress when the task stops",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			group := "group-" + topic
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Group:   group,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			writing, release := holdWrite(faultyFS)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 2.5})
+			Eventually(writing).WithTimeout(15 * time.Second).Should(BeClosed())
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Consistently(
+				stopped,
+			).WithTimeout(100 * time.Millisecond).
+				ShouldNot(Receive())
+			release()
+			Eventually(stopped).WithTimeout(15 * time.Second).Should(Receive(Succeed()))
+			Expect(floats(stored(ctx, data.Key()))).To(Equal([]float64{2.5}))
+			res := MustSucceed(kadm.NewClient(producer).
+				FetchOffsetsForTopics(ctx, group, topic))
+			Expect(MustBeOk(res.Lookup(topic, 0)).At).To(Equal(int64(1)))
 		},
 	)
 
@@ -507,6 +598,36 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Details.Running).To(BeTrue())
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 30e9, "v": 3.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{3}))
+		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
+	)
+
+	DescribeTable("Should release its channels when the consumer fails",
+		func(ctx SpecContext, fail func(context.Context, string)) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			fail(ctx, topic)
+			Eventually(func() error {
+				w, err := framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:              channel.Keys{index.Key(), data.Key()},
+					Start:             telem.Now(),
+					ErrOnUnauthorized: new(true),
+				})
+				if err != nil {
+					return err
+				}
+				return w.Close()
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+			dropRecords(ctx, topic)
+			start(ctx, dt, t)
 		},
 		Entry("failed fetch", failFetch),
 		Entry("failed write", failWrite),
@@ -755,6 +876,12 @@ var _ = Describe("Read task", func() {
 			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
 			})).To(MatchError(errCommit))
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:              channel.Keys{index.Key(), data.Key()},
+				Start:             telem.Now(),
+				ErrOnUnauthorized: new(true),
+			}))
+			Expect(w.Close()).To(Succeed())
 		},
 	)
 
@@ -1345,6 +1472,13 @@ var _ = Describe("Read task", func() {
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
 			telem.NewSeriesV(readUUID)),
+		Entry("bytes from base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "AP8/"},
+			telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})),
+		Entry("empty bytes from empty base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
 	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
@@ -1421,6 +1555,9 @@ var _ = Describe("Read task", func() {
 		Entry("a malformed UUID",
 			telem.UUIDT, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
+		Entry("text that is not base64",
+			telem.BytesT, http.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
@@ -1437,10 +1574,6 @@ var _ = Describe("Read task", func() {
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
-		Entry("an enum value beyond the channel's range",
-			telem.Int8T, http.TimeFormatUnixNs,
-			[]http.EnumEntry{{Label: "BIG", Value: 200}},
-			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
 		Entry("an integer timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixMs, nil,
 			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
@@ -1486,6 +1619,28 @@ var _ = Describe("Read task", func() {
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
 			}, "pointer"),
+		Entry("an enum value beyond the channel's range",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.Int8T)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.Int8T,
+					EnumValues: []http.EnumEntry{{Label: "BIG", Value: 200}},
+				}}
+			}, `enum label "BIG": 200 is out of range for int8`),
+		Entry("an enum value on a string channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.StringT)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.StringT,
+					EnumValues: []http.EnumEntry{{Label: "ON", Value: 1}},
+				}}
+			}, `enum label "ON": a float64 value does not convert to string`),
 		Entry("a pointer without a leading slash",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{
@@ -1495,16 +1650,6 @@ var _ = Describe("Read task", func() {
 					DataType: telem.Float64T,
 				}}
 			}, `field "v": json pointer "v" must be empty or start with "/"`),
-		Entry("a bytes channel",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.BytesT)
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.BytesT,
-				}}
-			}, `field "v": cannot convert a JSON value to bytes`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

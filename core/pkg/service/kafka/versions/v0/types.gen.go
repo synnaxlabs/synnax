@@ -12,6 +12,9 @@
 package v0
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -20,6 +23,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -77,6 +81,38 @@ func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
+}
+
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField struct {
 	// Key uniquely identifies the field within the task.
@@ -105,6 +141,51 @@ func (r *ReadField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadField) SetDefaults() {
+	r.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// ReadRecord is a set of fields read from the records with one Kafka key.
+type ReadRecord struct {
+	// Key uniquely identifies the record within the task.
+	Key string `json:"key" msgpack:"key"`
+	// RecordKey is the Kafka key of the records read here. Empty reads every record
+	// that no other record of the task claims, keyless ones included.
+	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+	// Fields contains the values to extract from the record.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadRecord) ApplyDefaults() {
+	for i := range r.Fields {
+		r.Fields[i].ApplyDefaults()
+	}
+}
+
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
 type ReadConfig struct {
@@ -130,6 +211,30 @@ func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Records {
 		r.Records[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.StartOffset = StartOffsetLatest
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -163,6 +268,30 @@ func (w *WriteChannel) ApplyDefaults() {
 	if w.JSONType == "" {
 		w.JSONType = http.JSONTypeNumber
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteChannel) SetDefaults() {
+	w.JSONType = http.JSONTypeNumber
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteChannel
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteChannel
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -200,6 +329,31 @@ func (r *Record) ApplyDefaults() {
 	for i := range r.Fields {
 		r.Fields[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Record) SetDefaults() {
+	r.ValuePointer = "/value"
+	r.TimeFormat = http.TimeFormatUnixNs
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Record) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Record
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Record) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Record
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -240,6 +394,31 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.Record.SetDefaults()
+	w.RecordKey = RecordKeyChannelName
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
@@ -250,25 +429,4 @@ func (w WriteConfig) Validate() error {
 		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
 	return v.Error()
-}
-
-// ReadRecord is a set of fields read from the records with one Kafka key.
-type ReadRecord struct {
-	// Key uniquely identifies the record within the task.
-	Key string `json:"key" msgpack:"key"`
-	// RecordKey is the Kafka key of the records read here. Empty reads every record
-	// that no other record of the task claims, keyless ones included.
-	RecordKey string `json:"record_key" msgpack:"record_key"`
-	// Index is the key of the field whose channel indexes the others. Empty when the
-	// task stamps samples on arrival.
-	Index string `json:"index" msgpack:"index"`
-	// Fields contains the values to extract from the record.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadRecord) ApplyDefaults() {
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
 }

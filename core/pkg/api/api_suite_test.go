@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -29,6 +30,7 @@ var (
 	apiLayer *api.Layer
 	svc      *service.Layer
 	db       *gorp.DB
+	node     testutil.Node
 	// exec runs a batch as the API layer binds it.
 	exec freighter.UnaryHandler[batch.ExecRequest, batch.ExecResponse]
 )
@@ -40,14 +42,18 @@ func TestAPI(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
 	exec = bind.Write(binder, apiLayer.Batch.Exec)
 })
 

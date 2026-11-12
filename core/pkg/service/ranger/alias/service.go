@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
@@ -73,6 +74,7 @@ type Service struct {
 	search  *gorp.SearchIndex[string, Alias]
 	indexes indexes
 	cfg     ServiceConfig
+	state   *actions.State[string, Action]
 }
 
 // OpenService opens a new alias.Service with the provided configuration.
@@ -81,12 +83,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex(), indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		search:  newSearchIndex(),
+		indexes: newIndexes(),
+		state:   actions.NewState[string, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[string, Alias]{s.search},
+		Name:            tableName,
+		Indexes:         append(s.indexes.all(), s.search),
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -103,6 +111,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[string, Action]{
+			Name:     "sy_range_alias_action_set",
+			Actions:  s.state,
+			Resource: resourceID,
+		}); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -110,12 +125,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create and delete aliases.
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[string, Action] { return s.state }
+
+// NewWriter opens a new Writer to create, change, and delete aliases.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      tx,
-		channel: s.cfg.Channel,
-		table:   s.table,
+		tx:         tx,
+		channel:    s.cfg.Channel,
+		table:      s.table,
+		indexes:    s.indexes,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -125,5 +145,6 @@ func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
+		indexes:         s.indexes,
 	}
 }

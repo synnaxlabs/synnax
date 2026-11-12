@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -38,13 +39,12 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	node   testutil.Node
 	svc    *service.Layer
-	apiSvc *apitask.Service
-	// create, copyTask, dispatch, rename, and retrieve run their routes as the API
-	// layer binds them.
+	binder *bind.Service
+	// create, copyTask, dispatch, and retrieve run their routes as the API layer binds
+	// them.
 	create   freighter.UnaryHandler[apitask.CreateRequest, apitask.CreateResponse]
 	copyTask freighter.UnaryHandler[apitask.CopyRequest, apitask.CopyResponse]
 	dispatch freighter.UnaryHandler[apitask.DispatchRequest, apitask.DispatchResponse]
-	rename   freighter.UnaryHandler[apitask.RenameRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apitask.RetrieveRequest,
 		apitask.RetrieveResponse,
@@ -55,21 +55,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apitask.NewService(apitask.ServiceConfig{
-		DB:     node.DB,
-		Task:   svc.Task,
-		Status: svc.Status,
-		RBAC:   svc.RBAC,
-		Framer: svc.Framer,
+	apiSvc := MustSucceed(apitask.NewService(apitask.ServiceConfig{
+		DB:      node.DB,
+		Task:    svc.Task,
+		Status:  svc.Status,
+		RBAC:    svc.RBAC,
+		Stopper: svc.TaskStopper,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	copyTask = bind.Write(binder, apiSvc.Copy)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	rename = bind.Write(binder, apiSvc.Rename)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

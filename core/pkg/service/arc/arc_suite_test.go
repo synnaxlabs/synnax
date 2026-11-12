@@ -12,6 +12,7 @@ package arc_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,11 +30,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func TestArc(t *testing.T) {
@@ -54,12 +58,14 @@ var (
 	rackSvc    *rack.Service
 	testRack   *rack.Rack
 	imexSvc    *imex.Service
-	arcClock   = telem.Now
+	arcTable   *arc.Table
+	clock      *timetestutil.Clock
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	clock = timetestutil.NewClock(time.Now())
 	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -87,7 +93,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	}))
 	imexSvc = imex.NewService()
-	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+	arcTable = MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 		DB: db,
 	}))
@@ -115,7 +121,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		TextSweepQuiescence: 5 * telem.Second,
 		TextSweepThreshold:  1,
 		TaskSyncDebounce:    5 * telem.Millisecond,
-		Now:                 func() telem.TimeStamp { return arcClock() },
+		Now: func() telem.TimeStamp {
+			return telem.NewTimeStamp(clock.Now())
+		},
 	}))
 })
 
@@ -137,6 +145,19 @@ func newAutomation(b arc.Base) arc.Arc {
 
 // newModule returns a module that holds b.
 func newModule(b arc.Base) arc.Arc { return arc.Arc{Variant: arc.ModuleArc{Base: b}} }
+
+// readAll is an LSP access read that lets the subject retrieve every record.
+func readAll(context.Context) (func(resource.ID) bool, error) {
+	return func(resource.ID) bool { return true }, nil
+}
+
+// noRename is an LSP rename for specs that never rename. It returns an error.
+func noRename(context.Context, channel.Key, string) error {
+	return errors.New("unexpected rename")
+}
+
+// lspConfig lets the LSP subject retrieve every record and rejects every rename.
+var lspConfig = arc.LSPConfig{Allowed: readAll, Rename: noRename}
 
 // newArc returns an Arc of type t that holds b.
 func newArc(t arc.Type, b arc.Base) arc.Arc {

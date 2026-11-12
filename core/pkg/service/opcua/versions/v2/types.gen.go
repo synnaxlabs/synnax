@@ -12,10 +12,17 @@
 package v2
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // BaseChannel carries the fields every OPC UA channel shares.
@@ -38,18 +45,194 @@ func (r *ReadChannel) ApplyDefaults() {
 	r.BaseChannel.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadChannel) SetDefaults() {
+	r.BaseChannel.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadChannel
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadChannel
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // WriteChannel is a single OPC UA node the task drives.
 type WriteChannel = v1.WriteChannel
+
+// SamplingType is the "type" value that selects a variant of Sampling.
+type SamplingType string
+
+const (
+	// UnarySamplingType reads one sample per node at the sample rate.
+	UnarySamplingType SamplingType = "unary"
+	// ArraySamplingType reads an array of samples from each node on each read.
+	ArraySamplingType SamplingType = "array"
+)
+
+// SamplingVariant is implemented by every Sampling variant.
+type SamplingVariant interface {
+	isSamplingVariant()
+}
+
+// UnarySampling reads one sample per node at the sample rate.
+type UnarySampling struct {
+}
+
+func (UnarySampling) isSamplingVariant() {}
+
+// ArraySampling reads an array of samples from each node on each read.
+type ArraySampling struct {
+	// Size is the number of samples in each array the node returns.
+	Size uint32 `json:"size" msgpack:"size"`
+}
+
+func (ArraySampling) isSamplingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *ArraySampling) SetDefaults() {
+	a.Size = 1
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *ArraySampling) ApplyDefaults() {
+	if a.Size == 0 {
+		a.Size = 1
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a ArraySampling) Validate() error {
+	v := validate.New("ArraySampling")
+	v.GreaterThanEq("size", a.Size, 1)
+	return v.Error()
+}
+
+// Sampling selects how a read task samples its nodes.
+type Sampling struct {
+	Variant SamplingVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Sampling) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case UnarySampling:
+		return json.MarshalEncode(enc, struct {
+			Type SamplingType `json:"type"`
+			UnarySampling
+		}{Type: UnarySamplingType, UnarySampling: v})
+	case ArraySampling:
+		return json.MarshalEncode(enc, struct {
+			Type SamplingType `json:"type"`
+			ArraySampling
+		}{Type: ArraySamplingType, ArraySampling: v})
+	default:
+		return errors.Newf("Sampling: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Sampling) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type SamplingType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case UnarySamplingType:
+		var v struct {
+			Type SamplingType `json:"type"`
+			UnarySampling
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnarySampling
+	case ArraySamplingType:
+		var v struct {
+			Type SamplingType `json:"type"`
+			ArraySampling
+		}
+		v.ArraySampling.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ArraySampling
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Sampling: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Sampling) Type() SamplingType {
+	switch u.Variant.(type) {
+	case UnarySampling:
+		return UnarySamplingType
+	case ArraySampling:
+		return ArraySamplingType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Sampling) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case ArraySampling:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Sampling) Validate() error {
+	switch variant := u.Variant.(type) {
+	case ArraySampling:
+		return variant.Validate()
+	}
+	return nil
+}
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig struct {
 	task.ReadConfig
 	// Device is the key of the device representing the OPC UA server.
 	Device device.Key `json:"device" msgpack:"device"`
-	// ArrayMode is true when each read returns an array of samples per node.
-	ArrayMode bool `json:"array_mode" msgpack:"array_mode"`
-	// ArraySize is the number of samples in each array when array_mode is true.
-	ArraySize int32 `json:"array_size" msgpack:"array_size"`
+	// Sampling is how the task samples each node.
+	Sampling Sampling `json:"sampling" msgpack:"sampling"`
 	// Channels are the OPC UA nodes the task acquires.
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
@@ -65,13 +248,50 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.StreamRate == 0 {
 		r.StreamRate = 25
 	}
-	if r.ArraySize == 0 {
-		r.ArraySize = 1
+	if r.Sampling.Variant == nil {
+		r.Sampling.Variant = UnarySampling{}
 	}
 	r.ReadConfig.ApplyDefaults()
+	r.Sampling.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+	r.SampleRate = 50
+	r.StreamRate = 25
+	r.Sampling.Variant = UnarySampling{}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(r.Sampling.Validate(), "sampling") })
+	return v.Error()
 }
 
 // WriteConfig configures an OPC UA write task.

@@ -15,17 +15,15 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
-import { type AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
-import fs from "fs";
-import matter from "gray-matter";
 import path from "path";
 
-import { schema } from "./src/util/env";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
+import { Releases } from "./src/util/releases";
+import { NEXT, parse, resolve, withSites } from "./src/util/version";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
@@ -36,27 +34,25 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
-// A page behind a flag renders per request, so it can answer 404 while the flag is off.
-const flaggedPages: AstroIntegration = {
-  name: "flagged-pages",
-  hooks: {
-    "astro:route:setup": ({ route }) => {
-      if (!/\.mdx?$/.test(route.component)) return;
-      const source = fs.readFileSync(
-        path.join(import.meta.dirname, route.component),
-        "utf8",
+// One resolution serves every page, so a deployment never mixes statuses, and a page
+// that renders per request never asks GitHub for its version.
+const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
+const versionName = parse(process.env.DOCS_VERSION);
+const version =
+  versionName == null
+    ? null
+    : resolve(
+        versionName,
+        withSites(await releases.trains("core")),
+        versionName === NEXT ? null : await releases.onTrain("core", versionName),
       );
-      if (matter(source).data.flag != null) route.prerender = false;
-    },
-  },
-};
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [integration(), react(), mdx(), flaggedPages],
-  env: { schema },
+  integrations: [integration(), react(), mdx()],
   adapter: vercel(),
   vite: {
+    define: { __DOCS_VERSION__: JSON.stringify(version) },
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },

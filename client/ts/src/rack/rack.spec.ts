@@ -43,6 +43,7 @@ describe("Rack", () => {
         description: "Rack is running",
         time: TimeStamp.now(),
         labels: [],
+        details: { running: true },
       };
       const r = await client.racks.create({
         name: "rack-with-status",
@@ -67,21 +68,19 @@ describe("Rack", () => {
       const local = createTestClient();
       await local.connect();
       const r = await local.racks.create({ name: "cached-status" });
-      const cached = local.racks.getCached({ key: r.key, includeStatus: true });
+      const cached = local.racks.watch({ key: r.key, includeStatus: true }).getCached();
       expect(cached).toBeInstanceOf(rack.Rack);
       expect((cached as rack.Rack).status?.owner).toEqual(rack.resourceID(r.key));
     });
   });
   describe("update", () => {
-    it("should update a rack if the key is provided", async () => {
+    it("should refuse a rack whose key exists and keep the stored rack", async () => {
       const r = await client.racks.create({ name: "test" });
-      const updated = await client.racks.create({
-        key: r.key,
-        name: "updated",
-      });
-      expect(updated.name).toBe("updated");
+      const create = client.racks.create({ key: r.key, name: "updated" });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`rack ${r.key} already exists`);
       const retrieved = await client.racks.retrieve(r.key);
-      expect(retrieved.name).toBe("updated");
+      expect(retrieved.name).toBe("test");
     });
   });
   describe("rename", () => {
@@ -138,10 +137,12 @@ describe("Rack", () => {
       await responded;
       const name = `rack-renamed-${id.create()}`;
       await client.racks.rename(r.key, name);
-      await expect.poll(() => expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      await expect
+        .poll(() => expectLive(local.racks.watch(r.key).getCached()).name)
+        .toBe(name);
       release();
       await fetching;
-      expect(expectLive(local.racks.getCached(r.key)).name).toBe(name);
+      expect(expectLive(local.racks.watch(r.key).getCached()).name).toBe(name);
     });
     it("should reject an empty name", async () => {
       const r = await client.racks.create({ name: "rack-rename-empty" });
@@ -149,6 +150,17 @@ describe("Rack", () => {
       expect((await createTestClient().racks.retrieve(r.key)).name).toBe(
         "rack-rename-empty",
       );
+    });
+  });
+  describe("dispatch", () => {
+    it("should apply the action to the rack", async () => {
+      const r = await client.racks.create({ name: `rack-${id.create()}` });
+      await client.racks.dispatch(
+        r.key,
+        rack.set({ path: ["integrations"], value: ["modbus"] }),
+      );
+      const stored = await createTestClient().racks.retrieve(r.key);
+      expect(stored.integrations).toEqual(["modbus"]);
     });
   });
   describe("retrieve", () => {
@@ -222,7 +234,7 @@ describe("Rack", () => {
         client.racks.retrieve({ name, limit: 1 }),
       ).rejects.toThrow(
         new ValidationError(
-          "a query for one record takes no limit or offset, since a page could hide a " +
+          "a query for one record takes no limit or cursor, since a page could hide a " +
             "second match",
         ),
       );
@@ -306,17 +318,16 @@ describe("Rack", () => {
       });
       expect(results.map((r) => r.key)).toEqual([r1.key]);
     });
-    it("should update integrations on upsert", async () => {
+    it("should update integrations with a dispatch", async () => {
       const r = await client.racks.create({
         name: "rack-update-integrations",
         integrations: ["ni"],
       });
-      await client.racks.create({
-        key: r.key,
-        name: "rack-update-integrations",
-        integrations: ["ni", "opc", "arc"],
-      });
-      const retrieved = await client.racks.retrieve(r.key);
+      await client.racks.dispatch(
+        r.key,
+        rack.set({ path: ["integrations"], value: ["ni", "opc", "arc"] }),
+      );
+      const retrieved = await createTestClient().racks.retrieve(r.key);
       expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });
@@ -380,7 +391,7 @@ describe("Rack", () => {
       const params = { key: r.key, includeStatus: true };
       await client.racks.retrieve(params);
       const seen: rack.Rack[] = [];
-      const stop = client.racks.onChange(params, (cached) => {
+      const stop = client.racks.watch(params).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached);
       });
       try {
@@ -401,11 +412,14 @@ describe("Rack", () => {
     });
     it("should compose streamed statuses onto a request query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-request" });
-      const params = { where: { key: { in: [r.key] } }, includeStatus: true };
-      await client.racks.retrieve(params);
+      const list = client.racks.watch({
+        where: { key: { in: [r.key] } },
+        includeStatus: true,
+      });
+      await list.retrieve();
       const seen: rack.Rack[][] = [];
-      const stop = client.racks.onChange(params, (cached) => {
-        if (query.isLive(cached)) seen.push(cached);
+      const stop = list.onChange((w) => {
+        if (w != null) seen.push(w.records);
       });
       try {
         await client.statuses.set(
@@ -433,30 +447,29 @@ describe("Rack", () => {
         const local = createTestClient();
         await local.racks.retrieve(r.key);
         const params = { key: r.key, includeStatus: true };
-        expect(local.racks.getCached(params)).toBeUndefined();
+        expect(local.racks.watch(params).getCached()).toBeUndefined();
         const retrieved = await local.racks.retrieve(params);
         expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
       });
       it("should fetch the status after a rack arrives on the stream", async () => {
         const r = await client.racks.create({ name: "stream-cached" });
         const local = createTestClient();
-        const stop = local.racks.onChange(r.key, () => {});
+        const stop = local.racks.watch(r.key).onChange(() => {});
         await waitForStreamLive(local.connection);
         try {
-          // A rename would also stream the status, so this update keeps the name.
-          await client.racks.create({
-            key: r.key,
-            name: r.name,
-            integrations: ["ni"],
-          });
+          // A rename would also stream the status, so this edit keeps the name.
+          await client.racks.dispatch(
+            r.key,
+            rack.set({ path: ["integrations"], value: ["ni"] }),
+          );
           await expect
             .poll(() => {
-              const cached = local.racks.getCached(r.key);
+              const cached = local.racks.watch(r.key).getCached();
               return query.isLive(cached) ? cached.integrations : undefined;
             })
             .toEqual(["ni"]);
           const params = { key: r.key, includeStatus: true };
-          expect(local.racks.getCached(params)).toBeUndefined();
+          expect(local.racks.watch(params).getCached()).toBeUndefined();
           const retrieved = await local.racks.retrieve(params);
           expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
         } finally {
@@ -468,12 +481,11 @@ describe("Rack", () => {
         const local = createTestClient();
         await local.racks.retrieve(r.key);
         const seen: (rack.Status | undefined)[] = [];
-        const stop = local.racks.onChange(
-          { key: r.key, includeStatus: true },
-          (cached) => {
+        const stop = local.racks
+          .watch({ key: r.key, includeStatus: true })
+          .onChange((cached) => {
             if (query.isLive(cached)) seen.push(cached.status);
-          },
-        );
+          });
         try {
           await expect.poll(() => seen.at(-1)?.owner).toEqual(rack.resourceID(r.key));
           expect(seen.every((st) => st != null)).toBe(true);
@@ -488,7 +500,7 @@ describe("Rack", () => {
         await waitForStreamLive(local.connection);
         const send = spyOnSend(local);
         const params = { key: r.key, includeStatus: true };
-        const stop = local.racks.onChange(params, () => {});
+        const stop = local.racks.watch(params).onChange(() => {});
         try {
           const retrieved = await local.racks.retrieve(params);
           expect(retrieved.status?.owner).toEqual(rack.resourceID(r.key));
@@ -506,7 +518,7 @@ describe("Rack", () => {
         const { responded, release } = holdResponses(local, "/rack/retrieve");
         const send = spyOnSend(local);
         const params = { key: r.key, includeStatus: true };
-        const stop = local.racks.onChange(params, () => {});
+        const stop = local.racks.watch(params).onChange(() => {});
         try {
           await responded;
           const reading = local.racks.retrieve(params);
@@ -530,7 +542,7 @@ describe("Rack", () => {
         const params = { key: r.key, includeStatus: true };
         const retrieved = await local.racks.retrieve(params);
         expect(retrieved.status).toBeUndefined();
-        const cached = local.racks.getCached(params);
+        const cached = local.racks.watch(params).getCached();
         expect(cached).toBeInstanceOf(rack.Rack);
         expect((cached as rack.Rack).status).toBeUndefined();
       });
@@ -540,7 +552,7 @@ describe("Rack", () => {
       const params = { key: r.key, includeStatus: true };
       await client.racks.retrieve(params);
       const seen: (string | undefined)[] = [];
-      const stop = client.racks.onChange(params, (cached) => {
+      const stop = client.racks.watch(params).onChange((cached) => {
         if (query.isLive(cached)) seen.push(cached.status?.message);
       });
       const impostor = (message: string) =>

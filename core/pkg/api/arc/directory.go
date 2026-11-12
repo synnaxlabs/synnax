@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apidirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // RetrieveDirectories returns the Arc directories that req selects and that the subject
@@ -65,19 +65,18 @@ func (s *Service) CreateDirectory(
 	return CreateDirectoryResponse{Directory: req.Directory}, nil
 }
 
-// RenameDirectoryRequest gives the directory with Key the name Name.
-type RenameDirectoryRequest struct {
-	Key  directory.Key `json:"key"  msgpack:"key"`
-	Name string        `json:"name" msgpack:"name"`
-}
+// DispatchDirectoryRequest carries a sequence of actions to apply to one directory.
+type DispatchDirectoryRequest = actions.DispatchRequest[directory.Key, directory.Action]
 
-// RenameDirectory renames a directory.
-func (s *Service) RenameDirectory(
+// DispatchDirectory applies the action sequence to the directory in tx.
+func (s *Service) DispatchDirectory(
 	ctx context.Context,
 	tx gorp.Tx,
-	req RenameDirectoryRequest,
+	req DispatchDirectoryRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).RenameDirectory(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		ApplyDirectory(ctx, req.Key, req.Actions...)
 }
 
 // DeleteDirectoryRequest deletes the directories with Keys.
@@ -92,21 +91,4 @@ func (s *Service) DeleteDirectory(
 	req DeleteDirectoryRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).DeleteDirectory(ctx, req.Keys...)
-}
-
-// MoveRequest moves the Arcs and directories with IDs from the directory From into the
-// directory To.
-type MoveRequest struct {
-	From directory.Key `json:"from" msgpack:"from"`
-	To   directory.Key `json:"to"   msgpack:"to"`
-	IDs  []resource.ID `json:"ids"  msgpack:"ids"`
-}
-
-// Move moves Arcs and directories between directories in one transaction.
-func (s *Service) Move(
-	ctx context.Context,
-	tx gorp.Tx,
-	req MoveRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Move(ctx, req.From, req.To, req.IDs...)
 }

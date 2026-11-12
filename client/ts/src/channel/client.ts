@@ -23,6 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type batch } from "@/batch";
+import { type Action, dispatchReqZ, dispatchResZ, rename } from "@/channel/actions";
 import {
   analyzeParams,
   isCalculated,
@@ -46,6 +48,8 @@ import {
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import {
+  compareCursors,
+  cursor,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -299,6 +303,7 @@ export interface ClientConfig {
   statuses: status.Client;
   ranges: ranger.Client;
   cache: query.Cache;
+  batch: batch.Client;
 }
 
 /**
@@ -349,8 +354,11 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record.payload),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedChannelKeys(event))],
+      triggers: [
+        query.deriveTrigger(statusStore, (event) => affectedChannelKeys(event)),
+      ],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -368,8 +376,8 @@ export class Client extends query.Retriever<
         (rangeKey == null ||
           aliasStore.has(createKey({ range: rangeKey, channel: key }))),
       single: true,
-      watch: [
-        query.watch(aliasStore, (event, query: RetrieveSingleParams) => {
+      triggers: [
+        query.trigger(aliasStore, (event, query: RetrieveSingleParams) => {
           if (query.rangeKey == null) return null;
           const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
           return event.key === aliasKey ? [query.key] : null;
@@ -380,12 +388,13 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         matches: (ch, query) => matches(LINES, ch, query.where),
         serverComputed: (query) => serverComputed(LINES, query.where),
-        watch: [
-          query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
+        triggers: [
+          query.trigger(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
             if (event.variant === "set")
               return event.value.range === query.rangeKey
@@ -394,8 +403,11 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
-          query.watch(statusStore, (event, query: RetrieveMultipleParams) =>
-            query.includeStatus === true ? affectedChannelKeys(event) : null,
+          query.trigger(
+            statusStore,
+            (event, query: RetrieveMultipleParams) =>
+              query.includeStatus === true ? affectedChannelKeys(event) : null,
+            { contentOnly: true },
           ),
         ],
       },
@@ -411,7 +423,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+    this.setGroupRequest = group.createMoveRequest("/channel/dispatch", (keys, to) => {
       const rollbacks = keys.map((key) => this.moveThrough(key, to));
       return () => rollbacks.forEach((rollback) => rollback());
     });
@@ -481,17 +493,9 @@ export class Client extends query.Retriever<
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = array.toArray(channels);
-    let created: Channel[] = [];
-    if (retrieveIfNameExists) {
-      const res = await this.execRetrieve({
-        where: { name: { in: toCreate.map((c) => c.name) } },
-      });
-      const existingNames = new Set(res.map((c) => c.name));
-      toCreate = toCreate.filter((c) => !existingNames.has(c.name));
-      created = this.sugar(res);
-    }
-    created = created.concat(this.sugar(await this.writer.create(toCreate)));
+    const created = this.sugar(
+      await this.writer.create(array.toArray(channels), retrieveIfNameExists),
+    );
     this.store.set(created.map((ch) => this.sugar(stripComposed(ch.payload))));
     return single ? created[0] : created;
   }
@@ -597,6 +601,7 @@ export class Client extends query.Retriever<
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
+  /** Renames the channels in one transaction, giving each key the name at its index. */
   async rename(key: Key, name: string, opts?: query.WriteOptions): Promise<void>;
   async rename(keys: Key[], names: string[], opts?: query.WriteOptions): Promise<void>;
   async rename(
@@ -606,13 +611,49 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const apply = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const requests = keysArr.map((key, i) => ({
+      endpoint: "/channel/dispatch",
+      payload: { key, actions: [rename({ name: namesArr[i] })] },
+    }));
     await query.optimistic({
-      rollbacks: rename(),
+      rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.rename(keysArr, namesArr),
+      // A batch prefixes its errors with the request index, so one rename skips it.
+      commit: async () =>
+        requests.length === 1
+          ? await this.send(keysArr[0], requests[0].payload.actions)
+          : await this.cfg.batch.send(requests),
     });
-    rename();
+    apply();
+  }
+
+  /**
+   * Applies the actions to the channel in one transaction, then fetches the channel
+   * into the cache before it resolves. The fetch catches the fields that the Core sets
+   * itself, such as the data type of a calculated channel. A failed fetch goes to the
+   * cache's error handler, since the Core applied the actions.
+   * @throws {ValidationError} if the channel cannot hold an action.
+   * @throws {NotFoundError} if the channel does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.send(key, array.toArray(actions));
+    try {
+      await this.store.retrieve([key], { refresh: true });
+    } catch (exc) {
+      this.cfg.cache.onError(
+        new Error("failed to fetch a dispatched channel", { cause: exc }),
+      );
+    }
+  }
+
+  private async send(key: Key, actions: Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/channel/dispatch",
+      { key, dispatchKey: "", actions },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /**
@@ -674,15 +715,16 @@ export class Client extends query.Retriever<
     );
     if (missing.length === 0) return;
     const { aliases } = this.cfg.ranges;
-    const since = aliases.stamp();
-    const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
-    Object.entries(fetched).forEach(([channel, alias]) => {
-      const entry: ranger.alias.Alias = {
-        range: rangeKey,
-        channel: Number(channel),
-        alias,
-      };
-      aliases.ingest(createKey(entry), entry, { since });
+    await aliases.track(async (since) => {
+      const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
+      Object.entries(fetched).forEach(([channel, alias]) => {
+        const entry: ranger.alias.Alias = {
+          range: rangeKey,
+          channel: Number(channel),
+          alias,
+        };
+        aliases.ingest(createKey(entry), entry, { since });
+      });
     });
   }
 
@@ -694,18 +736,20 @@ export class Client extends query.Retriever<
     request: RetrieveRequest,
     rangeKey?: ranger.Key,
   ): Promise<Payload[]> {
+    const { store } = this.cfg.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await this.cfg.unary.send(
-      "/channel/retrieve",
-      { request, rangeKey },
-      aliasedRetrieveRequestZ,
-      retrieveResZ,
-    );
-    res.channels.forEach(({ status }) => {
-      if (status != null) this.cfg.statuses.store.ingest(status, { since });
+    return await store.track(async (since) => {
+      const res = await this.cfg.unary.send(
+        "/channel/retrieve",
+        { request, rangeKey },
+        aliasedRetrieveRequestZ,
+        retrieveResZ,
+      );
+      res.channels.forEach(({ status }) => {
+        if (status != null) store.ingest(status, { since });
+      });
+      return res.channels;
     });
-    return res.channels;
   }
 
   private async fetchSingle(query: RetrieveSingleParams): Promise<Channel> {
@@ -751,12 +795,14 @@ export class Client extends query.Retriever<
   }: RetrieveMultipleParams): Promise<Channel[]> {
     if (rangeKey == null) return await this.fetchChannels(req);
     const { aliases } = this.cfg.ranges;
-    const since = aliases.stamp();
-    const payloads = await this.execRetrieve(req, rangeKey);
-    payloads.forEach(({ key: channel, alias }) => {
-      if (alias == null) return;
-      const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
-      aliases.ingest(createKey(entry), entry, { since });
+    const payloads = await aliases.track(async (since) => {
+      const payloads = await this.execRetrieve(req, rangeKey);
+      payloads.forEach(({ key: channel, alias }) => {
+        if (alias == null) return;
+        const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
+        aliases.ingest(createKey(entry), entry, { since });
+      });
+      return payloads;
     });
     return payloads.map((p) => this.sugar(stripComposed(p)));
   }

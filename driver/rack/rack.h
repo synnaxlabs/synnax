@@ -52,6 +52,10 @@ const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
 
+/// @brief the flag that selects the state of the computer, which the Driver service
+/// reads, over the state of the user.
+const std::string MACHINE_STATE_FLAG = "--machine-state";
+
 struct RemoteInfo {
     /// @brief a saved rack that still needs enrollment. It is saved again only while
     /// the Driver cannot enroll it.
@@ -269,8 +273,15 @@ struct Config {
 
     /// @brief applies the persisted state ownership and modes without opening the
     /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. Skips state that does not exist.
+    /// state that an earlier login left to root. Skips state that does not exist. On
+    /// Windows, it creates the state directory of the computer for LocalSystem and the
+    /// administrators alone, and returns an error when another user owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
+
+    /// @brief moves the state and OPC UA certificates of the user to the state of the
+    /// computer, which the service reads, unless that state exists. Does nothing on
+    /// Linux or with a --state-file argument. Requires admin rights.
+    static x::errors::Error move_user_state(x::args::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
@@ -289,6 +300,14 @@ struct Config {
     /// synnax::auth::ERR_ACCESS_DENIED when the user cannot create the key, and sets
     /// the rack only if it was saved.
     [[nodiscard]] x::errors::Error enroll();
+
+    /// @brief enrolls with the given connection and saves its API key. It enrolls the
+    /// saved rack, or the rack that the saved API key logs in as, so the Driver keeps
+    /// that rack and its tasks. It sends the saved key only to the host and port that
+    /// the key was saved with, and with TLS when the key was saved with TLS. Returns
+    /// the errors of enroll.
+    static std::pair<Config, x::errors::Error>
+    login(x::args::Parser &args, const synnax::Config &conn);
 
     /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
     /// it logs in with the password and loads the saved rack. Writes the rack with this
@@ -315,7 +334,8 @@ class Rack {
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
-    /// should stop operations and shut down.
+    /// should stop operations and shut down. Calls on_shutdown unless a stop caused
+    /// the exit.
     bool
     should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
 
@@ -332,7 +352,8 @@ public:
     /// down prematurely
     void start(x::args::Parser &args, std::function<void()> on_shutdown = nullptr);
 
-    /// @brief stops the rack.
+    /// @brief stops the rack. Returns the error that stopped the rack before this call,
+    /// or NIL when the rack was still running.
     x::errors::Error stop();
 };
 }

@@ -51,7 +51,7 @@ describe("Log", () => {
       const proj = await client.projects.create({ name: "Log" });
       const dest = await client.projects.create({ name: "Log" });
       const v = await client.logs.create({ project: proj.key, name: "Log" });
-      await client.batch.send([client.logs.setProjectRequest(v.key, dest.key)]);
+      await client.batch.send(client.logs.setProjectRequest(v.key, dest.key));
       const res = await client.logs.retrieve([v.key]);
       expect(res[0].project).toEqual(dest.key);
     });
@@ -87,9 +87,9 @@ describe("store", () => {
     });
     await client.logs.delete(log.key);
     await expect
-      .poll(() => query.Deleted.matches(client.logs.getCached(log.key)))
+      .poll(() => query.Deleted.matches(client.logs.watch(log.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.logs.getCached(log.key));
+    const cached = expectDeleted(client.logs.watch(log.key).getCached());
     expect(cached.corpse.name).toEqual(log.name);
   });
 
@@ -111,7 +111,7 @@ describe("store", () => {
     await client.channels.delete(deleted.key);
     await expect
       .poll(() =>
-        expectLive(client.logs.getCached(log.key)).channels.map(
+        expectLive(client.logs.watch(log.key).getCached()).channels.map(
           ({ channel }) => channel,
         ),
       )

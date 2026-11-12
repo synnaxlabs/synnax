@@ -12,8 +12,17 @@ import { array, deep, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role";
+import { actions } from "@/actions";
 import { group } from "@/group";
 import { query } from "@/query";
+import { createOf, reduceAll } from "@/rack/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/rack/actions.gen";
 import {
   type Key,
   keyZ,
@@ -29,12 +38,20 @@ import {
   statusZ,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/rack/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const SET_CHANNEL_NAME = "sy_rack_set";
+export const ACTION_CHANNEL_NAME = "sy_rack_action_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -73,7 +90,6 @@ const createResZ = z.object({ racks: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -110,6 +126,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Payload, "status">>;
+  private readonly dispatcher: actions.Controller<Key, Omit<Payload, "status">, Action>;
   /** Builds requests that move racks between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
 
@@ -122,21 +139,29 @@ export class Client extends query.Retriever<
       name: "racks",
       fetch: async (keys) =>
         (await this.fetchThrough(query.keysRequest(keys))).map(stripStatus),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
-          value: ({ status: _, ...rack }) => rack,
-        }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a rack reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Omit<Payload, "status">, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/rack/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Payload, "status">, Rack>({
       name: "rack.composed",
       source: store,
       compose: (record) => this.compose(record, true),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedRackKeys(event))],
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedRackKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Rack, Key, Rack>({
       name: "rack",
       table: composed,
@@ -153,15 +178,20 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
         matches: (r, req) => matches(LINES, r, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedRackKeys(event);
-          }),
+        triggers: [
+          query.trigger(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedRackKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>
@@ -170,7 +200,8 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/rack/set-group", (keys, to) =>
+    this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest("/rack/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -192,31 +223,39 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/rack/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached rack until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached rack.
+   * @throws {Error} if the cached rack cannot hold an action, before any send.
+   * @throws {ValidationError} if the rack cannot hold an action.
+   * @throws {NotFoundError} if the rack does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async create(rack: New): Promise<Rack>;
   async create(racks: New[]): Promise<Rack[]>;
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statuses.store.stamp();
-    const res = await this.cfg.unary.send(
-      "/rack/create",
-      { racks: array.toArray(rack) },
-      createReqZ,
-      createResZ,
-    );
-    res.racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await this.cfg.unary.send(
+        "/rack/create",
+        { racks: array.toArray(rack) },
+        createReqZ,
+        createResZ,
+      );
+      res.racks.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
@@ -269,14 +308,18 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveParams): Promise<Payload[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
-    const racks = await this.execRetrieve(req);
-    this.store.ingest(racks.map(stripStatus), { since });
-    racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statuses.store.ingest(st, { since: statusSince });
-    });
-    return racks;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const racks = await this.execRetrieve(req);
+          this.store.ingest(racks.map(stripStatus), { since });
+          racks.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return racks;
+        }),
+    );
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Rack> {

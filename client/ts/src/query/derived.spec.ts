@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { query } from "@/query";
-import { bindDerived, deriveWatch } from "@/query/derived";
+import { bindDerived, deriveTrigger } from "@/query/derived";
 
 interface Task extends record.Keyed<string> {
   key: string;
@@ -52,8 +52,8 @@ const bindAll = ({
   bindDerived(composed, {
     source: tasks,
     compose,
-    watch: [
-      deriveWatch(statuses, (event) =>
+    triggers: [
+      deriveTrigger(statuses, (event) =>
         event.variant === "set" ? [event.value.task] : "all",
       ),
     ],
@@ -86,6 +86,25 @@ describe("derived", () => {
     });
   });
 
+  it("keeps the source entries that the derived table needs through a trim", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set([task("t1", "one"), task("t2", "two")]);
+    tables.composed.subscribe(vi.fn(), "t1");
+    tables.tasks.trim(tables.tasks.size);
+    expect(tables.tasks.trim(0)).toEqual(["t2"]);
+  });
+
+  it("stops keeping the source entries once unbound", () => {
+    const tables = newTables();
+    const unbind = bindAll(tables);
+    tables.tasks.set(task("t1", "one"));
+    tables.composed.subscribe(vi.fn(), "t1");
+    unbind();
+    tables.tasks.trim(tables.tasks.size);
+    expect(tables.tasks.trim(0)).toEqual(["t1"]);
+  });
+
   it("replaces entry identity exactly when composition changes", () => {
     const tables = newTables();
     bindAll(tables);
@@ -105,7 +124,7 @@ describe("derived", () => {
     bindDerived(tables.composed, {
       source: tables.tasks,
       compose: tables.compose,
-      watch: [deriveWatch(tables.statuses, () => "all")],
+      triggers: [deriveTrigger(tables.statuses, () => "all")],
     });
     tables.tasks.set([task("t1", "one"), task("t2", "two")]);
     tables.statuses.set({ key: "s1", task: "t2", message: "done" });

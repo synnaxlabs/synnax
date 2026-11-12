@@ -10,6 +10,7 @@
 import { type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
+import { type Description } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   type PDOs,
@@ -68,6 +69,171 @@ export const createRepeatedNamePDOs = (): PDOs => {
   return {
     inputs: channels.map((i) => entry("Input", 0x6000, i)),
     outputs: channels.map((i) => entry("Output", 0x7000, i)),
+  };
+};
+
+/** The input entry that {@link createSettingsDescription} describes. */
+export const STRAIN_ENTRY: ethercat.PDOEntry = {
+  name: "Value",
+  pdoName: "Channel 1",
+  index: 0x6030,
+  subIndex: 1,
+  bitLength: 32,
+  dataType: "int32",
+};
+
+/** A buffered layout entry that reads the input of {@link STRAIN_ENTRY}. */
+export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
+  name: "CH 1",
+  pdoName: "Buffered channel 1",
+  index: 0x6040,
+  subIndex: 1,
+  bitLength: 32,
+  dataType: "uint32",
+};
+
+/**
+ * Builds the catalog fields of a strain input that {@link STRAIN_ENTRY} and
+ * {@link STRAIN_SAMPLE_ENTRY} read. A voltage input picks one of five ranges, a current
+ * input one of two. A bridge shows an excitation voltage from 0 to 24 V and needs one
+ * above 0.
+ */
+export const createSettingsDescription = (): Description => {
+  const measurement = { index: 0x8040, subIndex: 1 };
+  const ranges = ["50 V", "10 V", "3 V", "1 V", "0.1 V"];
+  return {
+    device: [
+      {
+        index: 0x8020,
+        subIndex: 1,
+        name: "Sample rate",
+        dataType: "uint16",
+        default: 4,
+        unit: "",
+        options: [
+          { value: 4, name: "20 kS/s" },
+          { value: 12, name: "1 kS/s" },
+        ],
+        visibleWhen: [],
+      },
+    ],
+    channels: [
+      {
+        entries: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY].map(({ index, subIndex }) => ({
+          index,
+          subIndex,
+        })),
+        settings: [
+          {
+            ...measurement,
+            name: "Measurement",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: [
+              { value: 0, name: "Voltage" },
+              { value: 1, name: "Current" },
+              { value: 6, name: "Bridge" },
+            ],
+            visibleWhen: [],
+          },
+          {
+            index: 0x8040,
+            subIndex: 3,
+            name: "Range",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: ranges.map((name, value) => ({ value, name })),
+            visibleWhen: [{ ...measurement, values: [0, 6] }],
+          },
+          {
+            index: 0x8040,
+            subIndex: 3,
+            name: "Range",
+            dataType: "uint16",
+            default: 0,
+            unit: "",
+            options: [
+              { value: 0, name: "20 mA" },
+              { value: 1, name: "2 mA" },
+            ],
+            visibleWhen: [{ ...measurement, values: [1] }],
+          },
+          {
+            index: 0x8040,
+            subIndex: 0x1c,
+            name: "Excitation voltage",
+            dataType: "float32",
+            default: 0,
+            unit: "V",
+            min: 0,
+            max: 24,
+            visibleWhen: [{ ...measurement, values: [6] }],
+          },
+        ],
+        requires: [
+          {
+            when: [{ ...measurement, values: [6] }],
+            then: { index: 0x8040, subIndex: 0x1c, above: 0 },
+            message: "A bridge needs an excitation voltage above 0 V.",
+          },
+        ],
+      },
+    ],
+  };
+};
+
+/**
+ * Builds the catalog fields of {@link createSettingsDescription}, with the gain at
+ * 0x8040:15 and the offset at 0x8040:14 calibrating the samples of
+ * {@link STRAIN_ENTRY}.
+ */
+export const createCalibratedDescription = (): Description => {
+  const description = createSettingsDescription();
+  description.channels[0].entries[0].calibration = {
+    dataType: "int32",
+    index: 0x8040,
+    gainSubIndex: 0x15,
+    offsetSubIndex: 0x14,
+    divisor: 1,
+    rawOffset: false,
+  };
+  return description;
+};
+
+/**
+ * Builds the catalog of {@link createSettingsDescription} for a card in which only
+ * DewesoftX reads {@link STRAIN_SAMPLE_ENTRY}. A shared card is one that DewesoftX also
+ * sets up, and a scan gives it the write that switches it to Synnax only.
+ */
+export const createDewesoftXSettings = (
+  shared: boolean,
+  bus: 1 | 2 = 1,
+): NonNullable<SlaveProperties["settings"]> => {
+  const description = createSettingsDescription();
+  return {
+    ...description,
+    channels: description.channels.map((channel) => ({
+      ...channel,
+      entries: channel.entries.map((entry) =>
+        entry.index === STRAIN_SAMPLE_ENTRY.index &&
+        entry.subIndex === STRAIN_SAMPLE_ENTRY.subIndex
+          ? { ...entry, onlyReadBy: "DewesoftX" }
+          : entry,
+      ),
+    })),
+    mode: {
+      index: 0x8020,
+      subIndex: 9,
+      value: shared ? 1 : 0,
+      shared,
+      ...(shared ? { sharedWith: "DewesoftX" } : {}),
+      bus,
+      switch: shared
+        ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
+        : [],
+    },
   };
 };
 

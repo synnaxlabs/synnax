@@ -14,8 +14,10 @@ from pydantic import BaseModel, Field
 from freighter import Empty, UnaryClient
 from synnax.access import role as role_
 from synnax.exceptions import ValidationError
+from synnax.transport import send_batch
+from synnax.user import actions_gen
 from synnax.user.payload import New, User
-from synnax.user.types_gen import Key, RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -38,19 +40,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _ChangeUsernameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    username: str
-
-
-class _ChangeNameRequest(BaseModel):
-    key: Key
-    name: str
-
-
-class _SetRoleRequest(BaseModel):
-    keys: list[Key]
-    role: role_.Key
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class Client:
@@ -109,14 +102,18 @@ class Client:
         return res
 
     def change_username(self, key: Key, username: str) -> None:
+        action = actions_gen.set_username(
+            actions_gen.SetUsernamePayload(username=username)
+        )
         self.client.send(
-            "/user/change-username",
-            _ChangeUsernameRequest(key=key, username=username),
-            Empty,
+            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
         )
 
     def change_name(self, key: Key, *, name: str) -> None:
-        self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        self.client.send(
+            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
+        )
 
     def set_role(self, keys: Key | list[Key], role: role_.Key) -> None:
         """Gives a role to the users with the given keys. The role replaces the role
@@ -128,8 +125,11 @@ class Client:
             not exist.
         :raises NotFoundError: If one of the users does not exist.
         """
-        self.client.send(
-            "/user/set-role", _SetRoleRequest(keys=normalize(keys), role=role), Empty
+        action = actions_gen.set(actions_gen.SetPayload(path=["role"], value=str(role)))
+        send_batch(
+            self.client,
+            "/user/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
         )
 
     @overload
@@ -193,7 +193,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
@@ -205,7 +206,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> User | list[User]:
@@ -225,7 +227,9 @@ class Client:
         :param keys: Keeps users with one of these keys.
         :param search_term: A fuzzy search term matched against user names.
         :param limit: The maximum number of users to retrieve.
-        :param offset: The number of users to skip.
+        :param order: The order of the users. Defaults to key order.
+        :param after: Retrieves the users past this position in the order: the key of
+            the last user of the page before, and its value of the order field.
         :param one: Returns one user for any filter.
         :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
             set, otherwise a list of users. The list leaves out keys that do not
@@ -233,7 +237,7 @@ class Client:
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
         :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit or an offset.
+            user is wanted beside a limit or a cursor.
         """
         if "username" in fields:
             username = fields.pop("username")
@@ -243,13 +247,14 @@ class Client:
                 )
             where = filter.merge(where, Where(usernames=[username]))
             one = True
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self.client.send("/user/retrieve", req, _RetrieveResponse)
         return sole("user", req, res.users) if single else res.users

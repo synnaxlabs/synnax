@@ -22,7 +22,9 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    Cursor,
     Operation,
+    Order,
     Payload,
     RetrieveRequest,
     Status,
@@ -346,16 +348,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = []
-        if retrieve_if_name_exists:
-            created = self._sugar(
-                self._retriever.retrieve([ch.name for ch in _channels])
-            )
-            _channels = [
-                c for c in _channels if c.name not in [ch.name for ch in created]
-            ]
-
-        created.extend(self._sugar(self._creator.create(_channels)))
+        created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]
 
     @overload
@@ -480,7 +473,8 @@ class Client:
         search_term: str = ...,
         range_key: ranger.Key | None = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -496,7 +490,8 @@ class Client:
         search_term: str = "",
         range_key: ranger.Key | None = None,
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -532,7 +527,9 @@ class Client:
             whose alias in the range matches come first.
         :param range_key: Sets each channel's alias from this range.
         :param limit: The maximum number of channels to retrieve.
-        :param offset: The number of channels to skip.
+        :param order: The order of the channels. Defaults to key order.
+        :param after: Retrieves the channels past this position in the order: the key of
+            the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -542,14 +539,14 @@ class Client:
         :raises MultipleFoundError: If one channel is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one channel is
-            wanted beside a limit or an offset.
+            wanted beside a limit or a cursor.
         """
         selected = Where()
         positional = False
         if channel is not None:
             selected = params_where(channel)
             positional = normalize_params(channel).single
-        single = returns_one(fields, one or positional, limit, offset)
+        single = returns_one(fields, one or positional, limit=limit, after=after)
         flat = Where(
             key=selected.key,
             name=selected.name,
@@ -573,7 +570,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._retriever.filter(req, range_key)
@@ -624,6 +622,17 @@ class Client:
         :param group: The key of the group to move the channels into.
         """
         self._creator.set_group(normalize(keys), group)
+
+    def set_expression(self, key: Key, expression: str) -> None:
+        """Sets the expression of a calculated channel. The Core infers the data type
+        of the channel from the new expression.
+
+        :param key: The key of the calculated channel.
+        :param expression: The new expression.
+        :raises NotFoundError: If no channel has the given key.
+        :raises ValidationError: If the channel is not calculated.
+        """
+        self._creator.set_expression(key, expression)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

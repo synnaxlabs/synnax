@@ -12,6 +12,9 @@
 package v8
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -21,6 +24,7 @@ import (
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -34,6 +38,30 @@ const (
 	TickTypeLinear TickType = v7.TickTypeLinear
 	// TickTypeTime labels ticks with timestamps.
 	TickTypeTime TickType = v7.TickTypeTime
+)
+
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation = v7.Aggregation
+
+const (
+	// AggregationMinMax draws the lowest and highest sample of each pixel group.
+	AggregationMinMax Aggregation = v7.AggregationMinMax
+	// AggregationAverage draws the mean of each pixel group.
+	AggregationAverage Aggregation = v7.AggregationAverage
+)
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail = v7.Detail
+
+const (
+	// DetailLow draws one sample group per four pixel columns.
+	DetailLow Detail = v7.DetailLow
+	// DetailMedium draws one sample group per two pixel columns.
+	DetailMedium Detail = v7.DetailMedium
+	// DetailHigh draws one sample group per pixel column.
+	DetailHigh Detail = v7.DetailHigh
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
@@ -139,6 +167,32 @@ func (l *Line) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *Line) SetDefaults() {
+	l.StrokeWidth = 2
+	l.Aggregation = AggregationMinMax
+	l.Detail = DetailMedium
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Line
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Line
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l Line) Validate() error {
@@ -200,6 +254,32 @@ func (l *LinePlot) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LinePlot) Validate() error {
@@ -216,27 +296,3 @@ func (l LinePlot) Validate() error {
 	}
 	return v.Error()
 }
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation = v7.Aggregation
-
-const (
-	// AggregationMinMax draws the lowest and highest sample of each pixel group.
-	AggregationMinMax Aggregation = v7.AggregationMinMax
-	// AggregationAverage draws the mean of each pixel group.
-	AggregationAverage Aggregation = v7.AggregationAverage
-)
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail = v7.Detail
-
-const (
-	// DetailLow draws one sample group per four pixel columns.
-	DetailLow Detail = v7.DetailLow
-	// DetailMedium draws one sample group per two pixel columns.
-	DetailMedium Detail = v7.DetailMedium
-	// DetailHigh draws one sample group per pixel column.
-	DetailHigh Detail = v7.DetailHigh
-)

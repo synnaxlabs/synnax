@@ -15,7 +15,6 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "client/cpp/resource/id.h"
@@ -32,17 +31,35 @@
 
 namespace synnax::rack {
 
+struct StatusDetails;
 struct Where;
+struct Cursor;
+struct Order;
 struct Rack;
 struct RetrieveRequest;
 struct RetrieveResponse;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
 /// key, and the low 16 bits contain the local sequential key. A rack is leased to the
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
-using Status = ::synnax::status::Status<std::monostate>;
+/// @brief StatusDetails contains rack-specific status details.
+struct StatusDetails {
+    /// @brief running is true when the status comes from a running Driver.
+    bool running = false;
+
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::rack::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::rack::pb::StatusDetails &pb);
+};
 
 /// @brief Where is a filter that selects racks.
 struct Where {
@@ -96,6 +113,41 @@ struct Where {
     from_proto(const ::service::rack::pb::Where &pb);
 };
 
+/// @brief Cursor is a position in an order of racks: the sort value and the key of a
+/// rack.
+struct Cursor {
+    /// @brief key is the key of the rack at the position.
+    Key key = 0;
+    /// @brief name is the name of the rack at the position, when the order sorts by it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::Cursor;
+    [[nodiscard]] std::pair<::api::rack::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::rack::pb::Cursor &pb);
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Order is a sort of racks.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::Order;
+    [[nodiscard]] std::pair<::api::rack::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::rack::pb::Order &pb);
+};
+
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific Core. Racks are the integration point between the Core and physical
 /// hardware through the Driver.
@@ -132,10 +184,12 @@ struct Rack {
 struct RetrieveOptions {
     /// @brief search_term keeps the racks that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the racks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the racks strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most racks to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 };
@@ -146,10 +200,12 @@ struct RetrieveRequest {
     std::optional<Where> where;
     /// @brief search_term keeps the racks that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the racks. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the racks strictly past this position in their order.
+    std::optional<Cursor> after;
     /// @brief limit is the most racks to return.
     std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching racks to skip.
-    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
 
@@ -158,8 +214,9 @@ struct RetrieveRequest {
         return {
             .where = std::move(where),
             .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
             .limit = options.limit,
-            .offset = options.offset,
             .include_status = options.include_status,
         };
     }

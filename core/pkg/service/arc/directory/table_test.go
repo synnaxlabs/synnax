@@ -76,6 +76,22 @@ var _ = Describe("Table", func() {
 		})
 	})
 
+	Describe("Observe", func() {
+		It("Should notify observers of a created directory", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(table.Observe().OnChange(func(
+				_ context.Context,
+				r gorp.TxReader[directory.Key, directory.Directory],
+			) {
+				for ch := range r {
+					names = append(names, ch.Value.Name)
+				}
+			}))
+			create(ctx, "lib", nil)
+			Eventually(func() []string { return names }).Should(Equal([]string{"lib"}))
+		})
+	})
+
 	Describe("Create", func() {
 		It("Should give a directory with no key a new key", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
@@ -84,14 +100,17 @@ var _ = Describe("Table", func() {
 				To(ConsistOf(HaveField("Name", "lib")))
 		})
 
-		It("Should reject a key in use", func(ctx SpecContext) {
+		It("Should refuse a directory whose key exists", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)
 			dup := directory.Directory{Key: d.Key, Name: "other"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return table.NewWriter(tx).Create(ctx, &dup)
-			})).To(MatchError(ContainSubstring(
-				"directory " + d.Key.String() + " already exists",
-			)))
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("arc_directory %s already exists", d.Key)),
+			))
+			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).
+				To(ConsistOf(HaveField("Name", "lib")))
 		})
 
 		It("Should reject a directory with no name", func(ctx SpecContext) {
@@ -102,35 +121,45 @@ var _ = Describe("Table", func() {
 		})
 	})
 
-	Describe("Rename", func() {
-		It("Should give the directory the new name", func(ctx SpecContext) {
+	Describe("Update", func() {
+		It("Should store the changed directory", func(ctx SpecContext) {
+			parent := create(ctx, "parent", nil)
 			d := create(ctx, "lib", nil)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).Rename(ctx, d.Key, "core")
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name, d.Parent = "core", &parent.Key
+					return d, nil
+				})
 			})).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).
-				To(ConsistOf(HaveField("Name", "core")))
-		})
-	})
-
-	Describe("SetParent", func() {
-		It("Should move the directories into the parent", func(ctx SpecContext) {
-			parent := create(ctx, "parent", nil)
-			a, b := create(ctx, "a", nil), create(ctx, "b", nil)
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).SetParent(ctx, parent.Key, a.Key, b.Key)
-			})).To(Succeed())
-			Expect(retrieve(ctx, directory.MatchParents(parent.Key))).To(ConsistOf(
-				HaveField("Key", a.Key),
-				HaveField("Key", b.Key),
+			Expect(retrieve(ctx, directory.MatchKeys(d.Key))).To(ConsistOf(
+				directory.Directory{Key: d.Key, Name: "core", Parent: &parent.Key},
 			))
+		})
+
+		It("Should reject an invalid directory", func(ctx SpecContext) {
+			d := create(ctx, "lib", nil)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return table.NewWriter(tx).Update(ctx, d.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Name = ""
+					return d, nil
+				})
+			})).To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should reject a move below itself", func(ctx SpecContext) {
 			top := create(ctx, "top", nil)
 			child := create(ctx, "child", &top.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return table.NewWriter(tx).SetParent(ctx, child.Key, top.Key)
+				return table.NewWriter(tx).Update(ctx, top.Key, func(
+					d directory.Directory,
+				) (directory.Directory, error) {
+					d.Parent = &child.Key
+					return d, nil
+				})
 			})).
 				To(MatchError(ContainSubstring("would form a cycle")))
 		})

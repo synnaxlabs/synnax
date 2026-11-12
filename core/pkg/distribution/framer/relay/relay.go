@@ -111,7 +111,7 @@ type Relay struct {
 	ins      alamos.Instrumentation
 	demands  confluence.Inlet[demand]
 	shutdown io.Closer
-	delta    *confluence.DynamicDeltaMultiplier[Response]
+	delta    *delta
 	cfg      Config
 }
 
@@ -130,7 +130,7 @@ func Open(configs ...Config) (*Relay, error) {
 	tpr.InFrom(demands)
 	r.demands = demands
 
-	r.delta = confluence.NewLossyDynamicDeltaMultiplier[Response](cfg.Instrumentation)
+	r.delta = newDelta(cfg.Instrumentation)
 	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
@@ -163,23 +163,26 @@ func (r *Relay) Close() error {
 	return err
 }
 
-func (r *Relay) connectToDelta() (confluence.Outlet[Response], observe.Disconnect) {
-	var (
-		data = confluence.NewStream[Response](r.cfg.StreamerBufferSize)
-		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())
-	)
-	data.SetInletAddress(addr)
-	r.delta.Connect(data)
-	return data, func() {
+func (r *Relay) connectToDelta(
+	accepts func(Response) bool,
+) (<-chan Response, observe.Disconnect) {
+	s := &subscriber{
+		responses: make(chan Response, r.cfg.StreamerBufferSize),
+		accepts:   accepts,
+		addr:      address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String()),
+	}
+	r.delta.connections <- s
+	return s.responses, func() {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.
 		c := make(chan struct{})
 		go func() {
-			confluence.Drain(data)
+			for range s.responses {
+			}
 			close(c)
 		}()
-		r.delta.Disconnect(data)
+		r.delta.disconnections <- s
 		<-c
 	}
 }

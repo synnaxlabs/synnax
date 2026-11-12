@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -78,7 +79,8 @@ type (
 	}
 )
 
-// Create creates the symbols in req, and overwrites each one whose key exists.
+// Create creates the symbols in req. It returns an error wrapping
+// validate.ErrValidation when a symbol with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -88,6 +90,23 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single symbol. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[symbol.Key, symbol.Action]
+
+// Dispatch applies the action sequence to the target symbol atomically. Subscribers to
+// the symbol action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -116,23 +135,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-// RenameRequest names the symbol to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the name to give the symbol.
-	Name string `json:"name" msgpack:"name"`
-	// Key identifies the symbol to rename.
-	Key symbol.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the symbol.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DeleteRequest carries the keys of the symbols to delete.
@@ -230,19 +232,4 @@ func (s *Service) DeleteGroup(
 	req DeleteGroupRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key)
-}
-
-// SetGroupRequest moves symbols into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key   `json:"group" msgpack:"group"`
-	Keys  []symbol.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the symbols with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

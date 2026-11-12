@@ -71,13 +71,12 @@ func grantAll(ctx SpecContext, u user.User, needs ...need) {
 }
 
 // newRackNeeds returns what a create of a new rack needs: create on the rack and its
-// status, update on the rack, which its status sits in, and retrieve on the Driver role
-// that the rack uses. r is the rack, or the rack type for a key the Core assigns.
+// status, and retrieve on the Driver role that the rack uses. r is the rack, or the
+// rack type for a key the Core assigns.
 func newRackNeeds(r resource.ID) []need {
 	return []need{
 		{access.ActionCreate, r},
 		{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
-		{access.ActionUpdate, r},
 		{access.ActionRetrieve, role.ResourceID(svc.RBAC.Builtin.DriverKey)},
 	}
 }
@@ -86,8 +85,8 @@ func newRackNeeds(r resource.ID) []need {
 func statusOf(ctx SpecContext, r rack.Rack) resource.ID {
 	GinkgoHelper()
 	var st rack.Status
-	Expect(svc.Status.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](r.ResourceID())).
+	Expect(svc.Status.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
 		Entry(&st).
 		Exec(ctx, db)).To(Succeed())
 	return st.ResourceID()
@@ -103,6 +102,8 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 	return r
 }
 
+// createRackWithStatus creates a rack that holds a live status. It returns the rack
+// with no status, as the Driver sends it on a create.
 func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 	GinkgoHelper()
 	r := rack.Rack{Name: name}
@@ -118,6 +119,7 @@ func createRackWithStatus(ctx SpecContext, name string) rack.Rack {
 			Message: "Rack is running",
 		})
 	})).To(Succeed())
+	r.Status = nil
 	return r
 }
 
@@ -165,87 +167,40 @@ var _ = Describe("Create", func() {
 				Exists(ctx, db)).To(BeFalse())
 		},
 		Entry("without create on the rack", 0, rack.NewKey(1, 60100)),
-		Entry(
-			"without update on the rack, which its status sits in",
-			2,
-			rack.NewKey(1, 60101),
-		),
-		Entry("without retrieve on the Driver role", 3, rack.NewKey(1, 60102)),
-	)
-	It(
-		"Should leave out the status of a rack the caller can only update",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			hidden := createRackWithStatus(ctx, "Hidden")
-			grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
-			res := MustSucceed(create(
-				AuthedCtx(ctx, u),
-				apirack.CreateRequest{Racks: []rack.Rack{hidden}},
-			))
-			Expect(res.Racks).To(HaveLen(1))
-			Expect(res.Racks[0].Status).To(BeNil())
-		},
+		Entry("without retrieve on the Driver role", 2, rack.NewKey(1, 60102)),
 	)
 	It("Should check read access on each rack in a batch", func(ctx SpecContext) {
 		u := createUser(ctx)
-		readable := createRackWithStatus(ctx, "Readable")
-		hidden := createRackWithStatus(ctx, "Hidden")
-		grant(
-			ctx, access.ActionUpdate, u.ResourceID(),
-			readable.ResourceID(), hidden.ResourceID(),
-		)
+		readable := rack.Rack{Key: rack.NewKey(1, 60110), Name: "Readable"}
+		hidden := rack.Rack{Key: rack.NewKey(1, 60111), Name: "Hidden"}
+		grantAll(ctx, u, newRackNeeds(rackType)...)
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(create(
 			AuthedCtx(ctx, u),
 			apirack.CreateRequest{Racks: []rack.Rack{readable, hidden}},
 		))
 		Expect(res.Racks).To(HaveLen(2))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+		Expect(res.Racks[0].Status.Owner).To(HaveValue(Equal(readable.ResourceID())))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack status unknown"))
 		Expect(res.Racks[1].Status).To(BeNil())
 	})
-	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
-		r := createRackWithStatus(ctx, "Existing")
-		res := MustSucceed(create(
-			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
-	})
-	It("Should reply with the new name of a renamed rack", func(ctx SpecContext) {
-		r := createRackWithStatus(ctx, "Old")
-		r.Name = "New"
-		res := MustSucceed(create(
-			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		))
-		Expect(res.Racks[0].Status.Name).To(Equal("New"))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
-	})
-	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
+	It("Should let a rack with the Driver role edit itself", func(ctx SpecContext) {
 		r := rack.Rack{Name: "Self"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Rack.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		r.Integrations = []string{"ni"}
-		MustSucceed(create(
+		MustSucceed(dispatch(
 			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
+			apirack.DispatchRequest{
+				Key: r.Key,
+				Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+					Path:  []string{"integrations"},
+					Value: []string{"ni"},
+				})},
+			},
 		))
 		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
 	})
-	It(
-		"Should let a rack with the Driver role save itself twice",
-		func(ctx SpecContext) {
-			r := rack.Rack{Name: "Self"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Rack.NewWriter(tx).Create(ctx, &r)
-			})).To(Succeed())
-			MustSucceed(create(
-				SubjectCtx(ctx, r.ResourceID()),
-				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
-			))
-		},
-	)
 	It(
 		"Should not let a rack with the Driver role create a rack",
 		func(ctx SpecContext) {
@@ -262,21 +217,86 @@ var _ = Describe("Create", func() {
 			))
 		},
 	)
-	It("Should require update to save an existing rack", func(ctx SpecContext) {
+	It("Should refuse a rack whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
-		r := rack.Rack{Name: "Existing"}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Rack.NewWriter(tx).Create(ctx, &r)
-		})).To(Succeed())
+		grantAll(ctx, u, newRackNeeds(rackType)...)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), rackType)
+		r := createRackWithStatus(ctx, "Existing")
+		edited := r
+		edited.Name = "Edited"
 		Expect(create(
 			AuthedCtx(ctx, u),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		)).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+			apirack.CreateRequest{Racks: []rack.Rack{edited}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("rack %d already exists", r.Key)),
+		))
+		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Existing"))
+		var st rack.Status
+		Expect(svc.Status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchOwners[rack.StatusDetails](r.ResourceID())).
+			Entry(&st).
+			Exec(ctx, db)).To(Succeed())
+		Expect(st.Message).To(Equal("Rack is running"))
 	})
 })
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch", func() {
+	dispatchGroup := func(
+		ctx SpecContext,
+		u user.User,
+		r rack.Rack,
+		g group.Group,
+	) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key:         r.Key,
+			DispatchKey: "dk",
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
+	}
+	It("Should apply the actions with update on the rack and group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch granted")
+		g := createDeviceGroup(ctx, "Dispatch granted")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID(), g.ResourceID())
+		MustSucceed(dispatchGroup(ctx, u, r, g))
+		Expect(retrieveRack(ctx, r.Key).Group).To(Equal(&g.Key))
+	})
+	It("Should refuse the actions without update on the rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch denied")
+		g := createDeviceGroup(ctx, "Dispatch denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+	It("Should refuse the actions without update on the group", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRackWithStatus(ctx, "Dispatch group denied")
+		g := createDeviceGroup(ctx, "Dispatch group denied")
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+		Expect(dispatchGroup(ctx, u, r, g)).
+			Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveRack(ctx, r.Key).Group).To(BeNil())
+	})
+})
+
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key rack.Key, name string) apirack.DispatchRequest {
+		return apirack.DispatchRequest{
+			Key: key,
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the rack and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -292,9 +312,9 @@ var _ = Describe("Rename", func() {
 			r.ResourceID(),
 			statusOf(ctx, r),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: r.Key, Name: "After"},
+			renameTo(r.Key, "After"),
 		))
 		renamed := retrieveRack(ctx, r.Key)
 		Expect(renamed.Name).To(Equal("After"))
@@ -310,9 +330,9 @@ var _ = Describe("Rename", func() {
 			embedded.ResourceID(),
 			statusOf(ctx, embedded),
 		)
-		MustSucceed(rename(
+		MustSucceed(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: embedded.Key, Name: "Renamed Embedded"},
+			renameTo(embedded.Key, "Renamed Embedded"),
 		))
 		renamed := retrieveRack(ctx, embedded.Key)
 		Expect(renamed.Name).To(Equal("Renamed Embedded"))
@@ -331,9 +351,9 @@ var _ = Describe("Rename", func() {
 			r.ResourceID(),
 			statusOf(ctx, r),
 		)
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: r.Key, Name: ""},
+			renameTo(r.Key, ""),
 		)).Error().To(MatchError(ContainSubstring("name: required")))
 		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Before"))
 	})
@@ -341,9 +361,9 @@ var _ = Describe("Rename", func() {
 		u := createUser(ctx)
 		key := rack.NewKey(1, 60000)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), key.ResourceID())
-		Expect(rename(
+		Expect(dispatch(
 			AuthedCtx(ctx, u),
-			apirack.RenameRequest{Key: key, Name: "After"},
+			renameTo(key, "After"),
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	rackID := func(_ SpecContext, r rack.Rack) resource.ID { return r.ResourceID() }
@@ -360,9 +380,9 @@ var _ = Describe("Rename", func() {
 				return svc.Rack.NewWriter(tx).Create(ctx, &r)
 			})).To(Succeed())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, r))
-			Expect(rename(
+			Expect(dispatch(
 				AuthedCtx(ctx, u),
-				apirack.RenameRequest{Key: r.Key, Name: "After"},
+				renameTo(r.Key, "After"),
 			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, r)))
 			Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Before"))
 		},
@@ -474,11 +494,6 @@ var _ = Describe("Retrieve", func() {
 				},
 			))
 			Expect(retrieved.Racks[0].Status.Message).To(Equal("Rack is running"))
-			created := MustSucceed(create(
-				AuthedCtx(ctx, u),
-				apirack.CreateRequest{Racks: []rack.Rack{r}},
-			))
-			Expect(created.Racks[0].Status.Message).To(Equal("Rack is running"))
 		},
 	)
 })
@@ -495,14 +510,12 @@ var _ = Describe("RetrieveRequest", func() {
 
 var _ = Describe("Delete", func() {
 	// deleteNeeds returns what a delete of r needs: delete on r, which also covers its
-	// API keys and sessions, delete on its status, and update on r, which its status
-	// leaves.
+	// API keys and sessions, and delete on its status.
 	deleteNeeds := func(ctx SpecContext, r rack.Rack) []need {
 		GinkgoHelper()
 		return []need{
 			{access.ActionDelete, r.ResourceID()},
 			{access.ActionDelete, statusOf(ctx, r)},
-			{access.ActionUpdate, r.ResourceID()},
 		}
 	}
 	// deleterOf returns a context for a new user allowed to delete r.
@@ -556,7 +569,6 @@ var _ = Describe("Delete", func() {
 		},
 		Entry("without delete on the rack", 0),
 		Entry("without delete on its status", 1),
-		Entry("without update on the rack, which its status leaves", 2),
 	)
 	exists := func(ctx SpecContext, key rack.Key) bool {
 		GinkgoHelper()
@@ -666,7 +678,7 @@ func createDeviceGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-var _ = Describe("SetGroup", func() {
+var _ = Describe("Dispatch group move", func() {
 	// denied matches an error that denies the subject the action on object.
 	denied := func(
 		subject resource.ID,
@@ -684,10 +696,13 @@ var _ = Describe("SetGroup", func() {
 		g group.Group,
 		r rack.Rack,
 	) (struct{}, error) {
-		return setGroup(
-			AuthedCtx(ctx, u),
-			apirack.SetGroupRequest{Group: &g.Key, Keys: []rack.Key{r.Key}},
-		)
+		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
+			Key: r.Key,
+			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"group"},
+				Value: g.Key.String(),
+			})},
+		})
 	}
 	createRack := func(ctx SpecContext, name string) rack.Rack {
 		GinkgoHelper()

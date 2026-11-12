@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -50,8 +51,17 @@ var (
 	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
-	// setGroup and retrieveChannels run their routes as the API layer binds them.
-	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
+	dist       testutil.Node
+	// The handlers run their routes as the API layer binds them.
+	createChannels freighter.UnaryHandler[
+		apichannel.CreateRequest,
+		apichannel.CreateResponse,
+	]
+	deleteChannels freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
+	dispatch       freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
 	retrieveChannels freighter.UnaryHandler[
 		apichannel.AliasedRetrieveRequest,
 		apichannel.RetrieveResponse,
@@ -61,9 +71,9 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
-	db = node.DB
-	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
+	dist = testutil.NewNode(ctx)
+	db = dist.DB
+	svc := MustOpen(svctestutil.OpenLayer(ctx, dist))
 	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
 	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
@@ -74,9 +84,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(
-		bind.NewService(bind.ServiceConfig{DB: node.DB, RBAC: rbacSvc}),
+		bind.NewService(bind.ServiceConfig{
+			DB:   db,
+			RBAC: rbacSvc,
+			Held: apiauth.HeldTables(),
+		}),
 	)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	createChannels = bind.Write(binder, apiSvc.Create)
+	deleteChannels = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),

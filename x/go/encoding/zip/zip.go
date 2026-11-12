@@ -13,7 +13,6 @@ package zip
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"io"
 	"io/fs"
 	"maps"
@@ -51,15 +50,15 @@ type codec struct{}
 
 func (codec) ContentType() string { return "application/zip" }
 
-func (c codec) Encode(ctx context.Context, value any) ([]byte, error) {
+func (c codec) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := c.EncodeStream(ctx, &buf, value); err != nil {
+	if err := c.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (codec) EncodeStream(w io.Writer, value any) error {
 	files, ok := value.(Files)
 	if !ok {
 		return encoding.SugarEncodingError(
@@ -87,7 +86,7 @@ func (codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-func (codec) Decode(_ context.Context, data []byte, value any) error {
+func (codec) Decode(data []byte, value any) error {
 	files, ok := value.(*Files)
 	if !ok {
 		return encoding.SugarDecodingError(
@@ -180,12 +179,12 @@ func stripSharedRoot(names []string) {
 	}
 }
 
-func (c codec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+func (c codec) DecodeStream(r io.Reader, value any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return encoding.SugarDecodingError(nil, value, err)
 	}
-	return c.Decode(ctx, data, value)
+	return c.Decode(data, value)
 }
 
 // validateEntryName returns an error wrapping validate.ErrValidation when name is not

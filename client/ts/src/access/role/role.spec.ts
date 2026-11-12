@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Action } from "@/access/action/types.gen";
-import { type role } from "@/access/role";
+import { role } from "@/access/role";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -23,7 +23,6 @@ import {
   expectLive,
   RoleClients,
 } from "@/testutil";
-import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -91,6 +90,27 @@ describe("role", () => {
     });
   });
 
+  describe("rename", () => {
+    it("should rename the role", async () => {
+      const r = await createRole();
+      const name = `renamed-${id.create()}`;
+      await client.access.roles.rename(r.key, name);
+      expect((await createTestClient().access.roles.retrieve(r.key)).name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the role", async () => {
+      const r = await createRole();
+      await client.access.roles.dispatch(
+        r.key,
+        role.set({ path: ["description"], value: "dispatched" }),
+      );
+      const stored = await createTestClient().access.roles.retrieve(r.key);
+      expect(stored.description).toBe("dispatched");
+    });
+  });
+
   describe("delete", () => {
     it("should allow the caller to delete a role", async () => {
       const created = await client.access.roles.create({
@@ -134,7 +154,9 @@ describe("role", () => {
             "uses it as its role: validation error",
         ),
       );
-      expect(expectLive(client.access.roles.getCached(held.key)).key).toEqual(held.key);
+      expect(expectLive(client.access.roles.watch(held.key).getCached()).key).toEqual(
+        held.key,
+      );
       const fresh = createTestClient();
       expect((await fresh.access.roles.retrieve(held.key)).key).toEqual(held.key);
       expect((await fresh.users.retrieve(u.key)).role).toEqual(held.key);
@@ -145,10 +167,9 @@ describe("role", () => {
     it("should connect a client holding a built-in role's permissions", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
-      const { key } = await viewer.users.current.retrieve();
-      const subject = user.resourceID(key);
+      const grantee = await viewer.users.current.retrieve();
       const granted = async (action: Action) =>
-        await viewer.access.granted.retrieve(subject, {
+        await viewer.access.granted.retrieve(grantee, {
           objects: channel.TYPE_RESOURCE_ID,
           action,
         });
@@ -192,7 +213,7 @@ describe("cached reads", () => {
       const first = await client.access.roles.retrieve(r.key);
       expect(first.name).toEqual(r.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.roles.create({ ...r, name: renamed });
+      await remote.access.roles.rename(r.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -212,7 +233,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const r = await createRole();
-      const cached = expectLive(client.access.roles.getCached(r.key));
+      const cached = expectLive(client.access.roles.watch(r.key).getCached());
       expect(cached.name).toEqual(r.name);
     });
   });
@@ -221,14 +242,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const r = await createRole();
       const handler = vi.fn();
-      const off = client.access.roles.onChange(r.key, handler);
+      const off = client.access.roles.watch(r.key).onChange(handler);
       try {
         await client.access.roles.retrieve(r.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.roles.create({ ...r, name: renamed });
+        await remote.access.roles.rename(r.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.access.roles.getCached(r.key);
+            const cached = client.access.roles.watch(r.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -241,12 +262,14 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const r = await createRole();
       const results: Array<query.Cached<role.Role> | undefined> = [];
-      const off = client.access.roles.onChange(r.key, (res) => results.push(res));
+      const off = client.access.roles.watch(r.key).onChange((res) => results.push(res));
       try {
         await client.access.roles.retrieve(r.key);
         await remote.access.roles.delete(r.key);
         await expect
-          .poll(() => query.Deleted.matches(client.access.roles.getCached(r.key)))
+          .poll(() =>
+            query.Deleted.matches(client.access.roles.watch(r.key).getCached()),
+          )
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(r.name);

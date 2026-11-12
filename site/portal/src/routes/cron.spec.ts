@@ -9,6 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { GET as audienceRoute } from "@/pages/api/cron/audience";
 import { GET as digestRoute } from "@/pages/api/cron/digest";
 import { GET } from "@/pages/api/cron/expiry";
 import { GET as sessionsRoute } from "@/pages/api/cron/sessions";
@@ -293,5 +294,38 @@ describe("GET /api/cron/sessions", () => {
     );
     await get(`Bearer ${CRON_SECRET}`);
     expect(h.slack.posted).toEqual([]);
+  });
+});
+
+describe("GET /api/cron/audience", () => {
+  let store: Memory;
+  let h: Harness;
+
+  beforeAll(async () => {
+    store = await openMemory();
+  });
+
+  beforeEach(() => {
+    h = createHarness(store);
+    h.directory.people.user_ada = { email: "ada@acme.com", name: "Ada" };
+  });
+
+  const get = async (authorization?: string): Promise<Response> =>
+    await audienceRoute(
+      createAPIContext(h.portal, {
+        method: "GET",
+        headers: authorization == null ? {} : { authorization },
+      }),
+    );
+
+  it("should refuse a call without the cron secret", async () => {
+    expect((await get()).status).toBe(401);
+    expect(h.audience.contacts.size).toBe(0);
+  });
+
+  it("should add every account to the release notes list", async () => {
+    const res = await get(`Bearer ${CRON_SECRET}`);
+    expect(await body(res)).toEqual({ added: 1, removed: 0 });
+    expect([...h.audience.contacts.keys()]).toEqual(["ada@acme.com"]);
   });
 });

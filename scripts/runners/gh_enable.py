@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.59,<0.60"]
+# dependencies = ["boto3", "synnax>=0.60,<0.61"]
 # ///
 
 """Starts the runner service on an instance over SSM.

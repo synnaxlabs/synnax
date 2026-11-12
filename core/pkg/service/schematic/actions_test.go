@@ -870,25 +870,23 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
+		It("Should error with a zero state when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+			Expect(schematic.Reduce(state, schematic.Action{Type: "made_up"})).
+				Error().To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
 			"Should error when Type names a variant whose payload pointer is nil",
 			func(actionType string) {
 				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
+				Expect(schematic.Reduce(state, schematic.Action{Type: actionType})).
+					Error().To(MatchError(union.ErrMissingPayload))
 			},
-			Entry("rename", schematic.ActionTypeRename),
+			Entry("set", schematic.ActionTypeSet),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
 			Entry("set_node", schematic.ActionTypeSetNode),
 			Entry("remove_node", schematic.ActionTypeRemoveNode),
@@ -974,7 +972,7 @@ var _ = Describe("Payload decoding", func() {
 	})
 
 	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
-		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
 			"type": "set_config",
 			"set_config": map[string]any{
 				"key": "l1",
@@ -985,7 +983,7 @@ var _ = Describe("Payload decoding", func() {
 			},
 		}))
 		var a schematic.Action
-		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
+		Expect(msgpack.Codec.Decode(body, &a)).To(Succeed())
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
@@ -1052,13 +1050,39 @@ var _ = Describe("Path actions", func() {
 			Expect(tank(next).Label.Label).To(Equal("T1"))
 		})
 
-		It("Should reject a path outside the element configs", func() {
-			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
+		It("Should set the name", func() {
+			next := MustSucceed(schematic.Reduce(state, set([]string{"name"}, "Other")))
+			Expect(next.Name).To(Equal("Other"))
+			Expect(next.Configs).To(Equal(state.Configs))
+		})
+
+		It("Should reject a name that is not a string", func() {
+			Expect(schematic.Reduce(state, set([]string{"name"}, 1))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("the path is not inside an entry of")),
+				MatchError(ContainSubstring("decoding document")),
 			))
 		})
+
+		DescribeTable("Should reject", func(path []string, value any, msg string) {
+			Expect(schematic.Reduce(state, set(path, value))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+			Entry(
+				"a path to another field",
+				[]string{"nodes"},
+				[]any{},
+				`unknown object member name "nodes"`,
+			),
+			Entry(
+				"a path to the element configs map",
+				[]string{"configs"},
+				map[string]any{},
+				"the path is not inside an entry of",
+			),
+		)
 
 		It("Should reject a value that fails the element config's schema", func() {
 			Expect(schematic.Reduce(
@@ -1091,6 +1115,15 @@ var _ = Describe("Path actions", func() {
 				schematic.RemovePayload{Path: []string{"configs"}, Key: "n1"},
 			)))
 			Expect(next.Configs).To(BeEmpty())
+		})
+
+		It("Should reject a remove of the name", func() {
+			Expect(schematic.Reduce(state, schematic.NewRemoveAction(
+				schematic.RemovePayload{Key: "name"},
+			))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("[name]: the document requires a value")),
+			))
 		})
 	})
 

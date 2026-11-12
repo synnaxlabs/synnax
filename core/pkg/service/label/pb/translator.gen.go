@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 // LabelToPB converts Label to Label.
@@ -33,21 +34,28 @@ func LabelToPB(r label.Label) (*Label, error) {
 }
 
 // LabelFromPB converts Label to Label.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func LabelFromPB(pb *Label) (label.Label, error) {
 	var r label.Label
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return label.Label{}, err
 	}
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return label.Label{}, err
+	if pb.Color != nil {
+		r.Color, err = colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return label.Label{}, err
+		}
 	}
 	r.Name = pb.Name
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

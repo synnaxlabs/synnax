@@ -34,6 +34,8 @@ var _ = Describe("Valid", func() {
 		Entry("release", "0.60.1", true),
 		Entry("candidate", "0.60.0-rc.1", true),
 		Entry("v prefix", "v0.60.1", false),
+		Entry("short", "0.61", false),
+		Entry("build metadata", "0.61.0+build", false),
 		Entry("empty", "", false),
 		Entry("garbage", "garbage", false),
 	)

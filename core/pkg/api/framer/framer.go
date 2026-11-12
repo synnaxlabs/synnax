@@ -69,12 +69,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Records maps each channel whose samples describe records to the function that
-	// finds the record of a sample. A streamer sends such a sample only to a subject
-	// that can retrieve its record.
+	// Records maps each channel whose samples describe records to the Record that finds
+	// the record of a sample. A streamer sends such a sample only to a subject that can
+	// retrieve its record.
 	//
 	// [OPTIONAL]
-	Records map[channel.Key]signals.RecordOf
+	Records map[channel.Key]signals.Record
 }
 
 var (
@@ -109,7 +109,7 @@ type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
-	records  map[channel.Key]signals.RecordOf
+	records  map[channel.Key]signals.Record
 	alamos.Instrumentation
 }
 
@@ -438,7 +438,7 @@ func (s *Service) openIterator(
 		Variant: framer.IteratorResponseVariantAck,
 		Ack:     true,
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(iter))
 	}
 	return iter, nil
 }
@@ -464,6 +464,10 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	if err != nil {
 		return err
 	}
+	records, err := s.newRecordSender(sCtx, subject, stream)
+	if err != nil {
+		return err
+	}
 	var (
 		receiver = &freightfluence.TransformReceiver[StreamerRequest, StreamerRequest]{
 			Receiver: stream,
@@ -481,12 +485,7 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		}
 		sender = &freightfluence.Sender[StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
-				StreamSender: recordSender{
-					StreamSender: stream,
-					ctx:          sCtx,
-					subject:      subject,
-					service:      s,
-				},
+				StreamSender: records,
 			},
 			KeepAliveInterval: req.KeepAlive.Duration(),
 			NewKeepAlive: func() StreamerResponse {
@@ -753,7 +752,18 @@ func (s *Service) openWriter(
 		Command: framer.WriterCommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, release(w))
 	}
 	return w, nil
+}
+
+// release frees what an opened segment owns when the segment will never join a
+// pipeline. Its routines run on a canceled context only to release it.
+func release[I, O confluence.Value](seg confluence.Segment[I, O]) error {
+	sCtx, cancel := signal.Isolated()
+	seg.InFrom(confluence.NewStream[I]())
+	seg.OutTo(confluence.NewStream[O]())
+	cancel()
+	seg.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return errors.Skip(sCtx.Wait(), context.Canceled)
 }

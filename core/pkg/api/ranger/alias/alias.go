@@ -13,8 +13,10 @@ import (
 	"context"
 	"maps"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -73,12 +75,26 @@ type SetRequest struct {
 }
 
 // Set creates or updates the aliases of the channels on the range. It returns an error
-// wrapping query.ErrNotFound when a channel does not exist.
+// wrapping query.ErrNotFound when a channel does not exist, and an error wrapping
+// validate.ErrValidation when the request gives one alias to two channels.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (struct{}, error) {
+	held := make(map[string]channel.Key, len(req.Aliases))
+	for ch, a := range req.Aliases {
+		if other, ok := held[a]; ok {
+			return struct{}{}, errors.Wrapf(
+				validate.ErrValidation,
+				"alias %q is given to channels %s and %s",
+				a,
+				other,
+				ch,
+			)
+		}
+		held[a] = ch
+	}
 	w := s.alias.NewWriter(tx)
 	for k, v := range req.Aliases {
 		if err := w.Set(ctx, req.Range, k, v); err != nil {
@@ -99,7 +115,10 @@ type (
 )
 
 // Resolve returns the channel of each alias on the range. It leaves out an alias that
-// names no channel or that the subject cannot retrieve.
+// names no channel the subject can retrieve. When the alias names more than one
+// channel, it returns an error wrapping alias.ErrAmbiguous if the subject can retrieve
+// two or more of them, and otherwise leaves the alias out, so the response never shows
+// a channel the subject cannot retrieve.
 func (s *Service) Resolve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -108,15 +127,36 @@ func (s *Service) Resolve(
 	reader := s.alias.NewReader(snap)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 	for _, a := range req.Aliases {
-		ch, err := reader.Resolve(ctx, req.Range, a)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
+		holders, err := reader.Holders(ctx, req.Range, a)
+		if err != nil {
 			return ResolveResponse{}, err
 		}
-		if ch != 0 && snap.Allowed(alias.ResourceID(req.Range, ch)) {
-			aliases[a] = ch
+		visible := lo.Filter(holders, func(ch channel.Key, _ int) bool {
+			return snap.Allowed(alias.ResourceID(req.Range, ch))
+		})
+		if len(visible) > 1 {
+			return ResolveResponse{}, errors.Wrapf(alias.ErrAmbiguous, "alias %q", a)
+		}
+		if len(holders) == 1 && len(visible) == 1 {
+			aliases[a] = visible[0]
 		}
 	}
 	return ResolveResponse{Aliases: aliases}, nil
+}
+
+// DispatchRequest carries a sequence of actions to apply to the alias with the Gorp key
+// Key.
+type DispatchRequest = actions.DispatchRequest[string, alias.Action]
+
+// Dispatch applies the action sequence to the alias in tx.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.alias.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 type DeleteRequest struct {

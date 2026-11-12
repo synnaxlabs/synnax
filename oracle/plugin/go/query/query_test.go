@@ -73,7 +73,6 @@ var _ = Describe("Go Query Plugin", func() {
 							"func (r Retrieve) Entry(e *Foo) Retrieve",
 							"func (r Retrieve) Entries(es *[]Foo) Retrieve",
 							"func (r Retrieve) Limit(limit int) Retrieve",
-							"func (r Retrieve) Offset(offset int) Retrieve",
 							"func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error",
 							"return r.gorp.Exec(ctx, snap)",
 							"func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error)",
@@ -219,7 +218,7 @@ var _ = Describe("Go Query Plugin", func() {
 					resp := MustGenerate(ctx, source, "view", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
 				},
-				Entry("filter", "@filter", "slices.Contains(vals, e.Base().Name)"),
+				Entry("filter", "@filter", "want.Contains(e.Base().Name)"),
 				Entry("index", "@index lookup", "return e.Base().Name"),
 				Entry("search", "@search", "[]string{e.Base().Name}"),
 			)
@@ -253,7 +252,7 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func MatchTypes(vals ...Type) Filter",
-					"slices.Contains(vals, e.Type())",
+					"want.Contains(e.Type())",
 				)
 			})
 
@@ -578,7 +577,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"slices.Contains(vals",
+						"want.Contains(",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -634,6 +633,34 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
+			It(
+				"Should pluralize an uncountable name apart in prose and identifiers",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/series"
+
+					Series struct {
+						key uuid {
+							@key
+						}
+						metadata string {
+							@filter
+						}
+						@resource type "series"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "series", loader, p)
+
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"func MatchMetadataList(vals ...string) Filter",
+							"// Limit sets the maximum number of series to return.",
+						).
+						ToNotContain("seriesList")
+				},
+			)
+
 			It("Should generate a slice filter", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
@@ -655,7 +682,8 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"slices.Contains(vals, e.Username)",
+						"want := set.New(vals...)",
+						"want.Contains(e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -723,7 +751,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"slices.Contains(vals, e.Rack)",
+							"want.Contains(e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -1091,10 +1119,33 @@ var _ = Describe("Go Query Plugin", func() {
 				`
 				req := MustGenerateRequest(ctx, source, "status", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-					"status.Status: @retrieve indexes generates no matchers or " +
-						"orderings, so field name cannot take @filter or @index sorted",
+					"status.Status: @retrieve indexes generates no matchers, so field " +
+						"name cannot take @filter",
 				)))
 			})
+
+			It(
+				"Should generate orderings under @retrieve indexes",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+
+					Task struct {
+						key  uint64 { @key }
+						name string { @index sorted }
+						@retrieve indexes
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"type Order func(r Retrieve) gorp.OrderQuery[uint64, Task]",
+							"func (r Retrieve) OrderBy(o Order) Retrieve",
+							"func OrderByName(dir gorp.Direction) Order {",
+						).
+						ToNotContain("func (r Retrieve) After(")
+				},
+			)
 		})
 
 		Context("key types", func() {
@@ -1171,7 +1222,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should import slices for variadic filters", func(ctx SpecContext) {
+			It("Should import set for variadic filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -1189,10 +1240,13 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("\"slices\"")
+					ToContain(`"github.com/synnaxlabs/synnax/x/go/set"`).
+					ToNotContain("\"slices\"")
 			})
 
-			It("Should not import slices for bool-only filters", func(ctx SpecContext) {
+			It("Should not import slices or set for bool-only filters", func(
+				ctx SpecContext,
+			) {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1210,7 +1264,10 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToNotContain("\"slices\"")
+					ToNotContain(
+						"\"slices\"",
+						`"github.com/synnaxlabs/synnax/x/go/set"`,
+					)
 			})
 
 			It(
@@ -1272,7 +1329,6 @@ var _ = Describe("Go Query Plugin", func() {
 						"// Entry binds the provided foo as the result",
 						"// Entries binds the provided slice of foos",
 						"// Limit sets the maximum number of foos",
-						"// Offset sets the starting index of the foos",
 						"// Exec executes the query",
 						"// Count returns the number of foos",
 						"// Exists checks whether any foos",
@@ -1328,7 +1384,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"slices.Contains(vals",
+							"want.Contains(",
 						)
 				},
 			)
@@ -1396,19 +1452,130 @@ var _ = Describe("Go Query Plugin", func() {
 							"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
 							"func (r Retrieve) OrderBy(o Order) Retrieve",
 							"r.gorp = r.gorp.OrderBy(o(r))",
-							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
-							"q := r.indexes.createdAt.Ordered(dir)",
-							"q = q.After(cursor[0])",
+							"func OrderByCreatedAt(dir gorp.Direction) Order {",
+							"return r.indexes.createdAt.Ordered(dir)",
+							"func OrderByCreatedAtAfter(\n\tdir gorp.Direction,\n\tvalue int64,\n\tkey uuid.UUID,\n) Order {",
+							"return r.indexes.createdAt.Ordered(dir).After(value, key)",
 						).
 						ToNotContain(
 							"newCreatedAtIndex",
 							"var createdAtIndex",
 							"func ByCreatedAt(",
 							"func (r Retrieve) OrderByCreatedAt",
-							"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy",
+							"x/go/compare",
 						)
 				},
 			)
+
+			It("Should sort a string by its text key", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key  uuid   { @key }
+						name string {
+							@filter scalar
+							@index sorted
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						`"github.com/synnaxlabs/synnax/x/go/compare"`,
+						"name *gorp.SortedIndex[uuid.UUID, Event, string]",
+						"return compare.TextKey(string(e.Name))",
+						"value string,",
+						"compare.TextKey(string(value)),",
+						"r.indexes.name.Filter(compare.TextKey(string(v))),",
+						"return e.Name == v, nil",
+					)
+			})
+
+			It(
+				"Should match a list of strings through their text keys",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/event"
+
+					Event struct {
+						key  uuid   { @key }
+						name string {
+							@filter
+							@index sorted
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "event", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`"github.com/synnaxlabs/synnax/x/go/set"`,
+							"keys[i] = compare.TextKey(string(v))",
+							"want := set.New(vals...)",
+							"r.indexes.name.Filter(keys...),",
+							"return want.Contains(e.Name), nil",
+						)
+				},
+			)
+
+			It("Should sort by a sub-field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Span struct {
+						start int64
+						end   int64
+					}
+
+					Event struct {
+						key  uuid { @key }
+						span Span {
+							@filter scalar
+							@index sorted start
+						}
+						@resource type "event"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
+						"\"span_start\"",
+						"return e.Span.Start",
+						"func OrderBySpanStart(dir gorp.Direction) Order {",
+						"func OrderBySpanStartAfter(",
+					).
+					ToNotContain("r.indexes.spanStart.Filter(")
+			})
+
+			It("Should sort a generic type over any", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/event"
+
+					Event struct<D?> {
+						key     uuid   { @key }
+						name    string { @index sorted }
+						details D
+						@retrieve indexes
+					}
+				`
+				resp := MustGenerate(ctx, source, "event", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"type Order[D any] func(r Retrieve[D]) "+
+							"gorp.OrderQuery[uuid.UUID, Event[D]]",
+						"func (r Retrieve[D]) OrderBy(o Order[D]) Retrieve[D] {",
+						"func OrderByName(dir gorp.Direction) Order[any] {",
+						"return func(r Retrieve[any]) gorp.OrderQuery[uuid.UUID, Event[any]] {",
+					)
+			})
 
 			It(
 				"Should not emit an indexes struct when no fields have @index",

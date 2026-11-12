@@ -18,7 +18,7 @@ import { type Key, keyZ } from "@/ranger/types.gen";
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
 const getResZ = z.object({ pairs: pairZ.array().default(() => []) });
-const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
+const setReqZ = z.object({ pairs: pairZ.array() });
 const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 
 export class Client {
@@ -74,12 +74,7 @@ export class Client {
       rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.client.send(
-          "/range/kv/set",
-          { range: this.rangeKey, pairs },
-          setReqZ,
-          z.unknown(),
-        ),
+        await this.client.send("/range/kv/set", { pairs }, setReqZ, z.unknown()),
     });
     apply();
   }

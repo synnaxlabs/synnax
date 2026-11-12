@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -44,12 +45,10 @@ var (
 	rbacSvc     *rbac.Service
 	root        user.User
 	// The handlers below run their routes as the API layer binds them.
-	create         freighter.UnaryHandler[apiuser.CreateRequest, apiuser.CreateResponse]
-	changeUsername freighter.UnaryHandler[apiuser.ChangeUsernameRequest, struct{}]
-	del            freighter.UnaryHandler[apiuser.DeleteRequest, struct{}]
-	rename         freighter.UnaryHandler[apiuser.RenameRequest, struct{}]
-	setRole        freighter.UnaryHandler[apiuser.SetRoleRequest, struct{}]
-	retrieve       freighter.UnaryHandler[
+	create   freighter.UnaryHandler[apiuser.CreateRequest, apiuser.CreateResponse]
+	del      freighter.UnaryHandler[apiuser.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiuser.DispatchRequest, struct{}]
+	retrieve freighter.UnaryHandler[
 		apiuser.RetrieveRequest,
 		apiuser.RetrieveResponse,
 	]
@@ -93,12 +92,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Password: passwordSvc,
 	}))
 	root = findRoot(ctx, userSvc)
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.WritePrepared(binder, apiSvc.PrepareCreate, apiSvc.Create)
-	changeUsername = bind.Write(binder, apiSvc.ChangeUsername)
 	del = bind.Write(binder, apiSvc.Delete)
-	rename = bind.Write(binder, apiSvc.Rename)
-	setRole = bind.Write(binder, apiSvc.SetRole)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

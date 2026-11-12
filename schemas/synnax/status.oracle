@@ -55,10 +55,11 @@ Status struct<Details?, V extends Variant = Variant> {
         @key
     }
     name        string = "" {
-        @doc value """
+        @doc value    """
             is the name of what the status is about, such as a task, device, or rack.
             Empty when the status is not about a named thing.
         """
+        @index sorted
         @search
     }
     variant     V               {
@@ -101,8 +102,17 @@ Status struct<Details?, V extends Variant = Variant> {
         """
         @ref kind      place
         @ref on_delete cascade
-        @ref types     rack task device channel
+        @ref types     rack task device channel arc ni_device ni_chassis
         @ref unique
+    }
+
+    action Set {
+        status Status<any>
+
+        @doc value """
+            replaces the status with the given state. Emitted by the Core on every write
+            to the status; clients never dispatch it.
+        """
     }
 
     @create

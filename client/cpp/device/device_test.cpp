@@ -28,7 +28,7 @@ TEST(DeviceTests, testCreateDevice) {
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
-        .key = "asdfjahsdfkasjdfhaks",
+        .key = "asdfjahsdfkasjdfhaks_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -46,7 +46,7 @@ TEST(DeviceTests, testRetrieveDevice) {
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
-        .key = "asdfjahsdfkasjdfhaks",
+        .key = "asdfjahsdfkasjdfhaks_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -60,6 +60,81 @@ TEST(DeviceTests, testRetrieveDevice) {
     ASSERT_EQ(d2.key, d.key);
 }
 
+/// @brief it should set the fields of a device with a dispatch, and keep the others.
+TEST(DeviceTests, testDispatch) {
+    const auto client = new_test_client();
+    const auto r = ASSERT_NIL_P(client.racks.create("test_rack"));
+    auto d = Device{
+        .key = "dispatch_" + std::to_string(gen_rand_device()),
+        .rack = r.key,
+        .location = "slot-1",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "test_device",
+        .properties = {{"a", "1"}},
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const x::json::json properties = {{"a", "2"}, {"b", "3"}};
+    ASSERT_NIL(client.devices.dispatch(
+        d.key,
+        {set({.path = {"location"}, .value = "slot-2"}),
+         set({.path = {"model"}, .value = "other_model"}),
+         set({.path = {"properties"}, .value = properties})}
+    ));
+    const auto got = ASSERT_NIL_P(client.devices.retrieve(d.key));
+    ASSERT_EQ(got.location, "slot-2");
+    ASSERT_EQ(got.model, "other_model");
+    ASSERT_EQ(x::json::json(got.properties), properties);
+    ASSERT_EQ(got.name, "test_device");
+    ASSERT_EQ(got.make, "test_make");
+}
+
+/// @brief it should move a device to another rack and parent with a dispatch.
+TEST(DeviceTests, testDispatchSetRack) {
+    const auto client = new_test_client();
+    const auto from = ASSERT_NIL_P(client.racks.create("test_rack_from"));
+    const auto to = ASSERT_NIL_P(client.racks.create("test_rack_to"));
+    const auto rand = std::to_string(gen_rand_device());
+    auto chassis = Device{
+        .key = "dispatch_chassis_" + rand,
+        .rack = to.key,
+        .location = "chassis",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "chassis",
+    };
+    ASSERT_NIL(client.devices.create(chassis));
+    auto d = Device{
+        .key = "dispatch_module_" + rand,
+        .rack = from.key,
+        .location = "slot-1",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "module",
+    };
+    ASSERT_NIL(client.devices.create(d));
+    ASSERT_NIL(client.devices.dispatch(
+        d.key,
+        {set_rack({.rack = to.key, .parent = chassis.key})}
+    ));
+    const auto got = ASSERT_NIL_P(client.devices.retrieve(d.key));
+    ASSERT_EQ(got.rack, to.key);
+    ASSERT_EQ(got.parent, chassis.key);
+}
+
+/// @brief it should return a not found error when it dispatches to a device that does
+/// not exist.
+TEST(DeviceTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.devices.dispatch(
+            "missing_" + std::to_string(gen_rand_device()),
+            {set({.path = {"name"}, .value = "renamed"})}
+        ),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should correctly retrieve multiple devices.
 TEST(DeviceTests, testRetrieveDevices) {
     const auto client = new_test_client();
@@ -67,7 +142,7 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -78,7 +153,7 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -116,7 +191,7 @@ TEST(DeviceTests, testCreateDevices) {
 
     std::vector devices = {
         Device{
-            .key = "device1_key",
+            .key = "device1_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_1",
             .make = "make_1",
@@ -125,7 +200,7 @@ TEST(DeviceTests, testCreateDevices) {
             .properties = {{"properties_1", "value"}},
         },
         Device{
-            .key = "device2_key",
+            .key = "device2_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_2",
             .make = "make_2",
@@ -134,7 +209,7 @@ TEST(DeviceTests, testCreateDevices) {
             .properties = {{"properties_2", "value"}},
         },
         Device{
-            .key = "device3_key",
+            .key = "device3_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_3",
             .make = "make_3",
@@ -182,7 +257,7 @@ TEST(DeviceTests, testDeviceConfigured) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -194,7 +269,7 @@ TEST(DeviceTests, testDeviceConfigured) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -226,7 +301,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -237,7 +312,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -263,7 +338,7 @@ TEST(DeviceTests, testDeleteDevice) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d = Device{
-        .key = "device_key",
+        .key = "device_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -284,7 +359,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -295,7 +370,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -410,7 +485,7 @@ TEST(DeviceTests, testRetrieveMissingKey) {
     ASSERT_EQ(devices[0].key, d.key);
 }
 /// @brief it should page a retrieve of devices by filter or by keys.
-TEST(DeviceTests, testRetrieveWithLimitOffset) {
+TEST(DeviceTests, testRetrieveWithLimitAndCursor) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -435,13 +510,14 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         client.devices.retrieve(where, {.limit = 2})
     );
     ASSERT_EQ(devices_limited.size(), 2);
-    const auto devices_offset = ASSERT_NIL_P(
-        client.devices.retrieve(where, {.limit = 2, .offset = 2})
-    );
-    ASSERT_EQ(devices_offset.size(), 2);
+    const auto devices_after = ASSERT_NIL_P(client.devices.retrieve(
+        where,
+        {.after = Cursor{.key = devices_limited[1].key}, .limit = 2}
+    ));
+    ASSERT_EQ(devices_after.size(), 2);
     bool different = true;
     for (const auto &da: devices_limited)
-        for (const auto &db: devices_offset)
+        for (const auto &db: devices_after)
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
     std::vector<std::string> keys;
@@ -450,7 +526,9 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
         keys.push_back(d.key);
     const auto by_key = ASSERT_NIL_P(client.devices.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
-    const auto by_key_rest = ASSERT_NIL_P(client.devices.retrieve(keys, {.offset = 4}));
+    const auto by_key_rest = ASSERT_NIL_P(
+        client.devices.retrieve(keys, {.after = Cursor{.key = keys[3]}})
+    );
     ASSERT_EQ(by_key_rest.size(), 1);
 }
 
@@ -506,11 +584,11 @@ TEST(DeviceTests, testRetrieveOneWhereNotFound) {
     ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one device.
+/// @brief it should reject a limit or a cursor on a retrieve of one device.
 TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.devices.retrieve("device", options).second,
               client.devices.retrieve(Where{.key = "device"}, x::filter::one, options)
@@ -518,11 +596,10 @@ TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should correctly create and retrieve a device with a status.

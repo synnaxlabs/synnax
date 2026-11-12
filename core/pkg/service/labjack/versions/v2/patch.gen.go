@@ -17,70 +17,6 @@ import (
 )
 
 // Patch applies the path action at c, which is not done, to the value.
-func (rc *ReadConfig) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
-	case "auto_start":
-		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
-	case "data_saving_disabled":
-		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
-	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
-	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
-	case "device":
-		return patch.Value(&rc.Device, c.Next())
-	case "channels":
-		return patch.List(&rc.Channels, c.Next())
-	case "device_scan_backlog_warn_on_count":
-		return patch.Value(&rc.DeviceScanBacklogWarnOnCount, c.Next())
-	case "ljm_scan_backlog_warn_on_count":
-		return patch.Value(&rc.LjmScanBacklogWarnOnCount, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (rc *ReadConfig) HashContent(h *content.Hash) {
-	h.Bool(rc.ReadConfig.PersistConfig.StartConfig.AutoStart)
-	h.Bool(rc.ReadConfig.PersistConfig.DataSavingDisabled)
-	h.Float(float64(rc.ReadConfig.SampleRate))
-	h.Float(float64(rc.ReadConfig.StreamRate))
-	h.String(rc.Device)
-	h.Len(len(rc.Channels))
-	for i0 := range rc.Channels {
-		rc.Channels[i0].HashContent(h)
-	}
-	h.Uint(uint64(rc.DeviceScanBacklogWarnOnCount))
-	h.Uint(uint64(rc.LjmScanBacklogWarnOnCount))
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (sc *ScanConfig) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
-	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
-	case "disabled":
-		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
-	case "tcp_scan_multiplier":
-		return patch.Value(&sc.TCPScanMultiplier, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (sc *ScanConfig) HashContent(h *content.Hash) {
-	h.Float(float64(sc.ScanConfig.Rate))
-	h.Bool(sc.ScanConfig.Disabled)
-	h.Int(int64(sc.TCPScanMultiplier))
-}
-
-// Patch applies the path action at c, which is not done, to the value.
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
@@ -92,7 +28,9 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.WriteConfig.Device, c.Next())
 	case "state_rate":
-		return patch.Value(&wc.StateRate, c.Next())
+		return patch.Defaulted(&wc.StateRate, c.Next(), func(def *WriteConfig) {
+			wc.StateRate = def.StateRate
+		})
 	case "channels":
 		return patch.List(&wc.Channels, c.Next())
 	default:
@@ -110,197 +48,6 @@ func (wc *WriteConfig) HashContent(h *content.Hash) {
 	for i0 := range wc.Channels {
 		wc.Channels[i0].HashContent(h)
 	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (rc *ReadChannel) Patch(c patch.Cursor) error {
-	switch v := rc.Variant.(type) {
-	case AnalogReadChannel:
-		c, ok := c.Guard("type", "analog")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rc, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rc.Variant = v
-		return nil
-	case DigitalReadChannel:
-		c, ok := c.Guard("type", "digital")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rc, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rc.Variant = v
-		return nil
-	case ThermocoupleReadChannel:
-		c, ok := c.Guard("type", "thermocouple")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rc, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rc.Variant = v
-		return nil
-	default:
-		return patch.Absent(rc, c, "type")
-	}
-}
-
-// PatchKey returns the key that paths name the value by in a list.
-func (rc *ReadChannel) PatchKey() string {
-	switch v := rc.Variant.(type) {
-	case AnalogReadChannel:
-		return v.BaseReadChannel.Key
-	case DigitalReadChannel:
-		return v.BaseReadChannel.Key
-	case ThermocoupleReadChannel:
-		return v.BaseReadChannel.Key
-	}
-	return ""
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (rc *ReadChannel) HashContent(h *content.Hash) {
-	switch v := rc.Variant.(type) {
-	case AnalogReadChannel:
-		h.String("analog")
-		v.HashContent(h)
-	case DigitalReadChannel:
-		h.String("digital")
-		v.HashContent(h)
-	case ThermocoupleReadChannel:
-		h.String("thermocouple")
-		v.HashContent(h)
-	default:
-		h.String("")
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (arc *AnalogReadChannel) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&arc.BaseReadChannel.Key, c.Next())
-	case "name":
-		return patch.Value(&arc.BaseReadChannel.Name, c.Next())
-	case "disabled":
-		return patch.Value(&arc.BaseReadChannel.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&arc.BaseReadChannel.Channel, c.Next())
-	case "port":
-		return patch.Value(&arc.BaseReadChannel.Port, c.Next())
-	case "range":
-		return patch.Value(&arc.Range, c.Next())
-	case "neg_chan":
-		return patch.Value(&arc.NegChan, c.Next())
-	case "scale":
-		if c = c.Next(); c.Done() {
-			return patch.Value(&arc.Scale, c)
-		}
-		return arc.Scale.Patch(c)
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (arc *AnalogReadChannel) HashContent(h *content.Hash) {
-	h.String(arc.BaseReadChannel.Name)
-	h.Bool(arc.BaseReadChannel.Disabled)
-	h.Uint(uint64(arc.BaseReadChannel.Channel))
-	h.String(arc.BaseReadChannel.Port)
-	h.Float(arc.Range)
-	h.Int(int64(arc.NegChan))
-	arc.Scale.HashContent(h)
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (drc *DigitalReadChannel) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&drc.BaseReadChannel.Key, c.Next())
-	case "name":
-		return patch.Value(&drc.BaseReadChannel.Name, c.Next())
-	case "disabled":
-		return patch.Value(&drc.BaseReadChannel.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&drc.BaseReadChannel.Channel, c.Next())
-	case "port":
-		return patch.Value(&drc.BaseReadChannel.Port, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (drc *DigitalReadChannel) HashContent(h *content.Hash) {
-	h.String(drc.BaseReadChannel.Name)
-	h.Bool(drc.BaseReadChannel.Disabled)
-	h.Uint(uint64(drc.BaseReadChannel.Channel))
-	h.String(drc.BaseReadChannel.Port)
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (trc *ThermocoupleReadChannel) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&trc.BaseReadChannel.Key, c.Next())
-	case "name":
-		return patch.Value(&trc.BaseReadChannel.Name, c.Next())
-	case "disabled":
-		return patch.Value(&trc.BaseReadChannel.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&trc.BaseReadChannel.Channel, c.Next())
-	case "port":
-		return patch.Value(&trc.BaseReadChannel.Port, c.Next())
-	case "thermocouple_type":
-		return patch.Value(&trc.ThermocoupleType, c.Next())
-	case "neg_chan":
-		return patch.Value(&trc.NegChan, c.Next())
-	case "cjc_source":
-		return patch.Value(&trc.CjcSource, c.Next())
-	case "cjc_slope":
-		return patch.Value(&trc.CjcSlope, c.Next())
-	case "cjc_offset":
-		return patch.Value(&trc.CjcOffset, c.Next())
-	case "units":
-		return patch.Value(&trc.Units, c.Next())
-	case "scale":
-		if c = c.Next(); c.Done() {
-			return patch.Value(&trc.Scale, c)
-		}
-		return trc.Scale.Patch(c)
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (trc *ThermocoupleReadChannel) HashContent(h *content.Hash) {
-	h.String(trc.BaseReadChannel.Name)
-	h.Bool(trc.BaseReadChannel.Disabled)
-	h.Uint(uint64(trc.BaseReadChannel.Channel))
-	h.String(trc.BaseReadChannel.Port)
-	h.String(string(trc.ThermocoupleType))
-	h.Int(int64(trc.NegChan))
-	h.String(trc.CjcSource)
-	h.Float(trc.CjcSlope)
-	h.Float(trc.CjcOffset)
-	h.String(string(trc.Units))
-	trc.Scale.HashContent(h)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -378,7 +125,9 @@ func (awc *AnalogWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&awc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&awc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&awc.BaseWriteChannel.Port, c.Next(), func(def *AnalogWriteChannel) {
+			awc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -410,7 +159,9 @@ func (dwc *DigitalWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&dwc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&dwc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&dwc.BaseWriteChannel.Port, c.Next(), func(def *DigitalWriteChannel) {
+			dwc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}

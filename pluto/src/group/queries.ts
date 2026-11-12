@@ -11,6 +11,7 @@ import { type group, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "group";
 const PLURAL_RESOURCE_NAME = "groups";
@@ -23,25 +24,12 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams>({
   update: async ({ data, client }) => await client.groups.create(data),
 });
 
-export type ListQuery = group.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.groups.retrieve(key),
-  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
-  getCached: ({ client, query }) => client.groups.getCached(query),
-  onChangeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
-});
-
 export const { useResult: useResultList } = Flux.createRetrieve<
-  ListQuery,
+  group.RetrieveMultipleParams,
   group.Group[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.groups.retrieve(query),
-  onChange: ({ client, query }, handler) => client.groups.onChange(query, handler),
-  getCached: ({ client, query }) => client.groups.getCached(query),
+  ...flux.listReads(({ client, query }) => client.groups.watch(query)),
 });
 
 export type RetrieveAncestorsQuery = { keys: group.Key[] };
@@ -50,7 +38,7 @@ const getCachedAncestry = (
   client: Synnax,
   keys: group.Key[],
 ): group.Group[] | undefined => {
-  const groups = client.groups.getCached(keys);
+  const groups = client.groups.watch(keys).getCached();
   const ancestors = client.groups.getCachedAncestors(keys);
   if (!query.isLive(groups) || ancestors == null) return undefined;
   return [...groups, ...ancestors];
@@ -99,11 +87,9 @@ export interface RenameParams extends Pick<group.Group, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.groups.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.groups.rename(key, name);
     return data;
   },
 });

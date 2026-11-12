@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -56,6 +57,16 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(key))
+		})
+
+		It("Should refuse a role whose key exists", func(ctx SpecContext) {
+			r := &role.Role{Name: "viewer"}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			again := role.Role{Key: r.Key, Name: "renamed"}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("role %s already exists", r.Key)),
+			))
 		})
 
 		It(
@@ -237,7 +248,7 @@ var _ = Describe("Retrieve", func() {
 		})
 	})
 
-	Describe("Limit and Offset", func() {
+	Describe("Limit", func() {
 		It("Should limit results", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
@@ -245,25 +256,6 @@ var _ = Describe("Retrieve", func() {
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(rs).To(HaveLen(2))
-		})
-
-		It("Should apply offset", func(ctx SpecContext) {
-			var rs []role.Role
-			Expect(svc.NewRetrieve().
-				Offset(1).
-				Limit(2).
-				Entries(&rs).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(rs).To(HaveLen(2))
-		})
-
-		It("Should handle offset beyond results", func(ctx SpecContext) {
-			var rs []role.Role
-			Expect(svc.NewRetrieve().
-				Offset(10).
-				Entries(&rs).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(rs).To(BeEmpty())
 		})
 	})
 

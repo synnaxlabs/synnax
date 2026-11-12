@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -100,6 +101,11 @@ func (t *Table) Changes(
 	return t.table.Changes(ctx, c)
 }
 
+// Observe returns an observable of the changes to directories.
+func (t *Table) Observe() observe.Observable[gorp.TxReader[Key, Directory]] {
+	return t.table.Observe()
+}
+
 // Resources returns the resource.Provider of directories.
 func (t *Table) Resources() *resource.TableProvider[Key, Directory] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Directory]{
@@ -121,8 +127,8 @@ type Writer struct {
 	table *gorp.Table[Key, Directory]
 }
 
-// Create creates d, giving d a key when it has none. A key in use is a validation
-// error.
+// Create creates d, giving d a key when it has none. It returns an error wrapping
+// validate.ErrValidation when a directory with the key exists.
 func (w Writer) Create(ctx context.Context, d *Directory) error {
 	if d.Key == uuid.Nil() {
 		d.Key = uuid.New()
@@ -130,45 +136,27 @@ func (w Writer) Create(ctx context.Context, d *Directory) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	exists, err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Directory](d.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return errors.Wrapf(
-			validate.ErrValidation, "directory %s already exists", d.Key,
-		)
-	}
-	return w.table.NewCreate().Entry(d).Exec(ctx, w.tx)
+	return w.table.NewCreate().Exclusive().Entry(d).Exec(ctx, w.tx)
 }
 
-// Rename gives the directory with key the given name.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.update(ctx, func(d Directory) Directory { d.Name = name; return d }, key)
-}
-
-// SetParent moves the directories with keys into the directory parent. A move that
-// puts a directory below itself is a validation error.
-func (w Writer) SetParent(ctx context.Context, parent Key, keys ...Key) error {
-	return w.update(
-		ctx,
-		func(d Directory) Directory { d.Parent = &parent; return d },
-		keys...,
-	)
-}
-
-func (w Writer) update(
+// Update replaces the directory with key with the result of change, which receives the
+// stored directory. An invalid result is a validation error.
+func (w Writer) Update(
 	ctx context.Context,
-	change func(Directory) Directory,
-	keys ...Key,
+	key Key,
+	change func(Directory) (Directory, error),
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Directory](keys...)).
+		Where(gorp.MatchKeys[Key, Directory](key)).
 		ChangeErr(func(_ gorp.Context, d Directory) (Directory, error) {
-			d = change(d)
-			return d, d.Validate()
+			d, err := change(d)
+			if err != nil {
+				return Directory{}, err
+			}
+			if err = d.Validate(); err != nil {
+				return Directory{}, err
+			}
+			return d, nil
 		}).
 		Exec(ctx, w.tx)
 }

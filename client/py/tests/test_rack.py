@@ -173,18 +173,18 @@ class TestRackClient:
         res = client.racks.retrieve(keys=[r.key, 4123456789])
         assert [x.key for x in res] == [r.key]
 
-    def test_update_integrations(self, client: sy.Synnax) -> None:
-        """Should update integrations on upsert"""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a rack whose key exists and keep the stored rack."""
         rack = client.racks.create(
-            racks=sy.Rack(name="py-upsert-integ", integrations=["ni"])
+            racks=sy.Rack(name="py-existing-key", integrations=["ni"])
         )
-        client.racks.create(
-            racks=sy.Rack(
-                key=rack.key, name="py-upsert-integ", integrations=["ni", "opc", "arc"]
+        with pytest.raises(sy.ValidationError, match=f"rack {rack.key} already exists"):
+            client.racks.create(
+                racks=sy.Rack(
+                    key=rack.key, name="py-existing-key", integrations=["ni", "opc"]
+                )
             )
-        )
-        res = client.racks.retrieve(key=rack.key)
-        assert res.integrations == ["ni", "opc", "arc"]
+        assert client.racks.retrieve(key=rack.key).integrations == ["ni"]
 
     def test_retrieve_embedded_rack(self, client: sy.Synnax) -> None:
         rack = client.racks.retrieve_embedded_rack()
@@ -201,14 +201,13 @@ class TestRackClient:
         assert res.status is not None
         assert res.status.owner == sy.rack.resource_id(rack.key)
 
-    def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
-        """Should page through the matching racks."""
+    def test_retrieve_with_limit(self, client: sy.Synnax) -> None:
+        """Should return at most the limit of the matching racks."""
         racks = client.racks.create(
             racks=[sy.Rack(name=str(uuid4())) for _ in range(3)]
         )
         keys = [r.key for r in racks]
         assert len(client.racks.retrieve(keys=keys, limit=2)) == 2
-        assert len(client.racks.retrieve(keys=keys, offset=2)) == 1
 
     def test_retrieve_by_names_with_limit(self, client: sy.Synnax) -> None:
         """Should return a list when names are combined with a limit."""
@@ -245,7 +244,7 @@ class TestRackClient:
     def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject a plain name beside a limit, since a page could hide a
         match."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:

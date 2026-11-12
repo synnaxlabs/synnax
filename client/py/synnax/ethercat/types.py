@@ -17,6 +17,7 @@ from synnax import device, rack as rack_, task
 from synnax.ethercat.types_gen import (
     ReadChannel,
     ReadConfig,
+    SlaveStartupParameters,
     WriteChannel,
     WriteConfig,
 )
@@ -65,6 +66,8 @@ class ReadTask(
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
     :param channels: The input channels to acquire data from (EntryReadChannel).
+    :param startup_parameters: The CoE objects the task writes to each slave before the
+        slave moves to SAFE-OP, such as the range of an input.
     """
 
     TYPE = "ethercat_read"
@@ -80,6 +83,7 @@ class ReadTask(
         data_saving_disabled: bool = False,
         auto_start: bool = False,
         channels: Sequence[ReadChannel] | None = None,
+        startup_parameters: Sequence[SlaveStartupParameters] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -92,6 +96,9 @@ class ReadTask(
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             channels=list(channels) if channels is not None else [],
+            startup_parameters=(
+                list(startup_parameters) if startup_parameters is not None else []
+            ),
         )
         task.assign_keys(self.config.channels)
 
@@ -150,7 +157,7 @@ class Device(device.Device):
 
     :param name: Human-readable name for the device.
     :param network: Network interface name (e.g. "eth0", "enp3s0").
-    :param position: Position of the slave on the EtherCAT bus, 0-indexed.
+    :param position: Position of the slave on the EtherCAT bus, counting from 1.
     :param vendor_id: EtherCAT vendor ID from device EEPROM.
     :param product_code: Product code identifying the device model.
     :param revision: Hardware/firmware revision number.
@@ -168,7 +175,7 @@ class Device(device.Device):
         *,
         name: str = "",
         network: str = "",
-        position: int = 0,
+        position: int = 1,
         vendor_id: int = 0,
         product_code: int = 0,
         revision: int = 0,

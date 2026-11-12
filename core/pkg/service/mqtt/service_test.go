@@ -15,12 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
@@ -30,11 +33,24 @@ var _ = Describe("Service", func() {
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		// The suite's DB holds a mqtt service and a task service of its own.
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		svc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
+		// The suite's Core holds a mqtt service and a task service of its own.
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		channels := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statuses,
+		}))
+		svc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
+			DB:      db,
+			Channel: channels,
+		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
+			Status: statuses,
 			Stores: svc.Stores(),
 		}))
 	})
@@ -43,6 +59,11 @@ var _ = Describe("Service", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
 			Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{})).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+
+		It("Should reject a config missing the channel service", func(ctx SpecContext) {
+			Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 	})
 
@@ -172,4 +193,14 @@ var _ = Describe("Service", func() {
 				To(MatchError(ContainSubstring("amqp")))
 		})
 	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

@@ -216,7 +216,7 @@ export const createSelectedPanel = async (
   await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
-  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  onTestFinished(client.panels.watch(doc.key).onChange(() => {}));
   await client.panels.retrieve(doc.key);
   act(() => {
     store.dispatch(
@@ -236,7 +236,7 @@ export const awaitTaskResourceTab = async ({
   panelKey,
 }: CreatedPanel): Promise<task.Key> =>
   await waitFor(() => {
-    const cached = client.panels.getCached(panelKey);
+    const cached = client.panels.watch(panelKey).getCached();
     if (!query.isLive(cached)) throw new Error("panel doc not found");
     const doc = cached;
     const tabs: panel.Tab[] = [];
@@ -439,7 +439,7 @@ export const renderTaskFormTab = async (
   if (as !== client) {
     // The panel scopes resolve against the rendering client's cache, so prime it
     // the same way createSelectedPanel primes the creating client's.
-    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
@@ -588,13 +588,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
       details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -614,13 +614,13 @@ export const answerCommand = async (
   cmd: task.Command,
   { data, ...answer }: Omit<CommandAnswer, "type"> = {},
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk.payload,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
       ...answer,
+      owner: task.resourceID(tsk.key),
       details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
-  });
+  );
 };
 
 /**

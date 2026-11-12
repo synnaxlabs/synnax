@@ -31,6 +31,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
@@ -47,7 +48,15 @@ import {
   retrieveResponseZ,
 } from "@/ranger/types.gen";
 import { LINES } from "@/ranger/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/ranger/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { type resource } from "@/resource";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -306,8 +315,10 @@ export class Client extends query.Retriever<
     // Every write to a range reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Range, Action>({
       store: ranges,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (range, acts) => {
         const { payload } = range;
@@ -338,6 +349,10 @@ export class Client extends query.Retriever<
       table: ranges,
       shortcut: shortcutZ,
       request: {
+        list: {
+          cursor: (r, order) => cursor(r.payload, order),
+          compare: compareCursors,
+        },
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.execRetrieve(query),
         matches: (r, query) => matches(LINES, r.payload, query.where),
@@ -366,9 +381,9 @@ export class Client extends query.Retriever<
       },
       compose: (records) => records[0] ?? null,
       matches: (r, query) => this.store.get(query)?.parent === r.key,
-      watch: [
+      triggers: [
         // A change to the child range can move it to another parent.
-        query.watch<Key, Key, Key, Range>(ranges, (event, query) =>
+        query.trigger<Key, Key, Key, Range>(ranges, (event, query) =>
           event.key === query ? "refetch" : null,
         ),
       ],
@@ -384,9 +399,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Creates the ranges. Creating a range that exists keeps the labels it holds and
-   * ignores the carried ones, and keeps its parent unless one is carried. Change labels
-   * with the label client.
+   * Creates the ranges. Change labels with the label client.
+   * @throws {ValidationError} if a range with a carried key exists.
    */
   async create(range: New): Promise<Range>;
   async create(ranges: New[]): Promise<Range[]>;
@@ -394,7 +408,7 @@ export class Client extends query.Retriever<
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
     const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
-    // The Core keeps the stored labels on the create of an existing range.
+    // A label change streamed during the request is newer than the reply.
     const res = this.sugarMany(
       await this.dispatcher.create(
         keys,
@@ -410,18 +424,8 @@ export class Client extends query.Retriever<
     return single ? res[0] : res;
   }
 
-  async rename(key: Key, name: Name, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugarOne({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.rename(key, name),
-    });
-    rename();
+  async rename(key: Key, name: Name): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**

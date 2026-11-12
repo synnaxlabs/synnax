@@ -62,14 +62,12 @@ const shown = outlined(headings);
                 document.documentElement.dataset.pageNavCollapsed = "";
         } catch {}
     </script>
-    {frontmatter.flag == null && (
-        <link
-            slot="head"
-            rel="alternate"
-            type="text/markdown"
-            href={`${normalizeRoute(Astro.url.pathname)}.md`}
-        />
-    )}
+    <link
+        slot="head"
+        rel="alternate"
+        type="text/markdown"
+        href={`${normalizeRoute(Astro.url.pathname)}.md`}
+    />
     <Fragment slot="subheader">
         {showOnThisPage && (
             <OutlineBar

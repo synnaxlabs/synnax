@@ -35,7 +35,9 @@ const TAB: Panel.Tab = {
     <Icon.LinePlot />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
+    const corpse = query.requireCorpse(
+      client.lineplots.watch(resource.key).getCached(),
+    );
     // A restored record comes back in the project, as its range or group may be gone.
     await client.lineplots.create({
       ...corpse,

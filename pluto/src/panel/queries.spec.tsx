@@ -289,45 +289,6 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useList", () => {
-    it("should return panels including those created beforehand", async () => {
-      const p1 = await client.panels.create({
-        name: "list-a",
-        project: defaultProject,
-      });
-      const p2 = await client.panels.create({
-        name: "list-b",
-        project: defaultProject,
-      });
-
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(p1.key);
-      expect(result.current.data).toContain(p2.key);
-    });
-
-    it("should expose individual panels via getItem", async () => {
-      const target = await client.panels.create({
-        name: "get-item-target",
-        project: defaultProject,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const item = result.current.getItem(target.key);
-      expect(item?.key).toEqual(target.key);
-      expect(item?.name).toEqual("get-item-target");
-    });
-  });
-
   describe("useKeysByProject", () => {
     const newProject = async (): Promise<project.Key> =>
       (
@@ -432,9 +393,8 @@ describe("Panel queries", () => {
       // The rename reaches the project's cached answer, so the subscription fired
       // and the hook had every chance to hand back a new array.
       await waitFor(() => {
-        const cached = client.panels.getCached({ projects: [projectKey] });
-        if (!query.isLive(cached)) throw new Error("project answer not cached");
-        expect(cached.map(({ name }) => name)).toContain("after-rename");
+        const window = client.panels.watch({ projects: [projectKey] }).getCached();
+        expect(window?.records.map(({ name }) => name)).toContain("after-rename");
       });
       expect(result.current).toBe(before);
     });
@@ -472,36 +432,18 @@ describe("Panel queries", () => {
       expect(fetched.name).toEqual("after-rename");
     });
 
-    it("should run afterOptimistic against the renamed panel", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const target = await client.panels.create({
-        name: "before-optimistic-rename",
+        name: "before-cache-rename",
         project: defaultProject,
       });
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Panel.useRename({
-            // The client applies the rename before it calls back, so the cached panel
-            // already carries the new name here.
-            afterOptimistic: ({ client: c, data }) => {
-              const cached = c.panels.getCached(data.key);
-              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
+      const { result } = renderHook(() => Panel.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: target.key,
-          name: "after-optimistic-rename",
-        });
+        await result.current.updateAsync({ key: target.key, name: "renamed-in-cache" });
       });
-
-      expect(order).toEqual(["optimistic:after-optimistic-rename", "success"]);
+      expect(client.panels.watch(target.key).getCached()).toMatchObject({
+        name: "renamed-in-cache",
+      });
     });
   });
 
@@ -1059,6 +1001,64 @@ describe("Panel queries", () => {
     });
   });
 
+  describe("useResultAppearance", () => {
+    it("should follow a change to the icon or the color of a panel", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({ icon: undefined, color: undefined }),
+      );
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.setIcon({ icon: "valve" }),
+            panel.setColor({ color: "#dc136c" }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          icon: "valve",
+          color: color.construct("#dc136c"),
+        }),
+      );
+    });
+
+    it("should keep the appearance when only the layout or an equal color changes", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setColor({ color: "#dc136c" })],
+        });
+      });
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.color).toEqual(color.construct("#dc136c")),
+      );
+      const before = result.current.data;
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.insertTabs({ tabs: [newTab()], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.setColor({ color: "#dc136c" }),
+          ],
+        });
+      });
+      expect(result.current.data).toBe(before);
+    });
+  });
+
   describe("structural and granular selectors", () => {
     const createTab = async (tab: panel.Tab) => {
       const created = await createPanel();
@@ -1168,7 +1168,7 @@ describe("Panel queries", () => {
         result.current.setResource(resource);
       });
       await waitFor(() => expect(result.current.variant).toEqual("resource"));
-      const cached = client.panels.getCached(created.key);
+      const cached = client.panels.watch(created.key).getCached();
       expect(query.isLive(cached)).toBe(true);
       if (!query.isLive(cached)) return;
       const updated = panel.findTab(cached.root, tab.key);
@@ -1551,22 +1551,6 @@ describe("Panel queries", () => {
         expect(leafTabKeys(root?.first)).toEqual([tabA.key]);
         expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
-    });
-
-    it("should propagate deletes through the channel listener", async () => {
-      const target = await client.panels.create({
-        name: "reactive-delete",
-        project: defaultProject,
-      });
-      const { result } = renderHook(() => Panel.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-      await waitFor(() => expect(result.current.data).toContain(target.key));
-
-      await writer.panels.delete(target.key);
-
-      await waitFor(() => expect(result.current.data).not.toContain(target.key));
     });
   });
 

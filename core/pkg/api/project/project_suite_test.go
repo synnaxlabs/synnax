@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -53,19 +55,18 @@ var (
 	panelSvc   *panel.Service
 	userSvc    *user.Service
 	apiSvc     *apiproject.Service
-	// create, del, rename, importBundle, setGroup, retrieve, and export run their
-	// routes as the API layer binds them.
+	// create, del, dispatch, importBundle, retrieve, and export run their routes as
+	// the API layer binds them.
 	create freighter.UnaryHandler[
 		apiproject.CreateRequest,
 		apiproject.CreateResponse,
 	]
 	del          freighter.UnaryHandler[apiproject.DeleteRequest, struct{}]
-	rename       freighter.UnaryHandler[apiproject.RenameRequest, struct{}]
+	dispatch     freighter.UnaryHandler[apiproject.DispatchRequest, struct{}]
 	importBundle freighter.UnaryHandler[
 		apiproject.ImportRequest,
 		apiproject.ImportResponse,
 	]
-	setGroup freighter.UnaryHandler[apiproject.SetGroupRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apiproject.RetrieveRequest,
 		apiproject.RetrieveResponse,
@@ -132,12 +133,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: projectSvc,
 		Bundle:  bundleSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
-	rename = bind.Write(binder, apiSvc.Rename)
-	importBundle = bind.Write(binder, apiSvc.Import)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	importBundle = bind.WritePrepared(binder, apiSvc.PrepareImport, apiSvc.Import)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	export = bind.Read(binder, apiSvc.Export)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
@@ -163,7 +167,7 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Project: &proj, Name: name}
+	l := defaults.Fill(log.Log{Project: &proj, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return logSvc.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())

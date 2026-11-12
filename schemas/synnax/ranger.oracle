@@ -31,16 +31,18 @@ Range struct {
     name       string          {
         @doc value           "is a human-readable name for the range."
         @filter
+        @index sorted
         @patch
         @search
         @validate min_length 1
     }
     time_range telem.TimeRange {
-        @doc value """
+        @doc value    """
             is the temporal extent of the range, defining its start and end timestamps.
         """
+        @index sorted start
         @patch
-        @ts type   telem.TimeRangeBounded
+        @ts type      telem.TimeRangeBounded
     }
     color      color.Color?    {
         @doc value """
@@ -70,27 +72,17 @@ Range struct {
 
         @doc value """
             replaces the range with the given created state. Emitted by the Core when a
-            range is created or overwritten whole; clients never dispatch it.
+            range is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the range."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the range.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the range."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the range."
-    }
+    action Move = patch.Move
 
     @cpp includes    "client/cpp/ranger/kv/kv.h"
     @cpp methods     "ranger::kv::Client kv"

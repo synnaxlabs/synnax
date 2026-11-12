@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -549,6 +550,49 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		Describe("channel.ErrLookupsChanged", func() {
+			// changingGetter returns channel.ErrLookupsChanged for the first changes
+			// calls, and counts each call in calls.
+			changingGetter := func(changes int, calls *int) arctask.GetProgramFunc {
+				return func(
+					_ context.Context,
+					key uuid.UUID,
+				) (svcarc.AutomationArc, error) {
+					*calls++
+					if *calls <= changes {
+						return svcarc.AutomationArc{}, channel.ErrLookupsChanged
+					}
+					return svcarc.AutomationArc{Key: key}, nil
+				}
+			}
+
+			It("Should get the program again until the lookups hold", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				Expect(newTask(ctx, newFactoryWith(changingGetter(2, &calls)))).
+					ToNot(BeNil())
+				Expect(calls).To(Equal(3))
+			})
+
+			It("Should fail the configure when the lookups keep changing", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				factory := newFactoryWith(changingGetter(math.MaxInt, &calls))
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-lookups-changed",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(channel.ErrLookupsChanged))
+				Expect(calls).To(Equal(3))
+			})
 		})
 
 		It(
@@ -2012,6 +2056,73 @@ var _ = Describe("Task", Ordered, func() {
 					var fr framer.StreamerResponse
 					Eventually(responses).Should(Receive(&fr))
 					for _, ser := range fr.Frame.Get(probe.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should write the key of a range created by a computed initializer",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "computed_range_trig", telem.Uint8T)
+				out := createVirtualCh(ctx, "computed_range_out", telem.StringT)
+				name := "computed_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    key := ranges.create("%s")
+					    key -> %s
+					}
+
+					%s => main
+				`, name, out.Name, trig.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{out.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-computed-range-key",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(out.Key()).Series {
 						for _, v := range ser.Unmarshal[string]() {
 							found = found || v == expected
 						}
@@ -3554,6 +3665,39 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
+			prog := arc.Text{Raw: `
+				func grow() {
+					s := ""
+					for i := range(100000) {
+						s = s + "x"
+					}
+				}
+				interval(period=10ms) -> grow()
+			`}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-string-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Message).To(Equal("Node failed"))
+				g.Expect(stat.Description).
+					To(ContainSubstring("too many strings in one cycle"))
+			}).Should(Succeed())
+		})
+
 		It(
 			"Should report WASM division by zero via status service",
 			func(ctx SpecContext) {
@@ -4124,7 +4268,7 @@ START => main
 					telem.NewSeries(stored),
 					telem.NewSeriesV[uint8](1, 2),
 				}))).To(BeTrue())
-				MustSucceed(ow.Commit())
+				MustCommit(ow)
 				Expect(ow.Close()).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}

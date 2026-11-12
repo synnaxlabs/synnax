@@ -48,6 +48,7 @@ const createHarness = (send: SendFn): Harness => {
     store: docs,
     onError,
     onEpoch: () => destructor.NOOP,
+    onStreamDown: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
     send: async (_, actions) => {
@@ -487,7 +488,7 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.rename({ name: "renamed" }),
+          actions: schematic.set({ path: ["name"], value: "renamed" }),
         });
       });
       // Two distinct entries: one undo leaves canUndo true, a second clears it.

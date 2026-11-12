@@ -27,8 +27,10 @@ namespace synnax::ethercat {
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
-struct ReadConfig;
+struct StartupParameter;
+struct SlaveStartupParameters;
 struct WriteConfig;
+struct ReadConfig;
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
@@ -77,6 +79,25 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP,
+/// before the slave moves to SAFE-OP.
+struct StartupParameter {
+    /// @brief index is the CoE object dictionary index of the object.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the object.
+    std::uint8_t sub_index = 0;
+    /// @brief data_type is the data type of the object, which sets the size of the
+    /// write.
+    ::x::telem::DataType data_type;
+    /// @brief value is the value written to the object.
+    double value = 0;
+    /// @brief name is what the parameter sets, for display.
+    std::string name = "";
+
+    static StartupParameter parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
 struct EntryReadChannel : public BaseReadChannel {
     std::string type = "entry";
@@ -86,6 +107,9 @@ struct EntryReadChannel : public BaseReadChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief calibrated is true when the Driver turns the raw counts of the entry into
+    /// physical values, with the gain and offset that the slave stores for the entry.
+    bool calibrated = false;
     /// @brief scale is the scale applied to raw samples after acquisition. A scaled
     /// channel writes to a float Synnax channel.
     ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
@@ -163,13 +187,15 @@ WriteChannel parse_write_channel(x::json::Parser parser);
     );
 }
 
-/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
-/// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::task::ReadConfig {
-    /// @brief channels are the channels the task acquires.
-    std::vector<ReadChannel> channels;
+/// @brief SlaveStartupParameters holds the startup parameters that a read task writes
+/// to one slave.
+struct SlaveStartupParameters {
+    /// @brief device is the key of the slave device the parameters are written to.
+    ::synnax::device::Key device = "";
+    /// @brief parameters are the parameters written to the slave, in order.
+    std::vector<StartupParameter> parameters = {};
 
-    static ReadConfig parse(x::json::Parser parser);
+    static SlaveStartupParameters parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -186,6 +212,19 @@ struct WriteConfig : public ::synnax::task::PersistConfig {
     std::vector<WriteChannel> channels;
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
+/// entry on its own slave; all slaves must share one network interface.
+struct ReadConfig : public ::synnax::task::ReadConfig {
+    /// @brief channels are the channels the task acquires.
+    std::vector<ReadChannel> channels;
+    /// @brief startup_parameters are the startup parameters the task writes to its
+    /// slaves.
+    std::vector<SlaveStartupParameters> startup_parameters = {};
+
+    static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

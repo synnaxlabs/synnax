@@ -25,8 +25,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.logs.retrieve(query.key),
-  onChange: ({ client, query }, handler) => client.logs.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.logs.getCached(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.logs.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.logs.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -117,9 +118,8 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
     await client.logs.rename(key, name);
     return data;
   },

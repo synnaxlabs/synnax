@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -46,14 +47,11 @@ var (
 	panelSvc *panel.Service
 	userSvc  *user.Service
 	apiSvc   *apipanel.Service
-	// create, del, dispatch, setGroup, setProject, and retrieve run their routes as the
-	// API layer binds them.
-	create     freighter.UnaryHandler[apipanel.CreateRequest, apipanel.CreateResponse]
-	del        freighter.UnaryHandler[apipanel.DeleteRequest, struct{}]
-	dispatch   freighter.UnaryHandler[apipanel.DispatchRequest, struct{}]
-	setGroup   freighter.UnaryHandler[apipanel.SetGroupRequest, struct{}]
-	setProject freighter.UnaryHandler[apipanel.SetProjectRequest, struct{}]
-	retrieve   freighter.UnaryHandler[
+	// create, del, dispatch, and retrieve run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apipanel.CreateRequest, apipanel.CreateResponse]
+	del      freighter.UnaryHandler[apipanel.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apipanel.DispatchRequest, apipanel.DispatchResponse]
+	retrieve freighter.UnaryHandler[
 		apipanel.RetrieveRequest,
 		apipanel.RetrieveResponse,
 	]
@@ -96,12 +94,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
 		Panel: panelSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
-	setProject = bind.Write(binder, apiSvc.SetProject)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),

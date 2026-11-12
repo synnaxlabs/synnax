@@ -55,6 +55,33 @@ func monoMathAbs() *symbol.Symbol {
 }
 
 var _ = Describe("Resolver", func() {
+	Describe("References", func() {
+		It("should report a recorded call to a local function", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			Expect(r.References("helper")).To(BeFalse())
+			r.EmitLocalCall(
+				w,
+				wID,
+				"helper",
+				types.Function(types.FunctionProperties{}),
+			)
+			Expect(r.References("helper")).To(BeTrue())
+			Expect(r.References("other")).To(BeFalse())
+		})
+
+		It("should not report an import with the same name", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			r.EmitImportCall(
+				w, wID, "series", "len", types.Function(types.FunctionProperties{}),
+			)
+			Expect(r.References("len")).To(BeFalse())
+		})
+	})
+
 	Describe("Finalize", func() {
 		It(
 			"Should assign an import index for a host-import reference",
@@ -91,6 +118,29 @@ var _ = Describe("Resolver", func() {
 				values = append(values, v)
 			}
 			Expect(values).To(ConsistOf(uint32(0), uint32(1)))
+		})
+
+		It("Should map a user module's member to a local function", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			mod := &symbol.Symbol{
+				Name:        "lib.m",
+				Kind:        symbol.KindModule,
+				UserDefined: true,
+			}
+			mod.AddChild(&symbol.Symbol{Name: "f", Kind: symbol.KindFunction})
+			f := mod.FindChild("f")
+			r.EmitCall(w, wID, f, types.Function(types.FunctionProperties{}))
+			r.RegisterLocal("lib.m.f", 3)
+
+			m := wasm.NewModule()
+			patches := r.Finalize(m)
+			Expect(m.ImportCount()).To(Equal(uint32(0)))
+			Expect(patches).To(HaveLen(1))
+			for _, v := range patches {
+				Expect(v).To(Equal(uint32(3)))
+			}
 		})
 
 		It("Should deduplicate imports with identical WASM coordinates", func() {

@@ -21,26 +21,23 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,12 +49,17 @@ func TestAPIArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	rbacSvc *rbac.Service
-	userSvc *user.Service
-	arcSvc  *arc.Service
-	taskSvc *task.Service
-	apiSvc  *apiarc.Service
+	node       testutil.Node
+	svc        *service.Layer
+	binder     *bind.Service
+	db         *gorp.DB
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	arcSvc     *arc.Service
+	channelSvc *channel.Service
+	taskSvc    *task.Service
+	statusSvc  *status.Service
+	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
 	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
@@ -70,9 +72,11 @@ var (
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
 	]
-	renameDirectory freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
+	dispatchDirectory freighter.UnaryHandler[
+		apiarc.DispatchDirectoryRequest,
+		struct{},
+	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
-	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
 	retrieve        freighter.UnaryHandler[
 		apiarc.RetrieveRequest,
 		apiarc.RetrieveResponse,
@@ -90,83 +94,43 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
-	MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db,
-	}))
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
-	}))
-	roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
-	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:                  db,
-		HostKey:             1,
-		Status:              statusSvc,
-		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          roles.Builtin.DriverKey,
-	}))
-	rbacSvc = MustSucceed(rbac.NewService(ctx, rbac.ServiceConfig{
-		DB:    db,
-		Roles: roles,
-		User:  userSvc,
-		Rack:  rackSvc,
-	}))
-	MustSucceed2(
-		user.ProvisionRoot(
-			ctx,
-			userSvc,
-			passwordSvc,
-			auth.Credentials{Username: "suite-root", Password: "p"},
-			roles.Builtin.OwnerKey,
-		),
-	)
-	imexSvc := imex.NewService()
-	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
-	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-	configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
-	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:           db,
-		Rack:         rackSvc,
-		Status:       statusSvc,
-		ImEx:         imexSvc,
-		Configs:      configs,
-		ImExExcluded: []string{arctask.Type},
-	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	rbacSvc = svc.RBAC
+	userSvc = svc.User
+	rackSvc = svc.Rack
+	taskSvc = svc.Task
+	channelSvc = svc.Channel
+	arcSvc = svc.Arc
+	statusSvc = svc.Status
+	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		DB:      db,
-		HostKey: node.Identity.HostKey,
-		Status:  statusSvc,
+		RBAC:    rbacSvc,
+		Channel: channelSvc,
+		Status:  svc.Status,
+		Alias:   svc.Alias,
 	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:         db,
-		Table:      arcTable,
-		Channel:    channelSvc,
-		Task:       taskSvc,
-		MatchTasks: arcTaskSvc.MatchArcs,
-		Status:     statusSvc,
-		ImEx:       imexSvc,
+	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		DB:     db,
-		Arc:    arcSvc,
-		Status: statusSvc,
+		DB:              db,
+		Arc:             arcSvc,
+		Status:          statusSvc,
+		RBAC:            rbacSvc,
+		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
+		Stopper:         svc.TaskStopper,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
 	create = bind.Write(binder, apiSvc.Create)
-	del = bind.Write(binder, apiSvc.Delete)
+	del = bind.WritePrepared(binder, apiSvc.PrepareDelete, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	updateTask = bind.Write(binder, apiSvc.UpdateTask)
+	updateTask = bind.WritePrepared(binder, apiSvc.PrepareUpdateTask, apiSvc.UpdateTask)
 	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
-	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
+	dispatchDirectory = bind.Write(binder, apiSvc.DispatchDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
-	move = bind.Write(binder, apiSvc.Move)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
 	var r directory.Directory

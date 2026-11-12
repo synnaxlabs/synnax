@@ -23,6 +23,7 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  MissingCredentialsError,
   MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
@@ -148,8 +149,8 @@ export interface Handle {
   /** Subscribes to status changes. Returns a destructor that unsubscribes. */
   onChange: (callback: (status: Status) => void) => destructor.Destructor;
   /**
-   * Resets the retry backoff and checks immediately. Auth and incompatibility
-   * errors are not cleared: those rest until the user supplies something new.
+   * Resets the retry backoff and checks immediately. Auth errors are not cleared: those
+   * rest until the user supplies new credentials.
    */
   retryNow: () => void;
 }
@@ -198,7 +199,8 @@ export interface Info {
 export type Event =
   | { type: "check.started" }
   | { type: "check.success"; info: Info }
-  | { type: "check.failure"; error: Error; attempt: number }
+  /** `info` comes from a check without auth, when one answered. */
+  | { type: "check.failure"; error: Error; attempt: number; info?: Info }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "stream.denied"; error?: Error }
@@ -215,6 +217,7 @@ const CONNECTED = "Connected";
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach Core";
+const INCOMPATIBLE = "Core version not supported";
 const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
@@ -272,8 +275,7 @@ const enterError = (
   details: { ...prev.details, ...details },
 });
 
-export const isSelfHealing = (reason: Reason): boolean =>
-  reason === "unreachable" || reason === "unlicensed";
+export const isSelfHealing = (reason: Reason): boolean => reason !== "auth";
 
 // A 0.0 major.minor marks a development build, which pairs with anything.
 const isDev = (version: string): boolean => version.startsWith("0.0.");
@@ -335,9 +337,9 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live. A parked unreachable or unlicensed
-  // error must lift out of error: the short circuit it drives would starve
-  // the very stream reopen this state waits on.
+  // stay degraded until it reports live. A parked self-healing error must lift
+  // out of error: an unreachable or unlicensed one drives a short circuit that
+  // would starve the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.details.streamDenied) return enterStreamDenied(prev, facts);
     if (prev.variant === "error" && isSelfHealing(prev.details.reason))
@@ -369,20 +371,42 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
     retry: null,
   });
 
-const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  enterError(
+const reduceAuthFailure = (prev: Status, error: Error): Status => {
+  // a later login with nothing to send must not hide why the credentials went away
+  if (
+    MissingCredentialsError.matches(error) &&
+    prev.variant === "error" &&
+    prev.details.reason === "auth"
+  )
+    return prev;
+  return enterError(
     prev,
     AUTH_FAILED,
     { reason: "auth", error, authenticated: false, session: undefined, retry: null },
     error.message,
   );
+};
 
 const reduceCheckFailure = (
   prev: Status,
   error: Error,
   attempt: number,
   config: Config,
+  info?: Info,
 ): Status => {
+  if (info != null && !isCompatible(info.nodeVersion, config.clientVersion))
+    return enterError(
+      prev,
+      INCOMPATIBLE,
+      {
+        ...checkFacts(info, config),
+        reason: "incompatible",
+        error,
+        authenticated: false,
+        retry: null,
+      },
+      `Client ${config.clientVersion} cannot work with Core ${info.nodeVersion}.`,
+    );
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
@@ -392,10 +416,11 @@ const reduceCheckFailure = (
       { reason: "unreachable", error },
       error.message,
     );
-  // an unlicensed Core that stops answering is unreachable, not still unlicensed
+  // an unlicensed or incompatible Core that stops answering is unreachable
   if (
     prev.variant === "success" ||
-    (prev.variant === "error" && prev.details.reason === "unlicensed")
+    (prev.variant === "error" &&
+      (prev.details.reason === "unlicensed" || prev.details.reason === "incompatible"))
   )
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });
@@ -441,9 +466,10 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "check.success":
       return update(reduceCheckSuccess(prev, event.info, config), { checking: false });
     case "check.failure":
-      return update(reduceCheckFailure(prev, event.error, event.attempt, config), {
-        checking: false,
-      });
+      return update(
+        reduceCheckFailure(prev, event.error, event.attempt, config, event.info),
+        { checking: false },
+      );
     case "stream.live":
       return reduceStreamLive(prev);
     case "stream.drop":
@@ -461,8 +487,8 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "retry.exhausted":
       return reduceRetryExhausted(prev);
     case "retry.requested":
-      // deliberately does not clear auth or incompatibility: those rest until
-      // the user supplies something new
+      // deliberately does not clear auth: it rests until the user supplies new
+      // credentials
       if (prev.variant !== "error" || !isSelfHealing(prev.details.reason)) return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":

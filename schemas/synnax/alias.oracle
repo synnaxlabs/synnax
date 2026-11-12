@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/ranger"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/ranger/alias"
 @ts output "client/ts/src/ranger/alias"
@@ -23,10 +24,28 @@ Alias struct {
         @doc value "is the unique identifier of the channel being aliased."
     }
     alias   string      {
-        @doc value """
+        @doc value    """
             is the human-readable name for the channel within this range context.
         """
+        @index lookup
     }
+
+    action Create {
+        alias Alias
+
+        @doc value """
+            replaces the alias with the given created state. Emitted by the Core when an
+            alias is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @doc value        """
         associates a human-readable string alias with a channel within the context of a
@@ -35,6 +54,7 @@ Alias struct {
     """
     @go marshal
     @go migrate
+    @resource type    "range-alias"
     @retrieve indexes
     @retrieve key     "string"
 }

@@ -15,7 +15,17 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_
 from synnax.exceptions import NotFoundError
-from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where, WhereInput
+from synnax.rack import actions_gen
+from synnax.rack.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    Rack,
+    RetrieveRequest,
+    Where,
+    WhereInput,
+)
+from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -29,9 +39,10 @@ class _CreateResponse(BaseModel):
     racks: list[Rack]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -40,11 +51,6 @@ class _DeleteRequest(BaseModel):
 
 class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
-
-
-class _SetGroupRequest(BaseModel):
-    keys: list[Key]
-    group: group_.Key | None = None
 
 
 class Client:
@@ -104,7 +110,9 @@ class Client:
         :param name: The new name for the rack.
         :raises NotFoundError: If no rack has the given key.
         """
-        self._client.send("/rack/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/rack/dispatch", req, Empty)
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
@@ -114,8 +122,13 @@ class Client:
         :param keys: The key of the rack to move, or a list of keys.
         :param group: The key of the group to move the racks into.
         """
-        req = _SetGroupRequest(keys=normalize(keys), group=group)
-        self._client.send("/rack/set-group", req, Empty)
+        value = None if group is None else str(group)
+        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        send_batch(
+            self._client,
+            "/rack/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
+        )
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...
@@ -199,7 +212,8 @@ class Client:
         integration: str | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Rack]: ...
@@ -214,7 +228,8 @@ class Client:
         integration: str | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -242,7 +257,9 @@ class Client:
         :param integration: Keeps racks that support this integration.
         :param search_term: A fuzzy search term matched against rack names.
         :param limit: The maximum number of racks to retrieve.
-        :param offset: The number of racks to skip.
+        :param order: The order of the racks. Defaults to key order.
+        :param after: Retrieves the racks past this position in the order: the key of
+            the last rack of the page before, and its value of the order field.
         :param include_status: Whether to populate each rack's status.
         :param one: Returns one rack for any filter.
         :returns: One rack for a plain ``key`` or ``name`` or when ``one`` is set,
@@ -250,11 +267,11 @@ class Client:
         :raises NotFoundError: If one rack is wanted and none matches.
         :raises MultipleFoundError: If one rack is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one rack is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -266,7 +283,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)

@@ -33,9 +33,9 @@ import (
 // feed adds the samples that one commit gives its change channels to a frame.
 type feed interface {
 	append(ctx context.Context, c gorp.Commit, fr framer.Frame) framer.Frame
-	// records returns the RecordOf of each channel of the feed. It runs once the
-	// channels have keys.
-	records() map[channel.Key]RecordOf
+	// records returns the Record of each channel of the feed. It runs once the channels
+	// have keys.
+	records() map[channel.Key]Record
 }
 
 // add creates channels as free, virtual, internal channels, stores their keys in them,

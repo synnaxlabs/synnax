@@ -913,6 +913,7 @@ Schematic struct {
     }
     name     string                     {
         @doc value         "is a human-readable name for the schematic."
+        @index sorted
         @search
         @validate required
     }
@@ -935,6 +936,7 @@ Schematic struct {
     }
     group    group.Key?                 {
         @doc value     "is the group the schematic sits in, if any."
+        @group scope   project
         @ref kind      place
         @ref on_delete detach
     }
@@ -961,30 +963,6 @@ Schematic struct {
         @doc value """
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the schematic."
-    }
-
-    action SetGroup {
-        group group.Key?
-
-        @doc value """
-            moves the schematic into a group, or out of its group when group is empty.
-            Emitted by the Core when it moves the schematic; clients never dispatch it.
-        """
-    }
-
-    action SetProject {
-        project project.Key
-
-        @doc value """
-            moves the schematic into a project. Emitted by the Core when it moves the
-            schematic; clients never dispatch it.
         """
     }
 
@@ -1040,28 +1018,28 @@ Schematic struct {
         """
     }
 
-    action Set extends patch.Set {
+    action Set = patch.Set {
         @doc value """
-            replaces the value at a path in the schematic's element configs. No-op when
-            no node or edge has the config's key.
+            replaces the value at a path in the schematic's name or element configs.
+            No-op when no node or edge has the config's key.
         """
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
             element configs. No-op when no node or edge has the config's key.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value """
             adds an entry to a list in the schematic's element configs. No-op when no
             node or edge has the config's key.
         """
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value """
             moves an entry in a list in the schematic's element configs. No-op when no
             node or edge has the config's key.

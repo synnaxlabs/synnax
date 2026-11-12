@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Label", Ordered, func() {
@@ -59,6 +60,18 @@ var _ = Describe("Label", Ordered, func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a label whose key exists", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			again := label.Label{Key: l.Key, Name: "Renamed"}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("label %s already exists", l.Key)),
+			))
+		})
 		It("Should create many labels", func(ctx SpecContext) {
 			ls := []label.Label{
 				{
@@ -140,7 +153,7 @@ var _ = Describe("Label", Ordered, func() {
 			},
 		)
 	})
-	Describe("Limit and Offset", func() {
+	Describe("Limit", func() {
 		BeforeEach(func(ctx SpecContext) {
 			ls := []label.Label{
 				{Name: "page-a", Color: MustSucceed(color.FromHex("#000000"))},
@@ -153,16 +166,6 @@ var _ = Describe("Label", Ordered, func() {
 			var got []label.Label
 			Expect(svc.NewRetrieve().Limit(2).Entries(&got).Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(2))
-		})
-		It("Should offset the returned labels", func(ctx SpecContext) {
-			var all []label.Label
-			Expect(svc.NewRetrieve().Entries(&all).Exec(ctx, tx)).To(Succeed())
-			Expect(len(all)).To(BeNumerically(">=", 3))
-			var got []label.Label
-			Expect(
-				svc.NewRetrieve().Offset(1).Entries(&got).Exec(ctx, tx),
-			).To(Succeed())
-			Expect(got).To(HaveLen(len(all) - 1))
 		})
 	})
 	Describe("Search", func() {

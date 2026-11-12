@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
+import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -33,120 +34,35 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useList", () => {
-    it("should return a list of policy keys", async () => {
-      const policy1 = await client.access.policies.create({
-        role: owner.key,
-        name: "policy1",
+  describe("list", () => {
+    it("should list the policies of a role in name order", async () => {
+      const role = await client.access.roles.create({ name: "policy-list" });
+      const b = await client.access.policies.create({
+        role: role.key,
+        name: "b",
         objects: [{ type: "channel", key: "1" }],
         actions: ["create"],
       });
-      const policy2 = await client.access.policies.create({
-        role: owner.key,
-        name: "policy2",
+      const a = await client.access.policies.create({
+        role: role.key,
+        name: "a",
         objects: [{ type: "channel", key: "2" }],
         actions: ["delete"],
       });
-
-      const { result } = renderHook(() => Policy.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.access.policies, {
+            name: "policies",
+            query: { where: { roles: [role.key] }, order: { field: "name" } },
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(policy1.key);
-      expect(result.current.data).toContain(policy2.key);
-    });
-
-    it("should get individual policies using getItem", async () => {
-      const testPolicy = await client.access.policies.create({
-        role: owner.key,
-        name: "testPolicy",
-        objects: [{ type: "channel", key: "test" }],
-        actions: ["create", "retrieve"],
-      });
-
-      const { result } = renderHook(() => Policy.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedPolicy = result.current.getItem(testPolicy.key);
-      expect(retrievedPolicy?.key).toEqual(testPolicy.key);
-      expect(retrievedPolicy?.name).toEqual("testPolicy");
-    });
-
-    it("should update the list when a policy is created", async () => {
-      const { result } = renderHook(() => Policy.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const newPolicy = await client.access.policies.create({
-        role: owner.key,
-        name: "newPolicy",
-        objects: [{ type: "channel", key: "new" }],
-        actions: ["create"],
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(newPolicy.key));
-    });
-
-    it("should remove policy from list when deleted", async () => {
-      const testPolicy = await client.access.policies.create({
-        role: owner.key,
-        name: "toDeletePolicy",
-        objects: [{ type: "channel", key: "delete" }],
-        actions: ["delete"],
-      });
-
-      const { result } = renderHook(() => Policy.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(testPolicy.key);
-
-      await client.access.policies.delete(testPolicy.key);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testPolicy.key);
-      });
-    });
-
-    it("should handle multiple policy updates simultaneously", async () => {
-      const policy1 = await client.access.policies.create({
-        role: owner.key,
-        name: "multiUpdate1",
-        objects: [{ type: "channel", key: "1" }],
-        actions: ["create"],
-      });
-      const policy2 = await client.access.policies.create({
-        role: owner.key,
-        name: "multiUpdate2",
-        objects: [{ type: "channel", key: "2" }],
-        actions: ["create"],
-      });
-
-      const { result } = renderHook(() => Policy.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await Promise.all([
-        client.access.policies.create({ ...policy1, name: "updated1" }),
-        client.access.policies.create({ ...policy2, name: "updated2" }),
-      ]);
-
-      await waitFor(() => {
-        expect(result.current.getItem(policy1.key)?.name).toEqual("updated1");
-        expect(result.current.getItem(policy2.key)?.name).toEqual("updated2");
-      });
+      expect(result.current.getItem(a.key)?.name).toEqual("a");
     });
   });
 
@@ -309,6 +225,36 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toEqual("existingPolicy");
         expect(result.current.form.get(path.actions).value).toContain("delete");
+      });
+    });
+
+    it("should save edits to an existing policy", async () => {
+      const policy = await client.access.policies.create({
+        role: owner.key,
+        name: "editedPolicy",
+        objects: [{ type: "channel", key: "edited" }],
+        actions: ["create"],
+      });
+      const { result } = await renderHookSuspended(
+        () => Policy.useForm({ query: { key: policy.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.name, "renamedPolicy");
+        result.current.form.set(path.actions, ["create", "delete"]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.form.value().key).toEqual(policy.key);
+      await waitFor(async () => {
+        const stored = await client.access.policies.retrieve(policy.key);
+        expect(stored).toMatchObject({
+          name: "renamedPolicy",
+          objects: [{ type: "channel", key: "edited" }],
+          actions: ["create", "delete"],
+        });
       });
     });
   });

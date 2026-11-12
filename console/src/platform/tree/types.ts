@@ -10,16 +10,15 @@
 import { type resource, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { type destructor, type record } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
+import { type Draft } from "@/platform/tree/store";
 import { type Session } from "@/session";
 
-/** A record that a tree shows: its resource ID and name, and the record itself. */
-export interface Resource extends resource.Resource {
-  data?: record.Unknown;
-}
+/** A record that a tree shows: its resource ID and name. */
+export interface Resource extends resource.Resource {}
 
 export interface GetResource {
   (id: resource.ID | string): Resource;
@@ -27,10 +26,13 @@ export interface GetResource {
 }
 
 export interface TreeState {
-  nodes: Tree.Node[];
   shape: Tree.Shape;
-  setNodes: (nodes: Tree.Node[]) => void;
-  setResource: (resource: Resource | Resource[]) => void;
+  /** Returns the shown children of an open node, or undefined. */
+  getChildren: (key: string) => string[] | undefined;
+  /** Returns the key of the node's parent, or undefined for a node not shown. */
+  getParent: (key: string) => string | undefined;
+  /** Shows the draft until the returned function ends it. */
+  addDraft: (draft: Draft) => destructor.Destructor;
   getResource: GetResource;
   /** Calls the handler when the resource with the given key changes. */
   subscribeResource: (handler: () => void, key: string) => destructor.Destructor;
@@ -43,7 +45,6 @@ export interface BaseProps {
   client: Synnax;
   store: Session.Store;
   openTab: Panel.OpenTab;
-  addStatus: Status.Adder;
   handleError: Status.ErrorHandler;
 }
 
@@ -61,6 +62,7 @@ export interface ContextMenuProps extends BaseProps {
 
 export interface ContextMenu extends FC<ContextMenuProps> {}
 
-export interface AllowRename {
-  (resource: Resource): boolean;
+export interface RootContextMenuProps {
+  root: resource.ID;
+  state: TreeState;
 }

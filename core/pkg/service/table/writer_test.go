@@ -80,6 +80,18 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should refuse a table whose key exists", func(ctx SpecContext) {
+			stored := seed(ctx)
+			again := table.Table{Key: stored.Key, Project: &proj.Key, Name: "refused"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &again)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("table %s already exists", stored.Key)),
+			))
+			Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+		})
+
 		It(
 			"Should reject a table with neither a project nor a range",
 			func(ctx SpecContext) {
@@ -177,14 +189,15 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("SetProject", func() {
-		It("Should move the tables into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the table into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := table.Table{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res table.Table
 			Expect(svc.NewRetrieve().
 				Where(table.MatchKeys(v.Key)).
@@ -197,8 +210,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			v := table.Table{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
@@ -211,7 +224,9 @@ var _ = Describe("Writer", func() {
 					return svc.NewWriter(tx).Create(ctx, &s)
 				})).To(Succeed())
 				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: ""},
+					),
 				})).To(MatchError(ContainSubstring("name: required")))
 				Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
 			},
@@ -220,7 +235,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-				{Type: table.ActionTypeRename},
+				{Type: table.ActionTypeSet},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
 		})
@@ -269,7 +284,9 @@ var _ = Describe("Writer", func() {
 				return svc.NewWriter(tx).Create(ctx, &s)
 			})).To(Succeed())
 			Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
+				table.NewSetAction(
+					table.SetPayload{Path: []string{"name"}, Value: "test2"},
+				),
 			})).To(Succeed())
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test2"))
 		})
@@ -279,7 +296,9 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				s := seed(ctx)
 				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "multi"},
+					),
 					table.NewAddRowAction(table.AddRowPayload{
 						Index: 1,
 						Key:   "r1",
@@ -307,10 +326,14 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[table.Key, table.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(dispatch(ctx, s.Key, "dk-1", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "first"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "first"},
+					),
 				})).To(Succeed())
 				Expect(dispatch(ctx, s.Key, "dk-2", []table.Action{
-					table.NewRenameAction(table.RenamePayload{Name: "second"}),
+					table.NewSetAction(
+						table.SetPayload{Path: []string{"name"}, Value: "second"},
+					),
 				})).To(Succeed())
 				received := rec.Snapshot()
 				Expect(received).To(HaveLen(2))

@@ -12,8 +12,6 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -22,12 +20,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
-	// ActionTypeSetGroup is the Type of an Action that carries SetGroupPayload.
-	ActionTypeSetGroup = "set_group"
-	// ActionTypeSetProject is the Type of an Action that carries SetProjectPayload.
-	ActionTypeSetProject = "set_project"
 	// ActionTypeSetNodePosition is the Type of an Action that carries
 	// SetNodePositionPayload.
 	ActionTypeSetNodePosition = "set_node_position"
@@ -55,23 +47,6 @@ const (
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Schematic Schematic `json:"schematic" msgpack:"schematic"`
-}
-
-// RenamePayload renames the schematic.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
-}
-
-// SetGroupPayload moves the schematic into a group, or out of its group when group is
-// empty. Emitted by the Core when it moves the schematic; clients never dispatch it.
-type SetGroupPayload struct {
-	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-}
-
-// SetProjectPayload moves the schematic into a project. Emitted by the Core when it
-// moves the schematic; clients never dispatch it.
-type SetProjectPayload struct {
-	Project project.Key `json:"project" msgpack:"project"`
 }
 
 // SetNodePositionPayload moves a node to a new position.
@@ -112,48 +87,27 @@ type SetConfigPayload struct {
 	Config ElementConfig `json:"config" msgpack:"config"`
 }
 
-// SetPayload replaces the value at a path in the schematic's element configs. No-op
-// when no node or edge has the config's key.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// SetPayload replaces the value at a path in the schematic's name or element configs.
+// No-op when no node or edge has the config's key.
+type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the
 // schematic's element configs. No-op when no node or edge has the config's key.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type RemovePayload patch.Remove
 
 // InsertPayload adds an entry to a list in the schematic's element configs. No-op when
 // no node or edge has the config's key.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type InsertPayload patch.Insert
 
 // MovePayload moves an entry in a list in the schematic's element configs. No-op when
 // no node or edge has the config's key.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type MovePayload patch.Move
 
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitempty"`
-	SetGroup        *SetGroupPayload        `json:"set_group,omitzero" msgpack:"set_group,omitempty"`
-	SetProject      *SetProjectPayload      `json:"set_project,omitzero" msgpack:"set_project,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
@@ -167,88 +121,73 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Schematic: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
-		case ActionTypeSetGroup:
-			if a.SetGroup == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetGroup.Handle(state)
-		case ActionTypeSetProject:
-			if a.SetProject == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetProject.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNode.Handle(state)
 		case ActionTypeRemoveNode:
 			if a.RemoveNode == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveNode.Handle(state)
 		case ActionTypeAddEdge:
 			if a.AddEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddEdge.Handle(state)
 		case ActionTypeRemoveEdge:
 			if a.RemoveEdge == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
 		case ActionTypeSetConfig:
 			if a.SetConfig == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetConfig.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Schematic{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Schematic{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Schematic{}, err
 		}
 	}
 	return state, nil
@@ -257,21 +196,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
-}
-
-// NewSetGroupAction wraps a SetGroupPayload in an Action envelope.
-func NewSetGroupAction(p SetGroupPayload) Action {
-	return Action{Type: ActionTypeSetGroup, SetGroup: &p}
-}
-
-// NewSetProjectAction wraps a SetProjectPayload in an Action envelope.
-func NewSetProjectAction(p SetProjectPayload) Action {
-	return Action{Type: ActionTypeSetProject, SetProject: &p}
 }
 
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.

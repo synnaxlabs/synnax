@@ -9,9 +9,12 @@
 
 #pragma once
 
+#include <array>
+#include <bit>
 #include <cmath>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "client/cpp/ethercat/json.gen.h"
@@ -22,16 +25,16 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/slaves.h"
 #include "driver/ethercat/telem/telem.h"
-#include "driver/ethercat/topology/topology.h"
 #include "driver/transform/transform.h"
 
 namespace driver::ethercat {
 /// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
-    /// @brief network interface name for the EtherCAT master.
-    /// Dynamically populated from device properties.
-    std::string interface_name;
+    /// @brief the slaves that the channels name.
+    Slaves slaves;
     /// @brief index channel keys for timestamp generation.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
@@ -39,19 +42,19 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
     size_t samples_per_chan = 0;
-    /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, slave::Properties> device_cache;
     /// @brief scales the raw samples of scaled channels into engineering units.
     transform::Scale scales;
+    /// @brief the values the task writes to each slave when it starts.
+    engine::Settings settings;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
-        interface_name(std::move(other.interface_name)),
+        slaves(std::move(other.slaves)),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan),
-        device_cache(std::move(other.device_cache)),
-        scales(std::move(other.scales)) {}
+        scales(std::move(other.scales)),
+        settings(std::move(other.settings)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -74,44 +77,37 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             this->samples_per_chan = *ratio;
         }
 
-        std::unordered_map<std::string, slave::Properties> slave_cache;
-        std::string first_network;
-
         channel::Claims claims;
         cfg.iter("channels", [&](x::json::Parser &ch) {
+            // The channels share one error list, so an earlier channel's error shows
+            // in ch.error().
+            const auto errors_before = ch.errors->size();
             const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
-            if (ch.error()) return;
-            const auto &slave_key = ::synnax::ethercat::base(parsed).device;
-            if (!slave_cache.contains(slave_key)) {
-                auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
-                if (slave_err) {
-                    ch.field_err("device", slave_err.data);
-                    return;
-                }
-                auto props_parser = x::json::Parser(slave_dev.properties);
-                slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
-                if (props_parser.error()) {
-                    ch.field_err(
-                        "device",
-                        common::config_err_description(props_parser.error())
-                    );
-                    return;
-                }
-                const auto &slave = slave_cache.at(slave_key);
-                if (first_network.empty())
-                    first_network = slave.network;
-                else if (slave.network != first_network) {
-                    ch.field_err("device", "all slaves must be on the same network");
-                    return;
-                }
-            }
-            const auto &slave = slave_cache.at(slave_key);
-            auto channel_ptr = channel::make_input(parsed, slave, ch);
-            if (!channel_ptr->enabled) return;
-            transform::validate_scale(ch, "scale", channel_ptr->scale);
-            claims.claim(*channel_ptr, slave, ch);
-            this->channels.push_back(std::move(channel_ptr));
+            if (ch.errors->size() != errors_before) return;
+            const auto &base = ::synnax::ethercat::base(parsed);
+            if (base.disabled) return;
+            const auto *slave = this->slaves.resolve(*client, base.device, ch);
+            if (slave == nullptr) return;
+            auto input = channel::make_input(parsed, *slave, ch);
+            if (input == nullptr) return;
+            transform::validate_scale(ch, "scale", input->scale);
+            claims.claim(input->entry, *slave, ch);
+            this->channels.push_back(std::move(input));
         });
+
+        if (cfg.has("startup_parameters"))
+            cfg.iter("startup_parameters", [&](x::json::Parser &s) {
+                const auto *slave = this->slaves.resolve(
+                    *client,
+                    s.field<std::string>("device"),
+                    s
+                );
+                if (slave == nullptr) return;
+                auto &params = this->settings[slave->position];
+                s.iter("parameters", [&params](x::json::Parser &param) {
+                    params.push_back(slave::StartupParameter::parse(param));
+                });
+            });
 
         if (cfg.error()) return;
 
@@ -119,9 +115,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-
-        this->interface_name = first_network;
-        this->device_cache = std::move(slave_cache);
 
         channel::sort_by_position(this->channels);
 
@@ -142,20 +135,20 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         };
         for (size_t i = 0; i < this->channels.size(); i++) {
             auto &ch = *this->channels[i];
-            ch.bind_remote_info(synnax_channels[i]);
+            ch.ch = synnax_channels[i];
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
-            if (!ch.scaled()) continue;
+            if (!ch.scaled() && !ch.calibration) continue;
             if (!ch.ch.data_type.matches(FLOAT_TYPES)) {
                 cfg.field_err(
                     "channels",
                     "channel " + ch.ch.name + " is " + ch.ch.data_type.name() +
-                        ", but a scaled channel must be float32 or float64. Pick a "
-                        "float channel."
+                        ", but a " + (ch.scaled() ? "scaled" : "calibrated") +
+                        " channel must be float32 or float64. Pick a float channel."
                 );
                 continue;
             }
-            this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
+            if (ch.scaled()) this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
         }
     }
 
@@ -195,8 +188,43 @@ class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
     std::unique_ptr<engine::Engine::Reader> reader;
+    /// @brief the calibration of each calibrated channel, from the gain and offset that
+    /// its slave held at start().
+    transform::Scale calibrations;
     /// @brief the bus cycle time of each sample in the latest read.
     x::telem::Series times;
+
+    /// @brief reads the gain and offset of each calibrated channel from its slave on
+    /// the running bus.
+    x::errors::Error calibrate() {
+        for (const auto &ch: this->cfg.channels) {
+            if (!ch->calibration) continue;
+            const auto &c = *ch->calibration;
+            std::array<float, 2> values{};
+            const std::array sub_indexes{c.gain_sub_index, c.offset_sub_index};
+            for (size_t i = 0; i < values.size(); i++) {
+                auto [bits, err] = this->engine->read(
+                    ch->entry.slave_position,
+                    c.index,
+                    sub_indexes[i]
+                );
+                if (err) {
+                    err.data = errors::sentence(
+                        "Failed to read the calibration of channel " + ch->ch.name +
+                        ": " + err.data
+                    );
+                    return err;
+                }
+                values[i] = std::bit_cast<float>(bits);
+            }
+            const auto [slope, offset] = c.line(values[0], values[1]);
+            this->calibrations.add(
+                ch->ch.key,
+                transform::UnaryLinearScale(slope, offset, ch->ch.data_type)
+            );
+        }
+        return x::errors::NIL;
+    }
 
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
@@ -205,23 +233,28 @@ public:
         times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
     x::errors::Error start() override {
-        if (auto err = this->engine->ensure_initialized(); err) return err;
-        const auto slaves = slave::discovered_properties(this->engine->slaves());
-        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
-            return err;
+        const auto [slaves, discover_err] = this->engine->discover();
+        if (discover_err) return discover_err;
+        if (auto err = this->cfg.slaves.validate(slaves)) return err;
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
-            entries.push_back(*ch);
+            entries.push_back(ch->entry);
 
         auto [rdr, err] = this->engine->open_reader(
             entries,
             this->cfg.sample_rate,
-            this->cfg.samples_per_chan
+            this->cfg.samples_per_chan,
+            this->cfg.settings
         );
         if (err) return err;
         this->reader = std::move(rdr);
+        this->calibrations = transform::Scale();
+        if (auto calibration_err = this->calibrate()) {
+            this->reader.reset();
+            return calibration_err;
+        }
         return x::errors::NIL;
     }
 
@@ -248,6 +281,7 @@ public:
             fr.clear();
             return res;
         }
+        if (res.error = this->calibrations.transform(fr); res.error) return res;
         if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {

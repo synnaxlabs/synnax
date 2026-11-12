@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { group, NotFoundError, project, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeRange } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Project } from "@/project";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -26,190 +27,26 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useList", () => {
-    it("should return a list of project keys", async () => {
-      const p1 = await client.projects.create({
-        name: "project1",
-      });
-      const p2 = await client.projects.create({
-        name: "project2",
-      });
-
-      const { result } = renderHook(() => Project.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(p1.key);
-      expect(result.current.data).toContain(p2.key);
-    });
-
-    it("should get individual projects using getItem", async () => {
-      const testProject = await client.projects.create({
-        name: "testProject",
-      });
-
-      const { result } = renderHook(() => Project.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedProject = result.current.getItem(testProject.key);
-      expect(retrievedProject?.key).toEqual(testProject.key);
-      expect(retrievedProject?.name).toEqual("testProject");
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      // Scope the page to this test's own projects: the list is live, so
-      // unscoped pagination would absorb projects created by concurrently
-      // running spec files.
-      const keys: string[] = [];
-      for (let i = 0; i < 5; i++) {
-        const created = await client.projects.create({
-          name: `paginationProject${i}`,
-        });
-        keys.push(created.key);
-      }
-
+  describe("list", () => {
+    it("should keep the matching projects in name order across a rename", async () => {
+      const b = await client.projects.create({ name: "b" });
+      const a = await client.projects.create({ name: "a" });
       const { result } = renderHook(
         () =>
-          Project.useList({
-            query: { where: { key: { in: keys } } },
-            filter: (p) => keys.includes(p.key),
+          Flux.useList((c) => c.projects, {
+            name: "projects",
+            query: { where: { key: { in: [a.key, b.key] } }, order: { field: "name" } },
           }),
         { wrapper },
       );
-      act(() => {
-        result.current.retrieve({ limit: 2, offset: 1, where: { key: { in: keys } } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-    });
-
-    it("should return all projects when no pagination params provided", async () => {
-      const p1 = await client.projects.create({
-        name: "allProjects1",
-      });
-      const p2 = await client.projects.create({
-        name: "allProjects2",
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(p1.key);
-      expect(result.current.data).toContain(p2.key);
-    });
-
-    it("should update the list when a project is created", async () => {
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
-
-      const newProject = await client.projects.create({
-        name: "newProject",
-      });
-
+      act(() => result.current.more());
       await waitFor(() => {
-        expect(result.current.data.length).toBeGreaterThan(initialLength);
-        expect(result.current.data).toContain(newProject.key);
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([a.key, b.key]);
       });
-    });
-
-    it("should update the list when a project is renamed", async () => {
-      const testProject = await client.projects.create({
-        name: "originalName",
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.getItem(testProject.key)?.name).toEqual("originalName");
-
-      await client.projects.rename(testProject.key, "renamedProject");
-
-      await waitFor(() => {
-        expect(result.current.getItem(testProject.key)?.name).toEqual("renamedProject");
-      });
-    });
-
-    it("should remove project from list when deleted", async () => {
-      const testProject = await client.projects.create({
-        name: "toDeleteProject",
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(testProject.key);
-
-      await client.projects.delete(testProject.key);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testProject.key);
-      });
-    });
-
-    it("should handle multiple project updates simultaneously", async () => {
-      const p1 = await client.projects.create({
-        name: "multiUpdate1",
-      });
-      const p2 = await client.projects.create({
-        name: "multiUpdate2",
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await Promise.all([
-        client.projects.rename(p1.key, "updated1"),
-        client.projects.rename(p2.key, "updated2"),
-      ]);
-
-      await waitFor(() => {
-        expect(result.current.getItem(p1.key)?.name).toEqual("updated1");
-        expect(result.current.getItem(p2.key)?.name).toEqual("updated2");
-      });
-    });
-
-    it("should maintain list consistency during rapid changes", async () => {
-      const testProject = await client.projects.create({
-        name: "rapidChanges",
-      });
-
-      const { result } = renderHook(() => Project.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      await act(async () => {
-        for (let i = 1; i <= 3; i++)
-          await client.projects.rename(testProject.key, `rapidChanges${i}`);
-      });
-
-      await waitFor(() => {
-        const project = result.current.getItem(testProject.key);
-        expect(project?.name).toEqual("rapidChanges3");
-      });
+      await client.projects.rename(a.key, "c");
+      await waitFor(() => expect(result.current.data).toEqual([b.key, a.key]));
+      expect(result.current.getItem(a.key)?.name).toEqual("c");
     });
   });
 
@@ -267,21 +104,75 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.retrieve?.name).toEqual(newName));
     });
 
-    it("should apply the rename optimistically", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const proj = await client.projects.create({
         name: `testProject-${id.create()}`,
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Project.useRename({ afterOptimistic }), {
+      const name = `newName-${id.create()}`;
+      const { result } = renderHook(() => Project.useRename(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: proj.key, name });
+      });
+      expect(client.projects.watch(proj.key).getCached()).toMatchObject({ name });
+    });
+  });
+
+  describe("useForm", () => {
+    it("should create a project, then rename it on a second save", async () => {
+      const { result } = renderHook(() => Project.useForm({ query: null }), {
         wrapper,
       });
+      const name = `formProject-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, name));
       await act(async () => {
-        await result.current.updateAsync({
-          key: proj.key,
-          name: `newName-${id.create()}`,
-        });
+        await result.current.saveAsync();
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      const key = result.current.form.value().key;
+      expect(key).toBeDefined();
+      expect((await client.projects.retrieve(key!)).name).toEqual(name);
+      const newName = `renamedProject-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, newName));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.form.value().key).toEqual(key);
+      await waitFor(async () =>
+        expect((await client.projects.retrieve(key!)).name).toEqual(newName),
+      );
+    });
+
+    it("should rename an existing project", async () => {
+      const proj = await client.projects.create({ name: `testProject-${id.create()}` });
+      const { result } = await renderHookSuspended(
+        () => Project.useForm({ query: { key: proj.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const newName = `newName-${id.create()}`;
+      act(() => result.current.form.set(Project.formPath.name, newName));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      await waitFor(async () =>
+        expect((await client.projects.retrieve(proj.key)).name).toEqual(newName),
+      );
+    });
+
+    it("should save a name that the client cache still holds", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      const proj = await client.projects.create({ name: `testProject-${id.create()}` });
+      const { result } = await renderHookSuspended(
+        () => Project.useForm({ query: { key: proj.key } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: proxied }) },
+      );
+      // The cache stops hearing the Core, so it keeps the name it read.
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      act(() => result.current.form.set(Project.formPath.name, "renamed"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      act(() => result.current.form.set(Project.formPath.name, proj.name));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().projects.retrieve(proj.key);
+      expect(stored.name).toEqual(proj.name);
     });
   });
 
@@ -431,7 +322,7 @@ describe("queries", () => {
         parent: project.resourceID(proj.key),
         name: "My Group",
       });
-      await client.batch.send([client.schematics.setGroupRequest(s2.key, g.key)]);
+      await client.batch.send(client.schematics.setGroupRequest(s2.key, g.key));
 
       const siblings = await Project.retrieveSiblings(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -460,9 +351,9 @@ describe("queries", () => {
         parent: group.resourceID(outerGroup.key),
         name: "Inner Group",
       });
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.setGroupRequest(s2.key, innerGroup.key),
-      ]);
+      );
 
       const siblings = await Project.retrieveSiblings(client, {
         resourceID: schematic.resourceID(s1.key),
@@ -537,20 +428,20 @@ describe("queries", () => {
           parent: project.resourceID(proj.key),
           name: "Group 1",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sB.key, g1.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sB.key, g1.key));
 
         const g2 = await client.groups.create({
           parent: group.resourceID(g1.key),
           name: "Group 2",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sC.key, g2.key)]);
-        await client.batch.send([client.schematics.setGroupRequest(sD.key, g2.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sC.key, g2.key));
+        await client.batch.send(client.schematics.setGroupRequest(sD.key, g2.key));
 
         const gE = await client.groups.create({
           parent: group.resourceID(g2.key),
           name: "Group E",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sE.key, gE.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sE.key, gE.key));
 
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
@@ -580,20 +471,20 @@ describe("queries", () => {
           parent: project.resourceID(mproj.key),
           name: "Group 1 Mirrored",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sBm.key, mg1.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sBm.key, mg1.key));
 
         const mg2 = await client.groups.create({
           parent: group.resourceID(mg1.key),
           name: "Group 2 Mirrored",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sCm.key, mg2.key)]);
-        await client.batch.send([client.schematics.setGroupRequest(sDm.key, mg2.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sCm.key, mg2.key));
+        await client.batch.send(client.schematics.setGroupRequest(sDm.key, mg2.key));
 
         const mgE = await client.groups.create({
           parent: group.resourceID(mg2.key),
           name: "Group E Mirrored",
         });
-        await client.batch.send([client.schematics.setGroupRequest(sEm.key, mgE.key)]);
+        await client.batch.send(client.schematics.setGroupRequest(sEm.key, mgE.key));
       });
 
       const expectSiblingsFromSource = async (

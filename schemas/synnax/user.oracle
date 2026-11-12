@@ -9,6 +9,7 @@
 
 import "schemas/synnax/role"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/user"
 @py output "client/py/synnax/user"
@@ -25,6 +26,7 @@ User struct {
     }
     name      string   {
         @doc value           "is the user's display name."
+        @index sorted
         @search
         @validate min_length 1
     }
@@ -40,6 +42,32 @@ User struct {
         @ref kind          place
         @ref on_delete     restrict
         @validate required
+    }
+
+    action Create {
+        user User
+
+        @doc value """
+            replaces the user with the given created state. Emitted by the Core when a
+            user is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
+    action SetUsername {
+        username string
+
+        @doc value """
+            changes the username of the user's password. The Core refuses a username
+            that another user holds.
+        """
     }
 
     @doc value       """

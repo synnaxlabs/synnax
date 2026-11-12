@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var roleType = resource.ID{Type: resource.TypeRole}
@@ -90,26 +91,18 @@ var _ = Describe("Create", func() {
 		Expect(roleExists(ctx, r.Key)).To(BeTrue())
 	})
 
-	It("Should refuse to overwrite a role the subject cannot update", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionCreate, roleType)
-		r := createRole(ctx)
-		r.Name = "renamed-" + r.Name
-		Expect(create(AuthedCtx(ctx, u), apirole.CreateRequest{
-			Roles: []role.Role{r},
-		})).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
-	})
-
-	It("Should overwrite a role the subject can update", func(ctx SpecContext) {
+	It("Should refuse a role whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRole(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, r.ResourceID())
-		r.Name = "renamed-" + r.Name
-		MustSucceed(create(AuthedCtx(ctx, u), apirole.CreateRequest{
-			Roles: []role.Role{r},
-		}))
+		renamed := r
+		renamed.Name = "renamed-" + r.Name
+		Expect(create(AuthedCtx(ctx, u), apirole.CreateRequest{
+			Roles: []role.Role{renamed},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("role %s already exists", r.Key)),
+		))
 		var stored role.Role
 		Expect(svc.RBAC.Role.NewRetrieve().
 			Where(role.MatchKeys(r.Key)).
@@ -134,7 +127,6 @@ var _ = Describe("Delete", func() {
 			return svc.RBAC.Policy.NewWriter(tx, false).Create(ctx, &p)
 		})).To(Succeed())
 		return r, p, []need{
-			{access.ActionUpdate, r.ResourceID()},
 			{access.ActionDelete, r.ResourceID()},
 			{access.ActionDelete, p.ResourceID()},
 		}
@@ -155,9 +147,8 @@ var _ = Describe("Delete", func() {
 			Where(policy.MatchKeys(p.Key)).
 			Exists(ctx, db))).To(BeTrue())
 	},
-		Entry("update on the role", 0),
-		Entry("delete on the role", 1),
-		Entry("delete on its policy", 2),
+		Entry("delete on the role", 0),
+		Entry("delete on its policy", 1),
 	)
 
 	It("Should delete a role and its policies", func(ctx SpecContext) {
@@ -204,5 +195,35 @@ var _ = Describe("Retrieve", func() {
 		Expect(retrieve(AuthedCtx(ctx, createUser(ctx)), apirole.RetrieveRequest{
 			Where: &role.Where{Key: &filter.Set[role.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	rename := func(r role.Role, name string) apirole.DispatchRequest {
+		return apirole.DispatchRequest{
+			Key: r.Key,
+			Actions: []role.Action{role.NewSetAction(role.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
+	It("Should refuse a subject that cannot update the role", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRole(ctx)
+		Expect(dispatch(AuthedCtx(ctx, u), rename(r, "renamed"))).Error().
+			To(denied(u, access.ActionUpdate, r.ResourceID()))
+	})
+	It("Should rename a role the subject can update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRole(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, r.ResourceID())
+		MustSucceed(dispatch(AuthedCtx(ctx, u), rename(r, "renamed")))
+		var stored role.Role
+		Expect(svc.RBAC.Role.NewRetrieve().
+			Where(role.MatchKeys(r.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
 	})
 })

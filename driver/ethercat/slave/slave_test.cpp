@@ -15,13 +15,14 @@
 
 namespace driver::ethercat::slave {
 
-TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
-    ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
-    ASSERT_EQ(slave_state_to_string(State::PRE_OP), "PRE-OP");
-    ASSERT_EQ(slave_state_to_string(State::SAFE_OP), "SAFE-OP");
-    ASSERT_EQ(slave_state_to_string(State::OP), "OP");
-    ASSERT_EQ(slave_state_to_string(State::BOOT), "BOOT");
-    ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
+/// @brief it should name each slave state as the EtherCAT standard does.
+TEST(StateToString, NamesEachState) {
+    ASSERT_EQ(to_string(State::INIT), "INIT");
+    ASSERT_EQ(to_string(State::PRE_OP), "PRE-OP");
+    ASSERT_EQ(to_string(State::SAFE_OP), "SAFE-OP");
+    ASSERT_EQ(to_string(State::OP), "OP");
+    ASSERT_EQ(to_string(State::BOOT), "BOOT");
+    ASSERT_EQ(to_string(State::UNKNOWN), "UNKNOWN");
 }
 
 TEST(FromAlState, ConvertsStandardStates) {
@@ -48,31 +49,6 @@ TEST(FromAlState, MasksErrorFlagBits) {
 TEST(FromAlState, AcceptsUint8Values) {
     const uint8_t igh_state = 0x08;
     ASSERT_EQ(from_al_state(igh_state), State::OP);
-}
-
-TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
-    Properties props;
-    ASSERT_EQ(props.pdo_count(), 0);
-}
-
-TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
-    Properties props{
-        .input_pdos =
-            {
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 1,
-                 .bit_length = 16},
-                {.pdo_index = 0x1A00,
-                 .index = 0x6000,
-                 .sub_index = 2,
-                 .bit_length = 16},
-            },
-        .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 8},
-        },
-    };
-    ASSERT_EQ(props.pdo_count(), 3);
 }
 
 Properties find_pdo_slave() {
@@ -168,7 +144,25 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_EQ(props.name, "EL2008");
     ASSERT_EQ(props.network, "eth0");
     ASSERT_EQ(props.position, 1);
-    ASSERT_TRUE(props.enabled);
+    ASSERT_TRUE(props.config.enabled);
+}
+
+/// @brief it should read back the settings that a scan wrote for a slave.
+TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    auto parser = x::json::Parser(
+        Properties{.name = "6xSTG", .settings = settings}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).settings, settings);
+}
+
+/// @brief it should leave the settings empty for a slave that the catalog does not
+/// describe.
+TEST(PropertiesParse, LeavesMissingSettingsEmpty) {
+    auto parser = x::json::Parser(Properties{.name = "EL3102"}.to_json());
+    EXPECT_FALSE(Properties::parse(parser).settings.has_value());
 }
 
 TEST(PropertiesParse, ParsesWithPdos) {
@@ -229,7 +223,7 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
 /// @brief it should parse a device stored before slaves listed their OpModes as a slave
 /// with no OpModes.
 TEST(PropertiesParse, DefaultsToNoOpModes) {
-    auto j = Properties{.name = "EL2008", .enabled = true}.to_json();
+    auto j = Properties{.position = 1, .name = "EL2008"}.to_json();
     j.erase("op_modes");
     auto parser = x::json::Parser(j);
     const auto props = Properties::parse(parser);
@@ -241,15 +235,16 @@ TEST(PropertiesParse, DefaultsToNoOpModes) {
 /// trip.
 TEST(PropertiesParse, RoundTripsOpModes) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
-        .op_modes =
-            {{.name = "SM-Synchron", .sync0_factor = 1},
-             {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
-             {.name = "DC-bus1",
-              .assign_activate = 0x0700,
-              .sync0_cycle = 1000,
-              .sync1_factor = -1000}},
-        .enabled = true,
+        .op_modes = {
+            {.name = "SM-Synchron", .sync0_factor = 1},
+            {.name = "DC", .assign_activate = 0x0700, .sync0_cycle = 1000000000},
+            {.name = "DC-bus1",
+             .assign_activate = 0x0700,
+             .sync0_cycle = 1000,
+             .sync1_factor = -1000}
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
@@ -257,30 +252,64 @@ TEST(PropertiesParse, RoundTripsOpModes) {
     EXPECT_EQ(parsed.op_modes, props.op_modes);
 }
 
-/// @brief it should give back the chosen mode of a slave after a JSON round trip, and
-/// pass it to the master in the slave settings.
+/// @brief it should give back the chosen mode of a slave after a JSON round trip.
 TEST(PropertiesParse, RoundTripsTheChosenMode) {
     const Properties props{
+        .position = 1,
         .name = "6xSTG",
-        .op_mode =
-            dc::Choice{
+        .config = {
+            .op_mode = dc::Choice{
                 .index = 1,
                 .assign_activate = 0x0300,
                 .cycles = {.sync0 = x::telem::MICROSECOND, .sync1 = x::telem::SECOND},
             },
-        .enabled = true,
+        },
     };
     auto parser = x::json::Parser(props.to_json());
     const auto parsed = Properties::parse(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(parsed.op_mode, props.op_mode);
-    EXPECT_EQ(parsed.config().op_mode, props.op_mode);
+    EXPECT_EQ(parsed.config.op_mode, props.config.op_mode);
 }
 
 /// @brief it should leave out the chosen mode of a slave with no choice, as the Console
 /// stores no choice as a missing key.
 TEST(PropertiesToJson, LeavesOutAMissingChoice) {
     EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
+}
+
+/// @brief it should write the settings that the catalog describes for a slave.
+TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    const Properties props{.name = "6xSTG", .settings = settings};
+    EXPECT_EQ(props.to_json().at("settings"), settings);
+}
+
+/// @brief it should replace a startup parameter at the same address in place, and add a
+/// parameter at a new address last.
+TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
+    const auto param = [](const uint8_t sub_index, const double value) {
+        return StartupParameter{
+            .index = 0x8040,
+            .sub_index = sub_index,
+            .data_type = x::telem::UINT16_T,
+            .value = value,
+        };
+    };
+    Config config{.startup_parameters = {param(1, 1), param(2, 2)}};
+    config.add_startup_parameters({param(1, 5), param(3, 7)});
+    EXPECT_EQ(
+        config.startup_parameters,
+        (std::vector<StartupParameter>{param(1, 5), param(2, 2), param(3, 7)})
+    );
+}
+
+/// @brief it should leave out the settings of a slave that the catalog does not
+/// describe.
+TEST(PropertiesToJson, LeavesOutMissingSettings) {
+    EXPECT_FALSE(Properties{.name = "EL3102"}.to_json().contains("settings"));
 }
 
 TEST(PropertiesToJson, SerializesAllFields) {
@@ -292,8 +321,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
         .revision = 1,
         .serial = 12345,
         .name = "EL3001",
-        .input_bits = 16,
-        .output_bits = 8,
         .input_pdos =
             {{.pdo_index = 0x1A00,
               .index = 0x6000,
@@ -302,16 +329,15 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .is_input = true,
               .name = "Value",
               .data_type = x::telem::INT16_T}},
-        .output_pdos =
-            {{.pdo_index = 0x1600,
-              .index = 0x7000,
-              .sub_index = 1,
-              .bit_length = 8,
-              .is_input = false,
-              .name = "Control",
-              .data_type = x::telem::UINT8_T}},
-        .coe_pdo_order_reliable = true,
-        .enabled = true,
+        .output_pdos = {
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 8,
+             .is_input = false,
+             .name = "Control",
+             .data_type = x::telem::UINT8_T}
+        },
     };
 
     auto j = props.to_json();
@@ -322,9 +348,6 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["name"], "EL3001");
     ASSERT_EQ(j["network"], "eth0");
     ASSERT_EQ(j["position"], 3);
-    ASSERT_EQ(j["input_bits"], 16);
-    ASSERT_EQ(j["output_bits"], 8);
-    ASSERT_EQ(j["pdo_order_reliable"], true);
     ASSERT_EQ(j["enabled"], true);
     ASSERT_EQ(j["pdos"]["inputs"].size(), 1);
     ASSERT_EQ(j["pdos"]["inputs"][0]["name"], "Value");
@@ -508,7 +531,7 @@ TEST(Properties, ParsesStartupParameters) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
@@ -521,8 +544,8 @@ TEST(Properties, ParsesStartupParameters) {
     );
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(props.startup_parameters.size(), 1);
-    EXPECT_EQ(props.startup_parameters[0].index, 0x8000);
+    ASSERT_EQ(props.config.startup_parameters.size(), 1);
+    EXPECT_EQ(props.config.startup_parameters[0].index, 0x8000);
     EXPECT_FALSE(props.to_json().contains("startup_parameters"));
 }
 
@@ -535,7 +558,7 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
@@ -558,6 +581,35 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
     EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
 }
 
+/// @brief it should reject a position that no slave on a bus can have.
+TEST(Properties, RejectsAPositionOutsideTheBus) {
+    for (const auto &position:
+         {x::json::json(0),
+          x::json::json(-1),
+          x::json::json(65536),
+          x::json::json(1.5)}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"serial", 1},
+                {"vendor_id", 2},
+                {"product_code", 3},
+                {"revision", 4},
+                {"name", "EL3102"},
+                {"position", position},
+                {"enabled", true},
+                {"pdos",
+                 {{"inputs", x::json::json::array()},
+                  {"outputs", x::json::json::array()}}},
+            }
+        );
+        Properties::parse(parser);
+        const auto errors = parser.error_json()["errors"];
+        ASSERT_EQ(errors.size(), 1) << position;
+        EXPECT_EQ(errors[0]["path"], "position");
+        EXPECT_EQ(errors[0]["message"], "must be a whole number from 1 to 65535");
+    }
+}
+
 /// @brief it should parse a slave that has no startup parameters field.
 TEST(Properties, ParsesWithoutStartupParameters) {
     x::json::Parser parser(
@@ -567,7 +619,7 @@ TEST(Properties, ParsesWithoutStartupParameters) {
             {"product_code", 3},
             {"revision", 4},
             {"name", "EL3102"},
-            {"position", 0},
+            {"position", 1},
             {"enabled", true},
             {"pdos",
              {{"inputs", x::json::json::array()}, {"outputs", x::json::json::array()}}},
@@ -575,6 +627,42 @@ TEST(Properties, ParsesWithoutStartupParameters) {
     );
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
-    EXPECT_TRUE(props.startup_parameters.empty());
+    EXPECT_TRUE(props.config.startup_parameters.empty());
+}
+
+/// @brief it should return the sync mode that the catalog gives for the card's mode.
+TEST(PropertiesCatalogOpMode, ReturnsTheModeThatTheCatalogGives) {
+    Properties props;
+    props.settings = x::json::json{
+        {"mode",
+         {{"value", 0},
+          {"op_mode",
+           {{"index", 1},
+            {"assign_activate", 0x0300},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 1000000000}}}}},
+    };
+    EXPECT_EQ(
+        props.catalog_op_mode(),
+        (dc::Choice{
+            .index = 1,
+            .assign_activate = 0x0300,
+            .cycles = {
+                .sync0 = x::telem::MICROSECOND,
+                .sync1 = x::telem::SECOND,
+            },
+        })
+    );
+}
+
+/// @brief it should return no sync mode when the catalog gives none for the card's
+/// mode, or describes no mode for the card.
+TEST(PropertiesCatalogOpMode, ReturnsNoneWhenTheCatalogGivesNone) {
+    Properties props;
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"device", x::json::json::array()}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"mode", {{"value", 1}, {"shared", true}}}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
 }
 }

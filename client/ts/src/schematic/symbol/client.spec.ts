@@ -14,7 +14,7 @@ import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { type resource } from "@/resource";
-import { type schematic } from "@/schematic";
+import { schematic } from "@/schematic";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
@@ -243,18 +243,18 @@ describe("Symbol Client", () => {
 
     it("should deliver newly created members to group subscribers", async () => {
       const g = await createSymbolGroup();
-      const params = { groups: [g.key] };
+      const list = client.schematics.symbols.watch({ groups: [g.key] });
       await client.schematics.symbols.create({
         name: "first",
         data: SYMBOL_DATA,
         group: g.key,
       });
       const answers: schematic.symbol.Symbol[][] = [];
-      const stop = client.schematics.symbols.onChange(params, (cached) => {
-        if (query.isLive(cached)) answers.push(cached);
+      const stop = list.onChange((w) => {
+        if (w != null) answers.push(w.records);
       });
       try {
-        await client.schematics.symbols.retrieve(params);
+        await list.retrieve();
         await client.schematics.symbols.create({
           name: "second",
           data: SYMBOL_DATA,
@@ -275,25 +275,22 @@ describe("Symbol Client", () => {
 
     it("should drop deleted members from group subscribers", async () => {
       const g = await createSymbolGroup();
-      const params = { groups: [g.key] };
+      const list = client.schematics.symbols.watch({ groups: [g.key] });
       const created = await client.schematics.symbols.create({
         symbols: [
           { name: "keep", data: SYMBOL_DATA, group: g.key },
           { name: "drop", data: SYMBOL_DATA, group: g.key },
         ],
       });
-      let latest: query.Cached<schematic.symbol.Symbol[]> | undefined;
-      const stop = client.schematics.symbols.onChange(params, (cached) => {
-        latest = cached;
-      });
+      const stop = list.onChange(() => {});
       try {
-        await client.schematics.symbols.retrieve(params);
+        await list.retrieve();
         const doomed = created.find(
           (s) => s.name === "drop",
         ) as schematic.symbol.Symbol;
         await client.schematics.symbols.delete(doomed.key);
         await expect
-          .poll(() => (query.isLive(latest) ? latest.map((s) => s.name) : undefined))
+          .poll(() => list.getCached()?.records.map((s) => s.name))
           .toEqual(["keep"]);
       } finally {
         stop();
@@ -320,9 +317,9 @@ describe("Symbol Client", () => {
         data: SYMBOL_DATA,
         group: from.key,
       });
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, to.key),
-      ]);
+      );
       expect((await client.schematics.symbols.retrieve(symbol.key)).group).toEqual(
         to.key,
       );
@@ -331,9 +328,9 @@ describe("Symbol Client", () => {
           (s) => s.key,
         ),
       ).toEqual([symbol.key]);
-      await client.batch.send([
+      await client.batch.send(
         client.schematics.symbols.setGroupRequest(symbol.key, null),
-      ]);
+      );
       expect(
         (await client.schematics.symbols.retrieve(symbol.key)).group,
       ).toBeUndefined();
@@ -352,6 +349,23 @@ describe("Symbol Client", () => {
 
       const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("New Name");
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the symbol", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Dispatch Test",
+        data: SYMBOL_DATA,
+        group: symbolGroup.key,
+      });
+      const svg = "<svg><g></g></svg>";
+      await client.schematics.symbols.dispatch(
+        symbol.key,
+        schematic.symbol.set({ path: ["data", "svg"], value: svg }),
+      );
+      const stored = await createTestClient().schematics.symbols.retrieve(symbol.key);
+      expect(stored.data.svg).toBe(svg);
     });
   });
 
@@ -485,18 +499,13 @@ describe("Symbol Client", () => {
 
     it("should drop the group from its parent's children", async () => {
       const parent = await createSymbolGroup();
-      const params = { parents: [group.resourceID(parent.key)] };
+      const list = client.groups.watch({ parents: [group.resourceID(parent.key)] });
       const target = await createSymbolGroup(group.resourceID(parent.key));
-      let latest: query.Cached<group.Group[]> | undefined;
-      const stop = client.groups.onChange(params, (cached) => {
-        latest = cached;
-      });
+      const stop = list.onChange(() => {});
       try {
-        expect(await client.groups.retrieve(params)).toHaveLength(1);
+        expect((await list.retrieve()).records).toHaveLength(1);
         await client.schematics.symbols.deleteGroup(target.key);
-        await expect
-          .poll(() => (query.isLive(latest) ? latest : undefined))
-          .toEqual([]);
+        await expect.poll(() => list.getCached()?.records).toEqual([]);
       } finally {
         stop();
       }
@@ -504,22 +513,17 @@ describe("Symbol Client", () => {
 
     it("should drop the deleted symbols from group subscribers", async () => {
       const target = await createSymbolGroup();
-      const params = { groups: [target.key] };
+      const list = client.schematics.symbols.watch({ groups: [target.key] });
       await client.schematics.symbols.create({
         name: "Inlet",
         data: SYMBOL_DATA,
         group: target.key,
       });
-      let latest: query.Cached<schematic.symbol.Symbol[]> | undefined;
-      const stop = client.schematics.symbols.onChange(params, (cached) => {
-        latest = cached;
-      });
+      const stop = list.onChange(() => {});
       try {
-        await client.schematics.symbols.retrieve(params);
+        await list.retrieve();
         await client.schematics.symbols.deleteGroup(target.key);
-        await expect
-          .poll(() => (query.isLive(latest) ? latest : undefined))
-          .toEqual([]);
+        await expect.poll(() => list.getCached()?.records).toEqual([]);
       } finally {
         stop();
       }
@@ -547,8 +551,8 @@ describe("Symbol Client", () => {
         let symbol_: query.Cached<schematic.symbol.Symbol> | undefined;
         await client.schematics.symbols.deleteGroup(target.key, {
           onOptimistic: () => {
-            group_ = client.groups.getCached({ key: target.key });
-            symbol_ = client.schematics.symbols.getCached(symbol.key);
+            group_ = client.groups.watch({ key: target.key }).getCached();
+            symbol_ = client.schematics.symbols.watch(symbol.key).getCached();
           },
         });
         expect(query.isLive(group_)).toBe(false);
@@ -560,28 +564,25 @@ describe("Symbol Client", () => {
         await expect(
           client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
         ).rejects.toBe(WRITE_FAILED);
-        expect(expectLive(client.groups.getCached({ key: target.key })).name).toEqual(
-          target.name,
-        );
         expect(
-          expectLive(client.schematics.symbols.getCached(symbol.key)).name,
+          expectLive(client.groups.watch({ key: target.key }).getCached()).name,
+        ).toEqual(target.name);
+        expect(
+          expectLive(client.schematics.symbols.watch(symbol.key).getCached()).name,
         ).toEqual(symbol.name);
       });
 
       it("should restore the parent's children when the write fails", async () => {
         const parent = await createSymbolGroup();
-        const params = { parents: [group.resourceID(parent.key)] };
+        const list = client.groups.watch({ parents: [group.resourceID(parent.key)] });
         const { target } = await createPopulated(group.resourceID(parent.key));
-        let latest: query.Cached<group.Group[]> | undefined;
-        const stop = client.groups.onChange(params, (cached) => {
-          latest = cached;
-        });
+        const stop = list.onChange(() => {});
         try {
-          expect(await client.groups.retrieve(params)).toHaveLength(1);
+          expect((await list.retrieve()).records).toHaveLength(1);
           await expect(
             client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
           ).rejects.toBe(WRITE_FAILED);
-          expect(expectLive(latest).map((g) => g.key)).toEqual([target.key]);
+          expect(list.getCached()?.records.map((g) => g.key)).toEqual([target.key]);
         } finally {
           stop();
         }

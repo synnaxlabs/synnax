@@ -13,6 +13,8 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/ethercat/json.gen.h"
+
 #include "driver/ethercat/channel/channel.h"
 
 namespace driver::ethercat::channel {
@@ -119,14 +121,13 @@ slave::Properties wide_output_slave() {
 nlohmann::json read_entry(
     const uint16_t index,
     const uint8_t sub_index,
-    const std::string &data_type = "uint8",
-    const bool disabled = false
+    const std::string &data_type = "uint8"
 ) {
     return {
         {"type", "entry"},
         {"device", "dev-001"},
         {"channel", 42},
-        {"disabled", disabled},
+        {"disabled", false},
         {"index", index},
         {"sub_index", sub_index},
         {"data_type", data_type},
@@ -171,6 +172,49 @@ nlohmann::json write_unresolved(const std::string &pdo) {
     };
 }
 
+/// @brief returns the config of a calibrated read channel at the entry.
+nlohmann::json calibrated_entry(
+    const uint16_t index,
+    const uint8_t sub_index,
+    const std::string &type
+) {
+    auto j = read_entry(index, sub_index, type);
+    j["calibrated"] = true;
+    return j;
+}
+
+/// @brief returns a slave whose catalog calibrates the input 0x6030:01 with the gain at
+/// 0x8040:15 and the offset at 0x8040:14. The slave sends samples of data_type there.
+slave::Properties calibrated_slave(
+    const x::telem::DataType &data_type,
+    const std::string &calibration_type = "int32"
+) {
+    slave::Properties slave{.position = 2, .name = "SIRIUS"};
+    slave.input_pdos.push_back(
+        {.pdo_index = 0x1A30,
+         .index = 0x6030,
+         .sub_index = 1,
+         .bit_length = 32,
+         .is_input = true,
+         .name = "CH1",
+         .data_type = data_type}
+    );
+    slave.settings = x::json::json{
+        {"channels",
+         {{{"entries",
+            {{{"index", 0x6030},
+              {"sub_index", 1},
+              {"calibration",
+               {{"data_type", calibration_type},
+                {"index", 0x8040},
+                {"gain_sub_index", 0x15},
+                {"offset_sub_index", 0x14},
+                {"divisor", 256},
+                {"raw_offset", true}}}}}}}}},
+    };
+    return slave;
+}
+
 std::unique_ptr<Input> input(const slave::Properties &slave, x::json::Parser &p) {
     return make_input(::synnax::ethercat::parse_read_channel(p), slave, p);
 }
@@ -199,15 +243,98 @@ TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     auto parser = x::json::Parser(j);
     const auto ch = input(slave, parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_TRUE(ch->enabled);
-    ASSERT_TRUE(ch->is_input);
-    ASSERT_EQ(ch->device_key, "dev-001");
+    ASSERT_TRUE(ch->entry.is_input);
     ASSERT_EQ(ch->synnax_key, 42);
-    ASSERT_EQ(ch->slave_position, 1);
-    ASSERT_EQ(ch->index, 0x6000);
-    ASSERT_EQ(ch->sub_index, 0x11);
-    ASSERT_EQ(ch->bit_length, 16);
-    ASSERT_EQ(ch->data_type, x::telem::UINT16_T);
+    ASSERT_EQ(ch->entry.slave_position, 1);
+    ASSERT_EQ(ch->entry.index, 0x6000);
+    ASSERT_EQ(ch->entry.sub_index, 0x11);
+    ASSERT_EQ(ch->entry.bit_length, 16);
+    ASSERT_EQ(ch->entry.data_type, x::telem::UINT16_T);
+}
+
+/// @brief it should give an integer input the calibration of its catalog, and decode
+/// its samples in the data type of the calibration.
+TEST(Input, TakesTheCalibrationOfTheCatalogForIntegerSamples) {
+    const auto slave = calibrated_slave(x::telem::UINT32_T);
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "uint32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_TRUE(ch->calibration.has_value());
+    const auto &calibration = ch->calibration.value();
+    EXPECT_EQ(calibration.index, 0x8040);
+    EXPECT_EQ(calibration.gain_sub_index, 0x15);
+    EXPECT_EQ(calibration.offset_sub_index, 0x14);
+    EXPECT_EQ(ch->entry.data_type, x::telem::INT32_T);
+}
+
+/// @brief it should not calibrate an input that sends float samples.
+TEST(Input, LeavesFloatSamplesUncalibrated) {
+    const auto slave = calibrated_slave(x::telem::FLOAT32_T);
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "float32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    EXPECT_FALSE(ch->calibration.has_value());
+    EXPECT_EQ(ch->entry.data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should leave the samples of a channel raw when the channel is not
+/// calibrated, as a task from before calibrations is.
+TEST(Input, LeavesAnUncalibratedChannelRaw) {
+    const auto slave = calibrated_slave(x::telem::UINT32_T);
+    auto parser = x::json::Parser(read_entry(0x6030, 1, "uint32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    EXPECT_FALSE(ch->calibration.has_value());
+    EXPECT_EQ(ch->entry.data_type, x::telem::UINT32_T);
+}
+
+/// @brief it should report a calibrated channel whose entry the catalog does not
+/// calibrate.
+TEST(Input, ReportsACalibratedChannelThatTheCatalogDoesNotCalibrate) {
+    auto slave = calibrated_slave(x::telem::INT32_T);
+    slave.settings.reset();
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "int32"));
+    const auto ch = input(slave, parser);
+    const auto [path, message] = only_error(parser);
+    EXPECT_EQ(path, "calibrated");
+    EXPECT_EQ(
+        message,
+        "the catalog gives no calibration for entry 0x6030:01 on slave SIRIUS"
+    );
+    EXPECT_EQ(ch, nullptr);
+}
+
+/// @brief it should report a catalog calibration whose data type does not fit the
+/// entry.
+TEST(Input, ReportsACalibrationThatDoesNotFitTheEntry) {
+    const auto slave = calibrated_slave(x::telem::INT32_T, "int16");
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "int32"));
+    const auto ch = input(slave, parser);
+    const auto [path, message] = only_error(parser);
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(
+        message,
+        "the catalog gives int16 samples for entry 0x6030:01 on slave SIRIUS, but the "
+        "entry holds 32 bits"
+    );
+    EXPECT_EQ(ch, nullptr);
+}
+
+/// @brief it should turn a gain and a raw offset into a line: (raw / 256 + offset) *
+/// gain.
+TEST(Calibration, ScalesARawOffsetByTheGain) {
+    const Calibration c{.divisor = 256, .raw_offset = true};
+    const auto [slope, offset] = c.line(2, 3);
+    EXPECT_DOUBLE_EQ(slope, 2.0 / 256);
+    EXPECT_DOUBLE_EQ(offset, 6);
+}
+
+/// @brief it should turn a gain and a physical offset into a line: raw * gain + offset.
+TEST(Calibration, AddsAPhysicalOffsetAfterTheGain) {
+    const Calibration c{};
+    const auto [slope, offset] = c.line(0.5F, -1.25F);
+    EXPECT_DOUBLE_EQ(slope, 0.5);
+    EXPECT_DOUBLE_EQ(offset, -1.25);
 }
 
 /// @brief it should report a data type that is wider than the entry.
@@ -223,7 +350,7 @@ TEST(Input, ReportsADataTypeWiderThanTheEntry) {
         "data type float64 is 8 bytes but entry 0x6000:11 on slave EL3102 holds 2 "
         "bytes. Pick a 2 byte type."
     );
-    ASSERT_EQ(ch->index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should report a data type that is narrower than the entry.
@@ -254,18 +381,17 @@ TEST(Input, ReportsADataTypeTheCyclicExchangeCannotCarry) {
         "data type timestamp cannot be exchanged with entry 0x6000:11 on slave "
         "EL3102. Pick a 2 byte number type."
     );
-    ASSERT_EQ(ch->index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
-/// @brief it should bind no entry when the slave has no entry at the address.
+/// @brief it should give no channel when the slave has no entry at the address.
 TEST(Input, BindsNoEntryAtAnAddressTheSlaveDoesNotHave) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6010, 1);
     auto parser = x::json::Parser(j);
     const auto ch = input(slave, parser);
     ASSERT_FALSE(parser.ok());
-    ASSERT_EQ(ch->index, 0);
-    ASSERT_EQ(ch->bit_length, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should bind each entry of a slave whose entries all have the same name.
@@ -277,10 +403,10 @@ TEST(Input, BindsEveryEntryOfASlaveThatRepeatsOneName) {
         auto parser = x::json::Parser(j);
         const auto ch = input(slave, parser);
         ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-        ASSERT_EQ(ch->index, 0x6000 + 0x10 * i);
-        ASSERT_EQ(ch->sub_index, 1);
-        ASSERT_EQ(ch->bit_length, 1);
-        addresses.emplace(ch->index, ch->sub_index);
+        ASSERT_EQ(ch->entry.index, 0x6000 + 0x10 * i);
+        ASSERT_EQ(ch->entry.sub_index, 1);
+        ASSERT_EQ(ch->entry.bit_length, 1);
+        addresses.emplace(ch->entry.index, ch->entry.sub_index);
     }
     ASSERT_EQ(addresses.size(), 8);
 }
@@ -391,58 +517,6 @@ TEST(Input, NamesAnAddressThatSeveralPDOsRepeatOnce) {
     );
 }
 
-/// @brief it should report no errors for a disabled channel, even when its entry cannot
-/// be bound.
-TEST(Input, DisabledChannelsCarryNoErrors) {
-    const auto slave = padded_slave();
-    auto unresolved = read_unresolved("Value");
-    unresolved["disabled"] = true;
-    auto unresolved_parser = x::json::Parser(unresolved);
-    ASSERT_FALSE(input(slave, unresolved_parser)->enabled);
-    ASSERT_TRUE(unresolved_parser.ok()) << unresolved_parser.error_json().dump();
-    const auto missing = read_entry(0x6100, 1, "uint8", true);
-    auto missing_parser = x::json::Parser(missing);
-    ASSERT_FALSE(input(slave, missing_parser)->enabled);
-    ASSERT_TRUE(missing_parser.ok()) << missing_parser.error_json().dump();
-}
-
-/// @brief it should keep the disabled flag of a channel.
-TEST(Input, KeepsTheDisabledFlag) {
-    const auto slave = padded_slave();
-    const auto j = read_entry(0x6000, 1, "uint8", true);
-    auto parser = x::json::Parser(j);
-    const auto ch = input(slave, parser);
-    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_FALSE(ch->enabled);
-}
-
-/// @brief it should enable a channel when its config has no disabled field.
-TEST(Input, EnabledDefaultsToTrue) {
-    const auto slave = padded_slave();
-    auto j = read_entry(0x6000, 1);
-    j.erase("disabled");
-    auto parser = x::json::Parser(j);
-    const auto ch = input(slave, parser);
-    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_TRUE(ch->enabled);
-}
-
-/// @brief it should copy the key, name, and data type of the Synnax channel it binds.
-TEST(Input, BindRemoteInfoCopiesChannelInformation) {
-    const auto slave = padded_slave();
-    const auto j = read_entry(0x6000, 0x11, "int16");
-    auto parser = x::json::Parser(j);
-    const auto ch = input(slave, parser);
-    synnax::channel::Channel remote_ch;
-    remote_ch.key = 42;
-    remote_ch.name = "test_channel";
-    remote_ch.data_type = x::telem::INT16_T;
-    ch->bind_remote_info(remote_ch);
-    ASSERT_EQ(ch->ch.key, 42);
-    ASSERT_EQ(ch->ch.name, "test_channel");
-    ASSERT_EQ(ch->ch.data_type, x::telem::INT16_T);
-}
-
 /// @brief it should bind an output channel to the entry at its address, with the bit
 /// length from the slave.
 TEST(Output, BindsAnEntryWithBitLengthFromTheSlave) {
@@ -451,14 +525,14 @@ TEST(Output, BindsAnEntryWithBitLengthFromTheSlave) {
     auto parser = x::json::Parser(j);
     const auto ch = output(slave, parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_FALSE(ch->is_input);
+    ASSERT_FALSE(ch->entry.is_input);
     ASSERT_EQ(ch->command_key, 7);
     ASSERT_EQ(ch->state_key, 8);
-    ASSERT_EQ(ch->slave_position, 3);
-    ASSERT_EQ(ch->index, 0x7030);
-    ASSERT_EQ(ch->sub_index, 1);
-    ASSERT_EQ(ch->bit_length, 1);
-    ASSERT_EQ(ch->data_type, x::telem::UINT8_T);
+    ASSERT_EQ(ch->entry.slave_position, 3);
+    ASSERT_EQ(ch->entry.index, 0x7030);
+    ASSERT_EQ(ch->entry.sub_index, 1);
+    ASSERT_EQ(ch->entry.bit_length, 1);
+    ASSERT_EQ(ch->entry.data_type, x::telem::UINT8_T);
 }
 
 /// @brief it should report the address of an input entry as missing for an output
@@ -486,7 +560,7 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
         "data type float32 is 4 bytes but entry 0x7000:01 on slave EL1008 holds 1 "
         "byte. Pick a 1 byte type."
     );
-    ASSERT_EQ(ch->index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should reject an int64 stop value of 2^53 or more, which a double may have
@@ -544,15 +618,19 @@ TEST(Output, RejectsANegativeStopValueOnASubByteSignedEntry) {
     );
 }
 
-/// @brief it should skip the stop value check on a disabled channel.
-TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
-    auto j = write_entry(0x7000, 2, "float32");
-    j["stop_value"] = 1e100;
-    j["disabled"] = true;
+/// @brief it should reject a fractional stop value on an integer entry.
+TEST(Output, RejectsAFractionalStopValueOnAnIntegerEntry) {
+    auto j = write_entry(0x7000, 3, "uint32");
+    j["stop_value"] = 1.5;
     auto parser = x::json::Parser(j);
-    const auto ch = output(wide_output_slave(), parser);
-    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_FALSE(ch->enabled);
+    output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value 1.5 does not fit entry 0x7000:03 on slave EL2252. Pick a whole "
+        "number from 0 to 16777215."
+    );
 }
 
 /// @brief it should reject a stop value outside the finite range of a float32 entry.
@@ -578,7 +656,7 @@ TEST(Output, AcceptsAFloatTypeOnANarrowerEntry) {
     auto parser = x::json::Parser(j);
     const auto ch = output(wide_output_slave(), parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
-    ASSERT_EQ(ch->index, 0x7000);
+    ASSERT_EQ(ch->entry.index, 0x7000);
     ASSERT_EQ(ch->stop_value, 16777215.0);
 }
 
@@ -595,7 +673,7 @@ TEST(Output, ReportsAFloatTypeOnANarrowerEntryThatIsNot24Bits) {
         "data type float32 needs a 32 bit entry, but entry 0x7000:04 on slave EL2252 "
         "holds 20 bits. Pick an integer type."
     );
-    ASSERT_EQ(ch->index, 0);
+    ASSERT_EQ(ch, nullptr);
 }
 
 /// @brief it should reject a stop value that a 24-bit entry cannot hold for a float32
@@ -645,6 +723,7 @@ TEST(Output, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     );
 }
 
+/// @brief it should give an output no state channel when the config leaves it out.
 TEST(Output, StateKeyDefaultsToZero) {
     const auto slave = repeated_name_slave();
     auto j = write_entry(0x7000, 1);
@@ -663,7 +742,7 @@ TEST(Claims, AcceptsChannelsOnDistinctEntries) {
         const auto j = read_entry(0x6000 + 0x10 * i, 1);
         auto parser = x::json::Parser(j);
         const auto ch = input(slave, parser);
-        claims.claim(*ch, slave, parser);
+        claims.claim(ch->entry, slave, parser);
         ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     }
 }
@@ -675,10 +754,10 @@ TEST(Claims, ReportsASecondChannelOnOneEntry) {
     Claims claims;
     const auto j = read_entry(0x6030, 1);
     auto first = x::json::Parser(j);
-    claims.claim(*input(slave, first), slave, first);
+    claims.claim(input(slave, first)->entry, slave, first);
     ASSERT_TRUE(first.ok());
     auto second = x::json::Parser(j);
-    claims.claim(*input(slave, second), slave, second, "channels.1.");
+    claims.claim(input(slave, second)->entry, slave, second, "channels.1.");
     const auto [path, message] = only_error(second);
     ASSERT_EQ(path, "channels.1.index");
     ASSERT_EQ(message, "another channel already uses entry 0x6030:01 on slave EL1008");
@@ -693,9 +772,9 @@ TEST(Claims, AcceptsOneAddressOnTwoSlaves) {
     Claims claims;
     const auto j = read_entry(0x6000, 1);
     auto first = x::json::Parser(j);
-    claims.claim(*input(first_slave, first), first_slave, first);
+    claims.claim(input(first_slave, first)->entry, first_slave, first);
     auto second = x::json::Parser(j);
-    claims.claim(*input(second_slave, second), second_slave, second);
+    claims.claim(input(second_slave, second)->entry, second_slave, second);
     ASSERT_TRUE(first.ok()) << first.error_json().dump();
     ASSERT_TRUE(second.ok()) << second.error_json().dump();
 }
@@ -728,24 +807,12 @@ TEST(Claims, SeparatesInputAndOutputEntriesAtOneAddress) {
     Claims claims;
     const auto r = read_entry(0x6000, 1);
     auto read_parser = x::json::Parser(r);
-    claims.claim(*input(slave, read_parser), slave, read_parser);
+    claims.claim(input(slave, read_parser)->entry, slave, read_parser);
     const auto w = write_entry(0x6000, 1);
     auto write_parser = x::json::Parser(w);
-    claims.claim(*output(slave, write_parser), slave, write_parser);
+    claims.claim(output(slave, write_parser)->entry, slave, write_parser);
     ASSERT_TRUE(read_parser.ok()) << read_parser.error_json().dump();
     ASSERT_TRUE(write_parser.ok()) << write_parser.error_json().dump();
-}
-
-/// @brief it should not claim an entry for a channel that bound no entry.
-TEST(Claims, IgnoresChannelsThatBoundNoEntry) {
-    const auto slave = repeated_name_slave();
-    Claims claims;
-    const auto j = read_unresolved("Input");
-    auto first = x::json::Parser(j);
-    claims.claim(*input(slave, first), slave, first);
-    auto second = x::json::Parser(j);
-    claims.claim(*input(slave, second), slave, second);
-    ASSERT_EQ(only_error(second).first, "pdo");
 }
 
 /// @brief it should sort channels by slave position, then by entry index.
@@ -765,11 +832,11 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     channels.push_back(input(slave2, p2));
     channels.push_back(input(slave1, p3));
     sort_by_position(channels);
-    ASSERT_EQ(channels[0]->slave_position, 1);
-    ASSERT_EQ(channels[0]->index, 0x6010);
-    ASSERT_EQ(channels[1]->slave_position, 1);
-    ASSERT_EQ(channels[1]->index, 0x6020);
-    ASSERT_EQ(channels[2]->slave_position, 2);
-    ASSERT_EQ(channels[2]->index, 0x6000);
+    ASSERT_EQ(channels[0]->entry.slave_position, 1);
+    ASSERT_EQ(channels[0]->entry.index, 0x6010);
+    ASSERT_EQ(channels[1]->entry.slave_position, 1);
+    ASSERT_EQ(channels[1]->entry.index, 0x6020);
+    ASSERT_EQ(channels[2]->entry.slave_position, 2);
+    ASSERT_EQ(channels[2]->entry.index, 0x6000);
 }
 }

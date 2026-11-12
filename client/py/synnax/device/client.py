@@ -15,14 +15,18 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_, rack as rack_
+from synnax.device import actions_gen
 from synnax.device.types_gen import (
+    Cursor,
     Device,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
     WhereInput,
 )
+from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
 from x.lists import normalize
@@ -35,18 +39,14 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _SetGroupRequest(BaseModel):
-    keys: list[Key]
-    group: group_.Key | None = None
 
 
 class Client:
@@ -139,7 +139,9 @@ class Client:
         :param name: The new name for the device.
         :raises NotFoundError: If no device has the given key.
         """
-        self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
+        self.dispatch(
+            key, actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        )
 
     def set_group(self, keys: list[Key], group: group_.Key | None = None) -> None:
         """Moves devices into a group, or out of their group when group is None.
@@ -148,8 +150,27 @@ class Client:
         :param group: The key of the group to move the devices into. The group must
             sit under the rack of each device.
         """
-        req = _SetGroupRequest(keys=keys, group=group)
-        self._client.send("/device/set-group", req, Empty)
+        value = None if group is None else str(group)
+        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        send_batch(
+            self._client,
+            "/device/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in keys],
+        )
+
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a device, in order, in one transaction.
+
+        :param key: The key of the device.
+        :param actions: The actions to apply, such as ``device.set`` and
+            ``device.set_rack``.
+        :raises NotFoundError: If no device has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        req = _DispatchRequest(key=key, actions=normalize(actions))
+        self._client.send("/device/dispatch", req, Empty)
 
     @overload
     def retrieve(
@@ -333,7 +354,8 @@ class Client:
         racks: list[rack_.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Device]: ...
@@ -350,7 +372,8 @@ class Client:
         racks: list[rack_.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         ignore_not_found: bool = False,
@@ -385,7 +408,9 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to retrieve.
-        :param offset: The number of devices to skip.
+        :param order: The order of the devices. Defaults to key order.
+        :param after: Retrieves the devices past this position in the order: the key of
+            the last device of the page before, and its value of the order field.
         :param include_status: Whether to populate each device's status.
         :param one: Returns one device for any filter.
         :param ignore_not_found: Returns None instead of raising when one device is
@@ -397,9 +422,9 @@ class Client:
         :raises MultipleFoundError: If one device is wanted and more than one matches,
             even when ``ignore_not_found`` is set.
         :raises ValidationError: If a filter field is None, or if one device is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -412,7 +437,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)

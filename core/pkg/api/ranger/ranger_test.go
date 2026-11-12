@@ -10,8 +10,10 @@
 package ranger_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"strings"
 	"uuid"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -349,57 +352,6 @@ var _ = Describe("Dispatch", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
-	It("Should rename the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(renameRange(
-			AuthedCtx(ctx, u),
-			apiranger.RenameRequest{Key: r.Key, Name: "Cold flow"},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Hot fire"))
-	})
-})
-
-var _ = Describe("SetEnd", func() {
-	end := telem.TimeStamp(9 * telem.Second)
-	It("Should set the end of the range when update is granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
-		rec := &Recorder[ranger.Key, ranger.Action]{}
-		DeferCleanup(svc.Ranger.OnAction(rec.Record))
-		MustSucceed(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		))
-		Expect(retrieveRange(ctx, r.Key).TimeRange.End).To(Equal(end))
-		Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Key", r.Key)))
-	})
-	It("Should reject the request when update is not granted", func(ctx SpecContext) {
-		u := createUser(ctx)
-		r := createRange(ctx)
-		Expect(setRangeEnd(
-			AuthedCtx(ctx, u),
-			apiranger.SetEndRequest{Key: r.Key, End: end},
-		)).Error().To(MatchError(access.ErrDenied))
-		Expect(retrieveRange(ctx, r.Key).TimeRange).To(Equal(r.TimeRange))
-	})
-})
-
 var _ = Describe("Create", func() {
 	It(
 		"Should stamp the dispatch key onto the create broadcast",
@@ -439,9 +391,7 @@ var _ = Describe("Create", func() {
 		Expect(rangeExists(ctx, r.Key)).To(BeFalse())
 	})
 
-	It("Should refuse to overwrite a range without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a range whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeRange,
@@ -451,7 +401,10 @@ var _ = Describe("Create", func() {
 		overwrite.Name = "Overwritten"
 		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
 			Ranges: []ranger.Range{overwrite},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("range %s already exists", stored.Key)),
+		))
 		Expect(retrieveRange(ctx, stored.Key).Name).To(Equal("Hot fire"))
 	})
 
@@ -599,7 +552,7 @@ var _ = Describe("Delete", func() {
 		},
 	)
 	It(
-		"Should need update on the range to delete its key-value pairs with it",
+		"Should not need update on the range to delete its key-value pairs with it",
 		func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{
@@ -608,9 +561,8 @@ var _ = Describe("Delete", func() {
 			})).To(Succeed())
 			grant(ctx, access.ActionDelete, u.ResourceID(), childID())
 			grant(ctx, access.ActionUpdate, u.ResourceID(), parentID())
-			Expect(deleteChild(ctx)).Error().
-				To(denied(u, access.ActionUpdate, childID()))
-			Expect(rangeExists(ctx, child.Key)).To(BeTrue())
+			MustSucceed(deleteChild(ctx))
+			Expect(rangeExists(ctx, child.Key)).To(BeFalse())
 		},
 	)
 })
@@ -679,7 +631,7 @@ var _ = Describe("Delete cascades", func() {
 	}
 	createLinePlot := func(ctx SpecContext) held {
 		GinkgoHelper()
-		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
+		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Range: &r.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
 		})).To(Succeed())
@@ -809,5 +761,147 @@ var _ = Describe("Retrieve", func() {
 			Where: &ranger.Where{Labels: []label.Key{a.Key, b.Key}},
 		}))
 		Expect(keysOf(res.Ranges)).To(ConsistOf(withA.Key, withB.Key))
+	})
+
+	Describe("Order", func() {
+		var (
+			parent ranger.Range
+			// byName holds the children in name order, with the tie in key order.
+			byName []ranger.Key
+			// byStart holds the children from the latest start to the earliest.
+			byStart []ranger.Key
+		)
+		BeforeEach(func(ctx SpecContext) {
+			parent = createRange(ctx)
+			child := func(name string, start telem.TimeStamp) ranger.Key {
+				GinkgoHelper()
+				r := ranger.Range{
+					Name:      name,
+					TimeRange: telem.TimeRange{Start: start, End: start + 1},
+					Parent:    &parent.Key,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
+				return r.Key
+			}
+			beta := child("beta", 30)
+			upper := child("Alpha", 10)
+			gamma := child("Gamma", 20)
+			lower := child("alpha", 40)
+			tie := []ranger.Key{upper, lower}
+			// Gorp orders equal names by the trailing bytes of the key.
+			slices.SortFunc(tie, func(a, b ranger.Key) int {
+				slices.Reverse(a[:])
+				slices.Reverse(b[:])
+				return bytes.Compare(a[:], b[:])
+			})
+			byName = append(tie, beta, gamma)
+			byStart = []ranger.Key{lower, beta, gamma, upper}
+		})
+		page := func(
+			ctx context.Context,
+			order apiranger.Order,
+			limit uint32,
+		) []ranger.Key {
+			GinkgoHelper()
+			var (
+				keys  []ranger.Key
+				after *apiranger.Cursor
+			)
+			for {
+				res := MustSucceed(retrieve(ctx, apiranger.RetrieveRequest{
+					Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+					Order: &order,
+					After: after,
+					Limit: &limit,
+				}))
+				if len(res.Ranges) == 0 {
+					return keys
+				}
+				keys = append(keys, keysOf(res.Ranges)...)
+				last := res.Ranges[len(res.Ranges)-1]
+				after = &apiranger.Cursor{
+					Key:            last.Key,
+					Name:           &last.Name,
+					TimeRangeStart: &last.TimeRange.Start,
+				}
+			}
+		}
+
+		It("Should page ranges by name, ignoring case", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldName}
+			Expect(page(authed(ctx), order, 3)).To(Equal(byName))
+		})
+
+		It("Should page ranges by name in descending order", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldName, Descending: true}
+			desc := slices.Clone(byName)
+			slices.Reverse(desc)
+			Expect(page(authed(ctx), order, 1)).To(Equal(desc))
+		})
+
+		It("Should page ranges by start time in descending order", func(
+			ctx SpecContext,
+		) {
+			order := apiranger.Order{
+				Field:      apiranger.OrderFieldTimeRangeStart,
+				Descending: true,
+			}
+			Expect(page(authed(ctx), order, 2)).To(Equal(byStart))
+		})
+
+		It("Should page ranges by key with no order", func(ctx SpecContext) {
+			authedCtx := authed(ctx)
+			all := MustSucceed(retrieve(authedCtx, apiranger.RetrieveRequest{
+				Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+				Limit: new(uint32(2)),
+			}))
+			Expect(all.Ranges).To(HaveLen(2))
+			rest := MustSucceed(retrieve(authedCtx, apiranger.RetrieveRequest{
+				Where: &ranger.Where{Parents: []ranger.Key{parent.Key}},
+				After: &apiranger.Cursor{Key: all.Ranges[1].Key},
+			}))
+			Expect(append(keysOf(all.Ranges), keysOf(rest.Ranges)...)).
+				To(ConsistOf(byName))
+		})
+
+		DescribeTable("Should reject a request",
+			func(ctx SpecContext, req apiranger.RetrieveRequest, message string) {
+				Expect(retrieve(authed(ctx), req)).Error().To(SatisfyAll(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(message),
+				))
+			},
+			Entry(
+				"that resumes an order without the order's value",
+				apiranger.RetrieveRequest{
+					Order: &apiranger.Order{Field: apiranger.OrderFieldName},
+					After: &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that sorts a search",
+				apiranger.RetrieveRequest{
+					SearchTerm: "fire",
+					Order:      &apiranger.Order{Field: apiranger.OrderFieldName},
+				},
+				"order: a search sorts by relevance: validation error",
+			),
+			Entry(
+				"that resumes a search",
+				apiranger.RetrieveRequest{
+					SearchTerm: "fire",
+					After:      &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after: a search cannot resume after a position: validation error",
+			),
+			Entry(
+				"that sorts by an unknown field",
+				apiranger.RetrieveRequest{Order: &apiranger.Order{Field: "color"}},
+				`order.field: "color" is not a field to sort by: validation error`,
+			),
+		)
 	})
 })

@@ -384,7 +384,7 @@ CJC union on source {
         @doc value "uses a fixed reference temperature."
     }
     chan {
-        port int32 = 0 {
+        port uint32 = 0 {
             @doc value "is the port of the channel that measures the reference."
         }
 
@@ -676,7 +676,7 @@ BaseAIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
     device   device.Key = "" {
@@ -1198,7 +1198,7 @@ BaseCIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical counter the channel uses."
     }
     device   device.Key = "" {
@@ -1235,8 +1235,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor     int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor     uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1251,7 +1252,7 @@ CIChannel union on type extends BaseCIChannel {
         count_direction CICountDirection = count_up {
             @doc value "selects the direction the counter counts."
         }
-        initial_count   float64 = 0 {
+        initial_count   uint32 = 0 {
             @doc value "is the value the counter starts at."
         }
         terminal        string = "" {
@@ -1283,8 +1284,9 @@ CIChannel union on type extends BaseCIChannel {
                 is the averaging window for high-frequency measurement, in seconds.
             """
         }
-        divisor       int32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+        divisor       uint32 = 4 {
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
@@ -1400,8 +1402,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         terminal_a     string = "" {
             @doc value "is the terminal for encoder channel A."
@@ -1441,8 +1444,9 @@ CIChannel union on type extends BaseCIChannel {
         decoding_type  CIDecodingType = x4 {
             @doc value "selects the encoder decoding type."
         }
-        pulses_per_rev float64 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+        pulses_per_rev uint32 = 24 {
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
         initial_angle  float64 = 0 {
             @doc value "is the angle the encoder starts at."
@@ -1500,30 +1504,14 @@ WaveType enum {
 }
 
 BaseAOChannel struct {
-    key                string = create {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
-    disabled           bool = false {
+    disabled bool = false {
         @doc value "is true when the channel is excluded from the task."
     }
-    cmd_channel        channel.Key = 0 {
-        @doc value     "is the Synnax channel commands are read from."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    state_channel      channel.Key = 0 {
-        @doc value     "is the Synnax channel the output state is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    cmd_channel_name   string = "" {
-        @doc value "is the human-readable name of the command channel."
-    }
-    state_channel_name string = "" {
-        @doc value "is the human-readable name of the state channel."
-    }
-    port               int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1532,7 +1520,7 @@ BaseAOChannel struct {
 }
 
 AOChannel union on type extends BaseAOChannel {
-    ao_current extends MinMaxVal, CustomScale {
+    ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a current output."
     }
     ao_func_gen {
@@ -1549,9 +1537,11 @@ AOChannel union on type extends BaseAOChannel {
             @doc value "is the waveform DC offset."
         }
 
-        @doc value "drives a function-generator output."
+        @doc value """
+            generates a waveform from task start to task stop, with no commands.
+        """
     }
-    ao_voltage extends MinMaxVal, CustomScale {
+    ao_voltage extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a voltage output."
     }
 
@@ -1578,11 +1568,12 @@ DIChannel struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    port     int32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel reads from."
     }
-    line     int32 = 0 {
-        @doc value "is the digital line within the port the channel reads from."
+    line     uint8 = 0 {
+        @doc value    "is the digital line within the port the channel reads from."
+        @validate max 31
     }
 
     @doc value  "is a digital input channel the task acquires from."
@@ -1613,11 +1604,12 @@ DOChannel struct {
     state_channel_name string = "" {
         @doc value "is the human-readable name of the state channel."
     }
-    port               int32 = 0 {
+    port               uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
-    line               int32 = 0 {
-        @doc value "is the digital line within the port the channel writes to."
+    line               uint8 = 0 {
+        @doc value    "is the digital line within the port the channel writes to."
+        @validate max 31
     }
 
     @doc value  "is a digital output channel the task drives."
@@ -1656,8 +1648,11 @@ CounterReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
-        @ts type   "number"
+        @doc value   """
+            is the rate at which output state is reported to Synnax, in Hertz.
+        """
+        @ts type     "number"
+        @validate gt 0
     }
 
     @doc value  "carries the configuration fields shared by NI write tasks."
@@ -1731,26 +1726,26 @@ AccelChargeSensitivityUnits enum {
 }
 
 AnalogInputPort struct {
-    port                    int32            {
+    port                    uint16           {
         @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
     }
     terminal_configs        TerminalConfig[] = [] {
         @doc value "are the terminal configurations that the port accepts."
     }
-    default_terminal_config TerminalConfig?  {
+    default_terminal_config TerminalConfig = cfg_default {
         @doc value """
-            is the terminal configuration that Cfg_Default gives on the port. Absent
-            when the port accepts none, or accepts more than one and takes no voltage or
-            current channel.
+            is the terminal configuration that Cfg_Default gives on the port. The value
+            Cfg_Default means that the Driver did not read it. DAQmx always reads back a
+            real configuration.
         """
     }
     types                   string[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
-    negative                int32?           {
+    negative                uint16 = 0 {
         @doc value """
             is the port that a differential channel on this port uses as its negative
-            input. Absent when the port has no pair.
+            input. 0 means that the port has no pair. Port 0 is never a negative port.
         """
     }
 
@@ -1758,7 +1753,7 @@ AnalogInputPort struct {
 }
 
 AnalogOutputPort struct {
-    port             int32            {
+    port             uint16           {
         @doc value "is the number in the DAQmx name of the port, such as 1 for ao1."
     }
     terminal_configs TerminalConfig[] = [] {
@@ -1772,7 +1767,7 @@ AnalogOutputPort struct {
 }
 
 CounterPort struct {
-    port  int32    {
+    port  uint16   {
         @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
     }
     types string[] = [] {
@@ -1785,11 +1780,12 @@ CounterPort struct {
 }
 
 DigitalPort struct {
-    port   int32 {
+    port   uint16 {
         @doc value "is the number in the DAQmx name of the port, such as 0 for port0."
     }
-    lines  int32 {
-        @doc value "is the number of lines in the port."
+    lines  uint8  {
+        @doc value    "is the number of lines in the port."
+        @validate max 32
     }
     input  bool = false {
         @doc value "is true when the port reads digital input."
@@ -1802,12 +1798,6 @@ DigitalPort struct {
 }
 
 Hardware struct {
-    product_category           string = "" {
-        @doc value "is the DAQmx product category of the device, such as m_series_daq."
-    }
-    product_type               string = "" {
-        @doc value "is the DAQmx product name of the device, such as USB-6008."
-    }
     analog_inputs              AnalogInputPort[] = [] {
         @doc value "are the analog input ports of the device."
     }
@@ -1828,20 +1818,34 @@ Hardware struct {
             are the terminals of the device, such as PFI0, without the device name.
         """
     }
-    ai_min_rate                float64?           {
-        @doc value "is the lowest analog input sample rate, in Hz."
+    ai_min_rate                telem.Rate = 0 {
+        @doc value """
+            is the lowest analog input sample rate, in Hz. 0 means that the device does
+            not support the attribute.
+        """
+        @ts type   "number"
     }
-    ai_max_single_channel_rate float64?           {
-        @doc value "is the highest analog input sample rate of one channel, in Hz."
+    ai_max_single_channel_rate telem.Rate = 0 {
+        @doc value """
+            is the highest analog input sample rate of one channel, in Hz. 0 means that
+            the device does not support the attribute.
+        """
+        @ts type   "number"
     }
-    ai_max_multi_channel_rate  float64?           {
+    ai_max_multi_channel_rate  telem.Rate = 0 {
         @doc value """
             is the highest analog input sample rate of the device, in Hz. A task with
-            several channels divides it by the channel count.
+            several channels divides it by the channel count. 0 means that the device
+            does not support the attribute.
         """
+        @ts type   "number"
     }
-    ao_max_rate                float64?           {
-        @doc value "is the highest analog output sample rate, in Hz."
+    ao_max_rate                telem.Rate = 0 {
+        @doc value """
+            is the highest analog output sample rate, in Hz. 0 means that the device
+            does not support the attribute.
+        """
+        @ts type   "number"
     }
     ai_voltage_ranges          spatial.Bounds[] = [] {
         @doc value "are the analog input voltage ranges of the device, ends included."
@@ -1860,4 +1864,26 @@ Hardware struct {
         is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
         device. The Driver stores it in the device properties under hardware.
     """
+}
+
+CommandedAOChannel struct {
+    cmd_channel        channel.Key = 0 {
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    state_channel      channel.Key = 0 {
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+
+    @doc value  "carries the command and state channels of a commanded analog output."
+    @go marshal
 }

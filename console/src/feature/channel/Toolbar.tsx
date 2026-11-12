@@ -15,28 +15,30 @@ import { type ReactElement } from "react";
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
+import { Group } from "@/platform/group";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const toResource = (ch: channel.Channel) => Tree.toResource("channel")(ch.payload);
+const toHit = (ch: channel.Channel) => Group.toHit("channel")(ch.payload);
 
 // Channels match by alias under the active range, as the tree shows them.
 const useChannelMatches: Tree.UseMatches = (query) => {
-  const folders = Tree.useGroupMatches(query);
+  const folders = Group.useMatches(query);
   const activeRange = Range.useResolve();
   const channels = Channel.useResultList(
     query == null
       ? null
       : { searchTerm: query.term, rangeKey: activeRange?.key, limit: query.limit },
   );
-  return [...folders, Tree.toMatches(channels, toResource)];
+  return [...folders, Tree.toMatches(channels, toHit)];
 };
 
 const useSearch = Tree.createSearch({
   noun: "channels",
   useMatches: useChannelMatches,
+  usePlacement: Group.usePlacement,
 });
 
 interface ActionsProps {

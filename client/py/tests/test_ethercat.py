@@ -140,6 +140,39 @@ class TestEtherCATReadTask:
         )
         assert task.config.channels[0].key != ""
 
+    def test_read_task_startup_parameters(self) -> None:
+        """Should send the startup parameters of each slave in the task config."""
+        task = sy.ethercat.ReadTask(
+            name="test",
+            startup_parameters=[
+                sy.ethercat.SlaveStartupParameters(
+                    device="slave-key",
+                    parameters=[
+                        sy.ethercat.StartupParameter(
+                            index=0x8040,
+                            sub_index=3,
+                            data_type=sy.DataType.UINT16,
+                            value=2,
+                        )
+                    ],
+                )
+            ],
+        )
+        assert task.config.model_dump(mode="json")["startup_parameters"] == [
+            {
+                "device": "slave-key",
+                "parameters": [
+                    {
+                        "index": 0x8040,
+                        "sub_index": 3,
+                        "data_type": "uint16",
+                        "value": 2,
+                        "name": "",
+                    }
+                ],
+            }
+        ]
+
     def test_entry_channel_scale_defaults_to_none(self) -> None:
         """Should leave an entry channel unscaled unless a scale is given."""
         ch = sy.ethercat.EntryReadChannel(
@@ -466,7 +499,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Servo Drive",
             network="eth0",
-            position=0,
+            position=1,
             vendor_id=0x00000002,
             product_code=0x12345678,
             revision=0x00010000,
@@ -508,7 +541,7 @@ class TestEtherCATDevice:
         # Verify properties
         props = created_device.properties
         assert props["network"] == "eth0"
-        assert props["position"] == 0
+        assert props["position"] == 1
         assert props["vendor_id"] == 0x00000002
         assert props["product_code"] == 0x12345678
         inputs = arr(props, "pdos", "inputs")
@@ -523,7 +556,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
         )
         assert device.key != ""
         assert len(device.key) > 0
@@ -537,12 +570,18 @@ class TestEtherCATDevice:
         )
         assert device.location == "enp3s0:5"
 
+    def test_device_default_position(self) -> None:
+        """Test that Device puts the slave at the first bus position by default."""
+        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        assert device.properties["position"] == 1
+        assert device.location == "eth0:1"
+
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
             input_pdos=[
                 sy.ethercat.PDOEntry(
                     name="Input",

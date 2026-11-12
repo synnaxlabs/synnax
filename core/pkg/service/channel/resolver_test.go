@@ -84,6 +84,72 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "does_not_exist_anywhere")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
+
+	Describe("Filters", func() {
+		var visible, hidden channel.Channel
+		hide := func() channel.Filter {
+			return channel.Not(channel.MatchKeys(hidden.Key()))
+		}
+		BeforeEach(func(ctx SpecContext) {
+			visible = channel.Channel{
+				Name:     "resolver_filter_visible",
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			hidden = channel.Channel{
+				Name:     "resolver_filter_hidden",
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.NewWriter(tx)
+				if err := w.Create(ctx, &visible); err != nil {
+					return err
+				}
+				return w.Create(ctx, &hidden)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := svc.NewWriter(tx)
+					if err := w.Delete(ctx, visible.Key(), false); err != nil {
+						return err
+					}
+					return w.Delete(ctx, hidden.Key(), false)
+				})).To(Succeed())
+			})
+		})
+
+		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
+			r := svc.NewArcSymbolResolver(db, hide())
+			Expect(r.Resolve(ctx, hidden.Name)).Error().
+				To(MatchError(query.ErrNotFound))
+			Expect(r.Resolve(ctx, visible.Name)).
+				To(HaveField("ID", int(visible.Key())))
+		})
+
+		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
+			r := svc.NewArcSymbolResolver(db, hide())
+			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
+				To(MatchError(query.ErrNotFound))
+			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
+				To(HaveField("ID", int(visible.Key())))
+		})
+
+		It("Should leave a hidden channel out of search", func(ctx SpecContext) {
+			Eventually(func(g Gomega) {
+				g.Expect(svc.NewArcSymbolResolver(db).Search(ctx, "resolver_filter")).
+					To(ContainElements(
+						HaveField("ID", int(visible.Key())),
+						HaveField("ID", int(hidden.Key())),
+					))
+			}).Should(Succeed())
+			Expect(svc.NewArcSymbolResolver(db, hide()).Search(ctx, "resolver_filter")).
+				To(SatisfyAll(
+					ContainElement(HaveField("ID", int(visible.Key()))),
+					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
+				))
+		})
+	})
 })
 
 var _ = Describe("NewConsistentResolver", func() {

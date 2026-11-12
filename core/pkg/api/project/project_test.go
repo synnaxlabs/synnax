@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -125,30 +126,19 @@ func importCtx(ctx SpecContext, u user.User) freighter.Context {
 }
 
 var _ = Describe("Import", func() {
-	It(
-		"Should import the bundle with create on every kind and update on projects",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
-			res := MustSucceed(importBundle(importCtx(ctx, u), newBundle("Imported")))
-			Expect(res.Project.Name).To(Equal("Imported"))
-		},
-	)
-	It("Should reject the request without update on the new project", func(
+	It("Should import the bundle with create on every kind alone", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType, logType)
-		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
-			To(deniedOnType(u, access.ActionUpdate, resource.TypeProject))
+		res := MustSucceed(importBundle(importCtx(ctx, u), newBundle("Imported")))
+		Expect(res.Project.Name).To(Equal("Imported"))
 	})
 	It("Should reject the request when create is not granted on the project", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, logType)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
 		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
 			To(deniedOnType(u, access.ActionCreate, resource.TypeProject))
 	})
@@ -157,44 +147,27 @@ var _ = Describe("Import", func() {
 	) {
 		u := createUser(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, projectType)
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
 		Expect(importBundle(importCtx(ctx, u), newBundle("Imported"))).Error().
 			To(deniedOnType(u, access.ActionCreate, resource.TypeLog))
 	})
-	Context("With a member in a folder", func() {
+	It("Should import a member into a new folder with create on every kind", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
 		groupType := resource.ID{Type: resource.TypeGroup}
-		var u user.User
-		BeforeEach(func(ctx SpecContext) {
-			u = createUser(ctx)
-			grantOn(
-				ctx,
-				u.ResourceID(),
-				access.ActionCreate,
-				projectType,
-				logType,
-				groupType,
-			)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, projectType)
-		})
-		bundle := func() apiproject.ImportRequest {
-			files := newBundle("Foldered")
-			files["Folder/Metrics.json"] = files["Metrics.json"]
-			delete(files, "Metrics.json")
-			return files
-		}
-		It("Should reject the request without update on the new group", func(
-			ctx SpecContext,
-		) {
-			Expect(importBundle(importCtx(ctx, u), bundle())).Error().
-				To(deniedOnType(u, access.ActionUpdate, resource.TypeGroup))
-		})
-		It("Should import the member into the group with update on groups", func(
-			ctx SpecContext,
-		) {
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, groupType)
-			res := MustSucceed(importBundle(importCtx(ctx, u), bundle()))
-			Expect(res.Project.Name).To(Equal("Foldered"))
-		})
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionCreate,
+			projectType,
+			logType,
+			groupType,
+		)
+		files := newBundle("Foldered")
+		files["Folder/Metrics.json"] = files["Metrics.json"]
+		delete(files, "Metrics.json")
+		res := MustSucceed(importBundle(importCtx(ctx, u), files))
+		Expect(res.Project.Name).To(Equal("Foldered"))
 	})
 	It("Should reject a request with no params", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -209,6 +182,38 @@ var _ = Describe("Import", func() {
 		files := zip.Files{"Metrics.json": []byte("{}")}
 		Expect(importBundle(importCtx(ctx, u), files)).Error().
 			To(MatchError(ContainSubstring("bundle holds no manifest.json")))
+	})
+	It("Should decode the bundle before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := zip.Files{"Metrics.json": []byte("{}")}
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(MatchError(validate.ErrValidation)))
+	})
+	It("Should migrate each member before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := newBundle("Too new")
+		files["Metrics.json"] = []byte(
+			`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+		)
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		)))
 	})
 })
 
@@ -233,27 +238,57 @@ var _ = Describe("Create", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
-	It("Should refuse the rename without update on the project", func(
+var _ = Describe("Dispatch", func() {
+	setGroup := func(g group.Key) []project.Action {
+		return []project.Action{project.NewSetAction(project.SetPayload{
+			Path:  []string{"group"},
+			Value: g,
+		})}
+	}
+	It("Should refuse the dispatch without update on the project", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		p := createProject(ctx, "Rename denied")
-		Expect(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
+		p := createProject(ctx, "Dispatch denied")
+		g := createProjectGroup(ctx, "Dispatch denied")
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, g.ResourceID())
+		Expect(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
 		})).Error().To(denied(u, access.ActionUpdate, p.ResourceID()))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Rename denied"))
+		Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
 	})
-	It("Should rename the project with update on it", func(ctx SpecContext) {
+	It("Should refuse a group change without update on the group", func(
+		ctx SpecContext,
+	) {
 		u := createUser(ctx)
-		p := createProject(ctx, "Rename granted")
+		p := createProject(ctx, "Dispatch group denied")
+		g := createProjectGroup(ctx, "Dispatch group denied")
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-		MustSucceed(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
+		Expect(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
+		})).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
+		Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
+	})
+	It("Should apply the actions with update on the project and the group", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Dispatch granted")
+		g := createProjectGroup(ctx, "Dispatch granted")
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			access.ActionUpdate,
+			p.ResourceID(),
+			g.ResourceID(),
+		)
+		MustSucceed(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: setGroup(g.Key),
 		}))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Renamed"))
+		Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
 	})
 })
 
@@ -277,7 +312,6 @@ var _ = Describe("Delete", func() {
 		ctx SpecContext,
 	) {
 		grantOn(ctx, u.ResourceID(), access.ActionDelete, l.ResourceID())
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 		Expect(deleteAs(ctx)).Error().
 			To(denied(u, access.ActionDelete, p.ResourceID()))
 		Expect(projectExists(ctx, p.Key)).To(BeTrue())
@@ -286,27 +320,12 @@ var _ = Describe("Delete", func() {
 		ctx SpecContext,
 	) {
 		grantOn(ctx, u.ResourceID(), access.ActionDelete, p.ResourceID())
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 		Expect(deleteAs(ctx)).Error().
 			To(denied(u, access.ActionDelete, l.ResourceID()))
 		Expect(projectExists(ctx, p.Key)).To(BeTrue())
 	})
-	It("Should refuse the delete without update on the project it empties", func(
-		ctx SpecContext,
-	) {
-		grantOn(
-			ctx,
-			u.ResourceID(),
-			access.ActionDelete,
-			p.ResourceID(),
-			l.ResourceID(),
-		)
-		Expect(deleteAs(ctx)).Error().
-			To(denied(u, access.ActionUpdate, p.ResourceID()))
-		Expect(projectExists(ctx, p.Key)).To(BeTrue())
-	})
 	It(
-		"Should delete the project and its log with delete on both",
+		"Should delete the project and its log with delete on both alone",
 		func(ctx SpecContext) {
 			grantOn(
 				ctx,
@@ -315,7 +334,6 @@ var _ = Describe("Delete", func() {
 				p.ResourceID(),
 				l.ResourceID(),
 			)
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
 			MustSucceed(deleteAs(ctx))
 			Expect(projectExists(ctx, p.Key)).To(BeFalse())
 			Expect(logSvc.NewRetrieve().
@@ -376,43 +394,6 @@ func retrieveProject(ctx SpecContext, key project.Key) project.Project {
 		Exec(ctx, db)).To(Succeed())
 	return p
 }
-
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the project with update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
-			grantOn(
-				ctx,
-				u.ResourceID(),
-				access.ActionUpdate,
-				p.ResourceID(),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
-		},
-	)
-})
 
 var _ = Describe("Create in a group", func() {
 	projectType := resource.ID{Type: resource.TypeProject}

@@ -10,46 +10,9 @@
 package resolve
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
-
-// DeriveWASMCoordinates returns the per-module WASM import coordinate for a
-// host-import reference. wasmModule is ref.module verbatim; wasmFuncName is
-// ref.name, with a type suffix appended when the underlying symbol is
-// polymorphic (or when an explicit suffix was supplied via
-// ResolveImportWithSuffix). Panics on a local reference (ref.module == "")
-// since locals are not WASM imports.
-func DeriveWASMCoordinates(
-	ctx context.Context,
-	scope *symbol.Symbol,
-	ref pendingRef,
-) (wasmModule, wasmFuncName string) {
-	if ref.module == "" {
-		panic("DeriveWASMCoordinates called on local reference: " + ref.name)
-	}
-	wasmModule = ref.module
-	wasmFuncName = ref.name
-	var suffix string
-	if ref.typeSuffix != "" {
-		suffix = ref.typeSuffix
-	} else if scope != nil {
-		modSym, err := scope.Resolve(ctx, ref.module, symbol.IncludeInternal)
-		if err == nil {
-			original, err := modSym.Resolve(ctx, ref.name, symbol.IncludeInternal)
-			if err == nil && original.Type.Kind == types.KindFunction {
-				suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
-			}
-		}
-	}
-	if suffix != "" {
-		wasmFuncName = wasmFuncName + "_" + suffix
-	}
-	return wasmModule, wasmFuncName
-}
 
 // DeriveTypeSuffix returns the type suffix (e.g., "f64", "u8") for a concrete
 // instantiation of a polymorphic symbol. Returns "" if the original type has no

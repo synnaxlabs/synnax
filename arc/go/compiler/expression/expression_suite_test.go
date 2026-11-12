@@ -148,11 +148,15 @@ func compileWithAnalyzer(
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
+	resolver := resolve.NewResolver()
+	for i, t := range []types.Type{types.I64(), types.U64()} {
+		resolver.RegisterLocal(resolve.IndexFromName(t), uint32(i))
+	}
 	compilerCtx := ccontext.NewRoot(
 		bCtx,
 		analyzerCtx.Scope,
 		analyzerCtx.TypeMap,
-		resolve.NewResolver(),
+		resolver,
 	)
 	compilerCtx.FmtStrings = analyzerCtx.FmtStrings
 	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))

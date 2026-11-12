@@ -92,10 +92,14 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	if d.rack, err = cfg.Rack.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %d", cfg.HostKey),
-		func(r *rack.Rack) {
-			r.Integrations = integrations
-			r.Version = new(version.Get())
-		},
+		rack.NewSetAction(rack.SetPayload{
+			Path:  []string{"integrations"},
+			Value: integrations,
+		}),
+		rack.NewSetAction(rack.SetPayload{
+			Path:  []string{"version"},
+			Value: version.Get(),
+		}),
 	); !ok(err, nil) {
 		return nil, err
 	}
@@ -187,6 +191,7 @@ func (d *Driver) startHeartbeat() {
 					Time:    telem.Now(),
 					Variant: status.VariantSuccess,
 					Message: "Driver is running",
+					Details: rack.StatusDetails{Running: true},
 				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
@@ -563,7 +568,9 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	for _, t := range tasks {
 		sCtx.Go(
 			func(ctx context.Context) error {
-				if err := d.configure(ctx, t, NoCommand); err != nil {
+				err := d.configure(ctx, t, NoCommand)
+				canceled := ctx.Err() != nil && errors.Is(err, context.Canceled)
+				if err != nil && !canceled {
 					d.cfg.L.Error("failed to configure task",
 						zap.Stringer("task", t),
 						zap.Error(err),
@@ -609,6 +616,10 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	defer cancel()
 
 	sCtx.Go(func(ctx context.Context) error {
+		// A factory can start the task, and a canceled Open stops no task.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		for _, f := range d.cfg.Factories {
 			newTask, err := f.ConfigureTask(ctx, t, cmdKey)
 			if errors.Is(err, ErrTaskNotHandled) {
@@ -707,8 +718,8 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 }
 
 func (d *Driver) Close() error {
-	// The stops run outside the lock: they write statuses, and the commit reader that
-	// those writes wait for takes the lock.
+	// The command sink drains first, so no command deploys a task after the stops.
+	err := d.closer.Close()
 	d.mu.Lock()
 	instances := d.mu.instances
 	d.mu.instances = make(map[task.Key]instance)
@@ -722,5 +733,5 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	return d.closer.Close()
+	return err
 }

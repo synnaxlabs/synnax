@@ -261,7 +261,15 @@ type Action struct {
 	// payload. The analyzer resolves these and prepends the inherited fields to
 	// Fields, so by code-generation time Fields already holds the unified list.
 	Extends []TypeRef
+	// Alias names the struct that an `action Name = Struct` declaration uses as its
+	// payload. Fields is then empty, and the analyzer copies the struct's doc into
+	// Domains when the action declares no doc of its own. The zero TypeRef means the
+	// action declares its own payload.
+	Alias TypeRef
 }
+
+// IsAlias reports whether the action uses an existing struct as its payload.
+func (a Action) IsAlias() bool { return a.Alias.Name != "" }
 
 type Field struct {
 	AST     any
@@ -688,10 +696,11 @@ func InheritedFields(extends []TypeRef, table *Table) map[string]Field {
 }
 
 // UnifiedVariantFields returns the flattened field list for one variant of a
-// discriminated union: fields contributed by the union's Extends (with their
-// own inheritance resolved), followed by the variant struct's own fields (also
-// with its inheritance resolved). Duplicate names are dropped after the first
-// occurrence, matching UnifiedFields' first-wins semantics for struct mixins.
+// discriminated union: fields contributed by the union's Extends (with their own
+// inheritance resolved), followed by the variant struct's own fields (also with its
+// inheritance resolved). Each field takes the type arguments of the base or variant
+// that declares it. Duplicate names are dropped after the first occurrence, matching
+// UnifiedFields' first-wins semantics for struct mixins.
 //
 // The discriminator field is NOT included in the returned list. Callers know
 // its name from UnionForm.Discriminator and its value from variant.Name, and
@@ -710,7 +719,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	var result []Field
 	// A variant drops a field the union's bases contribute with `-name`.
 	var omitted set.Set[string]
-	variantType, _, variantOK := Dealias(variant.Type, table)
+	variantType, variantRef, variantOK := Dealias(variant.Type, table)
 	variantForm, isStruct := StructForm{}, false
 	if variantOK {
 		variantForm, isStruct = variantType.Form.(StructForm)
@@ -718,29 +727,31 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	if isStruct {
 		omitted = set.New(variantForm.OmittedFields...)
 	}
-	appendUnique := func(fields []Field) {
-		for _, f := range fields {
+	appendUnique := func(typ Type, ref TypeRef) {
+		typeArgs := TypeArgMap(TypeParams(typ.Form), ref.TypeArgs)
+		for _, f := range UnifiedFields(typ, table) {
 			if seen.Contains(f.Name) || omitted.Contains(f.Name) {
 				continue
 			}
 			seen.Add(f.Name)
+			f.Type = SubstituteTypeRef(f.Type, typeArgs)
 			result = append(result, f)
 		}
 	}
-	for _, baseRef := range form.Extends {
-		base, _, ok := Dealias(baseRef, table)
+	for _, declared := range form.Extends {
+		base, baseRef, ok := Dealias(declared, table)
 		if !ok {
 			continue
 		}
 		if _, isStruct := base.Form.(StructForm); !isStruct {
 			continue
 		}
-		appendUnique(UnifiedFields(base, table))
+		appendUnique(base, baseRef)
 	}
 	if !variantOK || !isStruct {
 		return result
 	}
-	appendUnique(UnifiedFields(variantType, table))
+	appendUnique(variantType, variantRef)
 	return result
 }
 
@@ -781,12 +792,15 @@ func MergeOverrideField(parent, child Field) Field {
 }
 
 // TypeArgMap maps each of params to the argument at its position in args, for
-// SubstituteTypeRef. A parameter with no argument is left out.
+// SubstituteTypeRef. A parameter with no argument takes its default, or is left out
+// when it has none.
 func TypeArgMap(params []TypeParam, args []TypeRef) map[string]TypeRef {
 	typeArgMap := make(map[string]TypeRef, len(params))
 	for i, tp := range params {
 		if i < len(args) {
 			typeArgMap[tp.Name] = args[i]
+		} else if tp.HasDefault() {
+			typeArgMap[tp.Name] = SubstituteTypeRef(*tp.Default, typeArgMap)
 		}
 	}
 	return typeArgMap

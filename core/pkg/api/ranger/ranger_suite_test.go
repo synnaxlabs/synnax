@@ -18,6 +18,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -41,17 +42,14 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apiranger.Service
-	// create, del, dispatch, renameRange, setRangeEnd, and retrieve run their routes as
-	// the API layer binds them.
+	// create, del, dispatch, and retrieve run their routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apiranger.CreateRequest,
 		apiranger.CreateResponse,
 	]
-	del         freighter.UnaryHandler[apiranger.DeleteRequest, struct{}]
-	dispatch    freighter.UnaryHandler[apiranger.DispatchRequest, struct{}]
-	renameRange freighter.UnaryHandler[apiranger.RenameRequest, struct{}]
-	setRangeEnd freighter.UnaryHandler[apiranger.SetEndRequest, struct{}]
-	retrieve    freighter.UnaryHandler[
+	del      freighter.UnaryHandler[apiranger.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiranger.DispatchRequest, struct{}]
+	retrieve freighter.UnaryHandler[
 		apiranger.RetrieveRequest,
 		apiranger.RetrieveResponse,
 	]
@@ -68,12 +66,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,
 		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	renameRange = bind.Write(binder, apiSvc.Rename)
-	setRangeEnd = bind.Write(binder, apiSvc.SetEnd)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

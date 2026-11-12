@@ -39,11 +39,11 @@ list values with spaces, not commas.
 
 <Field.Item name="--listen" short="-l" type="address" default='"localhost:9090"' env="SYNNAX_LISTEN">
 
-The address that clients and other Cores use to reach this Core. The host must be a name
-or address they can reach, and the TLS certificate must cover it. The Core binds the
-port on every network interface. To bind more than one address, each with its own
-certificate, give a list of listeners in a [configuration file](#configuration-files).
-See [Serve multiple listeners](/reference/enterprise/listeners).
+The address that clients use to reach this Core. The host must be a name or address they
+can reach, and the TLS certificate must cover it. The Core binds the port on every
+network interface. To bind more than one address, each with its own certificate, give a
+list of listeners in a [configuration file](#configuration-files). See
+[Serve multiple listeners](/reference/enterprise/listeners).
 
 </Field.Item>
 
@@ -96,8 +96,21 @@ a file that is missing or cannot be read, with no message.
 <Field.Item name="--auto-cert" env="SYNNAX_AUTO_CERT">
 
 Creates a CA and a certificate for the `--listen` host in `--certs-dir`, and replaces
-the certificate when the host changes. See
+the certificate when the host changes, when the CA did not sign it, or when its subject
+matches its issuer. See
 [Set up TLS](/reference/enterprise/tls#use-a-self-signed-certificate).
+
+</Field.Item>
+
+<Field.Item name="--key-size" type="int" default="2048" env="SYNNAX_KEY_SIZE">
+
+The size in bits of the keys that `--auto-cert` creates.
+
+</Field.Item>
+
+<Field.Item name="--allow-key-reuse" env="SYNNAX_ALLOW_KEY_REUSE">
+
+Lets the CA key that `--auto-cert` uses sign more than one certificate.
 
 </Field.Item>
 
@@ -357,6 +370,9 @@ node-key: node.key
 username: synnax
 password: seldon
 license-file: /usr/local/synnax/synnax.lic
+debug: false
+session-idle-timeout: 168h
+slow-consumer-timeout: 2.5s
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -388,6 +404,9 @@ node-key = "node.key"
 username = "synnax"
 password = "seldon"
 license-file = "/usr/local/synnax/synnax.lic"
+debug = false
+session-idle-timeout = "168h"
+slow-consumer-timeout = "2.5s"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -481,11 +500,8 @@ After code 65 or 78, the Core fails the same way at each start until you fix the
 ## Cert
 
 The `cert` commands create the files that `--auto-cert` creates, without starting the
-Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, and `--node-key`
-with the same defaults as `start`, and also:
-
-- `--key-size` -> the key size in bits. Default 2048.
-- `--allow-key-reuse` -> lets the CA key sign more than one certificate. Default false.
+Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, `--node-key`,
+`--key-size`, and `--allow-key-reuse`, with the same defaults as `start`.
 
 ### cert ca
 
@@ -508,24 +524,33 @@ synnax cert node synnax.example.com
 
 ## Update
 
-The `update` command updates the Core to a new binary. Run it as an administrator:
+The `update` command updates the Core to a new version. Run it as an administrator:
+
+```bash
+sudo synnax update 0.61.0
+```
+
+The command downloads the Core for the computer from the Synnax releases and checks its
+signature. It does not install a file that fails the check. To update without internet
+access, download the binary on another computer and pass it with `--file`:
 
 ```bash
 sudo synnax update --file ./synnax-v0.61.0-linux
 ```
 
-The command checks that the file is a Core for the computer and not older than the
+The command checks that the new Core is for the computer and not older than the
 installed Core. For a [Core service](#service), it stops the service, puts the new
 binary in place of the old one, and starts the service. It then waits for the new Core
 to commit the update. If the new Core fails, the command puts the old Core back and
 starts it. Without a service, it only replaces the binary that runs the command, so stop
 the Core first and start it after. The old binary stays next to the new one, with an
 `.old` extension. When the installed Core is the same version, the command does nothing.
-It refuses while an update of the data has not finished. For a service, the new binary
-can also run the command, such as for an update from a Core that has no `update`
-command.
+It refuses while an update of the data has not finished. It also refuses when an update
+to that version failed before, until you run `synnax update retry`. For a service, the
+new binary can also run the command, such as for an update from a Core that has no
+`update` command.
 
-- `--file` -> the Core binary to update to.
+- `--file` -> the Core binary to update to, in place of a version.
 - `--timeout` -> how long to wait for the new Core to commit the update. Default `10m`.
 
 Before a new version first opens the data, the Core backs up its metadata. The
@@ -536,7 +561,7 @@ folder of the [Core service](#service), or `synnax-data` when there is no servic
 ### update undo
 
 Restores the backup of the last update, or the named backup, and prints the Core version
-to run on the data. Without a name, it refuses if the last update is already undone:
+to run on the data:
 
 ```bash
 synnax update undo
@@ -544,8 +569,10 @@ synnax update undo 1793000000-0.60.1
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it
-back. For the Linux service, run it with `sudo`. The command gives the restored files to
-the owner of the data folder.
+back. Without a name, when the last update is already undone, the command only puts back
+the `.old` binary, and refuses when that binary is not the version before the update.
+For the Linux service, run it with `sudo`. The command gives the restored files to the
+owner of the data folder.
 
 ### update history
 

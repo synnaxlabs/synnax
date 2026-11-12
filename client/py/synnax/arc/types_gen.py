@@ -16,17 +16,11 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import status as status_
 from synnax.arc import graph as graph_, program as program_, text as text_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
-
-MODE_TEXT: Literal["text"] = "text"
-
-MODE_GRAPH: Literal["graph"] = "graph"
-
-
-Mode = Literal["text", "graph"]
 
 TYPE_AUTOMATION: Literal["automation"] = "automation"
 
@@ -35,7 +29,56 @@ TYPE_MODULE: Literal["module"] = "module"
 
 Type = Literal["automation", "module"]
 
+CHANGE_KIND_CHANGED: Literal["changed"] = "changed"
+
+CHANGE_KIND_ADDED: Literal["added"] = "added"
+
+CHANGE_KIND_REMOVED: Literal["removed"] = "removed"
+
+
+ChangeKind = Literal["changed", "added", "removed"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
+MODE_TEXT: Literal["text"] = "text"
+
+MODE_GRAPH: Literal["graph"] = "graph"
+
+
+Mode = Literal["text", "graph"]
+
 Key: TypeAlias = UUID
+
+Status: TypeAlias = status_.Status
+
+
+class Change(BaseModel):
+    """Is one difference between an automation's content and what its task last ran.
+
+    Attributes:
+        type: Is whether the automation's own text or a module changed.
+        path: Is the import path of the module. Empty for the automation.
+        kind: Is how the content differs from what the task last ran.
+    """
+
+    type: Type
+    path: str = ""
+    kind: ChangeKind
+
+
+class Order(BaseModel):
+    """Is a sort of arcs.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TextSource(BaseModel):
@@ -102,6 +145,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of arcs: the sort value and the key of a arc.
+
+    Attributes:
+        key: Is the key of the arc at the position.
+        name: Is the name of the arc at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class Base(BaseModel):
     """Carries the fields that every Arc shares.
 
@@ -128,18 +183,24 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the arcs to retrieve. An absent where selects all of them.
         search_term: Keeps the arcs that match the term, closest match first.
+        order: Sorts the arcs. An absent order sorts them by key.
+        after: Starts the arcs strictly past this position in their order.
         limit: Is the most arcs to return.
-        offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
+        include_changes: Includes the changes of each record.
+        include_status: Includes the status of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
+    include_changes: bool = False
+    include_status: bool = False
 
 
 class AutomationPayload(Base):
@@ -147,12 +208,14 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
+    changes: list[Change] | None = None
 
 
 class ModulePayload(Base):
     """Is an Arc that holds code for other Arcs to import."""
 
     type: Literal["module"] = "module"
+    status: Status | None = None
 
 
 # Is an Arc module combining visual graph representation and text-based source

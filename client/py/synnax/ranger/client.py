@@ -15,16 +15,18 @@ from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
 
 import numpy as np
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, JsonValue, PrivateAttr
 
 from freighter import UnaryClient
 from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import alias as alias_, kv
+from synnax.ranger import actions_gen, alias as alias_, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     Where,
@@ -37,16 +39,18 @@ from synnax.signals.signals import Registry
 from synnax.state import Latest
 from synnax.telem import (
     CrudeSeries,
+    CrudeTimeStamp,
     DataType,
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
 from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
 
 # synnax.task imports this module through its range field.
@@ -54,6 +58,20 @@ if TYPE_CHECKING:
     from synnax.task import Client as TaskClient, Task
 
 _RANGE_SET_CHANNEL = "sy_range_set"
+
+
+def _set(path: list[str], value: JsonValue) -> actions_gen.SetAction:
+    return actions_gen.set(actions_gen.SetPayload(path=path, value=value))
+
+
+def _remove(field: str) -> actions_gen.RemoveAction:
+    return actions_gen.remove(actions_gen.RemovePayload(key=field))
+
+
+# A string holds every 64-bit timestamp exactly.
+def _nanoseconds(time: CrudeTimeStamp) -> str:
+    return str(int(TimeStamp(time)))
+
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -257,6 +275,7 @@ class Range(Payload):
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
+    @deprecate_positional("name", "time_range", "key", "color", "parent")
     def __init__(
         self,
         *,
@@ -729,7 +748,8 @@ class Client:
         has_labels: list[label.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Range]: ...
 
@@ -744,7 +764,8 @@ class Client:
         has_labels: list[label.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Range | list[Range]:
@@ -769,16 +790,18 @@ class Client:
         :param has_labels: Keeps ranges that have one of these labels.
         :param search_term: A fuzzy search term matched against range names.
         :param limit: The maximum number of ranges to retrieve.
-        :param offset: The number of ranges to skip.
+        :param order: The order of the ranges. Defaults to key order.
+        :param after: Retrieves the ranges past this position in the order: the key of
+            the last range of the page before, and its value of the order field.
         :param one: Returns one range for any filter.
         :returns: One range for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of ranges. The list leaves out keys that do not exist.
         :raises NotFoundError: If one range is wanted and none matches.
         :raises MultipleFoundError: If one range is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one range is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=list(keys)),
             name=None if names is None else filter.String(in_=list(names)),
@@ -789,7 +812,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
         return sole("range", req, ranges) if single else ranges
@@ -800,13 +824,78 @@ class Client:
     ) -> None:
         self._writer.delete(normalize(key))
 
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a range, in order, in one transaction.
+
+        :param key: The key of the range.
+        :param actions: The actions to apply, such as ``ranger.set`` and
+            ``ranger.remove``. A timestamp in an action is a string of its exact
+            nanoseconds.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        self._writer.dispatch(key, normalize(actions))
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a range.
 
         :param key: The key of the range to rename.
         :param name: The new name for the range.
         """
-        self._writer.rename(key, name)
+        self.dispatch(key, _set(["name"], name))
+
+    def set_end(self, key: Key, end: CrudeTimeStamp) -> None:
+        """Sets the end of the time range of a range.
+
+        :param key: The key of the range.
+        :param end: The new end of the time range.
+        :raises NotFoundError: If no range has the given key.
+        """
+        self.dispatch(key, _set(["time_range", "end"], _nanoseconds(end)))
+
+    def set_time_range(self, key: Key, time_range: TimeRange) -> None:
+        """Sets the start and end of a range.
+
+        :param key: The key of the range.
+        :param time_range: The new time range.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the start is after the end.
+        """
+        value: JsonValue = {
+            "start": _nanoseconds(time_range.start),
+            "end": _nanoseconds(time_range.end),
+        }
+        self.dispatch(key, _set(["time_range"], value))
+
+    def set_color(self, key: Key, color: color_.Crude | None) -> None:
+        """Sets the color of a range, or clears it when color is None.
+
+        :param key: The key of the range.
+        :param color: The new color, such as ``"#FF0000"``.
+        :raises NotFoundError: If no range has the given key.
+        """
+        if color is None:
+            self.dispatch(key, _remove("color"))
+        else:
+            self.dispatch(key, _set(["color"], color_.Color(color).model_dump()))
+
+    def set_parent(self, key: Key, parent: Key | Payload | None) -> None:
+        """Nests a range in a parent range, or makes it a top-level range when parent
+        is None.
+
+        :param key: The key of the range.
+        :param parent: The parent range, or its key.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the parent is the range itself or a range nested
+            in it.
+        """
+        if parent is None:
+            self.dispatch(key, _remove("parent"))
+            return
+        parent_key = parent.key if isinstance(parent, Payload) else parent
+        self.dispatch(key, _set(["parent"], str(parent_key)))
 
     def search(
         self,

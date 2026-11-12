@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -75,8 +76,8 @@ type (
 	}
 )
 
-// Create creates a group. An existing group with the key keeps its stored parent and
-// scope.
+// Create creates a group. It returns an error wrapping validate.ErrValidation when a
+// group with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -87,6 +88,23 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Group: g}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single group. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[group.Key, group.Action]
+
+// Dispatch applies the action sequence to the target group atomically. Subscribers to
+// the group action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -165,34 +183,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  group.Key `json:"key"  msgpack:"key"`
-}
-
-// Rename renames the group with the given key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
-// SetParentRequest moves groups under Parent, or to the top level when Parent is nil.
-type SetParentRequest struct {
-	Parent *resource.ID `json:"parent" msgpack:"parent"`
-	Keys   []group.Key  `json:"keys"   msgpack:"keys"`
-}
-
-// SetParent moves the groups under a parent. A move under a new top parent moves the
-// visualizations in the groups to the project of that top parent.
-func (s *Service) SetParent(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetParentRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetParent(ctx, req.Parent, req.Keys...)
 }

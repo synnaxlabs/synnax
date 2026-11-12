@@ -11,14 +11,19 @@ package gorp_test
 
 import (
 	"context"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,6 +32,50 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
+
+// gatedFS is a vfs.FS whose WAL syncs block, once armed, until release closes. held
+// closes when the first armed sync blocks.
+type gatedFS struct {
+	vfs.FS
+	armed   atomic.Bool
+	held    chan struct{}
+	release chan struct{}
+	hold    sync.Once
+}
+
+func (fs *gatedFS) Create(
+	name string,
+	category vfs.DiskWriteCategory,
+) (vfs.File, error) {
+	f, err := fs.FS.Create(name, category)
+	if err != nil || !strings.HasSuffix(name, ".log") {
+		return f, err
+	}
+	return gatedFile{File: f, fs: fs}, nil
+}
+
+func (fs *gatedFS) wait() {
+	if !fs.armed.Load() {
+		return
+	}
+	fs.hold.Do(func() { close(fs.held) })
+	<-fs.release
+}
+
+type gatedFile struct {
+	vfs.File
+	fs *gatedFS
+}
+
+func (f gatedFile) Sync() error {
+	f.fs.wait()
+	return f.File.Sync()
+}
+
+func (f gatedFile) SyncData() error {
+	f.fs.wait()
+	return f.File.SyncData()
+}
 
 var _ = Describe("DB", func() {
 	Describe("WithTx", func() {
@@ -155,6 +204,63 @@ var _ = Describe("DB", func() {
 			},
 		)
 
+		It(
+			"Should release the lock before the store syncs a commit",
+			func(ctx SpecContext) {
+				fs := &gatedFS{
+					FS:      vfs.NewMem(),
+					held:    make(chan struct{}),
+					release: make(chan struct{}),
+				}
+				logger := pebblekv.NewNoopLogger()
+				syncDB := DeferClose(gorp.Wrap(
+					pebblekv.Wrap(MustSucceed(pebble.Open("", &pebble.Options{
+						FS:     fs,
+						Logger: logger,
+					})), logger),
+					gorp.WithCodec(msgpack.Codec),
+				))
+				release := sync.OnceFunc(func() { close(fs.release) })
+				DeferCleanup(release)
+				observed := make(chan gorp.Commit, 1)
+				DeferCleanup(syncDB.Observe().OnChange(
+					func(_ context.Context, c gorp.Commit) { observed <- c },
+				))
+				first := syncDB.OpenTx()
+				Expect(gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, first)).To(Succeed())
+				fs.armed.Store(true)
+				committed := make(chan error, 1)
+				go func() { committed <- first.Commit(ctx) }()
+				Eventually(fs.held).Should(BeClosed())
+
+				read := make(chan bool, 1)
+				go func() {
+					defer GinkgoRecover()
+					Expect(syncDB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+						read <- MustSucceed(gorp.NewRetrieve[int32, entry]().
+							Where(gorp.MatchKeys[int32, entry](1)).
+							Exists(ctx, snap))
+						return nil
+					})).To(Succeed())
+				}()
+				Eventually(read).Should(Receive(BeTrue()))
+				opened := make(chan gorp.Tx, 1)
+				go func() { opened <- syncDB.OpenTx() }()
+				var second gorp.Tx
+				Eventually(opened).Should(Receive(&second))
+				Expect(second.Close()).To(Succeed())
+				Consistently(committed, 50*time.Millisecond).ShouldNot(Receive())
+				Consistently(observed, 50*time.Millisecond).ShouldNot(Receive())
+
+				release()
+				Eventually(committed).Should(Receive(Succeed()))
+				Eventually(observed).Should(Receive(HaveField("Seq", uint64(1))))
+				Expect(first.Close()).To(Succeed())
+			},
+		)
+
 		It("Should warn when a transaction waits long for the lock", func() {
 			first := lockDB.OpenTx()
 			opened := openAsync()
@@ -167,6 +273,28 @@ var _ = Describe("DB", func() {
 				"gorp transaction waited long for the write lock",
 			).Len()).To(Equal(1))
 		})
+
+		It(
+			"Should warn when a commit waits long for the readers of Observe",
+			func(ctx SpecContext) {
+				release := make(chan struct{})
+				DeferCleanup(lockDB.Observe().OnChange(
+					func(context.Context, gorp.Commit) { <-release },
+				))
+				committed := make(chan error, 1)
+				go func() {
+					committed <- gorp.NewCreate[int32, entry]().
+						Entry(&entry{ID: 1, Data: "One"}).
+						Exec(ctx, lockDB)
+				}()
+				Consistently(committed, 600*time.Millisecond).ShouldNot(Receive())
+				close(release)
+				Eventually(committed).Should(Receive(Succeed()))
+				Expect(logs.FilterMessage(
+					"gorp commit waited long for the readers of Observe",
+				).Len()).To(Equal(1))
+			},
+		)
 
 		It("Should not warn when a transaction gets the lock at once", func() {
 			Expect(lockDB.OpenTx().Close()).To(Succeed())
@@ -450,6 +578,94 @@ var _ = Describe("DB", func() {
 					Expect(logs.Len()).To(BeZero())
 				},
 			)
+		})
+	})
+
+	Describe("BeforeCommit", func() {
+		var (
+			hookDB *gorp.DB
+			ran    []string
+			work   = func(name string, err error) func(context.Context) error {
+				return func(context.Context) error {
+					ran = append(ran, name)
+					return err
+				}
+			}
+			create = func(ctx context.Context, tx gorp.Tx) error {
+				return gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, tx)
+			}
+			exists = func(ctx context.Context) bool {
+				GinkgoHelper()
+				return MustSucceed(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](1)).
+					Exists(ctx, hookDB))
+			}
+		)
+		BeforeEach(func() {
+			hookDB = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			ran = nil
+		})
+
+		It(
+			"Should run work in registration order before the writes commit",
+			func(ctx SpecContext) {
+				var committedBefore bool
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					if err := create(ctx, tx); err != nil {
+						return err
+					}
+					gorp.BeforeCommit(tx, func(ctx context.Context) error {
+						committedBefore = exists(ctx)
+						return work("second", nil)(ctx)
+					})
+					return nil
+				})).To(Succeed())
+				Expect(ran).To(Equal([]string{"first", "second"}))
+				Expect(committedBefore).To(BeFalse())
+				Expect(exists(ctx)).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should run no work when the transaction closes without a commit",
+			func(ctx SpecContext) {
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					return query.ErrNotFound
+				})).To(MatchError(query.ErrNotFound))
+				Expect(ran).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should roll back the transaction and stop when work fails",
+			func(ctx SpecContext) {
+				var commits int
+				DeferCleanup(hookDB.Observe().OnChange(
+					func(context.Context, gorp.Commit) { commits++ },
+				))
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(tx, work("first", nil))
+					gorp.BeforeCommit(tx, work("second", query.ErrNotFound))
+					gorp.BeforeCommit(tx, work("third", nil))
+					return create(ctx, tx)
+				})).To(MatchError(query.ErrNotFound))
+				Expect(ran).To(Equal([]string{"first", "second"}))
+				Expect(exists(ctx)).To(BeFalse())
+				Expect(commits).To(BeZero())
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return create(ctx, tx)
+				})).To(Succeed())
+				Expect(ran).To(Equal([]string{"first", "second"}))
+			},
+		)
+
+		It("Should panic when registering on a DB", func() {
+			Expect(func() { gorp.BeforeCommit(hookDB, work("first", nil)) }).
+				To(PanicWith("[gorp] - BeforeCommit needs a transaction, not a DB"))
 		})
 	})
 

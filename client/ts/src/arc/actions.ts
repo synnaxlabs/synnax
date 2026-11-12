@@ -20,7 +20,7 @@ import {
   reconnectEdge,
   removeEdge,
   removeNode,
-  rename,
+  setDirectory,
   setNode,
   setNodeInputs,
   setNodePosition,
@@ -28,6 +28,7 @@ import {
 import { type ir } from "@/arc/ir";
 import {
   type Arc,
+  arcZ,
   type GraphSource,
   graphSourceZ,
   type TextSource,
@@ -61,14 +62,20 @@ const textOf = (state: Draft<Arc>): Draft<TextSource["text"]> => {
   return state.source.text;
 };
 
-// Path actions edit only the graph's node inputs.
+// isInputsPath reports whether a path action edits the graph's node inputs, whose paths
+// start at the Arc's source. Other path actions edit the fields of the Arc.
+const isInputsPath = (action: patch.Action): boolean =>
+  patch.pathOf(action)[0] === "graph";
+
 const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult =>
-  actions.applyEntryPath(
-    graphSourceOf(state),
-    action,
-    ["graph", "inputs"],
-    graphSourceZ,
-  );
+  isInputsPath(action)
+    ? actions.applyEntryPath(
+        graphSourceOf(state),
+        action,
+        ["graph", "inputs"],
+        graphSourceZ,
+      )
+    : actions.applyPath(state, action, arcZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -76,11 +83,6 @@ const handlers: Handlers = {
     return { inverse: [], targets: [payload.arc.key] };
   },
 
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return { inverse: [rename({ name: oldName })], targets: [state.key] };
-  },
   setNode: (state, payload) => {
     const graph = graphOf(state);
     const idx = graph.nodes.findIndex((n) => n.key === payload.node.key);
@@ -204,6 +206,14 @@ const handlers: Handlers = {
     text.doc.deletes = text.doc.deletes.filter((d) => !forget.has(idToString(d.id)));
     return { inverse: [], targets: [] };
   },
+  setDirectory: (state, payload) => {
+    const oldDirectory = state.directory;
+    state.directory = payload.directory;
+    return {
+      inverse: oldDirectory == null ? [] : [setDirectory({ directory: oldDirectory })],
+      targets: [state.key],
+    };
+  },
   ...actions.createPathHandlers(applyPath),
 };
 
@@ -219,7 +229,9 @@ export const encode = (state: Arc, action: Action): Action => {
     case "remove":
     case "insert":
     case "move":
-      return patch.camelToSnake(action, { schema: graphSourceZ, data: state.source });
+      return isInputsPath(action)
+        ? patch.camelToSnake(action, { schema: graphSourceZ, data: state.source })
+        : patch.camelToSnake(action, { schema: arcZ, data: state });
     default:
       return action;
   }

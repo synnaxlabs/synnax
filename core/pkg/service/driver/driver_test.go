@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -35,6 +36,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Driver", func() {
@@ -99,6 +103,18 @@ var _ = Describe("Driver", func() {
 			Name: "Test Task",
 			Type: pagerduty.AlertTaskType,
 		}
+	}
+
+	setTask := func(ctx context.Context, key task.Key, path []string, value any) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := taskService.NewWriter(tx).Apply(
+				ctx,
+				key,
+				task.NewSetAction(task.SetPayload{Path: path, Value: value}),
+			)
+			return err
+		})).To(Succeed())
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
@@ -257,6 +273,55 @@ var _ = Describe("Driver", func() {
 					},
 				}}
 				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+			},
+			NodeTimeout(10*time.Second),
+		)
+
+		It(
+			"should configure no task when the context is canceled before configuring",
+			func(ctx SpecContext) {
+				cfg := driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					HostKey:   1,
+				}
+				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				var configured atomic.Bool
+				cfg.Factories = []driver.Factory{&mockFactory{
+					name: "test",
+					configureFunc: func(context.Context, task.Task) (driver.Task, error) {
+						configured.Store(true)
+						return nil, driver.ErrTaskNotHandled
+					},
+				}}
+				cCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				// Open checks ctx between its steps, so this log line is the last point
+				// that can cancel before the factories run.
+				core, logs := observer.New(zap.InfoLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core, zap.Hooks(func(e zapcore.Entry) error {
+						if e.Message == "configuring existing tasks" {
+							cancel()
+						}
+						return nil
+					})),
+				}))
+				cfg.Instrumentation = alamos.New("test", alamos.WithLogger(logger))
+				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+				Expect(configured.Load()).To(BeFalse())
+				Expect(
+					logs.FilterMessage("failed to configure task").Len(),
+				).To(BeZero())
 			},
 			NodeTimeout(10*time.Second),
 		)
@@ -468,10 +533,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 				Expect(stopCount.Load()).To(BeZero())
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, "rk-2")
 
 				writeCommand(
 					ctx,
@@ -589,9 +651,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 
 				t.Name = "Renamed Task"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"name"}, t.Name)
 
 				writeCommand(
 					ctx,
@@ -692,9 +752,7 @@ var _ = Describe("Driver", func() {
 					return rackService.NewWriter(tx).Create(ctx, &otherRack)
 				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 
 				// The redeploy start lands on the new rack; for this driver it is the
 				// teardown signal for the instance it still holds.
@@ -1690,10 +1748,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(BeNumerically(">", countBeforeCreate))
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, "rk-2")
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
@@ -1970,6 +2025,91 @@ var _ = Describe("Driver", func() {
 			Expect(driver.Close()).To(Succeed())
 			Expect(driver.Close()).To(Succeed())
 		})
+
+		DescribeTable(
+			"should stop a task that a start in flight deploys",
+			func(ctx SpecContext, redeploy bool) {
+				var (
+					other, target = uuid.New(), uuid.New()
+					started       = make(chan task.Key, 1)
+					otherStopped  = make(chan struct{})
+					deploying     = make(chan struct{})
+					released      = make(chan struct{})
+					deployedStop  = make(chan bool, 1)
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						inFlight := t.ConfigHash == "in-flight"
+						if inFlight {
+							close(deploying)
+							<-released
+						}
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(context.Context, task.Command) error {
+								started <- t.Key
+								return nil
+							},
+							stopFunc: func(sendStatus bool) error {
+								switch {
+								case inFlight:
+									deployedStop <- sendStatus
+								case t.Key == other:
+									close(otherStopped)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				d := openDriver(ctx, factory)
+				var releaseOnce sync.Once
+				release := func() { releaseOnce.Do(func() { close(released) }) }
+				DeferCleanup(release)
+				rackKey := embeddedRackKey(ctx)
+				create := func(key task.Key, hash string) task.Task {
+					t := newTask(rackKey)
+					t.Key, t.ConfigHash = key, hash
+					createTask(ctx, t)
+					return t
+				}
+				start := func(key task.Key) {
+					writeCommand(
+						ctx,
+						task.Command{Task: key, Type: "start", Key: "cmd"},
+					)
+				}
+				create(other, "")
+				start(other)
+				Eventually(started).Should(Receive(Equal(other)))
+				if redeploy {
+					t := create(target, "deployed")
+					start(target)
+					Eventually(started).Should(Receive(Equal(target)))
+					t.ConfigHash = "in-flight"
+					Expect(
+						gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db),
+					).
+						To(Succeed())
+				} else {
+					create(target, "in-flight")
+				}
+				start(target)
+				Eventually(deploying).Should(BeClosed())
+				closed := make(chan error, 1)
+				go func() { closed <- d.Close() }()
+				Consistently(otherStopped).ShouldNot(BeClosed())
+				release()
+				Eventually(closed).Should(Receive(BeNil()))
+				Expect(deployedStop).To(Receive(BeTrue()))
+			},
+			Entry("new task", false),
+			Entry("task whose config changed", true),
+		)
 	})
 
 	Describe("Heartbeat", func() {
@@ -1980,8 +2120,8 @@ var _ = Describe("Driver", func() {
 			renamedAt := telem.Now()
 			Eventually(func(g Gomega) {
 				var stat rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](key.ResourceID())).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
@@ -2002,8 +2142,8 @@ var _ = Describe("Driver", func() {
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {
 					var stat rack.Status
-					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](key.ResourceID())).
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
@@ -2028,12 +2168,13 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				g.Expect(statuses[0].Variant).To(Equal(status.VariantSuccess))
+				g.Expect(statuses[0].Details.Running).To(BeTrue())
 			}).Should(Succeed())
 		})
 
@@ -2054,8 +2195,8 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2064,8 +2205,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2089,8 +2230,8 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2100,16 +2241,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []rack.Status
-			Expect(statusSvc.NewRetrieve[struct{}]().
-				Where(status.MatchOwners[struct{}](owner)).
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+				Where(status.MatchOwners[rack.StatusDetails](owner)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
@@ -2283,9 +2424,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, true)
 				details.Cmd = "cmd-0"
 				t.Rack = embeddedRackKey(ctx)
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
 						Owner:   new(t.ResourceID()),
@@ -2369,9 +2508,7 @@ var _ = Describe("Driver", func() {
 					return rackService.NewWriter(tx).Create(ctx, &otherRack)
 				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 				Consistently(func() string {
@@ -2776,6 +2913,117 @@ var _ = Describe("Driver", func() {
 				}).Should(Succeed())
 			},
 		)
+
+		Describe("Returned cancels", func() {
+			openLogged := func(
+				ctx context.Context,
+				factory driver.Factory,
+			) *observer.ObservedLogs {
+				GinkgoHelper()
+				core, logs := observer.New(zap.ErrorLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				MustOpen(driver.Open(ctx, driver.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					DB:              node.DB,
+					Rack:            rackService,
+					Task:            taskService,
+					Framer:          framerSvc,
+					Channel:         channelSvc,
+					Status:          statusSvc,
+					Factories:       []driver.Factory{factory},
+					HostKey:         1,
+				}))
+				return logs
+			}
+
+			It("should log a cancel that a task returns", func(ctx SpecContext) {
+				logs := openLogged(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(context.Context, task.Command) error {
+								return context.Canceled
+							},
+						}, nil
+					},
+				})
+				t := newTask(embeddedRackKey(ctx))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
+					return logs.FilterMessage("failed to execute command").Len()
+				}).Should(Equal(1))
+			})
+
+			It("should log a cancel that a factory returns", func(ctx SpecContext) {
+				key := uuid.New()
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == key {
+							return nil, context.Canceled
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				}
+				logs := openLogged(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd"},
+				)
+				Eventually(func() int {
+					return logs.FilterMessage("failed to configure task").Len()
+				}).Should(Equal(1))
+			})
+
+			It("should log a cancel that a factory returns during Open", func(
+				ctx SpecContext,
+			) {
+				key := uuid.New()
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == key {
+							return nil, context.Canceled
+						}
+						return &mockTask{key: t.Key}, nil
+					},
+				}
+				d := openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.Key = key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				Expect(d.Close()).To(Succeed())
+				logs := openLogged(ctx, factory)
+				Expect(
+					logs.FilterMessage("failed to configure task").Len(),
+				).To(Equal(1))
+			})
+		})
 
 		It(
 			"should start a task while a scanner command runs",

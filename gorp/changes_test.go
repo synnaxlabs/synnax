@@ -10,8 +10,6 @@
 package gorp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -46,11 +44,11 @@ var errUndecodable = errors.New("undecodable")
 // migration missed.
 type deviceRefusingCodec struct{ encoding.Codec }
 
-func (c deviceRefusingCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (c deviceRefusingCodec) Decode(data []byte, value any) error {
 	if _, ok := value.(*refDevice); ok {
 		return errUndecodable
 	}
-	return c.Codec.Decode(ctx, data, value)
+	return c.Codec.Decode(data, value)
 }
 
 var _ = Describe("Changes", func() {
@@ -61,7 +59,7 @@ var _ = Describe("Changes", func() {
 		encode  = func(data string) []byte {
 			GinkgoHelper()
 			return MustSucceed(
-				msgpack.Codec.Encode(context.Background(), entry{ID: 1, Data: data}),
+				msgpack.Codec.Encode(entry{ID: 1, Data: data}),
 			)
 		}
 		create = func(data string) write {
@@ -248,6 +246,7 @@ var _ = Describe("Changes", func() {
 					HaveField("Kind", gorp.ChangeCreate),
 					HaveField("Added", created),
 					HaveField("Removed", BeNil()),
+					HaveField("Links", created),
 				)))
 			},
 			Entry("through a table", func(ctx SpecContext, tx gorp.Tx) error {
@@ -271,18 +270,20 @@ var _ = Describe("Changes", func() {
 				twice := refDevice{Key: "d", Rack: 1, Labels: []string{"l1", "l1"}}
 				tx := DeferClose(db.OpenTx())
 				Expect(devices.NewCreate().Entry(&twice).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(
-					HaveField("Added", []gorp.Link{rackLink(1), labelLink("l1")}),
-				))
+				once := []gorp.Link{rackLink(1), labelLink("l1")}
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+					HaveField("Added", once),
+					HaveField("Links", once),
+				)))
 			},
 		)
 
 		DescribeTable(
-			"Should record the links that an update adds and removes",
+			"Should record the links that an update adds, removes, and keeps",
 			func(
 				ctx SpecContext,
 				change func(refDevice) refDevice,
-				added, removed []gorp.Link,
+				added, removed, links []gorp.Link,
 			) {
 				Expect(devices.NewCreate().Entry(&device).Exec(ctx, db)).To(Succeed())
 				tx := DeferClose(db.OpenTx())
@@ -296,6 +297,7 @@ var _ = Describe("Changes", func() {
 					HaveField("Kind", gorp.ChangeUpdate),
 					HaveField("Added", added),
 					HaveField("Removed", removed),
+					HaveField("Links", links),
 				)))
 			},
 			Entry(
@@ -306,6 +308,7 @@ var _ = Describe("Changes", func() {
 				},
 				[]gorp.Link{rackLink(2)},
 				[]gorp.Link{rackLink(1)},
+				[]gorp.Link{rackLink(2), labelLink("l1"), labelLink("l2")},
 			),
 			Entry(
 				"an array reference that changes",
@@ -315,12 +318,14 @@ var _ = Describe("Changes", func() {
 				},
 				[]gorp.Link{labelLink("l3")},
 				[]gorp.Link{labelLink("l1")},
+				[]gorp.Link{rackLink(1), labelLink("l2"), labelLink("l3")},
 			),
 			Entry(
 				"no reference",
 				func(d refDevice) refDevice { return d },
 				[]gorp.Link(nil),
 				[]gorp.Link(nil),
+				created,
 			),
 		)
 
@@ -336,6 +341,7 @@ var _ = Describe("Changes", func() {
 					HaveField("Kind", gorp.ChangeDelete),
 					HaveField("Added", BeNil()),
 					HaveField("Removed", created),
+					HaveField("Links", created),
 				)))
 			},
 			Entry("a delete through a table", []write{unlink}),
@@ -386,12 +392,14 @@ var _ = Describe("Changes", func() {
 					Record:  gorp.NewTarget("device", "a"),
 					Kind:    gorp.ChangeDelete,
 					Removed: []gorp.Link{rackLink(1)},
+					Links:   []gorp.Link{rackLink(1)},
 				},
 				gorp.Change{
 					Record:  gorp.NewTarget("device", "b"),
 					Kind:    gorp.ChangeDelete,
 					Derived: true,
 					Removed: []gorp.Link{rackLink(1), parentLink("a")},
+					Links:   []gorp.Link{rackLink(1), parentLink("a")},
 				},
 			))
 		})
@@ -414,6 +422,7 @@ var _ = Describe("Changes", func() {
 					Record:  gorp.NewTarget("device", "b"),
 					Kind:    gorp.ChangeDelete,
 					Removed: []gorp.Link{rackLink(1), parentLink("a")},
+					Links:   []gorp.Link{rackLink(1), parentLink("a")},
 				}))
 			},
 		)
@@ -434,8 +443,9 @@ var _ = Describe("Changes", func() {
 					Record:  gorp.NewTarget("device", "d"),
 					Kind:    gorp.ChangeUpdate,
 					Derived: true,
-					Value:   MustSucceed(msgpack.Codec.Encode(ctx, detached)),
+					Value:   MustSucceed(msgpack.Codec.Encode(detached)),
 					Removed: []gorp.Link{labelLink("l1")},
+					Links:   []gorp.Link{rackLink(1), labelLink("l2")},
 				},
 			))
 		})

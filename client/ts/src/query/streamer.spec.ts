@@ -127,6 +127,32 @@ describe("openStreamer", () => {
   });
 
   describe("batched frame delivery", () => {
+    it("applies each frame after the frame before it", async () => {
+      const applied: string[] = [];
+      const first = Promise.withResolvers<void>();
+      const onChange = vi.fn(async (changed: Array<{ name: string }>) => {
+        if (changed[0].name === "a") await first.promise;
+        applied.push(changed[0].name);
+      });
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({ test: new Series([{ name: "a" }]) }),
+        new framer.Frame({ test: new Series([{ name: "b" }]) }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      first.resolve();
+      await expect.poll(() => applied).toEqual(["a", "b"]);
+      await closeStreamer();
+    });
+
     it("delivers a channel's records from one frame as a single batch", async () => {
       const onChange = vi.fn();
       const schema = z.object({ name: z.string() });
@@ -149,6 +175,71 @@ describe("openStreamer", () => {
         { name: "b" },
         { name: "c" },
       ]);
+    });
+
+    it("delivers the valid samples of a series and passes on the invalid ones", async () => {
+      const onChange = vi.fn();
+      const onInvalid = vi.fn();
+      const onError = vi.fn();
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({
+          test: new Series([{ name: "a" }, { name: 1 }, { name: 2 }, { name: "c" }]),
+        }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          onError,
+          listeners: [{ channel: "test", schema, onChange, onInvalid }],
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await closeStreamer();
+      expect(onChange).toHaveBeenCalledExactlyOnceWith([{ name: "a" }, { name: "c" }]);
+      expect(onInvalid.mock.calls).toEqual([
+        [{ name: 1 }, expect.any(Error)],
+        [{ name: 2 }, expect.any(Error)],
+      ]);
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError.mock.calls[0][0].message).toBe(
+        "failed to parse streamer change for test",
+      );
+    });
+
+    it("fetches the key of an invalid record and keeps the frame's valid records", async () => {
+      interface Entry {
+        key: string;
+        value: number;
+      }
+      const entryZ = z.object({ key: z.string(), value: z.number() });
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, value: 9 })),
+      );
+      const table = new query.Table<string, Entry>({ onError: vi.fn(), fetch });
+      const listener = query
+        .createSetListener<typeof entryZ, string, Entry>("set_ch", entryZ)
+        .bind(table);
+      const frames = [
+        new framer.Frame({
+          set_ch: new Series([
+            { key: "k1", value: 1 },
+            { key: "k2", value: "bad" },
+            { key: "k3", value: 3 },
+          ]),
+        }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: [listener],
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => table.get("k2")).toEqual({ key: "k2", value: 9 });
+      await closeStreamer();
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k2"]);
+      expect(table.get("k1")).toEqual({ key: "k1", value: 1 });
+      expect(table.get("k3")).toEqual({ key: "k3", value: 3 });
     });
 
     it("coalesces a fetch listener's refetches into one call per frame", async () => {

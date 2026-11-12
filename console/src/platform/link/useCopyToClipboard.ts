@@ -11,7 +11,7 @@ import { type resource } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Clipboard } from "@/platform/clipboard";
-import { PREFIX } from "@/platform/link/types";
+import { create } from "@/platform/link/types";
 
 export interface CopyToClipboardParams {
   /** The cluster the link opens. A Core caches it on its first connection. */
@@ -37,8 +37,6 @@ export const useCopyToClipboard = (): CopyToClipboard => {
       });
       return;
     }
-    let url = `${PREFIX}${clusterKey}`;
-    if (resourceID != null) url += `/${resourceID.type}/${resourceID.key}`;
-    return copy(url, "link", name);
+    return copy(create(clusterKey, resourceID), "link", name);
   };
 };

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -41,11 +42,10 @@ var (
 	db     *gorp.DB
 	svc    *service.Layer
 	apiSvc *apigroup.Service
-	// create, del, rename, and setParent run their routes as the API layer binds them.
-	create    freighter.UnaryHandler[apigroup.CreateRequest, apigroup.CreateResponse]
-	del       freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
-	rename    freighter.UnaryHandler[apigroup.RenameRequest, struct{}]
-	setParent freighter.UnaryHandler[apigroup.SetParentRequest, struct{}]
+	// create, del, and dispatch run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apigroup.CreateRequest, apigroup.CreateResponse]
+	del      freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apigroup.DispatchRequest, struct{}]
 	// retrieveGroups and retrieveAncestors run their routes as the API layer binds
 	// them.
 	retrieveGroups freighter.UnaryHandler[
@@ -66,11 +66,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apigroup.NewService(apigroup.ServiceConfig{
 		Group: svc.Group,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: svc.RBAC}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
-	rename = bind.Write(binder, apiSvc.Rename)
-	setParent = bind.Write(binder, apiSvc.SetParent)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieveGroups = bind.Read(binder, apiSvc.Retrieve)
 	retrieveAncestors = bind.Read(binder, apiSvc.RetrieveAncestors)
 })

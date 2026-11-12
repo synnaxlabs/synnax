@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax"
-version = "0.60.0"
+version = "0.0.0"
 readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
@@ -180,7 +180,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["*/types_gen.py"]
+omit = ["*/actions_gen.py", "*/types_gen.py"]
 
 [build-system]
 requires = ["hatchling"]

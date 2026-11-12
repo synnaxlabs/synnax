@@ -12,17 +12,22 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.group import actions_gen
 from synnax.group.types_gen import (
+    Cursor,
     Group,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Where,
     WhereInput,
 )
 from synnax.resource import ID, CrudeID, Type
+from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 
 
 class _CreateReq(BaseModel):
@@ -36,18 +41,14 @@ class _CreateRes(BaseModel):
     group: Group
 
 
-class _RenameReq(BaseModel):
-    key: Key
-    name: str
-
-
 class _DeleteReq(BaseModel):
     keys: list[Key]
 
 
-class _SetParentReq(BaseModel):
-    keys: list[Key]
-    parent: ID | None = None
+class _DispatchReq(BaseModel):
+    key: Key
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class Client:
@@ -56,6 +57,7 @@ class Client:
     def __init__(self, client: UnaryClient):
         self._client = client
 
+    @deprecate_positional("parent", "name", "key")
     def create(
         self,
         name: str,
@@ -64,15 +66,14 @@ class Client:
         parent: CrudeID | None = None,
         key: Key | None = None,
     ) -> Group:
-        """Creates a group, or updates the group with the given key.
+        """Creates a group.
 
         :param name: The name of the group.
         :param scope: The type of resource the group holds. Required when the group
             has no parent.
         :param parent: The group, project, or rack to nest the group under. The group
             takes its scope from the parent.
-        :param key: The key of the group to update. An existing group keeps its
-            parent and scope. Use set_parent to move it.
+        :param key: The key to give the group. The Core makes one when it is None.
         :returns: The created group.
         """
         return self._client.send(
@@ -134,7 +135,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Group]: ...
 
@@ -146,7 +148,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Group | list[Group]:
@@ -167,30 +170,36 @@ class Client:
         :param keys: Keeps groups with one of these keys.
         :param search_term: A fuzzy search term matched against group names.
         :param limit: The maximum number of groups to retrieve.
-        :param offset: The number of groups to skip.
+        :param order: The order of the groups. Defaults to key order.
+        :param after: Retrieves the groups past this position in the order: the key of
+            the last group of the page before, and its value of the order field.
         :param one: Returns one group for any filter.
         :returns: One group for a plain ``key`` or when ``one`` is set, otherwise a list
             of groups. The list leaves out keys that do not exist.
         :raises NotFoundError: If one group is wanted and none matches.
         :raises MultipleFoundError: If one group is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one group is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/group/retrieve", req, RetrieveResponse)
         return sole("group", req, res.groups) if single else res.groups
 
     def rename(self, key: Key, name: str) -> Empty:
-        return self._client.send("/group/rename", _RenameReq(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        return self._client.send(
+            "/group/dispatch", _DispatchReq(key=key, actions=[action]), Empty
+        )
 
     def delete(self, keys: list[Key]) -> Empty:
         return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
@@ -201,8 +210,14 @@ class Client:
         :param keys: The keys of the groups to move.
         :param parent: The group, project, or rack to move the groups under.
         """
-        return self._client.send(
-            "/group/set-parent",
-            _SetParentReq(keys=keys, parent=ID(parent) if parent is not None else None),
-            Empty,
+        action = actions_gen.set_parent(
+            actions_gen.SetParentPayload(
+                parent=ID(parent) if parent is not None else None
+            )
         )
+        send_batch(
+            self._client,
+            "/group/dispatch",
+            [_DispatchReq(key=k, actions=[action]) for k in keys],
+        )
+        return Empty()

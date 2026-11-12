@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
+
 import pytest
 
 import synnax as sy
@@ -110,22 +112,27 @@ class TestReturnsOne:
 
     def test_plain(self) -> None:
         """Should return one record for a plain key or name."""
-        assert returns_one({"key": 1}, False, None, 0)
-        assert returns_one({"name": "a", "key": [1]}, False, None, 0)
+        assert returns_one({"key": 1}, False)
+        assert returns_one({"name": "a", "key": [1]}, False)
 
     def test_list_or_operator(self) -> None:
         """Should return a list for a list or an operator."""
-        assert not returns_one({"name": ["a"]}, False, None, 0)
-        assert not returns_one({"name": {"starts_with": "a"}}, False, None, 0)
-        assert not returns_one({"key": sy.filter.Set[int](eq=1)}, False, None, 0)
+        assert not returns_one({"name": ["a"]}, False)
+        assert not returns_one({"name": {"starts_with": "a"}}, False)
+        assert not returns_one({"key": sy.filter.Set[int](eq=1)}, False)
 
     def test_one(self) -> None:
         """Should return one record for any filter when one is set."""
-        assert returns_one({}, True, None, 0)
+        assert returns_one({}, True)
 
     def test_page(self) -> None:
-        """Should reject one record beside a limit or an offset."""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
-            returns_one({"key": 1}, False, 1, 0)
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
-            returns_one({}, True, None, 2)
+        """Should reject one record beside a limit or a cursor."""
+        message = "cannot set a limit or a cursor"
+        with pytest.raises(sy.ValidationError, match=message):
+            returns_one({"key": 1}, False, limit=1)
+        with pytest.raises(sy.ValidationError, match=message):
+            returns_one({}, True, limit=1)
+        with pytest.raises(sy.ValidationError, match=message):
+            returns_one(
+                {"name": "a"}, False, after=sy.ranger.Cursor(key=uuid.uuid4(), name="a")
+            )

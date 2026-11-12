@@ -13,9 +13,13 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
@@ -82,9 +86,10 @@ func (r Retrieve[D]) Limit(limit int) Retrieve[D] {
 	return r
 }
 
-// Offset sets the number of results that Retrieve will skip before returning results.
-func (r Retrieve[D]) Offset(offset int) Retrieve[D] {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve[D]) After(key Key) Retrieve[D] {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
@@ -119,10 +124,36 @@ func MatchKeys[D any](keys ...Key) Filter[D] {
 // MatchNames returns a filter for statuses whose name matches any of the provided
 // values.
 func MatchNames[D any](names ...string) Filter[D] {
-	return func(Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return slices.Contains(names, s.Name), nil
-		})
+	keys := make([]string, len(names))
+	for i, n := range names {
+		keys[i] = compare.TextKey(n)
+	}
+	exact := set.New(names...)
+	named := gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return exact.Contains(s.Name), nil
+	})
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		return gorp.And(
+			gorp.MatchKeysFunc[Key, Status[D]](func(ctx gorp.Context) ([]Key, error) {
+				found, err := r.indexes.name.Get(ctx, ctx.Snapshot, keys...)
+				if !errors.Is(err, gorp.ErrIndexInvalid) {
+					return found, err
+				}
+				// Scan when the index failed to populate, as an index Filter does.
+				var matches []Status[D]
+				if err = gorp.NewRetrieve[Key, Status[D]]().
+					Where(named).
+					Entries(&matches).
+					Exec(ctx, ctx.Snapshot); err != nil {
+					return nil, err
+				}
+				return lo.Map(
+					matches,
+					func(s Status[D], _ int) Key { return s.Key },
+				), nil
+			}),
+			named,
+		)
 	}
 }
 

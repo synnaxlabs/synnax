@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -107,6 +108,7 @@ type Service struct {
 	localKeyCounter *kv.AtomicInt64Counter
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
+	state           *actions.State[Key, Action]
 	indexes         indexes
 	ServiceConfig
 	EmbeddedKey Key
@@ -120,7 +122,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, indexes: newIndexes()}
+	s = &Service{
+		ServiceConfig: cfg,
+		indexes:       newIndexes(),
+		state:         actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
@@ -169,6 +175,9 @@ func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key,
 	return s.table.Changes(ctx, c)
 }
 
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for
 // each outage. A handler that returns an error is called again on the next health check
 // until it succeeds or the rack reports healthy.
@@ -180,7 +189,6 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	r, err := s.RetrieveOrCreateEmbedded(
 		ctx,
 		fmt.Sprintf("Node %s Embedded Driver", s.HostKey),
-		nil,
 	)
 	if err != nil {
 		return err
@@ -191,11 +199,12 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 // RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
 // name, creating it if it does not exist. The rack keeps its identity across renames
-// and restarts. edit, if non-nil, changes the rack before it is saved.
+// and restarts. acts apply to a new rack before it is created, and to an existing rack
+// through Writer.Apply.
 func (s *Service) RetrieveOrCreateEmbedded(
 	ctx context.Context,
 	name string,
-	edit func(*Rack),
+	acts ...Action,
 ) (r Rack, err error) {
 	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -214,17 +223,26 @@ func (s *Service) RetrieveOrCreateEmbedded(
 		} else {
 			return err
 		}
+		w := s.NewWriter(tx)
 		if err = q.Exec(ctx, tx); errors.Is(err, query.ErrNotFound) {
-			r = Rack{Name: name}
+			if r, err = Reduce(Rack{Name: name, Embedded: true}, acts...); err != nil {
+				return err
+			}
+			if err = w.Create(ctx, &r); err != nil {
+				return err
+			}
 		} else if err != nil {
 			return err
-		}
-		r.Embedded = true
-		if edit != nil {
-			edit(&r)
-		}
-		if err = s.NewWriter(tx).Create(ctx, &r); err != nil {
-			return err
+		} else if len(acts) > 0 {
+			if err = w.Apply(ctx, r.Key, acts...); err != nil {
+				return err
+			}
+			if err = s.NewRetrieve().
+				Where(MatchKeys(r.Key)).
+				Entry(&r).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 		}
 		return tx.Set(
 			ctx,
@@ -248,6 +266,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		statuses:   s.Status,
 		table:      s.table,
 		driverRole: s.DriverRole,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

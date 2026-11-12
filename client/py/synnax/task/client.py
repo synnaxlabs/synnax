@@ -28,11 +28,15 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_, ranger
+from synnax import device as device_, exceptions, framer, rack as rack_, ranger
 from synnax.resource import ID
+from synnax.status import VARIANT_ERROR, VARIANT_LOADING
+from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     RetrieveResponse,
@@ -44,6 +48,7 @@ from synnax.task.types_gen import (
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 from x.timing import Timer
 
 # synnax.arc imports synnax.task at load time.
@@ -58,9 +63,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -85,6 +91,9 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+# The Driver fails an operation that takes longer than 60 s. A wait past this limit
+# lost its command, for example to a Driver restart.
+_FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
 
 
 class _Keyed(BaseProtocol):
@@ -183,6 +192,7 @@ class Task:
         """
         return None
 
+    @deprecate_positional("args")
     def execute_command(
         self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
@@ -205,6 +215,7 @@ class Task:
         w.close()
         return cmd.key
 
+    @deprecate_positional("args", "timeout")
     def execute_command_sync(
         self,
         type_: str,
@@ -212,26 +223,35 @@ class Task:
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
     ) -> Status:
-        """Executes a command on the task and waits for the driver to acknowledge the
-        command with a state.
+        """Executes a command on the task and waits for the final status that the
+        driver sends for it. A loading status acknowledges the command, and the wait
+        goes on until a status that is not loading.
 
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
-        :param timeout: The maximum time to wait for the driver to acknowledge the
-        command before a timeout occurs.
+        :param timeout: How long to wait for the driver to acknowledge the command.
+        Once it does, the wait for the final status lasts two minutes or the timeout,
+        whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the command or send
+        its final status in time.
+        :raises RuntimeError: If the rack of the task reports that its driver is down
+        while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
+        rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
             timer = Timer()
+            acknowledged = False
             while True:
                 # The channel carries every status in the cluster, so the wait is a
                 # deadline: a frame answering some other command must not renew it.
                 remaining = span - timer.elapsed()
                 frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
+                    step = "finish" if acknowledged else "acknowledge"
                     raise TimeoutError(
-                        f"timed out waiting for driver to acknowledge {type_} command"
+                        f"timed out waiting for driver to {step} {type_} command"
                     )
                 if _TASK_STATE_CHANNEL not in frame:
                     warnings.warn(
@@ -241,6 +261,8 @@ class Task:
                 # A frame can carry several statuses, and only some of them answer
                 # this command.
                 for sample in frame[_TASK_STATE_CHANNEL]:
+                    if rack_id is not None:
+                        _raise_if_rack_down(sample, rack_id)
                     try:
                         status = Status.model_validate(sample)
                     except ValidationError:
@@ -248,7 +270,46 @@ class Task:
                         # that no task owns can carry other details.
                         continue
                     if status.details is not None and status.details.cmd == key:
-                        return status
+                        if status.variant != VARIANT_LOADING:
+                            return status
+                        if not acknowledged:
+                            acknowledged = True
+                            span = max(span, _FINAL_STATUS_TIMEOUT)
+                            timer = Timer()
+
+
+def _config_devices(config: Mapping[str, Any]) -> list[str]:
+    """Returns the keys of the devices that a config or its channels name."""
+    channels = config.get("channels")
+    named = [config.get("device")]
+    if isinstance(channels, list):
+        named.extend(ch.get("device") for ch in channels if isinstance(ch, dict))
+    return list(dict.fromkeys(d for d in named if isinstance(d, str) and d))
+
+
+def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
+    """Raises a status of the rack as an error when it reports that the Driver of the
+    rack is down. A down Driver never replies, so the status ends the wait.
+    """
+    try:
+        rack_status = rack_.Status.model_validate(sample)
+    except ValidationError:
+        return
+    if rack_status.owner != rack_id or (
+        rack_status.details is not None and rack_status.details.running
+    ):
+        return
+    raise _status_error(rack_status.message, rack_status.description)
+
+
+def _raise_if_failed(status: Status) -> None:
+    """Raises the final status of a command as an error when the driver failed it."""
+    if status.variant == VARIANT_ERROR:
+        raise _status_error(status.message, status.description)
+
+
+def _status_error(message: str, description: str) -> RuntimeError:
+    return RuntimeError(f"{message}: {description}" if description else message)
 
 
 class Protocol(BaseProtocol):
@@ -280,26 +341,38 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
+    @deprecate_positional("timeout")
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
-        """Starts the task and blocks until the Synnax cluster has acknowledged the
-        command or the specified timeout has elapsed.
+        """Starts the task and blocks until the driver sends the final status of the
+        start.
 
-        :raises TimeoutError: If the timeout is reached before the Synnax cluster
-            acknowledges the command.
-        :raises Exception: If the Synnax cluster fails to start the task correctly.
+        :param timeout: How long to wait for the driver to acknowledge the start. Once
+            it does, the wait for the final status lasts two minutes or the timeout,
+            whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the start or send its
+            final status in time.
+        :raises RuntimeError: If the driver fails to start the task, or if the driver
+            goes down during the wait.
         """
-        self._internal.execute_command_sync("start", timeout=timeout)
+        _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
+    @deprecate_positional("timeout")
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
-        """Stops the task and blocks until the Synnax cluster has acknowledged the
-        command or the specified timeout has elapsed.
+        """Stops the task and blocks until the driver sends the final status of the
+        stop.
 
-        :raises TimeoutError: If the timeout is reached before the Synnax cluster
-            acknowledges the command.
-        :raises Exception: If the Synnax cluster fails to stop the task correctly.
+        :param timeout: How long to wait for the driver to acknowledge the stop. Once
+            it does, the wait for the final status lasts two minutes or the timeout,
+            whichever is longer.
+        :raises TimeoutError: If the driver does not acknowledge the stop or send its
+            final status in time.
+        :raises RuntimeError: If the driver of the task goes down during the wait. An
+            error status does not raise, because the stop status carries the last error
+            of the task.
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
 
+    @deprecate_positional("timeout")
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
@@ -419,6 +492,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
+    @deprecate_positional("rack")
     def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
@@ -431,23 +505,43 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task with no rack goes on the rack
-        of the device that its config names, or on the embedded rack when it names no
-        device.
+        to the driver on the next start command. A task that names devices, in its
+        config or its channels, goes on their rack, whatever rack it holds. A task
+        that names no device goes on its rack, or on the embedded rack when it has
+        none. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
+        :raises ValidationError: If the devices are on different racks, if the task
+            exists and the config has a field that its type does not declare, or if
+            the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
-        device = pld.config.get("device")
-        if pld.rack == 0 and isinstance(device, str) and device:
-            pld.rack = self._device_client.retrieve(key=device).rack
+        stored = self.retrieve(keys=[pld.key])
+        if devices := _config_devices(pld.config):
+            racks = {self._device_client.retrieve(key=d).rack for d in devices}
+            if len(racks) > 1:
+                raise exceptions.ValidationError(
+                    f"The devices {devices} of task {pld.name} must be on one rack, "
+                    f"but they are on the racks {sorted(racks)}"
+                )
+            pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
-        req = _CreateRequest(tasks=[pld])
-        tasks = self._exec_create(req)
-        task.set_internal(self.sugar(tasks)[0])
+        if not stored:
+            created = self._exec_create(_CreateRequest(tasks=[pld]))
+            task.set_internal(self.sugar(created)[0])
+            return task
+        actions: list[actions_gen.Action] = [
+            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        ]
+        req = _DispatchRequest(key=pld.key, actions=actions)
+        self._client.send("/task/dispatch", req, Empty)
+        task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
@@ -461,7 +555,9 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/task/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...
@@ -553,7 +649,8 @@ class Client:
         types: list[str] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Task]: ...
@@ -568,7 +665,8 @@ class Client:
         types: list[str] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -598,7 +696,9 @@ class Client:
         :param types: Keeps tasks of one of these types.
         :param search_term: A fuzzy search term matched against task names.
         :param limit: The maximum number of tasks to retrieve.
-        :param offset: The number of tasks to skip.
+        :param order: The order of the tasks. Defaults to key order.
+        :param after: Retrieves the tasks past this position in the order: the key of
+            the last task of the page before, and its value of the order field.
         :param include_status: Whether to populate each task's status. Tasks come
             back with a null status when false.
         :param one: Returns one task for any filter.
@@ -607,11 +707,11 @@ class Client:
         :raises NotFoundError: If one task is wanted and none matches.
         :raises MultipleFoundError: If one task is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one task is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
@@ -621,7 +721,8 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)

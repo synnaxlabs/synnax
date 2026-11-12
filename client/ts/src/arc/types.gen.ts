@@ -16,17 +16,51 @@ import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { resource } from "@/resource";
-
-export const MODES = ["text", "graph"] as const;
-export const modeZ = z.enum(MODES);
-export type Mode = z.infer<typeof modeZ>;
+import { status } from "@/status";
 
 export const TYPES = ["automation", "module"] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;
 
+export const CHANGE_KINDS = ["changed", "added", "removed"] as const;
+export const changeKindZ = z.enum(CHANGE_KINDS);
+export type ChangeKind = z.infer<typeof changeKindZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+export const MODES = ["text", "graph"] as const;
+export const modeZ = z.enum(MODES);
+export type Mode = z.infer<typeof modeZ>;
+
+/**
+ * Change is one difference between an automation's content and what its task last ran.
+ */
+export const changeZ = z.object({
+  /** type is whether the automation's own text or a module changed. */
+  type: typeZ,
+  /** path is the import path of the module. Empty for the automation. */
+  path: z.string().default(""),
+  /** kind is how the content differs from what the task last ran. */
+  kind: changeKindZ,
+});
+export interface Change extends z.infer<typeof changeZ> {}
+
+/** Order is a sort of arcs. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
 
 /** TextSource is Arc source code written as text. */
 export const textSourceZ = z.object({
@@ -85,6 +119,15 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   directories: zod.nullToUndefined(z.uuid().array()),
 });
 
+/** Cursor is a position in an order of arcs: the sort value and the key of a arc. */
+export const cursorZ = z.object({
+  /** key is the key of the arc at the position. */
+  key: keyZ,
+  /** name is the name of the arc at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /** Base carries the fields that every Arc shares. */
 export const baseZ = z.object({
   /** key is the unique identifier for this module. */
@@ -104,12 +147,18 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the arcs that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the arcs. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the arcs strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most arcs to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching arcs to skip. */
-  offset: z.uint32().optional(),
   /** includeProgram includes the program of each record. */
   includeProgram: z.boolean().optional(),
+  /** includeChanges includes the changes of each record. */
+  includeChanges: z.boolean().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -118,12 +167,16 @@ export const automationArcZ = baseZ.extend({
   type: z.literal("automation"),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
+  /** changes is what changed in the automation since its task was deployed. */
+  changes: zod.nullToUndefined(changeZ.array()),
 });
 export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 
 /** ModuleArc is an Arc that holds code for other Arcs to import. */
 export const moduleArcZ = baseZ.extend({
   type: z.literal("module"),
+  /** status is the result of the module's last compile on the Core. */
+  status: statusZ.optional(),
 });
 export interface ModuleArc extends z.infer<typeof moduleArcZ> {}
 

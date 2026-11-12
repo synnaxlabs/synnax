@@ -68,7 +68,7 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   const tabKey = Panel.useTabKey();
   const client = Synnax.use();
   return () => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return undefined;
     const tab = panel.findTab(cached.root, tabKey);
     return tab == null ? undefined : { panel: key, tab };

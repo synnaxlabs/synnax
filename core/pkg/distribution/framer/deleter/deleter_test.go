@@ -53,7 +53,7 @@ var _ = Describe("Deleter", Ordered, func() {
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					))).To(BeTrue())
-					Expect(MustSucceed(w.Commit())).To(Equal(telem.SecondTS*12 + 1))
+					Expect(MustCommit(w)).To(Equal(telem.SecondTS*12 + 1))
 					Expect(w.Close()).To(Succeed())
 					i = MustOpen(
 						s.dist.Framer.OpenIterator(
@@ -108,6 +108,23 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(i.SeekFirst()).To(BeFalse())
 				})
 				It(
+					"Should leave the data of a canceled delete in place",
+					func(ctx SpecContext) {
+						canceled, cancel := context.WithCancel(ctx)
+						cancel()
+						Expect(
+							s.dist.Framer.DeleteTimeRange(
+								canceled,
+								s.keys,
+								telem.TimeRangeMax,
+							),
+						).To(MatchError(context.Canceled))
+						Expect(i.SeekFirst()).To(BeTrue())
+						Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+						Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(3)))
+					},
+				)
+				It(
 					"Should be idempotent when deleting an empty range",
 					func(ctx SpecContext) {
 						emptyRange := (100 * telem.SecondTS).Range(200 * telem.SecondTS)
@@ -120,7 +137,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					},
 				)
 				It("Should skip free channels", func(ctx SpecContext) {
-					free := MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{{
+					free := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 						Name:        "free",
 						DataType:    telem.Float32T,
 						Leaseholder: node.KeyFree,
@@ -197,7 +214,7 @@ func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
 	dist := testutil.OpenNode(ctx)
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{

@@ -93,6 +93,20 @@ describe("project tree item", () => {
     expect(screen.getByText("Copy link")).toBeTruthy();
   });
 
+  it("should offer Copy, and no single-project actions, for a multiple selection", async () => {
+    const a = await createProject();
+    const b = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [projectResource(a.key, a.name), projectResource(b.key, b.name)],
+      store: await createStoreWithActive(a.key),
+    });
+    expect(await screen.findByText("Copy")).toBeTruthy();
+    expect(screen.queryByText("Copy link")).toBeNull();
+    expect(screen.queryByText("Export")).toBeNull();
+  });
+
   it("should export the clicked project rather than the active one", async () => {
     const p = await createProject();
     const logName = uniqueName("log");
@@ -196,7 +210,7 @@ describe("project tree children", () => {
       name: uniqueName("schematic"),
     });
     const l = await client.logs.create({ project: p.key, name: uniqueName("log") });
-    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    await client.batch.send(client.logs.setGroupRequest(l.key, g.key));
     await client.lineplots.create({
       project: (await createProject()).key,
       name: "other",
@@ -204,7 +218,9 @@ describe("project tree children", () => {
     assertDefined(Item.children);
     const sources = Item.children({ client, id, root: project.TYPE_RESOURCE_ID });
     const listed = await Promise.all(sources.map(async (src) => await src.retrieve()));
-    expect(listed.flat().map(({ name }) => name)).toEqual([g.name, s.name]);
+    expect(
+      listed.flatMap(({ resources }) => resources.map(({ name }) => name)),
+    ).toEqual([g.name, s.name]);
   });
 });
 
@@ -220,7 +236,7 @@ describe("project tree drop", () => {
     });
     const g = await client.groups.create({ parent: srcID, name: uniqueName("group") });
     const l = await client.logs.create({ project: src.key, name: uniqueName("log") });
-    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    await client.batch.send(client.logs.setGroupRequest(l.key, g.key));
     assertDefined(Item.drop);
     await Item.drop({
       client,
@@ -246,7 +262,7 @@ describe("project tree drop", () => {
     const id = project.resourceID(p.key);
     const g = await client.groups.create({ parent: id, name: uniqueName("group") });
     const l = await client.logs.create({ project: p.key, name: uniqueName("log") });
-    await client.batch.send([client.logs.setGroupRequest(l.key, g.key)]);
+    await client.batch.send(client.logs.setGroupRequest(l.key, g.key));
     assertDefined(Item.drop);
     await Item.drop({
       client,

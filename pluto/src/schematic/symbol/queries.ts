@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, NotFoundError, query, schematic } from "@synnaxlabs/client";
+import {
+  actions,
+  type group,
+  NotFoundError,
+  query,
+  schematic,
+} from "@synnaxlabs/client";
 import { deep, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "schematic symbol";
-const PLURAL_RESOURCE_NAME = "schematic symbols";
 const GROUP_RESOURCE_NAME = "schematic symbol group";
 
 export type RetrieveQuery = {
@@ -29,8 +34,8 @@ export const { use, useResult } = Flux.createRetrieve<
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.schematics.symbols.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
+    client.schematics.symbols.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.schematics.symbols.watch(query).getCached(),
 });
 
 export interface Resolved {
@@ -62,19 +67,19 @@ export const GROUP_QUERY = {
 
 export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
-  sort: (a, b) => a.name.localeCompare(b.name),
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.schematics.symbols.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.schematics.symbols.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.schematics.symbols.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.schematics.symbols.onChange(key, handler),
-  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
-});
+/** Lists symbols by name, unless the query sets an order. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, schematic.symbol.Symbol>,
+  "name"
+> = {}): Flux.UseListReturn<schematic.symbol.Key, schematic.symbol.Symbol> =>
+  Flux.useList((client) => client.schematics.symbols, {
+    ...rest,
+    name: "symbols",
+    query: query === null ? null : { order: { field: "name" }, ...query },
+  });
 
 export type FormQuery = {
   key: string;
@@ -102,13 +107,21 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   retrieve: async ({ client, query: { key } }) =>
     await client.schematics.symbols.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const symbol = client.schematics.symbols.getCached(key);
+    const symbol = client.schematics.symbols.watch(key).getCached();
     return query.isLive(symbol) ? symbol : undefined;
   },
-  update: async ({ client, value, reset }) =>
-    reset(await client.schematics.symbols.create(value())),
+  // A caller can set the key of a new symbol, so the form creates until it stores one.
+  update: async ({ client, value, reset, stored }) => {
+    const values = value();
+    if (stored == null || values.key == null) {
+      reset(await client.schematics.symbols.create(values));
+      return;
+    }
+    const edits = actions.diffFields(formSchema, stored, values, ["name", "data"]);
+    if (edits.length > 0) await client.schematics.symbols.dispatch(values.key, edits);
+  },
   mountListeners: ({ client, query: { key }, reset }) =>
-    client.schematics.symbols.onChange(key, (result) => {
+    client.schematics.symbols.watch(key).onChange((result) => {
       if (query.isLive(result)) reset(result);
     }),
 });
@@ -118,10 +131,8 @@ export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "nam
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    await client.schematics.symbols.rename(data.key, data.name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+  update: async ({ client, data }) => {
+    await client.schematics.symbols.rename(data.key, data.name);
     return data;
   },
 });

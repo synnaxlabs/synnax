@@ -31,6 +31,10 @@ const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 /// @brief command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 
+/// @brief command type for switching a slave to standalone mode, in which only Synnax
+/// sets it up and reads its data. The slave changes after a power restart.
+const std::string SET_STANDALONE_CMD_TYPE = "set_standalone";
+
 /// @brief configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
@@ -47,6 +51,15 @@ struct TestInterfaceArgs {
         interface(parser.field<std::string>("interface")) {}
 };
 
+/// @brief arguments for the set_standalone command.
+struct SetStandaloneArgs {
+    /// @brief key of the slave device to switch.
+    std::string device;
+
+    explicit SetStandaloneArgs(x::json::Parser &parser):
+        device(parser.field<std::string>("device")) {}
+};
+
 /// @brief scanner implementation for EtherCAT device discovery.
 class Scanner final : public common::Scanner {
 public:
@@ -60,15 +73,9 @@ public:
     /// @brief returns scanner configuration for common::ScanTask.
     [[nodiscard]] common::ScannerConfig config() const override;
 
-    /// @brief lifecycle method called when the scan task starts.
-    x::errors::Error start() override;
-
-    /// @brief lifecycle method called when the scan task stops.
-    x::errors::Error stop() override;
-
     /// @brief periodic scan method to discover networks and slaves. Returns
-    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
-    /// slaves of the others.
+    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan or whose
+    /// replies a filter blocks, with the slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
@@ -88,16 +95,24 @@ private:
     synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    /// @brief the scan count at which to probe again each interface that had no slaves.
-    std::unordered_map<std::string, size_t> next_probes;
+    /// @brief when to probe again an interface that had no slaves.
+    struct Probe {
+        /// @brief the scan count at which to probe the interface.
+        size_t due = 0;
+        /// @brief why the interface had no slaves, which each scan reports until the
+        /// next probe, or empty when the user cannot fix it.
+        std::string failure;
+    };
+    /// @brief the next probe of each interface that had no slaves.
+    std::unordered_map<std::string, Probe> next_probes;
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
 
-    /// @brief creates a slave device for the given slave. The status names any invalid
-    /// property, and otherwise reflects the slave's live state when health holds an
-    /// entry for it.
-    [[nodiscard]] synnax::device::Device create_slave_device(
+    /// @brief creates a slave device for the given slave, and returns whether its saved
+    /// config enables it. The status names any invalid property, and otherwise reflects
+    /// the slave's live state when health holds an entry for it.
+    [[nodiscard]] std::pair<synnax::device::Device, bool> create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::vector<slave::Health> &health,
         const std::string &master_key,
@@ -116,6 +131,9 @@ private:
 
     /// @brief handles the test_interface command.
     void test_interface(const synnax::task::Command &cmd) const;
+
+    /// @brief handles the set_standalone command.
+    void set_standalone(const synnax::task::Command &cmd) const;
 };
 
 }

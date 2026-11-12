@@ -14,7 +14,9 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.role.types_gen import (
+    Cursor,
     Key,
+    Order,
     RetrieveRequest,
     RetrieveResponse,
     Role,
@@ -24,6 +26,7 @@ from synnax.access.role.types_gen import (
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
+from x.params import deprecate_positional
 
 
 class _CreateRequest(BaseModel):
@@ -134,10 +137,12 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Role]: ...
 
+    @deprecate_positional("keys", "search_term", "limit")
     def retrieve(
         self,
         key: filter.SetInput[Key] | None = None,
@@ -146,7 +151,8 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Role | list[Role]:
@@ -166,24 +172,27 @@ class Client:
         :param keys: Keeps roles with one of these keys.
         :param search_term: A fuzzy search term matched against role names.
         :param limit: The maximum number of roles to retrieve.
-        :param offset: The number of roles to skip.
+        :param order: The order of the roles. Defaults to key order.
+        :param after: Retrieves the roles past this position in the order: the key of
+            the last role of the page before, and its value of the order field.
         :param one: Returns one role for any filter.
         :returns: One role for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of roles. The list leaves out keys that do not exist.
         :raises NotFoundError: If one role is wanted and none matches.
         :raises MultipleFoundError: If one role is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one role is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
         if key is not None:
             fields["key"] = key
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         return sole("role", req, res.roles) if single else res.roles

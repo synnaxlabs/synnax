@@ -38,3 +38,7 @@ paths:
     ignore:
       # GitHub sends the destroyed type, but actionlint knows only checks_requested.
       - 'invalid activity type "destroyed"'
+  .github/workflows/deploy.docs.yaml:
+    ignore:
+      # GitHub accepts queue: max, but actionlint does not know the key.
+      - 'unexpected key "queue" for "concurrency" section'

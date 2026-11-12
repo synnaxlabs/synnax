@@ -44,6 +44,9 @@ type Change struct {
 	Added []Link
 	// Removed holds the links that the transaction removed from the record.
 	Removed []Link
+	// Links holds every link of the record after the transaction, or before it for a
+	// delete.
+	Links []Link
 }
 
 // Changes is what a transaction changed, one Change per record.
@@ -123,6 +126,14 @@ func (l *changeList) find(
 	return s, nil
 }
 
+// present reports whether the record of s exists at the write of s.
+func (l *changeList) present(s slot) bool {
+	if s.at >= 0 {
+		return l.entries[s.at].present
+	}
+	return s.existed
+}
+
 // set merges a set of the record of s to value, which holds links. derived is true when
 // the set is a cascade or a detach.
 func (l *changeList) set(s slot, value []byte, links []Link, derived bool) {
@@ -167,6 +178,10 @@ func (l *changeList) list() Changes {
 		if kind == 0 {
 			continue
 		}
+		links := e.after
+		if kind == ChangeDelete {
+			links = e.before
+		}
 		out = append(out, Change{
 			Record:  e.record,
 			Kind:    kind,
@@ -174,6 +189,7 @@ func (l *changeList) list() Changes {
 			Value:   e.value,
 			Added:   subtract(e.after, e.before),
 			Removed: subtract(e.before, e.after),
+			Links:   subtract(links, nil),
 		})
 	}
 	return out

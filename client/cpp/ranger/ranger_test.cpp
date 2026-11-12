@@ -76,6 +76,52 @@ TEST(RangerTests, testSetEndNotFound) {
     );
 }
 
+/// @brief it should set an end bound that a float cannot hold exactly.
+TEST(RangerTests, testSetEndExact) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        "test",
+        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
+    ));
+    const auto end = x::telem::TimeStamp(1'700'000'000'000'000'001);
+    ASSERT_NIL(client.ranges.set_end(range.key, end));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
+    ASSERT_EQ(got.time_range.end, end);
+}
+
+/// @brief it should apply each action of a dispatch to a range, and write the
+/// timestamps of a time range set exactly.
+TEST(RangerTests, testDispatch) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        "test",
+        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
+    ));
+    const x::telem::TimeRange tr(
+        x::telem::TimeStamp(1'700'000'000'000'000'001),
+        x::telem::TIME_STAMP_MAX
+    );
+    ASSERT_NIL(client.ranges.dispatch(
+        range.key,
+        {set({.path = {"name"}, .value = "renamed"}),
+         set({.path = {"time_range"}, .value = tr.to_json()})}
+    ));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
+    ASSERT_EQ(got.name, "renamed");
+    ASSERT_EQ(got.time_range, tr);
+}
+
+/// @brief it should return a not found error when it dispatches to a range that does
+/// not exist.
+TEST(RangerTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.ranges
+            .dispatch(x::uuid::create(), {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
     const auto client = new_test_client();
@@ -213,11 +259,11 @@ TEST(RangerTests, testRetrieveOneWhereMultipleFound) {
     );
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one range.
+/// @brief it should reject a limit or a cursor on a retrieve of one range.
 TEST(RangerTests, testRetrieveRejectsPage) {
     const auto client = new_test_client();
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
         for (const auto &err:
              {client.ranges.retrieve("range", options).second,
               client.ranges.retrieve({.name = "range"}, x::filter::one, options)
@@ -225,11 +271,10 @@ TEST(RangerTests, testRetrieveRejectsPage) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
                 err.data,
-                "a query for one record takes no limit or offset, since a page could "
+                "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
         }
-    }
 }
 
 /// @brief it should page a retrieve of ranges by keys, by names, or by filter.
@@ -246,15 +291,14 @@ TEST(RangerTests, testRetrieveListPage) {
         keys.push_back(ASSERT_NIL_P(client.ranges.create(name, tr)).key);
     const auto by_key = ASSERT_NIL_P(client.ranges.retrieve(keys, {.limit = 2}));
     ASSERT_EQ(by_key.size(), 2);
-    const auto by_name = ASSERT_NIL_P(
-        client.ranges.retrieve(std::vector{name}, {.offset = 1})
-    );
-    ASSERT_EQ(by_name.size(), 2);
     const auto where = Where{.name = name};
     const auto first = ASSERT_NIL_P(client.ranges.retrieve(where, {.limit = 2}));
     ASSERT_EQ(first.size(), 2);
-    const auto rest = ASSERT_NIL_P(client.ranges.retrieve(where, {.offset = 1}));
-    ASSERT_EQ(rest.size(), 2);
+    const auto after = RetrieveOptions{.after = Cursor{.key = first[1].key}};
+    const auto rest = ASSERT_NIL_P(client.ranges.retrieve(where, after));
+    ASSERT_EQ(rest.size(), 1);
+    const auto by_name = ASSERT_NIL_P(client.ranges.retrieve(std::vector{name}, after));
+    ASSERT_EQ(by_name.size(), 1);
 }
 
 /// @brief it should keep only the ranges that match a search term.

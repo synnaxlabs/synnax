@@ -15,7 +15,7 @@ import {
   type resource,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { array, color, compare, deep, type optional, verbs } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -27,15 +27,27 @@ const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const { use, useEnsure, useInvalidate, useResult, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
-    onChange: ({ client, query }, handler) =>
-      client.panels.onChange(query.key, handler),
-    getCached: ({ client, query }) => client.panels.getCached(query.key),
-    awaitCreation: true,
-  });
+export const {
+  use,
+  useEnsure,
+  useInvalidate,
+  useResult,
+  createSelector,
+  createResultSelector,
+} = Flux.createRetrieve<RetrieveQuery, panel.Panel>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.panels.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.panels.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.panels.watch(query.key).getCached(),
+  awaitCreation: true,
+});
+
+/** Compared by value: a change to the panel's layout is silenced. */
+export const useResultAppearance = createResultSelector(
+  ({ icon, color: c }) => ({ icon, color: c }),
+  (a, b) => a.icon === b.icon && color.equals(a.color, b.color),
+);
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
@@ -48,15 +60,15 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
   panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { project: projectKey } }) =>
-    keysOf(await client.panels.retrieve({ projects: [projectKey] })),
-  onChange: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange({ projects: [projectKey] }, (result) =>
-      handler(query.isLive(result) ? keysOf(result) : undefined),
-    ),
-  getCached: ({ client, query: { project: projectKey } }) => {
-    const cached = client.panels.getCached({ projects: [projectKey] });
-    return query.isLive(cached) ? keysOf(cached) : undefined;
+  retrieve: async ({ client, query: { project } }) =>
+    keysOf((await client.panels.watch({ projects: [project] }).retrieve()).records),
+  onChange: ({ client, query: { project } }, handler) =>
+    client.panels
+      .watch({ projects: [project] })
+      .onChange((w) => handler(w == null ? undefined : keysOf(w.records))),
+  getCached: ({ client, query: { project } }) => {
+    const window = client.panels.watch({ projects: [project] }).getCached();
+    return window == null ? undefined : keysOf(window.records);
   },
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
 });
@@ -227,17 +239,6 @@ export const useTabResource = bindTabHook(
   }, deep.equal),
 );
 
-export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
-
-export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
-  onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
-  getCached: ({ client, query }) => client.panels.getCached(query),
-});
-
 export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({
@@ -254,11 +255,9 @@ export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.panels.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.panels.rename(key, name);
     return data;
   },
 });
@@ -347,7 +346,7 @@ export const useMoveTabToPanel = (): ((
     });
     if (!inserted) return undefined;
     await dispatchAsync({ key: source, actions: panel.removeTab({ key: tab.key }) });
-    const cached = client?.panels.getCached(destination);
+    const cached = client?.panels.watch(destination).getCached();
     return query.isLive(cached) ? landedTabKey(cached.root, tab) : undefined;
   };
 };

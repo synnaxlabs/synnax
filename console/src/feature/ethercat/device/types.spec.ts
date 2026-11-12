@@ -115,4 +115,31 @@ describe("slavePropertiesZ", () => {
     expect(parsed.opModes).toEqual(opModes);
     expect(parsed.opMode).toEqual(opMode);
   });
+
+  it("should read the channels stored as a map keyed by address as lists", () => {
+    const parsed = EtherCAT.Device.slavePropertiesZ.parse({
+      read: { channels: { "24576_1": 5, scaled_24576_1: 6, "24576_2": 7 } },
+      write: { channels: { "28672_1": 8, state_28672_1: 9, state_28672_2: 10 } },
+    });
+    expect(parsed.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: 5 },
+      { index: 0x6000, subIndex: 1, scaled: true, calibrated: false, channel: 6 },
+      { index: 0x6000, subIndex: 2, scaled: false, calibrated: false, channel: 7 },
+    ]);
+    expect(parsed.write.channels).toEqual([
+      { index: 0x7000, subIndex: 1, command: 8, state: 9 },
+      { index: 0x7000, subIndex: 2, command: 0, state: 10 },
+    ]);
+  });
+
+  it("should drop the stored channel keys that name no address", () => {
+    const parsed = EtherCAT.Device.slavePropertiesZ.parse({
+      read: { channels: { "24576_1": 5, autoGone: 6, manual_24576_1: 7 } },
+      write: { channels: { autoOutputState: 8 } },
+    });
+    expect(parsed.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: 5 },
+    ]);
+    expect(parsed.write.channels).toEqual([]);
+  });
 });

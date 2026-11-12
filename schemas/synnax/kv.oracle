@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/ranger"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/ranger/kv"
 @pb
@@ -27,6 +28,23 @@ Pair struct {
     value string     {
         @doc value "is the metadata value stored as a string for flexibility."
     }
+
+    action Create {
+        pair Pair
+
+        @doc value """
+            replaces the pair with the given created state. Emitted by the Core when a
+            pair is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @doc value        """
         is a key-value metadata pair associated with a specific range, enabling

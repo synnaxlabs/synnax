@@ -15,10 +15,13 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -214,6 +217,8 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// TaskStopper stops running tasks ahead of a delete.
+	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -401,6 +406,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[channel.Key, channel.Action]{
+			Name:     "sy_channel_action_set",
+			Actions:  l.Channel.Actions(),
+			Resource: channel.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if closer, err := history.Publish(ctx, history.Config{
 		Instrumentation: cfg.Child("framer_history"),
 		Framer:          cfg.Distribution.Framer,
@@ -421,6 +436,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		signals.TableConfig[group.Key, group.Group]{
 			Changes:  l.Group.Changes,
+			Resource: group.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[group.Key, group.Action]{
+			Name:     "sy_group_action_set",
+			Actions:  l.Group.Actions(),
 			Resource: group.ResourceID,
 		},
 	); !ok(err, nil) {
@@ -454,6 +479,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	// The Driver reads sy_status_set as statuses, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[status.Key, status.Action]{
+			Name:     "sy_status_action_set",
+			Actions:  l.Status.Actions(),
+			Resource: status.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
 		Instrumentation: cfg.Child("control"),
 		Control:         cfg.Distribution.Control,
@@ -478,6 +514,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, roles) {
 		return nil, err
 	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[role.Key, role.Action]{
+			Name:     "sy_role_action_set",
+			Actions:  roles.Role.Actions(),
+			Resource: role.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[policy.Key, policy.Action]{
+			Name:     "sy_policy_action_set",
+			Actions:  roles.Policy.Actions(),
+			Resource: policy.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
 		Instrumentation: cfg.Child("password"),
 		DB:              cfg.Distribution.DB,
@@ -491,6 +547,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[user.Key, user.Action]{
+			Name:     "sy_user_action_set",
+			Actions:  l.User.Actions(),
+			Resource: user.ResourceID,
+		},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
@@ -512,6 +578,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		signals.TableConfig[rack.Key, rack.Rack]{
 			Changes:  l.Rack.Changes,
+			Resource: rack.Key.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	// The Driver reads sy_rack_set as racks, so actions take their own channel.
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[rack.Key, rack.Action]{
+			Name:     "sy_rack_action_set",
+			Actions:  l.Rack.Actions(),
 			Resource: rack.Key.ResourceID,
 		},
 	); !ok(err, nil) {
@@ -679,12 +756,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
 	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -692,6 +771,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
+		Parser: parser.Config{
+			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+		},
 	})
 	if !ok(err, arcTable) {
 		return nil, err
@@ -717,6 +799,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -743,6 +826,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
+		return nil, err
+	}
+	if l.TaskStopper, err = task.NewStopper(task.StopperConfig{
+		DB:     cfg.Distribution.DB,
+		Task:   l.Task,
+		Status: l.Status,
+		Framer: l.Framer,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(

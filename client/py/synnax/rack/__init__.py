@@ -10,9 +10,12 @@
 from synnax.rack.client import Client
 from synnax.rack.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
+    Order,
     Rack,
     Status,
+    StatusDetails,
     Where,
     WhereInput,
     resource_id,
@@ -21,9 +24,12 @@ from synnax.rack.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Key",
+    "Order",
     "Rack",
     "Status",
+    "StatusDetails",
     "Where",
     "WhereInput",
     "resource_id",

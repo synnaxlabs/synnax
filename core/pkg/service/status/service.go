@@ -12,10 +12,12 @@ package status
 import (
 	"context"
 	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
@@ -62,6 +64,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Status[any]]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -72,7 +75,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
@@ -84,6 +91,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
+			// A label delete detaches the label from each status that holds it, which
+			// no status write does, so the service sets the status that remains. The
+			// device, rack, and channel tables need no hook, as a group delete refuses
+			// a group that holds members.
+			OnDetach: func(_ context.Context, tx gorp.Tx, st Status[any]) error {
+				s.state.Dispatcher().
+					Attach(tx, st.Key, NewSetAction(SetPayload{Status: st}))
+				return nil
+			},
 		},
 	); !ok(err, s.table) {
 		return nil, err
@@ -109,8 +125,12 @@ func (s *Service) Changes(
 	return s.table.Changes(ctx, c)
 }
 
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
-// match over name matches. Read-only; callers enforce access on and write the result.
+// match over name matches, which come in key order. Read-only; callers enforce access
+// on and write the result.
 func (s *Service) ResolveKeyOrName(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -136,6 +156,9 @@ func (s *Service) ResolveKeyOrName(
 		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
+	slices.SortFunc(matches, func(a, b Status[any]) int {
+		return strings.Compare(a.Key, b.Key)
+	})
 	return matches, nil
 }
 
@@ -227,9 +250,10 @@ func (s *Service) NewMigrationWriter(tx gorp.Tx) *gorp.Writer[Key, Status[any]] 
 // NewWriter opens a Writer for statuses that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      tx,
-		table:   s.table,
-		indexes: s.indexes,
+		tx:         tx,
+		table:      s.table,
+		indexes:    s.indexes,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

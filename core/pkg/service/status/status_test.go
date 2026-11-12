@@ -648,23 +648,26 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("After", func() {
+			It("Should resume strictly past the key", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("retrieve-c", "retrieve-a", "retrieve-b")).
+					After("retrieve-a").
+					Entries(&statuses).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveExactElements(
+					HaveField("Key", "retrieve-b"),
+					HaveField("Key", "retrieve-c"),
+				))
+			})
+		})
+
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(
 					svc.NewRetrieve[any]().Limit(2).Entries(&statuses).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(statuses).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(
-					svc.NewRetrieve[any]().
-						Offset(1).
-						Limit(2).
-						Entries(&statuses).
-						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
@@ -821,6 +824,25 @@ var _ = Describe("Status", Ordered, func() {
 					Expect(s.Name).To(SatisfyAny(Equal("Status A"), Equal("Status B")))
 				}
 			})
+
+			It(
+				"Should not match a name that differs only in case",
+				func(ctx SpecContext) {
+					lower := newStatus("retrieve-a-lower")
+					lower.Name = "status a"
+					Expect(w.Set(ctx, &lower)).To(Succeed())
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchNames[any]("Status A")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(
+						statuses,
+					).To(HaveExactElements(HaveField("Key", "retrieve-a")))
+				},
+			)
 
 			It(
 				"Should return empty when no statuses match name",

@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/config"
@@ -74,7 +75,8 @@ type CreateResponse struct {
 	Views []View `json:"views" msgpack:"views"`
 }
 
-// Create creates the views, and overwrites each one whose key exists.
+// Create creates the views. It returns an error wrapping validate.ErrValidation when a
+// view with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -84,6 +86,23 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single view. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[view.Key, view.Action]
+
+// Dispatch applies the action sequence to the target view atomically. Subscribers to
+// the view action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -112,23 +131,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-// RenameRequest names the view to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the view to rename.
-	Key view.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the view. It returns query.ErrNotFound when no view has the key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

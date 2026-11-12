@@ -14,17 +14,44 @@ package v3
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
+
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+// the slave moves to SAFE-OP.
+type StartupParameter struct {
+	// Index is the CoE object dictionary index of the object.
+	Index uint16 `json:"index" msgpack:"index"`
+	// SubIndex is the CoE object dictionary sub-index of the object.
+	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
+	// DataType is the data type of the object, which sets the size of the write.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Value is the value written to the object.
+	Value float64 `json:"value" msgpack:"value"`
+	// Name is what the parameter sets, for display.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// SlaveStartupParameters holds the startup parameters that a read task writes to one
+// slave.
+type SlaveStartupParameters struct {
+	// Device is the key of the slave device the parameters are written to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Parameters are the parameters written to the slave, in order.
+	Parameters []StartupParameter `json:"parameters" msgpack:"parameters"`
+}
 
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
@@ -51,12 +78,20 @@ type EntryReadChannel struct {
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
 	// DataType is the data type of the PDO entry.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Calibrated is true when the Driver turns the raw counts of the entry into
+	// physical values, with the gain and offset that the slave stores for the entry.
+	Calibrated bool `json:"calibrated" msgpack:"calibrated"`
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
 	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EntryReadChannel) SetDefaults() {
+	e.Scale.Variant = taskv2.NoneScale{}
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (e *EntryReadChannel) ApplyDefaults() {
@@ -127,6 +162,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			EntryReadChannel
 		}
+		v.EntryReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -357,6 +393,8 @@ type ReadConfig struct {
 	task.ReadConfig
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
+	// StartupParameters are the startup parameters the task writes to its slaves.
+	StartupParameters []SlaveStartupParameters `json:"startup_parameters" msgpack:"startup_parameters"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -365,6 +403,38 @@ func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
 }
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
@@ -387,6 +457,40 @@ func (w *WriteConfig) ApplyDefaults() {
 	if w.ExecutionRate == 0 {
 		w.ExecutionRate = 1000
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 25
+	w.ExecutionRate = 1000
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThan("state_rate", w.StateRate, 0)
+	v.GreaterThan("execution_rate", w.ExecutionRate, 0)
+	return v.Error()
 }
 
 // ScanConfig configures an EtherCAT scan task.

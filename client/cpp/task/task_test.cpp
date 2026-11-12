@@ -195,6 +195,41 @@ TEST(TaskTests, testDeleteTask) {
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
 }
 
+/// @brief it should set the name and config of a task with a dispatch, and keep its
+/// type.
+TEST(TaskTests, testDispatch) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task{
+        .name = "test_module",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_NIL(r.tasks.dispatch(
+        t.key,
+        {set({.path = {"name"}, .value = "renamed"}),
+         set({.path = {"config", "routing_key"}, .value = "rk-2"})}
+    ));
+    const auto got = ASSERT_NIL_P(r.tasks.retrieve(t.key));
+    ASSERT_EQ(got.name, "renamed");
+    ASSERT_EQ(got.config.at("routing_key"), "rk-2");
+    ASSERT_EQ(got.type, "pagerduty_alert");
+    ASSERT_NE(got.config_hash, t.config_hash);
+}
+
+/// @brief it should return a not found error when it dispatches to a task that does not
+/// exist.
+TEST(TaskTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.tasks
+            .dispatch(x::uuid::create(), {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should convert a task key to a resource ID
 TEST(TaskTests, testTaskResourceID) {
     const auto key = x::uuid::create();
@@ -334,18 +369,18 @@ TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
     ASSERT_EQ(tasks.size(), 1);
 }
 
-/// @brief it should reject a limit or an offset on a retrieve of one task.
+/// @brief it should reject a limit or a cursor on a retrieve of one task.
 TEST(TaskTests, testRetrieveTaskRejectsPage) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     for (const auto &options:
-         {RetrieveOptions{.limit = 1}, RetrieveOptions{.offset = 1}}) {
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}}) {
         const auto [_, err] = r.tasks.retrieve("test_module", options);
         ASSERT_MATCHES(err, x::errors::VALIDATION);
         ASSERT_EQ(
             err.data,
-            "a query for one record takes no limit or offset, since a page could "
+            "a query for one record takes no limit or cursor, since a page could "
             "hide a second match"
         );
     }
@@ -367,7 +402,9 @@ TEST(TaskTests, testRetrieveWherePage) {
     const auto where = Where{.type = "pagerduty_alert"};
     const auto first = ASSERT_NIL_P(r.tasks.retrieve(where, {.limit = 2}));
     ASSERT_EQ(first.size(), 2);
-    const auto rest = ASSERT_NIL_P(r.tasks.retrieve(where, {.offset = 2}));
+    const auto rest = ASSERT_NIL_P(
+        r.tasks.retrieve(where, {.after = Cursor{.key = first[1].key}})
+    );
     ASSERT_EQ(rest.size(), 1);
 }
 

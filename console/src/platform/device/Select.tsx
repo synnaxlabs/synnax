@@ -56,8 +56,12 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   model?: string;
   path?: deep.Target<device.Key>;
   icon: Icon.ReactElement;
+  /** How the location of each listed device reads. */
+  locationFormat?: Device.LocationFormat;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
+  /** Runs after the task form handles a change of device. */
+  onChange?: (key: device.Key, ctx: Form.ContextValue) => void;
 }
 
 export const Select = ({
@@ -69,7 +73,9 @@ export const Select = ({
   model,
   path = root.config.device,
   icon,
+  locationFormat,
   connect,
+  onChange,
 }: SelectProps) => {
   const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleChange = useHandleChange(onConfigure);
@@ -84,7 +90,10 @@ export const Select = ({
       className={CSS.B("device-select")}
       grow
       label={label}
-      onChange={handleChange}
+      onChange={(key, ctx) => {
+        handleChange(key, ctx);
+        onChange?.(key, ctx);
+      }}
       path={path}
     >
       {({ value, onChange, preview }) => (
@@ -96,6 +105,7 @@ export const Select = ({
           emptyContent={emptyContent}
           grow
           icon={icon}
+          locationFormat={locationFormat}
           preview={preview}
           visible={visible}
           onVisibleChange={setVisible}

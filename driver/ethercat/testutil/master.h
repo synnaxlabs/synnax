@@ -19,37 +19,39 @@
 #include <ranges>
 #include <set>
 #include <span>
+#include <stdexcept>
+#include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 
 namespace driver::ethercat::testutil {
+/// @brief the SDO abort code of a read of an object that the slave does not have.
+constexpr uint32_t OBJECT_MISSING_ABORT = 0x06020000;
 /// @brief an in-memory master. Inputs set by a test reach the process image on the next
 /// receive(), and outputs become visible to get_output() on the next send(), as they
 /// would on a real bus.
 class Master final : public master::Master {
-    std::string iface_name;
     std::vector<slave::DiscoveryResult> slave_list;
-    std::unordered_map<uint16_t, slave::State> slave_states;
+    /// @brief what scan() found, which it returns again until deactivate().
+    std::vector<slave::DiscoveryResult> scanned;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
     /// @brief why the master could not restore the distributed clock of each slave.
     std::unordered_map<uint16_t, std::string> dc_restore_errors;
+    /// @brief why each slave rejected a startup parameter.
+    std::unordered_map<uint16_t, std::string> startup_errors;
     std::set<uint16_t> lost_slaves;
-    std::set<uint16_t> disabled_slaves;
-    std::map<uint16_t, dc::Choice> chosen_modes;
+    master::Plan latest_plan;
     /// @brief why each slave that refuse() names refuses its state.
     std::map<uint16_t, slave::Refusal> refusing;
-    std::map<uint16_t, slave::Refusal> left_out;
-    std::map<uint16_t, slave::Refusal> start_refusals;
-    bool start_dc_sync_refused{false};
-    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
-        startup_parameters_by_slave;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
@@ -65,13 +67,18 @@ class Master final : public master::Master {
     bool activated{false};
     mutable std::mutex mu;
 
-    x::errors::Error inject_init_err;
+    x::errors::Error inject_scan_err;
     x::errors::Error inject_activate_err;
     x::errors::Error inject_state_change_err;
     x::errors::Error inject_receive_err;
-    x::errors::Error inject_send_err;
+    x::errors::Error inject_write_err;
+    /// @brief the parameters of each write(), in order.
+    std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
+    /// @brief the value of each object that set_object() gave, by position, index, and
+    /// sub-index.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -80,30 +87,29 @@ class Master final : public master::Master {
     size_t input_sz{0};
     size_t output_sz{0};
     std::vector<std::string> calls;
-    size_t init_calls{0};
-    std::optional<x::telem::TimeSpan> period;
     size_t send_calls{0};
     std::condition_variable sent_cv;
     size_t start_frames{1};
     bool short_until_op{false};
-    size_t output_padding = 0;
     std::mutex stall_mu;
     std::condition_variable stall_cv;
     bool stalled{false};
+    /// @brief whether a receive() waits for resume().
+    bool blocked{false};
+    /// @brief whether the next receive() stalls, set by step().
+    bool stall_next{false};
     x::loop::HostClock clock;
     x::telem::TimeSpan activate_duration{0};
     /// @brief how many more frames record_dc() asked for.
     size_t frames_to_record{0};
     std::vector<x::telem::TimeStamp> recorded;
     std::condition_variable recorded_cv;
+    /// @brief what name() returns.
+    std::string network_name = "eth0";
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
-    explicit Master(
-        std::string interface_name = "mock0",
-        x::loop::HostClock clock = {}
-    ):
-        iface_name(std::move(interface_name)), clock(std::move(clock)) {}
+    explicit Master(x::loop::HostClock clock = {}): clock(std::move(clock)) {}
 
     /// @brief records the DC time of each of the next frames that pass the reference
     /// clock, up to frames of them.
@@ -126,33 +132,64 @@ public:
     /// @brief adds a simulated slave to the mock master.
     void add_slave(slave::Properties props) {
         std::lock_guard lock(this->mu);
-        const auto pos = props.position;
         slave::DiscoveryResult result{};
         result.properties = std::move(props);
         result.status.state = slave::State::INIT;
-        result.status.pdos_discovered = true;
         this->slave_list.push_back(std::move(result));
-        this->slave_states[pos] = slave::State::INIT;
     }
 
-    /// @brief makes the PDO discovery of the slave at position fail with error.
+    /// @brief makes the PDO discovery of the slave at position fail with error and find
+    /// no PDOs.
     void fail_pdo_discovery(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position) {
+                slave.status.pdo_discovery_error = error;
+                slave.properties.input_pdos.clear();
+                slave.properties.output_pdos.clear();
+            }
+    }
+
+    /// @brief gives the slave at position error and keeps its PDOs, as a master does
+    /// when it falls back to the PDOs in the SII.
+    void fall_back_pdo_discovery(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position)
                 slave.status.pdo_discovery_error = error;
     }
 
-    /// @brief injects an error to be returned by initialize().
-    void inject_init_error(const x::errors::Error &err) {
+    /// @brief makes the settings read of the slave at position fail with error.
+    void fail_settings_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
-        this->inject_init_err = err;
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.settings_error = error;
+    }
+
+    /// @brief injects an error to be returned by scan().
+    void inject_scan_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_scan_err = err;
     }
 
     /// @brief injects an error to be returned by activate().
     void inject_activate_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_activate_err = err;
+    }
+
+    /// @brief injects an error to be returned by write().
+    void inject_write_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_write_err = err;
+    }
+
+    /// @brief returns the position and parameters of each write(), in order.
+    [[nodiscard]] std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>
+    written() const {
+        std::lock_guard lock(this->mu);
+        return this->writes;
     }
 
     /// @brief makes each call to activate() take span on the clock of the master.
@@ -189,16 +226,16 @@ public:
         this->inject_receive_err = err;
     }
 
-    /// @brief injects an error to be returned by send().
-    void inject_send_error(const x::errors::Error &err) {
-        std::lock_guard lock(this->mu);
-        this->inject_send_err = err;
-    }
-
     /// @brief makes receive() block until resume(), which stalls the bus cycle.
     void stall() {
         std::lock_guard lock(this->stall_mu);
         this->stalled = true;
+    }
+
+    /// @brief waits until a receive() blocks after stall().
+    void wait_until_stalled() {
+        std::unique_lock lock(this->stall_mu);
+        this->stall_cv.wait(lock, [this] { return this->blocked; });
     }
 
     /// @brief unblocks receive() after stall().
@@ -206,6 +243,19 @@ public:
         {
             std::lock_guard lock(this->stall_mu);
             this->stalled = false;
+            this->blocked = false;
+            this->stall_next = false;
+        }
+        this->stall_cv.notify_all();
+    }
+
+    /// @brief lets the receive() that a stall blocks return, and stalls the next one.
+    void step() {
+        {
+            std::lock_guard lock(this->stall_mu);
+            this->stalled = false;
+            this->blocked = false;
+            this->stall_next = true;
         }
         this->stall_cv.notify_all();
     }
@@ -214,18 +264,10 @@ public:
     void clear_injected_errors() {
         std::lock_guard lock(this->mu);
         this->refusing.clear();
-        this->inject_init_err = x::errors::NIL;
+        this->inject_scan_err = x::errors::NIL;
         this->inject_activate_err = x::errors::NIL;
         this->inject_state_change_err = x::errors::NIL;
         this->inject_receive_err = x::errors::NIL;
-        this->inject_send_err = x::errors::NIL;
-    }
-
-    /// @brief sets padding bytes placed before the first output PDO at the next
-    /// activate().
-    void set_output_padding(const size_t padding) {
-        std::lock_guard lock(this->mu);
-        this->output_padding = padding;
     }
 
     /// @brief makes a slave fail to reach the target state, both at activation and
@@ -245,9 +287,7 @@ public:
     /// @brief directly sets the state of a specific slave.
     void set_slave_state(const uint16_t position, const slave::State state) {
         std::lock_guard lock(this->mu);
-        this->slave_states[position] = state;
-        for (auto &slave: this->slave_list)
-            if (slave.properties.position == position) slave.status.state = state;
+        this->slave(position).status.state = state;
     }
 
     /// @brief moves a slave to the state with the AL status error flag set and the
@@ -258,7 +298,7 @@ public:
         const std::string &fault
     ) {
         std::lock_guard lock(this->mu);
-        this->slave_states[position] = state;
+        this->slave(position).status.state = state;
         this->faults[position] = fault;
     }
 
@@ -267,6 +307,13 @@ public:
     void fail_dc_restore(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         this->dc_restore_errors[position] = error;
+    }
+
+    /// @brief makes check() report that the slave rejected a startup parameter, and
+    /// keep the slave out of OP, until the master deactivates.
+    void fail_startup(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        this->startup_errors[position] = error;
     }
 
     /// @brief makes check() report a slave as not responding until lost is false.
@@ -290,30 +337,37 @@ public:
         this->calls.clear();
     }
 
-    /// @brief checks if a specific method was called.
-    bool was_called(const std::string &method) const {
-        std::lock_guard lock(this->mu);
-        return std::ranges::find(this->calls, method) != this->calls.end();
-    }
-
     /// @brief returns the number of times a method was called.
     size_t call_count(const std::string &method) const {
         std::lock_guard lock(this->mu);
         return std::count(this->calls.begin(), this->calls.end(), method);
     }
 
-    x::errors::Error initialize() override {
+    /// @brief makes name() return name, which is "eth0" until then.
+    void set_name(std::string name) {
         std::lock_guard lock(this->mu);
-        this->calls.emplace_back("initialize");
-        this->init_calls++;
-        if (this->inject_init_err) return this->inject_init_err;
+        this->network_name = std::move(name);
+    }
+
+    [[nodiscard]] std::string name() const override {
+        std::lock_guard lock(this->mu);
+        return this->network_name;
+    }
+
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("scan");
+        if (this->inject_scan_err) return {{}, this->inject_scan_err};
+        if (!this->initialized) this->scanned = this->slave_list;
         this->initialized = true;
-        return x::errors::NIL;
+        return {this->scanned, x::errors::NIL};
     }
 
     std::pair<size_t, x::errors::Error> count_slaves() override {
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("count_slaves");
+        if (!this->initialized)
+            return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
         return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
     }
 
@@ -324,50 +378,25 @@ public:
         this->bus_slaves = count;
     }
 
-    void replace_slave_configs(std::map<uint16_t, slave::Config> configs) override {
+    /// @brief returns the plan of the latest activate().
+    [[nodiscard]] master::Plan plan() const {
         std::lock_guard lock(this->mu);
-        this->disabled_slaves.clear();
-        this->chosen_modes.clear();
-        this->startup_parameters_by_slave.clear();
-        for (auto &[position, config]: configs) {
-            if (!config.enabled) this->disabled_slaves.insert(position);
-            if (config.op_mode) this->chosen_modes[position] = *config.op_mode;
-            this->startup_parameters_by_slave[position] = std::move(
-                config.startup_parameters
-            );
-        }
+        return this->latest_plan;
     }
 
-    /// @brief returns the startup parameters set for a slave.
-    std::vector<slave::StartupParameter>
-    startup_parameters(const uint16_t position) const {
+    /// @brief returns the settings that the latest activate() gave the slave at
+    /// position.
+    [[nodiscard]] slave::Config config(const uint16_t position) const {
         std::lock_guard lock(this->mu);
-        const auto it = this->startup_parameters_by_slave.find(position);
-        if (it == this->startup_parameters_by_slave.end()) return {};
-        return it->second;
-    }
-
-    /// @brief returns whether the latest settings enable the slave at a position.
-    [[nodiscard]] bool slave_enabled(const uint16_t position) const {
-        std::lock_guard lock(this->mu);
-        return !this->disabled_slaves.contains(position);
-    }
-
-    /// @brief returns the mode that the latest settings choose for the slave at a
-    /// position, or nullopt when they choose none.
-    [[nodiscard]] std::optional<dc::Choice> chosen_mode(const uint16_t position) const {
-        std::lock_guard lock(this->mu);
-        const auto it = this->chosen_modes.find(position);
-        if (it == this->chosen_modes.end()) return std::nullopt;
-        return it->second;
+        return this->config_locked(position);
     }
 
     /// @brief maps the slaves, then moves them to OP once the cycle sends a frame, as
     /// slaves with outputs need. Logs "op" when the slaves reach OP. Fails with
     /// errors::STATE_CHANGE_REFUSED when a slave that refuse() names is on the bus.
-    x::errors::Error activate(
-        const x::telem::TimeSpan period,
-        const std::function<void()> &start_cycle
+    master::Activation activate(
+        const master::Plan &plan,
+        const std::function<void(const master::Image &)> &start_cycle
     ) override {
         x::telem::TimeSpan duration;
         {
@@ -376,72 +405,81 @@ public:
         }
         this->clock.sleep(duration);
         size_t sent = 0;
+        master::Image image;
         {
             std::lock_guard lock(this->mu);
             this->calls.emplace_back("activate");
-            this->period = period;
-            this->start_refusals.clear();
-            this->start_dc_sync_refused = false;
-            if (this->inject_activate_err) return this->inject_activate_err;
+            this->latest_plan = plan;
+            if (this->inject_activate_err) return {.err = this->inject_activate_err};
             if (!this->initialized)
-                return x::errors::Error(
-                    errors::ACTIVATION_ERROR,
-                    "master not initialized"
-                );
+                return {
+                    .err = x::errors::Error(
+                        errors::ACTIVATION_ERROR,
+                        "master not initialized"
+                    )
+                };
+            if (this->activated)
+                return {
+                    .err = x::errors::Error(
+                        errors::ACTIVATION_ERROR,
+                        "already activated"
+                    )
+                };
             this->activated = true;
             this->cache_pdo_offsets();
-            if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
-            if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
             this->input_iomap.assign(this->input_sz, 0);
             this->output_iomap.assign(this->output_sz, 0);
             this->sent_outputs.assign(this->output_sz, 0);
             sent = this->send_calls;
+            image = {
+                .inputs = {this->input_iomap.data(), this->input_sz},
+                .outputs = {this->output_iomap.data(), this->output_sz},
+                .offsets = this->pdo_offset_cache,
+                .dc_sync = this->syncs,
+                .slaves = this->slave_list,
+            };
         }
-        start_cycle();
+        start_cycle(image);
         std::unique_lock lock(this->mu);
         if (!this->sent_cv.wait_for(lock, std::chrono::seconds(10), [&] {
                 return this->send_calls >= sent + this->start_frames;
             }))
-            return x::errors::Error(
-                errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data"
-            );
+            return {
+                .err = x::errors::Error(
+                    errors::STATE_CHANGE_ERROR,
+                    "failed to reach OP: no process data"
+                )
+            };
         std::map<uint16_t, slave::Refusal> refused;
-        bool io_left = false;
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
             if (const auto it = this->refusing.find(pos); it != this->refusing.end())
                 refused.insert(*it);
-            else
-                io_left |= slave.properties.pdo_count() > 0;
         }
         if (!refused.empty()) {
-            if (io_left) this->start_refusals = refused;
-            this->start_dc_sync_refused = std::ranges::any_of(
-                refused | std::views::values,
-                &slave::Refusal::dc_sync_invalid
-            );
-            return x::errors::Error(
-                errors::STATE_CHANGE_REFUSED,
-                "failed to reach SAFE-OP: " + refused.begin()->second.reason
-            );
+            return {
+                .err = x::errors::Error(
+                    errors::STATE_CHANGE_REFUSED,
+                    "failed to reach SAFE-OP: " + refused.begin()->second.reason
+                ),
+                .refusals = std::move(refused),
+            };
         }
-        if (this->inject_state_change_err) return this->inject_state_change_err;
+        if (this->inject_state_change_err)
+            return {.err = this->inject_state_change_err};
         this->calls.emplace_back("op");
         this->short_until_op = false;
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
             const auto it = this->state_transition_failures.find(pos);
-            const auto state = it != this->state_transition_failures.end() &&
-                                       it->second == slave::State::OP
-                                 ? slave::State::SAFE_OP
-                                 : slave::State::OP;
-            this->slave_states[pos] = state;
-            slave.status.state = state;
+            slave.status.state = it != this->state_transition_failures.end() &&
+                                         it->second == slave::State::OP
+                                   ? slave::State::SAFE_OP
+                                   : slave::State::OP;
         }
-        return x::errors::NIL;
+        return {};
     }
 
     void deactivate() override {
@@ -454,8 +492,7 @@ public:
         this->output_sz = 0;
         this->faults.clear();
         this->dc_restore_errors.clear();
-        for (auto &[pos, state]: this->slave_states)
-            state = slave::State::INIT;
+        this->startup_errors.clear();
         for (auto &slave: this->slave_list)
             slave.status.state = slave::State::INIT;
     }
@@ -463,10 +500,17 @@ public:
     x::errors::Error receive() override {
         {
             std::unique_lock lock(this->stall_mu);
-            this->stall_cv.wait(lock, [this] { return !this->stalled; });
+            if (std::exchange(this->stall_next, false)) this->stalled = true;
+            if (this->stalled) {
+                this->blocked = true;
+                this->stall_cv.notify_all();
+                this->stall_cv.wait(lock, [this] { return !this->stalled; });
+            }
         }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
+        if (!this->activated)
+            return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
                                                     errors::WORKING_COUNTER_ERROR,
                                                     "expected 3, got 1"
@@ -507,15 +551,10 @@ public:
         this->host_dc_start.reset();
     }
 
-    /// @brief sets the value dc_sync() returns.
+    /// @brief sets the DC registers of the image that the next activate() gives.
     void set_dc_sync(const std::vector<dc::Registers> &syncs) {
         std::lock_guard lock(this->mu);
         this->syncs = syncs;
-    }
-
-    std::vector<dc::Registers> dc_sync() const override {
-        std::lock_guard lock(this->mu);
-        return this->syncs;
     }
 
     /// @brief gives the bus a distributed clock that advances by step at each
@@ -528,7 +567,8 @@ public:
     x::errors::Error send() override {
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("send");
-        if (this->inject_send_err) return this->inject_send_err;
+        if (!this->activated)
+            return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         this->last_sent = this->clock.now();
         if (this->host_dc_rate && !this->host_dc_start)
             this->host_dc_start = this->last_sent;
@@ -538,149 +578,81 @@ public:
         return x::errors::NIL;
     }
 
-    std::span<const uint8_t> input_data() override {
-        if (!this->activated) return {};
-        return {this->input_iomap.data(), this->input_sz};
-    }
-
-    std::span<uint8_t> output_data() override {
-        if (!this->activated) return {};
-        return {this->output_iomap.data(), this->output_sz};
-    }
-
-    std::map<uint16_t, slave::Refusal> refusals() const override {
-        std::lock_guard lock(this->mu);
-        return this->start_refusals;
-    }
-
-    bool dc_sync_refused() const override {
-        std::lock_guard lock(this->mu);
-        return this->start_dc_sync_refused;
-    }
-
-    void leave_out(std::map<uint16_t, slave::Refusal> slaves) override {
-        std::lock_guard lock(this->mu);
-        this->left_out = std::move(slaves);
-    }
-
-    std::pair<pdo::Offset, x::errors::Error>
-    pdo_offset(const pdo::Entry &entry) const override {
-        std::lock_guard lock(this->mu);
-        const auto pos = entry.slave_position;
-        if (const auto it = this->left_out.find(pos); it != this->left_out.end()) {
-            const auto slave = std::ranges::find(
-                this->slave_list,
-                pos,
-                [](const slave::DiscoveryResult &s) { return s.properties.position; }
-            );
-            return {
-                {},
-                master::left_out_error(pos, slave->properties.name, it->second)
-            };
-        }
-        return pdo::find_offset(this->pdo_offset_cache, entry);
-    }
-
-    std::vector<slave::DiscoveryResult> slaves() const override {
-        std::lock_guard lock(this->mu);
-        return this->slave_list;
-    }
-
     /// @brief reports each enabled slave, then returns each faulted or non-OP slave to
     /// OP unless set_slave_transition_failure() blocks it.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override {
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("check");
         std::vector<slave::Health> health;
-        for (const auto &slave: this->slave_list) {
+        for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (!this->on_bus(pos)) continue;
             const auto fault = this->faults.find(pos);
             const auto restore = this->dc_restore_errors.find(pos);
             const bool restore_failed = restore != this->dc_restore_errors.end();
+            const auto startup = this->startup_errors.find(pos);
+            const bool startup_failed = startup != this->startup_errors.end();
             health.push_back({
                 .position = pos,
-                .state = this->slave_states[pos],
-                .faulted = fault != this->faults.end() || restore_failed,
+                .state = slave.status.state,
+                .faulted = fault != this->faults.end() || restore_failed ||
+                           startup_failed,
                 .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
                 .dc_restore_error = restore_failed ? restore->second : "",
+                .startup_error = startup_failed ? startup->second : "",
             });
-            if (this->lost_slaves.contains(pos) || restore_failed) continue;
+            if (this->lost_slaves.contains(pos) || restore_failed || startup_failed)
+                continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
                  blocked->second == slave::State::OP))
                 continue;
-            this->slave_states[pos] = slave::State::OP;
+            slave.status.state = slave::State::OP;
             this->faults.erase(pos);
         }
-        for (const auto &[pos, refusal]: this->left_out)
-            health.push_back({.position = pos, .refusal = refusal});
         return health;
     }
 
-    std::string interface_name() const override { return this->iface_name; }
-
-    /// @brief returns whether the master has been initialized.
-    bool is_initialized() const {
+    /// @brief records the write and adds the parameters to the slave in the latest
+    /// plan, or returns the error that inject_write_error() set.
+    x::errors::Error write(
+        const uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    ) override {
         std::lock_guard lock(this->mu);
-        return this->initialized;
+        this->calls.emplace_back("write");
+        if (this->inject_write_err) return this->inject_write_err;
+        this->writes.emplace_back(position, parameters);
+        this->latest_plan.slaves[position].add_startup_parameters(parameters);
+        return x::errors::NIL;
     }
 
-    /// @brief returns whether the master has been activated.
-    bool is_activated() const {
+    /// @brief returns the value that set_object() gave the object, or
+    /// coe::OBJECT_MISSING.
+    std::pair<uint32_t, x::errors::Error> read(
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index
+    ) override {
         std::lock_guard lock(this->mu);
-        return this->activated;
+        this->calls.emplace_back("read");
+        const auto it = this->objects.find({position, index, sub_index});
+        if (it == this->objects.end())
+            return {0, coe::read_error(index, sub_index, OBJECT_MISSING_ABORT)};
+        return {it->second, x::errors::NIL};
     }
 
-    /// @brief returns the number of slaves configured.
-    size_t slave_count() const {
+    /// @brief gives the object of the slave at position the value that read() returns.
+    void set_object(
+        const uint16_t position,
+        const uint16_t index,
+        const uint8_t sub_index,
+        const uint32_t value
+    ) {
         std::lock_guard lock(this->mu);
-        return this->slave_list.size();
-    }
-
-    /// @brief returns the state of a slave, or UNKNOWN for an unknown position.
-    slave::State slave_state(const uint16_t position) const {
-        std::lock_guard lock(this->mu);
-        const auto it = this->slave_states.find(position);
-        if (it == this->slave_states.end()) return slave::State::UNKNOWN;
-        return it->second;
-    }
-
-    /// @brief checks if any slaves have the given state.
-    bool has_slave_in_state(const slave::State state) const {
-        std::lock_guard lock(this->mu);
-        for (const auto &[pos, s]: this->slave_states)
-            if (s == state) return true;
-        return false;
-    }
-
-    /// @brief returns the count of slaves in the given state.
-    size_t slaves_in_state(const slave::State state) const {
-        std::lock_guard lock(this->mu);
-        size_t count = 0;
-        for (const auto &[pos, s]: this->slave_states)
-            if (s == state) ++count;
-        return count;
-    }
-
-    /// @brief returns the number of times initialize() was called.
-    size_t init_call_count() const {
-        std::lock_guard lock(this->mu);
-        return this->init_calls;
-    }
-
-    /// @brief returns the bus period of the latest activate() call.
-    std::optional<x::telem::TimeSpan> activated_period() const {
-        std::lock_guard lock(this->mu);
-        return this->period;
-    }
-
-    /// @brief resets the initialize call counter.
-    void reset_init_call_count() {
-        std::lock_guard lock(this->mu);
-        this->init_calls = 0;
+        this->objects[{position, index, sub_index}] = value;
     }
 
     /// @brief sets a value in the input image. The bus delivers it at the next
@@ -704,16 +676,26 @@ public:
     }
 
 private:
-    /// @brief whether the slave at position takes part in the next or current start.
+    /// @brief whether the slave at position takes part in the current start.
     [[nodiscard]] bool on_bus(const uint16_t position) const {
-        return !this->disabled_slaves.contains(position) &&
-               !this->left_out.contains(position);
+        return this->config_locked(position).enabled;
+    }
+
+    [[nodiscard]] slave::Config config_locked(const uint16_t position) const {
+        const auto it = this->latest_plan.slaves.find(position);
+        return it == this->latest_plan.slaves.end() ? slave::Config{} : it->second;
+    }
+
+    slave::DiscoveryResult &slave(const uint16_t position) {
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position) return slave;
+        throw std::out_of_range("no slave at position " + std::to_string(position));
     }
 
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
         this->input_sz = 0;
-        this->output_sz = this->output_padding;
+        this->output_sz = 0;
         for (const auto &slave: this->slave_list) {
             const auto &props = slave.properties;
             if (!this->on_bus(props.position)) continue;

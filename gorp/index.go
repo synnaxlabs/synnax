@@ -12,10 +12,10 @@ package gorp
 import (
 	"cmp"
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -118,10 +118,11 @@ func probe[K Key, V comparable](
 // leaves its keys unbounded, so holds checks every entry.
 func indexFilter[K Key, E Entry[K], V comparable](
 	store indexStore[K, V],
-	holds func(e *E, values []V) bool,
+	holds func(e *E, in func(V) bool) bool,
 	values []V,
 ) Filter[K, E] {
 	captured := lo.Uniq(values)
+	in := index.AnyOf(captured)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			// eval drops the keys of a commit in flight that fails.
@@ -135,15 +136,15 @@ func indexFilter[K Key, E Entry[K], V comparable](
 			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
-			return holds(e, captured), nil
+			return holds(e, in), nil
 		},
 	}
 }
 
-// holdsValue returns a predicate reporting whether the field that extract reads is any
-// of values.
-func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, []V) bool {
-	return func(e *E, values []V) bool { return slices.Contains(values, extract(e)) }
+// holdsValue returns a predicate reporting whether in holds the field that extract
+// reads.
+func holdsValue[E any, V comparable](extract func(e *E) V) func(*E, func(V) bool) bool {
+	return func(e *E, in func(V) bool) bool { return in(extract(e)) }
 }
 
 // LookupIndex is an in-memory exact-match secondary index on a field of type V
@@ -227,10 +228,10 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, holdsValue(l.extract), values)
 }
 
-// SortedIndex is an ordered in-memory index on a field of type V extracted from entries
-// of type E. V is constrained to cmp.Ordered so the index can compare values without a
-// caller-supplied comparator. SortedIndex supports exact-match lookups via Filter (same
-// semantics as LookupIndex) and ordered cursor-based pagination via Retrieve.OrderBy.
+// SortedIndex is an ordered in-memory index on a value of type V extracted from entries
+// of type E. Entries order by value, then by key, so every walk has one total order.
+// SortedIndex supports exact-match lookups via Filter (same semantics as LookupIndex)
+// and ordered cursor-based pagination via Retrieve.OrderBy.
 //
 // Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor iteration via
 // Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that staged
@@ -253,7 +254,7 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	return &SortedIndex[K, E, V]{
 		name:    name,
 		extract: extract,
-		store:   index.NewSorted[*txState, K, V](),
+		store:   index.NewSorted[*txState, K, V](key.Order[K]()),
 	}
 }
 

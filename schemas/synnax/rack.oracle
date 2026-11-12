@@ -11,6 +11,7 @@ import "schemas/synnax/group"
 import "schemas/synnax/role"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
@@ -29,7 +30,15 @@ Key uint32 {
     @key
 }
 
-Status = status.Status<nil> {
+StatusDetails struct {
+    running bool = false {
+        @doc value "is true when the status comes from a running Driver."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails> {
     @doc value "is rack-specific status information including operational state."
 }
 
@@ -42,6 +51,7 @@ Rack struct {
     name         string     {
         @doc value         "is a human-readable name for the rack."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -70,6 +80,8 @@ Rack struct {
     group        group.Key? {
         @cpp omit
         @doc value     "is the group the rack sits in, if any."
+        @group pinned
+        @group scope   device
         @ref kind      place
         @ref on_delete detach
     }
@@ -80,6 +92,23 @@ Rack struct {
         @ref kind      use
         @ref on_delete restrict
     }
+
+    action Create {
+        rack Rack
+
+        @doc value """
+            replaces the rack with the given created state. Emitted by the Core when a
+            rack is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @cpp includes    "client/cpp/task/task.h"
     @cpp methods     "task::Client tasks"

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -115,22 +115,19 @@ describe("Task", async () => {
     });
   });
   describe("update", () => {
-    it("should update a task if the key is provided", async () => {
+    it("should refuse a task whose key exists and keep the stored task", async () => {
       const m = await testRack.createTask({
         name: "test",
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different
-      // input/output types
+      // Exclude status, internal, snapshot - these have different input/output types
       const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
-      const updated = await client.tasks.create({
-        ...taskFields,
-        name: "updated",
-      });
-      expect(updated.name).toBe("updated");
-      const retrieved = await client.tasks.retrieve(m.key);
-      expect(retrieved.name).toBe("updated");
+      const create = client.tasks.create({ ...taskFields, name: "updated" });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`task ${m.key} already exists`);
+      const retrieved = await createTestClient().tasks.retrieve(m.key);
+      expect(retrieved.name).toBe("test");
     });
   });
   describe("rename", () => {
@@ -150,10 +147,12 @@ describe("Task", async () => {
       await responded;
       const name = `task-renamed-${id.create()}`;
       await client.tasks.rename(m.key, name);
-      await expect.poll(() => expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      await expect
+        .poll(() => expectLive(local.tasks.watch(m.key).getCached()).name)
+        .toBe(name);
       release();
       await fetching;
-      expect(expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      expect(expectLive(local.tasks.watch(m.key).getCached()).name).toBe(name);
     });
     it("should rename a task and keep its config", async () => {
       const m = await testRack.createTask({
@@ -462,11 +461,10 @@ describe("Task", async () => {
         expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
-      it("should support pagination with limit and offset", async () => {
+      it("should page with a limit and a cursor", async () => {
         const firstPage = await client.tasks.retrieve({
           rack: testRack.key,
           limit: 2,
-          offset: 0,
         });
         expect(firstPage.length).toBeLessThanOrEqual(2);
 
@@ -474,7 +472,7 @@ describe("Task", async () => {
           const secondPage = await client.tasks.retrieve({
             rack: testRack.key,
             limit: 2,
-            offset: 2,
+            after: { key: firstPage[1].key },
           });
 
           const firstPageKeys = firstPage.map((t) => t.key);
@@ -529,7 +527,7 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
       });
 
-      it("should handle limit without offset", async () => {
+      it("should handle a limit", async () => {
         const result = await client.tasks.retrieve({
           limit: 1,
         });
@@ -593,33 +591,6 @@ describe("Task", async () => {
         expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
         expect(result.every((t) => t.snapshot === false)).toBe(true);
       });
-    });
-  });
-
-  describe("list", () => {
-    it("should list all tasks excluding internal tasks", async () => {
-      const tasks = await client.tasks.list();
-      expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks.every((t) => t.internal === false)).toBe(true);
-    });
-
-    it("should list tasks on a specific rack", async () => {
-      const task1 = await testRack.createTask({
-        name: `list-test-${Date.now()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const tasks = await client.tasks.list(testRack.key);
-      expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
-    });
-
-    it("should exclude internal tasks by default", async () => {
-      const allTasks = await client.tasks.list();
-      const internalTasks = await client.tasks.retrieve({ internal: true });
-      const allTaskKeys = allTasks.map((t) => t.key);
-      const internalTaskKeys = internalTasks.map((t) => t.key);
-      expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
     });
   });
 
@@ -729,7 +700,7 @@ describe("Task", async () => {
       expect(
         await client.tasks.dispatch(
           t.key,
-          task.set({ path: ["config", "performance"], value: "" }),
+          task.remove({ path: ["config"], key: "performance" }),
         ),
       ).toBe(true);
       await client.tasks.settled(t.key);
@@ -776,9 +747,11 @@ describe("Task", async () => {
       ]);
       expect(stored.configHash).not.toBe(t.configHash);
       await expect
-        .poll(() => expectLive(client.tasks.getCached(t.key)).configHash)
+        .poll(() => expectLive(client.tasks.watch(t.key).getCached()).configHash)
         .toBe(stored.configHash);
-      expect(expectLive(client.tasks.getCached(t.key)).config).toEqual(stored.config);
+      expect(expectLive(client.tasks.watch(t.key).getCached()).config).toEqual(
+        stored.config,
+      );
     });
   });
 
@@ -1192,6 +1165,7 @@ describe("Task", async () => {
     key: number,
     variant: status.Variant,
     message: string,
+    running: boolean = variant === "success",
   ) => {
     await client.statuses.set({
       owner: rack.resourceID(key),
@@ -1199,6 +1173,7 @@ describe("Task", async () => {
       variant,
       message,
       time: TimeStamp.now(),
+      details: { running },
     });
   };
 
@@ -1214,6 +1189,7 @@ describe("Task", async () => {
       variant: "success",
       message,
       time: TimeStamp.now(),
+      details: { running: true },
     });
     await expect
       .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
@@ -1252,7 +1228,7 @@ describe("Task", async () => {
         message: "Driver not running",
         description: "The Core has not heard from the Driver.",
         time: TimeStamp.now(),
-        details: { rack: key },
+        details: { running: false },
       });
 
     it("should end the wait when the Driver of the task goes down", async () => {
@@ -1324,35 +1300,128 @@ describe("Task", async () => {
       await ended;
     });
 
-    it("should keep waiting through a healthy status of the rack", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
-      const t = await alive.createTask({
-        name: `alive-${id.create()}`,
+    it.each(["success", "warning"] as const)(
+      "should keep waiting through a %s status from a running Driver",
+      async (variant) => {
+        const alive = await client.racks.create({ name: `alive-${id.create()}` });
+        const t = await alive.createTask({
+          name: `alive-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => streamer.close());
+        const wait = t.executeCommandSync({
+          type: "scan",
+          timeout: TimeSpan.minutes(1),
+        });
+        const cmd = await readCommand(streamer, t.key);
+        await writer.statuses.set({
+          owner: rack.resourceID(alive.key),
+          name: "Rack Status",
+          variant,
+          message: "Driver is running",
+          time: TimeStamp.now(),
+          details: { running: true },
+        });
+        const reply = {
+          owner: task.resourceID(t.key),
+          name: t.name,
+          variant: "success" as const,
+          message: "Scan complete",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: true,
+            cmd: cmd.key,
+            configHash: "",
+            rack: alive.key,
+            data: {},
+          },
+        };
+        await writer.statuses.set(reply);
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+      },
+    );
+
+    const setReply = async (
+      t: task.Task,
+      cmd: task.Command,
+      variant: "loading" | "success",
+      message: string,
+    ): Promise<void> => {
+      await writer.statuses.set({
+        owner: task.resourceID(t.key),
+        name: t.name,
+        variant,
+        message,
+        description: "",
+        time: TimeStamp.now(),
+        details: {
+          running: variant === "success",
+          cmd: cmd.key,
+          configHash: "",
+          rack: testRack.key,
+          data: {},
+        },
+      });
+    };
+
+    it("should wait past the timeout for the final status after a loading reply", async () => {
+      const t = await testRack.createTask({
+        name: `slow-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
-      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const timeout = TimeSpan.milliseconds(500);
+      const wait = t.executeCommandSync({ type: "start", timeout });
       const cmd = await readCommand(streamer, t.key);
-      await setRackStatus(alive.key, "success", "Driver is running");
-      const reply = {
-        owner: task.resourceID(t.key),
-        name: t.name,
-        variant: "success" as const,
-        message: "Scan complete",
-        description: "",
-        time: TimeStamp.now(),
-        details: {
-          running: true,
-          cmd: cmd.key,
-          configHash: "",
-          rack: alive.key,
-          data: {},
-        },
+      await setReply(t, cmd, "loading", "Starting task");
+      await sleep.sleep(timeout.mult(2));
+      await setReply(t, cmd, "success", "Started task");
+      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+    });
+
+    it("should give up two minutes after a loading reply with no final status", async () => {
+      const t = await testRack.createTask({
+        name: `lost-start-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({
+        type: "start",
+        timeout: TimeSpan.minutes(1),
+      });
+      let settled = false;
+      const markSettled = (): void => {
+        settled = true;
       };
-      await writer.statuses.set(reply);
-      expect(await wait).toMatchObject({ message: "Scan complete" });
+      wait.then(markSettled, markSettled);
+      const cmd = await readCommand(streamer, t.key);
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldClearNativeTimers: true,
+      });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      await setReply(t, cmd, "loading", "Starting task");
+      await expect
+        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
+        .toBe("Starting task");
+      // The wait gets the reply at about the time the store does. Steps shorter than
+      // the 1 minute acknowledgment limit cover the gap.
+      await vi.waitFor(async () => {
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
+        expect(settled).toBe(true);
+      });
+      await expect(wait).rejects.toThrow(
+        new Error(`Command to ${t.name} timed out after 2min`),
+      );
     });
   });
 
@@ -1364,7 +1433,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = client.tasks.onChange(params, vi.fn());
+      const off = client.tasks.watch(params).onChange(vi.fn());
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
@@ -1377,7 +1446,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.message;
           })
@@ -1393,10 +1462,10 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const params = { where: { key: { in: [t.key] } } };
-      const off = client.tasks.onChange(params, vi.fn());
+      const list = client.tasks.watch({ where: { key: { in: [t.key] } } });
+      const off = list.onChange(vi.fn());
       try {
-        await client.tasks.retrieve(params);
+        await list.retrieve();
         await client.statuses.set({
           owner: task.resourceID(t.key),
           name: "Task Status",
@@ -1407,9 +1476,8 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.status?.message;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.status?.message;
           })
           .toBe("task degraded");
       } finally {
@@ -1427,7 +1495,7 @@ describe("Task", async () => {
       // The optimistic status is transient: a real one from the cluster replaces it, so
       // it has to be captured as it is delivered rather than read back later.
       const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
+      const off = client.tasks.watch(params).onChange((cached) => {
         if (!query.isLive(cached)) return;
         const { status } = cached;
         if (status?.variant === "loading") loading.push(status);
@@ -1450,7 +1518,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.details.configHash;
           })
@@ -1530,6 +1598,33 @@ describe("Task", async () => {
           variant: "warning",
           message: "no Driver here",
           details: { running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("sends a loading status for a rack whose running Driver warns", async () => {
+      const warned = await client.racks.create({ name: `warned-${id.create()}` });
+      const t = await warned.createTask({
+        name: `warned-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(warned.key, "warning", "Driver is degraded", true);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant !== "disabled")
+          seeWrite(event.value);
+      }, key);
+      try {
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          variant: "loading",
+          message: "Sending start command",
         });
       } finally {
         off();
@@ -1628,6 +1723,7 @@ describe("Task", async () => {
           description: "",
           time: TimeStamp.now(),
           labels: [],
+          details: { running: false },
         };
         const reply: task.Status = {
           key,
@@ -1915,6 +2011,116 @@ describe("Task", async () => {
       }
     });
 
+    it("stands the rack's problem in after the Driver acknowledges a start", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `acknowledged-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          owner: task.resourceID(t.key),
+          labels: [],
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          message: "Starting task",
+        });
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.store.get(key)?.message)
+          .toBe("no Driver here");
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("stops standing the rack's problem in two minutes after a loading reply", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `lost-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          owner: task.resourceID(t.key),
+          labels: [],
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(TimeSpan.minutes(2).milliseconds);
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.ownedBy(rack.resourceID(dying.key))?.message)
+          .toBe("no Driver here");
+        expect(client.statuses.store.get(key)?.message).toBe("Starting task");
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
     it("keeps a status that streams in during a fetch, whatever its time", async () => {
       const t = await testRack.createTask({
         name: `fence-${id.create()}`,
@@ -1959,7 +2165,7 @@ describe("Task", async () => {
       });
     });
 
-    it("applies another client's overwrite to a cached task", async () => {
+    it("applies another client's config set to a cached task", async () => {
       const t = await testRack.createTask({
         name: `set-config-${id.create()}`,
         config: { routingKey: "dog" },
@@ -1970,18 +2176,23 @@ describe("Task", async () => {
       // before its stream goes live is never seen.
       await waitForStreamLive(remote.connection);
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         expect((await remote.tasks.retrieve(params)).config).toMatchObject({
           routingKey: "dog",
         });
-        await client.tasks.create({
-          ...t.payload,
-          config: { ...(t.payload.config as object), routingKey: "cat" },
-        });
+        expect(
+          await client.tasks.dispatch(
+            t.key,
+            task.set({
+              path: ["config"],
+              value: { ...(t.payload.config as object), routingKey: "cat" },
+            }),
+          ),
+        ).toBe(true);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.config : undefined;
           })
           .toMatchObject({ routingKey: "cat" });
@@ -1999,7 +2210,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         expect(
@@ -2011,7 +2222,7 @@ describe("Task", async () => {
         const stored = await createTestClient().tasks.retrieve(t.key);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return { config: cached.config, configHash: cached.configHash };
           })
@@ -2031,16 +2242,20 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      const params = { where: { rack: { eq: dest.key } } };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const list = remote.tasks.watch({ where: { rack: { eq: dest.key } } });
+      const off = list.onChange(vi.fn());
       try {
-        expect(await remote.tasks.retrieve(params)).toHaveLength(0);
-        await client.tasks.create({ ...t.payload, rack: dest.key });
+        expect((await list.retrieve()).records).toHaveLength(0);
+        expect(
+          await client.tasks.dispatch(
+            t.key,
+            task.set({ path: ["rack"], value: dest.key }),
+          ),
+        ).toBe(true);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.config;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.config;
           })
           .toMatchObject({ routingKey: "dog" });
       } finally {
@@ -2075,26 +2290,23 @@ describe("Task", async () => {
       );
       await waitForStreamLive(remote.connection);
       const params = { key: readable.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         const fetches = recordResponses(remote, "/task/retrieve");
-        await client.tasks.create({
-          ...denied.payload,
-          name: `${denied.name}-renamed`,
-        });
+        await client.tasks.rename(denied.key, `${denied.name}-renamed`);
         // Both changes stream on one channel, so the readable rename lands last.
         const name = `set-readable-renamed-${id.create()}`;
-        await client.tasks.create({ ...readable.payload, name });
+        await client.tasks.rename(readable.key, name);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.name : undefined;
           })
           .toBe(name);
         expect(fetches).toHaveLength(0);
         expect(onError).not.toHaveBeenCalled();
-        expect(remote.tasks.getCached({ key: denied.key })).toBeUndefined();
+        expect(remote.tasks.watch({ key: denied.key }).getCached()).toBeUndefined();
       } finally {
         off();
       }

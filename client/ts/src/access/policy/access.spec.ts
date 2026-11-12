@@ -104,6 +104,28 @@ describe("policy", () => {
     });
   });
 
+  describe("rename", () => {
+    it("should rename the policy", async () => {
+      const p = await createPolicy();
+      const name = `renamed-${id.create()}`;
+      await client.access.policies.rename(p.key, name);
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the policy", async () => {
+      const p = await createPolicy();
+      await client.access.policies.dispatch(
+        p.key,
+        policy.set({ path: ["actions"], value: ["retrieve", "update"] }),
+      );
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.actions).toEqual(["retrieve", "update"]);
+    });
+  });
+
   describe("access control", () => {
     it("should deny access when no matching policy exists", async () => {
       // Create a user with no policy for retrieving policies
@@ -237,7 +259,7 @@ describe("cached reads", () => {
       const first = await client.access.policies.retrieve(p.key);
       expect(first.name).toEqual(p.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.policies.create({ ...p, name: renamed });
+      await remote.access.policies.rename(p.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -257,7 +279,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const p = await createPolicy();
-      const cached = expectLive(client.access.policies.getCached(p.key));
+      const cached = expectLive(client.access.policies.watch(p.key).getCached());
       expect(cached.name).toEqual(p.name);
     });
   });
@@ -266,14 +288,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const p = await createPolicy();
       const handler = vi.fn();
-      const off = client.access.policies.onChange(p.key, handler);
+      const off = client.access.policies.watch(p.key).onChange(handler);
       try {
         await client.access.policies.retrieve(p.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.policies.create({ ...p, name: renamed });
+        await remote.access.policies.rename(p.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.access.policies.getCached(p.key);
+            const cached = client.access.policies.watch(p.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -292,20 +314,13 @@ describe("cached reads", () => {
         role: empty.key,
       });
       const subject = user.resourceID(u.key);
-      const off = client.access.policies.onChange(
-        { where: { subjects: [subject] } },
-        () => {},
-      );
+      const list = client.access.policies.watch({ where: { subjects: [subject] } });
+      const off = list.onChange(() => {});
       try {
-        expect(await client.access.policies.retrieve({ subjects: [subject] })).toEqual(
-          [],
-        );
+        expect((await list.retrieve()).records).toEqual([]);
         await remote.users.setRole(u.key, owner.key);
         await expect
-          .poll(() => {
-            const cached = client.access.policies.getCached({ subjects: [subject] });
-            return query.isLive(cached) && cached.some(({ key }) => key === p.key);
-          })
+          .poll(() => list.getCached()?.records.some(({ key }) => key === p.key))
           .toBe(true);
       } finally {
         off();
@@ -315,12 +330,14 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const p = await createPolicy();
       const results: Array<query.Cached<policy.Policy> | undefined> = [];
-      const off = client.access.policies.onChange(p.key, (r) => results.push(r));
+      const off = client.access.policies.watch(p.key).onChange((r) => results.push(r));
       try {
         await client.access.policies.retrieve(p.key);
         await remote.access.policies.delete(p.key);
         await expect
-          .poll(() => query.Deleted.matches(client.access.policies.getCached(p.key)))
+          .poll(() =>
+            query.Deleted.matches(client.access.policies.watch(p.key).getCached()),
+          )
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(p.name);
