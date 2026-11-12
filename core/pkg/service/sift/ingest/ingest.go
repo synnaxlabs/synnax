@@ -439,6 +439,7 @@ func (e *Engine) retry(
 				engine: e,
 				sender: sender{
 					client:  e.ingest,
+					ctx:     ctx,
 					timeout: e.cfg.ConfirmTimeout.Duration(),
 				},
 				configID:  id,
@@ -589,7 +590,7 @@ func (a *attempt) encode(
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return a.sender.send(ctx, req)
+		return a.sender.send(req)
 	})
 	for i, ts := range last {
 		if ts > a.value(f, f.channels[i]) {

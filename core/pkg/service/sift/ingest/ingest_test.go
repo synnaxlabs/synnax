@@ -883,6 +883,45 @@ var _ = Describe("Engine", func() {
 					Consistently(points(ch.Name)).Should(HaveLen(2))
 					Expect(stop()).To(Succeed())
 				})
+
+			It("Should stop within the confirm timeout when Sift stops reading the "+
+				"values of a channel written without its index", func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					CheckpointInterval: 500 * telem.Millisecond,
+					ConfirmTimeout:     100 * telem.Millisecond,
+				})
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				live()
+				// The index alone sends nothing, so no stream is open at the stop.
+				write(ctx, idx, stamps, nil)
+				keys := channel.Keys{ch.Key()}
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: stamps[0],
+				}))
+				Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeries(make([]float64, count)),
+				})))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				server.Pause()
+				DeferCleanup(server.Resume)
+				// Gives the engine time to receive the values of ch.
+				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(
+					WithTransform(status.Code, Equal(codes.Canceled)),
+				))
+				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+			})
 		})
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
