@@ -103,15 +103,15 @@ const warnUnverified = (message: string): void => {
   console.warn(`${styleText(["yellow", "bold"], "unverified")} ${message}`);
 };
 
-// A broken external link in a run that is not strict. The pull request shows it at its
-// source line, and the run passes.
-let broken = 0;
+// On a runner, the pull request shows a warning at its source line.
 const warn = (message: string, at: Source | null): void => {
-  broken += 1;
-  if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
   if (WORKSPACE != null) console.log(warning(message, at, WORKSPACE));
   else console.warn(`${styleText(["yellow", "bold"], "warning")} ${message}`);
 };
+
+// The broken external links of a run that is not strict. They print after the checks,
+// behind their total, because GitHub shows only the first 10 warnings of a step.
+const broken: { message: string; at: Source | null }[] = [];
 
 // In-place counter for a finish hook; a newline finishes the line so the next output
 // starts fresh. CI logs skip it.
@@ -148,7 +148,7 @@ try {
       warnings += 1;
       warnUnverified(message);
     }),
-    warn,
+    warn: (message, at) => broken.push({ message, at }),
   };
   console.log(styleText("dim", `crawling ${routes.length} routes...`));
   const { pages, failures } = await crawlPages(baseURL, routes);
@@ -165,10 +165,10 @@ try {
     console.warn(
       styleText("yellow", `${warnings} external links could not be verified`),
     );
-  if (broken > 0)
-    console.warn(
-      styleText("yellow", `${broken} broken external links fail only a strict run`),
-    );
+  if (broken.length > 0) {
+    warn(`${broken.length} broken external links fail only a strict run`, null);
+    for (const { message, at } of broken) warn(message, at);
+  }
   if (counts.size > 0) {
     const totals = [...counts].map(([check, n]) => `${check}: ${n}`).join(", ");
     console.error(styleText(["red", "bold"], `failures — ${totals}`));

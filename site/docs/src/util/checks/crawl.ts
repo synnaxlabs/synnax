@@ -88,6 +88,8 @@ export interface Ref {
   source: string;
   base: string;
   href: string;
+  /** Where a nav definition holds the link. Null for a link of a rendered page. */
+  at: Source | null;
 }
 
 /**
@@ -99,11 +101,15 @@ export const navRefs = (): Ref[] =>
     .filter((f) => f.endsWith("_nav.ts"))
     .flatMap((f) => {
       const text = fs.readFileSync(path.join(PAGES_DIR, f), "utf8");
-      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => ({
-        source: `src/pages/${f}:${text.slice(0, m.index).split("\n").length}`,
-        base: "/",
-        href: m[1],
-      }));
+      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => {
+        const line = text.slice(0, m.index).split("\n").length;
+        return {
+          source: `src/pages/${f}:${line}`,
+          base: "/",
+          href: m[1],
+          at: { file: path.join(PAGES_DIR, f), line },
+        };
+      });
     });
 
 export interface CrawlResult {

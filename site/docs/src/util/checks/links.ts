@@ -104,7 +104,7 @@ export const links = (fullCrawl: boolean, strict: boolean): Check => {
       ids.set(normalizeRoute(route), new Set(idValues(html)));
       for (const href of attrValues(html, "a", "href")) {
         anchors += 1;
-        collect({ source: route, base: route, href });
+        collect({ source: route, base: route, href, at: null });
       }
       return [];
     },
@@ -126,7 +126,7 @@ export const links = (fullCrawl: boolean, strict: boolean): Check => {
             report(message);
             return;
           }
-          ctx.warn(message, fromPage ? locateSource(ref.source, ref.href) : null);
+          ctx.warn(message, fromPage ? locateSource(ref.source, ref.href) : ref.at);
         }),
       );
     },
