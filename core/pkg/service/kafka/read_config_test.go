@@ -153,6 +153,38 @@ var _ = Describe("ReadConfig", func() {
 			)))
 		})
 
+		It("Should reject an entry that the data type of a new channel cannot hold",
+			func(ctx SpecContext) {
+				Expect(prepare(ctx, configOf(map[string]any{
+					"key":       "f",
+					"type":      "integer",
+					"data_type": "int8",
+					"enum_values": []any{
+						map[string]any{"label": "BIG", "value": "300"},
+					},
+				}))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("records.0.fields.0.enum_values.0.value"),
+					),
+				))
+			},
+		)
+
+		It("Should reject a fill that the data type of a new channel cannot hold",
+			func(ctx SpecContext) {
+				Expect(prepare(ctx, configOf(map[string]any{
+					"key":       "f",
+					"type":      "unsigned",
+					"data_type": "uint8",
+					"fill":      "300",
+				}))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("records.0.fields.0.fill")),
+				))
+			},
+		)
+
 		It("Should save a draft bytes field with no pointer", func(ctx SpecContext) {
 			Expect(prepare(ctx, configOf(
 				map[string]any{"key": "raw", "type": "bytes"},

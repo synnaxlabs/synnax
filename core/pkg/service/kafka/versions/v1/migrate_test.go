@@ -71,11 +71,12 @@ var _ = Describe("MigrateReadField", func() {
 				EnumValues:    []payload.FloatEntry{{Label: "HALF", Value: 0.5}},
 			},
 		),
-		Entry("integer, dropping a fraction",
+		Entry("integer, dropping a fraction and a value past the data type",
 			oldField(
 				telem.Int16T,
 				payload.EnumEntry{Label: "LOW", Value: -1},
 				payload.EnumEntry{Label: "HALF", Value: 0.5},
+				payload.EnumEntry{Label: "BIG", Value: 40000},
 			),
 			v1.IntegerReadField{
 				BaseReadField: base,
@@ -143,9 +144,14 @@ var _ = Describe("MigrateReadField", func() {
 		},
 	)
 
-	It("Should reject a field of an unknown data type", func(ctx SpecContext) {
-		Expect(v1.MigrateReadField(ctx, oldField("float128"))).Error().
-			To(MatchError(ContainSubstring(`unknown data type "float128"`)))
+	It("Should lift a field of an unknown data type to float64", func(ctx SpecContext) {
+		Expect(MustSucceed(v1.MigrateReadField(ctx, oldField(""))).Variant).To(Equal(
+			v1.FloatReadField{
+				BaseReadField: base,
+				DataType:      new(telem.Float64T),
+				EnumValues:    []payload.FloatEntry{},
+			},
+		))
 	})
 })
 
@@ -192,7 +198,7 @@ var _ = Describe("NewReadMigration", func() {
 		}))
 		Expect(reconciled).To(Equal([]uuid.UUID{stored.Key}))
 		Expect(logs.FilterMessage(
-			"dropped Kafka read field entries that its kind cannot hold",
+			"changed a Kafka read field while lifting it to v1",
 		).Len()).To(Equal(1))
 	})
 })
