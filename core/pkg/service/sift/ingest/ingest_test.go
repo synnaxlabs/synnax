@@ -188,7 +188,7 @@ var _ = Describe("Engine", func() {
 
 		DescribeTable("Should reject a channel with a name Sift cannot take",
 			func(ctx SpecContext, longIndex bool) {
-				name := strings.Repeat("a", 256)
+				name := strings.Repeat("a", 248) + uuid.New().String()[:8]
 				idx := channel.Channel{
 					Name:     "time_" + uuid.New().String()[:8],
 					DataType: telem.TimestampT,
