@@ -78,7 +78,10 @@ func newStreamTask(
 		Task:            t,
 		Open:            st.open,
 	})
-	return st, err
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
 }
 
 func (t *streamTask) open(ctx context.Context) (func(context.Context) error, error) {
@@ -138,6 +141,13 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		return nil, err
 	}
 	runs.engine = e
+	from := fromPositions(p.positions())
+	for _, index := range e.Indexes() {
+		if _, ok := from[index]; !ok {
+			from[index] = start
+		}
+	}
+	p.begin(ctx, from)
 	return func(ctx context.Context) error {
 		defer closeConn()
 		sCtx, cancel := signal.WithCancel(
@@ -150,12 +160,6 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 			defer disconnect()
 			runs.signal()
 			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic())
-		}
-		from := fromPositions(p.positions())
-		for _, index := range e.Indexes() {
-			if _, ok := from[index]; !ok {
-				from[index] = start
-			}
 		}
 		sCtx.Go(func(ctx context.Context) error {
 			return e.Stream(ctx, from)
@@ -224,6 +228,15 @@ func (p *progress) through() (sent, runs telem.TimeStamp) {
 	return p.sent, p.status.Details.RunsThrough
 }
 
+// begin saves the positions the task starts from, so that a restart before the first
+// checkpoint starts there too.
+func (p *progress) begin(ctx context.Context, from ingest.Positions) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status.Details.Positions = toPositions(from)
+	p.write(ctx)
+}
+
 func (p *progress) advance(ctx context.Context, cp ingest.Checkpoint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -269,7 +282,10 @@ type runSync struct {
 	engine   *ingest.Engine
 	progress *progress
 	wake     chan struct{}
-	mu       sync.Mutex
+	// synced is set once a sync succeeds. Until then, every sync checks the run of each
+	// ended range, since a range can change while the task is stopped.
+	synced bool
+	mu     sync.Mutex
 	// changed holds the ranges that changed since the last sync. It is guarded by mu.
 	changed set.Set[ranger.Key]
 }
@@ -326,7 +342,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	}
 	for _, rng := range ranges {
 		end := rng.TimeRange.End
-		if end > sent || (end <= since && !changed.Contains(rng.Key)) {
+		if end > sent || (r.synced && end <= since && !changed.Contains(rng.Key)) {
 			continue
 		}
 		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
@@ -345,6 +361,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	if sent > since {
 		r.progress.setRunsThrough(ctx, sent)
 	}
+	r.synced = true
 	return nil
 }
 
