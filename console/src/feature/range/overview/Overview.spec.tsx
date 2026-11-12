@@ -147,7 +147,7 @@ describe("range/overview", () => {
       await screen.findByDisplayValue("ada");
       fireEvent.click(screen.getByRole("button", { name: "Remove" }));
       await waitFor(() => expect(screen.queryByDisplayValue("ada")).toBeNull());
-      expect(await rng.kv.list()).toEqual({});
+      await waitFor(async () => expect(await rng.kv.list()).toEqual({}));
     });
 
     it("should show a value that another client sets", async () => {
