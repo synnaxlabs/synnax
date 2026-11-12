@@ -154,7 +154,34 @@ var _ = Describe("Engine", func() {
 				OnCheckpoint: rec.onCheckpoint,
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("is virtual")),
+				MatchError("channel "+ch.Name+" is virtual, and the Core stores no "+
+					"data for virtual channels: validation error"),
+			))
+		})
+
+		It("Should reject a calculated channel", func(ctx SpecContext) {
+			data := createData(ctx, createIndex(ctx), telem.Float64T)
+			ch := channel.Channel{
+				Name:       "calculated_" + uuid.New().String()[:8],
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return " + data.Name + " * 2",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(ingest.New(ctx, ingest.Config{
+				DB:           db,
+				Framer:       framerSvc,
+				Channel:      channelSvc,
+				Conn:         conn,
+				Asset:        "stand",
+				Keys:         channel.Keys{ch.Key()},
+				OnCheckpoint: rec.onCheckpoint,
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("channel "+ch.Name+" is calculated, and Sift can only "+
+					"take stored channels: validation error"),
 			))
 		})
 
@@ -170,9 +197,8 @@ var _ = Describe("Engine", func() {
 				OnCheckpoint: rec.onCheckpoint,
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("at least one channel that is not an index"),
-				),
+				MatchError("select at least one channel that is not an index: "+
+					"validation error"),
 			))
 		})
 
