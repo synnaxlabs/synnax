@@ -35,6 +35,8 @@ export interface KeyValueEditorProps<
   valueFirst?: boolean;
   /** Names one entry in the add and remove buttons ("header"). */
   resourceName?: string;
+  /** Returns an added entry from the keys of the others. Defaults to an empty entry. */
+  createEntry?: (keys: string[]) => { key: string; value: V };
 }
 
 const parseBoolean = (text: string): string | null => {
@@ -50,6 +52,7 @@ export const KeyValueEditor = <K extends string, V extends string | number | boo
   valueType,
   valueFirst = false,
   resourceName,
+  createEntry,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt: "number" | "string" | "boolean" = valueType ?? "string";
@@ -88,6 +91,17 @@ export const KeyValueEditor = <K extends string, V extends string | number | boo
   fields[valueIndex] = "value";
   const cellStatus = ({ x, y }: xy.XY) =>
     statuses.find(({ key }) => key === `${String(path)}.${y}.${fields[x]}`);
+
+  const createRow =
+    createEntry == null
+      ? undefined
+      : (current: Input.TableCell[][]) => {
+          const { key, value } = createEntry(current.map((r) => String(r[keyIndex])));
+          const row: Input.TableCell[] = [];
+          row[keyIndex] = key;
+          row[valueIndex] = value;
+          return row;
+        };
 
   const handleRowsChange = (next: Input.TableCell[][]) =>
     set(
@@ -138,6 +152,7 @@ export const KeyValueEditor = <K extends string, V extends string | number | boo
         onChange={handleRowsChange}
         preview={preview}
         resourceName={resourceName}
+        createRow={createRow}
         cellStatus={cellStatus}
       >
         {columns}

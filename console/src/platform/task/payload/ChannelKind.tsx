@@ -14,7 +14,7 @@ import { type ReactElement, useEffect } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
 import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
-import { channelKinds, kindName } from "@/platform/task/payload/kinds";
+import { channelKinds, kindName } from "@/platform/task/payload/kind";
 import { TimeFormatField } from "@/platform/task/payload/TimeFormatField";
 
 /** The kind and the options of a field that writes the samples of a channel. */

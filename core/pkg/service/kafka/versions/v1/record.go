@@ -9,6 +9,10 @@
 
 package v1
 
-// CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
-// identically named config types of other integrations.
+// CustomTypeName gives ReadConfig records the table prefix of v0, so the v1 migration
+// rewrites each stored config in place.
+func (ReadConfig) CustomTypeName() string { return "kafka_read_config" }
+
+// CustomTypeName gives WriteConfig records the table prefix of v0, so the v1 migration
+// rewrites each stored config in place.
 func (WriteConfig) CustomTypeName() string { return "kafka_write_config" }

@@ -55,7 +55,7 @@ func validateProperties(props Properties) error {
 		v.Ternaryf("brokers", b == "", "broker %d must not be empty", i)
 	}
 	if props.CaCertificate != "" {
-		v.Ternary("ca_certificate", !props.TLS, "requires TLS")
+		v.Ternary("ca_certificate", !props.Secure, "requires TLS")
 		v.Ternary(
 			"ca_certificate",
 			caPool(props.CaCertificate) == nil,
@@ -90,7 +90,7 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 		return nil, err
 	}
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
-	if props.TLS {
+	if props.Secure {
 		opts = append(opts, kgo.DialTLSConfig(tlsConfig(props)))
 	}
 	switch v := props.Sasl.Variant.(type) {

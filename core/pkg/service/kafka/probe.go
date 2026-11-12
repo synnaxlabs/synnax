@@ -47,7 +47,7 @@ func testConnection(ctx context.Context, props Properties) error {
 	if err != nil {
 		return err
 	}
-	if props.TLS {
+	if props.Secure {
 		err = handshake(ctx, conn, addr, props)
 	}
 	if cErr := conn.Close(); cErr != nil && !errors.Is(cErr, net.ErrClosed) {

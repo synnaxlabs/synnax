@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DataType, kafka } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
@@ -16,7 +17,7 @@ describe("Kafka Task Types", () => {
     key: "f1",
     pointer: "/value",
     channel: 1,
-    dataType: "float64",
+    type: "float",
   };
 
   describe("READ_SCHEMAS", () => {
@@ -75,12 +76,16 @@ describe("Kafka Task Types", () => {
     it("should reject a timestamp field without a time format", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [{ ...record, fields: [{ ...field, dataType: "timestamp" }] }],
+        records: [{ ...record, fields: [{ ...field, type: "timestamp" }] }],
       });
       expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe(
-        "Time format is required for timestamps",
-      );
+      expect(result.error?.issues[0].path).toEqual([
+        "records",
+        0,
+        "fields",
+        0,
+        "timeFormat",
+      ]);
     });
 
     it("should accept a timestamp field with a time format", () => {
@@ -89,7 +94,7 @@ describe("Kafka Task Types", () => {
         records: [
           {
             ...record,
-            fields: [{ ...field, dataType: "timestamp", timeFormat: "unix_ms" }],
+            fields: [{ ...field, type: "timestamp", timeFormat: "unix_ms" }],
           },
         ],
       });
@@ -137,6 +142,41 @@ describe("Kafka Task Types", () => {
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe(message);
       expect(result.error?.issues[0].path).toEqual(["records", 1, "recordKey"]);
+    });
+  });
+
+  describe("withDataType", () => {
+    const float = kafka.floatReadFieldZ.parse({
+      ...field,
+      dataType: "float32",
+      enumValues: [{ label: "ON", value: 1 }],
+    });
+
+    it("should keep the kind and its options for a width of the same kind", () => {
+      expect(Kafka.Task.withDataType(float, "float64")).toEqual({
+        ...float,
+        dataType: DataType.FLOAT64,
+      });
+    });
+
+    it.each([
+      ["int16", { type: "integer", dataType: DataType.INT16, enumValues: [] }],
+      ["uint8", { type: "unsigned", dataType: DataType.UINT8, enumValues: [] }],
+      ["string", { type: "string", enumValues: [] }],
+      ["boolean", { type: "boolean", enumValues: [] }],
+      ["timestamp", { type: "timestamp", timeFormat: "iso8601" }],
+      ["json", { type: "json" }],
+      ["uuid", { type: "uuid" }],
+      ["bytes", { type: "bytes" }],
+    ])("should change the kind for %s and keep the shared fields", (dt, rest) => {
+      expect(Kafka.Task.withDataType(float, dt)).toEqual({
+        key: "f1",
+        disabled: false,
+        name: "",
+        channel: 1,
+        pointer: "/value",
+        ...rest,
+      });
     });
   });
 

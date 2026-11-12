@@ -136,8 +136,8 @@ var _ = Describe("Read task", func() {
 	single := func(fields []kafka.ReadField) []kafka.ReadRecord {
 		rec := kafka.ReadRecord{Key: "r", Fields: fields}
 		for _, fld := range fields {
-			if fld.Key == "ts" {
-				rec.Index = fld.Key
+			if fld.Base().Key == "ts" {
+				rec.Index = "ts"
 			}
 		}
 		return []kafka.ReadRecord{rec}
@@ -145,14 +145,14 @@ var _ = Describe("Read task", func() {
 
 	stampedFields := func(index, data channel.Channel) []kafka.ReadField {
 		return []kafka.ReadField{
-			{
-				Key:        "ts",
-				Channel:    index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: &unixNs,
-			},
-			{Key: "v", Channel: data.Key(), Pointer: "/v", DataType: telem.Float64T},
+			timestampField(
+				kafka.BaseReadField{Key: "ts", Channel: index.Key(), Pointer: "/ts"},
+				unixNs,
+			),
+			readField(
+				kafka.BaseReadField{Key: "v", Channel: data.Key(), Pointer: "/v"},
+				telem.Float64T,
+			),
 		}
 	}
 
@@ -181,12 +181,12 @@ var _ = Describe("Read task", func() {
 
 	// unstampedFields reads /v into data and no timestamp field.
 	unstampedFields := func(data channel.Channel) []kafka.ReadField {
-		return []kafka.ReadField{{
-			Key:      "v",
-			Channel:  data.Key(),
-			Pointer:  "/v",
-			DataType: telem.Float64T,
-		}}
+		return []kafka.ReadField{
+			readField(
+				kafka.BaseReadField{Key: "v", Channel: data.Key(), Pointer: "/v"},
+				telem.Float64T,
+			),
+		}
 	}
 
 	// produceAt produces a JSON record whose Kafka timestamp is ms milliseconds.
@@ -1065,8 +1065,11 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			fields := stampedFields(index, data)
-			fields[0].Pointer = "/t~1s"
-			fields[1].Pointer = "/vals/1"
+			for i, pointer := range []string{"/t~1s", "/vals/1"} {
+				base := fields[i].Base()
+				base.Pointer = pointer
+				fields[i].SetBase(base)
+			}
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -1088,7 +1091,9 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			fields := stampedFields(index, data)
-			fields[1].Pointer = "/vals/01"
+			base := fields[1].Base()
+			base.Pointer = "/vals/01"
+			fields[1].SetBase(base)
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
@@ -1111,7 +1116,7 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
+		fields[1] = readField(fields[1].Base(), telem.JSONT)
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
@@ -1145,12 +1150,14 @@ var _ = Describe("Read task", func() {
 				return channelSvc.NewWriter(tx).Create(ctx, &text)
 			})).To(Succeed())
 			fields := stampedFields(index, data)
-			fields = slices.Insert(fields, 1, kafka.ReadField{
-				Key:      "s",
-				Channel:  text.Key(),
-				Pointer:  "/s",
-				DataType: telem.StringT,
-			})
+			fields = slices.Insert(
+				fields,
+				1,
+				readField(
+					kafka.BaseReadField{Key: "s", Channel: text.Key(), Pointer: "/s"},
+					telem.StringT,
+				),
+			)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			for _, rec := range records {
@@ -1232,13 +1239,18 @@ var _ = Describe("Read task", func() {
 			return channelSvc.NewWriter(tx).Create(ctx, &inner)
 		})).To(Succeed())
 		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
-		fields = append(fields, kafka.ReadField{
-			Key:      "inner",
-			Channel:  inner.Key(),
-			Pointer:  "/v/a/b",
-			DataType: telem.Float64T,
-		})
+		fields[1] = readField(fields[1].Base(), telem.JSONT)
+		fields = append(
+			fields,
+			readField(
+				kafka.BaseReadField{
+					Key:     "inner",
+					Channel: inner.Key(),
+					Pointer: "/v/a/b",
+				},
+				telem.Float64T,
+			),
+		)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
@@ -1270,7 +1282,7 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		fields := stampedFields(index, data)
-		fields[1].DataType = dt
+		fields[1] = readField(fields[1].Base(), dt)
 		var dtask driver.Task
 		dtask, t = configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
@@ -1346,7 +1358,7 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
+		fields[1] = readField(fields[1].Base(), telem.JSONT)
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
@@ -1379,7 +1391,7 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
 
-	onOff := []payload.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+	onOff := []payload.UnsignedEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 
 	// valueFields reads the timestamp at /ts in format and the value at /v.
@@ -1387,23 +1399,22 @@ var _ = Describe("Read task", func() {
 		index, data channel.Channel,
 		dt telem.DataType,
 		format *payload.TimeFormat,
-		enums []payload.EnumEntry,
+		enums []payload.UnsignedEntry,
 	) []kafka.ReadField {
+		base := kafka.BaseReadField{Key: "v", Channel: data.Key(), Pointer: "/v"}
+		value := readField(base, dt)
+		if enums != nil {
+			value.Variant = kafka.UnsignedReadField{
+				BaseReadField: base,
+				EnumValues:    enums,
+			}
+		}
 		return []kafka.ReadField{
-			{
-				Key:        "ts",
-				Channel:    index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: format,
-			},
-			{
-				Key:        "v",
-				Channel:    data.Key(),
-				Pointer:    "/v",
-				DataType:   dt,
-				EnumValues: enums,
-			},
+			timestampField(
+				kafka.BaseReadField{Key: "ts", Channel: index.Key(), Pointer: "/ts"},
+				*format,
+			),
+			value,
 		}
 	}
 
@@ -1412,7 +1423,7 @@ var _ = Describe("Read task", func() {
 			ctx SpecContext,
 			dataType telem.DataType,
 			format payload.TimeFormat,
-			enums []payload.EnumEntry,
+			enums []payload.UnsignedEntry,
 			doc map[string]any,
 			expected telem.Series,
 		) {
@@ -1498,12 +1509,114 @@ var _ = Describe("Read task", func() {
 			To(Equal([]telem.TimeStamp{telem.TimeStamp(stamp)}))
 	})
 
+	DescribeTable("Should write the fill of a field when the value is absent",
+		func(
+			ctx SpecContext,
+			dataType telem.DataType,
+			variant func(kafka.BaseReadField) kafka.ReadFieldVariant,
+			doc map[string]any,
+			expected telem.Series,
+		) {
+			index, data := createIndexed(ctx, dataType)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			fields := valueFields(index, data, dataType, &unixNs, nil)
+			fields[1].Variant = variant(fields[1].Base())
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(fields),
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", doc)
+			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
+		},
+		Entry("a missing number",
+			telem.Float32T,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.FloatReadField{
+					BaseReadField: b,
+					Fill:          new(payload.Float(math.NaN())),
+				}
+			},
+			map[string]any{"ts": 10e9},
+			telem.NewSeriesV(float32(math.NaN())),
+		),
+		Entry("a null integer",
+			telem.Int16T,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.IntegerReadField{
+					BaseReadField: b,
+					Fill:          new(payload.Integer(-1)),
+				}
+			},
+			map[string]any{"ts": 10e9, "v": nil},
+			telem.NewSeriesV[int16](-1),
+		),
+		Entry("an empty string on an unsigned channel",
+			telem.Uint8T,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.UnsignedReadField{
+					BaseReadField: b,
+					Fill:          new(payload.Unsigned(7)),
+				}
+			},
+			map[string]any{"ts": 10e9, "v": ""},
+			telem.NewSeriesV[uint8](7),
+		),
+		Entry("no fill for an empty string that an entry labels",
+			telem.Uint8T,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.UnsignedReadField{
+					BaseReadField: b,
+					EnumValues:    []payload.UnsignedEntry{{Label: "", Value: 3}},
+					Fill:          new(payload.Unsigned(7)),
+				}
+			},
+			map[string]any{"ts": 10e9, "v": ""},
+			telem.NewSeriesV[uint8](3),
+		),
+		Entry("a missing string",
+			telem.StringT,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.StringReadField{
+					BaseReadField: b,
+					Fill:          new("none"),
+				}
+			},
+			map[string]any{"ts": 10e9},
+			telem.NewSeriesV("none"),
+		),
+		Entry("an empty string on a string channel, which is a value",
+			telem.StringT,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.StringReadField{
+					BaseReadField: b,
+					Fill:          new("none"),
+				}
+			},
+			map[string]any{"ts": 10e9, "v": ""},
+			telem.NewSeriesV(""),
+		),
+		Entry("a missing boolean",
+			telem.BooleanT,
+			func(b kafka.BaseReadField) kafka.ReadFieldVariant {
+				return kafka.BooleanReadField{
+					BaseReadField: b,
+					Fill:          new(true),
+				}
+			},
+			map[string]any{"ts": 10e9},
+			telem.NewSeriesV(true),
+		),
+	)
+
 	DescribeTable("Should skip a record whose value does not convert",
 		func(
 			ctx SpecContext,
 			dataType telem.DataType,
 			format payload.TimeFormat,
-			enums []payload.EnumEntry,
+			enums []payload.UnsignedEntry,
 			doc map[string]any,
 			msg string,
 		) {
@@ -1545,7 +1658,7 @@ var _ = Describe("Read task", func() {
 			"expected a number or boolean"),
 		Entry("a null where a number is expected",
 			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": nil}, "expected a number or boolean"),
+			map[string]any{"ts": 10e9, "v": nil}, "Record has no value at /v"),
 		Entry("a number where a string is expected",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
@@ -1612,110 +1725,179 @@ var _ = Describe("Read task", func() {
 		Entry("no enabled field",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{
-					{Key: "v", Channel: data.Key(), Disabled: true},
+					readField(
+						kafka.BaseReadField{
+							Key:      "v",
+							Channel:  data.Key(),
+							Disabled: true,
+						},
+						telem.Float64T,
+					),
 				}
 			}, "at least one"),
 		Entry("empty pointer",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{Key: "v", Channel: data.Key()},
+						telem.Float64T,
+					),
+				}
 			}, "pointer"),
+		Entry("a bytes field with no pointer",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.BytesT)
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{Key: "raw", Channel: data.Key()},
+						telem.BytesT,
+					),
+				}
+			}, `field "raw": pointer must not be empty`),
 		Entry("an enum value beyond the channel's range",
 			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
 				_, data := createIndexed(ctx, telem.Int8T)
-				return []kafka.ReadField{{
-					Key:        "v",
-					Channel:    data.Key(),
-					Pointer:    "/v",
-					DataType:   telem.Int8T,
-					EnumValues: []payload.EnumEntry{{Label: "BIG", Value: 200}},
-				}}
+				return []kafka.ReadField{{Variant: kafka.IntegerReadField{
+					BaseReadField: kafka.BaseReadField{
+						Key: "v", Channel: data.Key(), Pointer: "/v",
+					},
+					IntegerRead: payload.IntegerRead{
+						EnumValues: []payload.IntegerEntry{{Label: "BIG", Value: 200}},
+					},
+				}}}
 			}, `enum label "BIG": 200 is out of range for int8`),
-		Entry("an enum value on a string channel",
+		Entry("a fill beyond the channel's range",
 			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.StringT)
-				return []kafka.ReadField{{
-					Key:        "v",
-					Channel:    data.Key(),
-					Pointer:    "/v",
-					DataType:   telem.StringT,
-					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
-				}}
-			}, `enum label "ON": a float64 value does not convert to string`),
+				_, data := createIndexed(ctx, telem.Uint8T)
+				return []kafka.ReadField{{Variant: kafka.UnsignedReadField{
+					BaseReadField: kafka.BaseReadField{
+						Key: "v", Channel: data.Key(), Pointer: "/v",
+					},
+					UnsignedRead: payload.UnsignedRead{
+						Fill: new(payload.Unsigned(256)),
+					},
+				}}}
+			}, "fill: 256 is out of range for uint8"),
+		Entry("a fill on an index channel",
+			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
+				return []kafka.ReadField{{Variant: kafka.TimestampReadField{
+					BaseReadField: kafka.BaseReadField{
+						Key: "ts", Channel: index.Key(), Pointer: "/ts",
+					},
+					TimestampRead: payload.TimestampRead{
+						TimeFormat: payload.TimeFormatUnixNs,
+						Fill:       new(telem.SecondTS),
+					},
+				}}}
+			}, "takes no fill"),
 		Entry("a pointer without a leading slash",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "v",
-					DataType: telem.Float64T,
-				}}
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{
+							Key:     "v",
+							Channel: data.Key(),
+							Pointer: "v",
+						},
+						telem.Float64T,
+					),
+				}
 			}, `field "v": json pointer "v" must be empty or start with "/"`),
 		Entry("data type mismatch",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Int32T,
-				}}
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{
+							Key:     "v",
+							Channel: data.Key(),
+							Pointer: "/v",
+						},
+						telem.Int32T,
+					),
+				}
 			}, "does not match"),
 		Entry("timestamp without time format",
 			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "ts", Channel: index.Key(), Pointer: "/ts",
-					DataType: telem.TimestampT,
-				}}
+				return []kafka.ReadField{
+					timestampField(
+						kafka.BaseReadField{
+							Key:     "ts",
+							Channel: index.Key(),
+							Pointer: "/ts",
+						},
+						"",
+					),
+				}
 			}, "time_format"),
 		Entry("channels on different indexes",
 			func(ctx context.Context, _, data channel.Channel) []kafka.ReadField {
 				_, other := createIndexed(ctx, telem.Float64T)
 				return []kafka.ReadField{
-					{
-						Key:      "v",
-						Channel:  data.Key(),
-						Pointer:  "/v",
-						DataType: telem.Float64T,
-					},
-					{
-						Key:      "w",
-						Channel:  other.Key(),
-						Pointer:  "/w",
-						DataType: telem.Float64T,
-					},
+					readField(
+						kafka.BaseReadField{
+							Key:     "v",
+							Channel: data.Key(),
+							Pointer: "/v",
+						},
+						telem.Float64T,
+					),
+					readField(
+						kafka.BaseReadField{
+							Key:     "w",
+							Channel: other.Key(),
+							Pointer: "/w",
+						},
+						telem.Float64T,
+					),
 				}
 			}, "share one index"),
 		Entry("an index field that is disabled",
 			func(_ context.Context, index, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{
-					{
-						Key:        "ts",
-						Channel:    index.Key(),
-						Pointer:    "/ts",
-						DataType:   telem.TimestampT,
-						TimeFormat: &unixNs,
-						Disabled:   true,
-					},
-					{
-						Key:      "v",
-						Channel:  data.Key(),
-						Pointer:  "/v",
-						DataType: telem.Float64T,
-					},
+					timestampField(
+						kafka.BaseReadField{
+							Key:      "ts",
+							Channel:  index.Key(),
+							Pointer:  "/ts",
+							Disabled: true,
+						},
+						unixNs,
+					),
+					readField(
+						kafka.BaseReadField{
+							Key:     "v",
+							Channel: data.Key(),
+							Pointer: "/v",
+						},
+						telem.Float64T,
+					),
 				}
 			}, "not an enabled field"),
 		Entry("an index field on a data channel",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "ts", Channel: data.Key(), Pointer: "/v",
-					DataType: telem.Float64T,
-				}}
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{
+							Key:     "ts",
+							Channel: data.Key(),
+							Pointer: "/v",
+						},
+						telem.Float64T,
+					),
+				}
 			}, "only the record's index field"),
 		Entry("a data field on an index channel",
 			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "t", Channel: index.Key(), Pointer: "/t",
-					DataType: telem.TimestampT, TimeFormat: &unixNs,
-				}}
+				return []kafka.ReadField{
+					timestampField(
+						kafka.BaseReadField{
+							Key:     "t",
+							Channel: index.Key(),
+							Pointer: "/t",
+						},
+						unixNs,
+					),
+				}
 			}, "only the record's index field"),
 	)
 
@@ -1732,10 +1914,16 @@ var _ = Describe("Read task", func() {
 			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			field := func(key string, ch channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: key, Channel: ch.Key(), Pointer: "/" + key,
-					DataType: telem.Float64T,
-				}}
+				return []kafka.ReadField{
+					readField(
+						kafka.BaseReadField{
+							Key:     key,
+							Channel: ch.Key(),
+							Pointer: "/" + key,
+						},
+						telem.Float64T,
+					),
+				}
 			}
 			cfg := kafka.ReadConfig{
 				Device: dev.Key,

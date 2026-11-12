@@ -14,17 +14,24 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 )
 
-func autoMigrateReadConfig(_ context.Context, old v0.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, error) {
+	records, err := lo.MapErr(old.Records, func(v v0.ReadRecord, _ int) (ReadRecord, error) {
+		return MigrateReadRecord(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		PersistConfig: old.PersistConfig,
 		Device:        old.Device,
 		Topic:         old.Topic,
 		Group:         old.Group,
 		StartOffset:   old.StartOffset,
-		Records:       old.Records,
+		Records:       records,
 	}, nil
 }
 
@@ -39,6 +46,14 @@ func autoMigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfi
 		Topic:       old.Topic,
 		RecordKey:   old.RecordKey,
 		Record:      record,
+	}, nil
+}
+
+func autoMigrateReadRecord(_ context.Context, old v0.ReadRecord) (ReadRecord, error) {
+	return ReadRecord{
+		Key:       old.Key,
+		RecordKey: old.RecordKey,
+		Index:     old.Index,
 	}, nil
 }
 
