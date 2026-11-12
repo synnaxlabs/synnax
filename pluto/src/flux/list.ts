@@ -108,7 +108,7 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
   search: (term: string) => void;
   /**
    * The search term that data answers. It trails the term given to search until the
-   * list reads that term.
+   * list reads that term. Empty while the list has no answer.
    */
   searchTerm: string;
 };
@@ -184,7 +184,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // Set only while a new query shows the last answer.
   const shown = list == null || current != null ? undefined : last;
   const window = current ?? shown?.window;
-  const searchTerm = shown?.searchTerm ?? term;
+  const searchTerm = window == null ? "" : (shown?.searchTerm ?? term);
   const reading = useRef<object | null>(null);
 
   const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {

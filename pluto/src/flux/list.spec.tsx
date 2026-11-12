@@ -356,6 +356,26 @@ describe("useList", () => {
     expect(result.current.searchTerm).toEqual(name);
   });
 
+  it("should report no search term before its first answer", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await waitForIndex(name);
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    act(() => result.current.search(name));
+    await responded;
+    expect(result.current.answered).toBe(false);
+    expect(result.current.searchTerm).toEqual("");
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+    expect(result.current.searchTerm).toEqual(name);
+  });
+
   it("should hide the records the filter rejects", async () => {
     await create("a");
     const b = await create("b");
@@ -445,6 +465,7 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.variant).toEqual("error"));
     expect(result.current.data).toEqual([]);
     expect(result.current.answered).toBe(false);
+    expect(result.current.searchTerm).toEqual("");
     act(() => result.current.more());
     expect(result.current.variant).toEqual("loading");
     expect(result.current.data).toEqual([]);
