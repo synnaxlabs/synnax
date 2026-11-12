@@ -120,15 +120,10 @@ export const deployReadConfigZ = labjack.readConfigZ
   })
   .check(Task.validateStreamRate);
 
-const readStatusDataZ = z
-  .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .nullish()
-  .optional();
-
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
   config: readConfigZ,
-  statusData: readStatusDataZ,
+  statusData: Task.fieldErrorsZ.nullish(),
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;

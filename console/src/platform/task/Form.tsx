@@ -21,8 +21,8 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
-import { type FC, useRef } from "react";
+import { caseconv, deep, narrow, primitive } from "@synnaxlabs/x";
+import { type FC, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -31,7 +31,8 @@ import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
-import { formPath } from "@/platform/task/types";
+import { fieldErrorsZ, formPath } from "@/platform/task/types";
+import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -111,6 +112,50 @@ const Header = () => (
   </>
 );
 
+const CLEARED: Status.Crude = { variant: "success", message: "" };
+
+/**
+ * Shows each field error of the task status on its config field. Each new status
+ * replaces the errors of the last one, and leaves a status that replaced one alone. The
+ * Driver names a field by its snake_case config path, with list indexes.
+ *
+ * @returns a function that clears the errors.
+ */
+const useFieldErrors = <Z extends z.ZodType>(
+  form: PForm.ContextValue<Z>,
+  configZ: z.ZodType,
+): (() => void) => {
+  const status = useStatus(form);
+  const shown = useRef<{ target: deep.Target<unknown>; message: string }[]>([]);
+  const clear = () => {
+    shown.current.forEach(({ target, message }) => {
+      const state = form.get(target, { optional: true });
+      if (state == null || state.status.message === message)
+        form.setStatus(target, CLEARED);
+    });
+    shown.current = [];
+  };
+  useEffect(() => {
+    clear();
+    const data = status?.details.data;
+    if (!narrow.isObject(data) || !("errors" in data)) return;
+    const values = form.value();
+    fieldErrorsZ.parse(data).errors.forEach(({ path, message }) => {
+      const converted = caseconv.snakeToCamelPath(path.split(deep.SEPARATOR), {
+        schema: configZ,
+      });
+      const raw = [String(formPath.config), ...converted.path].join(deep.SEPARATOR);
+      const target = deep
+        .resolvePath(raw, values)
+        .split(deep.SEPARATOR)
+        .reduce<deep.Path<unknown>>((p, part) => p[part], deep.path<unknown>());
+      form.setStatus(target, { variant: "error", message });
+      shown.current.push({ target, message });
+    });
+  }, [status, form, configZ, clear]);
+  return clear;
+};
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -127,6 +172,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
     const { form, flush } = useForm({ query: { key: taskKey } });
+    const clearFieldErrors = useFieldErrors<PTask.FormSchema<S>>(form, schemas.config);
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
@@ -137,6 +183,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
+        // A start replaces the field errors of the last one.
+        clearFieldErrors();
         if (canEdit) {
           if (!(await flush())) return;
           if (!deployChecked.current) {

@@ -294,16 +294,12 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
   })
   .check(Task.validateStreamRate);
 
-const analogReadStatusDataZ = z
-  .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .nullish();
-
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 
 export const ANALOG_READ_SCHEMAS = {
   type: z.literal(ANALOG_READ_TYPE),
   config: analogReadConfigZ,
-  statusData: analogReadStatusDataZ,
+  statusData: Task.fieldErrorsZ.nullish(),
 } as const satisfies task.Schemas;
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;

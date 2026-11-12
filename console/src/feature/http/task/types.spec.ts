@@ -126,8 +126,10 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
-    it("should validate statusData as running/message object", () => {
-      HTTP.Task.READ_SCHEMAS.statusData.parse({ running: true, message: "ok" });
+    it("should validate statusData as field errors", () => {
+      HTTP.Task.READ_SCHEMAS.statusData.parse({
+        errors: [{ path: "endpoints.0.path", message: "Not found" }],
+      });
     });
 
     it("should validate statusData as null", () => {

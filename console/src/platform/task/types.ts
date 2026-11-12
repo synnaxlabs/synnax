@@ -10,7 +10,7 @@
 import { type channel, device, type task } from "@synnaxlabs/client";
 import { type Task } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { z } from "zod";
 
 /** The values of a form over a task with the schemas S. */
 export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSchema<S>>;
@@ -19,6 +19,11 @@ export type Values<S extends task.Schemas = task.Schemas> = z.infer<Task.FormSch
 export const formPath = deep.path<Values>();
 
 export type Command = "start" | "stop";
+
+/** The status data of a task whose config the Driver rejected, one error per field. */
+export const fieldErrorsZ = z.object({
+  errors: z.array(z.object({ path: z.string(), message: z.string() })),
+});
 
 // Deploy-time only: shape schemas keep device lax so drafts round-trip.
 export const deviceKeyZ = device.keyZ.min(1, "Device is required");
