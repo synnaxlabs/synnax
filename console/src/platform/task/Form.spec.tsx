@@ -791,9 +791,7 @@ describe("Driver field errors", () => {
         taskKey: tsk.key,
       });
       await screen.findByText("Sample rate");
-      await setStatus(client, tsk.key, [
-        { path: "device", message: "Device not found" },
-      ]);
+      await setStatus(client, tsk.key, [{ path: "", message: "Device not found" }]);
       await screen.findByText("Failed to start task");
       await clickDeploy(container);
       expect((await awaitCommand(streamer, tsk.key)).type).toBe("start");
