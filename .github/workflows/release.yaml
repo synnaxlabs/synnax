@@ -73,8 +73,8 @@ env:
 
 # The drafts and the builds start at dispatch. CI and the migration audit gate only the
 # publish jobs, so a run that fails either one leaves only drafts, and the next run
-# clears them. A job with its own `if` gets no implicit success check, so each publish
-# job states both gates.
+# clears them. An `if` with `!cancelled()` drops the implicit success check, so the
+# product and package publish jobs state both gates. The image and the docs follow them.
 jobs:
   ci:
     name: CI
@@ -789,11 +789,8 @@ jobs:
   # alone has every input, and it moves latest or next only to the newest Core.
   publish-core-image:
     name: Publish Core image
-    needs: [resolve, ci, migration-audit, publish-core]
-    if: >-
-      !cancelled() && needs.publish-core.result == 'success' && needs.ci.result ==
-      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
-      'success')
+    needs: [resolve, publish-core]
+    if: ${{ !cancelled() && needs.publish-core.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
