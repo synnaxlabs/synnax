@@ -23,10 +23,10 @@ import (
 // Synnax channel. A timestamp data type, or a time format on a bound field that v1
 // could have run on a timestamp channel, makes a timestamp field in that format, ISO
 // 8601 when it has none. A boolean JSON type makes a boolean field, and a string with
-// no
-// entries a string field. A number, or a string with entries, makes a float field that
-// keeps the entries. The caller reconciles the field against its channel, or against
-// its data type when it has no channel, because v1 encoded by the channel's data type.
+// no entries a string field. A number, or a string with entries, makes a float field
+// that keeps the entries. The caller reconciles the field against its channel, or
+// against its data type when it has no channel, because v1 encoded by the channel's
+// data type.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
 	dt := old.DataType
