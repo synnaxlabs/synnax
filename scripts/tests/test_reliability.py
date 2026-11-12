@@ -19,11 +19,13 @@ from reliability import (
     TC_ARTIFACT,
     TC_JOB_NAME,
     Cases,
+    case_rows,
     ci_jobs,
     enumerate_tests,
     integration_sources,
     os_of,
     platform_skip,
+    run_id_of,
     suite_jobs,
 )
 
@@ -246,6 +248,60 @@ class TestCases:
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
             Cases(CASES).resolve("driver/ni", name="ni")
+
+
+def tc(case: str, name: str, status: str, **fields: Any) -> dict[str, Any]:
+    return {"case": case, "name": name, "status": status, "duration_s": 1.5, **fields}
+
+
+class TestCaseRows:
+    """Test rows read from a test conductor summary."""
+
+    def test_should_give_a_passed_case_its_suite_source_and_tags(self) -> None:
+        summary = {"tests": [tc("driver/ni", "NIRead", "PASSED")]}
+        assert case_rows(summary, suite=3, runner_os="windows", cases=Cases(CASES)) == [
+            [
+                3,
+                "driver/ni › NIRead",
+                "passed",
+                None,
+                1.5,
+                "integration/tests/driver/ni.py#L6",
+                ["headless", "driver", "windows-only"],
+            ]
+        ]
+
+    def test_should_read_the_skip_reason_and_the_error(self) -> None:
+        summary = {
+            "tests": [
+                tc("driver/ni", "NIRead", "SKIPPED", skip_reason="No DAQmx"),
+                tc("driver/ni", "NIMissing", "TIMEOUT", error_message="Timed out"),
+            ]
+        }
+        rows = case_rows(summary, suite=0, runner_os="ubuntu", cases=Cases(CASES))
+        assert [r[2:4] for r in rows] == [
+            ["skipped", "No DAQmx"],
+            ["failed", "Timed out"],
+        ]
+
+    def test_should_skip_a_case_an_older_run_passed_on_a_platform_it_skips(
+        self,
+    ) -> None:
+        summary = {"tests": [tc("driver/ni", "NIRead", "PASSED")]}
+        [row] = case_rows(summary, suite=0, runner_os="ubuntu", cases=Cases(CASES))
+        assert row[2:4] == ["skipped", "Windows DAQmx drivers required"]
+
+
+class TestRunIdOf:
+    """Run IDs read from workflow run URLs."""
+
+    def test_should_read_the_id_of_a_run_or_a_job_url(self) -> None:
+        url = "https://github.com/synnaxlabs/synnax/actions/runs/43167272303/job/1"
+        assert run_id_of(url) == "43167272303"
+
+    def test_should_exit_on_a_url_that_names_no_run(self) -> None:
+        with pytest.raises(SystemExit, match="not a workflow run URL: x"):
+            run_id_of("x")
 
 
 class TestPlatformSkip:
