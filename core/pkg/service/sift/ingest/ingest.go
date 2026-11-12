@@ -466,6 +466,7 @@ func (e *Engine) retry(
 				engine: e,
 				sender: sender{
 					client:  e.ingest,
+					ctx:     ctx,
 					timeout: e.cfg.ConfirmTimeout.Duration(),
 				},
 				configID:  id,
@@ -634,7 +635,7 @@ func (a *attempt) encode(
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return a.sender.send(ctx, req)
+		return a.sender.send(req)
 	})
 	for i, ts := range last {
 		if ts > a.value(f, f.channels[i]) {
@@ -764,33 +765,58 @@ func (a *attempt) markUnindexed(f flow, fr framer.Frame) {
 
 // sendUnindexed sends the stored values of each channel that arrived without its index,
 // from its last value sent to the index position. It sends no other channel, so Sift
-// gets no value twice.
+// gets no value twice. A channel stays marked while it has a stored value at or after
+// the index position.
 func (a *attempt) sendUnindexed(ctx context.Context) error {
 	for _, f := range a.engine.flows {
 		keys := a.unindexed[f.index.Key()]
+		end := a.sent[f.index.Key()]
 		for _, ch := range f.channels {
 			if !keys.Contains(ch.Key()) {
 				continue
 			}
-			tr := telem.TimeRange{Start: a.value(f, ch), End: a.sent[f.index.Key()]}
-			if tr.Start >= tr.End {
-				continue
-			}
-			if err := a.engine.read(
-				ctx,
-				f,
-				[]channel.Channel{ch},
-				tr,
-				func(fr framer.Frame) error {
-					_, err := a.encode(ctx, f, fr, tr.Start)
+			if start := a.value(f, ch); start < end {
+				if err := a.engine.read(
+					ctx,
+					f,
+					[]channel.Channel{ch},
+					telem.TimeRange{Start: start, End: end},
+					func(fr framer.Frame) error {
+						_, err := a.encode(ctx, f, fr, start)
+						return err
+					},
+				); err != nil {
 					return err
-				},
-			); err != nil {
+				}
+			}
+			pending, err := a.engine.stored(ctx, ch, end)
+			if err != nil {
 				return err
+			}
+			if !pending {
+				keys.Remove(ch.Key())
 			}
 		}
 	}
 	return nil
+}
+
+// stored reports whether storage holds a value of ch at or after ts.
+func (e *Engine) stored(
+	ctx context.Context,
+	ch channel.Channel,
+	ts telem.TimeStamp,
+) (found bool, err error) {
+	it, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.Keys{ch.Key()},
+		Bounds: telem.TimeRange{Start: ts, End: telem.TimeStampMax},
+	})
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Combine(err, it.Close()) }()
+	found = it.SeekFirst() && it.Next(framer.IteratorAutoSpan)
+	return found, it.Error()
 }
 
 func (a *attempt) through() telem.TimeStamp {

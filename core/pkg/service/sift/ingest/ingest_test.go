@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -625,6 +626,49 @@ var _ = Describe("Engine", func() {
 			)))
 		})
 
+		It("Should keep one run of a range for each asset", func(ctx SpecContext) {
+			stand := open(ctx, channel.Keys{ch.Key()})
+			bench := open(ctx, channel.Keys{ch.Key()}, ingest.Config{Asset: "bench"})
+			standID := MustSucceed(stand.SetRun(ctx, run))
+			benchID := MustSucceed(bench.SetRun(ctx, run))
+			rng := uuid.MustParse(run.Key)
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(
+					HaveField("RunId", standID),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "stand").String(),
+					))),
+				),
+				SatisfyAll(
+					HaveField("RunId", benchID),
+					HaveField("AssetIds", ConsistOf("asset-bench")),
+					HaveField("ClientKey", HaveValue(Equal(
+						xuuid.NewV5(rng, "bench").String(),
+					))),
+				),
+			))
+			run.Name = "renamed"
+			Expect(stand.SetRun(ctx, run)).To(Equal(standID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "hotfire 1")),
+			))
+			Expect(bench.SetRun(ctx, run)).To(Equal(benchID))
+			Expect(server.Runs()).To(ConsistOf(
+				SatisfyAll(HaveField("RunId", standID), HaveField("Name", "renamed")),
+				SatisfyAll(HaveField("RunId", benchID), HaveField("Name", "renamed")),
+			))
+		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			run.Key = "hotfire"
+			Expect(e.SetRun(ctx, run)).Error().
+				To(MatchError(`run key "hotfire" is not a UUID: invalid uuid`))
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
 		It("Should leave a run that already matches", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			id := MustSucceed(e.SetRun(ctx, run))
@@ -641,6 +685,34 @@ var _ = Describe("Engine", func() {
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+		It("Should retry a temporary failure to update a run", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Name = "renamed"
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
+		})
+
+		It("Should set a run while Upload runs", func(ctx SpecContext) {
+			idx := createIndex(ctx)
+			data := createData(ctx, idx, telem.Float64T)
+			write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
+				map[channel.Key]telem.Series{data.Key(): telem.NewSeriesV(1.0, 2.0)})
+			e := open(ctx, channel.Keys{data.Key()})
+			done := make(chan error, 1)
+			go func() {
+				done <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+			}()
+			id := MustSucceed(e.SetRun(ctx, run))
+			Eventually(done).Should(Receive(Succeed()))
+			Expect(server.Points("stand", data.Name)).To(HaveLen(2))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
 		})
 
 		It("Should return the last error once it runs out of retries",
@@ -984,6 +1056,89 @@ var _ = Describe("Engine", func() {
 					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
 					Expect(server.Invalid()).To(BeEmpty())
 				})
+
+			It("Should stop reading the stored values of a channel once it sent them",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+					})
+					writeCh := func(start telem.TimeStamp, mode framer.WriterMode) {
+						GinkgoHelper()
+						keys := channel.Keys{ch.Key()}
+						w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+							Keys:  keys,
+							Start: start,
+							Mode:  mode,
+						}))
+						Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+							telem.NewSeriesV(1.0, 2.0),
+						})))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+					}
+					writeOther := func(stamps ...telem.TimeStamp) {
+						GinkgoHelper()
+						write(ctx, idx, stamps, map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						})
+					}
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					writeOther(at(1), at(2))
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					writeCh(at(1), framer.WriterModePersistStream)
+					Eventually(points(ch.Name)).Should(HaveLen(2))
+					writeOther(at(3), at(4))
+					Eventually(points(other.Name)).Should(HaveLen(4))
+					// Only a read of the stored values of ch can find this write.
+					writeCh(at(3), framer.WriterModePersistOnly)
+					Consistently(points(ch.Name)).Should(HaveLen(2))
+					Expect(stop()).To(Succeed())
+				})
+
+			It("Should stop within the confirm timeout when Sift stops reading the "+
+				"values of a channel written without its index", func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					CheckpointInterval: 500 * telem.Millisecond,
+					ConfirmTimeout:     100 * telem.Millisecond,
+				})
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				live()
+				// The index alone sends nothing, so no stream is open at the stop.
+				write(ctx, idx, stamps, nil)
+				keys := channel.Keys{ch.Key()}
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: stamps[0],
+				}))
+				Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeries(make([]float64, count)),
+				})))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				server.Pause()
+				DeferCleanup(server.Resume)
+				// Gives the engine time to receive the values of ch.
+				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(
+					WithTransform(status.Code, Equal(codes.Canceled)),
+				))
+				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+			})
 		})
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
