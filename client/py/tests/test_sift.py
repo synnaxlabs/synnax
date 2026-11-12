@@ -96,5 +96,7 @@ class TestSiftUpload:
             time_range=sy.TimeRange(end - sy.TimeSpan.SECOND, end),
         )
         assert key.startswith("sift_upload:")
-        assert client.statuses.retrieve(key=key).name == "Stand 1"
+        stat = client.statuses.retrieve(key=key)
+        assert stat.name == "Stand 1"
+        assert sy.sift.UploadDetails.model_validate(stat.details).positions == []
         client.statuses.delete(key)
