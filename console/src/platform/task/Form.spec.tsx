@@ -780,6 +780,28 @@ describe("Driver field errors", () => {
     expect(screen.queryByText(RATE_ERROR)).toBeNull();
   });
 
+  it("should start a task after a field error on a path the form does not hold", async () => {
+    const client = createTestClient();
+    const rck = await client.racks.create({ name: uniqueName("rack") });
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      const tsk = await createReadTask(client);
+      const { container } = await renderTaskFormTab(createReadRenderer(rck.key), {
+        client,
+        taskKey: tsk.key,
+      });
+      await screen.findByText("Sample rate");
+      await setStatus(client, tsk.key, [
+        { path: "device", message: "Device not found" },
+      ]);
+      await screen.findByText("Failed to start task");
+      await clickDeploy(container);
+      expect((await awaitCommand(streamer, tsk.key)).type).toBe("start");
+    } finally {
+      streamer.close();
+    }
+  });
+
   it("should clear the field errors and start a task whose status holds them", async () => {
     const client = createTestClient();
     const rck = await client.racks.create({ name: uniqueName("rack") });

@@ -129,7 +129,8 @@ const useFieldErrors = <Z extends z.ZodType>(
   const shown = useRef<{ target: deep.Target<unknown>; message: string }[]>([]);
   const clear = () => {
     shown.current.forEach(({ target, message }) => {
-      if (form.get(target, { optional: true })?.status.message === message)
+      const state = form.get(target, { optional: true });
+      if (state == null || state.status.message === message)
         form.setStatus(target, CLEARED);
     });
     shown.current = [];
