@@ -170,7 +170,7 @@ How the stream task sends data:
 
 - **First start** -> the task sends the data from the time that it starts. It does not
   send older data. Upload older data instead.
-- **Restarts** -> the task saves how far Sift has confirmed the data every 60 seconds.
+- **Restarts** -> the task saves how far Sift has confirmed the data every 10 seconds.
   After a stop, a restart of the Core, or a lost connection, it sends the data from that
   point. Sift can get a short span of data a second time.
 - **Runs** -> when a range with one of the task labels ends and Sift has its data, the
