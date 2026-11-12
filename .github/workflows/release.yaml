@@ -510,7 +510,9 @@ jobs:
 
       # No tag guards the packages that a failed stage left on the registry.
       - name: Ask for a reject
-        if: failure() && steps.stage.conclusion == 'failure'
+        if: >-
+          always() && (steps.stage.conclusion == 'failure' || steps.stage.conclusion ==
+          'cancelled')
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
         run: |
