@@ -70,7 +70,7 @@ export const createNIDevice = async (
 /**
  * The ports of an X Series style device. ai0 to ai7 pair with ai8 to ai15, default to
  * differential, and also take thermocouples. It has two analog outputs, two 8-line
- * digital ports, four counters, and the terminals PFI0 to PFI3.
+ * digital ports, four counters, the terminals PFI0 to PFI3, and analog ranges.
  */
 export const createHardware = (): ni.Hardware =>
   ni.hardwareZ.parse({
@@ -98,6 +98,13 @@ export const createHardware = (): ni.Hardware =>
     ],
     terminals: ["PFI0", "PFI1", "PFI2", "PFI3"],
     aiMinRate: 1,
+    aiVoltageRanges: [
+      { lower: -1, upper: 1 },
+      { lower: -10, upper: 10 },
+    ],
+    aiCurrentRanges: [{ lower: -0.02, upper: 0.02 }],
+    aoVoltageRanges: [{ lower: -10, upper: 10 }],
+    aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
     aiMaxSingleChannelRate: 2_000_000,
     aiMaxMultiChannelRate: 1_000_000,
   });

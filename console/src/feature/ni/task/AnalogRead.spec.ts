@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { type ni, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -487,6 +487,188 @@ describe("AnalogRead ports", () => {
     const dev = await createDevice();
     await renderWith(channels(dev.key));
     expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  const fieldInvalid = (label: string): boolean =>
+    screen.getByLabelText(label).getAttribute("aria-invalid") === "true";
+
+  it.each<[string, Partial<NI.Task.AIChannel>, string, string]>([
+    [
+      "the maximum of a voltage above every range",
+      { minVal: 0, maxVal: 20 },
+      "ai_voltage",
+      "Maximum value",
+    ],
+    [
+      "the minimum of a voltage below every range",
+      { minVal: -20, maxVal: 5 },
+      "ai_voltage",
+      "Minimum value",
+    ],
+    [
+      "the minimum of a reversed voltage outside every range",
+      { minVal: 20, maxVal: 5 },
+      "ai_voltage",
+      "Minimum value",
+    ],
+    [
+      "the maximum of a current outside every range",
+      { minVal: 0, maxVal: 0.5 },
+      "ai_current",
+      "Maximum value",
+    ],
+  ])("should mark %s", async (_, values, type, label) => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel(type as NI.Task.AIChannelType, 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid(label)).toBe(true));
+  });
+
+  it("should name the values that fit in no range", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 20,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Maximum value")).toBe(true));
+
+    fireEvent.pointerEnter(screen.getByLabelText("Maximum value"));
+    expect(
+      await screen.findByText("The device has no range from 0 to 20 V"),
+    ).toBeTruthy();
+  });
+
+  it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
+    ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
+    [
+      "on a device that lists no ranges",
+      () => ({ ...createHardware(), aiVoltageRanges: [] }),
+      { minVal: 0, maxVal: 20 },
+    ],
+    [
+      "with a custom scale",
+      createHardware,
+      {
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      },
+    ],
+  ])("should not mark a channel %s", async (_, hardware, values) => {
+    const dev = await createNIDevice(client, { properties: { hardware: hardware() } });
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        ...values,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await screen.findByLabelText("Maximum value");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  const createCurrentDevice = async () => {
+    const hardware = createHardware();
+    const [ai0] = hardware.analogInputs;
+    hardware.analogInputs[0] = { ...ai0, types: [...ai0.types, "ai_current"] };
+    return await createNIDevice(client, { properties: { hardware } });
+  };
+
+  it("should give a channel switched to current the device's current range", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should keep the range of a scaled channel switched to current", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 100,
+        customScale: {
+          type: "linear",
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts",
+          scaledUnits: "Volts",
+        },
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    await screen.findByText("Shunt resistance");
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("100");
+  });
+
+  it("should give a new channel the current range of the channel it copies", async () => {
+    const dev = await createCurrentDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Current");
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    await waitFor(() => expect(min.value).toBe("-0.02"));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(() => {
+      const rows = screen.getAllByRole("option");
+      expect(rows).toHaveLength(2);
+      expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    });
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe(
+      "-0.02",
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should not mark a current outside every range through an external shunt", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_current", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 0.5,
+        shuntResistorLoc: "External",
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await screen.findByLabelText("Maximum value");
+    expect(fieldInvalid("Minimum value")).toBe(false);
+    expect(fieldInvalid("Maximum value")).toBe(false);
   });
 
   it("should mark a channel on the negative input of a differential channel", async () => {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ni } from "@synnaxlabs/client";
-import { unique } from "@synnaxlabs/x";
+import { type spatial, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Device } from "@/feature/ni/device/types";
@@ -110,10 +110,40 @@ const checkAnalogRate = (
   });
 };
 
+interface RangedChannel {
+  minVal: number;
+  maxVal: number;
+  customScale: { type: string };
+}
+
+/**
+ * Reports a channel whose expected values fit in no range of the device. An empty list
+ * means DAQmx did not report the ranges. A custom scale puts the values in scaled
+ * units, which the ranges do not describe.
+ */
+const checkRange = (
+  channel: RangedChannel,
+  ranges: spatial.Bounds[],
+  unit: string,
+  path: (string | number)[],
+  report: Task.ReportIssue,
+): void => {
+  const { minVal, maxVal, customScale } = channel;
+  if (ranges.length === 0 || customScale.type !== "none") return;
+  const lo = Math.min(minVal, maxVal);
+  const hi = Math.max(minVal, maxVal);
+  if (ranges.some(({ lower, upper }) => lower <= lo && hi <= upper)) return;
+  const maxFits = ranges.some(({ lower, upper }) => lower <= maxVal && maxVal <= upper);
+  report(
+    [...path, maxFits ? "minVal" : "maxVal"],
+    `The device has no range from ${minVal} to ${maxVal} ${unit}`,
+  );
+};
+
 /**
  * Checks an analog read config against the ports of its devices: the ports two
- * channels on a device share, each channel's port, type, and terminal configuration,
- * and the sample rate. Only the port checks run on a device with no port data.
+ * channels on a device share, each channel's port, type, terminal configuration, and
+ * range, and the sample rate. Only the port checks run on a device with no port data.
  */
 export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
   Task.check<ni.AnalogReadConfig>((config, report) => {
@@ -140,6 +170,10 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
           ["channels", i, "terminalConfig"],
           `${name} does not take ${lower(TERMINAL_CONFIG_NAMES[c.terminalConfig])}`,
         );
+      if (c.type === "ai_voltage")
+        checkRange(c, hardware.aiVoltageRanges, "V", ["channels", i], report);
+      if (c.type === "ai_current" && c.shuntResistorLoc !== "External")
+        checkRange(c, hardware.aiCurrentRanges, "A", ["channels", i], report);
     });
     checkAnalogRate(config, devices, report);
   });
@@ -165,6 +199,10 @@ export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
           ["channels", i, "type"],
           `${name} does not take ${lower(AO_CHANNEL_TYPE_NAMES[c.type])} channels`,
         );
+      if (c.type === "ao_voltage")
+        checkRange(c, hardware.aoVoltageRanges, "V", ["channels", i], report);
+      if (c.type === "ao_current")
+        checkRange(c, hardware.aoCurrentRanges, "A", ["channels", i], report);
     });
   });
 
