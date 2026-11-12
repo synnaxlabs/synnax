@@ -405,6 +405,79 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should apply numeric rules to a field overridden to number",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts hand
+					@validate min 0
+				}
+
+				Config struct {
+					rate Rate = 10 {
+						@ts type "number"
+						@validate gt 0
+					}
+					fallback Rate {
+						@ts type "number"
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"rate: z.number().min(0).gt(0).default(10)",
+					"fallback: z.number().min(0)",
+				)
+			},
+		)
+
+		It(
+			"Should apply the rules of a hand-written type to a field",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Rate float64 {
+					@ts hand
+					@ts include "out/rate"
+					@validate max 100
+				}
+
+				Config struct {
+					rate Rate
+				}
+			`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain("rate: rateZ.max(100)")
+			},
+		)
+
+		It(
+			"Should leave a generated type's rules to its own schema",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Panel struct {
+					size Decimal
+				}
+			`
+				resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(
+					"export const decimalZ = z.number().min(0).max(1);",
+					"size: decimalZ,",
+				)
+			},
+		)
+
+		It(
 			"Should treat required on a numeric type as non-zero",
 			func(ctx SpecContext) {
 				source := `

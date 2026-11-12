@@ -979,9 +979,8 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	validateDomain := field.Domains["validate"]
 	fieldConstraints := collectValidation(
-		validateDomain,
+		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
 		table,
@@ -1144,13 +1143,12 @@ func buildDefault(
 }
 
 func collectValidation(
-	domain resolution.Domain,
+	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
