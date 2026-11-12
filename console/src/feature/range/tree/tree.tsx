@@ -120,8 +120,8 @@ interface NodeStore {
 }
 
 const [Context, useContext] = context.create<NodeStore>({
-  displayName: "Range.NodeContext",
-  providerName: "Range.NodeProvider",
+  displayName: "Tree.NodeContext",
+  providerName: "Tree.NodeProvider",
 });
 
 const sameState = (a: NodeState, b: NodeState): boolean =>
@@ -193,7 +193,7 @@ export interface UseNodeReturn extends NodeState {
 
 /** @returns the place of the range in the tree. Renders again only when it changes. */
 export const useNode = (key: ranger.Key): UseNodeReturn => {
-  const store = useContext("Range.useNode");
+  const store = useContext("Tree.useNode");
   const state = useSyncExternalStore(
     (listener) => store.subscribe(listener, key),
     () => store.get(key),

@@ -207,8 +207,8 @@ interface ContextValue {
 }
 
 const [Context, useContext] = context.create<ContextValue>({
-  displayName: "Range.TimelineContext",
-  providerName: "Range.Timeline",
+  displayName: "Tree.TimelineContext",
+  providerName: "Tree.Timeline",
 });
 
 const percent = (ms: number, w: Window): number =>
@@ -233,7 +233,7 @@ interface BarProps {
 
 /** A bar places itself from the window on the timeline root, so a pan renders none. */
 const Bar = ({ range }: BarProps): ReactElement => {
-  const { origin, onZoom } = useContext("Range.Bar");
+  const { origin, onZoom } = useContext("Tree.Bar");
   const open = range.timeRange.end.equals(TimeStamp.MAX);
   const { start, end } = range.timeRange.makeValid();
   const hue = range.color == null ? undefined : color.hex(range.color);
@@ -345,7 +345,7 @@ const Frame = ({
   const now = toMS(useNow(nextTick));
   const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null || subscribe == null)
-    throw new Error("Range.Timeline must be inside a list of ranges");
+    throw new Error("Tree.Timeline must be inside a list of ranges");
   const roots = Store.useItems({
     keys: nodes
       .filter((n) => n.depth === 0)

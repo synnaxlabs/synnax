@@ -39,7 +39,7 @@ import { Range } from "@/platform/range";
 
 const [HighlightContext, useHighlight] = context.create<string | undefined>({
   defaultValue: undefined,
-  displayName: "Range.HighlightContext",
+  displayName: "Tree.HighlightContext",
 });
 
 export { HighlightContext };
