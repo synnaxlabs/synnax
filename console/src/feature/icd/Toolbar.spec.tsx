@@ -52,7 +52,7 @@ describe("ICD toolbar", () => {
   it("should open an ICD in a tab on double click", async () => {
     const ic = await createICD();
     const { store } = await renderToolbar();
-    fireEvent.doubleClick(await screen.findByText(ic.name));
+    fireEvent.doubleClick(await screen.findByRole("option", { name: ic.name }));
     expect(await focusedResourceKey(store)).toBe(ic.key);
   });
 
