@@ -79,8 +79,8 @@ class UploadDetails(BaseModel):
 
     Attributes:
         device: Is the key of the Sift device the upload sends to.
-        range: Is the key of the range whose data the upload sends, or zero for an
-            upload of a plain time span.
+        range: Is the key of the range whose data the upload sends. An upload of a plain
+            time span has none.
         time_range: Is the span of data the upload sends.
         channels: Are the channels the upload sends.
         asset: Is the name of the Sift asset that receives the data.
@@ -89,7 +89,7 @@ class UploadDetails(BaseModel):
     """
 
     device: device_.Key
-    range: ranger.Key
+    range: ranger.Key | None = None
     time_range: telem.TimeRange
     channels: list[channel.Key] = Field(default_factory=list)
     asset: str
