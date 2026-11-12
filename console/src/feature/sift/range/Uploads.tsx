@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device as PDevice, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
+import { Device, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
 import { bounds, TimeRange } from "@synnaxlabs/x";
 
 import { MAKE } from "@/feature/sift/device/types";
@@ -97,7 +97,7 @@ export interface UploadsProps {
  */
 export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
-  const devices = PDevice.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
+  const devices = Device.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
   const open = useUploadModal();
   const uploads = useUploadKeys(rangeKey);
   const data = uploads.data ?? [];
