@@ -469,14 +469,17 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
-			"Should reject infinity and NaN on a float with a numeric rule",
+			"Should reject infinity and NaN on a float or distinct float with a numeric rule",
 			func(ctx SpecContext) {
 				source := `
 				@py output "out"
 
+				Rate float64
+
 				Range struct {
 					lower     float32 @validate min 0
 					upper     float64 @validate max 10
+					rate      Rate @validate gt 0
 					unchecked float64
 					count     int32 @validate min 0
 				}
@@ -492,6 +495,9 @@ var _ = Describe("Python Types Plugin", func() {
 				))
 				Expect(content).To(ContainSubstring(
 					`upper: float = Field(le=10, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`rate: Rate = Field(gt=0, allow_inf_nan=False)`,
 				))
 				Expect(content).To(ContainSubstring("unchecked: float\n"))
 				Expect(content).To(ContainSubstring(

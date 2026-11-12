@@ -1157,8 +1157,8 @@ func collectValidation(
 	var constraints []string
 	isString := resolution.IsPrimitive(typeRef.Name) &&
 		resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsNumberPrimitive(typeRef.Name)
+	primitive := key.ResolvePrimitive(typeRef, table)
+	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
 			constraints = append(
@@ -1195,7 +1195,7 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
 		}
-		isFloat := typeRef.Name == "float32" || typeRef.Name == "float64"
+		isFloat := primitive == "float32" || primitive == "float64"
 		if isFloat && len(constraints) > 0 {
 			constraints = append(constraints, "allow_inf_nan=False")
 		}
