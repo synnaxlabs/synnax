@@ -134,11 +134,19 @@ func decodeBundleBody(
 		return env.Decode[bundleBody[color.Color]](ctx)
 	}
 	old, err := env.Decode[bundleBody[colorv1.Color]](ctx)
-	if err != nil || old.Color == nil {
-		return bundleBody[color.Color]{Root: old.Root, Icon: old.Icon}, err
+	if err != nil {
+		return bundleBody[color.Color]{}, err
+	}
+	body := bundleBody[color.Color]{Root: old.Root, Icon: old.Icon}
+	if old.Color == nil {
+		return body, nil
 	}
 	c, err := colorv2.MigrateColor(ctx, *old.Color)
-	return bundleBody[color.Color]{Root: old.Root, Icon: old.Icon, Color: &c}, err
+	if err != nil {
+		return bundleBody[color.Color]{}, err
+	}
+	body.Color = &c
+	return body, nil
 }
 
 // resolveBundleNode rewrites each resource tab's bundle path to the resource.ID refs

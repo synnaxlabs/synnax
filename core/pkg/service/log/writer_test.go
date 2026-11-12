@@ -563,6 +563,24 @@ var _ = Describe("Writer", func() {
 				Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
 			})
 
+			It("Should clear a channel color", func(ctx SpecContext) {
+				red := color.Color{R: 255, A: 255}
+				l := defaults.Fill(log.Log{
+					Project:  &proj.Key,
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: ch5, Color: &red}},
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &l)
+				})).To(Succeed())
+				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelColorAction(
+						log.SetChannelColorPayload{Channel: ch5},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).Channels[0].Color).To(BeNil())
+			})
+
 			DescribeTable("Should reject an out-of-range channel precision",
 				func(ctx SpecContext, precision uint8) {
 					l := defaults.Fill(log.Log{
