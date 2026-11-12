@@ -26,8 +26,7 @@ type Kind struct {
 	Code ErrorCode
 	// Severity is the severity of each diagnostic of the kind.
 	Severity protocol.DiagnosticSeverity
-	// Message is the format of the message. It is empty for a kind that reports with
-	// Wrap.
+	// Message is the message format. A kind that reports with Wrap has none.
 	Message string
 }
 

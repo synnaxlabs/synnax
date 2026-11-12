@@ -835,6 +835,27 @@ var _ = Describe("Diagnostics", func() {
 			})
 		})
 
+		Describe("WithEdits", func() {
+			It("Should add a fix with the title and the edits", func() {
+				edits := []protocol.TextEdit{
+					{NewText: "import time\n\n"},
+					{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 2, Character: 4},
+							End:   protocol.Position{Line: 2, Character: 7},
+						},
+						NewText: "time.now",
+					},
+				}
+				d := diagnostics.Errorf(nil, "deprecated").
+					WithEdits("Replace 'now' with 'time.now'", edits...)
+				Expect(d.Fixes).To(Equal([]diagnostics.Fix{
+					{Title: "Replace 'now' with 'time.now'", Edits: edits},
+				}))
+				Expect(d.Notes).To(BeEmpty())
+			})
+		})
+
 		Describe("WithFix", func() {
 			const source = "if x + 1 { }"
 			var (

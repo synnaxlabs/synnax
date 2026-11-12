@@ -668,31 +668,38 @@ var _ = Describe("CodeAction", func() {
 				},
 			)
 
-			It("should list the modules once per request", func(ctx SpecContext) {
-				lists := 0
-				loader := text.NewLoader(text.LoaderConfig{
-					Paths: func(context.Context) ([]string, error) {
-						lists++
-						return []string{"lib.n", "lib.k"}, nil
-					},
-				})
-				server, uri, client = SetupTestServerWithClient(lsp.Config{
-					NewRoot: func() *symbol.Symbol {
-						return symbol.NewRoot(
-							nil,
-							stl.NewSymbols(),
-							symbol.WithModules(loader),
-						)
-					},
-				})
-				actions := actionsFor(
-					ctx,
-					"func g() i64 {\n    return n.f() + k.f()\n}\n",
-				)
-				Expect(findActionByTitle(actions, "Add import 'lib.n'")).ToNot(BeNil())
-				Expect(findActionByTitle(actions, "Add import 'lib.k'")).ToNot(BeNil())
-				Expect(lists).To(Equal(1))
-			})
+			It(
+				"should list the modules once per request",
+				func(ctx SpecContext) {
+					lists := 0
+					loader := text.NewLoader(text.LoaderConfig{
+						Paths: func(context.Context) ([]string, error) {
+							lists++
+							return []string{"lib.n", "lib.k"}, nil
+						},
+					})
+					server, uri, client = SetupTestServerWithClient(lsp.Config{
+						NewRoot: func() *symbol.Symbol {
+							return symbol.NewRoot(
+								nil,
+								stl.NewSymbols(),
+								symbol.WithModules(loader),
+							)
+						},
+					})
+					actions := actionsFor(
+						ctx,
+						"func g() i64 {\n    return n.f() + k.f()\n}\n",
+					)
+					Expect(
+						findActionByTitle(actions, "Add import 'lib.n'"),
+					).ToNot(BeNil())
+					Expect(
+						findActionByTitle(actions, "Add import 'lib.k'"),
+					).ToNot(BeNil())
+					Expect(lists).To(Equal(1))
+				},
+			)
 
 			It(
 				"should keep the other fixes when the module listing fails",

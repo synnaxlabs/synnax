@@ -164,8 +164,7 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
-// WithFix returns a copy of the diagnostic with a fix that changes the code at ctx to
-// newText, and a note that gives the fix.
+// WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
 func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
 	var at Diagnostic
 	at.SetRange(ctx)
@@ -178,11 +177,16 @@ func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnos
 	if at.Range != d.Range {
 		note.Location.Range = at.Range
 	}
-	d.Fixes = append(d.Fixes, Fix{
-		Title: fmt.Sprintf("Change to `%s`", newText),
-		Edits: []protocol.TextEdit{{Range: at.Range, NewText: newText}},
-	})
 	d.Notes = append(d.Notes, note)
+	return d.WithEdits(
+		fmt.Sprintf("Change to `%s`", newText),
+		protocol.TextEdit{Range: at.Range, NewText: newText},
+	)
+}
+
+// WithEdits returns a copy of the diagnostic with a fix of the title and edits.
+func (d Diagnostic) WithEdits(title string, edits ...protocol.TextEdit) Diagnostic {
+	d.Fixes = append(d.Fixes, Fix{Title: title, Edits: edits})
 	return d
 }
 

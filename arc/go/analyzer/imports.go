@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -83,7 +84,11 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 		if child.Used || child.Target == nil {
 			continue
 		}
-		ctx.Diagnostics.Add(codes.UnusedImport.At(child.AST, child.Name))
+		d := codes.UnusedImport.At(child.AST, child.Name)
+		if item, ok := child.AST.(parser.IImportItemContext); ok {
+			d = d.WithEdits("Remove unused import", formatter.RemoveImport(item))
+		}
+		ctx.Diagnostics.Add(d)
 	}
 }
 

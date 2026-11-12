@@ -901,8 +901,7 @@ func TruthyCondition(
 	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
 }
 
-// literalTruth returns the bool that expr always is. ok is false when expr is not a
-// number or string literal with a known value.
+// literalTruth returns the bool that the literal expr always is, when it is known.
 func literalTruth(expr parser.IExpressionContext) (truth string, ok bool) {
 	if expr == nil || !parser.IsLiteral(expr) {
 		return "", false
