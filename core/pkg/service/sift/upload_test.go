@@ -110,7 +110,9 @@ var _ = Describe("Upload", func() {
 			),
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+		Expect(
+			uploadStatus(ctx, key),
+		).To(HaveField("Details.Range", HaveValue(Equal(rng.Key))))
 	})
 
 	It("Should send a plain time span without a run", func(ctx SpecContext) {
@@ -128,7 +130,7 @@ var _ = Describe("Upload", func() {
 			HaveField("Description", "Sent 2 samples to asset stand."),
 		))
 		Expect(server.Runs()).To(BeEmpty())
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", uuid.Nil()))
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", BeNil()))
 	})
 
 	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
