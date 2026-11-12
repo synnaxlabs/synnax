@@ -45,10 +45,12 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
-      # Without --no-track, cargo leaves files that make the Git work tree dirty.
+      # cargo writes its install records next to bin, where Git does not ignore them.
       run: |
-        cargo install trusted-signing-cli --version "$VERSION" --locked --no-track \
-          --root "$GITHUB_WORKSPACE/.trusted-signing-cli"
+        cargo install trusted-signing-cli --version "$VERSION" --locked \
+          --root "$RUNNER_TEMP/trusted-signing-cli"
+        mkdir -p .trusted-signing-cli
+        mv "$RUNNER_TEMP/trusted-signing-cli/bin" .trusted-signing-cli/bin
 
     # Merge queue caches are unreachable from later runs, so the queue never saves.
     - name: Save trusted-signing-cli
