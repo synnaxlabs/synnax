@@ -9,23 +9,17 @@
 
 import "@/feature/range/next/Range.css";
 
-import { ranger, type view } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Access, Flux, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
-import { TimeStamp } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { Access, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
+import { useState } from "react";
 
 import { Aliases } from "@/feature/range/next/overview/Aliases";
-import {
-  childOrder,
-  Children,
-  defaultLayout,
-} from "@/feature/range/next/overview/Children";
+import { Children } from "@/feature/range/next/overview/Children";
 import { Documents, useDocuments } from "@/feature/range/next/overview/Documents";
 import { Header } from "@/feature/range/next/overview/Header";
 import { MetaData } from "@/feature/range/next/overview/MetaData";
 import { AddLine } from "@/feature/range/next/overview/Section";
-import { childrenQuery } from "@/feature/range/next/tree";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -37,17 +31,6 @@ const NO_PAIRS: ranger.kv.Pair[] = [];
 export const Overview: Panel.Content = () => {
   const { key } = PlutoPanel.useTabResource();
   const range = Ranger.use({ key });
-  const [openedAt] = useState(() => TimeStamp.now());
-  const [chosenLayout, setLayout] = useState<view.RangeLayout | null>(null);
-  const layout = chosenLayout ?? defaultLayout(range, openedAt);
-  const children = Flux.useList((client) => client.ranges, {
-    name: "ranges",
-    query: childrenQuery(key, childOrder(layout)),
-    pageSize: 100,
-  });
-  useEffect(() => {
-    children.more();
-  }, [key]);
   const pairs = Ranger.useResultMetaData({ rangeKey: key }).data ?? NO_PAIRS;
   const aliases = Ranger.useResultAliases({ rangeKey: key }).data;
   const documents = useDocuments(key);
@@ -55,7 +38,6 @@ export const Overview: Panel.Content = () => {
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
-  const hasChildren = children.data.length > 0;
   const showMetaData = pairs.length > 0 || adding === "metadata";
   const aliasCount = aliases == null ? 0 : Object.keys(aliases).length;
   const showAliases = aliasCount > 0 || adding === "alias";
@@ -64,17 +46,10 @@ export const Overview: Panel.Content = () => {
     <div key={key} className={CSS.BE("range-overview", "scroll")}>
       <Flex.Box y empty className={CSS.B("range-overview")}>
         <Header range={range} />
-        {hasChildren && (
-          <Children
-            range={range}
-            list={children}
-            layout={layout}
-            onLayoutChange={setLayout}
-            onCreate={handleCreate}
-          />
-        )}
-        {children.answered && !hasChildren && handleCreate != null && (
-          <AddLine onClick={handleCreate}>Child range</AddLine>
+        {range.hasChildren ? (
+          <Children range={range} onCreate={handleCreate} />
+        ) : (
+          handleCreate != null && <AddLine onClick={handleCreate}>Child range</AddLine>
         )}
         {showMetaData ? (
           <MetaData
