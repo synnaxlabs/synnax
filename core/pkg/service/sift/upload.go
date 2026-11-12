@@ -406,16 +406,19 @@ func (u *uploader) write(ctx context.Context, up *upload, s *UploadStatus) {
 }
 
 func progress(d UploadDetails) string {
-	return fmt.Sprintf("Sent %s samples to asset %s.", group(d.Samples), d.Asset)
+	return fmt.Sprintf("Sent %s to asset %s.", sampleCount(d.Samples), d.Asset)
 }
 
-// group formats n with a comma between each group of three digits.
-func group(n int64) string {
+// sampleCount formats n samples, with a comma between each group of three digits.
+func sampleCount(n int64) string {
+	if n == 1 {
+		return "1 sample"
+	}
 	s := strconv.FormatInt(n, 10)
 	for i := len(s) - 3; i > 0 && s[i-1] != '-'; i -= 3 {
 		s = s[:i] + "," + s[i:]
 	}
-	return s
+	return s + " samples"
 }
 
 func toPositions(p ingest.Positions) []Position {
