@@ -10,7 +10,6 @@
 import {
   lineplot,
   log,
-  type query,
   type ranger,
   resource,
   schematic,
@@ -23,16 +22,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import {
-  Access,
-  LinePlot,
-  Log,
-  Schematic,
-  Synnax,
-  Table,
-  Task,
-} from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useSyncExternalStore } from "react";
+import { Access, Flux, LinePlot, Log, Schematic, Table, Task } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { Section } from "@/feature/range/next/overview/Section";
 import { ContextMenu } from "@/platform/context-menu";
@@ -66,45 +57,31 @@ interface Owned {
   snapshot?: boolean;
 }
 
-const NO_RECORDS: Owned[] = [];
-const noop = () => {};
-
-const useOwned = (
-  list: query.List<Owned, unknown> | undefined,
-  type: resource.Type,
-): Document[] => {
-  const window = useSyncExternalStore(
-    (callback) => list?.onChange(callback) ?? noop,
-    () => list?.getCached(),
-  );
-  useEffect(() => {
-    list?.retrieve().catch(console.error);
-  }, [list]);
-  return (window?.records ?? NO_RECORDS).map((r) => ({
-    id: { type, key: r.key },
-    name: r.name,
-    snapshot: r.snapshot === true,
+const toDocuments = (owned: Owned[], type: resource.Type): Document[] =>
+  owned.map(({ key, name, snapshot }) => ({
+    id: { type, key },
+    name,
+    snapshot: snapshot === true,
   }));
-};
 
 /** @returns every document that the range owns, by kind and then by name. */
 export const useDocuments = (rangeKey: ranger.Key): Document[] => {
-  const client = Synnax.use();
-  const where = { where: { ranges: [rangeKey] } };
-  const plots = useOwned(
-    client?.lineplots.watch(where),
-    lineplot.TYPE_RESOURCE_ID.type,
-  );
-  const schematics = useOwned(
-    client?.schematics.watch(where),
-    schematic.TYPE_RESOURCE_ID.type,
-  );
-  const tables = useOwned(client?.tables.watch(where), table.TYPE_RESOURCE_ID.type);
-  const logs = useOwned(client?.logs.watch(where), log.TYPE_RESOURCE_ID.type);
-  const tasks = useOwned(client?.tasks.watch(where), task.TYPE_RESOURCE_ID.type);
-  return [plots, schematics, tables, logs, tasks].flatMap((docs) =>
-    docs.toSorted((a, b) => a.name.localeCompare(b.name)),
-  );
+  const params = { query: { where: { ranges: [rangeKey] } }, eager: true };
+  const plots = Flux.useList((c) => c.lineplots, { name: "line plots", ...params });
+  const schematics = Flux.useList((c) => c.schematics, {
+    name: "schematics",
+    ...params,
+  });
+  const tables = Flux.useList((c) => c.tables, { name: "tables", ...params });
+  const logs = Flux.useList((c) => c.logs, { name: "logs", ...params });
+  const tasks = Flux.useList((c) => c.tasks, { name: "tasks", ...params });
+  return [
+    toDocuments(plots.getItem(plots.data), lineplot.TYPE_RESOURCE_ID.type),
+    toDocuments(schematics.getItem(schematics.data), schematic.TYPE_RESOURCE_ID.type),
+    toDocuments(tables.getItem(tables.data), table.TYPE_RESOURCE_ID.type),
+    toDocuments(logs.getItem(logs.data), log.TYPE_RESOURCE_ID.type),
+    toDocuments(tasks.getItem(tasks.data), task.TYPE_RESOURCE_ID.type),
+  ].flatMap((docs) => docs.toSorted((a, b) => a.name.localeCompare(b.name)));
 };
 
 interface DocumentMenuProps {
