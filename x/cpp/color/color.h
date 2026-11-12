@@ -20,8 +20,8 @@
 
 namespace x::color {
 
-/// @brief Color is an RGBA color with every component 0-255. The zero Color is
-/// transparent black.
+/// @brief Color is an RGBA color with every component 0-255. A default Color is opaque
+/// black.
 struct Color {
     /// @brief r is the red component (0-255).
     std::uint8_t r = 0;
@@ -30,13 +30,10 @@ struct Color {
     /// @brief b is the blue component (0-255).
     std::uint8_t b = 0;
     /// @brief a is the alpha component (0-255).
-    std::uint8_t a = 0;
+    std::uint8_t a = 255;
 
-    /// @brief parses a color from a JSON parser. Accepts a hex string ("#ff0000" or
-    /// "#ff000080") or a legacy form: an [R, G, B, A] array, an {r, g, b, a} object,
-    /// or an {"rgba255": [R, G, B, A]} object. A legacy alpha is on the 0-1 scale, and
-    /// an absent alpha is 255. JSON null, the empty string, and the empty object parse
-    /// to the zero Color. Mirrors the Go color.Color decoders.
+    /// @brief parses a color from a 6 or 8 digit hex string ("#ff0000" or
+    /// "#ff000080"). The alpha of a 6 digit string is 255.
     static Color parse(x::json::Parser parser);
 
     /// @brief serializes the color to its "#rrggbbaa" JSON string.

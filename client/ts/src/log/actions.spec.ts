@@ -154,7 +154,7 @@ describe("log reducer", () => {
       expected: unknown;
     }
 
-    const red = color.colorZ.parse({ r: 255, g: 0, b: 0, a: 1 });
+    const red = color.construct("#ff0000");
     const cases: FieldCase[] = [
       {
         name: "setChannelColor",

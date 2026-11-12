@@ -22,20 +22,11 @@ class TestColor:
             ("00ff00", (0, 255, 0, 255)),
             ("#ff000080", (255, 0, 0, 128)),
             ("#00000000", (0, 0, 0, 0)),
-            ({}, (0, 0, 0, 0)),
             ([255, 0, 0], (255, 0, 0, 255)),
             ([255, 0, 0, 0], (255, 0, 0, 0)),
-            ([255, 0, 0, 0.003], (255, 0, 0, 1)),
-            ([255, 0, 0, 0.5], (255, 0, 0, 128)),
-            ([255, 0, 0, 1], (255, 0, 0, 255)),
-            ([255, 0, 0, 1.5], (255, 0, 0, 255)),
-            ([255, 0, 0, 2], (255, 0, 0, 255)),
-            ([255, 0, 0, 2.4], (255, 0, 0, 2)),
+            ([255, 0, 0, 1], (255, 0, 0, 1)),
             ([255, 0, 0, 128], (255, 0, 0, 128)),
             ((255, 0, 0), (255, 0, 0, 255)),
-            ({"rgba255": [122, 44, 38, 0.5]}, (122, 44, 38, 128)),
-            ({"rgba255": [5, 5, 5, 255]}, (5, 5, 5, 255)),
-            ({"rgba255": [5, 5, 5]}, (5, 5, 5, 255)),
             ({"r": 255, "g": 128, "b": 0, "a": 64}, (255, 128, 0, 64)),
             ({"r": 255, "g": 128, "b": 0}, (255, 128, 0, 255)),
             ("rgb(255, 0, 0)", (255, 0, 0, 255)),
@@ -50,6 +41,9 @@ class TestColor:
 
     def test_default_alpha_is_opaque(self) -> None:
         assert Color(r=255, g=0, b=0).a == 255
+
+    def test_default_is_opaque_black(self) -> None:
+        assert Color() == Color(r=0, g=0, b=0, a=255)
 
     def test_keyword_alpha_is_a_byte(self) -> None:
         assert Color(r=255, g=0, b=0, a=1).a == 1
@@ -70,7 +64,6 @@ class TestColor:
 
     def test_is_zero(self) -> None:
         assert Color(r=0, g=0, b=0, a=0).is_zero
-        assert Color().is_zero
         assert not Color(r=1, a=0).is_zero
 
     def test_serializes_to_eight_digit_hex(self) -> None:
@@ -97,7 +90,7 @@ class TestColor:
         assert Color(r=255, g=0, b=0) == [255, 0, 0]
 
     def test_eq_array_rgba(self) -> None:
-        assert Color(r=255, g=0, b=0, a=128) == [255, 0, 0, 0.5]
+        assert Color(r=255, g=0, b=0, a=128) == [255, 0, 0, 128]
 
     def test_eq_tuple(self) -> None:
         assert Color(r=255, g=0, b=0) == (255, 0, 0)
@@ -113,8 +106,18 @@ class TestColor:
         with pytest.raises(ValueError, match="Invalid hex color"):
             Color(value)
 
-    def test_empty_string_is_zero(self) -> None:
-        assert Color("") == Color(r=0, g=0, b=0, a=0)
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            [255, 0, 0, 0.5],
+            {"rgba255": [5, 5, 5, 255]},
+            {"r": 1, "g": 2, "b": 3, "a": 0.5},
+        ],
+    )
+    def test_legacy_form_rejected(self, value: object) -> None:
+        with pytest.raises(ValidationError):
+            Color(value)
 
     def test_bare_hash(self) -> None:
         with pytest.raises(ValueError, match="Invalid hex color"):
@@ -123,13 +126,6 @@ class TestColor:
     def test_invalid_array_length(self) -> None:
         with pytest.raises(ValueError, match="Invalid color array length: 2"):
             Color([1, 2])
-
-    @pytest.mark.parametrize(
-        "value", [[255, 0, 0, 300], [255, 0, 0, -1], {"rgba255": [5, 5, 5, 256]}]
-    )
-    def test_alpha_outside_range_rejected(self, value: object) -> None:
-        with pytest.raises(ValueError, match="outside the 0-255 range"):
-            Color(value)
 
     def test_rgba_string_alpha_above_1_rejected(self) -> None:
         with pytest.raises(ValueError, match="rgba alpha must be 0-1"):
@@ -141,8 +137,7 @@ class TestColor:
             [300, 0, 0, 1],
             [-1, 0, 0, 1],
             [0, 256, 0],
-            {"rgba255": [300, 0, 0, 255]},
-            {"rgba255": [-1, 0, 0, 255]},
+            [255, 0, 0, 300],
             {"r": 300, "g": 0, "b": 0, "a": 1},
         ],
     )
@@ -153,9 +148,8 @@ class TestColor:
     @pytest.mark.parametrize(
         "value",
         [
-            [0, 0, 0, -0.5],
+            [0, 0, 0, -1],
             {"r": 0, "g": 0, "b": 0, "a": -1},
-            {"rgba255": [0, 0, 0, -1]},
         ],
     )
     def test_negative_alpha_rejected(self, value: object) -> None:
@@ -170,7 +164,7 @@ class TestColor:
         with pytest.raises(ValidationError):
             Color(r=300, g=0, b=0)
 
-    @pytest.mark.parametrize("value", [[1.7, 0, 0, 1], {"rgba255": [1.7, 0, 0, 255]}])
+    @pytest.mark.parametrize("value", [[1.7, 0, 0, 1], [0, 0, 0, 0.5]])
     def test_fractional_channel_rejected(self, value: object) -> None:
         with pytest.raises(ValueError, match="not a whole number"):
             Color(value)

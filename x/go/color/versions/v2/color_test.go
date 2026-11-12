@@ -112,49 +112,6 @@ var _ = Describe("Color", func() {
 			Entry("6 digit hex", `"#ff8000"`, v2.Color{R: 255, G: 128, A: 255}),
 			Entry("8 digit hex", `"#ff800080"`, v2.Color{R: 255, G: 128, A: 128}),
 			Entry("null", `null`, v2.Color{}),
-			Entry("empty string", `""`, v2.Color{}),
-			Entry("empty object", `{}`, v2.Color{}),
-			Entry("3-tuple", `[1, 2, 3]`, v2.Color{R: 1, G: 2, B: 3, A: 255}),
-			Entry("4-tuple", `[1, 2, 3, 0.5]`, v2.Color{R: 1, G: 2, B: 3, A: 128}),
-			Entry("4-tuple alpha 0", `[1, 2, 3, 0]`, v2.Color{R: 1, G: 2, B: 3}),
-			Entry(
-				"4-tuple alpha 1",
-				`[1, 2, 3, 1]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255},
-			),
-			Entry(
-				"4-tuple alpha 1.5",
-				`[1, 2, 3, 1.5]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255},
-			),
-			Entry(
-				"4-tuple alpha 2",
-				`[1, 2, 3, 2]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255},
-			),
-			Entry(
-				"4-tuple alpha 2.4",
-				`[1, 2, 3, 2.4]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 2},
-			),
-			Entry(
-				"4-tuple alpha 128",
-				`[1, 2, 3, 128]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 128},
-			),
-			Entry(
-				"4-tuple alpha 255",
-				`[1, 2, 3, 255]`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255},
-			),
-			Entry("object", `{"r":1,"g":2,"b":3,"a":0.5}`,
-				v2.Color{R: 1, G: 2, B: 3, A: 128}),
-			Entry("object without alpha", `{"r":1,"g":2,"b":3}`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255}),
-			Entry("rgba255 object", `{"rgba255":[1,2,3,0.5]}`,
-				v2.Color{R: 1, G: 2, B: 3, A: 128}),
-			Entry("rgba255 object without alpha", `{"rgba255":[1,2,3]}`,
-				v2.Color{R: 1, G: 2, B: 3, A: 255}),
 		)
 		DescribeTable("Should reject",
 			func(data string) {
@@ -162,11 +119,10 @@ var _ = Describe("Color", func() {
 				Expect(json.Unmarshal([]byte(data), &c)).
 					To(MatchError(validate.ErrValidation))
 			},
-			Entry("an alpha above 255", `[1, 2, 3, 256]`),
-			Entry("a negative alpha", `[1, 2, 3, -1]`),
-			Entry("an object alpha above 255", `{"r":1,"g":2,"b":3,"a":300}`),
-			Entry("a channel above 255", `[256, 0, 0]`),
-			Entry("a short tuple", `[1, 2]`),
+			Entry("an empty string", `""`),
+			Entry("an empty object", `{}`),
+			Entry("a tuple", `[1, 2, 3, 0.5]`),
+			Entry("an object", `{"r":1,"g":2,"b":3,"a":0.5}`),
 			Entry("a short hex string", `"#f00"`),
 			Entry("a number", `7`),
 		)
@@ -209,22 +165,7 @@ var _ = Describe("Color", func() {
 				Expect(c).To(Equal(expected))
 			},
 			Entry("nil", nil, v2.Color{}),
-			Entry("an empty string", "", v2.Color{}),
-			Entry("an empty map", map[string]any{}, v2.Color{}),
 			Entry("6 digit hex", "#000000", v2.Color{A: 255}),
-			Entry("a 3-tuple", []any{1, 2, 3}, v2.Color{R: 1, G: 2, B: 3, A: 255}),
-			Entry("a 4-tuple", []any{1, 2, 3, 0.5}, v2.Color{R: 1, G: 2, B: 3, A: 128}),
-			Entry(
-				"a legacy byte alpha",
-				[]any{1, 2, 3, 200},
-				v2.Color{R: 1, G: 2, B: 3, A: 200},
-			),
-			Entry("a map", map[string]any{"r": 1, "g": 2, "b": 3, "a": 1},
-				v2.Color{R: 1, G: 2, B: 3, A: 255}),
-			Entry("a map without alpha", map[string]any{"r": 1, "g": 2, "b": 3},
-				v2.Color{R: 1, G: 2, B: 3, A: 255}),
-			Entry("an rgba255 map", map[string]any{"rgba255": []any{1, 2, 3, 0}},
-				v2.Color{R: 1, G: 2, B: 3}),
 		)
 		DescribeTable("Should reject",
 			func(value any) {
@@ -232,9 +173,10 @@ var _ = Describe("Color", func() {
 				Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(value)), &c)).
 					To(MatchError(validate.ErrValidation))
 			},
-			Entry("an alpha above 255", []any{1, 2, 3, 300}),
+			Entry("an empty string", ""),
 			Entry("a string that is not hex", "red"),
-			Entry("a short tuple", []any{1, 2}),
+			Entry("a tuple", []any{1, 2, 3, 0.5}),
+			Entry("a map", map[string]any{"r": 1, "g": 2, "b": 3, "a": 1}),
 		)
 	})
 })

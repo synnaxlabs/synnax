@@ -93,71 +93,25 @@ TEST(ColorParse, ParsesHexString) {
     expect_parsed("#00000000", 0, 0, 0, 0);
 }
 
-/// @brief it should parse the legacy struct form.
-TEST(ColorParse, ParsesLegacyStructForm) {
-    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}, 255, 128, 0, 128);
-    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}}, 255, 128, 0, 255);
+/// @brief it should default to opaque black.
+TEST(Color, DefaultsToOpaqueBlack) {
+    EXPECT_EQ(Color{}.hex(), "#000000ff");
 }
 
-/// @brief it should parse legacy arrays.
-TEST(ColorParse, ParsesLegacyArrays) {
-    expect_parsed(x::json::json::array({122, 44, 38}), 122, 44, 38, 255);
-    expect_parsed(x::json::json::array({122, 44, 38, 0.5}), 122, 44, 38, 128);
-}
-
-TEST(ColorParse, ParsesLegacyRGBA255Object) {
-    expect_parsed({{"rgba255", {122, 44, 38, 0.5}}}, 122, 44, 38, 128);
-    expect_parsed({{"rgba255", {122, 44, 38}}}, 122, 44, 38, 255);
-}
-
-/// @brief it should parse null, an empty string, and an empty object as zero.
-TEST(ColorParse, ParsesNullEmptyStringAndEmptyObjectAsZero) {
-    expect_parsed(nullptr, 0, 0, 0, 0);
-    expect_parsed("", 0, 0, 0, 0);
-    expect_parsed(x::json::json::object(), 0, 0, 0, 0);
-}
-
-/// @brief it should convert a legacy 0-1 alpha to a byte.
-TEST(ColorParse, ConvertsLegacyAlphaToAByte) {
-    expect_parsed(x::json::json::array({255, 0, 0, 0}), 255, 0, 0, 0);
-    expect_parsed(x::json::json::array({255, 0, 0, 0.003}), 255, 0, 0, 1);
-    expect_parsed(x::json::json::array({255, 0, 0, 1}), 255, 0, 0, 255);
-    expect_parsed(x::json::json::array({255, 0, 0, 1.5}), 255, 0, 0, 255);
-    expect_parsed(x::json::json::array({255, 0, 0, 2}), 255, 0, 0, 255);
-    expect_parsed(x::json::json::array({255, 0, 0, 2.4}), 255, 0, 0, 2);
-    expect_parsed(x::json::json::array({255, 0, 0, 128}), 255, 0, 0, 128);
-    expect_parsed(x::json::json::array({28, 28, 28, 255}), 28, 28, 28, 255);
-    expect_parsed({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 255}}, 5, 5, 5, 255);
-    expect_parsed({{"rgba255", {5, 5, 5, 255}}}, 5, 5, 5, 255);
-}
-
-TEST(ColorParse, AccumulatesErrorOnBadInput) {
-    x::json::Parser bad_length(x::json::json::array({1, 2}));
-    Color::parse(bad_length);
-    EXPECT_FALSE(bad_length.ok());
-    EXPECT_EQ(bad_length.errors->at(0)["message"], "invalid color array length: 2");
-    x::json::Parser bad_element(x::json::json::array({1, 2, "x", 1}));
-    Color::parse(bad_element);
-    EXPECT_FALSE(bad_element.ok());
-    EXPECT_EQ(
-        bad_element.errors->at(0)["message"],
-        "color array elements must be numbers"
-    );
-    x::json::Parser out_of_range(x::json::json::array({300, 0, 0}));
-    Color::parse(out_of_range);
-    EXPECT_FALSE(out_of_range.ok());
-    EXPECT_EQ(
-        out_of_range.errors->at(0)["message"],
-        "color array elements must be within [0, 255]"
-    );
-    x::json::Parser alpha_above_scale({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 300}});
-    Color::parse(alpha_above_scale);
-    EXPECT_FALSE(alpha_above_scale.ok());
-    EXPECT_EQ(alpha_above_scale.errors->at(0)["path"], "a");
-    EXPECT_EQ(
-        alpha_above_scale.errors->at(0)["message"],
-        "alpha is outside the 0-255 range"
-    );
+/// @brief it should reject anything but a hex string.
+TEST(ColorParse, RejectsNonHexInput) {
+    for (const auto &j:
+         {x::json::json(nullptr),
+          x::json::json(""),
+          x::json::json::object(),
+          x::json::json::array({122, 44, 38, 0.5}),
+          x::json::json({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}),
+          x::json::json({{"rgba255", {122, 44, 38, 0.5}}})}) {
+        SCOPED_TRACE(j.dump());
+        x::json::Parser parser(j);
+        Color::parse(parser);
+        EXPECT_FALSE(parser.ok());
+    }
     x::json::Parser bad_hex(x::json::json("#xyz"));
     Color::parse(bad_hex);
     EXPECT_FALSE(bad_hex.ok());
@@ -168,7 +122,7 @@ TEST(ColorParse, AccumulatesErrorOnBadInput) {
 TEST(ColorJSON, WritesAnEightDigitHexString) {
     const Color c{.r = 255, .g = 128, .b = 1, .a = 64};
     EXPECT_EQ(c.to_json(), x::json::json("#ff800140"));
-    EXPECT_EQ(Color{}.to_json(), x::json::json("#00000000"));
+    EXPECT_EQ(Color{.a = 0}.to_json(), x::json::json("#00000000"));
 }
 
 /// @brief it should round trip every alpha through JSON.

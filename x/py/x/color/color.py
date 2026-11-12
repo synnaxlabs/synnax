@@ -13,12 +13,21 @@ import math
 import re
 from typing import override
 
-from pydantic import BaseModel, Field, StrictInt, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    model_serializer,
+    model_validator,
+)
 
 
 class Color(BaseModel):
     """An RGBA color with every channel an integer from 0 to 255. A color serializes
     to an 8 digit "#rrggbbaa" hex string."""
+
+    model_config = ConfigDict(extra="forbid")
 
     r: int = Field(default=0, ge=0, le=255)
     g: int = Field(default=0, ge=0, le=255)
@@ -63,47 +72,31 @@ class Color(BaseModel):
 
 
 def _coerce(v: object) -> object:
-    if isinstance(v, Color):
-        return v
     if isinstance(v, str):
-        if v == "":
-            return {"r": 0, "g": 0, "b": 0, "a": 0}
         if v.startswith("rgb"):
             return _from_rgb(v)
         return _from_hex(v)
     if isinstance(v, (list, tuple)):
         return _from_tuple(v)
-    if isinstance(v, dict):
-        rgba255 = v.get("rgba255")
-        if isinstance(rgba255, (list, tuple)):
-            return _from_tuple(rgba255)
-        if len(v) == 0:
-            return {"r": 0, "g": 0, "b": 0, "a": 0}
-        return v
-    raise ValueError(f"Cannot parse color from: {v!r}")
+    return v
 
 
 def _from_tuple(v: list[object] | tuple[object, ...]) -> dict[str, int]:
-    """Parse a legacy [r, g, b] or [r, g, b, a] tuple, whose alpha is on the 0-1
-    scale."""
+    """Parse an [r, g, b] or [r, g, b, a] tuple of bytes. The alpha of a 3-tuple is
+    255."""
     if len(v) not in (3, 4):
         raise ValueError(f"Invalid color array length: {len(v)}")
-    c = {
-        "r": _parse_channel(v[0]),
-        "g": _parse_channel(v[1]),
-        "b": _parse_channel(v[2]),
-        "a": 255,
+    channels = [_parse_channel(c) for c in v]
+    return {
+        "r": channels[0],
+        "g": channels[1],
+        "b": channels[2],
+        "a": channels[3] if len(channels) == 4 else 255,
     }
-    if len(v) == 4:
-        a = v[3]
-        if isinstance(a, bool) or not isinstance(a, (int, float)):
-            raise ValueError(f"Invalid color alpha: {a!r}")
-        c["a"] = _legacy_alpha(float(a))
-    return c
 
 
 def _parse_channel(v: object) -> int:
-    """Parse a single RGB channel. A fractional value is rejected rather than
+    """Parse a single channel. A fractional value is rejected rather than
     truncated. The Color field bounds enforce the 0-255 range."""
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         raise ValueError(f"Invalid color channel: {v!r}")
@@ -115,20 +108,6 @@ def _parse_channel(v: object) -> int:
 def _round(v: float) -> int:
     """Round a non-negative value half away from zero, as Go, TypeScript and C++ do."""
     return math.floor(v + 0.5)
-
-
-def _legacy_alpha(a: float) -> int:
-    """Convert a legacy alpha, written on the 0-1 scale, to a byte. Old Consoles wrote
-    a 0-255 alpha into the same slot, so a value above 2 is taken as a byte. A value in
-    (1, 2] is a 0-1 alpha nudged past 1 by float error and means opaque. Mirrors the
-    rule in the Go color decoders."""
-    if not 0 <= a <= 255:
-        raise ValueError(f"alpha {a} is outside the 0-255 range")
-    if a <= 1:
-        return _round(a * 255)
-    if a <= 2:
-        return 255
-    return _round(a)
 
 
 def _from_hex(s: str) -> dict[str, int]:

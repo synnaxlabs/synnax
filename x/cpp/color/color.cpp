@@ -54,53 +54,6 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
     };
 }
 
-/// @brief legacy_alpha converts an alpha from a legacy tuple or object, written on the
-/// 0-1 scale, to a byte. Old Consoles wrote a 0-255 alpha into the same slot, so a
-/// value above 2 is taken as a byte. A value in (1, 2] is a 0-1 alpha nudged past 1 by
-/// float error and means opaque. Mirrors the rule in the Go color decoders.
-std::uint8_t legacy_alpha(const double a, const x::json::Parser &parser) {
-    if (std::isnan(a) || a < 0 || a > 255) {
-        parser.field_err("a", "alpha is outside the 0-255 range");
-        return 0;
-    }
-    if (a <= 1) return static_cast<std::uint8_t>(std::lround(a * 255));
-    if (a <= 2) return 255;
-    return static_cast<std::uint8_t>(std::lround(a));
-}
-
-/// @brief from_array parses a legacy [R, G, B] or [R, G, B, A] JSON array. Accumulates
-/// an error on the parser and returns the zero Color when the array is not a color
-/// tuple.
-Color from_array(const x::json::json &arr, const x::json::Parser &parser) {
-    if (arr.size() != 3 && arr.size() != 4) {
-        parser.field_err(
-            "",
-            "invalid color array length: " + std::to_string(arr.size())
-        );
-        return Color{};
-    }
-    for (const auto &v: arr) {
-        if (!v.is_number()) {
-            parser.field_err("", "color array elements must be numbers");
-            return Color{};
-        }
-        // Range-check before the uint8 casts below: an out-of-range double to int
-        // conversion is undefined behavior, not a wrap.
-        if (const double d = v.get<double>(); d < 0 || d > 255) {
-            parser.field_err("", "color array elements must be within [0, 255]");
-            return Color{};
-        }
-    }
-    Color c{
-        .r = static_cast<std::uint8_t>(arr[0].get<double>()),
-        .g = static_cast<std::uint8_t>(arr[1].get<double>()),
-        .b = static_cast<std::uint8_t>(arr[2].get<double>()),
-        .a = 255,
-    };
-    if (arr.size() == 4) c.a = legacy_alpha(arr[3].get<double>(), parser);
-    return c;
-}
-
 std::pair<Color, x::errors::Error>
 from_rgb_match(const std::smatch &m, const std::string &input) {
     const bool has_alpha = m[5].matched;
@@ -184,32 +137,13 @@ std::pair<Color, x::errors::Error> from_css(const std::string &input) {
 
 Color Color::parse(x::json::Parser parser) {
     const auto j = parser.get_json();
-    if (j.is_null()) return Color{};
-    if (j.is_string()) {
-        const auto s = j.get<std::string>();
-        if (s.empty()) return Color{};
-        auto [c, err] = from_hex(s);
-        if (err) {
-            parser.field_err("", err);
-            return Color{};
-        }
-        return c;
+    if (!j.is_string()) {
+        parser.field_err("", "color must be a hex string: " + j.dump());
+        return Color{};
     }
-    if (j.is_array()) return from_array(j, parser);
-    if (j.is_object()) {
-        if (const auto it = j.find("rgba255"); it != j.end() && it->is_array())
-            return from_array(*it, parser);
-        if (j.empty()) return Color{};
-        return Color{
-            .r = parser.field<std::uint8_t>("r", 0),
-            .g = parser.field<std::uint8_t>("g", 0),
-            .b = parser.field<std::uint8_t>("b", 0),
-            .a = parser.has("a") ? legacy_alpha(parser.field<double>("a"), parser)
-                                 : std::uint8_t{255},
-        };
-    }
-    parser.field_err("", "cannot parse color from: " + j.dump());
-    return Color{};
+    auto [c, err] = from_hex(j.get<std::string>());
+    if (err) parser.field_err("", err);
+    return c;
 }
 
 std::uint32_t Color::rgba() const {

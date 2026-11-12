@@ -52,13 +52,6 @@ describe("color.Color", () => {
       const c = color.construct(color.construct("#7a2c26"));
       expect(c).toEqual([122, 44, 38, 255]);
     });
-    test("from the empty string", () => {
-      expect(color.construct("")).toEqual(color.ZERO);
-    });
-    test("from the empty object", () => {
-      expect(color.construct({})).toEqual(color.ZERO);
-    });
-
     test("throws a ParseError for an invalid crude color", () => {
       expect(() => color.construct([300, 0, 0] as any)).toThrow(zod.ParseError);
       expect(() => color.construct([300, 0, 0] as any)).toThrow(
@@ -69,43 +62,13 @@ describe("color.Color", () => {
       expect(() => color.construct([255, 0, 0, 0.5])).toThrow(zod.ParseError);
     });
 
-    describe("legacy objects", () => {
-      test.each<[string, color.Crude, color.Color]>([
-        [
-          "a struct with a 0-1 alpha",
-          { r: 122, g: 44, b: 38, a: 0.5 },
-          [122, 44, 38, 128],
-        ],
-        ["a struct with alpha 1", { r: 255, g: 0, b: 0, a: 1 }, [255, 0, 0, 255]],
-        ["a struct with alpha 0", { r: 255, g: 0, b: 0, a: 0 }, [255, 0, 0, 0]],
-        ["a struct with a faint alpha", { r: 1, g: 2, b: 3, a: 0.003 }, [1, 2, 3, 1]],
-        ["a struct without alpha", { r: 1, g: 2, b: 3 }, [1, 2, 3, 255]],
-        ["a struct with alpha 1.5", { r: 1, g: 2, b: 3, a: 1.5 }, [1, 2, 3, 255]],
-        ["a struct with alpha 2", { r: 1, g: 2, b: 3, a: 2 }, [1, 2, 3, 255]],
-        ["a struct with alpha 2.4", { r: 1, g: 2, b: 3, a: 2.4 }, [1, 2, 3, 2]],
-        ["a struct with a byte alpha", { r: 5, g: 5, b: 5, a: 255 }, [5, 5, 5, 255]],
-        ["an rgba255 object", { rgba255: [122, 44, 38, 0.5] }, [122, 44, 38, 128]],
-        [
-          "an rgba255 object with a byte alpha",
-          { rgba255: [5, 5, 5, 128] },
-          [5, 5, 5, 128],
-        ],
-        ["an rgba255 object without alpha", { rgba255: [5, 5, 5] }, [5, 5, 5, 255]],
-      ])("from %s", (_, crude, expected) => {
-        expect(color.construct(crude)).toEqual(expected);
-        expect(color.colorZ.parse(crude)).toEqual(expected);
-      });
-      test("rejects an alpha above 255", () => {
-        expect(() => color.construct({ r: 5, g: 5, b: 5, a: 300 })).toThrow(
-          zod.ParseError,
-        );
-        expect(() => color.construct({ rgba255: [5, 5, 5, 300] })).toThrow(
-          zod.ParseError,
-        );
-      });
-      test("isColor rejects a legacy object", () => {
-        expect(color.isColor({ r: 5, g: 5, b: 5, a: 1 })).toBe(false);
-      });
+    test.each<[string, unknown]>([
+      ["the empty string", ""],
+      ["the empty object", {}],
+      ["a struct", { r: 122, g: 44, b: 38, a: 0.5 }],
+      ["an rgba255 object", { rgba255: [122, 44, 38, 128] }],
+    ])("rejects %s", (_, crude) => {
+      expect(color.colorZ.safeParse(crude).success).toBe(false);
     });
   });
 
@@ -613,8 +576,8 @@ describe("color.Color", () => {
       expect(color.isCrude([255, 0, 0, -0.1])).toBe(false);
     });
 
-    test("RGBA struct is a crude color", () => {
-      expect(color.isCrude({ r: 255, g: 0, b: 0, a: 1 })).toBe(true);
+    test("RGBA struct is not a crude color", () => {
+      expect(color.isCrude({ r: 255, g: 0, b: 0, a: 255 })).toBe(false);
     });
 
     test("rejects non-color values", () => {

@@ -342,7 +342,7 @@ class TestRangeClient:
             name=random_name(),
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        color = sy.Color(r=0, g=255, b=0, a=0.5)
+        color = sy.Color(r=0, g=255, b=0, a=128)
         client.ranges.set_color(rng.key, color)
         assert client.ranges.retrieve(key=rng.key).color == color
 

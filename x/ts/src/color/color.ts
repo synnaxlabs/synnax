@@ -60,43 +60,8 @@ export type RGB = z.infer<typeof rgbZ>;
 /** A color in hex format. See https://en.wikipedia.org/wiki/Web_colors */
 export type Hex = z.infer<typeof hexZ>;
 
-/**
- * A zod schema for the alpha of a legacy color object, written on the 0-1 scale. Old
- * Consoles wrote a 0-255 alpha into the same slot, so a value above 2 is taken as a
- * byte. A value in (1, 2] is a 0-1 alpha nudged past 1 by float error and means opaque.
- * Mirrors the rule in the Go color decoders.
- */
-const legacyAlphaZ = z
-  .number()
-  .min(0)
-  .max(255)
-  .transform((a) => (a <= 1 ? Math.round(a * 255) : a <= 2 ? 255 : Math.round(a)));
-/** A zod schema for the tuple of a legacy color object. */
-const legacyTupleZ = z.union([
-  rgbZ,
-  z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, legacyAlphaZ]),
-]);
-/** A zod schema for a legacy {"rgba255": [r, g, b, a]} color object. */
-const legacyObjectZ = z.object({ rgba255: legacyTupleZ });
-/** A zod schema for a legacy {r, g, b, a} color struct. An absent alpha is opaque. */
-const legacyStructZ = z.object({
-  r: rgbValueZ,
-  g: rgbValueZ,
-  b: rgbValueZ,
-  a: legacyAlphaZ.optional(),
-});
-/** A zod schema for the empty values that decode to the zero color. */
-const emptyZ = z.union([z.literal(""), z.strictObject({})]);
-
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([
-  hexZ,
-  rgbZ,
-  rgbaZ,
-  legacyObjectZ,
-  legacyStructZ,
-  emptyZ,
-]);
+export const crudeZ = z.union([hexZ, rgbZ, rgbaZ]);
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
@@ -159,16 +124,13 @@ export const cssString = ((color?: Crude): string | undefined => {
 
 /**
  * @constructor Creates a new color from the given color value. The color value can be
- * a hex string, an array of RGB or RGBA values, a legacy color object, or another
- * color.
+ * a hex string, an array of RGB or RGBA values, or another color.
  *
  * @param color - The color value to create the color from. If the color value is a
  * string, it must be a valid hex color (with or without the '#') with a hash-less
  * length 6 or 8. If the hex color is 8 characters long, the last two characters are
  * used as the alpha value. If the color value is an array, it must be an array of
- * length 3 or 4, with each value an integer between 0 and 255. A legacy {r, g, b, a}
- * or {rgba255} object carries its alpha on the 0-1 scale. The empty string and the
- * empty object are the zero color.
+ * length 3 or 4, with each value an integer between 0 and 255.
  *
  * @param alpha - The alpha, between 0 and 255, of a color value that carries none.
  * Defaults to 255.
@@ -178,14 +140,8 @@ export const construct = (color: Crude, alpha: number = 255): Color =>
   fromCrude(zod.parse(crudeZ, color, { label: "color" }), alpha);
 
 const fromCrude = (parsed: z.output<typeof crudeZ>, alpha: number = 255): Color => {
-  if (typeof parsed === "string") return parsed === "" ? ZERO : fromHex(parsed, alpha);
-  if (Array.isArray(parsed)) return parsed.length === 3 ? [...parsed, alpha] : parsed;
-  if ("rgba255" in parsed) {
-    const t = parsed.rgba255;
-    return t.length === 3 ? [...t, alpha] : t;
-  }
-  if ("r" in parsed) return [parsed.r, parsed.g, parsed.b, parsed.a ?? alpha];
-  return ZERO;
+  if (typeof parsed === "string") return fromHex(parsed, alpha);
+  return parsed.length === 3 ? [...parsed, alpha] : parsed;
 };
 
 /**
