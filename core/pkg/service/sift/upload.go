@@ -339,8 +339,8 @@ func (u *uploader) finish(
 	u.write(ctx, up, s)
 }
 
-// send sends the data of s to Sift and makes its run, saving progress in s as Sift
-// confirms it.
+// send sends the data of s to Sift, saving progress in s as Sift confirms it. An upload
+// of a range then makes the run of the range.
 func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error {
 	d := &s.Details
 	var dev device.Device
