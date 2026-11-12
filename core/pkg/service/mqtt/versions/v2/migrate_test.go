@@ -190,6 +190,20 @@ var _ = Describe("MigrateReadField", func() {
 		))
 	})
 
+	It("Should keep the numeric kind and entries of a typed field with a time format",
+		func() {
+			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
+			old.TimeFormat = new(payload.TimeFormatUnixSec)
+			f, changes := v2.MigrateReadField(old)
+			unsigned, ok := f.Variant.(v2.UnsignedReadField)
+			Expect(ok).To(BeTrue())
+			Expect(unsigned.EnumValues).To(Equal(
+				[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
+			))
+			Expect(changes).To(BeEmpty())
+		},
+	)
+
 	It("Should lift an unknown data type to the float kind and describe it", func() {
 		f, changes := v2.MigrateReadField(storedField("complex128"))
 		Expect(f.Type()).To(Equal(payload.KindFloat))
@@ -289,12 +303,14 @@ var _ = Describe("NewReadMigration", func() {
 		Expect(integer.EnumValues).To(Equal(
 			[]payload.IntegerEntry{{Label: "ON", Value: 1}},
 		))
-		Expect(logs.FilterField(zap.String("field", "entries.0.fields.0")).All()).
-			NotTo(BeEmpty())
-		Expect(
-			logs.FilterMessage("changed an MQTT read field to agree with its channel").
-				All(),
-		).NotTo(BeEmpty())
+		changes := logs.FilterField(zap.String("field", "entries.0.fields.0")).All()
+		Expect(changes).To(HaveLen(2))
+		Expect(changes[0].ContextMap()).To(HaveKeyWithValue(
+			"change", "data type float64 became int32, the data type of its channel",
+		))
+		Expect(changes[1].ContextMap()).To(HaveKeyWithValue(
+			"change", `enum label "HALF" was dropped: 0.5 is not integer`,
+		))
 	})
 
 	It("Should rewrite each stored record in place, past an unknown data type", func(
@@ -347,6 +363,77 @@ var _ = Describe("NewReadMigration", func() {
 			unknown.Key: payload.KindFloat,
 		}))
 	})
+
+	DescribeTable(
+		"Should lift a field to the kind of its channel",
+		func(ctx SpecContext, ch v2.Channel, old v1.ReadField, expected v2.ReadField) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			stored := v1.ReadConfig{
+				Key: uuid.New(),
+				Entries: []v1.ReadEntry{{Variant: v1.PlainReadEntry{
+					Fields: []v1.ReadField{old},
+				}}},
+			}
+			Expect(gorp.NewCreate[uuid.UUID, v1.ReadConfig]().
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			channels := func(
+				context.Context,
+				gorp.Snapshot,
+				[]channel.Key,
+			) (map[channel.Key]v2.Channel, error) {
+				return map[channel.Key]v2.Channel{7: ch}, nil
+			}
+			ins, _ := observe()
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				Instrumentation: ins,
+				DB:              db,
+				Namespace:       "mqtt_read_config",
+				Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
+			})).To(Succeed())
+			var got v2.ReadConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, v2.ReadConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, v2.ReadConfig](stored.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			plain, ok := got.Entries[0].Variant.(v2.PlainReadEntry)
+			Expect(ok).To(BeTrue())
+			Expect(plain.Fields[0]).To(Equal(expected))
+		},
+		Entry(
+			"a numeric field with a time format and entries",
+			v2.Channel{Name: "state", DataType: telem.Uint8T},
+			func() v1.ReadField {
+				f := storedField("", payload.EnumEntry{Label: "ON", Value: 1})
+				f.TimeFormat = new(payload.TimeFormatUnixSec)
+				return f
+			}(),
+			v2.ReadField{Variant: v2.UnsignedReadField{
+				BaseReadField: v2.BaseReadField{
+					Key: "f1", Name: "level", Channel: 7, Pointer: "/level",
+				},
+				UnsignedRead: payload.UnsignedRead{
+					EnumValues: []payload.UnsignedEntry{{Label: "ON", Value: 1}},
+				},
+			}},
+		),
+		Entry(
+			"a default field with a time format on a timestamp channel",
+			v2.Channel{Name: "time", DataType: telem.TimestampT, Index: true},
+			func() v1.ReadField {
+				f := storedField("")
+				f.TimeFormat = new(payload.TimeFormatUnixMs)
+				return f
+			}(),
+			v2.ReadField{Variant: v2.TimestampReadField{
+				BaseReadField: v2.BaseReadField{
+					Key: "f1", Name: "level", Channel: 7, Pointer: "/level",
+				},
+				TimestampRead: payload.TimestampRead{
+					TimeFormat: payload.TimeFormatUnixMs,
+				},
+			}},
+		),
+	)
 })
 
 var _ = Describe("Migrate", func() {
