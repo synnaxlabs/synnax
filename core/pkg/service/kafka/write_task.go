@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -116,6 +118,9 @@ type writeTask struct {
 	closer io.Closer
 	// sCtx is the streamer's context. A streamer that fails cancels it.
 	sCtx signal.Context
+	// promises counts produced records whose promise has not returned. The client
+	// calls promises from its own goroutines, even after it closes.
+	promises sync.WaitGroup
 	// mu guards lastErr, which produce callbacks update from client goroutines.
 	mu sync.Mutex
 	// lastErr is the last produce error reported, so a repeat is not rewritten.
@@ -132,14 +137,18 @@ func (f *factory) configureWrite(
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
 	var keys channel.Keys
@@ -159,7 +168,7 @@ func (f *factory) configureWrite(
 			validate.ErrValidation, "channels: at least one must be enabled",
 		)
 	}
-	channels, err := retrieveChannels(ctx, f.cfg.Channel, keys)
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +236,12 @@ func newWriteChannel(
 	f := xjson.Field{DataType: ch.DataType, Enums: enums(wc.EnumValues)}
 	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Key)
+	}
+	if len(f.Enums) > 0 && f.Type != xjson.String {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: enum values require the string JSON type", wc.Key,
+		)
 	}
 	if wc.TimeFormat != nil {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(
@@ -327,7 +342,7 @@ func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	case http.GeneratorTypeUUID:
 		return slot{kind: slotUUID}, nil
 	case http.GeneratorTypeTimestamp:
-		s := slot{kind: slotTimestamp, format: xjson.UnixNanosecond}
+		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
 		if field.TimeFormat != nil {
 			var err error
 			if s.format, err = xjson.ParseTimeFormat(
@@ -344,22 +359,34 @@ func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	}
 }
 
-// Exec implements driver.Task. Every command it handles ends in a status carrying the
-// command key, so a caller waiting on the command always resolves.
+// Exec implements driver.Task. Start and stop answer the command with a status,
+// failures included, so Exec returns an error only when that status was not written.
 func (t *writeTask) Exec(ctx context.Context, cmd task.Command) error {
+	var err, answerErr error
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx, cmd.Key)
+		err, answerErr = t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx, cmd.Key, true)
+		err, answerErr = t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
+	if answerErr != nil {
+		return errors.Combine(err, answerErr)
+	}
+	if err != nil {
+		t.factoryCfg.L.Error("failed to execute command",
+			zap.Stringer("task", t.task.Key),
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
+	return nil
 }
 
 // Stop implements driver.Task.
 func (t *writeTask) Stop(sendStatus bool) error {
-	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
 }
 
 // isRunning reports whether the streamer is up. A streamer that failed on its own
@@ -373,10 +400,11 @@ func (t *writeTask) release() error {
 	return err
 }
 
-func (t *writeTask) start(ctx context.Context, cmdKey string) error {
+// start returns the error that kept the producer from starting, and the error of the
+// status write that answers cmdKey.
+func (t *writeTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
 	if t.isRunning() {
-		t.ackCurrent(ctx, cmdKey, true)
-		return nil
+		return nil, t.status.Ack(ctx, cmdKey, true)
 	}
 	if t.closer != nil {
 		if err := t.release(); err != nil {
@@ -386,8 +414,8 @@ func (t *writeTask) start(ctx context.Context, cmdKey string) error {
 			)
 		}
 	}
-	if err := t.open(ctx); err != nil {
-		t.setStatus(
+	if err = t.open(ctx); err != nil {
+		return err, t.status.Send(
 			ctx,
 			cmdKey,
 			status.VariantError,
@@ -395,42 +423,52 @@ func (t *writeTask) start(ctx context.Context, cmdKey string) error {
 			"Failed to start task",
 			err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
-	return nil
+	if answerErr = t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
+	); answerErr != nil {
+		// The caller sees the start fail, so the producer must not outlive it.
+		return t.release(), answerErr
+	}
+	return nil, nil
 }
 
-func (t *writeTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+// stop returns the error that ended the producer, and the error of the status write
+// that answers cmdKey.
+func (t *writeTask) stop(
+	ctx context.Context,
+	cmdKey string,
+	sendStatus bool,
+) (err, answerErr error) {
 	if t.closer == nil {
 		if sendStatus {
-			t.ackCurrent(ctx, cmdKey, false)
+			return nil, t.status.Ack(ctx, cmdKey, false)
 		}
-		return nil
+		return nil, nil
 	}
-	err := t.release()
+	err = t.release()
 	if !sendStatus {
-		return err
+		return err, nil
 	}
 	if err != nil {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to stop task",
-			err.Error(),
+		return err, t.status.Send(
+			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
-	return nil
+	return nil, t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
+	)
 }
 
 // open connects the producer and streams the channels into it. It writes no
 // statuses: start owns them.
 func (t *writeTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
 	if err != nil {
 		return err
 	}
@@ -491,10 +529,34 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastErr = ""
-	t.closer = append(xio.MultiCloser{xio.CloserFunc(t.closeClient)}, shutdown...)
+	t.closer = xio.MultiCloser{
+		xio.CloserFunc(t.closeClient),
+		xio.CloserFunc(func() error {
+			// Produce blocks on a full buffer until its context ends, so a lost cluster
+			// would hold the graceful wait forever. The first of the drain and the
+			// deadline to settle decides the outcome.
+			timeout := t.factoryCfg.PingTimeout.Duration()
+			var settled atomic.Bool
+			deadline := time.AfterFunc(timeout, func() {
+				if settled.CompareAndSwap(false, true) {
+					cancel()
+				}
+			})
+			err := shutdown.Close()
+			deadline.Stop()
+			if settled.CompareAndSwap(false, true) {
+				return err
+			}
+			return errors.Join(
+				errors.Newf("timed out producing records after %s", timeout),
+				errors.Skip(err, context.Canceled),
+			)
+		}),
+	}
 	sCtx.Go(func(ctx context.Context) error {
 		// The client has finished with a record by the time it calls the promise.
 		promise := func(rec *kgo.Record, err error) {
+			defer t.promises.Done()
 			if err != nil {
 				t.reportError(ctx, "Produce failed: "+err.Error())
 			}
@@ -508,7 +570,8 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	return nil
 }
 
-// closeClient flushes the buffered records and closes the producer.
+// closeClient flushes the buffered records, closes the producer, and waits for every
+// promise to return.
 func (t *writeTask) closeClient() error {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -516,6 +579,10 @@ func (t *writeTask) closeClient() error {
 	defer cancel()
 	err := t.client.Flush(ctx)
 	t.client.Close()
+	// Close fails the buffered records without waiting for their promises, and a
+	// promise that reports after the stop status would overwrite it. The closer runs
+	// this after the relay exits, so nothing adds to promises during the wait.
+	t.promises.Wait()
 	return err
 }
 
@@ -553,6 +620,7 @@ func (t *writeTask) produce(
 				t.reportError(ctx, "Record build failed: "+err.Error())
 				continue
 			}
+			t.promises.Add(1)
 			t.client.Produce(ctx, rec, promise)
 		}
 	}
@@ -604,18 +672,6 @@ func (t *writeTask) reportError(ctx context.Context, description string) {
 		"Failed to produce record",
 		description,
 	)
-}
-
-// ackCurrent answers cmdKey with the task's current status, for a command that needs
-// no work.
-func (t *writeTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
-		t.factoryCfg.L.Error("failed to acknowledge command",
-			zap.Stringer("task", t.task.Key),
-			zap.String("cmd", cmdKey),
-			zap.Error(err),
-		)
-	}
 }
 
 func (t *writeTask) setStatus(

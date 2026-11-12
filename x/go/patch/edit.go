@@ -24,6 +24,7 @@ type Action interface {
 	// target returns the path that the action writes.
 	target() []string
 	guards() []Guard
+	cursor() Cursor
 }
 
 func (s Set) target() []string { return s.Path }
@@ -41,6 +42,15 @@ func (r Remove) guards() []Guard { return r.Guards }
 func (ins Insert) guards() []Guard { return ins.Guards }
 
 func (m Move) guards() []Guard { return m.Guards }
+
+// Field returns the top-level field of the document that the action writes, or the
+// empty string when the action's path is empty.
+func Field(a Action) string {
+	if path := a.target(); len(path) > 0 {
+		return path[0]
+	}
+	return ""
+}
 
 // EditMap applies the action to m, the map at root in the JSON form of a document, and
 // returns the edited map. It may change m in place. Only the entry that the action's

@@ -11,76 +11,73 @@ package schematic
 
 import (
 	"context"
+	"maps"
+	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete schematics within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// method.
 type Writer struct {
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	table      *gorp.Table[Key, Schematic]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
-// Create creates the given schematic within the project provided. If the
-// schematic does not have a key, a new key will be generated.
-func (w Writer) Create(
-	ctx context.Context,
-	projectKey project.Key,
-	s *Schematic,
-) (err error) {
-	var exists bool
+// Create creates the given schematic, assigning a new key when s.Key is zero. The
+// schematic must belong to exactly one of a project and a range. A schematic in a group
+// belongs to the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a schematic with s.Key exists.
+func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	return w.create(ctx, s, nil)
+}
+
+// create creates s. A copy passes its source, whose scales s may keep.
+func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
-	} else {
-		exists, err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Exists(ctx, w.tx)
+	}
+	if s.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, s.Group, resource.TypeSchematic)
 		if err != nil {
 			return err
 		}
+		s.Project = proj
 	}
-	s.ApplyDefaults()
-	if err = s.Validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+	var prev Schematic
+	if source != nil {
+		prev = *source
+	}
+	if err := validateScales(prev, *s); err != nil {
 		return err
 	}
-	if !exists {
-		otgID := s.OntologyID()
-		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err := w.otgWriter.DefineRelationships(
-				ctx,
-				project.OntologyID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
-		}
+	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
+		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(
 		w.tx,
 		s.Key,
 		NewCreateAction(CreatePayload{Schematic: *s}),
@@ -88,81 +85,72 @@ func (w Writer) Create(
 	return nil
 }
 
-// CreateMany creates the given schematics within the project provided. If schematics
-// with the same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	schematics *[]Schematic,
-) error {
+// setProject moves the schematics with keys that are not in the project p into p, and
+// attaches a set project action for each one.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
+	if err := w.table.NewUpdate().
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Schematic](keys...),
+			gorp.Match(func(_ gorp.Context, e *Schematic) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
+		ChangeErr(func(_ gorp.Context, e Schematic) (Schematic, error) {
+			moved = append(moved, e.Key)
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range moved {
+		w.dispatcher.Attach(
+			w.tx,
+			k,
+			NewSetAction(SetPayload{Path: []string{"project"}, Value: p}),
+		)
+	}
+	return nil
+}
+
+// CreateMany creates the given schematics. It returns an error wrapping
+// validate.ErrValidation when a schematic with one of their keys exists.
+func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 	for i := range *schematics {
-		if err := w.Create(ctx, projectKey, &(*schematics)[i]); err != nil {
+		if err := w.Create(ctx, &(*schematics)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w Writer) findParentProject(
-	ctx context.Context,
-	key Key,
-) (project.Key, bool, error) {
-	var res []ontology.Resource
-	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.ParentsTraverser).
-		WhereTypes(ontology.ResourceTypeProject).
-		Entries(&res).
-		Exec(ctx, w.tx); err != nil {
-		return uuid.Nil(), false, err
-	}
-	if len(res) == 0 {
-		return uuid.Nil(), false, nil
-	}
-	k, err := uuid.Parse(res[0].ID.Key)
-	return k, true, err
-}
-
-// Copy creates a copy of the schematic with the given key and name. If the
-// snapshot flag is set to true, the copy will be a snapshot and will no
-// longer be editable. The copied schematic will be bound into the result
-// parameter.
+// Copy creates a copy of the schematic with the given key and name, and binds it into
+// result. A snapshot copy is no longer editable. The copy sits in no group. When rng is
+// set, the copy belongs to that range. Otherwise it keeps the owner of the original.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
 	name string,
 	snapshot bool,
+	rng *ranger.Key,
 	result *Schematic,
 ) error {
-	newKey := uuid.New()
-	if err := w.table.NewUpdate().
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Schematic](key)).
-		Change(func(_ gorp.Context, s Schematic) Schematic {
-			s.Key = newKey
-			s.Name = name
-			s.Snapshot = snapshot
-			*result = s
-			return s
-		}).Exec(ctx, w.tx); err != nil {
+		Entry(result).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	projectKey, ok, err := w.findParentProject(ctx, key)
-	if err != nil || !ok {
-		return err
+	source := *result
+	result.Key = uuid.New()
+	result.Name = name
+	result.Snapshot = snapshot
+	result.Group = nil
+	if rng != nil {
+		result.Project, result.Range = nil, rng
 	}
-	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
-		return err
-	}
-	// In the case of a snapshot, don't create a relationship to the project.
-	if result.Snapshot {
-		return nil
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		OntologyID(newKey),
-	)
+	return w.create(ctx, result, &source)
 }
 
 // Delete deletes the schematics with the given keys.
@@ -170,11 +158,106 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).
 		Exec(ctx, w.tx)
-	if err != nil {
-		return err
+}
+
+// Apply applies a sequence of actions to the schematic with the given key and attaches
+// them to the transaction of w, so its commit broadcasts them with the dispatch key of
+// w. A move into a group also moves the schematic into the project that holds the
+// group, and a move into another project moves it out of its group. Apply attaches the
+// actions of each such move after acts and returns them. Snapshots are immutable except
+// for their name, group, and project: returns validate.ErrValidation if the target is a
+// snapshot and any other action is included. Also returns a validation error, and
+// stores nothing, if the actions leave the schematic invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
+			if prev.Snapshot {
+				for _, a := range acts {
+					if !editsSnapshot(a) {
+						return prev, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							prev.Name,
+						)
+					}
+				}
+			}
+			// Reduce edits the configs map in place, so keep the stored ones.
+			stored := maps.Clone(prev.Configs)
+			next, err := Reduce(prev, acts...)
+			if err != nil {
+				return Schematic{}, err
+			}
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeSchematic,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
+				return Schematic{}, err
+			}
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = next.Validate(); err != nil {
+				return Schematic{}, err
+			}
+			if err = validateScales(Schematic{Configs: stored}, next); err != nil {
+				return Schematic{}, err
+			}
+			return next, project.ValidateOwner(next.Project, next.Range)
+		}).Exec(ctx, w.tx); err != nil {
+		return nil, err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
+}
+
+// validateScales returns an error wrapping validate.ErrValidation when a config of next
+// carries a scale that is not positive and differs from the scale prev stores for it. A
+// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
+// a stored zero does not block an edit to another field.
+func validateScales(prev, next Schematic) error {
+	for key, cfg := range next.Configs {
+		scale, ok := scaleOf(cfg)
+		if !ok || scale > 0 {
+			continue
+		}
+		if old, stored := prev.Configs[key]; stored {
+			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
+				continue
+			}
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"configs.%s.scale: must be positive, got %v",
+			key,
+			scale,
+		)
+	}
+	return nil
+}
+
+// scaleOf returns the scale that cfg carries, and false when its variant has none.
+func scaleOf(cfg ElementConfig) (float64, bool) {
+	v := reflect.ValueOf(cfg.Variant)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return 0, false
+	}
+	f := v.FieldByName("Scale")
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return 0, false
+	}
+	return f.Float(), true
 }

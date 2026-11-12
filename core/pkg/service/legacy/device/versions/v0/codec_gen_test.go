@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -71,7 +71,7 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				}),
-				Parent: new(ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_29"}),
+				Parent: new(resource.ID{Type: resource.Type("arc"), Key: "test_29"}),
 			}),
 			Entry("zero values", v0.Device{
 				Key:        "",
@@ -120,7 +120,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 				},
 			},
 		}),
-		Parent: new(ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_29"}),
+		Parent: new(resource.ID{Type: resource.Type("arc"), Key: "test_29"}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -169,7 +169,7 @@ func FuzzDecodeDevice(f *testing.F) {
 					},
 				},
 			}),
-			Parent: new(ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_29"}),
+			Parent: new(resource.ID{Type: resource.Type("arc"), Key: "test_29"}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

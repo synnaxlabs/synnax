@@ -84,7 +84,7 @@ sequence main {
 class Sequence {
     synnax::Synnax client = new_test_client();
     testutil::Channels channels;
-    x::telem::TimeStamp now_ = BASE;
+    x::telem::TimeStamp now = BASE;
     testutil::Harness harness;
 
 public:
@@ -98,7 +98,7 @@ public:
              {"sensor_seen", x::telem::FLOAT64_T}}
         ),
         harness(this->client, this->channels.substitute(program(check)), [this] {
-            return this->now_;
+            return this->now;
         }) {}
 
     [[nodiscard]] types::ChannelKey key(const std::string &name) const {
@@ -107,7 +107,7 @@ public:
 
     /// @brief runs one scheduler cycle at wall clock at and returns the writes.
     x::telem::Frame cycle(const x::telem::TimeStamp at) {
-        this->now_ = at;
+        this->now = at;
         this->harness.tick(at - BASE);
         return this->harness.flush();
     }

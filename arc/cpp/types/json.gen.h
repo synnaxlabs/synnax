@@ -85,8 +85,18 @@ inline Channels Channels::parse(x::json::Parser parser) {
 
 inline x::json::json Channels::to_json() const {
     x::json::json j = x::json::json::object();
-    j["read"] = this->read;
-    j["write"] = this->write;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->read)
+            obj[std::to_string(key)] = item;
+        j["read"] = obj;
+    }
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->write)
+            obj[std::to_string(key)] = item;
+        j["write"] = obj;
+    }
     return j;
 }
 

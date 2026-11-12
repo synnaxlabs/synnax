@@ -30,7 +30,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
-    if (cfg.array_mode)
+    if (cfg.array())
         s = std::make_unique<ArrayReadTaskSource>(ctx->client, pool, std::move(cfg));
     else
         s = std::make_unique<UnaryReadTaskSource>(ctx->client, pool, std::move(cfg));
@@ -90,11 +90,11 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_, store_);
+        res = configure_scan(ctx, task, this->pool, this->store);
     else if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task, conn_pool_);
+        res = configure_read(ctx, task, this->pool);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task, conn_pool_);
+        res = configure_write(ctx, task, this->pool);
     return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 

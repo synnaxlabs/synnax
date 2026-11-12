@@ -41,7 +41,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -87,6 +86,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
 	compCtx.Config = o.config
+	compCtx.FmtStrings = program.FmtStrings
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))
@@ -151,11 +151,9 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 		cf, err := compileItem(
 			compCtx,
-			i.Key,
-			i.Body.AST,
+			i,
 			params,
 			returnType,
-			i.Outputs,
 			outputMemoryBase,
 		)
 		if err != nil {
@@ -167,12 +165,16 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	for _, t := range batchTargets {
 		compiled = append(compiled, compileBatchWrapper(compCtx, t))
 	}
+	indexFunctions := compileIndexFunctions(compCtx, len(compiled))
 
 	resolver.FinalizeAndPatch(compCtx.Module)
 
 	for _, cf := range compiled {
 		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 		compCtx.Module.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
+	}
+	for _, cf := range indexFunctions {
+		compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 	}
 
 	compCtx.Module.EnableMemory()
@@ -186,14 +188,13 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 func compileItem(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
-	key string,
-	body antlr.ParserRuleContext,
+	fn ir.Function,
 	params types.Params,
 	results types.Type,
-	outputs types.Params,
 	outputMemoryBase uint32,
 ) (compiledFunction, error) {
-	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
+	key, body, outputs := fn.Key, fn.Body.AST, fn.Outputs
+	scope, err := functionScope(fn)
 	if err != nil {
 		return compiledFunction{}, err
 	}
@@ -251,11 +252,20 @@ func compileItem(
 	}
 
 	return compiledFunction{
-		scopeName: ctx.Scope.Name,
+		scopeName: key,
 		typeIdx:   typeIdx,
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// functionScope returns the symbol fn compiles in. A function lowered from a module
+// keeps its own root, so resolving fn.Key against the program root would miss it.
+func functionScope(fn ir.Function) (*symbol.Symbol, error) {
+	if fn.Symbol == nil {
+		return nil, errors.Newf("function %q has no symbol", fn.Key)
+	}
+	return fn.Symbol, nil
 }
 
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
@@ -270,11 +280,7 @@ func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	segments, err := literal.FmtStrParse(fn.Body.Raw)
-	if err != nil {
-		return compiledFunction{}, err
-	}
-	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
+	scope, err := functionScope(fn)
 	if err != nil {
 		return compiledFunction{}, err
 	}
@@ -288,7 +294,15 @@ func compileFmtStrSynthetic(
 		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
 	}
 	typeIdx := ctx.Module.AddType(funcT)
-	if _, err := expression.EmitFmtSegments(ctx, segments); err != nil {
+	lit, ok := fn.Body.AST.(parser.ILiteralContext)
+	if !ok {
+		return compiledFunction{}, errors.Newf(
+			"format string %s has no literal",
+			fn.Key,
+		)
+	}
+	strTerm := parser.StringTerminal(lit)
+	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{

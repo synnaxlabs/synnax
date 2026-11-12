@@ -7,31 +7,34 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax import ontology
+from synnax import resource
+from synnax.access import role as role_
+from synnax.user.types_gen import Key
 
 
 class New(BaseModel):
     username: str
     password: str
     name: str = ""
-    key: UUID | None = None
+    key: Key | None = None
+    role: role_.Key
 
 
 class User(BaseModel):
-    key: UUID
+    key: Key
     name: str
+    role: role_.Key
 
     @property
-    def ontology_id(self) -> ontology.ID:
-        return _ontology_id(self.key)
+    def resource_id(self) -> resource.ID:
+        return _resource_id(self.key)
 
 
-_ONTOLOGY_TYPE = ontology.ID(type="user")
+_RESOURCE_TYPE = resource.ID(type="user")
 
 
-def _ontology_id(key: UUID) -> ontology.ID:
-    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
+def _resource_id(key: Key) -> resource.ID:
+    return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))

@@ -105,10 +105,35 @@ type unionVariantData struct {
 	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
 	// filled as a unit.
 	DefaultGroups []defaultGroupData
+	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
+	// the variant's SetDefaults. The wrapper decodes a variant over them.
+	SetSteps []recurseStepData
+	SetFills []defaultFillData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
 	NeedsValidate      bool
+}
+
+// HasGroups reports whether a variant of the union has a `@default group`.
+func (u unionData) HasGroups() bool {
+	for _, v := range u.Variants {
+		if v.SetDefaultsView().HasGroups() {
+			return true
+		}
+	}
+	return false
+}
+
+// SetDefaultsView returns the view of the variant's SetDefaults method.
+func (v unionVariantData) SetDefaultsView() setDefaultsView {
+	return setDefaultsView{
+		Receiver: v.Receiver,
+		Name:     v.TypeName,
+		Steps:    v.SetSteps,
+		Fills:    v.SetFills,
+		Groups:   v.DefaultGroups,
+	}
 }
 
 // interfaceDoc returns the documentation comment of a union's variant interface.
@@ -212,6 +237,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
 		"ApplyDefaults",
+		"SetDefaults",
 		"Validate",
 	)
 	if ud.Base != "" {
@@ -248,24 +274,29 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 					inherited, pform.Fields, data.table,
 				)
 				for _, f := range inlineFields {
+					if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
+						return unionData{}, err
+					}
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
+					fd := data.forField(f)
 					if defaultGroupName(f) == "" {
-						vd.DefaultFills = append(
-							vd.DefaultFills,
-							goDefaultFills(f, data)...,
-						)
+						fills := goDefaultFills(f, fd)
+						if defaultOnly.Contains(f.Name) {
+							fills = overrideFills(f, fd)
+						}
+						vd.DefaultFills = append(vd.DefaultFills, fills...)
 					}
-					if validateSkip(f, data) {
+					if validateSkip(f, fd) {
 						continue
 					}
-					if chk, ok := goEnumCheck(f, data); ok {
+					if chk, ok := goEnumCheck(f, fd); ok {
 						vd.EnumChecks = append(vd.EnumChecks, chk)
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, data)...,
+						goConstraintChecks(f, fd)...,
 					)
 				}
 				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
@@ -289,6 +320,9 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 			defaultsHasOwn,
 			neverSkip,
 		)
+		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
+		vd.SetFills = setFills(vd.DefaultFills)
+		vd.DefaultFills = applyFills(vd.DefaultFills)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,
@@ -347,10 +381,11 @@ func embedRecurseSteps(
 		}
 	}
 	for _, f := range inlineFields {
-		if skip(f, data) {
+		fd := data.forField(f)
+		if skip(f, fd) {
 			continue
 		}
-		if step, ok := goRecurseStep(f, data, hasOwn, skip); ok {
+		if step, ok := goRecurseStep(f, fd, hasOwn, skip); ok {
 			steps = append(steps, step)
 		}
 	}

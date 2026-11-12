@@ -13,57 +13,37 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig.Validate", func() {
 		It("Should return nil when all required fields are set", func() {
-			cfg := node.ServiceConfig{
-				Cluster:  testCluster.Nodes[1].Cluster,
-				Ontology: &ontology.Ontology{},
-			}
+			cfg := node.ServiceConfig{Host: host}
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
 		DescribeTable(
 			"Should reject configurations missing a required field",
 			func(field string, mutate func(*node.ServiceConfig)) {
-				cfg := node.ServiceConfig{
-					Cluster:  testCluster.Nodes[1].Cluster,
-					Ontology: &ontology.Ontology{},
-				}
+				cfg := node.ServiceConfig{Host: host}
 				mutate(&cfg)
 				Expect(cfg.Validate()).To(SatisfyAll(
 					MatchError(ContainSubstring(field)),
-					MatchError(ContainSubstring("must be non-nil")),
+					MatchError(ContainSubstring("must be non-zero")),
 				))
 			},
 			Entry(
-				"cluster",
-				"cluster",
-				func(c *node.ServiceConfig) { c.Cluster = nil },
-			),
-			Entry(
-				"ontology",
-				"ontology",
-				func(c *node.ServiceConfig) { c.Ontology = nil },
+				"host",
+				"host.key",
+				func(c *node.ServiceConfig) { c.Host = node.Node{} },
 			),
 		)
 	})
 
 	Describe("NewService", func() {
-		It(
-			"Should define the free-node sentinel resource in the ontology",
-			func(ctx SpecContext) {
-				Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
-					Exists(ctx, nil)).To(BeTrue())
-			},
-		)
-
-		It("Should reject a config that fails validation", func(ctx SpecContext) {
-			Expect(node.NewService(ctx, node.ServiceConfig{})).
-				Error().To(MatchError(ContainSubstring("must be non-nil")))
+		It("Should reject a config that fails validation", func() {
+			Expect(node.NewService(node.ServiceConfig{})).
+				Error().To(MatchError(ContainSubstring("host.key: must be non-zero")))
 		})
 	})
 })

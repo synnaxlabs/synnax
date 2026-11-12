@@ -431,8 +431,9 @@ var _ = Describe("Collector", func() {
 					},
 				},
 			}
-			err := c.AddAll(types)
-			Expect(err).To(MatchError(ContainSubstring("contains path traversal")))
+			Expect(
+				c.AddAll(types),
+			).To(MatchError(ContainSubstring("contains path traversal")))
 		})
 	})
 
@@ -444,10 +445,9 @@ var _ = Describe("Collector", func() {
 			Expect(c.Add(resolution.Type{Name: "TypeA"})).To(Succeed())
 
 			expectedErr := errors.New("callback error")
-			err := c.ForEach(func(path string, types []resolution.Type) error {
+			Expect(c.ForEach(func(path string, types []resolution.Type) error {
 				return expectedErr
-			})
-			Expect(err).To(Equal(expectedErr))
+			})).To(Equal(expectedErr))
 		})
 	})
 
@@ -535,8 +535,7 @@ var _ = Describe("Collect Helpers", func() {
 
 	Describe("CollectStructs", func() {
 		It("Should collect only struct types", func() {
-			c, err := framework.CollectStructs("go", req)
-			Expect(err).To(Succeed())
+			c := MustSucceed(framework.CollectStructs("go", req))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("User"))
@@ -545,8 +544,7 @@ var _ = Describe("Collect Helpers", func() {
 
 	Describe("CollectDistinct", func() {
 		It("Should collect only distinct types", func() {
-			c, err := framework.CollectDistinct("go", req)
-			Expect(err).To(Succeed())
+			c := MustSucceed(framework.CollectDistinct("go", req))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("UserID"))
@@ -555,8 +553,7 @@ var _ = Describe("Collect Helpers", func() {
 
 	Describe("CollectAliases", func() {
 		It("Should collect only alias types", func() {
-			c, err := framework.CollectAliases("go", req)
-			Expect(err).To(Succeed())
+			c := MustSucceed(framework.CollectAliases("go", req))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("StringAlias"))

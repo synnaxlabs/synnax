@@ -34,8 +34,7 @@ type entryV1 struct {
 	Data string `msgpack:"data" json:"data"`
 }
 
-func (e entryV1) GorpKey() int32    { return e.ID }
-func (e entryV1) SetOptions() []any { return nil }
+func (e entryV1) GorpKey() int32 { return e.ID }
 
 const testNamespace = "test"
 

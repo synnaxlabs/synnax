@@ -22,7 +22,6 @@ import {
   moveRow,
   removeCol,
   removeRow,
-  rename,
   resizeCol,
   resizeRow,
   setCell,
@@ -67,23 +66,15 @@ const expandTemplate = (template: Cell, count: number): Cell[] =>
     config: template.config,
   }));
 
-// Path actions edit only the cells.
 const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult =>
-  actions.applyEntryPath(state, action, ["cells"], tableZ);
+  patch.pathOf(action)[0] === "cells"
+    ? actions.applyEntryPath(state, action, ["cells"], tableZ)
+    : actions.applyPath(state, action, tableZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.table);
     return { inverse: [], targets: [payload.table.key] };
-  },
-
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return {
-      inverse: [rename({ name: oldName })],
-      targets: [state.key],
-    };
   },
 
   addRow: (state, payload) => {
@@ -334,8 +325,9 @@ export const createOf = (action: Action) =>
 
 const cellOf = (action: Action): string | undefined => {
   if (action.type === "set_cell") return action.setCell.cell.key;
-  if (action.type === "set" || action.type === "remove") return patch.pathOf(action)[1];
-  return undefined;
+  if (action.type !== "set" && action.type !== "remove") return undefined;
+  const [root, cell] = patch.pathOf(action);
+  return root === "cells" ? cell : undefined;
 };
 
 // kindOf classifies an action batch for the undoable store's per-kind coalesce window.

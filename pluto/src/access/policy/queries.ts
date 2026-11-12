@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
+import { access, actions, resource } from "@synnaxlabs/client";
 import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "policy";
-const PLURAL_RESOURCE_NAME = "policies";
 
 export const formSchema = z.object({
   key: z.uuid().optional(),
   name: z.string().min(1, "Name is required"),
-  objects: ontology.idZ.array(),
+  objects: resource.idZ.array(),
   actions: access.actionZ.array(),
+  role: access.role.keyZ,
 });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
@@ -34,25 +33,8 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
   onChange: ({ client, query }, handler) =>
-    client.access.policies.onChange(query, handler),
-  getCached: ({ client, query }) => client.access.policies.getCached(query),
-});
-
-export type ListParams = List.PagerParams;
-
-export const useList = Flux.createList<
-  ListParams,
-  access.policy.Key,
-  access.policy.Policy
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.access.policies.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) =>
-    client.access.policies.onChange(key, handler),
-  getCached: ({ client, query }) => client.access.policies.getCached(query),
+    client.access.policies.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.access.policies.watch(query).getCached(),
 });
 
 export type DeleteParams = access.policy.Key | access.policy.Key[];
@@ -77,11 +59,9 @@ export interface RenameParams {
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.access.policies.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.access.policies.rename(key, name);
     return data;
   },
 });
@@ -94,11 +74,23 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     name: "",
     objects: [],
     actions: [],
+    role: "",
   },
   retrieve: async ({ client, query: { key } }) =>
     await client.access.policies.retrieve(key),
-  update: async ({ client, value, set }) => {
-    const p = await client.access.policies.create(value());
-    set(formPath.key, p.key);
+  update: async ({ client, value, set, stored }) => {
+    const values = value();
+    if (values.key == null) {
+      const created = await client.access.policies.create(values);
+      set(formPath.key, created.key);
+      return;
+    }
+    const edits = actions.diffFields(formSchema, stored, values, [
+      "name",
+      "objects",
+      "actions",
+      "role",
+    ]);
+    if (edits.length > 0) await client.access.policies.dispatch(values.key, edits);
   },
 });

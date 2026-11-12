@@ -16,7 +16,6 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
-import { Secret } from "@/feature/secret";
 import {
   type Device,
   INTEGRATION,
@@ -31,6 +30,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Secret } from "@/platform/secret";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
 
@@ -76,7 +76,7 @@ const beforeSave = async ({
   });
   // The rack reads the API key once, for this test only.
   const grant = await client.secrets.grant({
-    subject: rack.ontologyID(rackKey),
+    subject: rack.resourceID(rackKey),
     secrets: [connection.apiKey],
   });
   const state = await scanTask.executeCommandSync({
@@ -89,7 +89,7 @@ const beforeSave = async ({
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Device connected",
     variant: "success",
-    details: { rack: rackKey, device: get(path.key).value },
+    details: { rack: rackKey, connected: true },
   });
   set(path.status, devStatus, { notifyOnChange: false, markTouched: false });
   return true;

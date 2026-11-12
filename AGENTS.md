@@ -2,13 +2,12 @@
 
 ## Project
 
-Synnax is a horizontally-scalable observability and control platform for hardware
-telemetry. Monorepo:
+Synnax is an observability and control platform for hardware telemetry. Monorepo:
 
 - **TypeScript** (pnpm + Turbo): Console (Tauri app), Pluto (viz), Client, Drift
   (multi-window state), Freighter, X
 - **Go** (per-module, sibling `replace` directives): Core server, Cesium (time-series
-  DB), Aspen (distributed KV), Gorp (typed KV tables), Arc compiler, Oracle
+  DB), Gorp (typed KV tables), Arc compiler, Oracle
 - **Python** (uv workspace): client, integration test conductor
 - **C++** (Bazel): driver for hardware (LabJack, NI, OPC UA, Modbus)
 - **Arc** (`/arc/`) spans languages: Go compiler/LSP/runtime, C++ embedded runtime (used
@@ -19,10 +18,14 @@ telemetry. Monorepo:
 ## Release model
 
 `main` is the only long-lived branch. Nothing publishes on push: a person dispatches
-every release from `main` or from a `release/<product>-X.Y` hotfix branch. Candidates
-(`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
-shapes, wire quirks, migrations — is owed only to what a stable release shipped;
-candidate-era formats may be dropped freely. See RFC 0058.
+every release, candidates included, from `main` or a `release/<product>-X.Y` branch
+only. A release from `main` is always the next minor of the Console, Core, and Driver. A
+patch releases only from `release/<product>-X.Y`, cut from the `X.Y.0` tag when train
+`X.Y` needs one. The TypeScript and Python packages share the Core's minor: from `main`
+they release only with the Core, at the next patch on its minor. Candidates (`-rc.N`
+tags) never count as shipped. Backward compatibility — file formats, stored shapes, wire
+quirks, migrations — is owed only to what a stable release shipped; candidate-era
+formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
@@ -127,12 +130,12 @@ every reply you write to the user), use ASD-STE100 Simplified Technical English.
 reply is prose: it gets the same rules as a doc. Always write in sentence case instead
 of title case for headings, titles, and menu options unless explicitly directed
 otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
-Cesium, Aspen, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the
-Driver, the Core, and the Console. Aether is always capitalized in prose, compounds
-included (the Aether binding, Aether-cached); only backticked identifiers and paths
-(`aether`, `flux.aether`) stay lowercase. Third-party names are proper nouns too: Git,
-Go, gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead
-of "server", "node", or "cluster", unless you are specifically writing about behavior of
+Cesium, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the Driver, the
+Core, and the Console. Aether is always capitalized in prose, compounds included (the
+Aether binding, Aether-cached); only backticked identifiers and paths (`aether`,
+`flux.aether`) stay lowercase. Third-party names are proper nouns too: Git, Go, gRPC,
+HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead of
+"server", "node", or "cluster", unless you are specifically writing about behavior of
 multi-node clusters. If you are referring to code paths, then put those in backticks
 `gorp/table.go`.
 

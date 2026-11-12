@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -19,6 +20,8 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/status/status.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
@@ -82,6 +85,52 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_NE(cfg.rack.name, "");
 }
 
+/// @brief it should write the version of this Driver to its rack and find a Core of the
+/// same train compatible.
+TEST_F(RackConfigTest, WritesDriverVersionToRack) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    EXPECT_FALSE(cfg.incompatible_core_version.has_value());
+    const auto rack = ASSERT_NIL_P(new_test_client().racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.version, SYNNAX_DRIVER_VERSION);
+}
+
+/// @brief it should start only the rack status when the Core runs another minor, and
+/// report the mismatch in its heartbeat.
+TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("mismatch_rack"));
+    Config cfg;
+    cfg.incompatible_core_version = "99.1.0";
+    const auto factory = cfg.new_factory(
+        client,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    auto tasks = factory->configure_initial_tasks(
+        std::make_shared<task::MockContext>(client),
+        rack
+    );
+    x::defer::defer stop([&tasks]() {
+        for (const auto &[_, tsk]: tasks)
+            tsk->stop(false);
+    });
+    ASSERT_EQ(tasks.size(), 1);
+    EXPECT_EQ(tasks[0].first.type, status::TASK_TYPE);
+    const auto owner = synnax::rack::resource_id(rack.key);
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        client->statuses.retrieve_by_owner(owner).first.message,
+        "Driver " + std::string(SYNNAX_DRIVER_VERSION) +
+            " cannot work with Core 99.1.0",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(50)
+    );
+    const auto stat = ASSERT_NIL_P(client->statuses.retrieve_by_owner(owner));
+    EXPECT_EQ(stat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(
+        stat.description,
+        "Install the Driver release that matches the Core, then restart the Driver."
+    );
+}
+
 /// @brief it should load rack key from persisted state file.
 TEST_F(RackConfigTest, LoadRackFromPersistedState) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
@@ -137,6 +186,94 @@ TEST_F(RackConfigTest, EnrollSavedRack) {
     ASSERT_FALSE(state["conn_params"].contains("username"));
     ASSERT_FALSE(state["conn_params"].contains("password"));
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
+}
+
+/// @brief it should log in as the saved rack that needs enrollment, so the Driver keeps
+/// the rack after an upgrade.
+TEST_F(RackConfigTest, LoginKeepsSavedRack) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("upgraded rack"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, rack.key);
+    const auto state = read_state();
+    ASSERT_EQ(state["remote_info"]["cluster_key"], cluster_key.to_string());
+    ASSERT_FALSE(state["conn_params"].contains("password"));
+}
+
+/// @brief it should log in as the rack that the saved API key logs in as, so a second
+/// login keeps the rack.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRack) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+    ASSERT_NE(second.connection.api_key, first.connection.api_key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, first.rack.key);
+}
+
+/// @brief it should log in as the rack of the saved API key when the saved state has no
+/// cluster key.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRackWithoutClusterKey) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NIL(Config::save_remote_info(args, RemoteInfo{}));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key to a Core at another address.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyAtOtherAddress) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto other = key_conn(first.connection.api_key);
+    other.port = 1;
+    ASSERT_NIL(Config::save_api_key(args, other));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key without TLS when it was saved with TLS.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyWithoutTLS) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto secure = key_conn(first.connection.api_key);
+    secure.secure = true;
+    ASSERT_NIL(Config::save_api_key(args, secure));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should create a new rack when the Core rejects the saved API key.
+TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto client = new_test_client();
+    const auto keys = ASSERT_NIL_P(
+        client.api_keys.retrieve({{"rack", std::to_string(first.rack.key)}})
+    );
+    std::vector<std::string> key_ids;
+    for (const auto &k: keys)
+        key_ids.push_back(k.key);
+    ASSERT_NIL(client.api_keys.del(key_ids));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, 0);
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should enroll the saved rack when the saved API key logs in as a user.
+TEST_F(RackConfigTest, LoginKeepsSavedRackWithUserKey) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("user key rack"));
+    const auto user_key = ASSERT_NIL_P(client.api_keys.create("user key"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    ASSERT_NIL(Config::save_api_key(args, key_conn(user_key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
 }
 
 /// @brief it should keep the saved rack and the password when the caller cannot create
@@ -212,6 +349,24 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.connection.api_key, key.token);
+}
+
+/// @brief it should replace the integrations and version of the rack it loads, and keep
+/// the other fields of the rack.
+TEST_F(RackConfigTest, LoadSetsRackIntegrationsAndVersion) {
+    const auto client = new_test_client();
+    auto rack = synnax::rack::Rack{.name = "stale rack", .integrations = {"stale"}};
+    ASSERT_NIL(client.racks.create(rack));
+    const auto key = ASSERT_NIL_P(
+        client.api_keys.create("test", {"rack", std::to_string(rack.key)})
+    );
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(rack.key));
+    EXPECT_EQ(got.name, "stale rack");
+    EXPECT_EQ(got.version, SYNNAX_DRIVER_VERSION);
+    EXPECT_EQ(got.integrations, cfg.rack.integrations);
+    EXPECT_EQ(std::ranges::find(got.integrations, "stale"), got.integrations.end());
 }
 
 /// @brief it should refuse an API key that logs in as a user.

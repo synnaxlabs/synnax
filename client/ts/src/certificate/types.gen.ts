@@ -12,8 +12,12 @@
 import { filter, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { secret } from "@/secret";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /** Details describes the leaf certificate of a chain. */
 export const detailsZ = z.object({
@@ -31,6 +35,15 @@ export const detailsZ = z.object({
   sha256: z.string(),
 });
 export interface Details extends z.infer<typeof detailsZ> {}
+
+/** Order is a sort of certificates. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -50,6 +63,7 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  name?: filter.String;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -66,7 +80,23 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** name selects by name. */
+  name: filter.stringZ.optional(),
 });
+
+/**
+ * Cursor is a position in an order of certificates: the sort value and the key of a
+ * certificate.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the certificate at the position. */
+  key: keyZ,
+  /**
+   * name is the name of the certificate at the position, when the order sorts by it.
+   */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /** StoredCertificate is a certificate whose contents the Core stores. */
 export const storedCertificateZ = baseZ.extend({
@@ -85,8 +115,11 @@ export const fileCertificateZ = baseZ.extend({
   source: z.literal("file"),
   /** certificatePath is the path of the certificate on the computer that uses it. */
   certificatePath: z.string(),
-  /** privateKeyPath is the path of the private key, when there is one. */
-  privateKeyPath: z.string().optional(),
+  /**
+   * privateKeyFile is the name of the private key file in the secrets folder of the
+   * rack, when there is one.
+   */
+  privateKeyFile: z.string().optional(),
   /** details describes the leaf, as the file browser read it. */
   details: detailsZ.optional(),
 });
@@ -117,10 +150,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the certificates that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the certificates. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the certificates strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most certificates to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching certificates to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -131,5 +166,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("certificate");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("certificate");
+export const TYPE_RESOURCE_ID = resourceID("");

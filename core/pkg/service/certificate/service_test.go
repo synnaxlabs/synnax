@@ -10,6 +10,7 @@
 package certificate_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -26,14 +27,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -45,7 +43,6 @@ var start = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 // clock that each spec controls.
 type env struct {
 	db      *gorp.DB
-	otg     *ontology.Ontology
 	secrets *secret.Service
 	status  *status.Service
 	svc     *certificate.Service
@@ -58,35 +55,16 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 	e.now.Store(int64(telem.NewTimeStamp(start)))
 	clock := func() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
-	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
-	g := MustOpen(
-		group.OpenService(ctx, group.ServiceConfig{DB: e.db, Ontology: e.otg}),
-	)
-	lbl := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       e.db,
-		Ontology: e.otg,
-		Group:    g,
-	}))
-	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       e.db,
-		Ontology: e.otg,
-		Group:    g,
-		Label:    lbl,
-	}))
+	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: e.db}))
 	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
-		Ontology:      e.otg,
-		Group:         g,
-		Uses:          certificate.FindSecretUses,
 		Grant:         grants,
 		Now:           clock,
 		EncryptionKey: secret.NewEncryptionKey(),
 	}))
 	e.svc = MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
 		DB:                  e.db,
-		Ontology:            e.otg,
-		Group:               g,
 		Secret:              e.secrets,
 		Status:              e.status,
 		Now:                 clock,
@@ -157,8 +135,15 @@ func (e *env) create(
 	privateKey []byte,
 ) certificate.Certificate {
 	GinkgoHelper()
-	Expect(e.svc.NewWriter(nil).Create(ctx, &c, privateKey)).To(Succeed())
+	Expect(e.write(ctx, func(w certificate.Writer) error {
+		return w.Set(ctx, &c, privateKey)
+	})).To(Succeed())
 	return c
+}
+
+// write runs fn with a writer on a new transaction.
+func (e *env) write(ctx context.Context, fn func(certificate.Writer) error) error {
+	return e.db.WithTx(ctx, func(tx gorp.Tx) error { return fn(e.svc.NewWriter(tx)) })
 }
 
 func (e *env) retrieve(ctx SpecContext, key certificate.Key) certificate.Certificate {
@@ -167,7 +152,7 @@ func (e *env) retrieve(ctx SpecContext, key certificate.Key) certificate.Certifi
 	Expect(e.svc.NewRetrieve().
 		Where(certificate.MatchKeys(key)).
 		Entry(&c).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return c
 }
 
@@ -175,9 +160,9 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 	GinkgoHelper()
 	var s status.Status[any]
 	Expect(e.status.NewRetrieve[any]().
-		Where(status.MatchKeys[any](certificate.OntologyID(key).String())).
+		Where(status.MatchOwners[any](certificate.ResourceID(key))).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return s
 }
 
@@ -185,9 +170,20 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
 	key := *c.Variant.(certificate.StoredCertificate).PrivateKey
-	rk := rack.Key(1).OntologyID()
-	g := MustSucceed(e.secrets.Grant(ctx, nil, rk, key))
-	return MustSucceed(e.secrets.Resolve(ctx, nil, rk, g, key))[key]
+	rk := rack.Key(1).ResourceID()
+	g := MustSucceed(e.secrets.Grant(ctx, e.db, rk, key))
+	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
+}
+
+// keyName returns the name of the private key secret of c.
+func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
+	GinkgoHelper()
+	var s secret.Secret
+	Expect(e.secrets.NewRetrieve().
+		Where(secret.MatchKeys(*c.Variant.(certificate.StoredCertificate).PrivateKey)).
+		Entry(&s).
+		Exec(ctx, e.db)).To(Succeed())
+	return s.Base().Name
 }
 
 var _ = Describe("Service", func() {
@@ -218,42 +214,95 @@ var _ = Describe("Service", func() {
 				g.Expect(e.svc.NewRetrieve().
 					Search("broker").
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				g.Expect(found).To(HaveLen(1))
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Broker CA"))
 		})
 	})
 
-	Describe("Ontology", func() {
-		It("Should define a resource for each certificate", func(ctx SpecContext) {
+	Describe("Resources", func() {
+		It("Should name each certificate by its name", func(ctx SpecContext) {
 			e := newEnv(ctx, telem.Hour)
 			c := e.create(
 				ctx,
 				stored("Plant", newCertificate(newKey(), "a", time.Hour)),
 				nil,
 			)
-			var res ontology.Resource
-			Expect(e.otg.NewRetrieve().
-				WhereIDs(c.OntologyID()).
-				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal("Plant"))
-			Expect(e.svc.Type()).To(Equal(ontology.ResourceTypeCertificate))
+			Expect(
+				e.svc.Resources().Retrieve(ctx, e.db, []resource.ID{c.ResourceID()}),
+			).
+				To(Equal([]resource.Resource{{ID: c.ResourceID(), Name: "Plant"}}))
 		})
-		It("Should convert between keys and ontology IDs", func() {
+		It("Should list the certificate as a use of its private key",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				key := newKey()
+				c := e.create(
+					ctx,
+					stored("Plant", newCertificate(key, "a", time.Hour)),
+					encodeKey(key),
+				)
+				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				Expect(e.secrets.Uses(ctx, e.db, secretKey)).
+					To(Equal([]resource.ID{c.ResourceID()}))
+			},
+		)
+		It("Should convert between keys and resource IDs", func() {
 			c := certificate.Certificate{Variant: certificate.FileCertificate{
 				Base: certificate.Base{Key: uuid.New()},
 			}}
 			key := c.Base().Key
-			Expect(certificate.OntologyID(key)).To(Equal(c.OntologyID()))
-			Expect(certificate.OntologyIDs([]certificate.Key{key})).
-				To(Equal([]ontology.ID{c.OntologyID()}))
+			Expect(certificate.ResourceID(key)).To(Equal(c.ResourceID()))
+			Expect(certificate.ResourceIDs([]certificate.Key{key})).
+				To(Equal([]resource.ID{c.ResourceID()}))
 			Expect(
-				certificate.OntologyIDsFromCertificates([]certificate.Certificate{c}),
+				certificate.ResourceIDsFromCertificates([]certificate.Certificate{c}),
 			).
-				To(Equal([]ontology.ID{c.OntologyID()}))
+				To(Equal([]resource.ID{c.ResourceID()}))
 		})
+	})
+
+	Describe("Changes", func() {
+		It(
+			"Should return the create, rename, and delete that a commit makes",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				pemText := newCertificate(newKey(), "a", time.Hour)
+				renamed := e.create(ctx, stored("Before", pemText), nil)
+				deleted := e.create(ctx, stored("Deleted", pemText), nil)
+				var changes []gorp.EntryChange[certificate.Key, certificate.Certificate]
+				DeferCleanup(
+					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+						for ch := range e.svc.Changes(ctx, c) {
+							changes = append(changes, ch)
+						}
+					}),
+				)
+				created := stored("Created", pemText)
+				Expect(e.write(ctx, func(w certificate.Writer) error {
+					if err := w.Set(ctx, &created, nil); err != nil {
+						return err
+					}
+					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {
+						return err
+					}
+					return w.Delete(ctx, deleted.Base().Key)
+				})).To(Succeed())
+				kinds := make(map[certificate.Key]gorp.ChangeKind, len(changes))
+				names := make(map[certificate.Key]string, len(changes))
+				for _, ch := range changes {
+					kinds[ch.Key], names[ch.Key] = ch.Kind, ch.Value.Base().Name
+				}
+				Expect(kinds).To(Equal(map[certificate.Key]gorp.ChangeKind{
+					created.Base().Key: gorp.ChangeCreate,
+					renamed.Base().Key: gorp.ChangeUpdate,
+					deleted.Base().Key: gorp.ChangeDelete,
+				}))
+				Expect(names[created.Base().Key]).To(Equal("Created"))
+				Expect(names[renamed.Base().Key]).To(Equal("After"))
+			},
+		)
 	})
 
 	Describe("Expiry", func() {
@@ -328,6 +377,7 @@ var _ = Describe("Service", func() {
 			s := e.expiry(ctx, c.Base().Key)
 			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			Expect(s.Message).To(Equal("Certificate valid"))
+			Expect(s.Description).To(Equal("The certificate does not expire."))
 		})
 		It(
 			"Should update the status on each check after it changes",
@@ -362,9 +412,12 @@ var _ = Describe("Service", func() {
 						CertificatePath: "/etc/plant/cert.pem",
 					},
 				}, nil)
+				var found []status.Status[any]
 				Expect(e.status.NewRetrieve[any]().
-					Where(status.MatchKeys[any](c.OntologyID().String())).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[any](c.ResourceID())).
+					Entries(&found).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(found).To(BeEmpty())
 			},
 		)
 		It("Should report the expiry of a file certificate with details",
@@ -382,31 +435,6 @@ var _ = Describe("Service", func() {
 				Expect(
 					e.expiry(ctx, c.Base().Key).Variant,
 				).To(Equal(status.VariantError))
-			},
-		)
-	})
-
-	Describe("FindSecretUses", func() {
-		It("Should return the certificates whose private key is a given secret",
-			func(ctx SpecContext) {
-				e := newEnv(ctx, telem.Hour)
-				key := newKey()
-				c := e.create(
-					ctx,
-					stored("Plant", newCertificate(key, "a", time.Hour)),
-					encodeKey(key),
-				)
-				e.create(ctx, stored("Other", newCertificate(key, "b", time.Hour)), nil)
-				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
-				Expect(certificate.FindSecretUses(
-					ctx,
-					e.db,
-					[]secret.Key{secretKey, uuid.New()},
-				)).To(Equal([]secret.Use{{
-					Secret:   secretKey,
-					Resource: c.OntologyID(),
-					Name:     "Plant",
-				}}))
 			},
 		)
 	})

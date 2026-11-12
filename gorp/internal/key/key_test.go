@@ -57,7 +57,7 @@ var _ = Describe("Key", func() {
 	Describe("LegacyPrefix", func() {
 		It("Should encode the type name with msgpack", func(ctx SpecContext) {
 			Expect(key.LegacyPrefix(ctx, "Widget")).
-				To(Equal(MustSucceed(msgpack.Codec.Encode(ctx, "Widget"))))
+				To(Equal(MustSucceed(msgpack.Codec.Encode("Widget"))))
 		})
 	})
 

@@ -94,7 +94,7 @@ var _ = Describe("History", func() {
 					key,
 					telem.NewSeriesSecondsTSV(stamps...),
 				))).To(BeTrue())
-				MustSucceed(w.Commit())
+				MustCommit(w)
 			}
 
 			It(
