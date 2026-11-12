@@ -2858,10 +2858,41 @@ var _ = Describe("ProgramState", func() {
 				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3)))
 			})
 
+			It("Should keep an integer exact for a larger unit", func() {
+				s := build(types.I64(), unit("ms", 1e6), unit("h", 3600e9), int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3_600_000, 7_200_000)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(2)))
+			})
+
 			It("Should convert a float", func() {
 				s := build(types.F64(), unit("ms", 1e6), unit("s", 1e9), 0.0)
 				*s.Node("v").Output(0) = telem.NewSeriesV(1500.0)
 				Expect(s.Node("c").NumericInput[float64]("span")).To(Equal(1.5))
+			})
+
+			It("Should convert a pressure by a factor that is not whole", func() {
+				bar := &types.Unit{
+					Dimensions: types.DimPressure,
+					Scale:      1e5,
+					Name:       "bar",
+				}
+				psi := &types.Unit{
+					Dimensions: types.DimPressure,
+					Scale:      6894.76,
+					Name:       "psi",
+				}
+				s := build(types.F64(), bar, psi, 0.0)
+				*s.Node("v").Output(0) = telem.NewSeriesV(2.0)
+				Expect(s.Node("c").NumericInput[float64]("span")).
+					To(BeNumerically("~", 29.0075361579, 1e-9))
+			})
+
+			It("Should keep an integer length exact", func() {
+				um := &types.Unit{Dimensions: types.DimLength, Scale: 1e-6, Name: "um"}
+				nm := &types.Unit{Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"}
+				s := build(types.I64(), um, nm, int64(0))
+				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3)
+				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3000)))
 			})
 		})
 

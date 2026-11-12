@@ -351,7 +351,7 @@ func compileScaleSynthetic(
 		Results: []wasm.ValueType{wasm.ConvertType(out)},
 	})
 	ctx.Writer.WriteLocalGet(0)
-	up, down := in.Unit.Scale/out.Unit.Scale, out.Unit.Scale/in.Unit.Scale
+	up, down := types.UnitFactor(in.Unit, out.Unit), types.UnitFactor(out.Unit, in.Unit)
 	var err error
 	switch {
 	case in.Kind == types.KindF64:

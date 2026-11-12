@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -2297,6 +2298,7 @@ func extractInputValues(
 						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 						return nil, paramType, false
 					}
+					expression.WarnTruncation(ctx, expr, sym, paramType, nil)
 					// A native node converts the register when it reads it. Any other
 					// node reads a scale node that fires with the call.
 					if fnSym.Exec != symbol.ExecFlow {

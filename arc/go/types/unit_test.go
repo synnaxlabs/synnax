@@ -67,6 +67,22 @@ var _ = Describe("UnitsIncompatible", func() {
 	)
 })
 
+var _ = Describe("UnitFactor", func() {
+	unit := func(scale float64) *types.Unit {
+		return &types.Unit{Dimensions: types.DimLength, Scale: scale}
+	}
+
+	DescribeTable("factor between two units",
+		func(from, to, want float64) {
+			Expect(types.UnitFactor(unit(from), unit(to))).To(Equal(want))
+		},
+		Entry("a whole factor", 1e3, 1.0, 1e3),
+		Entry("a whole factor that is not exact in a float", 1e-6, 1e-9, 1e3),
+		Entry("a factor that is not whole", 0.0254, 1.0, 0.0254),
+		Entry("a factor below one", 1.0, 1e3, 1e-3),
+	)
+})
+
 var _ = Describe("InputScale", func() {
 	withUnit := func(t types.Type, name string, scale float64) types.Type {
 		t.Unit = &types.Unit{Dimensions: types.DimTime, Scale: scale, Name: name}
@@ -76,7 +92,8 @@ var _ = Describe("InputScale", func() {
 
 	DescribeTable("scale of an input",
 		func(t types.Type, want float64) {
-			Expect(types.InputScale(t)).To(Equal(want))
+			up, _ := types.InputScale(t)
+			Expect(up).To(Equal(want))
 		},
 		Entry("s variable into an ns input",
 			withUnit(types.VarRef(seconds, "v"), "ns", 1), 1e9),
@@ -89,9 +106,37 @@ var _ = Describe("InputScale", func() {
 			),
 			1e-9,
 		),
+		Entry(
+			"a factor that is not exact in a float",
+			withUnit(
+				types.VarRef(withUnit(types.I64(), "um", 1e-6), "v"),
+				"nm",
+				1e-9,
+			),
+			1e3,
+		),
 		Entry("var ref with no unit of its own", types.VarRef(seconds, "v"), 1.0),
 		Entry("variable with no unit",
 			withUnit(types.VarRef(types.I64(), "v"), "ns", 1), 1.0),
+		Entry("not a var ref", seconds, 1.0),
+	)
+
+	DescribeTable("inverse scale of an input",
+		func(t types.Type, want float64) {
+			_, down := types.InputScale(t)
+			Expect(down).To(Equal(want))
+		},
+		Entry("ns variable into an s input",
+			withUnit(types.VarRef(withUnit(types.I64(), "ns", 1), "v"), "s", 1e9), 1e9),
+		Entry(
+			"a factor that is not exact in a float",
+			withUnit(
+				types.VarRef(withUnit(types.I64(), "nm", 1e-9), "v"),
+				"um",
+				1e-6,
+			),
+			1e3,
+		),
 		Entry("not a var ref", seconds, 1.0),
 	)
 })

@@ -353,11 +353,15 @@ sequence unit_main {
     typed i64 ms := 1s
     truncated := 5min
     pressure := 1.0bar
+    gauge i64 bar := 0bar
+    volts := 0.0V
     live := 1min
     src_s := 120s
     src_min := 2min
     src_short := 90s
     src_kpa := 250.0kPa
+    src_psi i64 psi := 100psi
+    src_mv := 2500.0mV
     src_live := 60s
     stage convert {
         120s -> lit
@@ -368,6 +372,8 @@ sequence unit_main {
         src_min -> typed
         src_short -> truncated
         src_kpa -> pressure
+        src_psi -> gauge
+        src_mv -> volts
         unit_live_in -> src_live
         src_live -> live
         lit -> unit_lit
@@ -378,6 +384,8 @@ sequence unit_main {
         typed -> unit_typed
         truncated -> unit_truncated
         pressure -> unit_pressure
+        gauge -> unit_gauge
+        volts -> unit_volts
         live -> unit_live
         flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
         1 -> unit_ready
@@ -987,6 +995,8 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_typed", sy.DataType.INT64),
     ("unit_truncated", sy.DataType.INT64),
     ("unit_pressure", sy.DataType.FLOAT64),
+    ("unit_gauge", sy.DataType.INT64),
+    ("unit_volts", sy.DataType.FLOAT64),
     ("unit_live", sy.DataType.INT64),
     ("unit_ready", sy.DataType.UINT8),
     ("unit_fn_psi", sy.DataType.FLOAT64),
@@ -1176,6 +1186,8 @@ class Conversion(ArcCase):
         self.wait_for_eq("unit_typed", 120_000)
         self.wait_for_eq("unit_truncated", 1)
         self.wait_for_near("unit_pressure", 2.5, tolerance=1e-9)
+        self.wait_for_eq("unit_gauge", 6)
+        self.wait_for_near("unit_volts", 2.5, tolerance=1e-9)
         self.wait_for_eq("unit_live", 1)
         self.log("Writing 180 s to the source variable")
         self.writer.write("unit_live_in", 180)

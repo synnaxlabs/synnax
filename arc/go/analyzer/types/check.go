@@ -114,6 +114,10 @@ func CheckConverted(
 	expected, actual = cs.ApplySubstitutions(expected), cs.ApplySubstitutions(actual)
 	expected.Unit, actual.Unit = nil, nil
 	if expected.Kind == types.KindVariable && actual.Kind == types.KindVariable {
+		if constrainedTo(expected, types.KindIntegerConstant) !=
+			constrainedTo(actual, types.KindIntegerConstant) {
+			return newTypeMismatchError(expected, actual, reason)
+		}
 		return nil
 	}
 	return Check(cs, expected, actual, source, reason)

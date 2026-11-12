@@ -5907,6 +5907,71 @@ var _ = Describe("Sequence", func() {
 				`p = p_kpa`, "d=1 other=120 typed=120000 p=2.5"),
 		)
 
+		DescribeTable(
+			"Keeps an integer exact for a factor that is not exact in a float",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    fine i64 nm := 0nm
+				    coarse i64 um := 3um
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"fine={fine} coarse={coarse}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				var logged []string
+				for i := range 5 {
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+					out, _ := h.Flush()
+					logged = append(logged, drainStrings(out, 101)...)
+				}
+				Expect(logged).ToNot(BeEmpty())
+				Expect(logged[len(logged)-1]).To(Equal(expected))
+			},
+			Entry("to a smaller unit", `coarse -> fine`, "fine=3000 coarse=3"),
+			Entry("to a larger unit",
+				"7000nm -> fine\nfine -> coarse", "fine=7000 coarse=7"),
+		)
+
+		DescribeTable("Converts a variable in a unit that is not a time",
+			func(ctx SpecContext, declarations, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+declarations+`
+				    stage write {
+				        src -> dst
+				        raw -> `+`f"src={src} dst={dst}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				var logged []string
+				for i := range 5 {
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+					out, _ := h.Flush()
+					logged = append(logged, drainStrings(out, 101)...)
+				}
+				Expect(logged).ToNot(BeEmpty())
+				Expect(logged[len(logged)-1]).To(Equal(expected))
+			},
+			Entry("an integer pressure by a factor below one",
+				"src i64 psi := 100psi\ndst i64 bar := 0bar", "src=100 dst=6"),
+			Entry("an integer pressure by a factor that is not whole",
+				"src i64 bar := 7bar\ndst i64 psi := 0psi", "src=7 dst=101"),
+			Entry("a float voltage",
+				"src := 2500.0mV\ndst := 0.0V", "src=2500 dst=2.5"),
+			Entry("a 32-bit float",
+				"src f32 bar := 1.5bar\ndst f32 kPa := 0.0kPa", "src=1.5 dst=150"),
+			Entry("a 32-bit integer to a smaller unit",
+				"src i32 V := 3V\ndst i32 mV := 0mV", "src=3 dst=3000"),
+			Entry("a 32-bit integer to a larger unit",
+				"src i32 mV := 7000mV\ndst i32 V := 0V", "src=7000 dst=7"),
+		)
+
 		DescribeTable("Passes a reassigned variable to a function on every trigger",
 			func(ctx SpecContext, declaration string) {
 				h := newRuntimeHarness(ctx, `

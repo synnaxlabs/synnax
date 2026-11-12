@@ -106,5 +106,5 @@ func ScaleFactor(from, to *types.Unit) (float64, error) {
 			from.Dimensions.String(), to.Dimensions.String(),
 		)
 	}
-	return from.Scale / to.Scale, nil
+	return types.UnitFactor(from, to), nil
 }

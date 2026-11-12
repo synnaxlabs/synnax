@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -315,11 +316,26 @@ to_sample_value(const x::json::json &value, const Type &type) {
     return std::nullopt;
 }
 
-double input_scale(const Type &type) {
+namespace {
+/// @brief returns what to multiply a value in from by to get its value in to. A factor
+/// that floating point puts next to a whole number is that whole number.
+double unit_factor(const Unit &from, const Unit &to) {
+    const double factor = from.scale / to.scale;
+    const double whole = std::round(factor);
+    const double tolerance = 4 * std::numeric_limits<double>::epsilon();
+    if (whole != 0 && std::abs(factor - whole) <= tolerance * std::abs(whole))
+        return whole;
+    return factor;
+}
+}
+
+std::pair<double, double> input_scale(const Type &type) {
     if (type.kind != Kind::VarRef || !type.unit.has_value() || !type.elem.has_value() ||
         !type.elem->unit.has_value())
-        return 1;
-    return type.elem->unit->scale / type.unit->scale;
+        return {1, 1};
+    const auto &from = *type.elem->unit;
+    const auto &to = *type.unit;
+    return {unit_factor(from, to), unit_factor(to, from)};
 }
 
 }

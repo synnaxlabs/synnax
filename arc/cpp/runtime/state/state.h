@@ -59,13 +59,17 @@ struct Config {
 
 class State;
 
-/// @brief multiplies v by scale. A whole scale keeps an integer exact.
+/// @brief multiplies v by up, or divides it by down. A whole factor keeps an integer
+/// exact.
 template<typename T>
-T scale_input(const T v, const double scale) {
-    if (std::trunc(scale) == scale &&
-        scale <= static_cast<double>(std::numeric_limits<T>::max()))
-        return v * static_cast<T>(scale);
-    return static_cast<T>(static_cast<double>(v) * scale);
+T scale_input(const T v, const double up, const double down) {
+    const auto whole = [](const double factor) {
+        return std::trunc(factor) == factor &&
+               factor <= static_cast<double>(std::numeric_limits<T>::max());
+    };
+    if (whole(up)) return v * static_cast<T>(up);
+    if (whole(down)) return v / static_cast<T>(down);
+    return static_cast<T>(static_cast<double>(v) * up);
 }
 
 class Node {
@@ -269,8 +273,10 @@ public:
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
         const auto &p = this->params[i];
-        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
-            return scale_input(s->at<T>(-1), types::input_scale(p.type));
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty()) {
+            const auto [up, down] = types::input_scale(p.type);
+            return scale_input(s->at<T>(-1), up, down);
+        }
         if (const auto v = types::to_sample_value(p.value, p.type))
             return x::telem::cast<T>(*v);
         return 0;

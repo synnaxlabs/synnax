@@ -9,6 +9,12 @@
 
 package types
 
+import "math"
+
+// wholeFactorTolerance is the relative error under which a factor is a whole number.
+// It is 4 times the float64 epsilon.
+const wholeFactorTolerance = 4 * 0x1p-52
+
 // UnitsAssignable reports whether a value with unit a may be assigned to a target with
 // unit b. A nil unit on either side is treated as a wildcard, matching the WASM and
 // Cesium representation where i64 and i64 ns share the same wire type (timestamp <->
@@ -21,12 +27,24 @@ func UnitsAssignable(a, b *Unit) bool {
 }
 
 // InputScale returns what to multiply a variable by to get the unit of the input that
-// reads it. A variable in s read by an input in ns gives 1e9.
-func InputScale(t Type) float64 {
+// reads it, and what to divide it by. A variable in s read by an input in ns gives 1e9
+// and 1e-9.
+func InputScale(t Type) (up, down float64) {
 	if t.Kind != KindVarRef || t.Unit == nil || t.Elem == nil || t.Elem.Unit == nil {
-		return 1
+		return 1, 1
 	}
-	return t.Elem.Unit.Scale / t.Unit.Scale
+	return UnitFactor(t.Elem.Unit, t.Unit), UnitFactor(t.Unit, t.Elem.Unit)
+}
+
+// UnitFactor returns what to multiply a value in from by to get its value in to. A
+// factor that floating point puts next to a whole number is that whole number.
+func UnitFactor(from, to *Unit) float64 {
+	factor := from.Scale / to.Scale
+	if whole := math.Round(factor); whole != 0 &&
+		math.Abs(factor-whole) <= wholeFactorTolerance*math.Abs(whole) {
+		return whole
+	}
+	return factor
 }
 
 // UnitsIncompatible reports whether a and b are units of different dimensions.

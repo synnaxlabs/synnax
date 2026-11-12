@@ -432,27 +432,20 @@ func analyzeIdentifier(
 			chanValueType.Unit != nil && expression.ReportCalculation(
 			ctx, expr, chanValueType,
 			fmt.Sprintf("'%s' is in %s and cannot take", name, chanValueType.Unit.Name),
-			expression.SinkOf(sym),
+			expression.SinkOf(ctx, sym),
 		) {
 			return
 		}
 		if srcType.IsValid() {
 			// A literal takes the type of the variable it is written to.
 			expected, actual, check := srcType, chanValueType, atypes.Check
+			converted := false
 			if sym.IsValueVariable() {
 				expected, actual = chanValueType, srcType
 				// Lowering converts a variable written to a variable of another unit.
 				if prevNode.Identifier() != nil &&
 					types.UnitsConvertible(actual.Unit, expected.Unit) {
-					check = atypes.CheckConverted
-					head, tail := parser.IdentifierParts(prevNode.Identifier())
-					if src, srcErr := ctx.Scope.ResolveMember(
-						ctx,
-						head,
-						tail,
-					); srcErr == nil {
-						expression.WarnTruncation(ctx, ctx.AST, src, sym)
-					}
+					check, converted = atypes.CheckConverted, true
 				}
 			}
 			if err = check(
@@ -467,6 +460,18 @@ func analyzeIdentifier(
 					srcDesc, name, chanValueType,
 				))
 				return
+			}
+			if converted {
+				head, tail := parser.IdentifierParts(prevNode.Identifier())
+				if src, srcErr := ctx.Scope.ResolveMember(
+					ctx,
+					head,
+					tail,
+				); srcErr == nil {
+					expression.WarnTruncation(
+						ctx, ctx.AST, src, sym.Type, expression.SinkOf(ctx, sym),
+					)
+				}
 			}
 		}
 	}

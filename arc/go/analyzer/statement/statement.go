@@ -1489,7 +1489,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	if varScope.Reassigned && varType.Unit != nil && expression.ReportCalculation(
 		ctx, expr, varType,
 		fmt.Sprintf("'%s' is in %s and cannot take", name, varType.Unit.Name),
-		expression.SinkOf(varScope),
+		expression.SinkOf(ctx, varScope),
 	) {
 		return
 	}
@@ -1499,7 +1499,9 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		types.UnitsConvertible(exprType.Unit, varType.Unit)
 	if converted {
 		if src, srcErr := ctx.Scope.ResolveMember(ctx, head, tail); srcErr == nil {
-			expression.WarnTruncation(ctx, ctx.AST, src, varScope)
+			expression.WarnTruncation(
+				ctx, ctx.AST, src, varScope.Type, expression.SinkOf(ctx, varScope),
+			)
 		}
 	} else if varType.Unit != nil && exprType.Unit != nil {
 		// Check magnitude safety for unit conversions (warnings only)

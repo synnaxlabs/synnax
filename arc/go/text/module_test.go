@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Loader", func() {
@@ -380,6 +382,62 @@ sequence main {
 		It("Should report an unknown module", func(ctx SpecContext) {
 			diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`unknown module "nope"`))
+		})
+	})
+
+	Describe("A module variable of another unit", func() {
+		const sinkHint = "hint: change `d := 1min` to `d i64 s := 1min`"
+		analyzeStage := func(ctx context.Context, statement string) diagnostics.Diagnostic {
+			GinkgoHelper()
+			sources["m"] = `export t := 120s`
+			diag := analyze(ctx, "import (m time)\n\nsequence main {\nd := 1min\n"+
+				"twice := m.t * 2\nstage s1 {\n"+statement+"\n}\n}")
+			Expect(*diag).To(HaveLen(1), diag.String())
+			return (*diag)[0]
+		}
+
+		DescribeTable("Should reject a calculation and give no hint for the module",
+			func(ctx SpecContext, statement, message string, hints ...string) {
+				d := analyzeStage(ctx, statement+"\ntrig -> time.wait(1s) -> out8")
+				Expect(d.Code).To(Equal(codes.UnitCalculation))
+				Expect(d.Message).To(Equal(message))
+				Expect(lo.Map(
+					d.Notes,
+					func(n protocol.DiagnosticRelatedInformation, _ int) string {
+						return n.Message
+					},
+				)).To(Equal(hints))
+			},
+			Entry("an assignment", `d = m.t * 2`,
+				"'d' is in min and cannot take a calculation with 'm.t', which is in s",
+				sinkHint),
+			Entry("a flow", `m.t * 2 -> d`,
+				"'d' is in min and cannot take a calculation with 'm.t', which is in s",
+				sinkHint),
+			Entry(
+				"a variable that the module variable sets",
+				`d = twice * 2`,
+				"'d' is in min and cannot take a calculation with 'twice', which is in s",
+				sinkHint,
+			),
+		)
+
+		It("Should reject a calculation that goes to an input", func(ctx SpecContext) {
+			d := analyzeStage(ctx, `trig -> time.wait(m.t * 2) -> out8`)
+			Expect(d.Code).To(Equal(codes.UnitCalculation))
+			Expect(d.Message).To(Equal(
+				"'time.wait' cannot take a calculation with 'm.t', which is in s",
+			))
+			Expect(d.Notes).To(BeEmpty())
+		})
+
+		It("Should give no hint for the module when a write truncates", func(
+			ctx SpecContext,
+		) {
+			d := analyzeStage(ctx, "d = m.t\ntrig -> time.wait(1s) -> out8")
+			Expect(d.Code).To(Equal(codes.UnitTruncation))
+			Expect(d.Notes).To(HaveLen(1))
+			Expect(d.Notes[0].Message).To(Equal(sinkHint))
 		})
 	})
 

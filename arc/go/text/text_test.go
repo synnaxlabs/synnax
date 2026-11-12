@@ -606,7 +606,29 @@ var _ = Describe("Text", func() {
 			Entry("an assignment to a smaller unit",
 				"d := 1min\nother := 120s", `other = d`, false),
 			Entry("a float", "d := 1.0bar\nother := 250.0kPa", `other -> d`, false),
+			Entry("a float assigned to an untyped integer",
+				"d := 1min\nother := 90.0s", `d = other`, false),
 			Entry("a literal", "d := 1min", `120s -> d`, false),
+		)
+
+		DescribeTable(
+			"Should reject a write between untyped variables of different kinds",
+			func(ctx SpecContext, write, message string) {
+				source := "sequence main {\na := 5s\nb := 0.5ms\nstage s1 {\n" + write +
+					"\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(*diagnostics).To(HaveLen(1), diagnostics.String())
+				Expect((*diagnostics)[0].Message).To(Equal(message))
+			},
+			Entry("an integer to a float", `a -> b`,
+				"a value type integer does not match channel b value type float"),
+			Entry("a float to an integer", `b -> a`,
+				"b value type float does not match channel a value type integer"),
 		)
 
 		DescribeTable("Should reject a calculation with variables in another unit",
@@ -690,6 +712,63 @@ var _ = Describe("Text", func() {
 				`count_ch -> time.wait(n * 2) -> flag_ch`),
 			Entry("a variable in the unit of the variable written",
 				"d * 2 -> d\ncount_ch -> time.wait(n) -> flag_ch"),
+		)
+
+		DescribeTable(
+			"Should accept a variable in another unit that the target does not take",
+			func(ctx SpecContext, statement string) {
+				source := "import time\nfunc dbl(x i64 s) i64 ms {\nreturn 5ms\n}\n" +
+					"sequence main {\na i64 s := 1s\nb i64 ms := 1ms\nnow i64 s := 1s\n" +
+					"stamp i64 ns := 0ns\nstage s1 {\n" + statement + "\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("an argument of a call",
+				"b = dbl(a)\ncount_ch -> time.wait(1s) -> flag_ch"),
+			Entry("a member with the name of a variable", `stamp = time.now()`),
+		)
+
+		DescribeTable(
+			"Should warn when an input truncates a reassigned integer variable",
+			func(ctx SpecContext, unit, body string, warns bool) {
+				source := "func hold(x i64 " + unit + ") i64 {\nreturn x\n}\n" +
+					"sequence main {\nd i64 s := 120s\nstage s1 {\n" + body + "\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitTruncation
+					},
+				)
+				if !warns {
+					Expect(found).To(BeEmpty())
+					return
+				}
+				Expect(found).To(HaveLen(1), diagnostics.String())
+				Expect(found[0].Notes).To(HaveLen(1))
+				Expect(found[0].Notes[0].Message).To(Equal(
+					"hint: change `d i64 s := 120s` to `d i64 min := 120s`",
+				))
+			},
+			Entry("a write before the call", "min",
+				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", true),
+			Entry("a write after the call", "min",
+				"count_ch -> hold(x=d) -> count_ch\nd = 100s", true),
+			Entry("an input in a smaller unit", "ms",
+				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", false),
+			Entry("a variable that is set one time", "min",
+				"count_ch -> hold(x=d) -> count_ch", false),
 		)
 
 		DescribeTable("Should give the hints for a write that truncates an integer",
@@ -876,7 +955,9 @@ var _ = Describe("Text", func() {
 			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
 			Expect(duration.Type.Unit.Name).To(Equal("ns"))
 			Expect(duration.Type.Elem.Unit.Name).To(Equal("s"))
-			Expect(types.InputScale(duration.Type)).To(Equal(1e9))
+			up, down := types.InputScale(duration.Type)
+			Expect(up).To(Equal(1e9))
+			Expect(down).To(Equal(1e-9))
 			Expect(duration.Value).To(Equal(5 * telem.Second))
 		})
 

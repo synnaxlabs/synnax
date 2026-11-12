@@ -64,8 +64,15 @@ type Sink struct {
 	Stateful bool
 }
 
-// SinkOf returns the declaration of sym as a Sink.
-func SinkOf(sym *symbol.Symbol) *Sink {
+// SinkOf returns the declaration of sym as a Sink. It is nil for a declaration in
+// another module, which a hint cannot change.
+func SinkOf[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	sym *symbol.Symbol,
+) *Sink {
+	if sym.Root() != ctx.Scope.Root() {
+		return nil
+	}
 	return &Sink{
 		Name:     sym.Name,
 		Type:     sym.Type,
@@ -101,19 +108,19 @@ func ReportCalculation[T antlr.ParserRuleContext](
 		return false
 	}
 	names := make([]string, len(variables))
-	for i, sym := range variables {
-		names[i] = fmt.Sprintf("'%s', which is in %s", sym.Name, sym.Type.Unit.Name)
+	for i, v := range variables {
+		names[i] = fmt.Sprintf("'%s', which is in %s", v.name, v.sym.Type.Unit.Name)
 	}
 	var (
 		redeclares []redeclare
 		hinted     = set.New[*symbol.Symbol]()
-		unit       = variables[0].Type.Unit
+		unit       = variables[0].sym.Type.Unit
 	)
-	for _, sym := range variables {
+	for _, v := range variables {
 		redeclares = append(
-			redeclares, sourceRedeclares(ctx, sym, target.Unit, hinted)...,
+			redeclares, sourceRedeclares(ctx, v.sym, target.Unit, hinted)...,
 		)
-		if !sym.Type.Unit.Equal(*unit) {
+		if !v.sym.Type.Unit.Equal(*unit) {
 			unit = nil
 		}
 	}
@@ -126,28 +133,32 @@ func ReportCalculation[T antlr.ParserRuleContext](
 	return true
 }
 
-// WarnTruncation warns at ast when an integer of source converts to a larger unit of
-// sink, which truncates it.
+// WarnTruncation warns at ast when an integer of source converts to the larger unit of
+// target, which truncates it. sink is nil for an input.
 func WarnTruncation[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	ast antlr.ParserRuleContext,
-	source, sink *symbol.Symbol,
+	source *symbol.Symbol,
+	target types.Type,
+	sink *Sink,
 ) {
-	from, to := source.Type.Unit, sink.Type.Unit
+	from, to := source.Type.Unit, target.Unit
 	if from == nil || to == nil || from.Scale >= to.Scale {
 		return
 	}
-	t := ctx.Constraints.ApplySubstitutions(sink.Type)
-	untyped := t.Kind == types.KindVariable && t.Constraint != nil &&
-		t.Constraint.Kind == types.KindIntegerConstant
-	if !t.IsInteger() && !untyped {
-		return
+	for _, t := range []types.Type{source.Type, target} {
+		t = ctx.Constraints.ApplySubstitutions(t)
+		untyped := t.Kind == types.KindVariable && t.Constraint != nil &&
+			t.Constraint.Kind == types.KindIntegerConstant
+		if !t.IsInteger() && !untyped {
+			return
+		}
 	}
 	var redeclares []redeclare
-	if r, ok := redeclaration(ctx, SinkOf(sink), from, nil); ok {
+	if r, ok := redeclaration(ctx, sink, from, nil); ok {
 		redeclares = append(redeclares, r)
 	}
-	if r, ok := redeclaration(ctx, SinkOf(source), to, nil); ok {
+	if r, ok := redeclaration(ctx, SinkOf(ctx, source), to, nil); ok {
 		redeclares = append(redeclares, r)
 	}
 	d := codes.UnitTruncation.At(ast, from.Name, to.Name)
@@ -181,7 +192,7 @@ func sourceRedeclares[T antlr.ParserRuleContext](
 		return nil
 	}
 	hinted.Add(sym)
-	if r, ok := redeclaration(ctx, SinkOf(sym), unit, nil); ok {
+	if r, ok := redeclaration(ctx, SinkOf(ctx, sym), unit, nil); ok {
 		return []redeclare{r}
 	}
 	init := sym.Initializer()
@@ -190,9 +201,15 @@ func sourceRedeclares[T antlr.ParserRuleContext](
 	}
 	var out []redeclare
 	for _, source := range unitVariables(ctx, sym.Parent, init, unit) {
-		out = append(out, sourceRedeclares(ctx, source, unit, hinted)...)
+		out = append(out, sourceRedeclares(ctx, source.sym, unit, hinted)...)
 	}
 	return out
+}
+
+// unitVariable is a variable that an expression reads, and the name it reads it by.
+type unitVariable struct {
+	sym  *symbol.Symbol
+	name string
 }
 
 // unitVariables returns the variables that expr reads in scope whose unit converts to
@@ -202,34 +219,41 @@ func unitVariables[T antlr.ParserRuleContext](
 	scope *symbol.Symbol,
 	expr antlr.Tree,
 	target *types.Unit,
-) []*symbol.Symbol {
+) []unitVariable {
 	var (
-		variables []*symbol.Symbol
+		variables []unitVariable
 		seen      = set.New[*symbol.Symbol]()
 		walk      func(antlr.Tree)
 	)
 	walk = func(node antlr.Tree) {
-		terminal, ok := node.(antlr.TerminalNode)
+		// An argument of a call goes to the call, and not to target.
+		if _, ok := node.(parser.IFunctionCallSuffixContext); ok {
+			return
+		}
+		primary, ok := node.(parser.IPrimaryExpressionContext)
 		if !ok {
 			for _, child := range node.GetChildren() {
 				walk(child)
 			}
 			return
 		}
-		if terminal.GetSymbol().GetTokenType() != parser.ArcParserIDENTIFIER {
+		head, tail := parser.PrimaryNameParts(primary)
+		if head == "" {
+			for _, child := range primary.GetChildren() {
+				walk(child)
+			}
 			return
 		}
-		// The unit suffix of a literal is an identifier too.
-		if _, ok = terminal.GetParent().(parser.INumericLiteralContext); ok {
-			return
-		}
-		sym, err := scope.Resolve(ctx, terminal.GetText())
+		sym, err := scope.ResolveMember(ctx, head, tail)
 		if err != nil || !sym.IsValueVariable() || seen.Contains(sym) ||
 			!types.UnitsConvertible(sym.Type.Unit, target) {
 			return
 		}
 		seen.Add(sym)
-		variables = append(variables, sym)
+		variables = append(
+			variables,
+			unitVariable{sym: sym, name: parser.PrimaryName(primary)},
+		)
 	}
 	walk(expr)
 	return variables
