@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/access/role/Select.css";
+
 import { type access, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -15,6 +17,7 @@ import { Select as Base } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
 import { icon } from "@/access/role/icon";
+import { CSS } from "@/css";
 import { Flux } from "@/flux";
 
 const ListItem = ({
@@ -54,6 +57,7 @@ export const Select = ({
   query,
   filter,
   triggerProps,
+  dialogProps,
   ...props
 }: SelectProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
@@ -64,6 +68,10 @@ export const Select = ({
     <Base.Single<access.role.Key, access.role.Role | undefined>
       {...props}
       triggerProps={{ renderIcon, ...triggerProps }}
+      dialogProps={{
+        ...dialogProps,
+        className: CSS.cls(CSS.BE("access-role", "dialog"), dialogProps?.className),
+      }}
       data={data}
       getItem={getItem}
       subscribe={subscribe}

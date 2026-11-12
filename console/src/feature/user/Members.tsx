@@ -12,11 +12,13 @@ import "@/feature/user/Members.css";
 import { access, user } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
@@ -45,16 +47,9 @@ const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Role", width: "30rem", field: true },
-  { width: "5rem" },
 ];
 
-const nameID = (key: user.Key): string => `user-name-${key}`;
-
-interface MemberProps extends List.ItemProps<user.Key> {
-  onOpenMenu: Menu.ContextMenuOpen;
-}
-
-const Member = ({ onOpenMenu, ...props }: MemberProps): ReactElement | null => {
+const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
   const { data: currentKey } = User.useResultKey({});
@@ -66,12 +61,18 @@ const Member = ({ onOpenMenu, ...props }: MemberProps): ReactElement | null => {
   const self = item.key === currentKey;
   const renamable = canUpdate && !self;
   return (
-    <List.Item {...props} className={CSS.BE("user-members", "item")}>
+    <Select.Item<user.Key>
+      {...props}
+      checkable
+      align="center"
+      aria-label={item.name}
+      className={CSS.BE("user-members", "item")}
+    >
       <List.Cells>
         <List.Cell>
           <Flex.Box x align="center" gap="small">
             <Text.MaybeEditable
-              id={nameID(item.key)}
+              id={List.itemNameID(item.key)}
               value={item.name}
               onChange={renamable && ((name) => rename({ key: item.key, name }))}
               allowDoubleClick={false}
@@ -89,49 +90,40 @@ const Member = ({ onOpenMenu, ...props }: MemberProps): ReactElement | null => {
             disabled={!canUpdate || !canSetRole || self || item.rootUser}
           />
         </List.Cell>
-        <List.Cell>
-          <Button.Button
-            variant="text"
-            size="small"
-            tooltip="More actions"
-            onClick={onOpenMenu}
-          >
-            <Icon.KebabMenu />
-          </Button.Button>
-        </List.Cell>
       </List.Cells>
-    </List.Item>
+    </Select.Item>
   );
 };
 
-interface MemberMenuProps {
-  userKey: user.Key;
-}
-
-const MemberMenu = ({ userKey }: MemberMenuProps): ReactElement | null => {
-  const item = List.useItem<user.Key, user.User>(userKey);
+const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+  const { getItem } = List.useUtilContext<user.Key, user.User>();
+  const users = getItem?.(keys) ?? [];
   const { data: currentKey } = User.useResultKey({});
-  const canUpdate = Access.useUpdateGranted(user.resourceID(userKey));
-  const canDelete = Access.useDeleteGranted(user.resourceID(userKey));
+  const ids = user.resourceID(keys);
+  const canUpdate = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
   const openCredentials = Credential.useModal();
   const confirm = Modals.useConfirmDelete({ type: "User" });
   const { update: remove } = User.useDelete({
-    beforeUpdate: async () => item != null && (await confirm(item)),
+    beforeUpdate: async () => await confirm(users),
   });
-  if (item == null) return null;
-  const self = item.key === currentKey;
+  const single = users.length === 1 ? users[0] : undefined;
+  const self = single?.key === currentKey;
+  const includesSelf = users.some((u) => u.key === currentKey);
   return (
     <ContextMenu.Menu>
-      {canUpdate && !self && (
-        <ContextMenu.RenameItem onClick={() => Text.edit(nameID(item.key))} />
+      {single != null && canUpdate && !self && (
+        <ContextMenu.RenameItem
+          onClick={() => Text.edit(List.itemNameID(single.key))}
+        />
       )}
-      {(canUpdate || self) && (
+      {single != null && (canUpdate || self) && (
         <Menu.Item
           itemKey="credentials"
           onClick={() =>
             openCredentials({
-              subject: user.resourceID(item.key),
-              title: ["Credentials", item.name],
+              subject: user.resourceID(single.key),
+              title: ["Credentials", single.name],
             })
           }
         >
@@ -140,8 +132,8 @@ const MemberMenu = ({ userKey }: MemberMenuProps): ReactElement | null => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {canDelete && !self && (
-        <ContextMenu.DeleteItem onClick={() => remove(item.key)} />
+      {users.length > 0 && canDelete && !includesSelf && (
+        <ContextMenu.DeleteItem onClick={() => remove(users.map((u) => u.key))} />
       )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
@@ -149,18 +141,11 @@ const MemberMenu = ({ userKey }: MemberMenuProps): ReactElement | null => {
   );
 };
 
-const menu = ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement =>
-  key == null ? (
-    <ContextMenu.Menu>
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
-  ) : (
-    <MemberMenu userKey={key} />
-  );
+const menu = Component.renderProp(MembersMenu);
 
 /**
- * Every user, with their role. A user's menu renames them, manages their credentials,
- * or deletes them.
+ * Every user, with their role. The menu of the selected users renames them, manages
+ * their credentials, or deletes them.
  */
 export const Members = (): ReactElement => {
   const { data, getItem, subscribe, more, search } = Flux.useList(
@@ -168,6 +153,7 @@ export const Members = (): ReactElement => {
     { name: "users", query: { order: { field: "name" } }, pageSize: 100 },
   );
   const [term, setTerm] = useState("");
+  const [selected, setSelected] = useState<user.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const openRegister = PlatformUser.useRegisterModal();
   const canCreate = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
@@ -176,12 +162,14 @@ export const Members = (): ReactElement => {
     search(next);
   };
   return (
-    <List.Frame<user.Key, user.User>
+    <Select.Frame<user.Key, user.User>
+      multiple
       data={data}
       getItem={getItem}
       subscribe={subscribe}
       onFetchMore={more}
-      virtual={false}
+      value={selected}
+      onChange={setSelected}
     >
       <Menu.ContextMenu menu={menu} {...menuProps} />
       <Flex.Box y gap="medium">
@@ -202,17 +190,15 @@ export const Members = (): ReactElement => {
         </Flex.Box>
         <PlatformSettings.Card flush>
           <List.Columns columns={COLUMNS}>
-            <List.Headings />
+            <List.Headings checkable />
             <List.Scroll onContextMenu={menuProps.open}>
               <List.Items<user.Key>>
-                {({ key, ...p }) => (
-                  <Member key={key} {...p} onOpenMenu={menuProps.open} />
-                )}
+                {({ key, ...p }) => <Member key={key} {...p} />}
               </List.Items>
             </List.Scroll>
           </List.Columns>
         </PlatformSettings.Card>
       </Flex.Box>
-    </List.Frame>
+    </Select.Frame>
   );
 };

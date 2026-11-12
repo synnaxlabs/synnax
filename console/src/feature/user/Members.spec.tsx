@@ -22,8 +22,6 @@ import {
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
-  getIconButton,
-  getIconButtons,
   uniqueName,
 } from "@/testutil";
 
@@ -56,22 +54,35 @@ const renderMembers = async (as: Synnax = client): Promise<void> => {
   });
 };
 
-// The Core holds users from other tests, so each test searches until only its own user
-// is listed.
-const search = async (term: string): Promise<void> => {
+// The Core holds users from other tests, so each test searches until only its own users
+// are listed.
+const search = async (term: string, count = 1): Promise<void> => {
   fireEvent.change(await screen.findByPlaceholderText("Search users"), {
     target: { value: term },
   });
-  await waitFor(() =>
-    expect(getIconButtons(document.body, "kebab-menu")).toHaveLength(1),
-  );
-  await screen.findByText(term);
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(count));
 };
 
-const openMenu = async (): Promise<void> => {
+const openMenu = async (name: string): Promise<void> => {
   await act(async () => {
-    fireEvent.click(getIconButton(document.body, "kebab-menu"));
+    fireEvent.contextMenu(await screen.findByText(name));
   });
+};
+
+const confirmDelete = async (): Promise<void> => {
+  await clickAndSettle("Delete");
+  await act(async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  });
+};
+
+const deleted = async (key: user.Key): Promise<boolean> => {
+  try {
+    await client.users.retrieve(key);
+    return false;
+  } catch (e) {
+    return NotFoundError.matches(e);
+  }
 };
 
 describe("User.Members", () => {
@@ -98,7 +109,7 @@ describe("User.Members", () => {
     const u = await createUser("Operator");
     await renderMembers();
     await search(u.name);
-    await openMenu();
+    await openMenu(u.name);
     await clickAndSettle("Rename");
     const name = uniqueName("renamed");
     commitTextEdit(await awaitTextEditingElement(), name);
@@ -109,21 +120,24 @@ describe("User.Members", () => {
     const u = await createUser("Operator");
     await renderMembers();
     await search(u.name);
-    await openMenu();
-    await clickAndSettle("Delete");
-    await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-    });
-    await expect
-      .poll(async () => {
-        try {
-          await client.users.retrieve(u.key);
-          return false;
-        } catch (e) {
-          return NotFoundError.matches(e);
-        }
-      })
-      .toBe(true);
+    await openMenu(u.name);
+    await confirmDelete();
+    await expect.poll(async () => await deleted(u.key)).toBe(true);
+  });
+
+  it("should delete every selected user at once", async () => {
+    const prefix = uniqueName("bulk");
+    const a = await createUser("Operator", `${prefix}-a`);
+    const b = await createUser("Operator", `${prefix}-b`);
+    await renderMembers();
+    await search(prefix, 2);
+    screen
+      .getAllByRole("checkbox", { name: "Select" })
+      .forEach((box) => fireEvent.click(box));
+    await openMenu(a.name);
+    await confirmDelete();
+    await expect.poll(async () => await deleted(a.key)).toBe(true);
+    await expect.poll(async () => await deleted(b.key)).toBe(true);
   });
 
   describe("the logged-in user", () => {
@@ -152,7 +166,7 @@ describe("User.Members", () => {
       const { owner, as } = await loginAsOwner();
       await renderMembers(as);
       await search(owner.name);
-      await openMenu();
+      await openMenu(owner.name);
       expect(await screen.findByText("Manage credentials")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();
     });
