@@ -12,6 +12,7 @@ package sift_test
 import (
 	"context"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -213,6 +214,23 @@ var _ = Describe("Upload", func() {
 				"asset":  "stand",
 			}
 		}, "channels: must be non-empty"),
+		Entry("a channel that Sift cannot take", func() map[string]any {
+			ctx := context.Background()
+			virtual := channel.Channel{
+				Name:     "virtual_" + uuid.New().String()[:8],
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &virtual)
+			})).To(Succeed())
+			return map[string]any{
+				"device":   dev.Key,
+				"range":    rng.Key,
+				"channels": []channel.Key{virtual.Key()},
+				"asset":    "stand",
+			}
+		}, "is virtual, and the Core stores no data for virtual channels"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),
