@@ -11,6 +11,7 @@ package ingest_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 	"uuid"
@@ -184,6 +185,49 @@ var _ = Describe("Engine", func() {
 					"take stored channels"),
 			))
 		})
+
+		DescribeTable("Should reject a channel with a name Sift cannot take",
+			func(ctx SpecContext, longIndex bool) {
+				name := strings.Repeat("a", 256)
+				idx := channel.Channel{
+					Name:     "time_" + uuid.New().String()[:8],
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				data := channel.Channel{
+					Name:     "data_" + uuid.New().String()[:8],
+					DataType: telem.Float64T,
+				}
+				if longIndex {
+					idx.Name = name
+				} else {
+					data.Name = name
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					if err := w.Create(ctx, &idx); err != nil {
+						return err
+					}
+					data.LocalIndex = idx.LocalKey
+					return w.Create(ctx, &data)
+				})).To(Succeed())
+				Expect(ingest.New(ctx, ingest.Config{
+					DB:           db,
+					Framer:       framerSvc,
+					Channel:      channelSvc,
+					Conn:         conn,
+					Asset:        "stand",
+					Keys:         channel.Keys{data.Key()},
+					OnCheckpoint: rec.onCheckpoint,
+				})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("channel "+name+" has a name longer than the 255 "+
+						"characters Sift allows"),
+				))
+			},
+			Entry("a data channel", false),
+			Entry("an index", true),
+		)
 
 		It("Should reject a set of only index channels", func(ctx SpecContext) {
 			idx := createIndex(ctx)
