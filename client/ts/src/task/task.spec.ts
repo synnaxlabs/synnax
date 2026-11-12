@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  DataType,
+  id,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -643,6 +651,50 @@ describe("Task", async () => {
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.config).toEqual(stored.config);
       expect(cached.configHash).toBe(stored.configHash);
+    });
+
+    const createHTTPRead = async () =>
+      await testRack.createTask({
+        name: `dispatch-http-${id.create()}`,
+        type: "http_read",
+        config: {
+          rate: 1,
+          endpoints: [
+            {
+              key: "ep",
+              path: "/data",
+              fields: [{ type: "float", key: "f", pointer: "/v" }],
+            },
+          ],
+        },
+      });
+    const fieldPath = ["config", "endpoints", "ep", "fields", "f"];
+    const storedField = async (key: task.Key): Promise<unknown> => {
+      const stored = await createTestClient().tasks.retrieve(key);
+      return z
+        .object({ endpoints: z.object({ fields: z.unknown().array() }).array() })
+        .parse(stored.config).endpoints[0].fields[0];
+    };
+
+    it.each([NaN, Infinity, -Infinity])(
+      "should store a %s number as its text",
+      async (fill) => {
+        const t = await createHTTPRead();
+        await client.tasks.dispatch(
+          t.key,
+          task.set({ path: [...fieldPath, "fill"], value: fill }),
+        );
+        expect(await storedField(t.key)).toMatchObject({ fill: String(fill) });
+      },
+    );
+
+    it("should store a value with toJSON as its JSON form", async () => {
+      const t = await createHTTPRead();
+      await client.tasks.dispatch(
+        t.key,
+        task.set({ path: [...fieldPath, "dataType"], value: DataType.FLOAT32 }),
+      );
+      expect(await storedField(t.key)).toMatchObject({ dataType: "float32" });
     });
 
     it("should apply list actions to the config", async () => {

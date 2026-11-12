@@ -16,8 +16,15 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 )
 
-// ReadMigrations is the ordered migration chain for stored HTTP read task configs.
-var ReadMigrations = []gorp.Migration{v3.Migration, v4.Migration}
+// NewReadMigrations returns the ordered migration chain for stored HTTP read task
+// configs. The last step reconciles each field with its channel among channels.
+func NewReadMigrations(channels v5.Channels) []gorp.Migration {
+	return []gorp.Migration{
+		v3.Migration,
+		v4.Migration,
+		v5.NewReadMigration(channels),
+	}
+}
 
 // WriteMigrations is the ordered migration chain for stored HTTP write task configs.
 var WriteMigrations = []gorp.Migration{v5.WriteMigration}

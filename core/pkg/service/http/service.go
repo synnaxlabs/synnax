@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -75,6 +76,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
+	channels := channelsOf(cfg.Channel)
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -84,14 +86,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_read",
-			Migrations:      versions.ReadMigrations,
+			Migrations:      versions.NewReadMigrations(channels),
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.ReadConfigLadder,
 			Legacy:          &legacy.Read,
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
-			ValidateEntry:   (*ReadConfig).Validate,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *ReadConfig,
+			) error {
+				return v5.ResolveReadConfig(ctx, snap, channels, c)
+			},
+			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
+				return v5.ReconcileReadConfig(ctx, tx, channels, c, cfg.L.Warn)
+			},
+			ValidateEntry: v5.ValidateReadConfig,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -160,4 +172,27 @@ func validateWriteConfig(cfg *WriteConfig) error {
 		}
 	}
 	return nil
+}
+
+// channelsOf reads the channels that read fields write to.
+func channelsOf(svc *channel.Service) v5.Channels {
+	return func(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		keys []channel.Key,
+	) (map[channel.Key]v5.Channel, error) {
+		var chs []channel.Channel
+		if err := svc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			SkipMissingKeys().
+			Entries(&chs).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		found := make(map[channel.Key]v5.Channel, len(chs))
+		for _, ch := range chs {
+			found[ch.Key()] = v5.Channel{DataType: ch.DataType, IsIndex: ch.IsIndex}
+		}
+		return found, nil
+	}
 }

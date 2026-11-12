@@ -99,7 +99,7 @@ export const KeyValueEditor = <K extends string, V extends string | number | boo
           const { key, value } = createEntry(current.map((r) => String(r[keyIndex])));
           const row: Input.TableCell[] = [];
           row[keyIndex] = key;
-          row[valueIndex] = value;
+          row[valueIndex] = typeof value === "boolean" ? String(value) : value;
           return row;
         };
 

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -146,3 +145,16 @@ const Bound = ({ channel, unbound }: BoundProps): ReactElement => {
 };
 
 const NO_CHANGE = () => {};
+
+/**
+ * Returns the data type of channel, or dataType when channel is 0 or no longer exists.
+ * It returns undefined while the channel loads.
+ */
+export const useDataType = (
+  channel: channel.Key,
+  dataType: string | undefined,
+): string | undefined => {
+  const result = Channel.useResultDataType(channel === 0 ? null : { key: channel });
+  if (channel === 0 || isMissing(result)) return dataType;
+  return result.data?.toString();
+};

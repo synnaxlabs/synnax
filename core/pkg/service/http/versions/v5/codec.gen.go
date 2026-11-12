@@ -12,9 +12,386 @@
 package v5
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (brf BaseReadField) EncodeOrc(w *orc.Writer) error {
+	w.String(brf.Key)
+	w.String(brf.Name)
+	w.Bool(brf.Disabled)
+	w.Uint32(uint32(brf.Channel))
+	w.String(brf.Pointer)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (brf *BaseReadField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if brf.Key, err = r.String(); err != nil {
+		return err
+	}
+	if brf.Name, err = r.String(); err != nil {
+		return err
+	}
+	if brf.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		brf.Channel = channel.Key(rawV)
+	}
+	if brf.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(rc.Key[:])
+	w.Bool(rc.AutoStart)
+	w.Bool(rc.DataSavingDisabled)
+	w.String(rc.Device)
+	w.Float64(float64(rc.Rate))
+	w.Bool(rc.Endpoints != nil)
+	if rc.Endpoints != nil {
+		w.Uint32(uint32(len(rc.Endpoints)))
+		for i := range rc.Endpoints {
+			if err := rc.Endpoints[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(rc.NanFillEnabled)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(rc.Key[:]); err != nil {
+		return err
+	}
+	if rc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if rc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if rc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		rc.Rate = telem.Rate(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rc.Endpoints = make([]ReadEndpoint, n)
+			for i := range rc.Endpoints {
+				if err = rc.Endpoints[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if rc.NanFillEnabled, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
+	w.String(re.Key)
+	w.String(string(re.Method))
+	w.String(re.Path)
+	w.Bool(re.Headers != nil)
+	if re.Headers != nil {
+		w.Uint32(uint32(len(re.Headers)))
+		for i := range re.Headers {
+			if err := re.Headers[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(re.QueryParams != nil)
+	if re.QueryParams != nil {
+		w.Uint32(uint32(len(re.QueryParams)))
+		for i := range re.QueryParams {
+			if err := re.QueryParams[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.String(re.Body)
+	w.Bool(re.Fields != nil)
+	if re.Fields != nil {
+		w.Uint32(uint32(len(re.Fields)))
+		for i := range re.Fields {
+			if err := re.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.String(re.Index)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if re.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		re.Method = Method(rawV)
+	}
+	if re.Path, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			re.Headers = make([]Header, n)
+			for i := range re.Headers {
+				if err = re.Headers[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			re.QueryParams = make([]QueryParam, n)
+			for i := range re.QueryParams {
+				if err = re.QueryParams[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if re.Body, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			re.Fields = make([]ReadField, n)
+			for i := range re.Fields {
+				if err = re.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if re.Index, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rf ReadField) EncodeOrc(w *orc.Writer) error {
+	switch v := rf.Variant.(type) {
+	case FloatReadField:
+		w.String("float")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.FloatRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case IntegerReadField:
+		w.String("integer")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.IntegerRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case UnsignedReadField:
+		w.String("unsigned")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.UnsignedRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case StringReadField:
+		w.String("string")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.StringRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BooleanReadField:
+		w.String("boolean")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.BooleanRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TimestampReadField:
+		w.String("timestamp")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.TimestampRead.EncodeOrc(w); err != nil {
+			return err
+		}
+	case JsonReadField:
+		w.String("json")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+	case UuidReadField:
+		w.String("uuid")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+	case BytesReadField:
+		w.String("bytes")
+		if err := v.BaseReadField.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("ReadField: nil or unknown variant %T", rf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.FloatRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "integer":
+		var v IntegerReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.IntegerRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "unsigned":
+		var v UnsignedReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.UnsignedRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "string":
+		var v StringReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.StringRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "boolean":
+		var v BooleanReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.BooleanRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "timestamp":
+		var v TimestampReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err := v.TimestampRead.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "json":
+		var v JsonReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "uuid":
+		var v UuidReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	case "bytes":
+		var v BytesReadField
+		if err := v.BaseReadField.DecodeOrc(r); err != nil {
+			return err
+		}
+		rf.Variant = v
+	default:
+		return errors.Newf("ReadField: unknown variant %q", tag)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {

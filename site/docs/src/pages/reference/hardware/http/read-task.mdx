@@ -84,7 +84,7 @@ task = http.ReadTask(
             method="GET",
             path="/api/data",
             fields=[
-                http.ReadField(pointer="/temperature", channel=temperature.key)
+                http.FloatReadField(pointer="/temperature", channel=temperature.key)
             ],
         )
     ],
@@ -172,31 +172,32 @@ settings:
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                                                                                                      |
-| ----------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                                                                                             |
-| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.                                                                            |
-| Channel <small>`channel`</small>          |           | The channel that records the value.                                                                                        |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.                                                                               |
-| Optional <small>`optional`</small>        | Off       | A missing value is normal for this field.                                                                                  |
-| Fill value <small>`fill_value`</small>    | None      | Written when an optional value is missing.                                                                                 |
-| Format <small>`time_format`</small>       | None      | The encoding of a time value: `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, or `unix_ns`. Required for a timestamp channel. |
+| Setting                                   | Default | Notes                                                                                                              |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Kind <small>`type`</small>                |         | `float`, `integer`, `unsigned`, `string`, `boolean`, `timestamp`, `json`, `uuid`, or `bytes`. Matches the channel. |
+| Pointer <small>`pointer`</small>          |         | The JSON pointer to the value.                                                                                     |
+| Channel <small>`channel`</small>          |         | The channel that records the value.                                                                                |
+| Data type <small>`data_type`</small>      | None    | On `float`, `integer`, and `unsigned`: the data type of a channel that the Console creates.                        |
+| Enum mapping <small>`enum_values`</small> | None    | On `float`, `integer`, `unsigned`, `string`, and `boolean`: maps text labels in the response to values.            |
+| Fill value <small>`fill`</small>          | None    | On `float`, `integer`, `unsigned`, `string`, `boolean`, and `timestamp`: written when the value is missing.        |
+| Format <small>`time_format`</small>       | None    | On `timestamp`, required: the encoding of the time: `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, or `unix_ns`.     |
 
-For **Source** set to **Response value** in code, add a field that records into the
-index channel, with the **Pointer** and the `time_format` of the time in the response.
-Then set `index` of the endpoint to the `key` of that field.
+For **Source** set to **Response value** in code, add a `timestamp` field that records
+into the index channel, with the **Pointer** and the `time_format` of the time in the
+response. Then set `index` of the endpoint to the `key` of that field.
 
-Turn on **Optional** for a value that can be missing as a normal state of the device,
-such as a sensor that is off. A value is missing when its pointer is absent, or when it
-is `null` or an empty string. On a string channel, an empty string is a real value.
+Give a field a **Fill value** for a value that can be missing as a normal state of the
+device, such as a sensor that is off. In the Console, turn on **Optional** to set one. A
+value is missing when its pointer is absent, or when it is `null` or an empty string. On
+a string channel, an empty string is a real value.
 
-The task then writes the **Fill value** with no warning, so the other fields on its
-index channel keep writing. With no fill value, it writes `NaN`, so a non-float channel
-needs one. An index channel cannot be optional.
+The task then writes the fill value with no warning, so the other fields on its index
+channel keep writing. A float field that turns optional takes a `NaN` fill. A field with
+no fill value is required. An index channel cannot take a fill value.
 
-A wrong pointer on an optional field also sends no warning. Other invalid values still
-warn. If a request fails, the task skips the field, so an outage does not look like a
-real reading.
+A wrong pointer on a field with a fill value also sends no warning. Other invalid values
+still warn. If a request fails, the task skips the field, so an outage does not look
+like a real reading.
 
 <Divider.Divider x />
 

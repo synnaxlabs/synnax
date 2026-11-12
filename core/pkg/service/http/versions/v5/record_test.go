@@ -17,13 +17,13 @@ import (
 )
 
 var _ = Describe("Record", func() {
-	It("Should store a write config under the v4 table prefix", func() {
-		Expect(v5.WriteConfig{}.CustomTypeName()).
-			To(Equal(v4.WriteConfig{}.CustomTypeName()))
-	})
-
-	It("Should store a read config under the v4 table prefix", func() {
+	It("Should keep the table prefix of the v4 read config", func() {
 		Expect(v5.ReadConfig{}.CustomTypeName()).
 			To(Equal(v4.ReadConfig{}.CustomTypeName()))
+	})
+
+	It("Should keep the table prefix of the v4 write config", func() {
+		Expect(v5.WriteConfig{}.CustomTypeName()).
+			To(Equal(v4.WriteConfig{}.CustomTypeName()))
 	})
 })

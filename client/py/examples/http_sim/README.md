@@ -151,8 +151,8 @@ Fields use [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) syntax 
 extract values from the response body:
 
 ```python
-sy.http.ReadField(pointer="/temperature", channel=temp_ch.key)
-sy.http.ReadField(pointer="/sensors/sensor_0", channel=sensor_ch.key)
+sy.http.FloatReadField(pointer="/temperature", channel=temp_ch.key)
+sy.http.FloatReadField(pointer="/sensors/sensor_0", channel=sensor_ch.key)
 ```
 
 ### Timestamp fields
@@ -160,11 +160,10 @@ sy.http.ReadField(pointer="/sensors/sensor_0", channel=sensor_ch.key)
 For hardware-timed data, configure a timestamp field and set it as the endpoint's index:
 
 ```python
-ts_field = sy.http.ReadField(
+ts_field = sy.http.TimestampReadField(
     pointer="/timestamp",
     channel=time_ch.key,
-    data_type="timestamp",
-    timestamp_format="unix_sec",  # iso8601, unix_sec, unix_ms, unix_us, unix_ns
+    time_format="unix_sec",  # iso8601, unix_sec, unix_ms, unix_us, unix_ns
 )
 endpoint = sy.http.ReadEndpoint(
     path="/api/data",
@@ -175,14 +174,27 @@ endpoint = sy.http.ReadEndpoint(
 
 ### Enum fields
 
-Map string values to numbers:
+Map string labels to channel values. The field type matches the channel's data type:
 
 ```python
-sy.http.ReadField(
+sy.http.UnsignedReadField(
     pointer="/status",
     channel=status_ch.key,
-    enum_values={"OFF": 0, "ON": 1, "ERROR": 2},
+    enum_values=[
+        {"label": "OFF", "value": 0},
+        {"label": "ON", "value": 1},
+        {"label": "ERROR", "value": 2},
+    ],
 )
+```
+
+### Fill values
+
+A field with a fill writes it when the response has no value. A field with no fill is
+required:
+
+```python
+sy.http.FloatReadField(pointer="/flow", channel=flow_ch.key, fill=float("nan"))
 ```
 
 ## Write task fields

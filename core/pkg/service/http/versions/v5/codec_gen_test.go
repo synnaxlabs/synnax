@@ -26,7 +26,209 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseReadField = v5.BaseReadField{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		Channel:  channel.Key(5),
+		Pointer:  "test_5",
+	}
+	fullyPopulatedFloatRead = payload.FloatRead{
+		DataType:   new(telem.DataType("test_1")),
+		EnumValues: []payload.FloatEntry{{Label: "test_3", Value: payload.Float(4.5)}},
+		Fill:       new(payload.Float(5.5)),
+	}
+	fullyPopulatedIntegerRead = payload.IntegerRead{
+		DataType:   new(telem.DataType("test_1")),
+		EnumValues: []payload.IntegerEntry{{Label: "test_3", Value: payload.Integer(5)}},
+		Fill:       new(payload.Integer(6)),
+	}
+	fullyPopulatedUnsignedRead = payload.UnsignedRead{
+		DataType:   new(telem.DataType("test_1")),
+		EnumValues: []payload.UnsignedEntry{{Label: "test_3", Value: payload.Unsigned(5)}},
+		Fill:       new(payload.Unsigned(6)),
+	}
+	fullyPopulatedStringRead = payload.StringRead{
+		EnumValues: []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
+		Fill:       new(string("test_4")),
+	}
+	fullyPopulatedBooleanRead = payload.BooleanRead{
+		EnumValues: []payload.BooleanEntry{{Label: "test_2", Value: true}},
+		Fill:       new(bool(false)),
+	}
+	fullyPopulatedTimestampRead = payload.TimestampRead{
+		TimeFormat: payload.TimeFormat("iso8601"),
+		Fill:       new(telem.TimeStamp(3)),
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("BaseReadField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.BaseReadField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.BaseReadField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseReadField),
+			Entry("zero values", v5.BaseReadField{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				Channel:  channel.Key(0),
+				Pointer:  "",
+			}),
+		)
+	})
+	Describe("ReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.ReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.ReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v5.ReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Rate:               telem.Rate(5.5),
+				Endpoints: []v5.ReadEndpoint{
+					{
+						Key:         "test_7",
+						Method:      v5.Method("GET"),
+						Path:        "test_9",
+						Headers:     []v5.Header{{Name: "test_11", Value: "test_12"}},
+						QueryParams: []v5.QueryParam{{Parameter: "test_14", Value: "test_15"}},
+						Body:        "test_16",
+						Fields: []v5.ReadField{
+							{Variant: v5.FloatReadField{
+								BaseReadField: fullyPopulatedBaseReadField,
+								FloatRead:     fullyPopulatedFloatRead,
+							}},
+						},
+						Index: "test_18",
+					},
+				},
+				NanFillEnabled: true,
+			}),
+			Entry("zero values", v5.ReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Rate:               telem.Rate(0),
+				Endpoints:          []v5.ReadEndpoint{},
+				NanFillEnabled:     false,
+			}),
+			Entry("empty collections", v5.ReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Rate:               telem.Rate(5.5),
+				Endpoints:          []v5.ReadEndpoint{},
+				NanFillEnabled:     true,
+			}),
+		)
+	})
+	Describe("ReadEndpoint", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.ReadEndpoint) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.ReadEndpoint
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v5.ReadEndpoint{
+				Key:         "test_1",
+				Method:      v5.Method("GET"),
+				Path:        "test_3",
+				Headers:     []v5.Header{{Name: "test_5", Value: "test_6"}},
+				QueryParams: []v5.QueryParam{{Parameter: "test_8", Value: "test_9"}},
+				Body:        "test_10",
+				Fields: []v5.ReadField{
+					{Variant: v5.FloatReadField{
+						BaseReadField: fullyPopulatedBaseReadField,
+						FloatRead:     fullyPopulatedFloatRead,
+					}},
+				},
+				Index: "test_12",
+			}),
+			Entry("zero values", v5.ReadEndpoint{
+				Key:         "",
+				Method:      v5.Method(""),
+				Path:        "",
+				Headers:     []v5.Header{},
+				QueryParams: []v5.QueryParam{},
+				Body:        "",
+				Fields:      []v5.ReadField{},
+				Index:       "",
+			}),
+			Entry("empty collections", v5.ReadEndpoint{
+				Key:         "test_1",
+				Method:      v5.Method("GET"),
+				Path:        "test_3",
+				Headers:     []v5.Header{},
+				QueryParams: []v5.QueryParam{},
+				Body:        "test_6",
+				Fields:      []v5.ReadField{},
+				Index:       "test_8",
+			}),
+		)
+	})
+	Describe("ReadField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.ReadField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.ReadField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("float variant", v5.ReadField{Variant: v5.FloatReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				FloatRead:     fullyPopulatedFloatRead,
+			}}),
+			Entry("integer variant", v5.ReadField{Variant: v5.IntegerReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				IntegerRead:   fullyPopulatedIntegerRead,
+			}}),
+			Entry("unsigned variant", v5.ReadField{Variant: v5.UnsignedReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				UnsignedRead:  fullyPopulatedUnsignedRead,
+			}}),
+			Entry("string variant", v5.ReadField{Variant: v5.StringReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				StringRead:    fullyPopulatedStringRead,
+			}}),
+			Entry("boolean variant", v5.ReadField{Variant: v5.BooleanReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				BooleanRead:   fullyPopulatedBooleanRead,
+			}}),
+			Entry("timestamp variant", v5.ReadField{Variant: v5.TimestampReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				TimestampRead: fullyPopulatedTimestampRead,
+			}}),
+			Entry("json variant", v5.ReadField{Variant: v5.JsonReadField{BaseReadField: fullyPopulatedBaseReadField}}),
+			Entry("uuid variant", v5.ReadField{Variant: v5.UuidReadField{BaseReadField: fullyPopulatedBaseReadField}}),
+			Entry("bytes variant", v5.ReadField{Variant: v5.BytesReadField{BaseReadField: fullyPopulatedBaseReadField}}),
+		)
+	})
 	Describe("WriteConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.WriteConfig) {
@@ -156,6 +358,115 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeBaseReadField(b *testing.B) {
+	seed := fullyPopulatedBaseReadField
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.BaseReadField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
+	seed := v5.ReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Rate:               telem.Rate(5.5),
+		Endpoints: []v5.ReadEndpoint{
+			{
+				Key:         "test_7",
+				Method:      v5.Method("GET"),
+				Path:        "test_9",
+				Headers:     []v5.Header{{Name: "test_11", Value: "test_12"}},
+				QueryParams: []v5.QueryParam{{Parameter: "test_14", Value: "test_15"}},
+				Body:        "test_16",
+				Fields: []v5.ReadField{
+					{Variant: v5.FloatReadField{
+						BaseReadField: fullyPopulatedBaseReadField,
+						FloatRead:     fullyPopulatedFloatRead,
+					}},
+				},
+				Index: "test_18",
+			},
+		},
+		NanFillEnabled: true,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.ReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
+	seed := v5.ReadEndpoint{
+		Key:         "test_1",
+		Method:      v5.Method("GET"),
+		Path:        "test_3",
+		Headers:     []v5.Header{{Name: "test_5", Value: "test_6"}},
+		QueryParams: []v5.QueryParam{{Parameter: "test_8", Value: "test_9"}},
+		Body:        "test_10",
+		Fields: []v5.ReadField{
+			{Variant: v5.FloatReadField{
+				BaseReadField: fullyPopulatedBaseReadField,
+				FloatRead:     fullyPopulatedFloatRead,
+			}},
+		},
+		Index: "test_12",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.ReadEndpoint
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadField(b *testing.B) {
+	seed := v5.ReadField{Variant: v5.FloatReadField{
+		BaseReadField: fullyPopulatedBaseReadField,
+		FloatRead:     fullyPopulatedFloatRead,
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.ReadField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v5.WriteConfig{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -239,6 +550,330 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeBaseReadField(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseReadField
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.BaseReadField{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			Channel:  channel.Key(0),
+			Pointer:  "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.BaseReadField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.BaseReadField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadConfig(f *testing.F) {
+	{
+		seed := v5.ReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Rate:               telem.Rate(5.5),
+			Endpoints: []v5.ReadEndpoint{
+				{
+					Key:         "test_7",
+					Method:      v5.Method("GET"),
+					Path:        "test_9",
+					Headers:     []v5.Header{{Name: "test_11", Value: "test_12"}},
+					QueryParams: []v5.QueryParam{{Parameter: "test_14", Value: "test_15"}},
+					Body:        "test_16",
+					Fields: []v5.ReadField{
+						{Variant: v5.FloatReadField{
+							BaseReadField: fullyPopulatedBaseReadField,
+							FloatRead:     fullyPopulatedFloatRead,
+						}},
+					},
+					Index: "test_18",
+				},
+			},
+			NanFillEnabled: true,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Rate:               telem.Rate(0),
+			Endpoints:          []v5.ReadEndpoint{},
+			NanFillEnabled:     false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Rate:               telem.Rate(5.5),
+			Endpoints:          []v5.ReadEndpoint{},
+			NanFillEnabled:     true,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.ReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.ReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadEndpoint(f *testing.F) {
+	{
+		seed := v5.ReadEndpoint{
+			Key:         "test_1",
+			Method:      v5.Method("GET"),
+			Path:        "test_3",
+			Headers:     []v5.Header{{Name: "test_5", Value: "test_6"}},
+			QueryParams: []v5.QueryParam{{Parameter: "test_8", Value: "test_9"}},
+			Body:        "test_10",
+			Fields: []v5.ReadField{
+				{Variant: v5.FloatReadField{
+					BaseReadField: fullyPopulatedBaseReadField,
+					FloatRead:     fullyPopulatedFloatRead,
+				}},
+			},
+			Index: "test_12",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadEndpoint{
+			Key:         "",
+			Method:      v5.Method(""),
+			Path:        "",
+			Headers:     []v5.Header{},
+			QueryParams: []v5.QueryParam{},
+			Body:        "",
+			Fields:      []v5.ReadField{},
+			Index:       "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadEndpoint{
+			Key:         "test_1",
+			Method:      v5.Method("GET"),
+			Path:        "test_3",
+			Headers:     []v5.Header{},
+			QueryParams: []v5.QueryParam{},
+			Body:        "test_6",
+			Fields:      []v5.ReadField{},
+			Index:       "test_8",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.ReadEndpoint
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.ReadEndpoint
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadField(f *testing.F) {
+	{
+		seed := v5.ReadField{Variant: v5.FloatReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			FloatRead:     fullyPopulatedFloatRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.IntegerReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			IntegerRead:   fullyPopulatedIntegerRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.UnsignedReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			UnsignedRead:  fullyPopulatedUnsignedRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.StringReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			StringRead:    fullyPopulatedStringRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.BooleanReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			BooleanRead:   fullyPopulatedBooleanRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.TimestampReadField{
+			BaseReadField: fullyPopulatedBaseReadField,
+			TimestampRead: fullyPopulatedTimestampRead,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.JsonReadField{BaseReadField: fullyPopulatedBaseReadField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.UuidReadField{BaseReadField: fullyPopulatedBaseReadField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.ReadField{Variant: v5.BytesReadField{BaseReadField: fullyPopulatedBaseReadField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.ReadField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.ReadField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeWriteConfig(f *testing.F) {

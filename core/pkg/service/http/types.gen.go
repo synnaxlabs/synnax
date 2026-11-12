@@ -43,8 +43,39 @@ type Header = versions.Header
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam = versions.QueryParam
 
-// ReadField is a single value extracted from an endpoint's JSON response.
+// ReadField is a single value extracted from an endpoint's JSON response. The type
+// field is the kind of the value, which matches the kind of the channel's data type.
 type ReadField = versions.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = versions.ReadFieldVariant
+
+// FloatReadField reads a float.
+type FloatReadField = versions.FloatReadField
+
+// IntegerReadField reads a signed integer.
+type IntegerReadField = versions.IntegerReadField
+
+// UnsignedReadField reads an unsigned integer.
+type UnsignedReadField = versions.UnsignedReadField
+
+// StringReadField reads a string.
+type StringReadField = versions.StringReadField
+
+// BooleanReadField reads a boolean.
+type BooleanReadField = versions.BooleanReadField
+
+// TimestampReadField reads a timestamp.
+type TimestampReadField = versions.TimestampReadField
+
+// JsonReadField reads any JSON value.
+type JsonReadField = versions.JsonReadField
+
+// UuidReadField reads a UUID.
+type UuidReadField = versions.UuidReadField
+
+// BytesReadField reads bytes.
+type BytesReadField = versions.BytesReadField
 
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
 type ReadEndpoint = versions.ReadEndpoint
@@ -65,3 +96,6 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = versions.ScanConfig
+
+// BaseReadField carries the fields every read field shares.
+type BaseReadField = versions.BaseReadField

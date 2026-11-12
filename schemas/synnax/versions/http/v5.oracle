@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/payload/v1"
+import "schemas/x/versions/telem/v0"
 
 Method = v2.Method
 
@@ -17,11 +19,67 @@ Header = v2.Header
 
 QueryParam = v2.QueryParam
 
-ReadField = v4.ReadField
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the endpoint."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from polling."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer  string = "" {
+        @doc value "is the JSON Pointer to the value within the response body."
+    }
 
-ReadEndpoint = v4.ReadEndpoint
+    @doc value  "carries the fields every read field shares."
+    @go marshal
+}
 
-ReadConfig = v4.ReadConfig
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a float."
+    }
+    integer extends payload.IntegerRead {
+        @doc value "reads a signed integer."
+    }
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads an unsigned integer."
+    }
+    string extends payload.StringRead {
+        @doc value "reads a string."
+    }
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean."
+    }
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp."
+    }
+    json {
+        @doc value "reads any JSON value."
+    }
+    uuid {
+        @doc value "reads a UUID."
+    }
+    bytes {
+        @doc value "reads bytes."
+    }
+
+    @doc value  """
+        is a single value extracted from an endpoint's JSON response. The type field is
+        the kind of the value, which matches the kind of the channel's data type.
+    """
+    @go marshal
+}
+
+ReadEndpoint struct extends v4.ReadEndpoint {}
+
+ReadConfig struct extends v4.ReadConfig {}
 
 ChannelField = v4.ChannelField
 

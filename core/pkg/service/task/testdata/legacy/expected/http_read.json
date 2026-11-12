@@ -8,47 +8,43 @@
       "fields": [
         {
           "channel": 10010,
-          "data_type": "timestamp",
           "disabled": false,
-          "enum_values": [],
           "key": "fld-ts",
           "name": "fixture_http_timestamp",
-          "optional": false,
           "pointer": "/data/timestamp",
-          "time_format": "unix_ms"
+          "time_format": "unix_ms",
+          "type": "timestamp"
         },
         {
           "channel": 10020,
-          "data_type": "uint8",
           "disabled": false,
           "enum_values": [
             {
               "label": "faulted",
-              "value": 3
+              "value": "3"
             },
             {
               "label": "idle",
-              "value": 1
+              "value": "1"
             },
             {
               "label": "running",
-              "value": 2
+              "value": "2"
             }
           ],
           "key": "fld-mode",
           "name": "fixture_http_mode",
-          "optional": false,
-          "pointer": "/data/modeLabel"
+          "pointer": "/data/modeLabel",
+          "type": "unsigned"
         },
         {
           "channel": 10030,
-          "data_type": "float32",
           "disabled": true,
           "enum_values": [],
           "key": "fld-press",
           "name": "fixture_http_pressure",
-          "optional": false,
-          "pointer": "/data/pressurePsi"
+          "pointer": "/data/pressurePsi",
+          "type": "float"
         }
       ],
       "headers": [
@@ -81,13 +77,12 @@
       "fields": [
         {
           "channel": 10040,
-          "data_type": "float64",
           "disabled": false,
           "enum_values": [],
           "key": "fld-temp",
           "name": "fixture_http_temperature",
-          "optional": false,
-          "pointer": "/results/0/tempC"
+          "pointer": "/results/0/tempC",
+          "type": "float"
         }
       ],
       "headers": [

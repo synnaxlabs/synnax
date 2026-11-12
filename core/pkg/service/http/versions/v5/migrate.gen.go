@@ -18,12 +18,18 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 )
 
-func autoMigrateReadConfig(_ context.Context, old v4.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
+	endpoints, err := lo.MapErr(old.Endpoints, func(v v4.ReadEndpoint, _ int) (ReadEndpoint, error) {
+		return MigrateReadEndpoint(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		PersistConfig:  old.PersistConfig,
 		Device:         old.Device,
 		Rate:           old.Rate,
-		Endpoints:      old.Endpoints,
+		Endpoints:      endpoints,
 		NanFillEnabled: old.NanFillEnabled,
 	}, nil
 }
@@ -39,6 +45,18 @@ func autoMigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfi
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
 		Endpoints:   endpoints,
+	}, nil
+}
+
+func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	return ReadEndpoint{
+		Key:         old.Key,
+		Method:      old.Method,
+		Path:        old.Path,
+		Headers:     old.Headers,
+		QueryParams: old.QueryParams,
+		Body:        old.Body,
+		Index:       old.Index,
 	}, nil
 }
 

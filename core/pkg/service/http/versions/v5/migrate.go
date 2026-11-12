@@ -11,11 +11,24 @@ package v5
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"math"
+	"uuid"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/errors"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	xjson "github.com/synnaxlabs/x/json"
+	xpayload "github.com/synnaxlabs/x/payload"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payloadv1 "github.com/synnaxlabs/x/payload/versions/v1"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 // MigrateWriteConfig lifts a v4 HTTP write task config to v5.
@@ -32,27 +45,27 @@ func MigrateWriteEndpoint(
 }
 
 // MigrateWriteField lifts a v4 write field to a typed write field, as
-// payload.LiftStaticWriteField and payload.LiftGeneratedWriteField do. ok is false for
+// payloadv1.LiftStaticWriteField and payloadv1.LiftGeneratedWriteField do. ok is false for
 // a field with an unknown generator, which no Driver ran, and for a null field.
-func MigrateWriteField(old v4.WriteField) (f payload.WriteField, ok bool, err error) {
+func MigrateWriteField(old v4.WriteField) (f payloadv1.WriteField, ok bool, err error) {
 	switch v := old.Variant.(type) {
 	case nil:
-		return payload.WriteField{}, false, nil
+		return payloadv1.WriteField{}, false, nil
 	case v4.StaticWriteField:
-		f, err = payload.LiftStaticWriteField(
-			payload.BaseWriteField(v.BaseWriteField),
+		f, err = payloadv1.LiftStaticWriteField(
+			payloadv1.BaseWriteField(v.BaseWriteField),
 			v.Value,
 		)
 		return f, err == nil, err
 	case v4.GeneratedWriteField:
-		f, ok = payload.LiftGeneratedWriteField(
-			payload.BaseWriteField(v.BaseWriteField),
+		f, ok = payloadv1.LiftGeneratedWriteField(
+			payloadv1.BaseWriteField(v.BaseWriteField),
 			v.Generator,
 			v.TimeFormat,
 		)
 		return f, ok, nil
 	default:
-		return payload.WriteField{}, false, errors.Newf(
+		return payloadv1.WriteField{}, false, errors.Newf(
 			"unknown WriteField variant %T",
 			v,
 		)
@@ -62,8 +75,8 @@ func MigrateWriteField(old v4.WriteField) (f payload.WriteField, ok bool, err er
 func migrateWriteEndpointFields(
 	_ context.Context,
 	old []v4.WriteField,
-) ([]payload.WriteField, error) {
-	var fields []payload.WriteField
+) ([]payloadv1.WriteField, error) {
+	var fields []payloadv1.WriteField
 	for _, o := range old {
 		f, ok, err := MigrateWriteField(o)
 		if err != nil {
@@ -78,3 +91,244 @@ func migrateWriteEndpointFields(
 
 // WriteMigration lifts stored HTTP write task configs from v4 to v5.
 var WriteMigration = migrate.NewEntry("v62_http_typed_write_fields", MigrateWriteConfig)
+
+// Warn reports a lossy change to a read field.
+type Warn func(msg string, fields ...zap.Field)
+
+func ignore(string, ...zap.Field) {}
+
+// MigrateReadConfig lifts a v4 HTTP read task config to v5, as MigrateReadEndpoint does
+// for each endpoint.
+func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
+	return autoMigrateReadConfig(ctx, old)
+}
+
+// MigrateReadEndpoint lifts a v4 read endpoint to v5, as MigrateReadField does for each
+// field. The field that indexes the endpoint is a timestamp field whenever it has a
+// time format, because the v4 Console marked its timing field that way.
+func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	return liftReadEndpoint(old, ignore), nil
+}
+
+// MigrateReadField lifts a v4 read field to v5. The stored data type picks the kind. A
+// field with a time format that is not optional and has no enum entries is a timestamp
+// field, because v4 used a time format only on a timestamp channel and defaulted the
+// data type to float64. A float, integer, or unsigned field keeps the data type for a
+// new channel. An enum entry converts when the kind holds its value, and a boolean
+// entry is true when its value is not 0. A string or timestamp field drops its entries,
+// and a timestamp field with no time format takes ISO 8601. Of entries that repeat a
+// label, the first stays.
+//
+// An optional field's fill converts to the stored data type, and an enum label converts
+// to the value of its entry. An optional float field with no fill takes NaN. A fill
+// that does not convert, a fill on a field that is not optional, and an optional field
+// with no fill on any other kind drop, because the Driver rejected each of them. An
+// unknown data type reads as float64.
+func MigrateReadField(old v4.ReadField) ReadField {
+	return liftReadField(old, false, ignore)
+}
+
+// NewReadMigration returns the migration that lifts stored v4 read configs to v5,
+// reconciles them with channels, and logs each lossy change.
+func NewReadMigration(channels Channels) gorp.Migration {
+	return migrate.New(
+		"v62_typed_read_field",
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			var olds []v4.ReadConfig
+			if err := gorp.NewRetrieve[uuid.UUID, v4.ReadConfig]().
+				Entries(&olds).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			news := make([]ReadConfig, 0, len(olds))
+			for _, old := range olds {
+				warn := func(msg string, fields ...zap.Field) {
+					ins.L.Warn(msg, append(fields, zap.Stringer("config", old.Key))...)
+				}
+				cfg := liftReadConfig(old, warn)
+				if err := ReconcileReadConfig(
+					ctx,
+					tx,
+					channels,
+					&cfg,
+					warn,
+				); err != nil {
+					return errors.Wrapf(err, "config %s", old.Key)
+				}
+				news = append(news, cfg)
+			}
+			return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
+		},
+	)
+}
+
+func liftReadConfig(old v4.ReadConfig, warn Warn) ReadConfig {
+	return ReadConfig{
+		PersistConfig: old.PersistConfig,
+		Device:        old.Device,
+		Rate:          old.Rate,
+		Endpoints: lo.Map(old.Endpoints, func(ep v4.ReadEndpoint, _ int) ReadEndpoint {
+			return liftReadEndpoint(ep, warn)
+		}),
+		NanFillEnabled: old.NanFillEnabled,
+	}
+}
+
+func liftReadEndpoint(old v4.ReadEndpoint, warn Warn) ReadEndpoint {
+	return ReadEndpoint{
+		Key:         old.Key,
+		Method:      old.Method,
+		Path:        old.Path,
+		Headers:     old.Headers,
+		QueryParams: old.QueryParams,
+		Body:        old.Body,
+		Fields: lo.Map(old.Fields, func(f v4.ReadField, _ int) ReadField {
+			return liftReadField(f, f.Key == old.Index, warn)
+		}),
+		Index: old.Index,
+	}
+}
+
+func liftReadField(old v4.ReadField, index bool, warn Warn) ReadField {
+	warn = withField(warn, old.Key)
+	if old.TimeFormat != nil &&
+		(index || (!old.Optional && len(old.EnumValues) == 0)) {
+		old.DataType = telem.TimestampT
+	}
+	kind, ok := xpayload.KindOf(old.DataType)
+	if !ok {
+		warn(
+			"read an unknown data type as float64",
+			zap.String("data_type", string(old.DataType)),
+		)
+		old.DataType = telem.Float64T
+		kind = payload.KindFloat
+	}
+	o := options{fill: liftFill(old, kind, warn), timeFormat: payload.TimeFormatISO8601}
+	if old.TimeFormat != nil {
+		o.timeFormat = *old.TimeFormat
+	}
+	if numeric(kind) {
+		o.dataType = new(old.DataType)
+	}
+	for _, e := range uniqueLabels(old.EnumValues, warn) {
+		var value any = payload.Float(e.Value)
+		if kind == payload.KindBoolean {
+			value = e.Value != 0
+		}
+		o.entries = append(o.entries, entry{label: e.Label, value: value})
+	}
+	return assemble(kind, BaseReadField{
+		Key:      old.Key,
+		Name:     old.Name,
+		Disabled: old.Disabled,
+		Channel:  old.Channel,
+		Pointer:  old.Pointer,
+	}, o, nil, warn)
+}
+
+func uniqueLabels(entries []payload.EnumEntry, warn Warn) []payload.EnumEntry {
+	seen := make(set.Set[string], len(entries))
+	return lo.Filter(entries, func(e payload.EnumEntry, _ int) bool {
+		if seen.Contains(e.Label) {
+			warn(
+				"dropped an enum entry that repeats a label",
+				zap.String("label", e.Label),
+			)
+			return false
+		}
+		seen.Add(e.Label)
+		return true
+	})
+}
+
+// liftFill returns the fill of old as a sample of its kind, or nil when it has none.
+func liftFill(old v4.ReadField, kind payload.Kind, warn Warn) any {
+	if !old.Optional {
+		if old.FillValue != nil {
+			warn("dropped the fill of a field that is not optional")
+		}
+		return nil
+	}
+	if old.FillValue == nil {
+		if kind == payload.KindFloat {
+			return payload.Float(math.NaN())
+		}
+		warn("dropped the optional flag of a field with no fill on a non-float channel")
+		return nil
+	}
+	raw := *old.FillValue
+	if label, ok := raw.(string); ok && (numeric(kind) || kind == payload.KindBoolean) {
+		e, found := lo.Find(old.EnumValues, func(e payload.EnumEntry) bool {
+			return e.Label == label
+		})
+		if !found {
+			warn(
+				"dropped a fill label that no enum entry has",
+				zap.String("label", label),
+			)
+			return nil
+		}
+		raw = e.Value
+	}
+	sample, err := decodeFill(raw, old)
+	if err != nil {
+		warn("dropped a fill that does not convert", zap.Error(err))
+		return nil
+	}
+	return sample
+}
+
+func decodeFill(raw any, old v4.ReadField) (any, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	f := xjson.Field{DataType: old.DataType}
+	if old.TimeFormat != nil {
+		if f.TimeFormat, err = xjson.ParseTimeFormat(
+			string(*old.TimeFormat),
+		); err != nil {
+			return nil, err
+		}
+	}
+	dec, err := xjson.NewDecoder(f)
+	if err != nil {
+		return nil, err
+	}
+	data, err := dec.Append(nil, jsontext.Value(b))
+	if err != nil {
+		return nil, err
+	}
+	s := telem.Series{DataType: old.DataType, Data: data}
+	switch old.DataType {
+	case telem.Float64T:
+		return payload.Float(s.ValueAt[float64](0)), nil
+	case telem.Float32T:
+		return payload.Float(s.ValueAt[float32](0)), nil
+	case telem.Int8T:
+		return payload.Integer(s.ValueAt[int8](0)), nil
+	case telem.Int16T:
+		return payload.Integer(s.ValueAt[int16](0)), nil
+	case telem.Int32T:
+		return payload.Integer(s.ValueAt[int32](0)), nil
+	case telem.Int64T:
+		return payload.Integer(s.ValueAt[int64](0)), nil
+	case telem.Uint8T:
+		return payload.Unsigned(s.ValueAt[uint8](0)), nil
+	case telem.Uint16T:
+		return payload.Unsigned(s.ValueAt[uint16](0)), nil
+	case telem.Uint32T:
+		return payload.Unsigned(s.ValueAt[uint32](0)), nil
+	case telem.Uint64T:
+		return payload.Unsigned(s.ValueAt[uint64](0)), nil
+	case telem.BooleanT:
+		return s.ValueAt[uint8](0) != 0, nil
+	case telem.TimestampT:
+		return s.ValueAt[telem.TimeStamp](0), nil
+	case telem.StringT:
+		text, _ := telem.UnmarshalVariableSample(data)
+		return string(text), nil
+	}
+	return nil, errors.Newf("a %s channel takes no fill", old.DataType)
+}

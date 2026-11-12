@@ -46,7 +46,10 @@ export const createLabel = (labels: string[]): string => {
 
 const createEntry =
   <V,>(value: V) =>
-  (labels: string[]): { key: string; value: V } => ({ key: createLabel(labels), value });
+  (labels: string[]): { key: string; value: V } => ({
+    key: createLabel(labels),
+    value,
+  });
 
 /** Maps string labels in a payload to channel values. */
 export const EnumMappingSection = ({

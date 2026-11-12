@@ -8,37 +8,34 @@
       "fields": [
         {
           "channel": 10110,
-          "data_type": "timestamp",
           "disabled": false,
-          "enum_values": [],
           "key": "fld-list-ts",
           "name": "fixture_http_list_timestamp",
-          "optional": false,
           "pointer": "/data/timestamp",
-          "time_format": "iso8601"
+          "time_format": "iso8601",
+          "type": "timestamp"
         },
         {
           "channel": 10120,
-          "data_type": "uint8",
           "disabled": false,
           "enum_values": [
             {
               "label": "idle",
-              "value": 1
+              "value": "1"
             },
             {
               "label": "running",
-              "value": 2
+              "value": "2"
             },
             {
               "label": "faulted",
-              "value": 3
+              "value": "3"
             }
           ],
           "key": "fld-list-mode",
           "name": "fixture_http_list_mode",
-          "optional": false,
-          "pointer": "/data/modeLabel"
+          "pointer": "/data/modeLabel",
+          "type": "unsigned"
         }
       ],
       "headers": [
@@ -71,13 +68,12 @@
       "fields": [
         {
           "channel": 10140,
-          "data_type": "float64",
           "disabled": true,
           "enum_values": [],
           "key": "fld-list-temp",
           "name": "fixture_http_list_temperature",
-          "optional": false,
-          "pointer": "/results/0/tempC"
+          "pointer": "/results/0/tempC",
+          "type": "float"
         }
       ],
       "headers": [

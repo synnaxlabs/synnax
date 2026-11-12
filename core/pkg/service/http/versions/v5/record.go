@@ -9,6 +9,10 @@
 
 package v5
 
-// CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
-// identically named config types of other integrations.
+// CustomTypeName gives ReadConfig records the table prefix of v4, so the v5 migration
+// rewrites each stored config in place.
+func (ReadConfig) CustomTypeName() string { return "http_read_config" }
+
+// CustomTypeName gives WriteConfig records the table prefix of v4, so the v5 migration
+// rewrites each stored config in place.
 func (WriteConfig) CustomTypeName() string { return "http_write_config" }

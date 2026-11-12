@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
@@ -53,45 +54,6 @@ inline x::json::json QueryParam::to_json() const {
     return j;
 }
 
-inline ReadField ReadField::parse(x::json::Parser parser) {
-    return ReadField{
-        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
-        .name = parser.field<std::string>("name", ""),
-        .disabled = parser.field<bool>("disabled", false),
-        .optional = parser.field<bool>("optional", false),
-        .fill_value = parser.field<std::optional<x::json::json>>("fill_value"),
-        .channel = parser.field<::synnax::channel::Key>(
-            "channel",
-            ::synnax::channel::Key(0)
-        ),
-        .pointer = parser.field<std::string>("pointer", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float64")
-        ),
-        .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
-            "enum_values",
-            std::vector<::x::payload::EnumEntry>{}
-        ),
-    };
-}
-
-inline x::json::json ReadField::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["key"] = this->key;
-    j["name"] = this->name;
-    j["disabled"] = this->disabled;
-    j["optional"] = this->optional;
-    if (this->fill_value.has_value()) j["fill_value"] = *this->fill_value;
-    j["channel"] = this->channel;
-    j["pointer"] = this->pointer;
-    j["data_type"] = this->data_type;
-    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    return j;
-}
-
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -103,10 +65,15 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             std::vector<QueryParam>{}
         ),
         .body = parser.field<std::string>("body", ""),
-        .fields = parser.field<std::vector<ReadField>>(
-            "fields",
-            std::vector<ReadField>{}
-        ),
+        .fields =
+            [&] {
+                std::vector<ReadField> result;
+                if (parser.has("fields"))
+                    parser.iter("fields", [&result](x::json::Parser &p) {
+                        result.push_back(parse_read_field(p));
+                    });
+                return result;
+            }(),
         .index = parser.field<std::string>("index", ""),
     };
 }
@@ -119,7 +86,12 @@ inline x::json::json ReadEndpoint::to_json() const {
     j["headers"] = x::json::to_array(this->headers);
     j["query_params"] = x::json::to_array(this->query_params);
     j["body"] = this->body;
-    j["fields"] = x::json::to_array(this->fields);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->fields)
+            arr.push_back(::synnax::http::to_json(item));
+        j["fields"] = arr;
+    }
     j["index"] = this->index;
     return j;
 }
@@ -260,6 +232,213 @@ inline x::json::json ScanConfig::to_json() const {
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
     return j;
+}
+
+inline BaseReadField BaseReadField::parse(x::json::Parser parser) {
+    return BaseReadField{
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .name = parser.field<std::string>("name", ""),
+        .disabled = parser.field<bool>("disabled", false),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
+        .pointer = parser.field<std::string>("pointer", ""),
+    };
+}
+
+inline x::json::json BaseReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["disabled"] = this->disabled;
+    j["channel"] = this->channel;
+    j["pointer"] = this->pointer;
+    return j;
+}
+
+inline FloatReadField FloatReadField::parse(x::json::Parser parser) {
+    FloatReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::FloatRead &>(result) = ::x::payload::FloatRead::parse(
+        parser
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FloatReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::FloatRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline IntegerReadField IntegerReadField::parse(x::json::Parser parser) {
+    IntegerReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::IntegerRead &>(result) = ::x::payload::IntegerRead::parse(
+        parser
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json IntegerReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::IntegerRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnsignedReadField UnsignedReadField::parse(x::json::Parser parser) {
+    UnsignedReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::UnsignedRead &>(
+        result
+    ) = ::x::payload::UnsignedRead::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnsignedReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::UnsignedRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringReadField StringReadField::parse(x::json::Parser parser) {
+    StringReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::StringRead &>(result) = ::x::payload::StringRead::parse(
+        parser
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::StringRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline BooleanReadField BooleanReadField::parse(x::json::Parser parser) {
+    BooleanReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::BooleanRead &>(result) = ::x::payload::BooleanRead::parse(
+        parser
+    );
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BooleanReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::BooleanRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline TimestampReadField TimestampReadField::parse(x::json::Parser parser) {
+    TimestampReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    static_cast<::x::payload::TimestampRead &>(
+        result
+    ) = ::x::payload::TimestampRead::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TimestampReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::x::payload::TimestampRead::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline JsonReadField JsonReadField::parse(x::json::Parser parser) {
+    JsonReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json JsonReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline UuidReadField UuidReadField::parse(x::json::Parser parser) {
+    UuidReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UuidReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline BytesReadField BytesReadField::parse(x::json::Parser parser) {
+    BytesReadField result;
+    static_cast<BaseReadField &>(result) = BaseReadField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BytesReadField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseReadField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline ReadField parse_read_field(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "float") return FloatReadField::parse(parser);
+    if (discriminator == "integer") return IntegerReadField::parse(parser);
+    if (discriminator == "unsigned") return UnsignedReadField::parse(parser);
+    if (discriminator == "string") return StringReadField::parse(parser);
+    if (discriminator == "boolean") return BooleanReadField::parse(parser);
+    if (discriminator == "timestamp") return TimestampReadField::parse(parser);
+    if (discriminator == "json") return JsonReadField::parse(parser);
+    if (discriminator == "uuid") return UuidReadField::parse(parser);
+    if (discriminator == "bytes") return BytesReadField::parse(parser);
+    parser.field_err("type", "unknown ReadField type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ReadField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }
