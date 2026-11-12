@@ -31,6 +31,9 @@ export const SCAN_SCHEMAS = {
 
 export const STREAM_TYPE = `${PREFIX}_stream`;
 
+/** Starts the key of the progress status of every stream task. */
+export const PROGRESS_KEY_PREFIX = `${STREAM_TYPE}:`;
+
 export const deployStreamConfigZ = sift.streamConfigZ.extend({
   device: Task.deviceKeyZ,
   asset: z.string().min(1, "Asset is required"),

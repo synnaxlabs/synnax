@@ -9,5 +9,6 @@
 
 export * from "@/feature/sift/asset";
 export * from "@/feature/sift/device";
+export * from "@/feature/sift/notifications";
 export * from "@/feature/sift/range";
 export * from "@/feature/sift/task";
