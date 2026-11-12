@@ -1072,9 +1072,6 @@ var _ = Describe("Reference", func() {
 			It("Should fail a probe of the reference", func(ctx SpecContext) {
 				Expect(deviceRef.rack.Get(ctx, nil, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
-				all := func(string) bool { return true }
-				Expect(deviceRef.rack.Referenced(ctx, nil, all, 1)).Error().
-					To(MatchError(gorp.ErrIndexInvalid))
 				Expect(racks.Dependents(ctx, db, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
 			})
@@ -1098,6 +1095,20 @@ var _ = Describe("Reference", func() {
 					Entries(&unlabeled).
 					Exec(ctx, db)).To(Succeed())
 				Expect(unlabeled).To(HaveLen(1))
+			})
+
+			It("Should scan the table in Referenced", func(ctx SpecContext) {
+				createRack(ctx, 2)
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().
+					Entry(&refDevice{Key: "d2", Rack: 2}).
+					Exec(ctx, tx)).To(Succeed())
+				all := func(string) bool { return true }
+				Expect(deviceRef.rack.Referenced(ctx, tx, all, 1, 2)).
+					To(Equal(set.New[uint32](1, 2)))
+				d1 := func(k string) bool { return k == "d1" }
+				Expect(deviceRef.rack.Referenced(ctx, tx, d1, 1, 2)).
+					To(Equal(set.New[uint32](1)))
 			})
 
 			It("Should fail a filter on another entry type", func(ctx SpecContext) {
