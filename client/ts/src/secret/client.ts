@@ -155,6 +155,8 @@ export class Client extends query.Retriever<
           await this.retrieveUses({ ...query.keysRequest(keys), includeUses: true })
         ).map(toUses),
     });
+    // An answer that holds a secret composes its uses too.
+    usesStore.hold({ held: () => store.held() });
     const deletes: Deletes = { inFlight: 0, seq: 0, at: new Map() };
     // A secret created again under a deleted key reads its uses again.
     store.subscribe((event) => {
