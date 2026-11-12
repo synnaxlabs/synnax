@@ -68,7 +68,7 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		len(old.EnumValues) == 0:
 		kind = payload.KindTimestamp
 		note("data type %s became the timestamp kind, which its time format reads", dt)
-	case ch == nil && old.TimeFormat != nil && kind != payload.KindTimestamp:
+	case old.TimeFormat != nil && kind != payload.KindTimestamp:
 		note(
 			"time format %s was dropped, because the field is %s",
 			*old.TimeFormat,

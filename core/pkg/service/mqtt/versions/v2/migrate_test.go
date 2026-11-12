@@ -393,7 +393,13 @@ var _ = Describe("NewReadMigration", func() {
 
 	DescribeTable(
 		"Should lift a field to the kind of its channel",
-		func(ctx SpecContext, ch v2.Channel, old v1.ReadField, expected v2.ReadField) {
+		func(
+			ctx SpecContext,
+			ch v2.Channel,
+			old v1.ReadField,
+			expected v2.ReadField,
+			changes []string,
+		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			stored := v1.ReadConfig{
 				Key: uuid.New(),
@@ -411,13 +417,18 @@ var _ = Describe("NewReadMigration", func() {
 			) (map[channel.Key]v2.Channel, error) {
 				return map[channel.Key]v2.Channel{7: ch}, nil
 			}
-			ins, _ := observe()
+			ins, logs := observe()
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				Instrumentation: ins,
 				DB:              db,
 				Namespace:       "mqtt_read_config",
 				Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
 			})).To(Succeed())
+			logged := []string{}
+			for _, e := range logs.All() {
+				logged = append(logged, e.ContextMap()["change"].(string))
+			}
+			Expect(logged).To(ConsistOf(changes))
 			var got v2.ReadConfig
 			Expect(gorp.NewRetrieve[uuid.UUID, v2.ReadConfig]().
 				Where(gorp.MatchKeys[uuid.UUID, v2.ReadConfig](stored.Key)).
@@ -442,6 +453,10 @@ var _ = Describe("NewReadMigration", func() {
 					EnumValues: []payload.UnsignedEntry{{Label: "ON", Value: 1}},
 				},
 			}},
+			[]string{
+				"data type float64 became uint8, the data type of its channel",
+				"time format unix_sec was dropped, because the field is unsigned",
+			},
 		),
 		Entry(
 			"a default field with a time format on a timestamp channel",
@@ -459,6 +474,9 @@ var _ = Describe("NewReadMigration", func() {
 					TimeFormat: payload.TimeFormatUnixMs,
 				},
 			}},
+			[]string{
+				"data type float64 became timestamp, the data type of its channel",
+			},
 		),
 	)
 })
