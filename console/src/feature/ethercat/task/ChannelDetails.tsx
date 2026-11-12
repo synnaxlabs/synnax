@@ -38,6 +38,7 @@ import {
   type PDOType,
   READ_CHANNEL_SCHEMAS,
   type ReadChannel,
+  type ReadSchemas,
   WRITE_CHANNEL_SCHEMAS,
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
@@ -124,6 +125,7 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
   path,
 }) => {
   const recalibrate = useRecalibrate(path);
+  const { key } = PForm.useFieldValue(path);
   return (
     <ChannelDetails
       path={path}
@@ -131,11 +133,32 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
       schema={READ_CHANNEL_SCHEMAS.entry}
       onDeviceChange={recalibrate}
     >
-      <ChannelSettings path={deep.variant(path, "type", "entry")} />
+      <ChannelSettings keys={[key]} />
       <PForm.Section title="Scale">
         <Task.ScaleForm path={deep.variant(path, "type", "entry").scale} />
       </PForm.Section>
     </ChannelDetails>
+  );
+};
+
+const READ_CHANNELS = deep.path<Task.Values<ReadSchemas>>().config.channels;
+
+/** Edits the settings and scale of the selected read channels that have an entry. */
+export const ReadMultiDetails: FC<Task.Views.MultiDetailsProps> = ({ keys }) => {
+  const channels = PForm.useFieldValue(READ_CHANNELS);
+  const paths = channels
+    .filter((c) => keys.includes(c.key) && hasEntry(c))
+    .map((c) => deep.variant(READ_CHANNELS[c.key], "type", "entry"));
+  if (paths.length === 0) return null;
+  return (
+    <PForm.Sections>
+      <ChannelSettings keys={keys} />
+      <PForm.Section title="Scale">
+        <PForm.Fanout paths={paths}>
+          <Task.ScaleForm path={paths[0].scale} />
+        </PForm.Fanout>
+      </PForm.Section>
+    </PForm.Sections>
   );
 };
 

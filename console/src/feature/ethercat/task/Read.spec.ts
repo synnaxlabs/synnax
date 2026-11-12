@@ -45,7 +45,7 @@ import {
   findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName, withControlHeld } from "@/testutil";
 
 const client = createTestClient();
 
@@ -358,6 +358,73 @@ describe("Read", () => {
           ],
         },
       ]);
+    });
+  });
+
+  describe("several selected channels", () => {
+    /** Renders a channel on each of two strain slaves and selects both channels. */
+    const renderTwoSelected = async (
+      startupParameters: (slaves: device.Key[]) => ethercat.SlaveStartupParameters[],
+    ) => {
+      const slaves = [await createStrainSlave(), await createStrainSlave()];
+      const rendered = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: slaves.map((s) =>
+          EtherCAT.Task.createEntryReadChannel(s.key, STRAIN_ENTRY),
+        ),
+        startupParameters: startupParameters(slaves.map((s) => s.key)),
+      });
+      const [first, second] = await screen.findAllByRole("option", {
+        name: /0x6030:01/,
+      });
+      fireEvent.click(first);
+      withControlHeld(() => fireEvent.click(second));
+      expect(await screen.findByText("2 channels")).toBeTruthy();
+      return { ...rendered, slaves };
+    };
+
+    const retrieveSaved = async (key: task.Key) =>
+      await client.tasks.retrieve({ key, schemas: EtherCAT.Task.READ_SCHEMAS });
+
+    it("should save a setting picked once to the input of each channel", async () => {
+      const { draft, slaves } = await renderTwoSelected(() => []);
+      fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual(
+          slaves.map((device) => ({
+            device: device.key,
+            parameters: [
+              { ...MEASUREMENT, value: 6 },
+              { ...RANGE, value: 0 },
+              { ...EXCITATION, value: 0 },
+            ],
+          })),
+        );
+      });
+    });
+
+    it("should show Mixed for a setting that the inputs hold apart", async () => {
+      await renderTwoSelected(([bridged]) => [
+        { device: bridged, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ]);
+      const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+      expect(await within(measurement).findByText("Mixed")).toBeTruthy();
+      expect(screen.queryByText("Excitation voltage")).toBeNull();
+    });
+
+    it("should save a scale picked once to each channel", async () => {
+      const { draft } = await renderTwoSelected(() => []);
+      fireEvent.click(screen.getByRole("button", { name: /None/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.channels).toMatchObject([
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+        ]);
+      });
     });
   });
 
