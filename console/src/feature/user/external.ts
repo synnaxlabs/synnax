@@ -10,5 +10,4 @@
 export * from "@/feature/user/commands";
 export * from "@/feature/user/Members";
 export * from "@/feature/user/Settings";
-export * from "@/feature/user/tree";
 export * from "@/platform/user/external";

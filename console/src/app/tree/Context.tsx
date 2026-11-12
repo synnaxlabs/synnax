@@ -9,7 +9,6 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Access } from "@/feature/access";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
@@ -21,7 +20,6 @@ import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { User } from "@/feature/user";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
@@ -39,7 +37,6 @@ const GROUP_MEMBERS: Group.Member[] = [
 ];
 
 const TREE_ITEMS: Tree.Items = {
-  ...(DESKTOP ? {} : Access.TREE_ITEMS),
   ...Arc.TREE_ITEMS,
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
@@ -51,7 +48,6 @@ const TREE_ITEMS: Tree.Items = {
   ...Rack.TREE_ITEMS,
   ...Schematic.TREE_ITEMS,
   ...Table.TREE_ITEMS,
-  ...(DESKTOP ? {} : User.TREE_ITEMS),
 };
 
 export interface ContextProps extends PropsWithChildren<{}> {}
