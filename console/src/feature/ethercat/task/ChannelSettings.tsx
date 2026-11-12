@@ -9,7 +9,8 @@
 
 import { type ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { deep, primitive } from "@synnaxlabs/x";
+import { Text } from "@synnaxlabs/lyra/text";
+import { caseconv, deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -22,7 +23,7 @@ import {
   valueAt,
   visibleFields,
 } from "@/feature/ethercat/device/settings";
-import { isShared } from "@/feature/ethercat/device/setup";
+import { setUpBy } from "@/feature/ethercat/device/setup";
 import { type EntryReadChannel, type ReadSchemas } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -45,8 +46,8 @@ export interface ChannelSettingsProps {
 /**
  * Edits the settings that the read task writes to the input that the channel reads, as
  * the catalog of the channel's slave describes them. Channels that read one input share
- * its settings. Renders nothing for an entry that the catalog does not describe, or for
- * a slave that other software sets up.
+ * its settings. Renders nothing for an entry that the catalog does not describe, and a
+ * note for a slave that other software sets up.
  */
 export const ChannelSettings = ({
   path,
@@ -57,7 +58,16 @@ export const ChannelSettings = ({
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const input = findInput(slave?.properties.settings, ch);
-  if (input == null || slave == null || isShared(slave.properties)) return null;
+  if (input == null || slave == null) return null;
+  const reader = setUpBy(slave.properties);
+  if (reader != null)
+    return (
+      <PForm.Section title="Settings">
+        <Text.Text level="small" color={9}>
+          {caseconv.capitalize(reader)} sets the settings of this device.
+        </Text.Text>
+      </PForm.Section>
+    );
   const fields = input.settings;
   const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
   const problems = check(input, values);

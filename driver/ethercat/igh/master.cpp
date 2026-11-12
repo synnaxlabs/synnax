@@ -301,6 +301,14 @@ x::errors::Error Master::write(
     return x::errors::NIL;
 }
 
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t position, const uint16_t index, const uint8_t sub_index) {
+    return sdo_reader(*this->api, this->ec_master, ring_position(position))(
+        index,
+        sub_index
+    );
+}
+
 x::errors::Error Master::add_startup_parameters(
     const slave::Properties &slave,
     ec_slave_config_t *sc,

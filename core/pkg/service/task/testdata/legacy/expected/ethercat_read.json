@@ -11,6 +11,7 @@
       "type": "unresolved"
     },
     {
+      "calibrated": false,
       "channel": 9020,
       "data_type": "float32",
       "device": "fixture-ecat-slave-2",
