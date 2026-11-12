@@ -77,10 +77,11 @@ start position, and an optional end.
   gRPC keepalive every 20 s because Sift closes idle streams at 60 s.
   `end_stream_on_validation_error` stays false, as Sift advises for production. The
   checks at configure time make a validation failure a defect in our mapping.
-- **Checkpoint**: Every 60 s (`FactoryConfig.CheckpointInterval`) and at the end of an
+- **Checkpoint**: Every 10 s (`FactoryConfig.CheckpointInterval`) and at the end of an
   upload, the engine half-closes the stream (`CloseAndRecv`), waits for Sift's empty
   reply, saves the position, and opens a new stream. This reply is the only confirmation
-  Sift gives; `sift_stream`, Sift's Rust client, checkpoints the same way.
+  Sift gives; `sift_stream`, Sift's Rust client, checkpoints the same way. A stop ends
+  the send at once and still confirms what was sent.
 - **Failure**: `UNAVAILABLE` and `RESOURCE_EXHAUSTED` are `driver.ErrTemporary`. The
   engine closes the streamer, waits 1 s doubling to 30 s (the MQTT reconnect values),
   and starts again from the position. `UNAUTHENTICATED`, `PERMISSION_DENIED`, and
@@ -122,11 +123,12 @@ scanners. Commands carry secret keys, never values.
   the device's newest upload.
 - `upload`: Sends a device's channels to an asset, for a range or a plain time span. An
   end after the current time is cut to it, so a range that has not ended sends what
-  exists. The reply carries the upload's status key, `sift_upload:<UUIDv7>`.
+  exists. The reply carries the upload's status key, `sift_upload:<UUIDv7>`. A rejected
+  command answers "Failed to upload to Sift" with the cause in its description.
+- `list_uploads`: Returns the upload status keys of a range, newest first.
 
-An upload is a `loading` status whose details hold the request and the position. It is a
-child of the range when there is one (`status.Writer.SetWithParent`,
-`core/pkg/service/status/writer.go:67`), and of the status group for a plain time span.
+An upload is a `loading` status whose details hold the request and the position. No
+thing owns it, because an owner holds at most one status, so its details name its range.
 That status is the saved command:
 
 1. The uploader writes the status, then queues the upload. It runs one upload at a time
@@ -141,10 +143,12 @@ That status is the saved command:
 
 `sift_stream` is a user task with a device, an asset, channels, and run labels. It runs
 on `driver.Runner` (`core/pkg/service/driver/runner.go`), because `driver.WriteTask`
-only streams and cannot catch up. It keeps its position in a second status, a child of
-the task, that reads "Sent to Sift through <time>". The task status cannot hold it:
-`StatusHandler.Send` clears `Details.Data` (`core/pkg/service/driver/status.go:75`). A
-new task, or one whose position status was deleted, starts at the current time.
+only streams and cannot catch up. It keeps its position in a second status,
+`sift_stream:<task key>`, that reads "Sent to Sift through <time>". The task status
+cannot hold it: `StatusHandler.Send` clears `Details.Data`
+(`core/pkg/service/driver/status.go:75`). A new task, or one whose position status was
+deleted, starts at the current time. Like every task, it starts again with the Core only
+when auto start is on.
 
 ### 4.5 Runs
 
@@ -179,16 +183,20 @@ upload actions, as `feature/task` and `feature/device` import each integration.
   selection, and a range annotation on a plot. It asks for the connection, the asset,
   and the channels. The asset list comes from `list_assets`; a new asset is an explicit
   "New asset" choice, and the field starts at the asset last used with that connection.
-- **Range overview**: Shows the range's Sift upload statuses with progress.
+- **Range overview**: Shows the range's Sift upload statuses with progress, from
+  `list_uploads`. A button cancels or removes each one.
 - **Streaming task form**: Connection, asset, channels, and run labels.
+- **Notifications**: A status that no thing owns notifies on every write, so the
+  notification forwarder also takes rules by key prefix (`Notifications.KeyRules`). The
+  Sift upload and stream statuses notify only on a warning or an error.
 
 ### 4.7 Clients and documentation
 
 `client/py` gets a `sift` module with `Device`, `StreamTask`, and an `upload` call that
 sends the command to the scan task on the device's rack, following `mqtt/types.py`. The
 device goes on the Core's rack, not on the rack of the embedded Driver.
-`site/docs/src/pages/reference/ranges/sift.mdx` documents both modes, behind a docs flag
-until the Console flag goes.
+`site/docs/src/pages/reference/ranges/sift.mdx` documents both modes. The docs site has
+no flags, so the page ships with its PR.
 
 ### 4.8 Testing
 
@@ -250,10 +258,11 @@ stack, which made secrets grant-only.
 8. **Asset per action, picked from Sift**: Rejected the asset on the device, because
    teams that make the test article the asset change it per campaign. Picking from
    `ListAssets` keeps a typo from making a second asset.
+9. **A 10 s checkpoint**: Rejected 60 s, as in `sift_stream`, because a restart would
+   send up to a minute again and the progress in the Console would stand still between
+   checkpoints. The trade is real: a new stream opens six times as often.
 
 ## 7 Open questions
 
-1. The checkpoint interval: 60 s, as in `sift_stream`, or shorter. Shorter narrows what
-   a restart sends again but opens a new stream more often.
-2. Sift does not publish a maximum number of channels per flow. If one exists, the
+1. Sift does not publish a maximum number of channels per flow. If one exists, the
    engine splits large index groups into several flows.
