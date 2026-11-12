@@ -9,13 +9,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <set>
-#include <sstream>
 #include <string>
 #include <vector>
-
-#include "absl/log/log.h"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -28,6 +27,10 @@
 #include "driver/ni/ni.h"
 
 namespace driver::ni {
+/// @brief the largest difference between the configured and the actual sample rate
+/// that a read task accepts, as a fraction of the configured rate.
+const double MAX_RATE_ERROR = 1e-3;
+
 /// @brief the configuration for a read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device key that will be used for the channels in the task. Read
@@ -190,7 +193,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (const auto err = this->apply_timing(dmx, handle)) return err;
-        return channel::verify(dmx, handle, this->channels);
+        if (const auto err = channel::verify(dmx, handle, this->channels)) return err;
+        return this->check_rate(dmx, handle);
     }
 
     [[nodiscard]] synnax::framer::WriterConfig writer() const {
@@ -226,42 +230,6 @@ private:
         TaskHandle handle
     ) const {
         if (this->software_timed) return x::errors::NIL;
-
-        std::set<std::string> device_locations;
-        for (const auto &ch: this->channels)
-            if (!ch->dev_loc.empty()) device_locations.insert(ch->dev_loc);
-
-        for (const auto &location: device_locations) {
-            float64 min_rate = 0.0;
-            auto err = dmx->GetDeviceAttributeDouble(
-                location.c_str(),
-                DAQmx_Dev_AI_MinRate,
-                &min_rate
-            );
-            if (err) {
-                LOG(WARNING) << "[ni] failed to query minimum sample rate for device "
-                             << location << ": " << err.message();
-                continue;
-            }
-
-            if (this->sample_rate.hz() < min_rate) {
-                char model_buffer[256];
-                auto model_err = dmx->GetDeviceAttributeString(
-                    location.c_str(),
-                    DAQmx_Dev_ProductType,
-                    model_buffer,
-                    sizeof(model_buffer)
-                );
-                std::string model = model_err ? "Unknown" : model_buffer;
-
-                std::ostringstream msg;
-                msg << "configured sample rate (" << this->sample_rate
-                    << ") is below device minimum (" << min_rate << " Hz) for "
-                    << location << " (" << model << ")";
-                return x::errors::Error(x::errors::VALIDATION, msg.str());
-            }
-        }
-
         return channel::at_task(dmx->CfgSampClkTiming(
             handle,
             this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
@@ -270,6 +238,36 @@ private:
             DAQmx_Val_ContSamps,
             this->samples_per_chan
         ));
+    }
+
+    /// @brief fails when DAQmx moved the sample rate by more than one step of the
+    /// sample clock timebase, or by more than MAX_RATE_ERROR. The sample clock stamps
+    /// samples from the configured rate, so a moved rate gives wrong timestamps.
+    [[nodiscard]] x::errors::Error
+    check_rate(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
+        if (this->software_timed) return x::errors::NIL;
+        float64 actual = 0;
+        if (const auto err = dmx->GetTimingAttributeDouble(
+                handle,
+                DAQmx_SampClk_Rate,
+                &actual
+            ))
+            return err;
+        const auto configured = this->sample_rate.hz();
+        if (actual == configured) return x::errors::NIL;
+        float64 timebase = 0;
+        if (const auto err = dmx->GetTimingAttributeDouble(
+                handle,
+                DAQmx_SampClk_Timebase_Rate,
+                &timebase
+            ))
+            return err;
+        const auto step = configured * configured / timebase;
+        if (std::abs(actual - configured) <=
+            std::min(step, MAX_RATE_ERROR * configured))
+            return x::errors::NIL;
+        const auto rate = channel::format_number(actual);
+        return channel::field_err("sample_rate", "Device would run at " + rate + " Hz");
     }
 };
 

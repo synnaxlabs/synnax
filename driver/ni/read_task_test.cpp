@@ -1502,29 +1502,6 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     EXPECT_EQ(cfg->channels[1]->dev_loc, "cDAQ2Mod2");
 }
 
-/// @brief Test that the minimum sample rate error message is formatted correctly
-TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
-    // This test verifies the error message format without requiring DAQmx hardware
-    x::telem::Rate configured_rate(25.0);
-    float64 min_rate = 50.0;
-    std::string location = "cDAQ1Mod1";
-    std::string model = "NI SIM";
-
-    std::ostringstream msg;
-    msg << "configured sample rate (" << configured_rate
-        << ") is below device minimum (" << min_rate << " Hz) for " << location << " ("
-        << model << ")";
-
-    std::string result = msg.str();
-
-    // Verify the message contains all required components
-    EXPECT_TRUE(result.contains("25 Hz"));
-    EXPECT_TRUE(result.contains("50 Hz"));
-    EXPECT_TRUE(result.contains("cDAQ1Mod1"));
-    EXPECT_TRUE(result.contains("NI SIM"));
-    EXPECT_TRUE(result.contains("below device minimum"));
-}
-
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
@@ -1810,8 +1787,24 @@ private:
     }
 };
 
-/// @brief parses base_analog_config against a new device and channel.
-std::unique_ptr<ReadTaskConfig> parse_analog_config() {
+/// @brief a DAQmx API whose sample clock runs at a fixed rate from a fixed timebase.
+class FixedRateAPI final : public daqmx::MockAPI {
+public:
+    /// @brief the rate that the sample clock runs at.
+    float64 rate = 0;
+    /// @brief the rate of the sample clock timebase.
+    float64 timebase = 0;
+
+    int32
+    GetTimingAttributeDouble(TaskHandle, const int32 attr, float64 *value) override {
+        *value = attr == DAQmx_SampClk_Timebase_Rate ? this->timebase : this->rate;
+        return 0;
+    }
+};
+
+/// @brief parses base_analog_config at the sample rate against a new device and
+/// channel.
+std::unique_ptr<ReadTaskConfig> parse_analog_config(const double sample_rate = 25) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     synnax::device::Device dev{
@@ -1829,12 +1822,24 @@ std::unique_ptr<ReadTaskConfig> parse_analog_config() {
         true
     ));
     auto j = base_analog_config();
+    j["sample_rate"] = sample_rate;
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ReadTaskConfig>(client, p, "ni_analog_read");
     EXPECT_NIL(p.error());
     return cfg;
+}
+
+/// @brief applies an analog read config at the sample rate to a sample clock that runs
+/// at rate from timebase.
+x::errors::Error
+apply_at_rate(const double sample_rate, const float64 rate, const float64 timebase) {
+    const auto cfg = parse_analog_config(sample_rate);
+    auto api = std::make_shared<FixedRateAPI>();
+    api->rate = rate;
+    api->timebase = timebase;
+    return cfg->apply(std::make_shared<daqmx::SugaredAPI>(api), nullptr);
 }
 
 /// @brief applies cfg to the rejecting API and returns its field errors.
@@ -1875,5 +1880,38 @@ TEST(ReadTaskConfigTest, testApplyPutsTimingSourceError) {
         "Source terminal to be routed could not be found on the device."
     );
     EXPECT_TRUE(api->calls_to("TaskControl").empty());
+}
+
+/// @brief it should fail with a sample rate field error when DAQmx moves the rate by
+/// more than one step of the timebase, as an NI 9229 runs 1000 Hz at 1612.9 Hz.
+TEST(ReadTaskConfigTest, testApplyFailsOnMovedSampleRate) {
+    const auto err = apply_at_rate(1000, 1612.903226, 12.8e6);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    const auto fields = x::json::json::parse(err.data)["errors"];
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["path"], "sample_rate");
+    EXPECT_EQ(fields[0]["message"], "Device would run at 1612.903226 Hz");
+}
+
+/// @brief it should accept the nearest rate of the timebase, as an X Series device
+/// runs 30000 Hz at 30003.0003 Hz.
+TEST(ReadTaskConfigTest, testApplyAcceptsNearestTimebaseRate) {
+    ASSERT_NIL(apply_at_rate(30000, 30003.0003, 100e6));
+}
+
+/// @brief it should fail on a rate one step away when the step is more than 0.1 % of
+/// the rate, as an X Series device runs 1004000 Hz at 1010101.01 Hz.
+TEST(ReadTaskConfigTest, testApplyFailsOnLargeTimebaseStep) {
+    const auto err = apply_at_rate(1004000, 1010101.0101, 100e6);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    const auto fields = x::json::json::parse(err.data)["errors"];
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["message"], "Device would run at 1010101.01 Hz");
+}
+
+/// @brief it should accept a rate that DAQmx reads back with rounding, as a PXIe-4303
+/// reads 1000 Hz back as 1000.0000003 Hz.
+TEST(ReadTaskConfigTest, testApplyAcceptsRoundedRate) {
+    ASSERT_NIL(apply_at_rate(1000, 1000.0000003, 16.384e6));
 }
 }

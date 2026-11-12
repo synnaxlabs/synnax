@@ -55,14 +55,20 @@ inline std::string line_value(const std::string &text, const std::string &label)
     return "";
 }
 
-/// @brief formats a DAQmx number with no trailing zeros, so "60.0" reads "60".
+/// @brief formats a number with no trailing zeros, so 60.0 reads "60".
+inline std::string format_number(const double number) {
+    std::ostringstream out;
+    out << std::setprecision(10) << number;
+    return out.str();
+}
+
+/// @brief formats a number from DAQmx error text, or returns the text as is when it is
+/// not a number.
 inline std::string format_number(const std::string &value) {
     char *end = nullptr;
     const double number = std::strtod(value.c_str(), &end);
     if (end == value.c_str()) return value;
-    std::ostringstream out;
-    out << std::setprecision(10) << number;
-    return out.str();
+    return format_number(number);
 }
 
 /// @brief the config value of each DAQmx value that differs from its DAQmx name. A
@@ -109,12 +115,17 @@ inline std::string field_message(const std::string &text) {
     return x::strings::trim(end == std::string::npos ? line : line.substr(0, end + 1));
 }
 
+/// @brief returns a validation error that puts message on the config field at path.
+inline x::errors::Error field_err(const std::string &path, const std::string &message) {
+    x::json::json field = {{"path", path}, {"message", message}};
+    const x::json::json data = {{"errors", x::json::json::array({field})}};
+    return {x::errors::VALIDATION, data.dump()};
+}
+
 /// @brief returns a validation error that puts err on the config field at path.
 inline x::errors::Error
 field_err(const x::errors::Error &err, const std::string &path) {
-    x::json::json field = {{"path", path}, {"message", field_message(err.data)}};
-    const x::json::json data = {{"errors", x::json::json::array({field})}};
-    return {x::errors::VALIDATION, data.dump()};
+    return field_err(path, field_message(err.data));
 }
 
 /// @brief returns true when a channel config of type Config has the field.
