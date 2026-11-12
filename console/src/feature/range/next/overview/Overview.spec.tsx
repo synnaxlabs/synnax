@@ -114,6 +114,18 @@ const createChildAt = async (
 
 describe("range/next/overview", () => {
   describe("child ranges", () => {
+    it("should show the children of a range that has not started on a timeline", async () => {
+      const now = TimeStamp.now();
+      const parent = await client.ranges.create({
+        name: uniqueRangeName("planned"),
+        timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
+      });
+      const child = await createChildAt(parent, now);
+      await renderOverview(parent.key, createTestClient());
+      await screen.findByRole("listitem", { name: child.name });
+      expect(screen.getByRole("button", { name: "Now" })).toBeTruthy();
+    });
+
     it("should list the children of an open child newest first in the tree", async () => {
       const end = TimeStamp.now();
       const parent = await client.ranges.create({

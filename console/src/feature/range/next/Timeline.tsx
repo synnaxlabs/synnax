@@ -26,7 +26,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access } from "@synnaxlabs/pluto";
-import { box, color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { box, color, type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEvent,
@@ -96,8 +96,13 @@ const ZOOM_STEP = 2;
 /** Where now sits across the window after Now, so recent ranges show to its left. */
 const NOW_AT = 0.8;
 
-const span = (range: ranger.Range, now: number): Window => {
-  const { start, end } = range.timeRange.makeValid();
+/** Whether the time range has a start, and so a place on the axis. */
+const scheduled = (timeRange: TimeRange): boolean =>
+  !timeRange.makeValid().start.equals(TimeStamp.MAX);
+
+/** @returns the window of a scheduled time range. An open one runs to now. */
+const span = (timeRange: TimeRange, now: number): Window => {
+  const { start, end } = timeRange.makeValid();
   const s = toMS(start);
   const e = end.equals(TimeStamp.MAX) ? Math.max(now, s) : toMS(end);
   return { start: s, end: e };
@@ -108,10 +113,10 @@ const pad = ({ start, end }: Window, fraction = 0.04): Window => {
   return { start: start - size * fraction, end: end + size * fraction };
 };
 
-/** @returns the window that holds every range, or null for no ranges. */
-const fit = (ranges: ranger.Range[], now: number): Window | null => {
-  if (ranges.length === 0) return null;
-  const spans = ranges.map((r) => span(r, now));
+/** @returns the window that holds every scheduled time range, or null for none. */
+const fit = (timeRanges: TimeRange[], now: number): Window | null => {
+  const spans = timeRanges.filter(scheduled).map((tr) => span(tr, now));
+  if (spans.length === 0) return null;
   return pad({
     start: Math.min(...spans.map((s) => s.start)),
     end: Math.max(...spans.map((s) => s.end)),
@@ -230,8 +235,9 @@ interface BarProps {
 }
 
 /** A bar places itself from the window on the timeline root, so a pan renders none. */
-const Bar = ({ range }: BarProps): ReactElement => {
+const Bar = ({ range }: BarProps): ReactElement | null => {
   const { origin, onZoom } = useContext("Range.Bar");
+  if (!scheduled(range.timeRange)) return null;
   const open = range.timeRange.end.equals(TimeStamp.MAX);
   const { start, end } = range.timeRange.makeValid();
   const hue = range.color == null ? undefined : color.hex(range.color);
@@ -242,7 +248,7 @@ const Bar = ({ range }: BarProps): ReactElement => {
   } as CSSProperties;
   const handleClick = (e: MouseEvent) => {
     e.stopPropagation();
-    onZoom(pad(span(range, toMS(TimeStamp.now())), 0.1));
+    onZoom(pad(span(range.timeRange, toMS(TimeStamp.now())), 0.1));
   };
   return (
     <Tooltip.Dialog location="top">
@@ -316,8 +322,8 @@ const Lane = ({
 
 export interface TimelineProps {
   nodes: Node[];
-  /** The window to fit, such as the span of a parent. Defaults to the ranges. */
-  bounds?: { start: TimeStamp; end: TimeStamp };
+  /** A time range that the window holds beside the ranges, such as a parent's. */
+  bounds?: TimeRange;
   emptyContent?: ReactNode;
   /** Shows after the last lane. */
   footer?: ReactNode;
@@ -352,13 +358,10 @@ const Frame = ({
     subscribe,
     getItem,
   });
-  const fitted =
-    bounds == null
-      ? fit(roots, now)
-      : pad({
-          start: toMS(bounds.start),
-          end: bounds.end.equals(TimeStamp.MAX) ? now : toMS(bounds.end),
-        });
+  const fitted = fit(
+    [...(bounds == null ? [] : [bounds]), ...roots.map((r) => r.timeRange)],
+    now,
+  );
   const [view, setView] = useState<Window | null>(null);
   const [ctx] = useState<ContextValue>(() => ({ origin: now, onZoom: setView }));
   const w = view ?? fitted ?? { start: now - DAY, end: now };

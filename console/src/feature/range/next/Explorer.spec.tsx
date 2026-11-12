@@ -285,6 +285,20 @@ describe("range/next/Explorer", () => {
     });
   });
 
+  describe("timeline", () => {
+    it("should leave a range with no start out of the default window", async () => {
+      await createRange(uniqueRangeName("planned"), {
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+      });
+      const running = await createRange(uniqueRangeName("running"));
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      await findItem(running.name);
+      // A window that reached the unset start would mark years on its axis.
+      expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
+    });
+  });
+
   describe("stored view", () => {
     it("should save the sort and the layout to the view", async () => {
       const stored = await client.views.create({

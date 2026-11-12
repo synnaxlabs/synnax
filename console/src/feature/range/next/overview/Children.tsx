@@ -26,13 +26,16 @@ import { childrenQuery, useExpanded, useTree } from "@/feature/range/next/tree";
 import { CSS } from "@/platform/css";
 
 /**
- * A range longer than a day, such as a campaign, holds many children, so it lists them
- * newest first. A shorter one shows its children, such as phases, on a timeline.
+ * A range that has run longer than a day, such as a campaign, holds many children, so
+ * it lists them newest first. A shorter one shows its children, such as phases, on a
+ * timeline.
  */
 const defaultLayout = (range: ranger.Range, now: TimeStamp): view.RangeLayout => {
   const { start, end } = range.timeRange.makeValid();
-  const span = start.span(end.before(now) ? end : now);
-  return span.greaterThan(TimeSpan.DAY) ? "tree" : "timeline";
+  const ran = start.after(now)
+    ? TimeSpan.ZERO
+    : start.span(end.before(now) ? end : now);
+  return ran.greaterThan(TimeSpan.DAY) ? "tree" : "timeline";
 };
 
 /** A tree shows the newest child first, and a timeline shows its lanes in order. */
