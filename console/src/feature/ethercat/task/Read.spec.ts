@@ -45,7 +45,7 @@ import {
   findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -296,6 +296,37 @@ describe("Read", () => {
       });
     });
     expect(screen.queryByText("Data type")).toBeNull();
+  });
+
+  it("should stop calibrating a channel moved to a slave that does not calibrate it", async () => {
+    const calibrating = await createCalibratedSlave();
+    const plain = await createStrainSlave();
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(calibrating.key, STRAIN_ENTRY),
+          calibrated: true,
+        },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(await findDialogTriggerByText(calibrating.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: plain.name },
+    });
+    fireEvent.click(await screen.findByText(plain.name));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        device: plain.key,
+        calibrated: false,
+      });
+    });
+    expect(await screen.findByText("Data type")).toBeTruthy();
   });
 
   it("should save the setting picked for an entry that the catalog describes", async () => {
