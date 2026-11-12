@@ -813,6 +813,64 @@ TEST_F(TaskManagerTest, CommandForFailedInitialTaskAnswersWithConfigureError) {
     EXPECT_FALSE(s.details.running);
 }
 
+/// @brief fails the configure of every synthetic task without a status, as a boot
+/// configure that does not auto-start does.
+class SilentFailingConfigureFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        return {nullptr, task.type == SYNTHETIC_TASK_TYPE};
+    }
+};
+
+/// @brief it should mark a task that the Core shows running as stopped at boot, and
+/// answer a later command for it.
+TEST_F(TaskManagerTest, BootMarksATaskShownRunningAsStopped) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .status = synnax::task::Status{
+            .variant = synnax::status::VARIANT_SUCCESS,
+            .message = "Started task",
+            .details = {.running = true},
+        },
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    start_manager(std::make_unique<SilentFailingConfigureFactory>());
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Task stopped";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.description, "The Driver restarted. Start the task again.");
+    EXPECT_FALSE(s.details.running);
+    send_cmd(client, {.task = task.key, .type = "stop", .key = "stop-cmd"});
+    s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "stop-cmd";
+    });
+    EXPECT_EQ(s.message, "Task is not running");
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should write no status at boot for a task that the Core shows stopped.
+TEST_F(TaskManagerTest, BootLeavesAStoppedTaskSilent) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .status = synnax::task::Status{
+            .variant = synnax::status::VARIANT_SUCCESS,
+            .message = "Stopped task",
+        },
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    start_manager(std::make_unique<SilentFailingConfigureFactory>());
+    expect_no_driver_status(task);
+}
+
 /// @brief it should not answer a command for a task that this Driver never deployed,
 /// since another Driver may still run it after a rack move.
 TEST_F(TaskManagerTest, CommandForUndeployedTaskStaysSilent) {
