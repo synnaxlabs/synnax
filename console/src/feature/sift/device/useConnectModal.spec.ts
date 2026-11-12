@@ -17,7 +17,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -88,6 +88,38 @@ describe("Sift.Device.useConnectModal", () => {
       ),
     );
     expect(analytics.capture).not.toHaveBeenCalled();
+  });
+
+  it("should report a device it connected", async () => {
+    const { rack, scan } = await createScanTask();
+    const apiKey = await createAPIKey(client);
+    const analytics = createTestSink();
+    await renderModalOpener(Sift.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
+    fireEvent.change(await screen.findByPlaceholderText("Sift"), {
+      target: { value: uniqueName("sift") },
+    });
+    fireEvent.change(screen.getByPlaceholderText("grpc-api.siftstack.com:443"), {
+      target: { value: "localhost:50051" },
+    });
+    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    // The list pages, so a search finds the key however many secrets the Core holds.
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: apiKey.name },
+    });
+    fireEvent.click(
+      await screen.findByRole("option", { name: new RegExp(apiKey.name) }),
+    );
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("device_connected", {
+        integration: "sift",
+      }),
+    );
   });
 
   it("should show why the connection test failed", async () => {
