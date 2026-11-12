@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
+import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -54,7 +55,13 @@ const createUpload = async (
 
 const renderUploads = async (rangeKey: ranger.Key) => {
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Sift.Range.Uploads rangeKey={rangeKey} />, { wrapper });
+  render(
+    <>
+      <Sift.Range.Uploads rangeKey={rangeKey} />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
 };
 
 const createRange = async () =>
@@ -98,6 +105,14 @@ describe("Sift.Range.Uploads", () => {
     await createSiftDevice(client);
     await renderUploads("not-a-range");
     expect(await screen.findByText("Failed to retrieve Sift uploads")).toBeTruthy();
+  });
+
+  it("should open the upload modal for the range from the header", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "success");
+    await renderUploads(rng.key);
+    fireEvent.click(await screen.findByRole("button", { name: "Upload to Sift" }));
+    expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
   });
 
   it("should cancel an upload by deleting its status", async () => {
