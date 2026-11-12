@@ -249,6 +249,7 @@ var _ = Describe("Factory", func() {
 						APIKey: createAPIKey(ctx, apiKey),
 					})
 					record := func(device, asset string) {
+						GinkgoHelper()
 						s := sift.UploadStatus{
 							Key:     "sift_upload:" + uuid.NewV7().String(),
 							Name:    asset,
@@ -276,6 +277,7 @@ var _ = Describe("Factory", func() {
 
 		Describe("list_uploads", func() {
 			record := func(ctx SpecContext, rng ranger.Key) string {
+				GinkgoHelper()
 				s := sift.UploadStatus{
 					Key:     "sift_upload:" + uuid.NewV7().String(),
 					Name:    "upload",
