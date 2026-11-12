@@ -79,7 +79,14 @@ const NoRanges = (): ReactElement => {
 
 const NO_RANGES = <NoRanges />;
 
-const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
+const LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
+
+/** @returns whether a tree shows only the first matches, so that it holds still. */
+const isCapped = (
+  term: string,
+  where: ranger.Where | undefined,
+  flat: boolean,
+): boolean => (term !== "" || !isEmpty(where)) && !flat;
 
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
@@ -108,8 +115,7 @@ const Internal = (): ReactElement => {
   const [sort, setSort] = useViewField("sort");
   const [layout, setLayout] = useViewField("layout");
   const flat = layout === "list";
-  // A search in a tree shows its first matches only, so the tree holds still.
-  const searching = (searchTerm !== "" || !isEmpty(where)) && !flat;
+  const searching = isCapped(searchTerm, where, flat);
   const scoped: ranger.Where | undefined =
     flat || searching
       ? where
@@ -125,7 +131,7 @@ const Internal = (): ReactElement => {
   });
   // The list shows its last answer until a new search lands, so the tree follows the
   // term that the shown ranges answer.
-  const capped = (root.searchTerm !== "" || !isEmpty(where)) && !flat;
+  const capped = isCapped(root.searchTerm, where, flat);
   const search = useSearchTree({
     matches: capped ? root.getItem(root.data.slice(0, MATCH_LIMIT)) : null,
     scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
@@ -189,7 +195,7 @@ const Internal = (): ReactElement => {
           <Tree.LayoutSelect
             value={layout}
             onChange={setLayout}
-            layouts={EXPLORER_LAYOUTS}
+            layouts={LAYOUTS}
             size="medium"
             preview={!editable}
           />
