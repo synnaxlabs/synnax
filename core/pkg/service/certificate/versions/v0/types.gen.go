@@ -88,8 +88,9 @@ type FileCertificate struct {
 	Base
 	// CertificatePath is the path of the certificate on the computer that uses it.
 	CertificatePath string `json:"certificate_path" msgpack:"certificate_path"`
-	// PrivateKeyPath is the path of the private key, when there is one.
-	PrivateKeyPath *string `json:"private_key_path,omitzero" msgpack:"private_key_path,omitempty"`
+	// PrivateKeyFile is the name of the private key file in the secrets folder of the
+	// rack, when there is one.
+	PrivateKeyFile *string `json:"private_key_file,omitzero" msgpack:"private_key_file,omitempty"`
 	// Details describes the leaf, as the file browser read it.
 	Details *Details `json:"details,omitzero" msgpack:"details,omitempty"`
 }

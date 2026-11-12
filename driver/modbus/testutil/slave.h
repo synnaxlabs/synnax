@@ -64,31 +64,31 @@ struct SlaveConfig {
 
 /// @brief A simple mock Modbus slave server using libmodbus
 class Slave {
-    modbus_t *ctx_;
-    std::thread server_thread_;
-    std::atomic<bool> running_;
-    std::string ip_address_;
-    int port_;
-    int socket_{-1};
-    mutable std::mutex mutex_;
-    SlaveConfig config_;
-    modbus_mapping_t *mb_mapping_; // Add as member
-    /// @brief the number of requests received, by function code. Guarded by mutex_.
-    std::map<int, std::size_t> requests_;
-    /// @brief the number of requests received, by unit. Guarded by mutex_.
-    std::map<int, std::size_t> unit_requests_;
-    /// @brief the function codes of the requests received, in order. Guarded by mutex_.
-    std::vector<int> log_;
-    /// @brief the one-time delay before the next reply to each unit. Guarded by mutex_.
-    std::map<int, std::chrono::milliseconds> stalls_;
-    /// @brief the units whose next reply goes out damaged. Guarded by mutex_.
-    std::set<int> damaged_;
-    /// @brief the number of client connections accepted. Guarded by mutex_.
-    std::size_t connections_ = 0;
+    modbus_t *ctx;
+    std::thread server_thread;
+    std::atomic<bool> running;
+    std::string host;
+    int port_number;
+    int listen_socket{-1};
+    mutable std::mutex mu;
+    SlaveConfig config;
+    modbus_mapping_t *mapping; // Add as member
+    /// @brief the number of requests received, by function code. Guarded by mu.
+    std::map<int, std::size_t> requests_by_function;
+    /// @brief the number of requests received, by unit. Guarded by mu.
+    std::map<int, std::size_t> requests_by_unit;
+    /// @brief the function codes of the requests received, in order. Guarded by mu.
+    std::vector<int> request_log;
+    /// @brief the one-time delay before the next reply to each unit. Guarded by mu.
+    std::map<int, std::chrono::milliseconds> stalls;
+    /// @brief the units whose next reply goes out damaged. Guarded by mu.
+    std::set<int> damaged;
+    /// @brief the number of client connections accepted. Guarded by mu.
+    std::size_t accepted_connections = 0;
     /// @brief set to ask the server loop to close every client connection.
-    std::atomic<bool> drop_requested_{false};
+    std::atomic<bool> drop_requested{false};
     /// @brief the line of a serial slave. Held open so that it outlives each client.
-    PseudoTerminal terminal_;
+    PseudoTerminal terminal;
 
     /// @brief closes a socket. A Winsock socket is not a CRT file descriptor, so
     /// close() aborts on Windows.
@@ -131,26 +131,30 @@ class Slave {
 
     // Create mapping based on configured values
     modbus_mapping_t *create_mapping() {
-        const int max_coil_addr = get_max_address(config_.coils);
+        const int max_coil_addr = get_max_address(this->config.coils);
         const int max_coil = std::max(16, max_coil_addr);
-        const int max_discrete_addr = get_max_address(config_.discrete_inputs);
+        const int max_discrete_addr = get_max_address(this->config.discrete_inputs);
         const int max_discrete = std::max(16, max_discrete_addr);
-        int max_holding_register = get_max_address(config_.holding_registers);
-        if (config_.holding_registers.empty())
+        int max_holding_register = get_max_address(this->config.holding_registers);
+        if (this->config.holding_registers.empty())
             max_holding_register = 16;
         else
             max_holding_register += (x::telem::DataType::infer(
-                                         config_.holding_registers[max_holding_register]
+                                         this->config
+                                             .holding_registers[max_holding_register]
                                      )
                                          .density() +
                                      1) /
                                     2;
-        int max_input_register = std::max(16, get_max_address(config_.input_registers));
-        if (config_.input_registers.empty())
+        int max_input_register = std::max(
+            16,
+            get_max_address(this->config.input_registers)
+        );
+        if (this->config.input_registers.empty())
             max_input_register = 16;
         else
             max_input_register += (x::telem::DataType::infer(
-                                       config_.input_registers[max_input_register]
+                                       this->config.input_registers[max_input_register]
                                    )
                                        .density() +
                                    1) /
@@ -178,7 +182,7 @@ class Slave {
         }
 
         // Log the configuration being applied
-        for (const auto &pair: config_.coils) {
+        for (const auto &pair: this->config.coils) {
             if (pair.first < nb_bits) {
                 mb_mapping->tab_bits[pair.first] = pair.second ? 1 : 0;
                 LOG(INFO) << "Set coil[" << pair.first
@@ -187,10 +191,10 @@ class Slave {
                 LOG(WARNING) << "Coil address " << pair.first << " out of range";
         }
 
-        for (const auto &[addr, value]: config_.discrete_inputs)
+        for (const auto &[addr, value]: this->config.discrete_inputs)
             if (addr < nb_input_bits) mb_mapping->tab_input_bits[addr] = value ? 1 : 0;
 
-        for (const auto &[addr, value]: config_.holding_registers)
+        for (const auto &[addr, value]: this->config.holding_registers)
             if (addr < nb_registers) {
                 auto dt = x::telem::DataType::infer(value);
                 LOG(INFO) << "Holding register[" << addr
@@ -210,7 +214,7 @@ class Slave {
                     mb_mapping->tab_registers[addr + i] = dest[i];
             }
 
-        for (const auto &[addr, value]: config_.input_registers)
+        for (const auto &[addr, value]: this->config.input_registers)
             if (addr < nb_input_registers) {
                 auto dt = x::telem::DataType::infer(value);
                 LOG(INFO) << "Input register[" << addr
@@ -244,33 +248,33 @@ class Slave {
                 << static_cast<int>(function_code);
         std::chrono::milliseconds stall{0};
         {
-            std::lock_guard lock(mutex_);
-            if (const auto it = stalls_.find(unit); it != stalls_.end()) {
+            std::lock_guard lock(mu);
+            if (const auto it = stalls.find(unit); it != stalls.end()) {
                 stall = it->second;
-                stalls_.erase(it);
+                stalls.erase(it);
             }
         }
         std::this_thread::sleep_for(stall);
-        std::lock_guard lock(mutex_);
-        requests_[function_code]++;
-        unit_requests_[unit]++;
-        log_.push_back(function_code);
-        if (config_.silent_units.contains(unit)) return;
+        std::lock_guard lock(mu);
+        requests_by_function[function_code]++;
+        requests_by_unit[unit]++;
+        request_log.push_back(function_code);
+        if (this->config.silent_units.contains(unit)) return;
         const auto reply = [&] {
-            if (config_.gateway_failed_units.contains(unit))
-                modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
-            else if (config_.reject_function_codes.contains(function_code))
-                modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+            if (this->config.gateway_failed_units.contains(unit))
+                modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
+            else if (this->config.reject_function_codes.contains(function_code))
+                modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
             else
-                modbus_reply(ctx_, query, length, mb_mapping_);
+                modbus_reply(ctx, query, length, this->mapping);
         };
-        if (damaged_.erase(unit) == 0)
+        if (this->damaged.erase(unit) == 0)
             reply();
         else
-            terminal_.write_damaged([&](const int fd) {
-                modbus_set_socket(ctx_, fd);
+            this->terminal.write_damaged([&](const int fd) {
+                modbus_set_socket(ctx, fd);
                 reply();
-                modbus_set_socket(ctx_, terminal_.fd());
+                modbus_set_socket(ctx, this->terminal.fd());
             });
     }
 
@@ -279,8 +283,8 @@ class Slave {
     /// every unit.
     void serial_loop() {
         uint8_t frame[MODBUS_RTU_MAX_ADU_LENGTH];
-        while (running_) {
-            const auto length = terminal_.read_frame(frame, sizeof(frame));
+        while (running) {
+            const auto length = this->terminal.read_frame(frame, sizeof(frame));
             // The shortest RTU frame holds a unit, a function code, and a CRC.
             if (length < 4) continue;
             this->handle(frame, static_cast<int>(length), frame[0], frame[1]);
@@ -292,22 +296,22 @@ class Slave {
         fd_set ref_set, rd_set;
 
         FD_ZERO(&ref_set);
-        add_to_set(socket_, &ref_set);
-        int fd_max = socket_;
+        add_to_set(listen_socket, &ref_set);
+        int fd_max = listen_socket;
 
-        while (running_) {
-            if (drop_requested_) {
+        while (running) {
+            if (drop_requested) {
                 for (int fd = 0; fd <= fd_max; fd++)
-                    if (fd != socket_ && FD_ISSET(fd, &ref_set)) {
+                    if (fd != listen_socket && FD_ISSET(fd, &ref_set)) {
                         close_socket(fd);
                         remove_from_set(fd, &ref_set);
                     }
-                fd_max = socket_;
-                drop_requested_ = false;
+                fd_max = listen_socket;
+                drop_requested = false;
             }
             rd_set = ref_set;
 
-            // Add timeout to allow checking running_ flag
+            // Add timeout to allow checking running flag
             struct timeval timeout{};
             timeout.tv_sec = 0;
             timeout.tv_usec = 100000; // 100ms timeout
@@ -319,13 +323,13 @@ class Slave {
                 break;
             }
 
-            // Timeout or no events, continue to check running_ flag
+            // Timeout or no events, continue to check running flag
             if (ready == 0) continue;
 
             for (int master_socket = 0; master_socket <= fd_max; master_socket++) {
                 if (!FD_ISSET(master_socket, &rd_set)) { continue; }
 
-                if (master_socket == socket_) {
+                if (master_socket == listen_socket) {
                     // Handle new connection
                     socklen_t addr_len = 0;
                     struct sockaddr_in client_addr{};
@@ -333,7 +337,7 @@ class Slave {
                     addr_len = sizeof(client_addr);
                     memset(&client_addr, 0, sizeof(client_addr));
                     const int new_fd = accept(
-                        socket_,
+                        listen_socket,
                         reinterpret_cast<struct sockaddr *>(&client_addr),
                         &addr_len
                     );
@@ -348,15 +352,15 @@ class Slave {
                               << ntohs(client_addr.sin_port) << " on socket " << new_fd;
 
                     {
-                        std::lock_guard lock(mutex_);
-                        connections_++;
+                        std::lock_guard lock(mu);
+                        accepted_connections++;
                     }
                     add_to_set(new_fd, &ref_set);
                     fd_max = std::max(new_fd, fd_max);
                 } else {
                     // Handle existing connection
-                    modbus_set_socket(ctx_, master_socket);
-                    const int rc = modbus_receive(ctx_, query);
+                    modbus_set_socket(ctx, master_socket);
+                    const int rc = modbus_receive(ctx, query);
 
                     if (rc > 0) {
                         VLOG(1)
@@ -381,41 +385,41 @@ public:
     /// @brief Create a new Modbus TCP or RTU slave with the given configuration
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig &config):
-        running_(false), ip_address_(config.host), port_(config.port), config_(config) {
+        running(false), host(config.host), port_number(config.port), config(config) {
         // A serial slave reads and writes the pseudo-terminal it opens at start, so the
         // device name and line settings of its context go unused.
-        ctx_ = config.serial ? modbus_new_rtu("pty", 19200, 'E', 8, 1)
-                             : modbus_new_tcp(ip_address_.c_str(), port_);
-        if (ctx_ == nullptr) {
+        ctx = config.serial ? modbus_new_rtu("pty", 19200, 'E', 8, 1)
+                            : modbus_new_tcp(this->host.c_str(), port_number);
+        if (ctx == nullptr) {
             throw std::runtime_error("Failed to create modbus context");
         }
 
         // Create initial mapping using existing create_mapping function
-        mb_mapping_ = create_mapping();
-        if (mb_mapping_ == nullptr) {
-            modbus_free(ctx_);
+        this->mapping = create_mapping();
+        if (this->mapping == nullptr) {
+            modbus_free(ctx);
             throw std::runtime_error("Failed to create modbus mapping");
         }
     }
 
     ~Slave() {
         stop();
-        if (mb_mapping_ != nullptr) { modbus_mapping_free(mb_mapping_); }
-        if (ctx_ != nullptr) { modbus_free(ctx_); }
+        if (this->mapping != nullptr) { modbus_mapping_free(this->mapping); }
+        if (ctx != nullptr) { modbus_free(ctx); }
     }
 
     /// @brief Start the slave server in a background thread
     x::errors::Error start() {
-        if (running_) { return x::errors::NIL; }
+        if (running) { return x::errors::NIL; }
 
-        if (config_.serial) {
-            if (const auto err = terminal_.open()) return err;
-            modbus_set_socket(ctx_, terminal_.fd());
+        if (this->config.serial) {
+            if (const auto err = this->terminal.open()) return err;
+            modbus_set_socket(ctx, this->terminal.fd());
         } else {
             // Concurrent tests connect faster than the loop accepts. macOS drops the
             // connects past the backlog, and libmodbus gives up before the retransmit.
-            socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
-            if (socket_ == -1) {
+            listen_socket = modbus_tcp_listen(ctx, SOMAXCONN);
+            if (listen_socket == -1) {
                 return x::errors::Error(
                     "Failed to listen on modbus socket: " +
                     std::string(modbus_strerror(errno))
@@ -423,11 +427,11 @@ public:
             }
         }
 
-        modbus_set_debug(ctx_, FALSE);
-        running_ = true;
+        modbus_set_debug(ctx, FALSE);
+        running = true;
 
-        server_thread_ = std::thread([this] {
-            if (config_.serial)
+        server_thread = std::thread([this] {
+            if (this->config.serial)
                 serial_loop();
             else
                 server_loop();
@@ -437,106 +441,106 @@ public:
 
     /// @brief Stop the slave server
     void stop() {
-        if (!running_) return;
+        if (!running) return;
 
         this->drop_connections();
-        running_ = false;
-        if (server_thread_.joinable()) { server_thread_.join(); }
+        running = false;
+        if (server_thread.joinable()) { server_thread.join(); }
 
-        if (socket_ != -1) {
-            close_socket(socket_);
-            socket_ = -1;
+        if (listen_socket != -1) {
+            close_socket(listen_socket);
+            listen_socket = -1;
         }
-        terminal_.close();
+        this->terminal.close();
     }
 
     /// @brief Get the IP address this slave is bound to
-    std::string ip_address() const { return ip_address_; }
+    std::string ip_address() const { return this->host; }
 
     /// @brief Get the port this slave is listening on
-    int port() const { return port_; }
+    int port() const { return port_number; }
 
     /// @returns the path a client opens to reach a serial slave, valid after start.
-    std::string serial_port() const { return terminal_.path(); }
+    std::string serial_port() const { return this->terminal.path(); }
 
     // Add getters that read directly from the mapping
     uint8_t get_coil(int addr) const {
-        std::lock_guard lock(mutex_);
-        return mb_mapping_->tab_bits[addr];
+        std::lock_guard lock(mu);
+        return this->mapping->tab_bits[addr];
     }
 
     uint16_t get_holding_register(int addr) const {
-        std::lock_guard lock(mutex_);
-        return mb_mapping_->tab_registers[addr];
+        std::lock_guard lock(mu);
+        return this->mapping->tab_registers[addr];
     }
 
     /// @brief sets a coil as if the device changed it.
     void set_coil(const int addr, const uint8_t value) {
-        std::lock_guard lock(mutex_);
-        mb_mapping_->tab_bits[addr] = value;
+        std::lock_guard lock(mu);
+        this->mapping->tab_bits[addr] = value;
     }
 
     /// @brief sets a holding register as if the device changed it.
     void set_holding_register(const int addr, const uint16_t value) {
-        std::lock_guard lock(mutex_);
-        mb_mapping_->tab_registers[addr] = value;
+        std::lock_guard lock(mu);
+        this->mapping->tab_registers[addr] = value;
     }
 
     /// @returns the number of requests received with the function code.
     std::size_t requests(const int function_code) const {
-        std::lock_guard lock(mutex_);
-        const auto it = requests_.find(function_code);
-        return it == requests_.end() ? 0 : it->second;
+        std::lock_guard lock(mu);
+        const auto it = requests_by_function.find(function_code);
+        return it == requests_by_function.end() ? 0 : it->second;
     }
 
     /// @returns the number of requests received for the unit.
     std::size_t unit_requests(const int unit) const {
-        std::lock_guard lock(mutex_);
-        const auto it = unit_requests_.find(unit);
-        return it == unit_requests_.end() ? 0 : it->second;
+        std::lock_guard lock(mu);
+        const auto it = requests_by_unit.find(unit);
+        return it == requests_by_unit.end() ? 0 : it->second;
     }
 
     /// @returns the function codes of the requests received, in order.
     std::vector<int> log() const {
-        std::lock_guard lock(mutex_);
-        return log_;
+        std::lock_guard lock(mu);
+        return request_log;
     }
 
     /// @returns the number of client connections accepted.
     std::size_t connections() const {
-        std::lock_guard lock(mutex_);
-        return connections_;
+        std::lock_guard lock(mu);
+        return accepted_connections;
     }
 
     /// @brief delays the next reply to the unit, blocking the server for the delay.
     void stall_next(const int unit, const std::chrono::milliseconds delay) {
-        std::lock_guard lock(mutex_);
-        stalls_[unit] = delay;
+        std::lock_guard lock(mu);
+        stalls[unit] = delay;
     }
 
     /// @brief flips the last CRC byte of the next reply to the unit, as line noise
     /// would. Serial slaves only.
     void damage_next(const int unit) {
-        std::lock_guard lock(mutex_);
-        damaged_.insert(unit);
+        std::lock_guard lock(mu);
+        this->damaged.insert(unit);
     }
 
     /// @brief sets whether the slave answers the unit.
     void set_silent(const int unit, const bool silent) {
-        std::lock_guard lock(mutex_);
+        std::lock_guard lock(mu);
         if (silent)
-            config_.silent_units.insert(unit);
+            this->config.silent_units.insert(unit);
         else
-            config_.silent_units.erase(unit);
+            this->config.silent_units.erase(unit);
     }
 
     /// @brief closes every client connection, as a server restart or a network fault
     /// would, and blocks until the server loop has closed them. Keeps listening. A
     /// serial slave has no connections to close.
     void drop_connections() {
-        if (config_.serial) return;
-        drop_requested_ = true;
-        while (drop_requested_ && running_)
+        if (this->config.serial) return;
+        drop_requested = true;
+        while (drop_requested && running)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 };

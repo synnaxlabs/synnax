@@ -11,6 +11,7 @@ import { type rack } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "rack";
 const PLURAL_RESOURCE_NAME = "racks";
@@ -24,16 +25,20 @@ const BASE_QUERY = { includeStatus: true } as const;
 
 export type ListQuery = rack.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.racks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.racks.onChange(key, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
-});
+/** Lists racks with their statuses, also for a rack outside the list. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, rack.Rack>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<rack.Key, rack.Rack> =>
+  Flux.useList((client) => client.racks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : { ...BASE_QUERY, ...query },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<
   RetrieveQuery,
@@ -42,8 +47,8 @@ export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve
   name: RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  onChange: ({ client, query }, handler) => client.racks.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.racks.watch(query).getCached(),
 });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
@@ -52,9 +57,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
-  getCached: ({ client, query }) => client.racks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.racks.watch(query)),
 });
 
 export const useName = createSelector(({ name }) => name);
@@ -79,11 +82,9 @@ export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ data, client, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const { key, name } = data;
-    await client.racks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.racks.rename(key, name);
     return data;
   },
 });

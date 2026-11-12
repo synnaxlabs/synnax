@@ -11,6 +11,7 @@ import "schemas/arc/graph"
 import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
+import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -60,18 +61,22 @@ Source union on mode Mode {
 }
 
 Base struct {
-    key    Key = create {
+    key       Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name   string {
+    name      string {
         @doc value         "is a human-readable name for the module."
         @filter
+        @index sorted
         @search
         @validate required
     }
-    source Source = text {
+    source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
+    }
+    directory uuid?  {
+        @doc value "is the key of the directory that holds the Arc."
     }
 
     @doc value  "carries the fields that every Arc shares."
@@ -87,10 +92,21 @@ Arc union on type Type extends Base {
             @go marshal omit
             @include
         }
+        changes Change[]?        {
+            @doc value  "is what changed in the automation since its task was deployed."
+            @go marshal omit
+            @include
+        }
 
         @doc value "is an Arc that runs on a rack as a task."
     }
     module {
+        status Status? {
+            @doc value  "is the result of the module's last compile on the Core."
+            @go marshal omit
+            @include
+        }
+
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
@@ -101,12 +117,6 @@ Arc union on type Type extends Base {
             replaces the document with the given created state. Emitted by the Core on
             create so remote caches ingest new documents; clients never dispatch it.
         """
-    }
-
-    action Rename {
-        name string
-
-        @doc value "renames the Arc module."
     }
 
     action SetNode {
@@ -207,22 +217,33 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the graph's node inputs."
+    action SetDirectory {
+        directory uuid
+
+        @doc value """
+            moves the Arc into the directory with the given key. The root Arcs directory
+            holds the Arcs at the top level.
+        """
     }
 
-    action Remove extends patch.Remove {
+    action Set = patch.Set {
+        @doc value """
+            replaces the Arc's name, or the value at a path in the graph's node inputs.
+        """
+    }
+
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the graph's node
             inputs.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value "adds an entry to a list in the graph's node inputs."
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value "moves an entry in a list in the graph's node inputs."
     }
 
@@ -235,9 +256,37 @@ Arc union on type Type extends Base {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "arc"
     @py name       "Payload"
+    @resource type "arc"
     @retrieve
+}
+
+Status = status.Status<nil>
+
+ChangeKind enum {
+    changed = "changed"
+    added   = "added"
+    removed = "removed"
+
+    @doc value """
+        is how a piece of an automation's content differs from what its task last ran.
+    """
+}
+
+Change struct {
+    type Type       {
+        @doc value "is whether the automation's own text or a module changed."
+    }
+    path string = "" {
+        @doc value "is the import path of the module. Empty for the automation."
+    }
+    kind ChangeKind {
+        @doc value "is how the content differs from what the task last ran."
+    }
+
+    @doc value """
+        is one difference between an automation's content and what its task last ran.
+    """
 }
 
 Type enum {
@@ -253,6 +302,9 @@ Type enum {
 Where filter Arc {
     key
     name
+    directories uuid[] {
+        @doc value "matches the Arcs in any of the given directories."
+    }
 
     @doc value         "is a filter that selects Arcs."
     @go request_output "core/pkg/api/arc"

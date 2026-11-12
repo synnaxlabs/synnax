@@ -17,13 +17,918 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseAIChannel = v3.BaseAIChannel{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		Channel:  channel.Key(5),
+		Port:     6,
+		Device:   "test_6",
+	}
+	fullyPopulatedMinMaxVal   = v3.MinMaxVal{MinVal: 1.5, MaxVal: 2.5}
+	fullyPopulatedTerminal    = v3.Terminal{TerminalConfig: v3.TerminalConfig("Cfg_Default")}
+	fullyPopulatedCustomScale = v3.CustomScale{
+		CustomScale: v3.Scale{Variant: v3.LinearScale{
+			Slope:          2.5,
+			YIntercept:     3.5,
+			PreScaledUnits: v3.Units("Volts"),
+			ScaledUnits:    "test_5",
+		}},
+	}
+	fullyPopulatedSensitivity       = v3.Sensitivity{Sensitivity: 1.5}
+	fullyPopulatedCurrentExcitation = v3.CurrentExcitation{
+		CurrentExcitSource: v3.ExcitationSource("Internal"),
+		CurrentExcitVal:    2.5,
+	}
+	fullyPopulatedBridge = v3.Bridge{
+		BridgeConfig:            v3.BridgeConfig("FullBridge"),
+		NominalBridgeResistance: 2.5,
+	}
+	fullyPopulatedVoltageExcitation = v3.VoltageExcitation{
+		VoltageExcitSource: v3.ExcitationSource("Internal"),
+		VoltageExcitVal:    2.5,
+	}
+	fullyPopulatedTable = v3.Table{
+		ElectricalVals:  []float64{1.5},
+		ElectricalUnits: v3.ElectricalUnits("mVoltsPerVolt"),
+		PhysicalVals:    []float64{3.5},
+	}
+	fullyPopulatedTwoPointLin = v3.TwoPointLin{
+		FirstElectricalVal:  1.5,
+		SecondElectricalVal: 2.5,
+		ElectricalUnits:     v3.ElectricalUnits("mVoltsPerVolt"),
+		FirstPhysicalVal:    4.5,
+		SecondPhysicalVal:   5.5,
+	}
+	fullyPopulatedResistance       = v3.Resistance{ResistanceConfig: v3.ResistanceConfig("2Wire")}
+	fullyPopulatedBridgePolynomial = v3.BridgePolynomial{
+		ForwardCoeffs:   []float64{1.5},
+		ReverseCoeffs:   []float64{2.5},
+		ElectricalUnits: v3.ElectricalUnits("mVoltsPerVolt"),
+	}
+	fullyPopulatedBaseAOChannel = v3.BaseAOChannel{
+		Key:      "test_1",
+		Disabled: false,
+		Port:     4,
+	}
+	fullyPopulatedCommandedAOChannel = v3.CommandedAOChannel{
+		CmdChannel:       channel.Key(2),
+		StateChannel:     channel.Key(3),
+		CmdChannelName:   "test_3",
+		StateChannelName: "test_4",
+	}
+	fullyPopulatedBaseCIChannel = v3.BaseCIChannel{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		Channel:  channel.Key(5),
+		Port:     6,
+		Device:   "test_6",
+	}
+	fullyPopulatedZIndex = v3.ZIndex{
+		ZIndexEnabled: true,
+		ZIndexVal:     2.5,
+		ZIndexPhase:   v3.ZIndexPhase("AHighBHigh"),
+		TerminalZ:     "test_4",
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("AIChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AIChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AIChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("ai_voltage variant", v3.AIChannel{Variant: v3.AIVoltageChannel{
+				BaseAIChannel: fullyPopulatedBaseAIChannel,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Terminal:      fullyPopulatedTerminal,
+				CustomScale:   fullyPopulatedCustomScale,
+			}}),
+			Entry("ai_accel variant", v3.AIChannel{Variant: v3.AIAccelChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
+				Sensitivity:       fullyPopulatedSensitivity,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.AccelUnits("g"),
+				SensitivityUnits:  v3.AccelSensitivityUnits("mVoltsPerG"),
+			}}),
+			Entry("ai_bridge variant", v3.AIChannel{Variant: v3.AIBridgeChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.ElectricalUnits("mVoltsPerVolt"),
+			}}),
+			Entry("ai_current variant", v3.AIChannel{Variant: v3.AICurrentChannel{
+				BaseAIChannel:       fullyPopulatedBaseAIChannel,
+				MinMaxVal:           fullyPopulatedMinMaxVal,
+				Terminal:            fullyPopulatedTerminal,
+				CustomScale:         fullyPopulatedCustomScale,
+				ShuntResistorLoc:    v3.ShuntResistorLocation("Default"),
+				ExtShuntResistorVal: 2.5,
+			}}),
+			Entry("ai_force_bridge_table variant", v3.AIChannel{Variant: v3.AIForceBridgeTableChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				Table:             fullyPopulatedTable,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.ForceUnits("Newtons"),
+				PhysicalUnits:     v3.ForceUnits("Newtons"),
+			}}),
+			Entry("ai_force_bridge_two_point_lin variant", v3.AIChannel{Variant: v3.AIForceBridgeTwoPointLinChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				TwoPointLin:       fullyPopulatedTwoPointLin,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.ForceUnits("Newtons"),
+				PhysicalUnits:     v3.ForceUnits("Newtons"),
+			}}),
+			Entry("ai_force_iepe variant", v3.AIChannel{Variant: v3.AIForceIEPEChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
+				Sensitivity:       fullyPopulatedSensitivity,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.ForceUnits("Newtons"),
+				SensitivityUnits:  v3.ForceSensitivityUnits("mVoltsPerNewton"),
+			}}),
+			Entry("ai_microphone variant", v3.AIChannel{Variant: v3.AIMicrophoneChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				Terminal:          fullyPopulatedTerminal,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+				MicSensitivity:    1.5,
+				MaxSndPressLevel:  2.5,
+			}}),
+			Entry("ai_pressure_bridge_table variant", v3.AIChannel{Variant: v3.AIPressureBridgeTableChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				Table:             fullyPopulatedTable,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.PressureUnits("PoundsPerSquareInch"),
+				PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+			}}),
+			Entry("ai_pressure_bridge_two_point_lin variant", v3.AIChannel{Variant: v3.AIPressureBridgeTwoPointLinChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				TwoPointLin:       fullyPopulatedTwoPointLin,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.PressureUnits("PoundsPerSquareInch"),
+				PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+			}}),
+			Entry("ai_resistance variant", v3.AIChannel{Variant: v3.AIResistanceChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Resistance:        fullyPopulatedResistance,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+			}}),
+			Entry("ai_rtd variant", v3.AIChannel{Variant: v3.AIRTDChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Resistance:        fullyPopulatedResistance,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				Units:             v3.TemperatureUnits("DegC"),
+				RtdType:           v3.RTDType("Pt3750"),
+				R0:                3.5,
+			}}),
+			Entry("ai_strain_gauge variant", v3.AIChannel{Variant: v3.AIStrainGaugeChannel{
+				BaseAIChannel:         fullyPopulatedBaseAIChannel,
+				MinMaxVal:             fullyPopulatedMinMaxVal,
+				VoltageExcitation:     fullyPopulatedVoltageExcitation,
+				CustomScale:           fullyPopulatedCustomScale,
+				StrainConfig:          v3.StrainConfig("FullBridgeI"),
+				GageFactor:            2.5,
+				InitialBridgeVoltage:  3.5,
+				NominalGageResistance: 4.5,
+				PoissonRatio:          5.5,
+				LeadWireResistance:    6.5,
+			}}),
+			Entry("ai_temp_builtin variant", v3.AIChannel{Variant: v3.AITempBuiltinChannel{
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				Channel:  channel.Key(5),
+				Device:   "test_5",
+				Units:    v3.TemperatureUnits("DegC"),
+			}}),
+			Entry("ai_thermocouple variant", v3.AIChannel{Variant: v3.AIThermocoupleChannel{
+				BaseAIChannel:    fullyPopulatedBaseAIChannel,
+				MinMaxVal:        fullyPopulatedMinMaxVal,
+				Units:            v3.TemperatureUnits("DegC"),
+				ThermocoupleType: v3.ThermocoupleType("J"),
+				Cjc:              v3.CJC{Variant: v3.BuiltInCJC{}},
+			}}),
+			Entry("ai_torque_bridge_table variant", v3.AIChannel{Variant: v3.AITorqueBridgeTableChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				Table:             fullyPopulatedTable,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.TorqueUnits("NewtonMeters"),
+				PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+			}}),
+			Entry("ai_torque_bridge_two_point_lin variant", v3.AIChannel{Variant: v3.AITorqueBridgeTwoPointLinChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				TwoPointLin:       fullyPopulatedTwoPointLin,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.TorqueUnits("NewtonMeters"),
+				PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+			}}),
+			Entry("ai_velocity_iepe variant", v3.AIChannel{Variant: v3.AIVelocityIEPEChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
+				Sensitivity:       fullyPopulatedSensitivity,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.VelocityUnits("MetersPerSecond"),
+				SensitivityUnits:  v3.VelocitySensitivityUnits("MillivoltsPerMillimeterPerSecond"),
+			}}),
+			Entry("ai_accel_4_wire_dc_voltage variant", v3.AIChannel{Variant: v3.AIAccel4WireDCVoltageChannel{
+				BaseAIChannel:      fullyPopulatedBaseAIChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				Terminal:           fullyPopulatedTerminal,
+				Sensitivity:        fullyPopulatedSensitivity,
+				VoltageExcitation:  fullyPopulatedVoltageExcitation,
+				CustomScale:        fullyPopulatedCustomScale,
+				Units:              v3.AccelUnits("g"),
+				SensitivityUnits:   v3.AccelSensitivityUnits("mVoltsPerG"),
+				ScaledByExcitation: true,
+			}}),
+			Entry("ai_accel_charge variant", v3.AIChannel{Variant: v3.AIAccelChargeChannel{
+				BaseAIChannel:    fullyPopulatedBaseAIChannel,
+				MinMaxVal:        fullyPopulatedMinMaxVal,
+				Terminal:         fullyPopulatedTerminal,
+				Sensitivity:      fullyPopulatedSensitivity,
+				CustomScale:      fullyPopulatedCustomScale,
+				Units:            v3.AccelUnits("g"),
+				SensitivityUnits: v3.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
+			}}),
+			Entry("ai_charge variant", v3.AIChannel{Variant: v3.AIChargeChannel{
+				BaseAIChannel: fullyPopulatedBaseAIChannel,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Terminal:      fullyPopulatedTerminal,
+				CustomScale:   fullyPopulatedCustomScale,
+				Units:         v3.ChargeUnits("Coulombs"),
+			}}),
+			Entry("ai_current_rms variant", v3.AIChannel{Variant: v3.AICurrentRMSChannel{
+				BaseAIChannel:       fullyPopulatedBaseAIChannel,
+				MinMaxVal:           fullyPopulatedMinMaxVal,
+				Terminal:            fullyPopulatedTerminal,
+				CustomScale:         fullyPopulatedCustomScale,
+				ShuntResistorLoc:    v3.ShuntResistorLocation("Default"),
+				ExtShuntResistorVal: 2.5,
+			}}),
+			Entry("ai_force_bridge_polynomial variant", v3.AIChannel{Variant: v3.AIForceBridgePolynomialChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				BridgePolynomial:  fullyPopulatedBridgePolynomial,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.ForceUnits("Newtons"),
+				PhysicalUnits:     v3.ForceUnits("Newtons"),
+			}}),
+			Entry("ai_freq_voltage variant", v3.AIChannel{Variant: v3.AIFreqVoltageChannel{
+				BaseAIChannel:  fullyPopulatedBaseAIChannel,
+				MinMaxVal:      fullyPopulatedMinMaxVal,
+				CustomScale:    fullyPopulatedCustomScale,
+				ThresholdLevel: 1.5,
+				Hysteresis:     2.5,
+			}}),
+			Entry("ai_pressure_bridge_polynomial variant", v3.AIChannel{Variant: v3.AIPressureBridgePolynomialChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				BridgePolynomial:  fullyPopulatedBridgePolynomial,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.PressureUnits("PoundsPerSquareInch"),
+				PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+			}}),
+			Entry("ai_thermistor_iex variant", v3.AIChannel{Variant: v3.AIThermistorIexChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Resistance:        fullyPopulatedResistance,
+				CurrentExcitation: fullyPopulatedCurrentExcitation,
+				Units:             v3.TemperatureUnits("DegC"),
+				A:                 2.5,
+				B:                 3.5,
+				C:                 4.5,
+			}}),
+			Entry("ai_thermistor_vex variant", v3.AIChannel{Variant: v3.AIThermistorVexChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Resistance:        fullyPopulatedResistance,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				Units:             v3.TemperatureUnits("DegC"),
+				A:                 2.5,
+				B:                 3.5,
+				C:                 4.5,
+				R1:                5.5,
+			}}),
+			Entry("ai_torque_bridge_polynomial variant", v3.AIChannel{Variant: v3.AITorqueBridgePolynomialChannel{
+				BaseAIChannel:     fullyPopulatedBaseAIChannel,
+				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Bridge:            fullyPopulatedBridge,
+				VoltageExcitation: fullyPopulatedVoltageExcitation,
+				BridgePolynomial:  fullyPopulatedBridgePolynomial,
+				CustomScale:       fullyPopulatedCustomScale,
+				Units:             v3.TorqueUnits("NewtonMeters"),
+				PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+			}}),
+			Entry("ai_voltage_rms variant", v3.AIChannel{Variant: v3.AIVoltageRMSChannel{
+				BaseAIChannel: fullyPopulatedBaseAIChannel,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Terminal:      fullyPopulatedTerminal,
+				CustomScale:   fullyPopulatedCustomScale,
+			}}),
+			Entry("ai_voltage_with_excit variant", v3.AIChannel{Variant: v3.AIVoltageWithExcitChannel{
+				BaseAIChannel:      fullyPopulatedBaseAIChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				Terminal:           fullyPopulatedTerminal,
+				VoltageExcitation:  fullyPopulatedVoltageExcitation,
+				CustomScale:        fullyPopulatedCustomScale,
+				BridgeConfig:       v3.BridgeConfig("FullBridge"),
+				ScaledByExcitation: false,
+			}}),
+		)
+	})
+	Describe("AOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("ao_current variant", v3.AOChannel{Variant: v3.AOCurrentChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}}),
+			Entry("ao_func_gen variant", v3.AOChannel{Variant: v3.AOFuncGenChannel{
+				BaseAOChannel: fullyPopulatedBaseAOChannel,
+				WaveType:      v3.WaveType("Sine"),
+				Frequency:     2.5,
+				Amplitude:     3.5,
+				Offset:        4.5,
+			}}),
+			Entry("ao_voltage variant", v3.AOChannel{Variant: v3.AOVoltageChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}}),
+		)
+	})
+	Describe("AnalogReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AnalogReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AnalogReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.AnalogReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels: []v3.AIChannel{
+					{Variant: v3.AIVoltageChannel{
+						BaseAIChannel: fullyPopulatedBaseAIChannel,
+						MinMaxVal:     fullyPopulatedMinMaxVal,
+						Terminal:      fullyPopulatedTerminal,
+						CustomScale:   fullyPopulatedCustomScale,
+					}},
+				},
+			}),
+			Entry("zero values", v3.AnalogReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Channels:           []v3.AIChannel{},
+			}),
+			Entry("empty collections", v3.AnalogReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels:           []v3.AIChannel{},
+			}),
+		)
+	})
+	Describe("AnalogWriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.AnalogWriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.AnalogWriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.AnalogWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels: []v3.AOChannel{
+					{Variant: v3.AOCurrentChannel{
+						BaseAOChannel:      fullyPopulatedBaseAOChannel,
+						MinMaxVal:          fullyPopulatedMinMaxVal,
+						CustomScale:        fullyPopulatedCustomScale,
+						CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+					}},
+				},
+			}),
+			Entry("zero values", v3.AnalogWriteConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
+				Channels:           []v3.AOChannel{},
+			}),
+			Entry("empty collections", v3.AnalogWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels:           []v3.AOChannel{},
+			}),
+		)
+	})
+	Describe("BaseAIChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.BaseAIChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.BaseAIChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseAIChannel),
+			Entry("zero values", v3.BaseAIChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				Channel:  channel.Key(0),
+				Port:     0,
+				Device:   "",
+			}),
+		)
+	})
+	Describe("BaseAOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.BaseAOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.BaseAOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseAOChannel),
+			Entry("zero values", v3.BaseAOChannel{
+				Key:      "",
+				Disabled: false,
+				Port:     0,
+			}),
+		)
+	})
+	Describe("BaseCIChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.BaseCIChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.BaseCIChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseCIChannel),
+			Entry("zero values", v3.BaseCIChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				Channel:  channel.Key(0),
+				Port:     0,
+				Device:   "",
+			}),
+		)
+	})
+	Describe("CIChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CIChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CIChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("ci_frequency variant", v3.CIChannel{Variant: v3.CIFrequencyChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CIFreqUnits("Hz"),
+				Edge:          v3.CIEdge("Rising"),
+				MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
+			}}),
+			Entry("ci_edge_count variant", v3.CIChannel{Variant: v3.CIEdgeCountChannel{
+				BaseCIChannel:  fullyPopulatedBaseCIChannel,
+				ActiveEdge:     v3.CIEdge("Rising"),
+				CountDirection: v3.CICountDirection("CountUp"),
+				InitialCount:   4,
+				Terminal:       "test_4",
+			}}),
+			Entry("ci_period variant", v3.CIChannel{Variant: v3.CIPeriodChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CITimeUnits("Seconds"),
+				StartingEdge:  v3.CIEdge("Rising"),
+				MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
+			}}),
+			Entry("ci_pulse_width variant", v3.CIChannel{Variant: v3.CIPulseWidthChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CITimeUnits("Seconds"),
+				StartingEdge:  v3.CIEdge("Rising"),
+				Terminal:      "test_3",
+			}}),
+			Entry("ci_semi_period variant", v3.CIChannel{Variant: v3.CISemiPeriodChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CITimeUnits("Seconds"),
+				Terminal:      "test_2",
+			}}),
+			Entry("ci_two_edge_sep variant", v3.CIChannel{Variant: v3.CITwoEdgeSepChannel{
+				BaseCIChannel:  fullyPopulatedBaseCIChannel,
+				CustomScale:    fullyPopulatedCustomScale,
+				MinMaxVal:      fullyPopulatedMinMaxVal,
+				Units:          v3.CITimeUnits("Seconds"),
+				FirstEdge:      v3.CIEdge("Rising"),
+				SecondEdge:     v3.CIEdge("Rising"),
+				FirstTerminal:  "test_4",
+				SecondTerminal: "test_5",
+			}}),
+			Entry("ci_velocity_linear variant", v3.CIChannel{Variant: v3.CIVelocityLinearChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CILinearVelocityUnits("m/s"),
+				DecodingType:  v3.CIDecodingType("X1"),
+				DistPerPulse:  3.5,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
+			}}),
+			Entry("ci_velocity_angular variant", v3.CIChannel{Variant: v3.CIVelocityAngularChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CIAngularVelocityUnits("RPM"),
+				DecodingType:  v3.CIDecodingType("X1"),
+				PulsesPerRev:  4,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
+			}}),
+			Entry("ci_position_linear variant", v3.CIChannel{Variant: v3.CIPositionLinearChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				ZIndex:        fullyPopulatedZIndex,
+				Units:         v3.CILinearPositionUnits("Meters"),
+				DecodingType:  v3.CIDecodingType("X1"),
+				DistPerPulse:  3.5,
+				InitialPos:    4.5,
+				TerminalA:     "test_5",
+				TerminalB:     "test_6",
+			}}),
+			Entry("ci_position_angular variant", v3.CIChannel{Variant: v3.CIPositionAngularChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				ZIndex:        fullyPopulatedZIndex,
+				Units:         v3.CIAngularPositionUnits("Degrees"),
+				DecodingType:  v3.CIDecodingType("X1"),
+				PulsesPerRev:  4,
+				InitialAngle:  4.5,
+				TerminalA:     "test_5",
+				TerminalB:     "test_6",
+			}}),
+			Entry("ci_duty_cycle variant", v3.CIChannel{Variant: v3.CIDutyCycleChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				ActiveEdge:    v3.CIEdge("Rising"),
+				Terminal:      "test_2",
+			}}),
+		)
+	})
+	Describe("CJC", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CJC) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CJC
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("built_in variant", v3.CJC{Variant: v3.BuiltInCJC{}}),
+			Entry("const_val variant", v3.CJC{Variant: v3.ConstValCJC{Val: 1.5}}),
+			Entry("chan variant", v3.CJC{Variant: v3.ChanCJC{Port: 2}}),
+		)
+	})
+	Describe("CommandedAOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CommandedAOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CommandedAOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedCommandedAOChannel),
+			Entry("zero values", v3.CommandedAOChannel{
+				CmdChannel:       channel.Key(0),
+				StateChannel:     channel.Key(0),
+				CmdChannelName:   "",
+				StateChannelName: "",
+			}),
+		)
+	})
+	Describe("CounterReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CounterReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CounterReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.CounterReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels: []v3.CIChannel{
+					{Variant: v3.CIFrequencyChannel{
+						BaseCIChannel: fullyPopulatedBaseCIChannel,
+						CustomScale:   fullyPopulatedCustomScale,
+						MinMaxVal:     fullyPopulatedMinMaxVal,
+						Units:         v3.CIFreqUnits("Hz"),
+						Edge:          v3.CIEdge("Rising"),
+						MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+						MeasTime:      10.5,
+						Divisor:       12,
+						Terminal:      "test_12",
+					}},
+				},
+			}),
+			Entry("zero values", v3.CounterReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Channels:           []v3.CIChannel{},
+			}),
+			Entry("empty collections", v3.CounterReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Channels:           []v3.CIChannel{},
+			}),
+		)
+	})
+	Describe("DIChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.DIChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.DIChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.DIChannel{
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				Channel:  channel.Key(5),
+				Port:     6,
+				Line:     7,
+			}),
+			Entry("zero values", v3.DIChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				Channel:  channel.Key(0),
+				Port:     0,
+				Line:     0,
+			}),
+		)
+	})
+	Describe("DOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.DOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.DOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.DOChannel{
+				Key:              "test_1",
+				Disabled:         false,
+				CmdChannel:       channel.Key(4),
+				StateChannel:     channel.Key(5),
+				CmdChannelName:   "test_5",
+				StateChannelName: "test_6",
+				Port:             8,
+				Line:             9,
+			}),
+			Entry("zero values", v3.DOChannel{
+				Key:              "",
+				Disabled:         false,
+				CmdChannel:       channel.Key(0),
+				StateChannel:     channel.Key(0),
+				CmdChannelName:   "",
+				StateChannelName: "",
+				Port:             0,
+				Line:             0,
+			}),
+		)
+	})
+	Describe("DigitalReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.DigitalReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.DigitalReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.DigitalReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Device:             "test_6",
+				Channels: []v3.DIChannel{
+					{
+						Key:      "test_8",
+						Name:     "test_9",
+						Disabled: false,
+						Channel:  channel.Key(12),
+						Port:     13,
+						Line:     14,
+					},
+				},
+			}),
+			Entry("zero values", v3.DigitalReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				SampleRate:         telem.Rate(0),
+				StreamRate:         telem.Rate(0),
+				Device:             "",
+				Channels:           []v3.DIChannel{},
+			}),
+			Entry("empty collections", v3.DigitalReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				SampleRate:         telem.Rate(4.5),
+				StreamRate:         telem.Rate(5.5),
+				Device:             "test_6",
+				Channels:           []v3.DIChannel{},
+			}),
+		)
+	})
+	Describe("DigitalWriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.DigitalWriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.DigitalWriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.DigitalWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels: []v3.DOChannel{
+					{
+						Key:              "test_7",
+						Disabled:         false,
+						CmdChannel:       channel.Key(10),
+						StateChannel:     channel.Key(11),
+						CmdChannelName:   "test_11",
+						StateChannelName: "test_12",
+						Port:             14,
+						Line:             15,
+					},
+				},
+			}),
+			Entry("zero values", v3.DigitalWriteConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				StateRate:          telem.Rate(0),
+				Channels:           []v3.DOChannel{},
+			}),
+			Entry("empty collections", v3.DigitalWriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				StateRate:          telem.Rate(5.5),
+				Channels:           []v3.DOChannel{},
+			}),
+		)
+	})
 	Describe("ScanConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v3.ScanConfig) {
@@ -49,6 +954,379 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeAIChannel(b *testing.B) {
+	seed := v3.AIChannel{Variant: v3.AIVoltageChannel{
+		BaseAIChannel: fullyPopulatedBaseAIChannel,
+		MinMaxVal:     fullyPopulatedMinMaxVal,
+		Terminal:      fullyPopulatedTerminal,
+		CustomScale:   fullyPopulatedCustomScale,
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AIChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
+	seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
+		BaseAOChannel:      fullyPopulatedBaseAOChannel,
+		MinMaxVal:          fullyPopulatedMinMaxVal,
+		CustomScale:        fullyPopulatedCustomScale,
+		CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAnalogReadConfig(b *testing.B) {
+	seed := v3.AnalogReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
+		Channels: []v3.AIChannel{
+			{Variant: v3.AIVoltageChannel{
+				BaseAIChannel: fullyPopulatedBaseAIChannel,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Terminal:      fullyPopulatedTerminal,
+				CustomScale:   fullyPopulatedCustomScale,
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AnalogReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
+	seed := v3.AnalogWriteConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
+		Channels: []v3.AOChannel{
+			{Variant: v3.AOCurrentChannel{
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.AnalogWriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseAIChannel(b *testing.B) {
+	seed := fullyPopulatedBaseAIChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.BaseAIChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseAOChannel(b *testing.B) {
+	seed := fullyPopulatedBaseAOChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.BaseAOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseCIChannel(b *testing.B) {
+	seed := fullyPopulatedBaseCIChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.BaseCIChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCIChannel(b *testing.B) {
+	seed := v3.CIChannel{Variant: v3.CIFrequencyChannel{
+		BaseCIChannel: fullyPopulatedBaseCIChannel,
+		CustomScale:   fullyPopulatedCustomScale,
+		MinMaxVal:     fullyPopulatedMinMaxVal,
+		Units:         v3.CIFreqUnits("Hz"),
+		Edge:          v3.CIEdge("Rising"),
+		MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+		MeasTime:      4.5,
+		Divisor:       6,
+		Terminal:      "test_6",
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CIChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCJC(b *testing.B) {
+	seed := v3.CJC{Variant: v3.BuiltInCJC{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CJC
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCommandedAOChannel(b *testing.B) {
+	seed := fullyPopulatedCommandedAOChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CommandedAOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCounterReadConfig(b *testing.B) {
+	seed := v3.CounterReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
+		Channels: []v3.CIChannel{
+			{Variant: v3.CIFrequencyChannel{
+				BaseCIChannel: fullyPopulatedBaseCIChannel,
+				CustomScale:   fullyPopulatedCustomScale,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
+				Units:         v3.CIFreqUnits("Hz"),
+				Edge:          v3.CIEdge("Rising"),
+				MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+				MeasTime:      10.5,
+				Divisor:       12,
+				Terminal:      "test_12",
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CounterReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDIChannel(b *testing.B) {
+	seed := v3.DIChannel{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		Channel:  channel.Key(5),
+		Port:     6,
+		Line:     7,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.DIChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDOChannel(b *testing.B) {
+	seed := v3.DOChannel{
+		Key:              "test_1",
+		Disabled:         false,
+		CmdChannel:       channel.Key(4),
+		StateChannel:     channel.Key(5),
+		CmdChannelName:   "test_5",
+		StateChannelName: "test_6",
+		Port:             8,
+		Line:             9,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.DOChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDigitalReadConfig(b *testing.B) {
+	seed := v3.DigitalReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		SampleRate:         telem.Rate(4.5),
+		StreamRate:         telem.Rate(5.5),
+		Device:             "test_6",
+		Channels: []v3.DIChannel{
+			{
+				Key:      "test_8",
+				Name:     "test_9",
+				Disabled: false,
+				Channel:  channel.Key(12),
+				Port:     13,
+				Line:     14,
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.DigitalReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDigitalWriteConfig(b *testing.B) {
+	seed := v3.DigitalWriteConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		StateRate:          telem.Rate(5.5),
+		Channels: []v3.DOChannel{
+			{
+				Key:              "test_7",
+				Disabled:         false,
+				CmdChannel:       channel.Key(10),
+				StateChannel:     channel.Key(11),
+				CmdChannelName:   "test_11",
+				StateChannelName: "test_12",
+				Port:             14,
+				Line:             15,
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.DigitalWriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v3.ScanConfig{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -68,6 +1346,1501 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeAIChannel(f *testing.F) {
+	{
+		seed := v3.AIChannel{Variant: v3.AIVoltageChannel{
+			BaseAIChannel: fullyPopulatedBaseAIChannel,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Terminal:      fullyPopulatedTerminal,
+			CustomScale:   fullyPopulatedCustomScale,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIAccelChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
+			Sensitivity:       fullyPopulatedSensitivity,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.AccelUnits("g"),
+			SensitivityUnits:  v3.AccelSensitivityUnits("mVoltsPerG"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIBridgeChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.ElectricalUnits("mVoltsPerVolt"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AICurrentChannel{
+			BaseAIChannel:       fullyPopulatedBaseAIChannel,
+			MinMaxVal:           fullyPopulatedMinMaxVal,
+			Terminal:            fullyPopulatedTerminal,
+			CustomScale:         fullyPopulatedCustomScale,
+			ShuntResistorLoc:    v3.ShuntResistorLocation("Default"),
+			ExtShuntResistorVal: 2.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIForceBridgeTableChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			Table:             fullyPopulatedTable,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.ForceUnits("Newtons"),
+			PhysicalUnits:     v3.ForceUnits("Newtons"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIForceBridgeTwoPointLinChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			TwoPointLin:       fullyPopulatedTwoPointLin,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.ForceUnits("Newtons"),
+			PhysicalUnits:     v3.ForceUnits("Newtons"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIForceIEPEChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
+			Sensitivity:       fullyPopulatedSensitivity,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.ForceUnits("Newtons"),
+			SensitivityUnits:  v3.ForceSensitivityUnits("mVoltsPerNewton"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIMicrophoneChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			Terminal:          fullyPopulatedTerminal,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+			MicSensitivity:    1.5,
+			MaxSndPressLevel:  2.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIPressureBridgeTableChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			Table:             fullyPopulatedTable,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.PressureUnits("PoundsPerSquareInch"),
+			PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIPressureBridgeTwoPointLinChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			TwoPointLin:       fullyPopulatedTwoPointLin,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.PressureUnits("PoundsPerSquareInch"),
+			PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIResistanceChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Resistance:        fullyPopulatedResistance,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIRTDChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Resistance:        fullyPopulatedResistance,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			Units:             v3.TemperatureUnits("DegC"),
+			RtdType:           v3.RTDType("Pt3750"),
+			R0:                3.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIStrainGaugeChannel{
+			BaseAIChannel:         fullyPopulatedBaseAIChannel,
+			MinMaxVal:             fullyPopulatedMinMaxVal,
+			VoltageExcitation:     fullyPopulatedVoltageExcitation,
+			CustomScale:           fullyPopulatedCustomScale,
+			StrainConfig:          v3.StrainConfig("FullBridgeI"),
+			GageFactor:            2.5,
+			InitialBridgeVoltage:  3.5,
+			NominalGageResistance: 4.5,
+			PoissonRatio:          5.5,
+			LeadWireResistance:    6.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AITempBuiltinChannel{
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			Channel:  channel.Key(5),
+			Device:   "test_5",
+			Units:    v3.TemperatureUnits("DegC"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIThermocoupleChannel{
+			BaseAIChannel:    fullyPopulatedBaseAIChannel,
+			MinMaxVal:        fullyPopulatedMinMaxVal,
+			Units:            v3.TemperatureUnits("DegC"),
+			ThermocoupleType: v3.ThermocoupleType("J"),
+			Cjc:              v3.CJC{Variant: v3.BuiltInCJC{}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AITorqueBridgeTableChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			Table:             fullyPopulatedTable,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.TorqueUnits("NewtonMeters"),
+			PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AITorqueBridgeTwoPointLinChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			TwoPointLin:       fullyPopulatedTwoPointLin,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.TorqueUnits("NewtonMeters"),
+			PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIVelocityIEPEChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
+			Sensitivity:       fullyPopulatedSensitivity,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.VelocityUnits("MetersPerSecond"),
+			SensitivityUnits:  v3.VelocitySensitivityUnits("MillivoltsPerMillimeterPerSecond"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIAccel4WireDCVoltageChannel{
+			BaseAIChannel:      fullyPopulatedBaseAIChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			Terminal:           fullyPopulatedTerminal,
+			Sensitivity:        fullyPopulatedSensitivity,
+			VoltageExcitation:  fullyPopulatedVoltageExcitation,
+			CustomScale:        fullyPopulatedCustomScale,
+			Units:              v3.AccelUnits("g"),
+			SensitivityUnits:   v3.AccelSensitivityUnits("mVoltsPerG"),
+			ScaledByExcitation: true,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIAccelChargeChannel{
+			BaseAIChannel:    fullyPopulatedBaseAIChannel,
+			MinMaxVal:        fullyPopulatedMinMaxVal,
+			Terminal:         fullyPopulatedTerminal,
+			Sensitivity:      fullyPopulatedSensitivity,
+			CustomScale:      fullyPopulatedCustomScale,
+			Units:            v3.AccelUnits("g"),
+			SensitivityUnits: v3.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIChargeChannel{
+			BaseAIChannel: fullyPopulatedBaseAIChannel,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Terminal:      fullyPopulatedTerminal,
+			CustomScale:   fullyPopulatedCustomScale,
+			Units:         v3.ChargeUnits("Coulombs"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AICurrentRMSChannel{
+			BaseAIChannel:       fullyPopulatedBaseAIChannel,
+			MinMaxVal:           fullyPopulatedMinMaxVal,
+			Terminal:            fullyPopulatedTerminal,
+			CustomScale:         fullyPopulatedCustomScale,
+			ShuntResistorLoc:    v3.ShuntResistorLocation("Default"),
+			ExtShuntResistorVal: 2.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIForceBridgePolynomialChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			BridgePolynomial:  fullyPopulatedBridgePolynomial,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.ForceUnits("Newtons"),
+			PhysicalUnits:     v3.ForceUnits("Newtons"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIFreqVoltageChannel{
+			BaseAIChannel:  fullyPopulatedBaseAIChannel,
+			MinMaxVal:      fullyPopulatedMinMaxVal,
+			CustomScale:    fullyPopulatedCustomScale,
+			ThresholdLevel: 1.5,
+			Hysteresis:     2.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIPressureBridgePolynomialChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			BridgePolynomial:  fullyPopulatedBridgePolynomial,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.PressureUnits("PoundsPerSquareInch"),
+			PhysicalUnits:     v3.PressureUnits("PoundsPerSquareInch"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIThermistorIexChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Resistance:        fullyPopulatedResistance,
+			CurrentExcitation: fullyPopulatedCurrentExcitation,
+			Units:             v3.TemperatureUnits("DegC"),
+			A:                 2.5,
+			B:                 3.5,
+			C:                 4.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIThermistorVexChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Resistance:        fullyPopulatedResistance,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			Units:             v3.TemperatureUnits("DegC"),
+			A:                 2.5,
+			B:                 3.5,
+			C:                 4.5,
+			R1:                5.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AITorqueBridgePolynomialChannel{
+			BaseAIChannel:     fullyPopulatedBaseAIChannel,
+			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Bridge:            fullyPopulatedBridge,
+			VoltageExcitation: fullyPopulatedVoltageExcitation,
+			BridgePolynomial:  fullyPopulatedBridgePolynomial,
+			CustomScale:       fullyPopulatedCustomScale,
+			Units:             v3.TorqueUnits("NewtonMeters"),
+			PhysicalUnits:     v3.TorqueUnits("NewtonMeters"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIVoltageRMSChannel{
+			BaseAIChannel: fullyPopulatedBaseAIChannel,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Terminal:      fullyPopulatedTerminal,
+			CustomScale:   fullyPopulatedCustomScale,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AIChannel{Variant: v3.AIVoltageWithExcitChannel{
+			BaseAIChannel:      fullyPopulatedBaseAIChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			Terminal:           fullyPopulatedTerminal,
+			VoltageExcitation:  fullyPopulatedVoltageExcitation,
+			CustomScale:        fullyPopulatedCustomScale,
+			BridgeConfig:       v3.BridgeConfig("FullBridge"),
+			ScaledByExcitation: false,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AIChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAOChannel(f *testing.F) {
+	{
+		seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AOChannel{Variant: v3.AOFuncGenChannel{
+			BaseAOChannel: fullyPopulatedBaseAOChannel,
+			WaveType:      v3.WaveType("Sine"),
+			Frequency:     2.5,
+			Amplitude:     3.5,
+			Offset:        4.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AOChannel{Variant: v3.AOVoltageChannel{
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAnalogReadConfig(f *testing.F) {
+	{
+		seed := v3.AnalogReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels: []v3.AIChannel{
+				{Variant: v3.AIVoltageChannel{
+					BaseAIChannel: fullyPopulatedBaseAIChannel,
+					MinMaxVal:     fullyPopulatedMinMaxVal,
+					Terminal:      fullyPopulatedTerminal,
+					CustomScale:   fullyPopulatedCustomScale,
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Channels:           []v3.AIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels:           []v3.AIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AnalogReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AnalogReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAnalogWriteConfig(f *testing.F) {
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels: []v3.AOChannel{
+				{Variant: v3.AOCurrentChannel{
+					BaseAOChannel:      fullyPopulatedBaseAOChannel,
+					MinMaxVal:          fullyPopulatedMinMaxVal,
+					CustomScale:        fullyPopulatedCustomScale,
+					CommandedAOChannel: fullyPopulatedCommandedAOChannel,
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
+			Channels:           []v3.AOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.AnalogWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels:           []v3.AOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.AnalogWriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.AnalogWriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseAIChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseAIChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.BaseAIChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			Channel:  channel.Key(0),
+			Port:     0,
+			Device:   "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.BaseAIChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.BaseAIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseAOChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseAOChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.BaseAOChannel{
+			Key:      "",
+			Disabled: false,
+			Port:     0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.BaseAOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.BaseAOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseCIChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseCIChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.BaseCIChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			Channel:  channel.Key(0),
+			Port:     0,
+			Device:   "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.BaseCIChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.BaseCIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCIChannel(f *testing.F) {
+	{
+		seed := v3.CIChannel{Variant: v3.CIFrequencyChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CIFreqUnits("Hz"),
+			Edge:          v3.CIEdge("Rising"),
+			MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIEdgeCountChannel{
+			BaseCIChannel:  fullyPopulatedBaseCIChannel,
+			ActiveEdge:     v3.CIEdge("Rising"),
+			CountDirection: v3.CICountDirection("CountUp"),
+			InitialCount:   4,
+			Terminal:       "test_4",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIPeriodChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CITimeUnits("Seconds"),
+			StartingEdge:  v3.CIEdge("Rising"),
+			MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIPulseWidthChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CITimeUnits("Seconds"),
+			StartingEdge:  v3.CIEdge("Rising"),
+			Terminal:      "test_3",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CISemiPeriodChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CITimeUnits("Seconds"),
+			Terminal:      "test_2",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CITwoEdgeSepChannel{
+			BaseCIChannel:  fullyPopulatedBaseCIChannel,
+			CustomScale:    fullyPopulatedCustomScale,
+			MinMaxVal:      fullyPopulatedMinMaxVal,
+			Units:          v3.CITimeUnits("Seconds"),
+			FirstEdge:      v3.CIEdge("Rising"),
+			SecondEdge:     v3.CIEdge("Rising"),
+			FirstTerminal:  "test_4",
+			SecondTerminal: "test_5",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIVelocityLinearChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CILinearVelocityUnits("m/s"),
+			DecodingType:  v3.CIDecodingType("X1"),
+			DistPerPulse:  3.5,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIVelocityAngularChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			Units:         v3.CIAngularVelocityUnits("RPM"),
+			DecodingType:  v3.CIDecodingType("X1"),
+			PulsesPerRev:  4,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIPositionLinearChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			ZIndex:        fullyPopulatedZIndex,
+			Units:         v3.CILinearPositionUnits("Meters"),
+			DecodingType:  v3.CIDecodingType("X1"),
+			DistPerPulse:  3.5,
+			InitialPos:    4.5,
+			TerminalA:     "test_5",
+			TerminalB:     "test_6",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIPositionAngularChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			ZIndex:        fullyPopulatedZIndex,
+			Units:         v3.CIAngularPositionUnits("Degrees"),
+			DecodingType:  v3.CIDecodingType("X1"),
+			PulsesPerRev:  4,
+			InitialAngle:  4.5,
+			TerminalA:     "test_5",
+			TerminalB:     "test_6",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CIChannel{Variant: v3.CIDutyCycleChannel{
+			BaseCIChannel: fullyPopulatedBaseCIChannel,
+			CustomScale:   fullyPopulatedCustomScale,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
+			ActiveEdge:    v3.CIEdge("Rising"),
+			Terminal:      "test_2",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CIChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCJC(f *testing.F) {
+	{
+		seed := v3.CJC{Variant: v3.BuiltInCJC{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CJC{Variant: v3.ConstValCJC{Val: 1.5}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CJC{Variant: v3.ChanCJC{Port: 2}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CJC
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CJC
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCommandedAOChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedCommandedAOChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CommandedAOChannel{
+			CmdChannel:       channel.Key(0),
+			StateChannel:     channel.Key(0),
+			CmdChannelName:   "",
+			StateChannelName: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CommandedAOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CommandedAOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCounterReadConfig(f *testing.F) {
+	{
+		seed := v3.CounterReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels: []v3.CIChannel{
+				{Variant: v3.CIFrequencyChannel{
+					BaseCIChannel: fullyPopulatedBaseCIChannel,
+					CustomScale:   fullyPopulatedCustomScale,
+					MinMaxVal:     fullyPopulatedMinMaxVal,
+					Units:         v3.CIFreqUnits("Hz"),
+					Edge:          v3.CIEdge("Rising"),
+					MeasMethod:    v3.CIMeasMethod("LowFreq1Ctr"),
+					MeasTime:      10.5,
+					Divisor:       12,
+					Terminal:      "test_12",
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CounterReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Channels:           []v3.CIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CounterReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Channels:           []v3.CIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CounterReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CounterReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDIChannel(f *testing.F) {
+	{
+		seed := v3.DIChannel{
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			Channel:  channel.Key(5),
+			Port:     6,
+			Line:     7,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DIChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			Channel:  channel.Key(0),
+			Port:     0,
+			Line:     0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.DIChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.DIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDOChannel(f *testing.F) {
+	{
+		seed := v3.DOChannel{
+			Key:              "test_1",
+			Disabled:         false,
+			CmdChannel:       channel.Key(4),
+			StateChannel:     channel.Key(5),
+			CmdChannelName:   "test_5",
+			StateChannelName: "test_6",
+			Port:             8,
+			Line:             9,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DOChannel{
+			Key:              "",
+			Disabled:         false,
+			CmdChannel:       channel.Key(0),
+			StateChannel:     channel.Key(0),
+			CmdChannelName:   "",
+			StateChannelName: "",
+			Port:             0,
+			Line:             0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.DOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.DOChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDigitalReadConfig(f *testing.F) {
+	{
+		seed := v3.DigitalReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Device:             "test_6",
+			Channels: []v3.DIChannel{
+				{
+					Key:      "test_8",
+					Name:     "test_9",
+					Disabled: false,
+					Channel:  channel.Key(12),
+					Port:     13,
+					Line:     14,
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DigitalReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			SampleRate:         telem.Rate(0),
+			StreamRate:         telem.Rate(0),
+			Device:             "",
+			Channels:           []v3.DIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DigitalReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			SampleRate:         telem.Rate(4.5),
+			StreamRate:         telem.Rate(5.5),
+			Device:             "test_6",
+			Channels:           []v3.DIChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.DigitalReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.DigitalReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDigitalWriteConfig(f *testing.F) {
+	{
+		seed := v3.DigitalWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels: []v3.DOChannel{
+				{
+					Key:              "test_7",
+					Disabled:         false,
+					CmdChannel:       channel.Key(10),
+					StateChannel:     channel.Key(11),
+					CmdChannelName:   "test_11",
+					StateChannelName: "test_12",
+					Port:             14,
+					Line:             15,
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DigitalWriteConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			StateRate:          telem.Rate(0),
+			Channels:           []v3.DOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.DigitalWriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			StateRate:          telem.Rate(5.5),
+			Channels:           []v3.DOChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.DigitalWriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.DigitalWriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeScanConfig(f *testing.F) {

@@ -115,7 +115,7 @@ func (s *Server) Rename(
 // ready edits in a single pass instead of a Location → TextEdit hop.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	targetSym *symbol.Symbol,
 	newName string,
 ) []protocol.TextEdit {

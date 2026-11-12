@@ -48,4 +48,6 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 }

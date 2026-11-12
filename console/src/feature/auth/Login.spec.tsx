@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AuthError, connection } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  AuthError,
+  connection,
+  ExpiredTokenError,
+  InvalidCredentialsError,
+  InvalidTokenError,
+  MissingCredentialsError,
+  SessionEndedError,
+} from "@synnaxlabs/client";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -31,20 +38,18 @@ import {
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
-const REJECTED: connection.Status = {
+const rejected = (error: Error): connection.Status => ({
   ...connection.DEFAULT_STATUS,
   variant: "error",
   name: ALPHA.name,
   message: "Failed to authenticate",
-  description: "invalid credentials",
-  details: {
-    ...connection.DEFAULT_STATUS.details,
-    reason: "auth",
-    error: new AuthError("invalid credentials"),
-  },
-};
+  description: error.message,
+  details: { ...connection.DEFAULT_STATUS.details, reason: "auth", error },
+});
 
 const BACK = ".console-login__back";
+const ERROR = ".console-login__error";
+const GHOST = "console--ghost";
 const USERNAME_PLACEHOLDER = "synnax";
 
 const renderLogin = async (): Promise<HTMLElement> => {
@@ -88,10 +93,10 @@ describe("auth/Login", () => {
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
   });
 
-  it("should show why the Core rejected the connection", async () => {
+  const renderRejected = async (error: Error): Promise<HTMLElement> => {
     const { wrapper } = await createStatusConsoleWrapper({
-      client: createTestClient(),
-      status: REJECTED,
+      client: null,
+      status: rejected(error),
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
@@ -100,8 +105,52 @@ describe("auth/Login", () => {
         },
       },
     });
-    render(<Login />, { wrapper });
-    expect(await screen.findByText("Failed to authenticate")).toBeTruthy();
-    expect(screen.getByText("invalid credentials")).toBeTruthy();
+    const { container } = render(<Login />, { wrapper });
+    await screen.findByPlaceholderText(USERNAME_PLACEHOLDER);
+    return container;
+  };
+
+  it.each([
+    [
+      "a wrong password",
+      new InvalidCredentialsError("invalid credentials"),
+      "Incorrect username or password.",
+    ],
+    [
+      "an ended session",
+      new SessionEndedError("session ended"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an invalid token",
+      new InvalidTokenError("invalid token"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an expired token",
+      new ExpiredTokenError("expired token"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an unknown auth error",
+      new AuthError("authentication service unavailable"),
+      "authentication service unavailable",
+    ],
+  ])("should explain %s under the Log in button", async (_, error, message) => {
+    const container = await renderRejected(error);
+    const note = getBySelector(container, ERROR);
+    expect(note.textContent).toBe(message);
+    expect(note.classList).not.toContain(GHOST);
+    expect(screen.getByRole("button", { name: /Log in/ }).nextElementSibling).toBe(
+      note,
+    );
+  });
+
+  it("should keep the error space empty before any login", async () => {
+    const container = await renderRejected(
+      new MissingCredentialsError("no credentials, API key, token, or cookie"),
+    );
+    expect(getBySelector(container, ERROR).classList).toContain(GHOST);
+    expect(screen.queryByText(/no credentials/)).toBeNull();
   });
 });

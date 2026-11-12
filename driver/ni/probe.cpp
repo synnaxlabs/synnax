@@ -33,31 +33,6 @@ using ::synnax::ni::DigitalPort;
 using ::synnax::ni::Hardware;
 using ::x::spatial::Bounds;
 
-const std::unordered_map<int32, std::string> PRODUCT_CATEGORIES = {
-    {DAQmx_Val_MSeriesDAQ, "m_series_daq"},
-    {DAQmx_Val_XSeriesDAQ, "x_series_daq"},
-    {DAQmx_Val_ESeriesDAQ, "e_series_daq"},
-    {DAQmx_Val_SSeriesDAQ, "s_series_daq"},
-    {DAQmx_Val_BSeriesDAQ, "b_series_daq"},
-    {DAQmx_Val_SCSeriesDAQ, "sc_series_daq"},
-    {DAQmx_Val_USBDAQ, "usb_daq"},
-    {DAQmx_Val_AOSeries, "ao_series"},
-    {DAQmx_Val_DigitalIO, "digital_io"},
-    {DAQmx_Val_TIOSeries, "tio_series"},
-    {DAQmx_Val_DynamicSignalAcquisition, "dynamic_signal_acquisition"},
-    {DAQmx_Val_Switches, "switches"},
-    {DAQmx_Val_CompactDAQChassis, "compact_daq_chassis"},
-    {DAQmx_Val_CompactRIOChassis, "compact_rio_chassis"},
-    {DAQmx_Val_CSeriesModule, "c_series_module"},
-    {DAQmx_Val_SCXIModule, "scxi_module"},
-    {DAQmx_Val_SCCConnectorBlock, "scc_connector_block"},
-    {DAQmx_Val_SCCModule, "scc_module"},
-    {DAQmx_Val_NIELVIS, "ni_elvis"},
-    {DAQmx_Val_NetworkDAQ, "network_daq"},
-    {DAQmx_Val_SCExpress, "sc_express"},
-    {DAQmx_Val_FieldDAQ, "field_daq"},
-};
-
 /// @brief the channel types of each DAQmx measurement or output type. A DAQmx type with
 /// no entry has no channel type, so no form can offer it.
 using TypeTable = std::unordered_map<int32, std::vector<std::string>>;
@@ -143,7 +118,7 @@ struct Pairing {
     /// @brief the DAQmx product types of the family, without the "NI " prefix.
     std::vector<std::string> types;
     /// @brief the distance from a positive port to its negative port.
-    std::int32_t offset = 0;
+    std::uint16_t offset = 0;
 };
 
 const std::vector<Pairing> PAIRINGS = {
@@ -177,7 +152,7 @@ const std::string DIFF = ::synnax::ni::TERMINAL_CONFIG_DIFF;
 /// @brief a physical channel or port and the number at the end of its name.
 struct Port {
     std::string name;
-    std::int32_t number = 0;
+    std::uint16_t number = 0;
 };
 
 template<typename T>
@@ -202,11 +177,11 @@ std::vector<std::string> split(const std::string &list) {
 }
 
 /// @brief returns the number at the end of a name, such as 3 for Dev1/ai3.
-std::optional<std::int32_t> number_of(const std::string &name) {
+std::optional<std::uint16_t> number_of(const std::string &name) {
     const auto digits = name.find_last_not_of("0123456789");
     const auto start = digits == std::string::npos ? 0 : digits + 1;
     if (start == name.size()) return std::nullopt;
-    std::int32_t number = 0;
+    std::uint16_t number = 0;
     const char *end = name.data() + name.size();
     const auto [ptr, ec] = std::from_chars(name.data() + start, end, number);
     if (ec != std::errc{} || ptr != end) return std::nullopt;
@@ -280,13 +255,13 @@ x::errors::Error read_rate(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
     const int32 attribute,
-    std::optional<double> &rate
+    x::telem::Rate &rate
 ) {
     float64 value = 0;
     const auto err = dmx.GetDeviceAttributeDouble(device.c_str(), attribute, &value);
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
-    rate = value;
+    rate = x::telem::Rate(value);
     return x::errors::NIL;
 }
 
@@ -358,8 +333,8 @@ x::errors::Error add_readback_channel(
 }
 
 /// @brief reads back what Cfg_Default gives on a port where reads_back_default holds. A
-/// failure leaves the default unknown and does not fail the probe.
-std::optional<std::string> read_default_terminal_config(
+/// failure returns Cfg_Default and does not fail the probe.
+std::string read_default_terminal_config(
     daqmx::SugaredAPI &dmx,
     const Port &port,
     const AnalogInputPort &ai,
@@ -370,7 +345,7 @@ std::optional<std::string> read_default_terminal_config(
     if (const auto err = dmx.CreateTask("", &task)) {
         VLOG(1) << "[ni] failed to create a task to read the default terminal "
                 << "configuration of " << port.name << ": " << err;
-        return std::nullopt;
+        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
     }
     int32 config = 0;
     auto err = add_readback_channel(dmx, task, port, ai, hw);
@@ -387,10 +362,10 @@ std::optional<std::string> read_default_terminal_config(
     if (err) {
         VLOG(1) << "[ni] failed to read the default terminal configuration of "
                 << port.name << ": " << err;
-        return std::nullopt;
+        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
-    if (it == TERMINAL_CONFIGS.end()) return std::nullopt;
+    if (it == TERMINAL_CONFIGS.end()) return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
     return it->second;
 }
 
@@ -503,7 +478,7 @@ read_counters(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
 
 x::errors::Error
 read_digital_ports(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
-    std::map<std::int32_t, DigitalPort> by_number;
+    std::map<std::uint16_t, DigitalPort> by_number;
     const auto read = [&](const int32 attribute,
                           const int32 width_attribute,
                           const bool input) -> x::errors::Error {
@@ -520,7 +495,7 @@ read_digital_ports(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &
                 return width_err;
             auto &digital = by_number[port.number];
             digital.port = port.number;
-            digital.lines = std::max(digital.lines, static_cast<std::int32_t>(lines));
+            digital.lines = std::max(digital.lines, static_cast<std::uint8_t>(lines));
             if (input)
                 digital.input = true;
             else
@@ -539,8 +514,7 @@ read_digital_ports(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &
 /// @brief sets the negative port of each positive port, for a device in a family of
 /// PAIRINGS. A port pairs only when it accepts both RSE and Diff, which leaves out
 /// devices with a separate negative pin for each input.
-void pair_ports(Hardware &hw, const int32 category) {
-    auto type = hw.product_type;
+void pair_ports(Hardware &hw, const int32 category, std::string type) {
     if (type.starts_with(PRODUCT_TYPE_PREFIX))
         type = type.substr(PRODUCT_TYPE_PREFIX.size());
     const auto pairing = std::ranges::find_if(PAIRINGS, [&](const Pairing &p) {
@@ -552,7 +526,7 @@ void pair_ports(Hardware &hw, const int32 category) {
         if (ai.port % (2 * offset) >= offset) continue;
         if (!contains(ai.terminal_configs, RSE) || !contains(ai.terminal_configs, DIFF))
             continue;
-        const auto negative = ai.port + offset;
+        const auto negative = static_cast<std::uint16_t>(ai.port + offset);
         if (std::ranges::any_of(hw.analog_inputs, [&](const AnalogInputPort &other) {
                 return other.port == negative;
             }))
@@ -563,7 +537,8 @@ void pair_ports(Hardware &hw, const int32 category) {
 
 bool is_complete(const Hardware &hw) {
     return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
-        return reads_back_default(ai) && !ai.default_terminal_config.has_value();
+        return reads_back_default(ai) &&
+               ai.default_terminal_config == ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
     });
 }
 
@@ -578,17 +553,12 @@ probe(daqmx::SugaredAPI &dmx, const std::string &device) {
         );
         err && !err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED))
         return {std::move(hw), err};
-    const auto category_name = PRODUCT_CATEGORIES.find(category);
-    hw.product_category = category_name == PRODUCT_CATEGORIES.end()
-                            ? "unknown"
-                            : category_name->second;
     auto [type, type_err] = dmx.GetDeviceAttributeString(
         device.c_str(),
         DAQmx_Dev_ProductType
     );
     if (type_err && !type_err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED))
         return {std::move(hw), type_err};
-    hw.product_type = std::move(type);
     if (const auto err = read_analog_inputs(dmx, device, hw))
         return {std::move(hw), err};
     if (const auto err = read_analog_outputs(dmx, device, hw))
@@ -604,7 +574,7 @@ probe(daqmx::SugaredAPI &dmx, const std::string &device) {
             terminal.starts_with(prefix) ? terminal.substr(prefix.size())
                                          : std::move(terminal)
         );
-    pair_ports(hw, category);
+    pair_ports(hw, category, type);
     return {std::move(hw), x::errors::NIL};
 }
 }

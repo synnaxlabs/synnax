@@ -11,14 +11,15 @@ package log
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,67 +45,45 @@ func validateWrite(l Log) error {
 }
 
 // Writer is used to create, update, and delete logs within Synnax. The writer executes
-// all operations within the transaction provided to the Service.NewWriter method. If no
-// transaction is provided, the writer will execute operations directly on the database.
+// all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
 	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
 	table      *gorp.Table[Key, Log]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
-// Create creates the given log within the project provided. If the log does not have a
-// key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
-// without a project ParentOf relationship; this is used by imports that supply no
-// parent project.
-func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
-	var (
-		exists bool
-		err    error
-	)
+// Create creates the given log, assigning a new key when l.Key is zero. The log must
+// belong to exactly one of a project and a range. A log in a group belongs to the
+// project that holds the group. Create returns an error wrapping validate.ErrValidation
+// when a log with l.Key exists.
+func (w Writer) Create(ctx context.Context, l *Log) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
-	} else {
-		if exists, err = w.
-			table.
-			NewRetrieve().
-			Where(gorp.MatchKeys[Key, Log](l.Key)).Exists(ctx, w.tx); err != nil {
+	}
+	if l.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, l.Group, resource.TypeLog)
+		if err != nil {
 			return err
 		}
+		l.Project = proj
 	}
-	l.ApplyDefaults()
-	if err = validateWrite(*l); err != nil {
+	if err := validateWrite(*l); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+	if err := project.ValidateOwner(l.Project, l.Range); err != nil {
 		return err
 	}
-	if !exists {
-		otgID := l.OntologyID()
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-		if projectKey != uuid.Nil() {
-			if err = w.otgWriter.DefineRelationships(
-				ctx,
-				project.OntologyID(projectKey),
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); err != nil {
-				return err
-			}
-		}
+	if err := w.table.NewCreate().Exclusive().Entry(l).Exec(ctx, w.tx); err != nil {
+		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		l.Key,
 		NewCreateAction(CreatePayload{Log: *l}),
@@ -112,15 +91,40 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 	return nil
 }
 
-// CreateMany creates the given logs within the project provided. If logs with the
-// same key already exist, they will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	projectKey project.Key,
-	logs *[]Log,
-) error {
+// setProject moves the logs with keys that are not in the project p into p, and
+// attaches a set project action for each one.
+func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) error {
+	var moved []Key
+	if err := w.table.NewUpdate().
+		Where(gorp.And(
+			gorp.MatchKeys[Key, Log](keys...),
+			gorp.Match(func(_ gorp.Context, e *Log) (bool, error) {
+				return e.Project == nil || *e.Project != p, nil
+			}),
+		)).
+		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
+			moved = append(moved, e.Key)
+			e.Project = &p
+			return e, project.ValidateOwner(e.Project, e.Range)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, k := range moved {
+		w.dispatcher.Attach(
+			w.tx,
+			k,
+			NewSetAction(SetPayload{Path: []string{"project"}, Value: p}),
+		)
+	}
+	return nil
+}
+
+// CreateMany creates the given logs. It returns an error wrapping
+// validate.ErrValidation when a log with one of their keys exists.
+func (w Writer) CreateMany(ctx context.Context, logs *[]Log) error {
 	for i := range *logs {
-		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
+		if err := w.Create(ctx, &(*logs)[i]); err != nil {
 			return err
 		}
 	}
@@ -129,12 +133,47 @@ func (w Writer) CreateMany(
 
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.
+	return w.
 		table.
 		NewDelete().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
+		Exec(ctx, w.tx)
+}
+
+// Apply applies a sequence of actions to the log with the given key and attaches them
+// to the transaction of w, so its commit broadcasts them with the dispatch key of w. A
+// move into a group also moves the log into the project that holds the group, and a
+// move into another project moves it out of its group. Apply attaches the actions of
+// each such move after acts and returns them. It returns a validation error, and stores
+// nothing, if the actions leave the log invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
+		ChangeErr(func(_ gorp.Context, prev Log) (Log, error) {
+			next, err := Reduce(prev, acts...)
+			if err != nil {
+				return Log{}, err
+			}
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeLog,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
+				return Log{}, err
+			}
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = validateWrite(next); err != nil {
+				return Log{}, err
+			}
+			return next, project.ValidateOwner(next.Project, next.Range)
+		}).Exec(ctx, w.tx); err != nil {
+		return nil, err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
 }

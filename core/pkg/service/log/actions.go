@@ -12,36 +12,63 @@ package log
 import (
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
-)
-
-// Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
-// receives are duplicated here. They must stay in sync with the field defaults declared
-// on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
-// defaultChannelEntry in client/ts/src/log/actions.ts.
-const (
-	defaultNotation          notation.Notation     = notation.NotationStandard
-	defaultTimestampFormat   telem.TimestampFormat = telem.TimestampFormatPreciseDate
-	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/patch"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // log.
 func (CreatePayload) Handle(Log) (Log, error) {
-	return Log{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a log create",
-	)
+	return Log{}, actions.CoreOnlyError("a log create")
 }
 
-// Handle replaces the log's name.
-func (p RenamePayload) Handle(state Log) (Log, error) {
-	state.Name = p.Name
+// Handle applies the set to the log's name, group, or project.
+func (p SetPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Set(p).Apply)
+}
+
+// Handle applies the remove to the log's name, group, or project.
+func (p RemovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Remove(p).Apply)
+}
+
+// Handle applies the insert to the log's name, group, or project.
+func (p InsertPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the log's name, group, or project.
+func (p MovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a log that path actions edit.
+type document struct {
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
+}
+
+// edit applies a path action to a copy of the log's document. A document that gains a
+// member it does not declare is rejected.
+func edit(state Log, apply func(map[string]any) error) (Log, error) {
+	d, err := patch.Edit(
+		document{Name: state.Name, Group: state.Group, Project: state.Project},
+		apply,
+	)
+	if err != nil {
+		return Log{}, err
+	}
+	state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 // Handle appends a default channel entry for the given channel. No-op when the
 // channel already has an entry. The inverse RemoveChannel undoes the append
@@ -111,27 +138,21 @@ func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the timestamp render format of the entry referencing the channel.
-// No-op when no entry references it.
+// Handle sets the format of the values of the timestamp channel. No-op when no entry
+// references it.
 func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Format = p.Format
+		state.Channels[i].TimestampConfig.Format = p.Format
 	}
 	return state, nil
 }
 
-// Handle sets the timestamp time zone of the entry referencing the channel.
-// No-op when no entry references it.
-func (p SetChannelTimestampTzPayload) Handle(state Log) (Log, error) {
+// Handle sets the time zone of the values of the timestamp channel. No-op when no
+// entry references it.
+func (p SetChannelTimestampTimeZonePayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Tz = p.Tz
+		state.Channels[i].TimestampConfig.TimeZone = p.TimeZone
 	}
-	return state, nil
-}
-
-// Handle replaces the entire ordered list of channel entries.
-func (p SetChannelsPayload) Handle(state Log) (Log, error) {
-	state.Channels = p.Channels
 	return state, nil
 }
 
@@ -160,7 +181,7 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle controls whether the receipt timestamp column is hidden.
+// Handle controls whether line times are hidden.
 func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
 	state.TimestampsHidden = p.TimestampsHidden
 	return state, nil
@@ -182,15 +203,9 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display
-// configuration. Color is left as the zero value; the rendering layer resolves a
-// palette color for entries without an explicit color.
+// configuration. A zero color renders in the text color of the log.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
-	return ChannelEntry{
-		Channel:  key,
-		Notation: defaultNotation,
-		Timestamp: TimestampConfig{
-			Format: defaultTimestampFormat,
-			Tz:     defaultTimestampTimeZone,
-		},
-	}
+	e := ChannelEntry{Channel: key}
+	e.ApplyDefaults()
+	return e
 }

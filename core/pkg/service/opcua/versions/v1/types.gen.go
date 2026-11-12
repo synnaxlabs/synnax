@@ -12,10 +12,16 @@
 package v1
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // BaseChannel carries the fields every OPC UA channel shares.
@@ -41,6 +47,11 @@ func (b *BaseChannel) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BaseChannel) SetDefaults() {
+	b.DataType = "float32"
+}
+
 // ReadChannel is a single OPC UA node the task reads from.
 type ReadChannel struct {
 	BaseChannel
@@ -55,6 +66,30 @@ func (r *ReadChannel) ApplyDefaults() {
 	r.BaseChannel.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadChannel) SetDefaults() {
+	r.BaseChannel.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadChannel
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadChannel
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // WriteChannel is a single OPC UA node the task drives.
 type WriteChannel struct {
 	BaseChannel
@@ -65,6 +100,30 @@ type WriteChannel struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (w *WriteChannel) ApplyDefaults() {
 	w.BaseChannel.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteChannel) SetDefaults() {
+	w.BaseChannel.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteChannel
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteChannel
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
 }
 
 // ReadConfig configures an OPC UA read task.
@@ -97,6 +156,42 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+	r.SampleRate = 50
+	r.StreamRate = 25
+	r.ArraySize = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
+}
+
 // WriteConfig configures an OPC UA write task.
 type WriteConfig struct {
 	task.WriteConfig
@@ -119,4 +214,36 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

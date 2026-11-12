@@ -1,0 +1,404 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot EtherCAT"
+description:
+  "Fix EtherCAT setup errors, networks that do not start, and sync mode and clock
+  errors."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Console and the Driver call an EtherCAT module a slave, so error messages say
+"slave" where these pages say "module". For errors about one channel of a task, see the
+[read task](/reference/hardware/ethercat/read-task#troubleshooting) and the
+[write task](/reference/hardware/ethercat/write-task#troubleshooting).
+
+<Divider.Divider x />
+
+## Setup
+
+### No modules show in the devices toolbar
+
+<Problem.Body>
+<Problem.Fix>
+
+1. Check the cable from the port to the first module, and the power to the modules.
+2. Make sure that no other program uses the port. On Windows, DewesoftX can block the
+   port also when DewesoftX is closed. See
+   [No modules show on a computer with DewesoftX](#no-modules-show-on-a-computer-with-dewesoftx).
+3. Check the
+   [prerequisites](/reference/hardware/ethercat/configure-device#prerequisites) and the
+   [network interface access](/reference/hardware/ethercat/configure-device#network-interface-access),
+   then [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+### No modules show on a computer with DewesoftX
+
+<Problem.Body>
+<Problem.Cause>
+
+DewesoftX adds a network filter, **EthercatDAQ Filter**, to each Ethernet port. After
+DewesoftX starts, the filter stops the replies of the modules before they get to the
+Driver. This continues after you close DewesoftX, and a restart of the port does not
+stop it. The scan finds no modules and shows
+`The DewesoftX "EthercatDAQ Filter" on this adapter blocks EtherCAT replies`, with the
+name of the adapter.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. In Windows Settings, go to **Network & internet** > **Advanced network settings** >
+   **More network adapter options**. You can also press Windows + R and enter
+   `ncpa.cpl`.
+2. Right-click the port that connects to the first module, then select **Properties**.
+   Windows asks for administrator access.
+3. Clear **EthercatDAQ Filter**, then select **OK**.
+
+The modules show in the devices toolbar in 30 seconds or less. You do not need to
+restart the Driver. From an administrator PowerShell, this command does the same, with
+the name of the port from step 2:
+
+```powershell
+Disable-NetAdapterBinding -Name "Ethernet 2" -ComponentID DW_EthcatDAQ
+```
+
+DewesoftX cannot use a port while its filter is off. To use DewesoftX and Synnax at the
+same time, connect each one to a different port. To give a port back to DewesoftX,
+select **EthercatDAQ Filter** again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `No EtherCAT slaves found on ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver got no reply from the modules on the port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cable to the first module and the power to the modules. If the message names
+the DewesoftX filter, see
+[No modules show on a computer with DewesoftX](#no-modules-show-on-a-computer-with-dewesoftx).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Npcap (packet capture for EtherCAT) library is not installed`
+
+<Problem.Body>
+<Problem.Cause>
+
+On Windows, the Driver cannot load Npcap, which EtherCAT needs. The full message is
+"Npcap (packet capture for EtherCAT) library is not installed. Download here:
+https://npcap.com/#download. Restart Driver after installation."
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install [Npcap](https://npcap.com/#download) with the default options.
+2. [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The Driver does not have permission to open /dev/bpf...`
+
+<Problem.Body>
+<Problem.Cause>
+
+On macOS, EtherCAT uses the packet capture devices `/dev/bpf*`, and the user that runs
+the Driver cannot open them. Synnax Desktop runs the Driver as your user.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install the ChmodBPF package that comes with [Wireshark](https://www.wireshark.org/),
+   or give your user read and write access to `/dev/bpf*`.
+2. Log out of macOS, then log in again.
+3. [Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Every BPF device is in use`
+
+<Problem.Body>
+<Problem.Cause>
+
+On macOS, other programs hold every packet capture device, so the Driver cannot open one
+for the port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Close other packet capture programs, such as Wireshark, then start the task again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Permission denied opening ...: the Driver needs CAP_NET_RAW`
+
+<Problem.Body>
+<Problem.Cause>
+
+On Linux, the Driver cannot open a raw socket on the port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Reinstall the Driver service with `sudo synnax-driver install`, or run the Core or the
+Driver as root. See
+[network interface access](/reference/hardware/ethercat/configure-device#network-interface-access).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to scan for devices`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver cannot scan a port. The description gives the reason, such as no raw Ethernet
+access.
+
+</Problem.Cause>
+<Problem.Fix>
+
+See
+[network interface access](/reference/hardware/ethercat/configure-device#network-interface-access).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Network start
+
+### `Failed to reach SAFE-OP` or `Failed to reach OP`
+
+<Problem.Body>
+<Problem.Cause>
+
+A module did not move to SAFE-OP or OP in time when the network started, or every module
+refused the change, so no task on the port starts. The built-in master waits 10 seconds
+for SAFE-OP and 10 seconds for OP, and IgH waits 10 seconds for OP. The error names each
+module and its state. When a module refuses the change, the error also gives the error
+text of the module, such as "Invalid output configuration".
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the error text in the documentation of the module. To run the other modules now,
+[disable](/reference/hardware/ethercat/configure-device#disable-a-device) the module,
+then start the tasks again. If the error contains "Invalid DC SYNC configuration", see
+[`Failed to reach SAFE-OP: ... Invalid DC SYNC configuration`](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slave ... is not on the network`
+
+<Problem.Body>
+<Problem.Cause>
+
+A task uses a module that refused SAFE-OP or OP. The network started without the module,
+and the error gives the error text of the module. The status of the module shows
+**Failed to start**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Fix the module, then stop every task on the port and start them again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `All slaves must be on the same network`
+
+<Problem.Body>
+<Problem.Cause>
+
+A task uses modules on two ports.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create one task for each port.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slave ... is not on the bus` or `Slave ...: expected ..., found ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The network changed after you created the task. A module moved, or the Driver does not
+find it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cables, then edit the channels of the task to use the modules that are on the
+network now.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The PDOs that the Driver found have a different size than the data that the module
+exchanges. The Driver does not read or write that module, so it does not give wrong
+values.
+
+</Problem.Cause>
+<Problem.Fix>
+
+[Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver) to scan
+again. If the error stays, the module is not supported yet.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Sync mode and clocks
+
+### `Failed to reach SAFE-OP: ... Invalid DC SYNC configuration`
+
+<Problem.Body>
+<Problem.Cause>
+
+The module is set to a sync mode that the Driver did not set up, so it stays in PRE-OP.
+By default, the Driver runs SM sync when the module lists an SM sync mode, so a module
+that is set to DC sync and also lists an SM sync mode does not start.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Select the mode of the module** -> in the Configure dialog, set the
+  [sync mode](/reference/hardware/ethercat/configure-device#set-the-sync-mode) to the
+  mode that the module is set to.
+- **Set the module to SM sync** -> Dewesoft modules keep the mode in the module, and use
+  a new mode after a power cycle. The
+  [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
+  lists the modes of each model and how to set them.
+- **Disable the module** ->
+  [disable](/reference/hardware/ethercat/configure-device#disable-a-device) it, so that
+  the Driver stops trying to start it.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slave ... cannot run its DC mode at a bus cycle of ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The DC sync mode of the module gives a SYNC0 or SYNC1 cycle that its registers cannot
+hold at the cycle rate of the network. The error gives the value and its limit. For
+example, the Dewesoft IOLITE 16xAO and 16xLV set SYNC1 to 1000 cycles, which is more
+than the 4.29 s limit when the network cycles slower than 233 Hz.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Under [**Sync mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode),
+enter a cycle that fits, such as a **SYNC1 cycle** of 1 s. You can also make the network
+cycle faster, for example with a write task at an execution rate of 250 Hz or more.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slave ... cannot use its chosen mode`
+
+<Problem.Body>
+<Problem.Cause>
+
+The [sync mode](/reference/hardware/ethercat/configure-device#set-the-sync-mode) of the
+module cannot start, so no task on the port starts. The error gives the reason:
+
+- **The module does not list the mode** -> such as after a firmware update. The error
+  lists the modes of the module.
+- **A cycle is set on a mode that cannot take it** -> a mode that does not run SYNC0, or
+  a mode in which the module sets its own clock ticks.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The module does not list the mode** -> in the Configure dialog, which marks the
+  mode, select a mode again.
+- **A cycle is set on a mode that cannot take it** -> clear the cycles, or select a mode
+  that takes them.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The clock of slave ... is ... off the reference clock`
+
+<Problem.Body>
+<Problem.Cause>
+
+The clock of a module in DC sync stayed more than 10 µs off the reference clock for two
+seconds, so the Driver did not start SYNC0.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cables and the power of the modules, then start the task again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `The bus on ... cycles at ... Hz while a slave runs DC sync`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver sets the SYNC0 and SYNC1 cycles of a module in DC sync from the cycle rate
+when the network starts, so the rate stays the same while the network runs. A task that
+needs another rate does not start.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a sample rate that the network rate is a multiple of, or an execution rate at or
+below the network rate.
+
+To change the rate, stop every task on the port. The first task that starts again sets
+the rate, so start a task at a rate that every task fits first. For example, read tasks
+at 300 Hz and 200 Hz need 600 Hz, so first start a write task at an execution rate of
+600 Hz.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to restore the distributed clock`
+
+<Problem.Body>
+<Problem.Cause>
+
+The status of a module shows this message when the module lost its clock settings, for
+example after a power loss, and the Driver could not set them again. The Driver keeps
+the module out of OP and tries again.
+
+</Problem.Cause>
+<Problem.Fix>
+
+If the status stays, check the power and the cabling of the module.
+
+</Problem.Fix>
+</Problem.Body>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

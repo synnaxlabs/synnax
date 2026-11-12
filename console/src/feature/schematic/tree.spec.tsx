@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
+import { NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import {
   client,
@@ -26,13 +27,14 @@ import {
   createSelection,
   createState,
   findTreeRow,
-  renderOntologyTree,
+  renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 
 const roles = new RoleClients(client);
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -53,10 +55,10 @@ afterEach(() => {
 const Item = Schematic.TREE_ITEMS.schematic;
 
 describe("Schematic.TREE_ITEMS", () => {
-  it("hauls a mosaic tab create item keyed by the ontology id", async () => {
+  it("hauls a mosaic tab create item keyed by the resource id", async () => {
     const s = await createSchematic();
-    const id = schematic.ontologyID(s.key);
-    const items = Item.haulItems(createResource(id, s.name));
+    const id = schematic.resourceID(s.key);
+    const items = Item.haulItems(createResource(id, s.name), client);
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -64,10 +66,10 @@ describe("Schematic.TREE_ITEMS", () => {
   describe("onSelect", () => {
     it("retrieves the schematic and opens it as a tab when double-clicked", async () => {
       const s = await createSchematic();
-      const { store } = await renderOntologyTree({
+      const { store } = await renderLiveTree({
         client,
-        root: project.ontologyID(await testProjectKey()),
-        items: Schematic.TREE_ITEMS,
+        root: project.resourceID(await testProjectKey()),
+        items: { ...Project.TREE_ITEMS, ...Schematic.TREE_ITEMS },
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
       const tab = await resolveFocusedTab(store, client);
@@ -87,27 +89,25 @@ describe("Schematic snapshot to the active range", () => {
     const { wrapper } = await createConsoleWrapper({ client, store });
     const Menu = Item.ContextMenu;
     assertDefined(Menu);
-    const id = schematic.ontologyID(s.key);
+    const id = schematic.resourceID(s.key);
     const statuses: Status.NotificationSpec[] = [];
     render(
-      <>
+      <Tree.Provider items={Schematic.TREE_ITEMS}>
         <Menu
           {...createBaseProps({ client, store })}
           selection={createSelection({ ids: [id] })}
-          state={createState([createResource(id, s.name, { snapshot: false })])}
+          state={createState([createResource(id, s.name)])}
         />
         <CaptureStatuses
           onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
         />
-      </>,
+      </Tree.Provider>,
       { wrapper },
     );
     fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: ranger.ontologyID(rng.key),
-      });
-      expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
+      const snapshots = await client.schematics.retrieve({ ranges: [rng.key] });
+      expect(snapshots.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -151,16 +151,16 @@ describe("Schematic TreeContextMenu", () => {
     result.unmount();
   });
 
-  it("copies the schematic with a (copy) suffix and begins an inline rename", async () => {
+  it("duplicates the schematic with a (copy) suffix and begins an inline rename", async () => {
     const { schematic: s, rootID, result } = await renderSchematicTree();
     fireEvent.contextMenu(await screen.findByText(s.name));
-    fireEvent.click(await screen.findByText("Copy"));
+    fireEvent.click(await screen.findByText("Duplicate"));
     let copyKey = "";
     await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({ ids: rootID });
-      const copy = children.find((c) => c.name === `${s.name} (copy)`);
+      const schematics = await client.schematics.retrieve({ projects: [rootID.key] });
+      const copy = schematics.find((c) => c.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");
-      copyKey = copy.id.key;
+      copyKey = copy.key;
     });
     const editable = await awaitTextEditingElement();
     const renamed = uniqueName("copy_renamed");
@@ -183,15 +183,31 @@ describe("Schematic TreeContextMenu", () => {
   });
 });
 
+describe("snapshot schematics", () => {
+  it("should withhold duplicating a snapshot", async () => {
+    const s = await createSchematic();
+    const snap = await client.schematics.copy({
+      key: s.key,
+      name: uniqueName("snap"),
+      snapshot: true,
+    });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(schematic.resourceID(snap.key), snap.name)],
+    });
+    expect(await screen.findByText("Delete")).toBeTruthy();
+    expect(screen.queryByText("Duplicate")).toBeNull();
+  });
+});
+
 describe("permission to write the schematic", () => {
   it("should offer Reload Console", async () => {
     const s = await createSchematic();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [
-        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
-      ],
+      resources: [createResource(schematic.resourceID(s.key), s.name)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -201,9 +217,7 @@ describe("permission to write the schematic", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [
-        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
-      ],
+      resources: [createResource(schematic.resourceID(s.key), s.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

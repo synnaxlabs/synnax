@@ -8,9 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
+import { createOf, reduceAll } from "@/device/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/device/actions.gen";
 import {
   type Device,
   type DeviceSchemas,
@@ -18,21 +27,27 @@ import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/device/where.gen";
-import { ontology } from "@/ontology";
+import { LINES } from "@/device/where";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/device/where.gen";
+import { group } from "@/group";
 import { query } from "@/query";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const SET_CHANNEL_NAME = "sy_device_set";
+export const ACTION_CHANNEL_NAME = "sy_device_action_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
-
-const genericDeviceZ = deviceZ();
 
 const createReqZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -52,16 +67,12 @@ const createResZ = <
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
 type FilterParams = query.RequestInput<typeof filterParamsZ>;
+const requestParamsZ = filter.requestInputZ(retrieveRequestZ, filterParamsZ);
 
-const retrieveMultiParamsZ = z.union([
-  query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), requestParamsZ]);
 
 type OneParams = query.OneInput<typeof retrieveMultiParamsZ>;
 
@@ -91,11 +102,7 @@ const singleRetrieveParamsZ = z
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([
-  singleRetrieveParamsZ,
-  retrieveRequestZ,
-  filterParamsZ,
-]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, requestParamsZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
@@ -108,7 +115,7 @@ type RetrieveSchemas<
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
 
 /** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
+const SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
@@ -126,35 +133,18 @@ const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =
   device;
 
 /**
- * Removes the fields that make the Core write a device's status and parent. Use it to
- * send a retrieved device or a create reply back to {@link Client.create}: a reply
- * carries a parent, and the Core writes the status of any device sent with one.
+ * Removes the status of a device. A create of the result stores the default status of a
+ * new device, not a status read from the Core.
  */
-export const toUpdate = <D extends Pick<Device, "status" | "parent">>({
-  status: _status,
-  parent: _parent,
+export const toUpdate = <D extends Pick<Device, "status">>({
+  status: _,
   ...device
-}: D): Omit<D, "status" | "parent"> => device;
-
-// Device statuses live in the status table under the "device:<key>" status
-// key, carrying the device key in their details.
-const affectedDeviceKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): Key[] | null => {
-  if (event.variant === "set") {
-    const parsed = statusZ.safeParse(event.value);
-    return parsed.success ? [parsed.data.details.device] : null;
-  }
-  const [type, key] = event.key.split(":");
-  if (type !== "device" || !primitive.isNonZero(key)) return null;
-  return [key];
-};
+}: D): Omit<D, "status"> => device;
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
-  ontology: ontology.Client;
+  statuses: status.Client;
 }
 
 export class Client extends query.Retriever<
@@ -167,28 +157,51 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
+  private readonly dispatcher: actions.Controller<Key, Omit<Device, "status">, Action>;
+  /**
+   * Builds requests that move devices between groups. The group must sit under each
+   * device's rack.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
+    const affectedDeviceKeys = (event: query.TableEvent<status.Key, status.Status>) =>
+      statuses.ownerKeys(event, "device");
     // Explicitly omit 'status' from the device type to make sure we aren't
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
-      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
-          value: ({ status: _, ...device }) => device,
-        }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      fetch: async (keys) =>
+        (
+          await this.fetchThrough({ ...query.keysRequest(keys), includeStatus: true })
+        ).map(stripStatus),
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a device reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Omit<Device, "status">, Action>({
+      store,
+      listed: (action) =>
+        action.type === "set_rack" || actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/device/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Device, "status">, Device>({
       name: "device.composed",
       source: store,
       compose: (record) => this.compose(record, true),
-      watch: [query.deriveWatch(statusStore, (event) => affectedDeviceKeys(event))],
+      triggers: [
+        query.deriveTrigger(statusStore, (event) => affectedDeviceKeys(event)),
+      ],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleQuery, Device, Key, Device>({
       name: "device",
       table: composed,
@@ -206,16 +219,21 @@ export class Client extends query.Retriever<
       name: "device",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => matches(d, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (d, req) => matches(LINES, d, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         serverFields: SERVER_FIELDS,
-        watch: [
-          query.watch(statusStore, (event, q: RetrieveRequest) => {
-            if (q.includeStatus !== true) return null;
-            return affectedDeviceKeys(event);
-          }),
+        triggers: [
+          query.trigger(
+            statusStore,
+            (event, q: RetrieveRequest) => {
+              if (q.includeStatus !== true) return null;
+              return affectedDeviceKeys(event);
+            },
+            { contentOnly: true },
+          ),
         ],
       },
       compose: (record, q) =>
@@ -224,6 +242,10 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest("/device/dispatch", (keys, to) =>
+      group.moveCached(store, keys, to),
+    );
   }
 
   async retrieve<
@@ -263,9 +285,9 @@ export class Client extends query.Retriever<
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
     if (schemas != null) {
-      const request = query.dropOne(rest);
+      const request = retrieveParamsZ.parse(query.dropOne(rest));
       const devices = await this.fetchThrough(request, schemas);
-      checkForMultipleOrNoResults("Device", request, devices, isSingle);
+      checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -316,21 +338,24 @@ export class Client extends query.Retriever<
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
     const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const { store: statuses } = this.cfg.statuses;
     // A status streamed during the request is newer than the reply.
-    const since = this.cfg.statusStore.stamp();
-    const res = await query.optimistic({
-      rollbacks: apply(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/device/create",
-          { devices: normalized },
-          createReqZ(schemas),
-          createResZ(schemas),
-        ),
-    });
-    res.devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since });
+    const res = await statuses.track(async (since) => {
+      const res = await query.optimistic({
+        rollbacks: apply(),
+        onOptimistic: opts.onOptimistic,
+        commit: async () =>
+          await this.cfg.unary.send(
+            "/device/create",
+            { devices: normalized },
+            createReqZ(schemas),
+            createResZ(schemas),
+          ),
+      });
+      res.devices.forEach(({ status: st }) => {
+        if (st != null) statuses.ingest(st, { since });
+      });
+      return res;
     });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
@@ -338,10 +363,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -356,23 +378,20 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/device/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached device until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached device.
+   * @throws {Error} if the cached device cannot hold an action, before any send.
+   * @throws {ValidationError} if the device cannot hold an action.
+   * @throws {NotFoundError} if the device does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
@@ -391,7 +410,7 @@ export class Client extends query.Retriever<
 
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
-    const st = this.cfg.statusStore.get(statusKey(cached.key));
+    const st = this.cfg.statuses.ownedBy(resourceID(cached.key));
     if (st == null) return cached;
     const parsed = statusZ.safeParse(st);
     if (!parsed.success) return cached;
@@ -415,27 +434,31 @@ export class Client extends query.Retriever<
     req: RetrieveParams | OneParams | FilterParams,
     schemas?: DeviceSchemas,
   ): Promise<Device[]> {
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statusStore.stamp();
-    const devices = await this.execRetrieve(req, schemas);
-    this.store.ingest(devices.map(stripStatus), { since });
-    devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.ingest(st, { since: statusSince });
-    });
-    return devices;
+    const { store: statuses } = this.cfg.statuses;
+    return await this.store.track(
+      async (since) =>
+        await statuses.track(async (statusSince) => {
+          const devices = await this.execRetrieve(req, schemas);
+          this.store.ingest(devices.map(stripStatus), { since });
+          devices.forEach(({ status: st }) => {
+            if (st != null) statuses.ingest(st, { since: statusSince });
+          });
+          return devices;
+        }),
+    );
   }
 
-  private async fetchSingle(q: SingleQuery): Promise<Device> {
-    // Status-bearing queries bypass the table, which never holds status.
-    if (q.includeStatus !== true) {
-      const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults("Device", q, devices, true);
-      return devices[0];
-    }
-    const devices = await this.fetchThrough(q);
-    checkForMultipleOrNoResults("Device", q, devices, true);
+  private async fetchSingle(q: SingleQuery): Promise<Omit<Device, "status">> {
+    // The refresh covers a cached device whose status has not synced.
+    const devices = await this.store.retrieve([q.key], {
+      refresh: q.includeStatus === true,
+    });
+    checkForMultipleOrNoResults(
+      "device",
+      { where: { key: { eq: q.key } } },
+      devices,
+      true,
+    );
     return devices[0];
   }
 }
-
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

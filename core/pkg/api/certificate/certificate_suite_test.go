@@ -15,13 +15,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,46 +38,58 @@ func TestAPICertificate(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	svc    *service.Layer
-	apiSvc *apicertificate.Service
+	db  *gorp.DB
+	svc *service.Layer
+	// The handlers run the routes as the API layer binds them.
+	set freighter.UnaryHandler[
+		apicertificate.SetRequest,
+		apicertificate.SetResponse,
+	]
+	retrieve freighter.UnaryHandler[
+		apicertificate.RetrieveRequest,
+		apicertificate.RetrieveResponse,
+	]
+	del      freighter.UnaryHandler[apicertificate.DeleteRequest, struct{}]
+	dispatch freighter.UnaryHandler[apicertificate.DispatchRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apicertificate.NewService(apicertificate.ServiceConfig{
+	apiSvc := MustSucceed(apicertificate.NewService(apicertificate.ServiceConfig{
 		Certificate: svc.Certificate,
-		RBAC:        svc.RBAC,
 	}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   node.DB,
+		RBAC: svc.RBAC,
+		Held: apiauth.HeldTables(),
+	}))
+	set = bind.Write(binder, apiSvc.Set)
+	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	del = bind.Write(binder, apiSvc.Delete)
+	dispatch = bind.Write(binder, apiSvc.Dispatch)
 })
 
-// createUser creates a user with no role assignments.
+// createUser creates a user whose role allows nothing.
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
-	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-// grant gives the subject the actions on the objects through a fresh role.
+// grant gives the subject the actions on the objects.
 func grant(
 	ctx SpecContext,
-	subject ontology.ID,
+	subject resource.ID,
 	actions []access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) {
 	GinkgoHelper()
-	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
-	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	p := &policy.Policy{
-		Name:    "policy-" + uuid.New().String(),
-		Objects: objects,
-		Actions: actions,
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	key := MustSucceed(user.KeyFromResourceID(subject))
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, key, actions, objects...),
+	)
 }

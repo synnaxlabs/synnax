@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Certificate{}
@@ -36,10 +36,10 @@ func (c Certificate) GorpKey() Key { return c.Base().Key }
 // SetOptions returns no additional storage options.
 func (Certificate) SetOptions() []any { return nil }
 
-// OntologyID returns the certificate's ontology identifier.
-func (c Certificate) OntologyID() ontology.ID {
-	return ontology.ID{
-		Type: ontology.ResourceTypeCertificate,
+// ResourceID returns the certificate's resource identifier.
+func (c Certificate) ResourceID() resource.ID {
+	return resource.ID{
+		Type: resource.TypeCertificate,
 		Key:  c.Base().Key.String(),
 	}
 }
