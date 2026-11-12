@@ -9,77 +9,18 @@
 
 import "@/platform/version/Update.css";
 
-import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Size, type text } from "@synnaxlabs/x";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { type Update as TauriUpdate } from "@tauri-apps/plugin-updater";
-import { type ReactElement, useState } from "react";
+import { type text } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { type Available } from "@/platform/version/check";
-import { useCheck, useInstall } from "@/platform/version/Updater";
-import { Session } from "@/session";
-
-interface Download {
-  variant: "idle" | "loading" | "error";
-  total: Size;
-  progress: Size;
-  status?: status.Status;
-}
-
-const ZERO_DOWNLOAD: Download = {
-  variant: "idle",
-  total: Size.bytes(0),
-  progress: Size.bytes(0),
-};
-
-interface UseDownloadReturn {
-  download: Download;
-  start: (update: TauriUpdate) => void;
-}
-
-const useDownload = (): UseDownloadReturn => {
-  const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
-  const addStatus = Status.useAdder();
-  const install = useInstall();
-  const start = (update: TauriUpdate): void =>
-    void (async () => {
-      setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
-      try {
-        await install(update, (prog) => {
-          switch (prog.event) {
-            case "Started":
-              setDownload((p) => ({
-                ...p,
-                total: Size.bytes(prog.data.contentLength ?? 0),
-              }));
-              break;
-            case "Progress":
-              setDownload((p) => ({
-                ...p,
-                progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
-              }));
-              break;
-            case "Finished":
-              setDownload((p) => ({ ...p, progress: p.total }));
-              break;
-          }
-        });
-        if (Session.Runtime.ENGINE === "tauri") await relaunch();
-      } catch (error) {
-        const st = status.fromException(error, "Failed to update Console");
-        addStatus(st);
-        setDownload((p) => ({ ...p, variant: "error", status: st }));
-      }
-    })();
-  return { download, start };
-};
+import { useCheck, useDownload } from "@/platform/version/Updater";
 
 export interface UpdateProps {
   /** The text level of the update status. Defaults to h4. */
@@ -123,6 +64,12 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
   const startAfterConfirm = async (found: Available): Promise<void> => {
     if (await confirmed(found)) start(found.update);
   };
+  const available = check.variant === "success" ? check.available : null;
+  const updateButton = available != null && (
+    <Button.Button variant="filled" onClick={() => void startAfterConfirm(available)}>
+      Update and restart
+    </Button.Button>
+  );
   const total = download.total.valueOf();
   const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
 
@@ -132,7 +79,12 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
     </Status.Summary>
   );
   if (download.variant === "error" && download.status != null)
-    updateContent = <Status.Summary level={level} status={download.status} />;
+    updateContent = (
+      <>
+        <Status.Summary level={level} status={download.status} />
+        {updateButton}
+      </>
+    );
   else if (download.variant === "loading")
     if (progressPercent === 100)
       updateContent = (
@@ -163,19 +115,16 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
   else if (check.variant === "error" || check.variant === "blocked")
     updateContent = <Status.Summary level={level} status={check.status} />;
   else if (check.variant === "success")
-    if (check.available != null) {
-      const found = check.available;
+    if (available != null)
       updateContent = (
         <>
           <Status.Summary level={level} variant="success">
-            Version {found.update.version} available
+            Version {available.update.version} available
           </Status.Summary>
-          <Button.Button variant="filled" onClick={() => void startAfterConfirm(found)}>
-            Update and restart
-          </Button.Button>
+          {updateButton}
         </>
       );
-    } else
+    else
       updateContent = (
         <Status.Summary level={level} variant="success">
           Up to date

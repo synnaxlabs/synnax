@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
-import { useDispatch } from "react-redux";
 
 import { OPTIONS } from "@/feature/theme/options";
 import { Settings as PlatformSettings } from "@/platform/settings";
+import { Session } from "@/session";
 import { Theme } from "@/session/theme";
 
 /** The theme settings: light, dark, or the theme of the operating system. */
 export const Settings = (): ReactElement => {
   const mode = Theme.useSelectMode();
-  const dispatch = useDispatch<Dispatch<Theme.Action>>();
+  const dispatch = Session.useDispatch();
   return (
     <PlatformSettings.Card title="Theme">
       <PlatformSettings.Entry

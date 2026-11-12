@@ -341,7 +341,7 @@ describe("version useInfoModal", () => {
       fireEvent.click(screen.getByRole("button", { name: "Update" }));
       expect(
         await screen.findByText(
-          "The Core changed before the update started. Close this dialog and update again.",
+          "The Core changed before the update started. Update again.",
         ),
       ).toBeTruthy();
       expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
