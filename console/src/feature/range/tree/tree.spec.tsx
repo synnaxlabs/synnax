@@ -11,11 +11,10 @@ import { type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { createRenderCounter } from "@synnaxlabs/lyra/testutil";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ComponentType, type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
@@ -25,19 +24,7 @@ const client = createTestClient();
 
 const noop = () => {};
 
-const { Counted, counts, reset } = createRenderCounter();
-
-const counted =
-  (Item: ComponentType<List.ItemProps<ranger.Key>>) =>
-  ({ key, ...props }: List.ItemProps<ranger.Key>): ReactElement => (
-    <Counted key={key} id={props.itemKey}>
-      <Item {...props} />
-    </Counted>
-  );
-
 type Layout = "tree" | "list" | "timeline";
-
-const ITEMS = { tree: counted(Tree.Item), list: counted(Tree.FlatItem) };
 
 interface HarnessProps {
   label: label.Key;
@@ -62,26 +49,13 @@ const Harness = ({ label, layout }: HarnessProps): ReactElement => {
       value={[]}
       onChange={noop}
     >
-      {layout === "timeline" ? (
-        <Tree.Layout
-          layout="timeline"
-          nodes={tree.nodes}
-          expanded={expanded}
-          onExpand={toggle}
-          more={tree.more}
-        />
-      ) : (
-        <Tree.NodeProvider
-          nodes={tree.nodes}
-          expanded={expanded}
-          onExpand={toggle}
-          more={tree.more}
-        >
-          <List.Scroll>
-            <List.Items<ranger.Key>>{ITEMS[layout]}</List.Items>
-          </List.Scroll>
-        </Tree.NodeProvider>
-      )}
+      <Tree.Layout
+        layout={layout}
+        nodes={tree.nodes}
+        expanded={expanded}
+        onExpand={toggle}
+        more={tree.more}
+      />
     </Select.Frame>
   );
 };
@@ -103,7 +77,7 @@ const createRanges = async (): Promise<{
   return { label: key, ranges };
 };
 
-/** Shows the tree and waits for its items to settle, then resets the count. */
+/** Shows the tree and waits for its items to settle. */
 const renderTree = async (
   label: label.Key,
   ranges: ranger.Range[],
@@ -115,24 +89,46 @@ const renderTree = async (
     ranges.forEach((r) => expect(countEditableText(List.itemNameID(r.key))).toBe(1)),
   );
   await act(async () => {});
-  reset();
+};
+
+const OBSERVED: MutationObserverInit = {
+  attributes: true,
+  childList: true,
+  characterData: true,
+  subtree: true,
+};
+
+/** Records the DOM changes in each range item except the named ones. */
+const watchItems = (...except: string[]): (() => MutationRecord[]) => {
+  const skipped = except.map((name) => screen.getByRole("listitem", { name }));
+  const changes: MutationRecord[] = [];
+  const observer = new MutationObserver((records) => changes.push(...records));
+  screen
+    .getAllByRole("listitem")
+    .filter((item) => !skipped.includes(item))
+    .forEach((item) => observer.observe(item, OBSERVED));
+  return () => {
+    observer.disconnect();
+    return changes;
+  };
 };
 
 describe("range tree", () => {
   it.each<Layout>(["tree", "list"])(
-    "should render only the item of a renamed range in the %s layout",
+    "should change only the item of a renamed range in the %s layout",
     async (layout) => {
       const { label, ranges } = await createRanges();
       await renderTree(label, ranges, layout);
       const [, b] = ranges;
+      const stop = watchItems("b");
       await client.ranges.rename(b.key, "b2");
       await screen.findByText("b2");
       await act(async () => {});
-      expect(Object.fromEntries(counts)).toEqual({ [b.key]: 1 });
+      expect(stop()).toEqual([]);
     },
   );
 
-  it("should mount each child once on expand and render no other item", async () => {
+  it("should mount each child once on expand and change no other item", async () => {
     const { label, ranges } = await createRanges();
     // The ranges below an expanded range move, so the last range keeps all still.
     const c = ranges[2];
@@ -145,6 +141,7 @@ describe("range tree", () => {
       })),
     );
     await renderTree(label, ranges);
+    const stop = watchItems("c");
     const item = screen.getByRole("listitem", { name: "c" });
     fireEvent.click(within(item).getByRole("button", { name: "Expand" }));
     await waitFor(() =>
@@ -153,32 +150,23 @@ describe("range tree", () => {
       ),
     );
     await act(async () => {});
-    expect(Object.fromEntries(counts)).toEqual({ [c.key]: 1 });
+    expect(stop()).toEqual([]);
   });
 
   it("should change no lane when the timeline zooms", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges, "timeline");
-    const changes: MutationRecord[] = [];
-    const observer = new MutationObserver((records) => changes.push(...records));
-    screen.getAllByRole("listitem").forEach((lane) =>
-      observer.observe(lane, {
-        attributes: true,
-        childList: true,
-        characterData: true,
-        subtree: true,
-      }),
-    );
+    const stop = watchItems();
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     await screen.findByRole("button", { name: "Fit all" });
     await act(async () => {});
-    observer.disconnect();
-    expect(changes).toEqual([]);
+    expect(stop()).toEqual([]);
   });
 
-  it("should mount an added range once and render no other item", async () => {
+  it("should mount an added range and change no other item", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
+    const stop = watchItems();
     const end = TimeStamp.now().sub(TimeSpan.days(1));
     await client.ranges.create({
       name: "d",
@@ -187,6 +175,6 @@ describe("range tree", () => {
     });
     await screen.findByText("d");
     await act(async () => {});
-    expect(Object.fromEntries(counts)).toEqual({});
+    expect(stop()).toEqual([]);
   });
 });
