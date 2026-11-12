@@ -27,7 +27,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
-import { FOCUSABLE } from "@/util";
+import { ownsEvent } from "@/util";
 
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
@@ -190,13 +190,7 @@ export const Button = <E extends ElementType = "button">(
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
     // cancelled default also moves focus, so skip it when a focusable descendant owns
     // the press: the chassis is not the element the browser would focus.
-    if (
-      tabIndex == -1 &&
-      draggable !== true &&
-      e.target instanceof Element &&
-      e.target.closest(FOCUSABLE) === e.currentTarget
-    )
-      e.preventDefault();
+    if (tabIndex == -1 && draggable !== true && ownsEvent(e)) e.preventDefault();
     hold.onMouseDown(e);
   };
 
