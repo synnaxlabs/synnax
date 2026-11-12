@@ -201,6 +201,10 @@ channels.
   their data.
 - **Data types** -> Sift stores floats, integers, booleans, strings, and bytes. Synnax
   sends `timestamp` values as `int64`, and `json` and `uuid` values as `string`.
+- **Channels written later than their index** -> when a channel is written alone, at
+  timestamps that its index channel already has, the stream task sends the new values.
+  It does not send values written this way while the task is stopped or the Core is off.
+  Upload the range again to send them.
 
 <Divider.Divider x />
 
