@@ -47,8 +47,42 @@ const (
 // ScanConfig configures a Kafka scan task.
 type ScanConfig = versions.ScanConfig
 
-// ReadField is a single value extracted from a record's JSON value.
+// BaseReadField carries the fields every Kafka read field shares.
+type BaseReadField = versions.BaseReadField
+
+// ReadField is a single value extracted from a record's JSON value. The type is the
+// kind of value the field reads.
 type ReadField = versions.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = versions.ReadFieldVariant
+
+// FloatReadField reads a number into a float channel.
+type FloatReadField = versions.FloatReadField
+
+// IntegerReadField reads a number into a signed integer channel.
+type IntegerReadField = versions.IntegerReadField
+
+// UnsignedReadField reads a number into an unsigned integer channel.
+type UnsignedReadField = versions.UnsignedReadField
+
+// StringReadField reads a string into a string channel.
+type StringReadField = versions.StringReadField
+
+// BooleanReadField reads a boolean into a boolean channel.
+type BooleanReadField = versions.BooleanReadField
+
+// TimestampReadField reads a timestamp into a timestamp channel.
+type TimestampReadField = versions.TimestampReadField
+
+// JsonReadField reads any JSON value into a JSON channel.
+type JsonReadField = versions.JsonReadField
+
+// UuidReadField reads a UUID string into a UUID channel.
+type UuidReadField = versions.UuidReadField
+
+// BytesReadField reads a base64 string into a bytes channel.
+type BytesReadField = versions.BytesReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
@@ -277,8 +311,8 @@ func (u SASL) Mechanism() SASLType {
 type Properties struct {
 	// Brokers contains the bootstrap broker addresses, as host:port.
 	Brokers []string `json:"brokers" msgpack:"brokers"`
-	// TLS is true when every broker connection uses TLS.
-	TLS bool `json:"tls" msgpack:"tls"`
+	// Secure is true when every broker connection uses TLS.
+	Secure bool `json:"secure" msgpack:"secure"`
 	// CaCertificate is the PEM-encoded certificate authority that signs the brokers'
 	// certificates. Empty trusts the system roots.
 	CaCertificate string `json:"ca_certificate" msgpack:"ca_certificate"`

@@ -45,9 +45,9 @@ const createDraft = async (
 const createField = (
   key: string,
   pointer: string,
-  overrides: Partial<Kafka.Task.ReadField> = {},
+  overrides: Partial<kafka.FloatReadField> = {},
 ): Kafka.Task.ReadField => ({
-  ...kafka.readFieldZ.parse({}),
+  ...kafka.floatReadFieldZ.parse({ type: "float" }),
   key,
   pointer,
   ...overrides,
@@ -105,6 +105,44 @@ describe("Read", () => {
     await waitFor(() => expect(screen.getAllByText("/payload/temp")).toHaveLength(2));
   });
 
+  it.each([
+    ["float", 0],
+    ["integer", "0"],
+    ["unsigned", "0"],
+    ["string", ""],
+  ] as const)(
+    "should save each added enum mapping of a %s field under its own label",
+    async (type, value) => {
+      const dev = await createKafkaDevice(client);
+      const field = kafka.READ_FIELD_SCHEMAS[type].parse({
+        type,
+        key: "f",
+        pointer: "/v",
+      });
+      const draft = await createDraft(client, {
+        ...Kafka.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        records: [createRecord("r", [field])],
+      });
+      await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByText("/v"));
+      const add = await screen.findByRole("button", { name: "Add mapping" });
+      fireEvent.click(add);
+      fireEvent.click(add);
+      await waitFor(async () => {
+        const stored = await createTestClient().tasks.retrieve({
+          key: draft.key,
+          schemas: Kafka.Task.READ_SCHEMAS,
+        });
+        const [saved] = stored.config.records[0].fields;
+        expect("enumValues" in saved && saved.enumValues).toEqual([
+          { label: "LABEL_1", value },
+          { label: "LABEL_2", value },
+        ]);
+      });
+    },
+  );
+
   it("should hide the enum mapping and show the time format for a timestamp field", async () => {
     await renderWithField();
     await screen.findByText("Enum mapping");
@@ -113,10 +151,12 @@ describe("Read", () => {
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
 
-  it("should offer the string type and hide the enum mapping for it", async () => {
+  it("should keep the enum mapping for a string field and hide it for a boolean", async () => {
     await renderWithField();
     await screen.findByText("Enum mapping");
     await selectFromDropdown("float64", "String");
+    await screen.findByText("Enum mapping");
+    await selectFromDropdown("String", "Boolean");
     await waitFor(() => expect(screen.queryByText("Enum mapping")).toBeNull());
   });
 
@@ -151,7 +191,12 @@ describe("Read", () => {
         createRecord(
           "any",
           [
-            createField("ts", "/ts", { dataType: "timestamp", timeFormat: "unix_ms" }),
+            kafka.timestampReadFieldZ.parse({
+              type: "timestamp",
+              key: "ts",
+              pointer: "/ts",
+              timeFormat: "unix_ms",
+            }),
             createField("temp", "/temp", { name: tempName }),
           ],
           { index: "ts" },

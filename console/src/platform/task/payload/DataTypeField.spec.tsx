@@ -57,3 +57,19 @@ describe("DataTypeField", () => {
     );
   });
 });
+
+describe("ReadDataTypeField", () => {
+  it("should lock the data type to that of a channel that exists", async () => {
+    const ch = await createChannel();
+    await renderInTaskFormWithClient(
+      <Task.Payload.ReadDataTypeField
+        value="float64"
+        onChange={() => {}}
+        channel={ch.key}
+      />,
+      { client, values: {} },
+    );
+    await screen.findByText("int32");
+    expect(screen.getByText("Set on the channel")).toBeTruthy();
+  });
+});

@@ -18,11 +18,67 @@ RecordKey = v0.RecordKey
 
 ScanConfig = v0.ScanConfig
 
-ReadField = v0.ReadField
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    name     string = "" {
+        @doc value "is the name given to the channel when the task creates it."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer  string = "" {
+        @doc value "is the JSON Pointer to the value within the record value."
+    }
 
-ReadRecord = v0.ReadRecord
+    @doc value  "carries the fields every Kafka read field shares."
+    @go marshal
+}
 
-ReadConfig = v0.ReadConfig
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a number into a float channel."
+    }
+    integer extends payload.IntegerRead {
+        @doc value "reads a number into a signed integer channel."
+    }
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads a number into an unsigned integer channel."
+    }
+    string extends payload.StringRead {
+        @doc value "reads a string into a string channel."
+    }
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean into a boolean channel."
+    }
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp into a timestamp channel."
+    }
+    json {
+        @doc value "reads any JSON value into a JSON channel."
+    }
+    uuid {
+        @doc value "reads a UUID string into a UUID channel."
+    }
+    bytes {
+        @doc value "reads a base64 string into a bytes channel."
+    }
+
+    @doc value  """
+        is a single value extracted from a record's JSON value. The type is the kind of
+        value the field reads.
+    """
+    @go marshal
+}
+
+ReadRecord struct extends v0.ReadRecord {}
+
+ReadConfig struct extends v0.ReadConfig {}
 
 BaseWriteChannel struct {
     key      string = create {

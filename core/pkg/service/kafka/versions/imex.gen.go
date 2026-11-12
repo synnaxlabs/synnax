@@ -70,7 +70,11 @@ func decodeReadConfig(
 		if err != nil {
 			return ReadConfig{}, err
 		}
-		return t0, nil
+		t1, err := v1.MigrateReadConfig(ctx, t0)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t1, nil
 	case v1.Version:
 		return imex.DecodeBlob[ReadConfig](data, "kafka.ReadConfig", version)
 	}

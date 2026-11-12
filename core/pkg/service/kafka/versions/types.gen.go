@@ -39,8 +39,42 @@ const (
 // ScanConfig configures a Kafka scan task.
 type ScanConfig = v1.ScanConfig
 
-// ReadField is a single value extracted from a record's JSON value.
+// BaseReadField carries the fields every Kafka read field shares.
+type BaseReadField = v1.BaseReadField
+
+// ReadField is a single value extracted from a record's JSON value. The type is the
+// kind of value the field reads.
 type ReadField = v1.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = v1.ReadFieldVariant
+
+// FloatReadField reads a number into a float channel.
+type FloatReadField = v1.FloatReadField
+
+// IntegerReadField reads a number into a signed integer channel.
+type IntegerReadField = v1.IntegerReadField
+
+// UnsignedReadField reads a number into an unsigned integer channel.
+type UnsignedReadField = v1.UnsignedReadField
+
+// StringReadField reads a string into a string channel.
+type StringReadField = v1.StringReadField
+
+// BooleanReadField reads a boolean into a boolean channel.
+type BooleanReadField = v1.BooleanReadField
+
+// TimestampReadField reads a timestamp into a timestamp channel.
+type TimestampReadField = v1.TimestampReadField
+
+// JsonReadField reads any JSON value into a JSON channel.
+type JsonReadField = v1.JsonReadField
+
+// UuidReadField reads a UUID string into a UUID channel.
+type UuidReadField = v1.UuidReadField
+
+// BytesReadField reads a base64 string into a bytes channel.
+type BytesReadField = v1.BytesReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.

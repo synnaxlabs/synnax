@@ -670,3 +670,12 @@ func (t *writeTask) setStatus(
 		)
 	}
 }
+
+// enums returns the labels of entries in the form xjson takes.
+func enums(entries []payload.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.NewEnum(e.Label, e.Value)
+	}
+	return out
+}
