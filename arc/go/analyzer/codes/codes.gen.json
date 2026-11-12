@@ -9,7 +9,7 @@
   },
   "ARC2006": {
     "severity": "error",
-    "message": "%s a calculation with %s"
+    "message": "%s has no unit and cannot take a value in %s"
   },
   "ARC2007": {
     "severity": "warning",

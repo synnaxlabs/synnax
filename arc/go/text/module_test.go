@@ -179,7 +179,7 @@ var _ = Describe("Loader", func() {
 		})
 
 		It("Should resolve a module's own imports", func(ctx SpecContext) {
-			sources["m"] = "import time\n\nexport func f() i64 { return time.now() }"
+			sources["m"] = "import time\n\nexport func f() i64 ns { return time.now() }"
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})

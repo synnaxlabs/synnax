@@ -157,6 +157,31 @@ func warnTruncation[T antlr.ParserRuleContext](
 	ctx.Diagnostics.Add(d)
 }
 
+// ReportMissingUnit reports at ast when a value of type source, which has a unit, goes
+// to subject, which is of type target and has none. It returns whether it did. The
+// hint is the declaration of sink in that unit, and note when sink gives none.
+func ReportMissingUnit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	ast antlr.ParserRuleContext,
+	source, target types.Type,
+	subject string,
+	sink *Sink,
+	note string,
+) bool {
+	unit := source.Unwrap().Unit
+	if unit == nil || target.Unwrap().Unit != nil {
+		return false
+	}
+	d := codes.UnitMissing.At(ast, subject, unit.Name)
+	if r, ok := redeclaration(ctx, sink, unit); ok {
+		d.Notes = hintNotes([]redeclare{r})
+	} else if note != "" {
+		d = d.WithNote(note)
+	}
+	ctx.Diagnostics.Add(d)
+	return true
+}
+
 // hintNotes returns a hint for each redeclare.
 func hintNotes(redeclares []redeclare) []protocol.DiagnosticRelatedInformation {
 	notes := make([]protocol.DiagnosticRelatedInformation, len(redeclares))

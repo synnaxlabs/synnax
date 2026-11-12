@@ -5656,7 +5656,7 @@ var _ = Describe("Compiler", func() {
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			import time
-			func compute() i64 {
+			func compute() i64 ns {
 				return time.now()
 			}
 			`, nil))
@@ -5731,7 +5731,7 @@ var _ = Describe("Compiler", func() {
 		// Prefer time.now(). See "Should execute time.now() via qualified name" above.
 		It("Should execute bare now() (deprecated)", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
+			func compute() i64 ns {
 				return now()
 			}
 			`, nil))

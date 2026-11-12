@@ -12,6 +12,8 @@
 package statement
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -302,6 +304,10 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		if expr != nil {
 			exprType := atypes.InferFromExpression(ctx.Child(expr))
 			if exprType.IsValid() && varType.IsValid() {
+				// A declaration with no unit takes the unit of its value.
+				if varType.IsNumeric() && varType.Unit == nil {
+					varType.Unit = exprType.Unit
+				}
 				expression.WarnValueTruncation(
 					ctx, ctx.AST, expr, exprType, varType,
 					declaredSink(ctx, name, varType, expr),
@@ -958,6 +964,15 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
+			declared := expectedReturnType
+			declared.Unit = actualReturnType.Unwrap().Unit
+			if expression.ReportMissingUnit(
+				ctx, ctx.AST, actualReturnType, expectedReturnType,
+				"the result of '"+funcName+"'", nil,
+				fmt.Sprintf("hint: declare the result as `%s`", declared),
+			) {
+				return
+			}
 			expression.WarnValueTruncation(
 				ctx, ctx.AST, returnExpr, actualReturnType, expectedReturnType, nil,
 			)
@@ -1481,6 +1496,12 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
+	if expression.ReportMissingUnit(
+		ctx, ctx.AST, exprType, varType, "'"+name+"'",
+		expression.SinkOf(ctx, varScope), "",
+	) {
+		return
+	}
 	// A value assigned to a variable of another unit converts.
 	converted := !parser.IsLiteral(expr) &&
 		types.UnitsConvertible(exprType.Unit, varType.Unit)

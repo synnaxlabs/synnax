@@ -142,6 +142,16 @@ func checkArgType[T antlr.ParserRuleContext](
 		argType = argType.UnwrapChan()
 	}
 	paramType := param.Type
+	if t := paramType.Unwrap(); t.Kind != types.KindVariable && ReportMissingUnit(
+		ctx, arg.AST, argType, paramType,
+		fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName), nil,
+		fmt.Sprintf(
+			"hint: declare `%s %s`",
+			param.Name, withUnit(paramType, argType.Unwrap().Unit),
+		),
+	) {
+		return
+	}
 	// A value in another unit converts on the way to the parameter. Lowering warns
 	// for a flow variable, because it knows if the variable is a constant.
 	if types.UnitsConvertible(argType.Unit, paramType.Unit) {
@@ -159,6 +169,17 @@ func checkArgType[T antlr.ParserRuleContext](
 		}
 		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
 	}
+}
+
+// withUnit returns t with unit on its value type.
+func withUnit(t types.Type, unit *types.Unit) types.Type {
+	if (t.Kind == types.KindChan || t.Kind == types.KindSeries) && t.Elem != nil {
+		elem := withUnit(*t.Elem, unit)
+		t.Elem = &elem
+		return t
+	}
+	t.Unit = unit
+	return t
 }
 
 // readsFlowVariable reports whether expr is the lone name of a variable outside a

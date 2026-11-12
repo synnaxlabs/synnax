@@ -58,15 +58,18 @@ In the messages below, `<name>` stands for a value that changes.
   code="ARC2006"
   severity="error"
   message={[
-    "'<f>' cannot take a calculation with '<v>', which is in <unit>",
-    "'<w>' is in <unit> and cannot take a calculation with '<v>', which is in <unit>",
+    "'<v>' has no unit and cannot take a value in <unit>",
+    "parameter '<p>' of '<f>' has no unit and cannot take a value in <unit>",
+    "the result of '<f>' has no unit and cannot take a value in <unit>",
   ]}
 >
   <Problem.Cause>
-    A calculation has a variable in another unit than the input or the variable it goes
-    to. A calculation does not convert between units.
+    A value with a unit goes to a variable, a parameter, or a function result that has
+    no unit.
   </Problem.Cause>
-  <Problem.Fix>Declare the variable in the unit of the input.</Problem.Fix>
+  <Problem.Fix>
+    Declare the unit that the hint shows. To drop the unit, cast the value: `i64(t)`.
+  </Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
@@ -75,10 +78,9 @@ In the messages below, `<name>` stands for a value that changes.
   message="unit conversion from <unit> to <unit> truncates an integer toward zero"
 >
   <Problem.Cause>
-    An integer variable goes to a variable in a larger unit, such as `s` to `min`, and
-    loses its fraction.
+    An integer goes to a larger unit, such as `s` to `min`, and loses its fraction.
   </Problem.Cause>
-  <Problem.Fix>Declare the two variables in the same unit.</Problem.Fix>
+  <Problem.Fix>Use the same unit on the two sides, or a float.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>

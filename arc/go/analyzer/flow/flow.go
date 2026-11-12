@@ -428,6 +428,12 @@ func analyzeIdentifier(
 			))
 			return
 		}
+		if sym.IsValueVariable() && expression.ReportMissingUnit(
+			ctx, ctx.AST, srcType, chanValueType, "'"+name+"'",
+			expression.SinkOf(ctx, sym), "",
+		) {
+			return
+		}
 		if srcType.IsValid() {
 			// A literal takes the type of the variable it is written to.
 			expected, actual, check := srcType, chanValueType, atypes.Check

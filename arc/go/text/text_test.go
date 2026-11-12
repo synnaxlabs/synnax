@@ -658,6 +658,82 @@ var _ = Describe("Text", func() {
 					"count_ch -> hold(x=d * 2) -> count_ch", 1),
 		)
 
+		DescribeTable("Should reject a value with a unit for a name with no unit",
+			func(ctx SpecContext, source, message, hint string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				found := lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitMissing
+					},
+				)
+				Expect(found).To(HaveLen(1), diagnostics.String())
+				Expect(found[0].Message).To(Equal(message))
+				Expect(found[0].Notes).To(HaveLen(1))
+				Expect(found[0].Notes[0].Message).To(Equal(hint))
+			},
+			Entry(
+				"an assignment",
+				"import time\nsequence main {\nlast $= 0\nstage s1 {\nlast = time.now()\n}\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"hint: change `last $= 0` to `last i64 ns $= 0`",
+			),
+			Entry("an assignment after a read",
+				"import time\nsequence main {\nlast $= 0\nq := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = time.now()\n}\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"hint: change `last $= 0` to `last i64 ns $= 0`"),
+			Entry("a flow",
+				"sequence main {\nlast i64 := 0\nstage s1 {\n5s -> last\n}\n}",
+				"'last' has no unit and cannot take a value in s",
+				"hint: change `last i64 := 0` to `last i64 s := 0`"),
+			Entry(
+				"an assignment in a function",
+				"import time\nfunc f() i64 ns {\nlast := 0\nlast = time.now()\nreturn last\n}",
+				"'last' has no unit and cannot take a value in ns",
+				"hint: change `last := 0` to `last i64 ns := 0`",
+			),
+			Entry("a parameter",
+				"import time\nfunc f(start i64) i64 {\nreturn start\n}\n"+
+					"func g() i64 {\nreturn f(time.now())\n}",
+				"parameter 'start' of 'f' has no unit and cannot take a value in ns",
+				"hint: declare `start i64 ns`"),
+			Entry("a parameter of a flow call",
+				"d := 5s\nfunc f(x i64) i64 {\nreturn x\n}\n"+
+					"count_ch -> f(x=d) -> count_ch",
+				"parameter 'x' of 'f' has no unit and cannot take a value in s",
+				"hint: declare `x i64 s`"),
+			Entry("a result",
+				"func f() i64 {\nreturn 5ms\n}",
+				"the result of 'f' has no unit and cannot take a value in ms",
+				"hint: declare the result as `i64 ms`"),
+		)
+
+		DescribeTable("Should accept a value with a unit where the unit has a place",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("a declaration, which takes the unit",
+				"import time\nfunc f() i64 ns {\nstart i64 := time.now()\n"+
+					"start = time.now()\nreturn start\n}"),
+			Entry("a cast, which drops the unit",
+				"import time\nfunc f(start i64) i64 {\nreturn start\n}\n"+
+					"func g() i64 {\nreturn f(i64(time.now()))\n}"),
+			Entry("a channel with no unit",
+				"sequence main {\nstage s1 {\n5s -> count_ch\n}\n}"),
+		)
+
 		DescribeTable(
 			"Should reject a write between untyped variables of different kinds",
 			func(ctx SpecContext, write, message string) {
@@ -725,7 +801,8 @@ var _ = Describe("Text", func() {
 		DescribeTable(
 			"Should warn when an input truncates a reassigned integer variable",
 			func(ctx SpecContext, unit, body string, warns bool) {
-				source := "func hold(x i64 " + unit + ") i64 {\nreturn x\n}\n" +
+				source := "func hold(x i64 " + unit + ") i64 " + unit +
+					" {\nreturn x\n}\n" +
 					"sequence main {\nd i64 s := 120s\nstage s1 {\n" + body + "\n}\n}"
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -814,7 +891,6 @@ var _ = Describe("Text", func() {
 			},
 			Entry("the same unit", "d := 1min\nother := 2min", `other -> d`),
 			Entry("no unit on the source", "d := 1min\nother := 2", `other -> d`),
-			Entry("no unit on the target", "d := 1\nother := 120s", `other -> d`),
 			Entry("a channel", "d := 1min", `count_ch -> d`),
 		)
 
@@ -877,7 +953,7 @@ var _ = Describe("Text", func() {
 			ctx SpecContext,
 		) {
 			source := `
-			func hold(x i64 ns) i64 {
+			func hold(x i64 ns) i64 ns {
 			    return x
 			}
 			sequence main {
@@ -9246,7 +9322,7 @@ time.wait(duration=500ms) -> output`
 				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
-				`func good() f64 {
+				`func good() f64 psi {
     return 100psi + 50psi
 }`,
 				true, "",
@@ -9626,7 +9702,7 @@ time.wait(duration=500ms) -> output`
 			func(ctx SpecContext) {
 				inter := analyze(ctx, `
 			import time
-			func f(t i64 ns) {n u8} i64 {
+			func f(t i64 ns) {n u8} i64 ns {
 				return t
 			}
 			trig -> f(time.now()) -> out`)
@@ -9650,7 +9726,7 @@ time.wait(duration=500ms) -> output`
 			func(ctx SpecContext) {
 				inter := analyze(ctx, `
 			import time
-			func f(t i64 ns) {} i64 {
+			func f(t i64 ns) {} i64 ns {
 				return t
 			}
 			flag -> select() -> {

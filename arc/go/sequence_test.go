@@ -6020,7 +6020,6 @@ var _ = Describe("Sequence", func() {
 					h.Close(ctx)
 				}
 			},
-			Entry("an input with no unit keeps the number as written", `f64`, "14.7"),
 			Entry("an input in the same unit", `f64 psi`, "14.7"),
 			Entry("an input in another unit converts", `f64 bar`, "1.01352972"),
 		)
@@ -6446,7 +6445,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {n u8} i64 {
+				func f(t i64 ns) {n u8} i64 ns {
 				    return t
 				}
 				trig -> f(time.now()) -> out`, resolver,
@@ -6572,7 +6571,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {} i64 {
+				func f(t i64 ns) {} i64 ns {
 				    return t
 				}
 				sequence main {
@@ -6596,7 +6595,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {} i64 {
+				func f(t i64 ns) {} i64 ns {
 				    return t
 				}
 				flag -> select() -> {
