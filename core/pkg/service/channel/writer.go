@@ -593,12 +593,6 @@ func (w Writer) create(
 		}
 	}
 
-	for _, ch := range channels {
-		if len(ch.Name) == 0 {
-			return validate.PathedError(validate.ErrRequired, "name")
-		}
-	}
-
 	// Allocate local keys for the new channels through the distribution allocator.
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))

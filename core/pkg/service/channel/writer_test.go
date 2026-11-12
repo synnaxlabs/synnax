@@ -266,7 +266,7 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("empty name", "", "name cannot be empty"),
+			Entry("empty name", "", "name: required"),
 			Entry("name starting with a digit", "1sensor", "cannot start with a digit"),
 			Entry("name with spaces", "my channel", "contains invalid characters"),
 			Entry(
