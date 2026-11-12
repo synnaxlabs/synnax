@@ -178,6 +178,18 @@ var _ = Describe("MigrateReadField", func() {
 		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
 	})
 
+	It("Should keep the time format of a field stored with another data type", func() {
+		old := storedField(telem.Float64T)
+		old.TimeFormat = new(payload.TimeFormatUnixMs)
+		f, changes := v2.MigrateReadField(old)
+		stamp, ok := f.Variant.(v2.TimestampReadField)
+		Expect(ok).To(BeTrue())
+		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
+		Expect(changes).To(ConsistOf(
+			"data type float64 became the timestamp kind, which its time format reads",
+		))
+	})
+
 	It("Should lift an unknown data type to the float kind and describe it", func() {
 		f, changes := v2.MigrateReadField(storedField("complex128"))
 		Expect(f.Type()).To(Equal(payload.KindFloat))

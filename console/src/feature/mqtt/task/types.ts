@@ -81,7 +81,7 @@ export const createReadField = (
 export const matchDataType = (field: ReadField, dataType: string): ReadField =>
   payload.kindOf(dataType) === field.type
     ? field
-    : createReadField(Task.Payload.readOptionsOf(dataType, field), readBaseOf(field));
+    : { ...readBaseOf(field), ...Task.Payload.readOptionsOf(dataType, field) };
 
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
