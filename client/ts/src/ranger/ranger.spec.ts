@@ -1221,6 +1221,45 @@ describe("cached reads", () => {
       }
     });
   });
+
+  describe("resolvedAliases", () => {
+    const createChannel = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    it("should resolve the aliases of the range and of each range above it", async () => {
+      const [own, inherited] = await Promise.all([createChannel(), createChannel()]);
+      const parent = await createRange();
+      const child = await createRange(client, { parent: parent.key });
+      await parent.setAlias(inherited.key, "from parent");
+      await child.setAlias(own.key, "own");
+      expect(await client.ranges.resolvedAliases.retrieve(child.key)).toEqual({
+        [own.key]: "own",
+        [inherited.key]: "from parent",
+      });
+    });
+
+    it("should read the aliases again when a range above sets one", async () => {
+      const ch = await createChannel();
+      const grandparent = await createRange();
+      const parent = await createRange(client, { parent: grandparent.key });
+      const child = await createRange(client, { parent: parent.key });
+      const off = client.ranges.resolvedAliases.watch(child.key).onChange(vi.fn());
+      try {
+        expect(await client.ranges.resolvedAliases.retrieve(child.key)).toEqual({});
+        const remoteGrandparent = await remote.ranges.retrieve(grandparent.key);
+        await remoteGrandparent.setAlias(ch.key, "far");
+        await expect
+          .poll(() => client.ranges.resolvedAliases.watch(child.key).getCached())
+          .toEqual({ [ch.key]: "far" });
+      } finally {
+        off();
+      }
+    });
+  });
 });
 
 describe("store", () => {

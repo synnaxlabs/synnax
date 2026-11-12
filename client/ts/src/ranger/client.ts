@@ -71,10 +71,17 @@ const kvDeleteZ = z
 
 const aliasDeleteZ = z.string().transform((val) => alias.decodeDeleteChange(val));
 
+/** The aliases a range resolves: its own and those of the ranges above it. */
+interface ResolvedAliases {
+  range: Key;
+  aliases: Record<channel.Key, string>;
+}
+
 interface Stores {
   ranges: query.Table<Key, Range>;
   kvPairs: query.Table<string, kv.Pair>;
   aliases: query.Table<string, alias.Alias>;
+  resolvedAliases: query.Table<Key, ResolvedAliases>;
 }
 
 /** Creates the range, range KV, and range alias tables on the given cache. */
@@ -113,7 +120,11 @@ const createTables = (
       }),
     ],
   });
-  return { ranges, kvPairs, aliases };
+  const resolvedAliases = cache.createTable<Key, ResolvedAliases>({
+    name: "range_resolved_aliases",
+    equal: (a, b) => deep.equal(a, b),
+  });
+  return { ranges, kvPairs, aliases, resolvedAliases };
 };
 
 interface RangeConstructionOptions {
@@ -315,6 +326,11 @@ export class Client extends query.Retriever<
   readonly parent: query.Retrieves<Key, Range | null>;
   /** Cached queries for a range's KV metadata pairs, keyed by the range's key. */
   readonly kv: query.Retrieves<Key, kv.Pair[]>;
+  /**
+   * Cached queries for the channel aliases a range resolves, its own and those of the
+   * ranges above it, keyed by the range's key.
+   */
+  readonly resolvedAliases: query.Retrieves<Key, Record<channel.Key, string>>;
   private readonly cfg: ClientConfig;
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
@@ -323,7 +339,7 @@ export class Client extends query.Retriever<
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
-    const { ranges, kvPairs, aliases } = createTables(
+    const { ranges, kvPairs, aliases, resolvedAliases } = createTables(
       cache,
       async (keys) => await this.execRetrieve(query.keysRequest(keys)),
     );
@@ -426,6 +442,47 @@ export class Client extends query.Retriever<
       compose: (records) => records,
       matches: (pair, query) => pair.range === query,
     });
+    this.resolvedAliases = cache.queries<
+      Key,
+      Record<channel.Key, string>,
+      Key,
+      ResolvedAliases
+    >({
+      name: "range aliases",
+      table: resolvedAliases,
+      fetch: async (range) => {
+        resolvedAliases.set(range, { range, aliases: await this.listAliases(range) });
+        return [range];
+      },
+      compose: ([resolved]) => resolved.aliases,
+      matches: (resolved, range) => resolved.range === range,
+      // The Core resolves the aliases of every range above, so a change to the aliases
+      // of any of them, or a move of any of them, changes the answer.
+      triggers: [
+        query.trigger<Key, Key, string, alias.Alias>(aliases, (event, range) =>
+          this.inLineage(range, alias.decodeDeleteChange(event.key).range)
+            ? "refetch"
+            : null,
+        ),
+        query.trigger<Key, Key, Key, Range>(ranges, (event, range) =>
+          this.inLineage(range, event.key) ? "refetch" : null,
+        ),
+      ],
+    });
+  }
+
+  /**
+   * Whether the key is the range or a range above it. A range above that the cache
+   * does not hold could be any range, so it counts.
+   */
+  private inLineage(range: Key, key: Key): boolean {
+    for (let at: Key | undefined = range; at != null;) {
+      if (at === key) return true;
+      const cached: Range | undefined = this.store.get(at);
+      if (cached == null) return true;
+      at = cached.parent;
+    }
+    return false;
   }
 
   /**
