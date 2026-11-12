@@ -26,9 +26,15 @@ import { type Flux } from "@/flux";
 
 interface ListItemProps extends List.ItemRenderProps<device.Key> {
   locationFormat?: LocationFormat;
+  statusHidden?: boolean;
 }
 
-const ListItem = ({ itemKey, locationFormat, ...rest }: ListItemProps) => {
+const ListItem = ({
+  itemKey,
+  locationFormat,
+  statusHidden = false,
+  ...rest
+}: ListItemProps) => {
   const item = List.useItem<device.Key, device.Device>(itemKey);
   if (item == null) return null;
   const { name, location, status } = item;
@@ -55,7 +61,7 @@ const ListItem = ({ itemKey, locationFormat, ...rest }: ListItemProps) => {
           />
         )}
       </Flex.Box>
-      <StatusIndicator status={status} tooltipLocation="left" />
+      {!statusHidden && <StatusIndicator status={status} tooltipLocation="left" />}
     </Select.Item>
   );
 };
@@ -79,6 +85,8 @@ export interface SelectSingleProps
     Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {
   /** How the location of each listed device reads. */
   locationFormat?: LocationFormat;
+  /** Hides the status of each device, for devices that nothing monitors. */
+  statusHidden?: boolean;
 }
 
 /** Selects one device. The trigger shows the selected device's status. */
@@ -88,6 +96,7 @@ export const SelectSingle = ({
   triggerProps,
   icon = DEVICE_ICON,
   locationFormat,
+  statusHidden = false,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = useList({
@@ -106,10 +115,20 @@ export const SelectSingle = ({
       icon={icon}
       itemHeight={ITEM_HEIGHT}
       dialogProps={DIALOG_PROPS}
-      triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
+      triggerProps={{
+        renderEndContent: statusHidden ? undefined : renderStatus,
+        ...triggerProps,
+      }}
       {...rest}
     >
-      {({ key, ...p }) => <ListItem key={key} {...p} locationFormat={locationFormat} />}
+      {({ key, ...p }) => (
+        <ListItem
+          key={key}
+          {...p}
+          locationFormat={locationFormat}
+          statusHidden={statusHidden}
+        />
+      )}
     </Select.Single>
   );
 };

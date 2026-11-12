@@ -9,7 +9,7 @@
 
 import "@/feature/bus/Connect.css";
 
-import { device } from "@synnaxlabs/client";
+import { device, status } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -96,6 +96,8 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
 
   const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
 
+  const monitored = scanType !== "";
+
   const beforeValidate = ({
     get,
     set,
@@ -113,6 +115,20 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     set(PDevice.formPath.model, getModel(props));
     set(PDevice.formPath.location, getLocation(props));
     set(PDevice.formPath.configured, true);
+    // The Core gives a device with no status a warning that no scan task would clear.
+    if (!monitored)
+      set(
+        PDevice.formPath.status,
+        status.create<typeof device.statusDetailsZ>({
+          name: get(PDevice.formPath.name).value,
+          variant: "disabled",
+          message: "Connection not monitored",
+          description:
+            `Nothing checks whether the Driver reaches a ${noun}. ` +
+            "A read task warns when its messages stop arriving.",
+          details: { rack: get(PDevice.formPath.rack).value, connected: false },
+        }),
+      );
     return true;
   };
 
@@ -182,6 +198,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
         icon={icon}
         locationFormat={location}
         connect={{ title: noun, open: () => openConnect() }}
+        statusHidden={!monitored}
       />
     );
   };

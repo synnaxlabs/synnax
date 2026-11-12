@@ -60,6 +60,8 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   locationFormat?: Device.LocationFormat;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
+  /** Hides the status of each device, for devices that nothing monitors. */
+  statusHidden?: boolean;
 }
 
 export const Select = ({
@@ -73,6 +75,7 @@ export const Select = ({
   icon,
   locationFormat,
   connect,
+  statusHidden,
 }: SelectProps) => {
   const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleChange = useHandleChange(onConfigure);
@@ -100,6 +103,7 @@ export const Select = ({
           grow
           icon={icon}
           locationFormat={locationFormat}
+          statusHidden={statusHidden}
           preview={preview}
           visible={visible}
           onVisibleChange={setVisible}

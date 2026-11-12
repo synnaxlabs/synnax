@@ -120,6 +120,45 @@ describe("bus device connect", () => {
     expect(saved.location).toBe(":5000");
   });
 
+  it("should mark a UDP device's connection as not monitored", async () => {
+    const dev = await createConnectable(
+      "udp",
+      UDP.Device.MAKE,
+      udp.propertiesZ.parse({}),
+    );
+    await openConnect(UDP.Device.useConnectModal, dev.key);
+    await enterField("Local port", "5002");
+    await connectAndRetrieve(dev.key);
+    await waitFor(async () => {
+      const { status } = await client.devices.retrieve({
+        key: dev.key,
+        includeStatus: true,
+      });
+      expect(status).toMatchObject({
+        variant: "disabled",
+        message: "Connection not monitored",
+        details: { connected: false },
+      });
+    });
+  });
+
+  it("should leave the status of a scanned TCP device to its scan task", async () => {
+    const dev = await createConnectable(
+      "tcp",
+      TCP.Device.MAKE,
+      tcp.propertiesZ.parse({}),
+    );
+    await openConnect(TCP.Device.useConnectModal, dev.key);
+    await enterField("Host", "10.0.0.3");
+    await enterField("Port", "5025");
+    await connectAndRetrieve(dev.key);
+    const { status } = await client.devices.retrieve({
+      key: dev.key,
+      includeStatus: true,
+    });
+    expect(status?.message).toBe("Device status unknown");
+  });
+
   it("should report a device it connected", async () => {
     const rack = await createRunningRack(client, "udp");
     const analytics = createTestSink();

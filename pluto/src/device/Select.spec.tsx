@@ -10,7 +10,7 @@
 import { device, status } from "@synnaxlabs/client";
 import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -27,14 +27,17 @@ describe("Device select", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  const createDevice = async (): Promise<device.Device> => {
+  const createDevice = async (
+    name: string = "Boiler PLC",
+    make: string = "test",
+  ): Promise<device.Device> => {
     const rack = await client.racks.create({ name: "test" });
     const dev = await client.devices.create({
       key: id.create(),
-      name: "Boiler PLC",
+      name,
       rack: rack.key,
       location: "test",
-      make: "test",
+      make,
       model: "test",
       properties: {},
     });
@@ -129,6 +132,25 @@ describe("Device select", () => {
     });
     await c.findByRole("button", { name: "Device" });
     expect(c.container.querySelector(`.${END_CLASS}`)).toBeNull();
+  });
+
+  it("should hide the status at the trigger and in the list", async () => {
+    const dev = await createDevice(id.create(), id.create());
+    const c = render(
+      <Device.SelectSingle
+        value={dev.key}
+        onChange={vi.fn()}
+        query={{ where: { make: { eq: dev.make } } }}
+        statusHidden
+        virtual={false}
+      />,
+      { wrapper },
+    );
+    const trigger = await c.findByText(dev.name);
+    expect(c.container.querySelector(`.${END_CLASS}`)).toBeNull();
+    fireEvent.click(trigger);
+    await waitFor(() => expect(c.getAllByText(dev.name)).toHaveLength(2));
+    expect(document.querySelector(".pluto-device__status-indicator")).toBeNull();
   });
 
   it("should keep the status beside the caller's trigger props", async () => {
