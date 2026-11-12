@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -119,6 +120,67 @@ var _ = Describe("NewMigration", func() {
 			To(Succeed())
 		return a.Base().Key
 	}
+
+	// openHookStore opens the Arc table and an Arc task config store that resolves each
+	// entry with resolve.
+	openHookStore := func(
+		ctx SpecContext,
+		resolve func(name string) func(context.Context, gorp.Tx) error,
+	) config.Store {
+		GinkgoHelper()
+		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+		return MustOpen(config.OpenService(
+			ctx,
+			config.ServiceConfig[arctask.Config]{
+				DB:          db,
+				Type:        "arc",
+				Ladder:      arcversions.ConfigLadder,
+				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
+				References: []gorp.Reference[uuid.UUID, arctask.Config]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[uuid.UUID, arctask.Config, arc.Key]{
+							Name:     "arc_key",
+							Table:    "arc",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(c *arctask.Config) []arc.Key {
+								return []arc.Key{c.ArcKey}
+							},
+						},
+					),
+				},
+				ResolveEntry: func(
+					_ context.Context,
+					_ gorp.Snapshot,
+					name string,
+					_ *arctask.Config,
+				) (func(context.Context, gorp.Tx) error, error) {
+					return resolve(name), nil
+				},
+			},
+		))
+	}
+
+	It("Should give the config hook the name of each task", func(ctx SpecContext) {
+		var names []string
+		store := openHookStore(
+			ctx,
+			func(name string) func(context.Context, gorp.Tx) error {
+				names = append(names, name)
+				return nil
+			},
+		)
+		seed(ctx, v2.Task{
+			Key:    uuid.New(),
+			Name:   "Named Arc Task",
+			Type:   "arc",
+			Config: msgpack.EncodedJSON{"arcKey": createArc(ctx).String()},
+		})
+		run(ctx, store)
+		Expect(names).To(Equal([]string{"Named Arc Task"}))
+	})
 
 	It(
 		"Should normalize the config into its record store under the task's key",
@@ -305,6 +367,33 @@ var _ = Describe("NewMigration", func() {
 		Expect(string(staged)).To(ContainSubstring("Orphaned Arc Task"))
 		Expect(closer.Close()).To(Succeed())
 	})
+
+	It(
+		"Should keep the hook's write when it quarantines a task",
+		func(ctx SpecContext) {
+			store := openHookStore(
+				ctx,
+				func(string) func(context.Context, gorp.Tx) error {
+					return func(ctx context.Context, tx gorp.Tx) error {
+						return tx.Set(ctx, []byte("hook"), []byte("ran"))
+					}
+				},
+			)
+			key := uuid.New()
+			seed(ctx, v2.Task{
+				Key:    key,
+				Name:   "Orphaned Arc Task",
+				Type:   "arc",
+				Config: msgpack.EncodedJSON{"arcKey": uuid.New().String()},
+			})
+			run(ctx, store)
+
+			Expect(store.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
+			ran, closer := MustSucceed2(db.Get(ctx, []byte("hook")))
+			Expect(string(ran)).To(Equal("ran"))
+			Expect(closer.Close()).To(Succeed())
+		},
+	)
 
 	It(
 		"Should quarantine a task whose config fails to decode",

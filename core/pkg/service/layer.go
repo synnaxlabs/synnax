@@ -733,6 +733,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Table) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
@@ -889,21 +904,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Signals:         l.Signals,
 		},
 	); !ok(err, l.View) {
-		return nil, err
-	}
-	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
-		Instrumentation: cfg.Child("grant"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Grant) {
-		return nil, err
-	}
-	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
-		Instrumentation: cfg.Child("secret"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-		Grant:           l.Grant,
-		EncryptionKey:   cfg.SecretsKey,
-	}); !ok(err, l.Secret) {
 		return nil, err
 	}
 	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{

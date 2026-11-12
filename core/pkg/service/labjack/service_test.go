@@ -125,7 +125,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid channel", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":              "thermocouple",
 					"thermocouple_type": "BOGUS",
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject a negative channel past AIN127", func(ctx SpecContext) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{"type": "analog", "neg_chan": 199}},
 			})).Error().To(MatchError(ContainSubstring("neg_chan")))
 		})
@@ -176,7 +176,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should reject a scan backlog count of 0", func(ctx SpecContext) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"device_scan_backlog_warn_on_count": 0,
 			})).Error().To(MatchError(ContainSubstring(
 				"device_scan_backlog_warn_on_count",
@@ -204,7 +204,7 @@ var _ = Describe("Service", func() {
 		edit := func(ctx SpecContext, key uuid.UUID, a patch.Action) {
 			GinkgoHelper()
 			c := MustSucceed(patch.Begin(a)).Next()
-			rec, _ := MustSucceed2(svc.Read.Edit(ctx, db, key, []patch.Cursor{c}))
+			rec, _ := MustSucceed2(svc.Read.Edit(ctx, db, key, "", []patch.Cursor{c}))
 			Expect(rec.Write(ctx, db)).To(Succeed())
 		}
 		slopePath := []string{"config", "channels", "ai", "scale", "slope"}
@@ -257,7 +257,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},
@@ -268,7 +268,7 @@ var _ = Describe("Service", func() {
 	DescribeTable(
 		"Should reject a read config with an invalid rate",
 		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"sample_rate": sampleRate,
 				"stream_rate": streamRate,
 			})).Error().To(MatchError(ContainSubstring(msg)))
@@ -291,7 +291,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a write config whose state rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"state_rate": rate,
 			})).Error().To(MatchError(ContainSubstring("state_rate: must be greater than 0")))
 		},

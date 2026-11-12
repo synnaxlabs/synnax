@@ -29,6 +29,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -49,7 +51,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const testType = pagerduty.AlertTaskType
+const (
+	testType = pagerduty.AlertTaskType
+	// namedType is a task type whose config hook records the task name it receives.
+	namedType = "named"
+)
 
 var _ = Describe("Task", Ordered, func() {
 	var (
@@ -63,6 +69,7 @@ var _ = Describe("Task", Ordered, func() {
 		rangeSvc    *ranger.Service
 		configs     config.Registry
 		testArc     arc.Key
+		names       []string
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -106,9 +113,31 @@ var _ = Describe("Task", Ordered, func() {
 		testArc = a.Base().Key
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
-		configs = MustSucceed(config.NewRegistry(
-			slices.Concat(pd.Stores(), at.Stores(), lj.Stores())...,
-		))
+		named := MustOpen(
+			config.OpenService(ctx, config.ServiceConfig[kafka.ReadConfig]{
+				DB:          db,
+				Type:        namedType,
+				Ladder:      kafkaversions.ReadConfigLadder,
+				SetEntryKey: (*kafka.ReadConfig).SetKey,
+				PatchEntry:  (*kafka.ReadConfig).Patch,
+				HashEntry:   (*kafka.ReadConfig).HashContent,
+				ResolveEntry: func(
+					_ context.Context,
+					_ gorp.Snapshot,
+					name string,
+					_ *kafka.ReadConfig,
+				) (func(context.Context, gorp.Tx) error, error) {
+					names = append(names, name)
+					return nil, nil
+				},
+			}),
+		)
+		configs = MustSucceed(config.NewRegistry(slices.Concat(
+			pd.Stores(),
+			at.Stores(),
+			lj.Stores(),
+			[]config.Store{named},
+		)...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,
 			Rack:    rackService,
@@ -186,6 +215,17 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Name).To(Equal("Test Task"))
+		})
+		It("Should give the config hook the name of the task", func(ctx SpecContext) {
+			openTx()
+			names = nil
+			Expect(w.Create(ctx, &task.Task{
+				Type:   namedType,
+				Rack:   testRack.Key,
+				Name:   "Created",
+				Config: msgpack.EncodedJSON{"topic": "pumps"},
+			})).To(Succeed())
+			Expect(names).To(Equal([]string{"Created"}))
 		})
 		It("Should preserve a client-provided key", func(ctx SpecContext) {
 			openTx()
@@ -693,6 +733,24 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res.Config).To(Equal(alerts.Config))
 			Expect(res.ConfigHash).To(Equal(alerts.ConfigHash))
 		}
+
+		It("Should give the config hook the name that the batch sets", func(
+			ctx SpecContext,
+		) {
+			named := &task.Task{
+				Type:   namedType,
+				Rack:   testRack.Key,
+				Name:   "Before",
+				Config: msgpack.EncodedJSON{"topic": "pumps"},
+			}
+			createCommitted(ctx, named)
+			names = nil
+			MustSucceed(dispatch(ctx, named.Key, "dk", []task.Action{
+				set([]string{"name"}, "After"),
+				set([]string{"config", "topic"}, "valves"),
+			}))
+			Expect(names).To(Equal([]string{"After"}))
+		})
 
 		It("Should store the new config and its hash", func(ctx SpecContext) {
 			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
