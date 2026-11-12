@@ -10,9 +10,7 @@
 package vcs
 
 import (
-	"cmp"
 	"context"
-	"math"
 	"path"
 	"slices"
 	"strings"
@@ -319,19 +317,6 @@ func relayout(base, work *tree, selected []resource.ID) (files, error) {
 			all = append(all, placed{src: work, it: it})
 		}
 	}
-	// A folder joins the layout before the folders and files in it.
-	depth := func(p placed) int {
-		if _, ok := recordDir(p.it.main()); ok {
-			return strings.Count(p.it.main(), "/")
-		}
-		return math.MaxInt
-	}
-	slices.SortFunc(all, func(a, b placed) int {
-		return cmp.Or(
-			cmp.Compare(depth(a), depth(b)),
-			cmp.Compare(a.it.main(), b.it.main()),
-		)
-	})
 	l := newLayout()
 	roots := map[string]*node{}
 	for _, r := range []string{
@@ -347,23 +332,59 @@ func relayout(base, work *tree, selected []resource.ID) (files, error) {
 			}
 		}
 	}
+	byID := map[resource.ID]placed{}
+	for _, p := range all {
+		byID[p.it.id] = p
+	}
 	folders := map[resource.ID]*node{}
+	records := map[*node]placed{}
+	placing := set.New[resource.ID]()
+	var place func(p placed) (*node, bool)
+	// parentOf returns the node of the folder dir of t, and places that folder first
+	// when it has no node yet.
 	parentOf := func(t *tree, dir string) (*node, bool) {
 		if r, ok := roots[dir]; ok {
 			return r, true
 		}
-		n, ok := folders[folderIDs[t][dir]]
-		return n, ok
+		id, ok := folderIDs[t][dir]
+		if !ok {
+			return nil, false
+		}
+		if n, ok := folders[id]; ok {
+			return n, true
+		}
+		p, ok := byID[id]
+		if !ok {
+			return nil, false
+		}
+		return place(p)
+	}
+	// place adds the folder of p under its parent. A folder that is its own ancestor,
+	// through moves on both sides, is not placed.
+	place = func(p placed) (*node, bool) {
+		if n, ok := folders[p.it.id]; ok {
+			return n, true
+		}
+		if placing.Contains(p.it.id) {
+			return nil, false
+		}
+		placing.Add(p.it.id)
+		main := p.it.main()
+		dir, _ := recordDir(main)
+		parent, ok := parentOf(p.src, path.Dir(dir))
+		if !ok {
+			return nil, false
+		}
+		n := l.folder(parent, p.it.name, p.it.id.Key, path.Base(main))
+		folders[p.it.id] = n
+		records[n] = p
+		return n, true
 	}
 	out := files{}
-	records := map[*node]placed{}
 	for _, p := range all {
 		main := p.it.main()
-		if dir, ok := recordDir(main); ok {
-			if parent, ok := parentOf(p.src, path.Dir(dir)); ok {
-				n := l.folder(parent, p.it.name, p.it.id.Key, path.Base(main))
-				folders[p.it.id] = n
-				records[n] = p
+		if _, ok := recordDir(main); ok {
+			if _, ok := place(p); ok {
 				continue
 			}
 		} else if parent, ok := parentOf(p.src, path.Dir(main)); ok {

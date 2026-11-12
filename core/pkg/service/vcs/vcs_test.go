@@ -1131,6 +1131,82 @@ var _ = Describe("VCS", func() {
 		)
 
 		It(
+			"Should place an incoming folder in its parent that a waiting commit moved",
+			func(ctx SpecContext) {
+				var dirs []directory.Directory
+				Expect(layer.Arc.NewDirectoryRetrieve().Entries(&dirs).Exec(ctx, db)).
+					To(Succeed())
+				var root directory.Key
+				for _, d := range dirs {
+					if d.Parent == nil {
+						root = d.Key
+					}
+				}
+				pumps := directory.Directory{Name: "Pumps"}
+				queue := directory.Directory{Name: "Queue"}
+				tx(ctx, func(tx gorp.Tx) error {
+					w := layer.Arc.NewWriter(tx)
+					if err := w.CreateDirectory(ctx, &pumps, root); err != nil {
+						return err
+					}
+					return w.CreateDirectory(ctx, &queue, root)
+				})
+				connect(ctx, remoteURL)
+				away := remoteDir + ".away"
+				Expect(os.Rename(remoteDir, away)).To(Succeed())
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Arc.NewWriter(tx).ApplyDirectory(
+						ctx,
+						pumps.Key,
+						directory.NewSetAction(directory.SetPayload{
+							Path:  []string{"parent"},
+							Value: queue.Key,
+						}),
+					)
+				})
+				commit(ctx, "Move the pumps")
+				Expect(os.Rename(away, remoteDir)).To(Succeed())
+				var moved string
+				for _, f := range working(ctx) {
+					if f.Path == "arc/Queue/Pumps/_directory.json" {
+						moved = f.Content
+					}
+				}
+				Expect(moved).ToNot(BeEmpty())
+				cooling := strings.NewReplacer(
+					pumps.Key.String(), uuid.New().String(),
+					queue.Key.String(), pumps.Key.String(),
+					`"Pumps"`, `"Cooling"`,
+				).Replace(moved)
+				pushElsewhere(func(dir string, wt *git.Worktree) {
+					const file = "arc/Pumps/Cooling/_directory.json"
+					p := filepath.Join(dir, file)
+					Expect(os.MkdirAll(filepath.Dir(p), 0o755)).To(Succeed())
+					Expect(os.WriteFile(p, []byte(cooling), 0o644)).To(Succeed())
+					MustSucceed(wt.Add(file))
+				})
+				MustSucceed(svc.Fetch(ctx))
+				MustSucceed(svc.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetPull},
+					nil,
+					svc.DefaultWrite,
+					allow,
+				))
+				st := MustSucceed(svc.Status(ctx))
+				Expect(st.Waiting).To(BeZero())
+				Expect(st.Changes).To(BeEmpty())
+				remote := MustSucceed(git.PlainOpen(remoteDir))
+				ref := MustSucceed(
+					remote.Reference(plumbing.NewBranchReferenceName("main"), true),
+				)
+				tree := MustSucceed(MustSucceed(remote.CommitObject(ref.Hash())).Tree())
+				f := MustSucceed(tree.File("arc/Queue/Pumps/Cooling/_directory.json"))
+				Expect(MustSucceed(f.Contents())).To(Equal(cooling))
+			},
+		)
+
+		It(
 			"Should check a running task that it deletes before it stops it",
 			func(ctx SpecContext) {
 				t := createRunningTask(ctx)
