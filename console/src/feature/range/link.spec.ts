@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Session } from "@/session";
-import { renderLinkHook, selectTestProject } from "@/testutil";
+import { renderLinkHook, selectRange, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
@@ -28,6 +28,6 @@ describe("Range.useLink", () => {
     await handler({ client, key: range.key });
     const state = store.getState();
     expect(state[Session.Range.SLICE_NAME].selected).toBe(range.key);
-    expect(Session.Range.selectState(state, range.key)?.variant).toBe("persisted");
+    expect(selectRange(state, range.key)?.variant).toBe("persisted");
   });
 });

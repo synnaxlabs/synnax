@@ -54,15 +54,16 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click a module and select **Create read task**. The
-   task starts with a channel for each input of the module. To remove a channel,
-   right-click it and select **Remove**.
+   task starts with a channel for each input of the module. On a module whose settings
+   Synnax knows, such as a Dewesoft module, it starts with the measurement inputs only.
+   To remove a channel, right-click it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click <Icon.Play /> (**Start**).
 
-To add a channel, click **Add channel**, select the module in **Slave device**, and
-select an entry in **Entry**. A new channel starts with the module of the last channel,
-and **Data type** shows the type of the entry. To add every input of a module at once,
-right-click one of its channels and select **Add every input of** _module name_.
+To add a channel, click **Add channel**, select the module in **Device**, and select an
+entry in **Entry**. A new channel starts with the module of the last channel, and **Data
+type** shows the type of the entry. To add every input of a module at once, right-click
+one of its channels and select **Add every input of** _module name_.
 
 The Console creates the channels and names them after the identifier of the module and
 the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
@@ -199,9 +200,9 @@ TypeScript uses the same fields in camel case, such as `sampleRate`.
 
 ## Channel reference
 
-Each channel has a `device`, the key of the module (**Slave device**), and a `channel`,
-the Synnax channel that records the value. Each table shows the Console label of a
-setting, with its Python field under it.
+Each channel has a `device`, the key of the module (**Device**), and a `channel`, the
+Synnax channel that records the value. Each table shows the Console label of a setting,
+with its Python field under it.
 
 <Channel.Types>
 
@@ -213,11 +214,12 @@ setting, with its Python field under it.
 
 Reads one input entry at its CoE address.
 
-| Setting                                   | Default | Notes                                                              |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
-| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
+| Setting                                   | Default | Notes                                                                                           |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                                                           |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                                                    |
+| <small>`calibrated`</small>               | `false` | Records physical values. See [Dewesoft](/reference/hardware/ethercat/dewesoft#physical-values). |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales).                              |
 
 </Channel.Type>
 
@@ -242,6 +244,10 @@ A scale converts the raw value of an entry into engineering units:
 A scaled channel writes float values, so its Synnax channel must be `float32` or
 `float64`. The Console creates a `float64` channel for it, apart from the raw channel,
 and its name ends in `_scaled`.
+
+Some Dewesoft modules send raw counts. The Driver turns them into
+[physical values](/reference/hardware/ethercat/dewesoft#physical-values) before the
+scale.
 
 <Client.Tabs>
   <Fragment slot="console">
@@ -354,6 +360,21 @@ Select a number type of the same size, such as `int16` for a 16-bit entry.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"channel ... is ..., but a ... channel must be float32 or float64"}>
+<Problem.Cause>
+
+A scaled or calibrated channel writes float values, but its Synnax channel holds
+integers.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Configure the task in the Console again. The Console creates a `float64` channel. In
+code, use a `float32` or `float64` channel.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={["More than one channel uses entry ...", "another channel already uses entry ..."]}>
 <Problem.Cause>
 
@@ -425,7 +446,7 @@ Hz.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"no bus rate at or below 10000 Hz ..."}>
+<Problem.Item message={"No bus rate at or below 10000 Hz ..."}>
 <Problem.Cause>
 
 The sample rates of the read tasks on the port have no common multiple at or below 10
@@ -457,6 +478,6 @@ which module is lost. Check its power and its cable.
 
 </Problem.List>
 
-For errors that stop every task on a port, such as `failed to reach SAFE-OP` or
-`no EtherCAT slaves found on ...`, see
+For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
+`No EtherCAT slaves found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

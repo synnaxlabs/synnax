@@ -195,8 +195,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface ChannelField extends mqtt.ChannelField {}
@@ -298,8 +296,6 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export interface WritePayload extends task.Payload<WriteSchemas> {}
-
 export const EDGE_TYPE = `${PREFIX}_sparkplug_edge`;
 
 export interface EdgeTag extends mqtt.EdgeTag {}
@@ -353,8 +349,6 @@ export const EDGE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type EdgeSchemas = typeof EDGE_SCHEMAS;
-
-export interface EdgePayload extends task.Payload<EdgeSchemas> {}
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

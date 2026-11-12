@@ -440,7 +440,7 @@ func (s *Server) Completion(
 
 func (s *Server) getCompletionItems(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 ) []protocol.CompletionItem {
@@ -455,11 +455,11 @@ func (s *Server) getCompletionItems(
 		root = s.cfg.NewRoot()
 	}
 
-	if completionCtx == ContextAuthorityEntry {
+	if completionCtx == contextAuthorityEntry {
 		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextImportPath {
+	if completionCtx == contextImportPath {
 		return s.getImportPathCompletions(ctx, doc, prefix, pos, root)
 	}
 
@@ -479,10 +479,10 @@ func (s *Server) getCompletionItems(
 	tokens := tokenizeContent(doc.displayContent())
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	nesting := detectNesting(tokensBeforeCursor)
-	if doc.isBlock() && nesting == NestingTopLevel {
-		nesting = NestingFunction
+	if doc.isBlock() && nesting == nestingTopLevel {
+		nesting = nestingFunction
 	}
-	if nesting == NestingSequenceBody {
+	if nesting == nestingSequenceBody {
 		// A sequence body accepts `stage` / nested `sequence` declarations
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
@@ -491,11 +491,11 @@ func (s *Server) getCompletionItems(
 		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
-		case NestingTopLevel:
+		case nestingTopLevel:
 			allowed |= categoryTopLevelKeyword
-		case NestingFunction:
+		case nestingFunction:
 			allowed |= categoryFunctionKeyword
-		case NestingStageBody:
+		case nestingStageBody:
 			allowed |= categoryStageKeyword
 		}
 	}
@@ -526,7 +526,7 @@ func (s *Server) getCompletionItems(
 	if completionCtx != ContextTypeAnnotation {
 		// A flow expression can call a WASM function, so only a func body filters.
 		var execFilter symbol.ExecContext
-		if nesting == NestingFunction {
+		if nesting == nestingFunction {
 			execFilter = symbol.ExecWASM
 		}
 		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
@@ -691,7 +691,7 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 // module paths that start with prefix. Used in the module-name slot of an `import`.
 func (s *Server) getImportPathCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 	root *symbol.Symbol,
@@ -876,9 +876,9 @@ func formatImportBlock(names []string) string {
 
 // buildAutoImportEdit returns the AdditionalTextEdits that import
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
-// semantics; this wrapper exists for callers that still hold a *Document
+// semantics; this wrapper exists for callers that still hold a *document
 // rather than snapshotted fields.
-func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
+func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(
 		doc.displayContent(),
 		doc.IR.Symbols,
@@ -990,7 +990,7 @@ func buildAutoImportEditFromSnapshot(
 // only emitted once (the imported alias is encountered first and wins).
 func appendModuleMemberCompletions(
 	items []protocol.CompletionItem,
-	doc *Document,
+	doc *document,
 	scope *symbol.Symbol,
 	prefix string,
 	pos protocol.Position,
@@ -1059,7 +1059,7 @@ func tokenBefore(a, b antlr.Token) bool {
 
 func (s *Server) getAuthorityEntryCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 	root *symbol.Symbol,
@@ -1106,7 +1106,7 @@ func (s *Server) getAuthorityEntryCompletions(
 
 func (s *Server) resolveFunctionType(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	name string,
 	root *symbol.Symbol,
 ) (types.Type, bool) {
@@ -1127,7 +1127,7 @@ func (s *Server) resolveFunctionType(
 
 func (s *Server) collectSymbols(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	filter func(types.Type) bool,
 	root *symbol.Symbol,
@@ -1166,7 +1166,7 @@ func (s *Server) collectSymbols(
 
 func (s *Server) getInputParamCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
@@ -1194,7 +1194,7 @@ func (s *Server) getInputParamCompletions(
 
 func (s *Server) getInputValueCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	inputInfo *inputContextInfo,
 	root *symbol.Symbol,

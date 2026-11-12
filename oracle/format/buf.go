@@ -19,18 +19,18 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// BufFormat is a Formatter that runs `buf format` over .proto content. Buf
+// bufFormat is a formatter that runs `buf format` over .proto content. Buf
 // has no stdin mode, so the content is written to a temp file, formatted,
 // and the formatted bytes captured from stdout. Single-file `buf format`
 // does not consult buf.yaml so the temp directory location does not affect
 // output.
-type BufFormat struct{}
+type bufFormat struct{}
 
-// NewBufFormat returns a BufFormat formatter.
-func NewBufFormat() *BufFormat { return &BufFormat{} }
+// NewBufFormat returns a bufFormat formatter.
+func NewBufFormat() *bufFormat { return &bufFormat{} }
 
 // Format writes content to a temp file and returns `buf format`'s stdout.
-func (b *BufFormat) Format(
+func (b *bufFormat) Format(
 	ctx context.Context,
 	content []byte,
 	absPath string,

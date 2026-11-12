@@ -73,13 +73,15 @@ std::unique_ptr<master::Manager> default_manager() {
 }
 
 /// @brief returns the settings saved for each slave on the network, keyed by position.
+/// Its errors call the network name.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
 /// position have different settings.
 std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
-    const std::string &network
+    const std::string &network,
+    const std::string &name
 ) {
     auto [devices, dev_err] = client->devices.retrieve(
         synnax::device::Where{
@@ -93,7 +95,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             {},
             x::errors::Error(
                 dev_err,
-                "The Driver could not read the slave settings for " + network +
+                "The Driver could not read the slave settings for " + name +
                     " from the Core: " + dev_err.data
             )
         };
@@ -108,7 +110,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                 {},
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    dev.name + " has invalid properties. Every slave on " + network +
+                    dev.name + " has invalid properties. Every slave on " + name +
                         " starts with the bus, so fix them before you start the "
                         "task.\n" +
                         common::config_err_description(parser.error())
@@ -136,7 +138,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                     first,
                     second,
                     props.position,
-                    network
+                    name
                 )
             )
         };
@@ -169,8 +171,9 @@ Factory::Factory(
     pool(
         std::make_shared<engine::Pool>(
             std::move(manager),
-            [client = std::move(client), rack](const std::string &network) {
-                return slave_configs(client, rack, network);
+            [client = std::move(client),
+             rack](const std::string &network, const std::string &name) {
+                return slave_configs(client, rack, network, name);
             },
             std::move(rt_manager),
             op_timeout

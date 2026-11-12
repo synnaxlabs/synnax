@@ -642,8 +642,6 @@ jobs:
           version: latest-known
 
       - name: Check names that are public without need
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: uv run --project scripts scripts/check_exports_py.py
 
   format:
@@ -853,8 +851,6 @@ jobs:
         run: pnpm knip
 
       - name: Check exports that only their own module's specs use
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: python3 scripts/check_exports_ts.py
 
   lint-integration:

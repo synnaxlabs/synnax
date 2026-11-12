@@ -50,8 +50,22 @@ const requirementZ = z.object({
   message: z.string(),
 });
 
+/** How the Driver turns the integer samples of an entry into physical values. */
+const calibrationZ = z.object({
+  dataType: z.string(),
+  index: z.number(),
+  gainSubIndex: z.number(),
+  offsetSubIndex: z.number(),
+  divisor: z.number(),
+  rawOffset: z.boolean().default(false),
+});
+
 /** An entry that reads an input. onlyReadBy names the one program that reads it. */
-const entryZ = z.object({ ...ADDRESS, onlyReadBy: z.string().optional() });
+const entryZ = z.object({
+  ...ADDRESS,
+  onlyReadBy: z.string().optional(),
+  calibration: calibrationZ.optional(),
+});
 
 /** The fields of one input, and the entries that read it in every PDO layout. */
 const inputZ = z.object({
