@@ -20,6 +20,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { type Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -37,6 +38,7 @@ import {
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
+  findTagCloseButton,
   type Grants,
   openContextMenu,
   renderSuspended,
@@ -113,6 +115,78 @@ const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =
 };
 
 describe("range/overview", () => {
+  describe("header", () => {
+    it("should rename the range on the Core once the name loses focus", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      const name = await screen.findByDisplayValue(rng.name);
+      const renamed = uniqueRangeName("renamed");
+      fireEvent.change(name, { target: { value: renamed } });
+      fireEvent.blur(name);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
+      );
+    });
+
+    it("should add a picked label to the range", async () => {
+      const rng = await createTestRange(client);
+      const lbl = await client.labels.create({
+        name: uniqueName("label"),
+        color: "#FF0000",
+      });
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Labels" }));
+      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+        target: { value: lbl.name },
+      });
+      fireEvent.click(await screen.findByRole("option", { name: lbl.name }));
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([lbl.key]),
+      );
+    });
+
+    it("should remove a label when its tag closes", async () => {
+      const rng = await createTestRange(client);
+      const [removed, kept] = await client.labels.create([
+        { name: uniqueName("removed"), color: "#FF0000" },
+        { name: uniqueName("kept"), color: "#00FF00" },
+      ]);
+      await client.labels.label(rng.resourceID, [removed.key, kept.key]);
+      await renderOverview(rng.key);
+      await screen.findByText(removed.name);
+      fireEvent.click(findTagCloseButton(removed.name));
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([kept.key]),
+      );
+    });
+
+    it("should copy Python code that retrieves the range", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Copy Python code" }));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenCalledWith(
+          `rng = client.ranges.retrieve(key="${rng.key}")`,
+        ),
+      );
+    });
+
+    it("should copy TypeScript code that retrieves the range", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Copy TypeScript code" }),
+      );
+      await waitFor(() =>
+        expect(writeText).toHaveBeenCalledWith(
+          `const rng = await client.ranges.retrieve("${rng.key}");`,
+        ),
+      );
+    });
+  });
+
   describe("metadata", () => {
     it("should add a pair from the add line of the empty section", async () => {
       const rng = await createTestRange(client);
@@ -308,14 +382,21 @@ describe("range/overview", () => {
       lineplot.TYPE_RESOURCE_ID,
     ];
 
-    const renderAs = async (grants: Grants): Promise<void> => {
+    const renderAs = async (grants: Grants): Promise<ranger.Range> => {
       const as = await createTestClientWithGrants(client, {
         ...grants,
         retrieve: READS,
       });
       const rng = await createTestRange(client);
       await renderOverview(rng.key, as);
+      return rng;
     };
+
+    it("should show the name as text to a subject who cannot update the range", async () => {
+      const rng = await renderAs({});
+      await screen.findByText(rng.name);
+      expect(screen.queryByDisplayValue(rng.name)).toBeNull();
+    });
 
     it("should offer a child range but no plot to a subject who may create only ranges", async () => {
       await renderAs({ create: [ranger.TYPE_RESOURCE_ID] });
