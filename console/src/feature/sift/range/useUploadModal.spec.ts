@@ -15,15 +15,17 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
+import { CaptureStatuses, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -60,6 +62,7 @@ const fillAndUpload = async (
   scan: task.Task,
   dev: device.Device,
   ch: channel.Channel,
+  answer: CommandAnswer = {},
 ) => {
   const { answered: listed } = await answerNextCommand(client, scan, {
     type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
@@ -75,6 +78,7 @@ const fillAndUpload = async (
   fireEvent.click(await screen.findByText(ch.name));
   const { answered } = await answerNextCommand(client, scan, {
     type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    ...answer,
   });
   clickUpload();
   return await answered;
@@ -161,5 +165,29 @@ describe("Sift.Range.useUploadModal", () => {
       channels: [data.key],
       asset: "stand",
     });
+  });
+
+  it("should stay open and show why the scan task rejected an upload", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const [, data] = await newIndexedPair(client);
+    const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
+    );
+    await fillAndUpload(scan, dev, data, {
+      variant: "error",
+      message: "Failed to upload to Sift",
+      description: "range has no data",
+    });
+    expect(await screen.findByText("range has no data")).toBeTruthy();
+    expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
+    expect(statuses).toEqual([]);
   });
 });
