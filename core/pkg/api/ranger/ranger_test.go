@@ -104,6 +104,38 @@ var _ = Describe("Retrieve", func() {
 		Entry("with the parent denied", false, 0),
 	)
 
+	DescribeTable("Should count only the children that the subject can retrieve", func(
+		ctx SpecContext,
+		childGranted bool,
+	) {
+		u := createUser(ctx)
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), parent.ResourceID())
+		if childGranted {
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), child.ResourceID())
+		}
+		res := MustSucceed(retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{Where: &ranger.Where{
+				Key: &filter.Set[ranger.Key]{Eq: &parent.Key},
+			}},
+		))
+		Expect(res.Ranges).To(HaveExactElements(
+			HaveField("HasChildren", childGranted),
+		))
+	},
+		Entry("with the child granted", true),
+		Entry("with the child denied", false),
+	)
+
 	It("Should deny a named child range whose parent the subject cannot retrieve", func(
 		ctx SpecContext,
 	) {

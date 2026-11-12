@@ -134,20 +134,32 @@ var _ = Describe("Multi", func() {
 	})
 
 	Describe("HeldValues", func() {
+		all := func(int) bool { return true }
+
 		It("Should return the values that some key holds", func() {
-			Expect(m.HeldValues(nil, []string{"a", "b", "c"})).
+			Expect(m.HeldValues(nil, []string{"a", "b", "c"}, all)).
 				To(Equal(set.New("a", "b")))
 		})
 
 		It("Should show staged changes only to their scope", func() {
 			m.Stage(txn, 1, []string{"c"})
-			Expect(m.HeldValues(txn, []string{"a", "b", "c"})).
+			Expect(m.HeldValues(txn, []string{"a", "b", "c"}, all)).
 				To(Equal(set.New("b", "c")))
 			m.StageDelete(txn, 2)
-			Expect(m.HeldValues(txn, []string{"a", "b", "c"})).
+			Expect(m.HeldValues(txn, []string{"a", "b", "c"}, all)).
 				To(Equal(set.New("c")))
-			Expect(m.HeldValues(nil, []string{"a", "b", "c"})).
+			Expect(m.HeldValues(nil, []string{"a", "b", "c"}, all)).
 				To(Equal(set.New("a", "b")))
+		})
+
+		It("Should count only the keys that in accepts", func() {
+			two := func(k int) bool { return k == 2 }
+			Expect(m.HeldValues(nil, []string{"a", "b"}, two)).
+				To(Equal(set.New("b")))
+			m.Stage(txn, 2, []string{"c"})
+			m.Stage(txn, 3, []string{"a"})
+			Expect(m.HeldValues(txn, []string{"a", "b", "c"}, two)).
+				To(Equal(set.New("c")))
 		})
 
 		It("Should return the load error", func() {
@@ -155,7 +167,7 @@ var _ = Describe("Multi", func() {
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(
-				failed.HeldValues(nil, []string{"a"}),
+				failed.HeldValues(nil, []string{"a"}, all),
 			).Error().
 				To(MatchError(errLoad))
 		})
