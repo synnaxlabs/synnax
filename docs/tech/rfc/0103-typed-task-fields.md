@@ -201,8 +201,9 @@ HTTP Driver reads the key from `bound` and rejects an enabled `unbound` field, w
 rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 
 **Console**: The data type select sets the kind, and `DataTypeField` shows every type.
-`onConfigure` creates the channel of each enabled unbound field and saves the field as
-bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
+`onConfigure` binds each enabled unbound field to the device's stored channel for its
+pointer when that channel exists, or else creates one, and saves the field as bound. An
+adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
@@ -248,7 +249,7 @@ and imports) applies these rules in this order. Each migration phase tests a cla
 both bounds, a clamped-and-disabled identifier, and that a stored 199 becomes absent and
 the channel stays enabled.
 
-LabJack, NI, and Kafka shipped in `core/v0.61.0`, so each gets a new version (§0). Phase
+Phases 16, 22, 24, and 25 landed in OPC UA v2, Modbus v3, LabJack v3, and NI v3. Phase
 26 waits for, and renames the Modbus device keys in, the RFC 0081 `modbus.Server`
 cutover (RFC 0081 §4.8), which already rewrites every Modbus device and types its
 writes. The old Python client writes `swap_bytes`, and an old Driver requires it
@@ -263,7 +264,8 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 - **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
   channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
   `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`.
+  `name` and `data_type`. The shipped HTTP default is `float64`, so an HTTP index field
+  or a field with a `time_format` becomes `unbound` with `data_type: timestamp`.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -279,14 +281,14 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   boolean keeps its kind. Others, `null` included, become `json` text. A generator
   becomes `uuid` or `timestamp`.
 
-`Reconcile` sets the kind from §4, against the `data_type` of an unbound field. A bound
-field holds no `data_type`, so nothing is left to clear. Between numeric kinds it
-converts entries and fills by the same rules, so a non-finite fill becomes no fill, and
-it drops them on other kinds. It logs each change, naming a foreign key that matched an
-unrelated local channel. Migration and `Reconcile` apply only each side's rule. A read
-field keeps the first entry of a repeated label, so a stored `{ON: 1, HIGH: 1}` keeps
-both. A channel field keeps the first entry of a set whose values collide, on the stored
-value or after narrowing. Each drop is logged.
+`Reconcile` sets the kind from §4, against the channel of a bound field or the
+`data_type` of an unbound field. A bound field holds no `data_type`, so nothing is left
+to clear. Between numeric kinds it converts entries and fills by the same rules, so a
+non-finite fill becomes no fill, and it drops them on other kinds. It logs each change,
+naming a foreign key that matched an unrelated local channel. Migration and `Reconcile`
+apply only each side's rule. A read field keeps the first entry of a repeated label, so
+a stored `{ON: 1, HIGH: 1}` keeps both. A channel field keeps the first entry of a set
+whose values collide, on the stored value or after narrowing. Each drop is logged.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
