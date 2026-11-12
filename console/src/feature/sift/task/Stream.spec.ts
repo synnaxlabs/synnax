@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type task } from "@synnaxlabs/client";
+import { DataType, task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
 import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
@@ -15,13 +15,15 @@ import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import {
+  answerNextCommand,
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -80,6 +82,47 @@ describe("Sift stream form", () => {
       asset: "Test stand 1",
       channels: [data.key],
     });
+  });
+
+  it("should keep the asset when another client changes the device", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: first.key, asset: "rig" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({ taskKey: t.key });
+    await listedFirst;
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["pad"], last: "pad" },
+    });
+    const other = createTestClient();
+    await other.tasks.retrieve({ key: t.key });
+    expect(
+      await other.tasks.dispatch(
+        t.key,
+        task.set({ path: ["config", "device"], value: second.key }),
+      ),
+    ).toBe(true);
+    await listedSecond;
+    fireEvent.click(await findDialogTriggerByText("rig"));
+    // The option shows once the field reads the assets of the new device.
+    expect(await screen.findByText("pad")).toBeTruthy();
+    expect(await findDialogTriggerByText("rig")).toBeTruthy();
   });
 
   it("should show the asset of a snapshot without New asset", async () => {

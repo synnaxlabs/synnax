@@ -9,14 +9,14 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { useCreateStream } from "@/feature/sift/task/Stream";
+import { Task } from "@/feature/sift/task";
 import { Device } from "@/platform/device";
 
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
     itemKey: "sift.streamTask",
     label: "Create stream task",
-    useCreate: useCreateStream,
+    useCreate: Task.useCreateStream,
   }),
 ];
 
