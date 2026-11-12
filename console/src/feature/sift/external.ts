@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/sift/device";
+export * from "@/feature/sift/notifications";
 export * from "@/feature/sift/range";
 export * from "@/feature/sift/task";
