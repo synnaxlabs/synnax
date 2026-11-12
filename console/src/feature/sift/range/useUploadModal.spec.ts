@@ -248,5 +248,13 @@ describe("Sift.Range.useUploadModal", () => {
     expect(await screen.findByText("range has no data")).toBeTruthy();
     expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
     expect(statuses).toEqual([]);
+    // A retry that fails for another cause clears the earlier reason.
+    await client.tasks.delete(scan.key);
+    clickUpload();
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to upload to Sift"),
+    );
+    expect(screen.queryByText("range has no data")).toBeNull();
+    expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
   });
 });
