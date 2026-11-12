@@ -497,11 +497,15 @@ func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
 	next, n, err := encode(a.configID, f, fr, a.sent[key], func(
 		req *ingestv1.IngestWithConfigDataStreamRequest,
 	) error {
+		// The stream outlives ctx, so a cancelled ctx stops nothing on its own.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return a.sender.send(ctx, req)
 	})
 	a.sent[key] = next
 	a.pending += n
-	a.failed = err != nil
+	a.failed = err != nil && !errors.Is(err, ctx.Err())
 	return err
 }
 
