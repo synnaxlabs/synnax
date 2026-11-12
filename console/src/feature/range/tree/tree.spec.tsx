@@ -19,7 +19,6 @@ import { type ComponentType, type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
-import { Timeline } from "@/feature/range/tree/Timeline";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -63,20 +62,26 @@ const Harness = ({ label, layout }: HarnessProps): ReactElement => {
       value={[]}
       onChange={noop}
     >
-      <Tree.NodeProvider
-        nodes={tree.nodes}
-        expanded={expanded}
-        onExpand={toggle}
-        more={tree.more}
-      >
-        {layout === "timeline" ? (
-          <Timeline nodes={tree.nodes} />
-        ) : (
+      {layout === "timeline" ? (
+        <Tree.Layout
+          layout="timeline"
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        />
+      ) : (
+        <Tree.NodeProvider
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        >
           <List.Scroll>
             <List.Items<ranger.Key>>{ITEMS[layout]}</List.Items>
           </List.Scroll>
-        )}
-      </Tree.NodeProvider>
+        </Tree.NodeProvider>
+      )}
     </Select.Frame>
   );
 };

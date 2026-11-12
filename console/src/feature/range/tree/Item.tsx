@@ -34,7 +34,6 @@ import {
 import { useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
-import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 const [HighlightContext, useHighlight] = context.create<string | undefined>({
@@ -43,11 +42,6 @@ const [HighlightContext, useHighlight] = context.create<string | undefined>({
 });
 
 export { HighlightContext };
-
-export const useOpen = (): ((key: ranger.Key) => void) => {
-  const openTab = Panel.useOpenTab();
-  return (key) => openTab({ variant: "resource", resource: ranger.resourceID(key) });
-};
 
 /** Starts a planned range now, with no end until it stops. */
 export const useStart = (): ((range: ranger.Range) => void) => {
@@ -312,7 +306,7 @@ const Base = ({
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
-  const open = useOpen();
+  const open = Range.useOpen();
   if (range == null) return null;
   return (
     <Select.Item<ranger.Key>

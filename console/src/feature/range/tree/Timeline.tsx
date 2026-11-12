@@ -40,9 +40,10 @@ import {
   useState,
 } from "react";
 
-import { Lead, useOpen } from "@/feature/range/tree/Item";
+import { Lead } from "@/feature/range/tree/Item";
 import { type Node, useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
+import { Range } from "@/platform/range";
 
 /** A window of time in milliseconds since the epoch. */
 interface Window {
@@ -289,7 +290,7 @@ const Lane = ({
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const { depth, expanded, onExpand } = useNode(itemKey);
   const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
-  const open = useOpen();
+  const open = Range.useOpen();
   if (range == null) return null;
   return (
     <Select.Item<ranger.Key>

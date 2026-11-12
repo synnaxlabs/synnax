@@ -13,3 +13,4 @@ export * from "@/platform/range/SnapshotMenuItem";
 export * from "@/platform/range/useAddToActivePlot";
 export * from "@/platform/range/useAddToNewPlot";
 export * from "@/platform/range/useCreateModal";
+export * from "@/platform/range/useOpen";
