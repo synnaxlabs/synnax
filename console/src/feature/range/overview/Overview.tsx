@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Range.css";
+import "@/feature/range/overview/Overview.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Access, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { Aliases } from "@/feature/range/next/overview/Aliases";
-import { Children } from "@/feature/range/next/overview/Children";
-import { Documents, useDocuments } from "@/feature/range/next/overview/Documents";
-import { Header } from "@/feature/range/next/overview/Header";
-import { MetaData } from "@/feature/range/next/overview/MetaData";
-import { AddLine } from "@/feature/range/next/overview/Section";
+import { Aliases } from "@/feature/range/overview/Aliases";
+import { Children } from "@/feature/range/overview/Children";
+import { Documents, useDocuments } from "@/feature/range/overview/Documents";
+import { Header } from "@/feature/range/overview/Header";
+import { MetaData } from "@/feature/range/overview/MetaData";
+import { AddLine } from "@/feature/range/overview/Section";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";

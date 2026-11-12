@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Filter.css";
+import "@/feature/range/explorer/Filter.css";
 
 import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -38,8 +38,8 @@ import {
   type Property,
   put,
   TIME_PRESETS,
-} from "@/feature/range/next/condition";
-import { type MenuProperty, useSubmenus } from "@/feature/range/next/submenus";
+} from "@/feature/range/explorer/condition";
+import { type MenuProperty, useSubmenus } from "@/feature/range/explorer/submenus";
 import { CSS } from "@/platform/css";
 import { View } from "@/platform/view";
 

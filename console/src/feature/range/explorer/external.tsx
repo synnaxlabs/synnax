@@ -18,7 +18,7 @@ const TAB: Panel.Tab = {
     icon: <Ranger.ExplorerIcon />,
   }),
   Content: Panel.lazyComponent(
-    () => import("@/feature/range/next/Explorer"),
+    () => import("@/feature/range/explorer/Explorer"),
     "Explorer",
   ),
 };

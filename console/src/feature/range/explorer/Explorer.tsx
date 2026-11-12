@@ -7,52 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Range.css";
+import "@/feature/range/explorer/Explorer.css";
 
 import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { binary, location } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { ContextMenu } from "@/feature/range/next/ContextMenu";
-import { Chips, isEmpty, MenuItems } from "@/feature/range/next/Filter";
-import { FlatItem, HighlightContext, TreeItem } from "@/feature/range/next/Item";
-import { MATCH_LIMIT, useSearchTree } from "@/feature/range/next/searchTree";
-import { Timeline } from "@/feature/range/next/Timeline";
-import {
-  type Node,
-  NodeProvider,
-  useExpanded,
-  useTree,
-} from "@/feature/range/next/tree";
+import { Chips, isEmpty, MenuItems } from "@/feature/range/explorer/Filter";
+import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
+import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
-
-export const ORDERS: Record<view.RangeSort, ranger.Order> = {
-  newest: { field: "time_range_start", descending: true },
-  oldest: { field: "time_range_start", descending: false },
-  name: { field: "name", descending: false },
-};
-
-/** @returns the height in pixels of each range in the layout. */
-export const itemHeight = (layout: view.RangeLayout): number =>
-  layout === "timeline" ? 33 : 40;
-
-const contextMenu = Component.renderProp(ContextMenu);
-const treeItem = Component.renderProp(TreeItem);
-const flatItem = Component.renderProp(FlatItem);
 
 interface SortSelectProps {
   value: view.RangeSort;
@@ -87,107 +62,6 @@ const SortSelect = ({ value, onChange }: SortSelectProps): ReactElement => (
     </Select.Item>
   </Select.Simple>
 );
-
-interface LayoutInfo {
-  name: string;
-  icon: Icon.ReactElement;
-}
-
-const LAYOUTS: Record<view.RangeLayout, LayoutInfo> = {
-  tree: { name: "Tree", icon: <Icon.TreeView /> },
-  list: { name: "List", icon: <Icon.Menu /> },
-  timeline: { name: "Timeline", icon: <Icon.Timeline /> },
-};
-
-export interface LayoutSelectProps {
-  value: view.RangeLayout;
-  onChange: (value: view.RangeLayout) => void;
-  /** The layouts to offer, in order. */
-  layouts: view.RangeLayout[];
-  size?: Button.ButtonProps["size"];
-}
-
-export const LayoutSelect = ({
-  value,
-  onChange,
-  layouts,
-  size = "small",
-}: LayoutSelectProps): ReactElement => (
-  <Select.Buttons<view.RangeLayout> size={size} value={value} onChange={onChange}>
-    {layouts.map((layout) => (
-      <Select.Item<view.RangeLayout> key={layout} itemKey={layout} size={size}>
-        {LAYOUTS[layout].icon}
-        {LAYOUTS[layout].name}
-      </Select.Item>
-    ))}
-  </Select.Buttons>
-);
-
-export interface TreeLayoutProps {
-  layout: view.RangeLayout;
-  nodes: Node[];
-  expanded: ranger.Key[];
-  onExpand: (key: ranger.Key, expanded: boolean) => void;
-  /** Reads the next page of the children of a range. */
-  more: (key: ranger.Key) => void;
-  bounds?: ranger.Range["timeRange"];
-  emptyContent?: ReactNode;
-  /** The search term to tint in each name. */
-  highlight?: string;
-  /** Shows after the last range. */
-  footer?: ReactNode;
-}
-
-/**
- * The ranges of a tree, as rows or as lanes over a time axis. The list layout shows
- * each range on its own, with no children under it. It reads the ranges from the
- * enclosing list frame.
- */
-export const TreeLayout = ({
-  layout,
-  nodes,
-  expanded,
-  onExpand,
-  more,
-  bounds,
-  emptyContent,
-  highlight,
-  footer,
-}: TreeLayoutProps): ReactElement => {
-  const menuProps = Menu.useContextMenu();
-  const content =
-    layout === "timeline" ? (
-      <Timeline
-        nodes={nodes}
-        bounds={bounds}
-        emptyContent={emptyContent}
-        footer={footer}
-        onContextMenu={menuProps.open}
-      />
-    ) : (
-      <List.Scroll
-        grow
-        className={CSS.BE("range-explorer", "list")}
-        onContextMenu={menuProps.open}
-        role="list"
-        aria-label="Ranges"
-      >
-        <List.Items<ranger.Key> emptyContent={emptyContent}>
-          {layout === "list" ? flatItem : treeItem}
-        </List.Items>
-        {footer}
-      </List.Scroll>
-    );
-  return (
-    <NodeProvider nodes={nodes} expanded={expanded} onExpand={onExpand} more={more}>
-      <HighlightContext value={highlight}>
-        <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-          {content}
-        </Menu.ContextMenu>
-      </HighlightContext>
-    </NodeProvider>
-  );
-};
 
 const NoRanges = (): ReactElement => {
   const openCreate = Range.useCreateModal();
@@ -244,7 +118,7 @@ const Internal = (): ReactElement => {
         : { and: [where, { nested: false }] };
   const root = Flux.useList((client) => client.ranges, {
     name: "ranges",
-    query: { where: scoped, order: ORDERS[sort] },
+    query: { where: scoped, order: Tree.ORDERS[sort] },
     initialSize: searching ? MATCH_LIMIT + 1 : undefined,
     // A search in a tree reads its first page only.
     eager: searching,
@@ -255,19 +129,19 @@ const Internal = (): ReactElement => {
   const search = useSearchTree({
     matches: capped ? root.getItem(root.data.slice(0, MATCH_LIMIT)) : null,
     scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
-    order: ORDERS[sort],
+    order: Tree.ORDERS[sort],
     getItem: root.getItem,
   });
-  const [expanded, toggle] = useExpanded();
-  const tree = useTree(
+  const [expanded, toggle] = Tree.useExpanded();
+  const tree = Tree.use(
     capped
       ? {
           roots: search.roots,
           expanded: search.expanded,
           fixed: search.fixed,
-          order: ORDERS[sort],
+          order: Tree.ORDERS[sort],
         }
-      : { roots: root.data, expanded, order: ORDERS[sort] },
+      : { roots: root.data, expanded, order: Tree.ORDERS[sort] },
   );
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
@@ -299,7 +173,7 @@ const Internal = (): ReactElement => {
       more={root.more}
       search={root.search}
       onWhereChange={setWhere}
-      itemHeight={itemHeight(layout)}
+      itemHeight={Tree.itemHeight(layout)}
     >
       <View.Toolbar>
         <Flex.Box x align="center" gap="small" grow wrap>
@@ -310,7 +184,7 @@ const Internal = (): ReactElement => {
         </Flex.Box>
         <Flex.Box x align="center" gap="small">
           {searchTerm === "" && <SortSelect value={sort} onChange={setSort} />}
-          <LayoutSelect
+          <Tree.LayoutSelect
             value={layout}
             onChange={setLayout}
             layouts={EXPLORER_LAYOUTS}
@@ -329,7 +203,7 @@ const Internal = (): ReactElement => {
           )}
         </Flex.Box>
       </View.Toolbar>
-      <TreeLayout
+      <Tree.Layout
         layout={layout}
         nodes={tree.nodes}
         expanded={capped ? search.expanded : expanded}

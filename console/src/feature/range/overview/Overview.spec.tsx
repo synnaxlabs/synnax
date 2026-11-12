@@ -23,7 +23,7 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Overview } from "@/feature/range/next/overview/Overview";
+import { Overview } from "@/feature/range/overview/Overview";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {

@@ -22,7 +22,7 @@ import {
   RemoveButton,
   SaveButton,
   Section,
-} from "@/feature/range/next/overview/Section";
+} from "@/feature/range/overview/Section";
 import { CSS } from "@/platform/css";
 
 interface RangeKeyProps {

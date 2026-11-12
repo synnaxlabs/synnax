@@ -19,7 +19,7 @@ import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { useOpen, useStart, useStop } from "@/feature/range/next/Item";
+import { useOpen, useStart, useStop } from "@/feature/range/tree/Item";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";

@@ -25,7 +25,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, LinePlot, Log, Schematic, Table, Task } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Section } from "@/feature/range/next/overview/Section";
+import { Section } from "@/feature/range/overview/Section";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";

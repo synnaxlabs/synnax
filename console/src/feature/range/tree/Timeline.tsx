@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/range/tree/Timeline.css";
+
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -38,8 +40,8 @@ import {
   useState,
 } from "react";
 
-import { Lead, useOpen } from "@/feature/range/next/Item";
-import { type Node, useNode } from "@/feature/range/next/tree";
+import { Lead, useOpen } from "@/feature/range/tree/Item";
+import { type Node, useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 
 /** A window of time in milliseconds since the epoch. */

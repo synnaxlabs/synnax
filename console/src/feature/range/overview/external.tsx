@@ -15,7 +15,7 @@ import { Panel } from "@/platform/panel";
 
 const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(
-    () => import("@/feature/range/next/overview/Overview"),
+    () => import("@/feature/range/overview/Overview"),
     "Overview",
   ),
   Icon: Icon.Range,

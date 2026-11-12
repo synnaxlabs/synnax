@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/range/next/Range.css";
+import "@/feature/range/tree/Item.css";
 
 import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -31,7 +31,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useNode } from "@/feature/range/next/tree";
+import { useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
@@ -297,18 +297,18 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
   );
 };
 
-interface ItemProps
+interface BaseProps
   extends List.ItemProps<ranger.Key>, Omit<LeadProps, "range" | "preview"> {}
 
 /** A range as a row: its lead, labels, time, and favorite button. */
-const Item = ({
+const Base = ({
   depth,
   expanded,
   onExpand,
   showPath,
   className,
   ...rest
-}: ItemProps): ReactElement | null => {
+}: BaseProps): ReactElement | null => {
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
@@ -344,12 +344,12 @@ const Item = ({
 };
 
 /** An item in a tree, at its depth, with a caret that opens its children. */
-export const TreeItem = (props: List.ItemProps<ranger.Key>): ReactElement => {
+export const Item = (props: List.ItemProps<ranger.Key>): ReactElement => {
   const { depth, expanded, onExpand } = useNode(props.itemKey);
-  return <Item {...props} depth={depth} expanded={expanded} onExpand={onExpand} />;
+  return <Base {...props} depth={depth} expanded={expanded} onExpand={onExpand} />;
 };
 
 /** An item out of its tree, with the name of its parent. */
 export const FlatItem = (props: List.ItemProps<ranger.Key>): ReactElement => (
-  <Item {...props} showPath />
+  <Base {...props} showPath />
 );

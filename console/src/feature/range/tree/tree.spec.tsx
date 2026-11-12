@@ -18,9 +18,8 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { type ComponentType, type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
-import { FlatItem, TreeItem } from "@/feature/range/next/Item";
-import { Timeline } from "@/feature/range/next/Timeline";
-import { NodeProvider, useExpanded, useTree } from "@/feature/range/next/tree";
+import { Tree } from "@/feature/range/tree";
+import { Timeline } from "@/feature/range/tree/Timeline";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -39,22 +38,22 @@ const counted =
 
 type Layout = "tree" | "list" | "timeline";
 
-const ITEMS = { tree: counted(TreeItem), list: counted(FlatItem) };
+const ITEMS = { tree: counted(Tree.Item), list: counted(Tree.FlatItem) };
 
-interface TreeProps {
+interface HarnessProps {
   label: label.Key;
   layout: Layout;
 }
 
 /** The ranges with the label as roots, in name order, with their children. */
-const Tree = ({ label, layout }: TreeProps): ReactElement => {
+const Harness = ({ label, layout }: HarnessProps): ReactElement => {
   const list = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: { labels: [label] }, order: { field: "name", descending: false } },
   });
   useEffect(() => list.more(), []);
-  const [expanded, toggle] = useExpanded();
-  const tree = useTree({ roots: list.data, expanded });
+  const [expanded, toggle] = Tree.useExpanded();
+  const tree = Tree.use({ roots: list.data, expanded });
   return (
     <Select.Frame
       multiple
@@ -64,7 +63,7 @@ const Tree = ({ label, layout }: TreeProps): ReactElement => {
       value={[]}
       onChange={noop}
     >
-      <NodeProvider
+      <Tree.NodeProvider
         nodes={tree.nodes}
         expanded={expanded}
         onExpand={toggle}
@@ -77,7 +76,7 @@ const Tree = ({ label, layout }: TreeProps): ReactElement => {
             <List.Items<ranger.Key>>{ITEMS[layout]}</List.Items>
           </List.Scroll>
         )}
-      </NodeProvider>
+      </Tree.NodeProvider>
     </Select.Frame>
   );
 };
@@ -106,7 +105,7 @@ const renderTree = async (
   layout: Layout = "tree",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  await renderSuspended(<Tree label={label} layout={layout} />, { wrapper });
+  await renderSuspended(<Harness label={label} layout={layout} />, { wrapper });
   await waitFor(() =>
     ranges.forEach((r) => expect(countEditableText(List.itemNameID(r.key))).toBe(1)),
   );

@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type Condition, decode, encode } from "@/feature/range/next/condition";
+import { type Condition, decode, encode } from "@/feature/range/explorer/condition";
 
 const A = "4a1f0f4e-2b8f-4d3c-9b8e-3f6c2a1d0e01";
 const B = "4a1f0f4e-2b8f-4d3c-9b8e-3f6c2a1d0e02";

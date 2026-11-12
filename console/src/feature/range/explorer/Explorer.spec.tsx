@@ -13,7 +13,7 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Explorer } from "@/feature/range/next/Explorer";
+import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import {
@@ -123,7 +123,7 @@ const aimAtLabels = async (): Promise<void> => {
   move(closed("Stage"), 140, 32);
 };
 
-describe("range/next/Explorer", () => {
+describe("range/explorer/Explorer", () => {
   describe("filter", () => {
     it("should keep the ranges with a picked label and restore the rest when its chip goes", async () => {
       const { label, labeled, other } = await createLabeled();

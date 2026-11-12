@@ -38,7 +38,7 @@ export const childrenQuery = (key: ranger.Key, order: ranger.Order) => ({
   order,
 });
 
-export interface UseTreeParams {
+export interface UseParams {
   /** The keys at depth zero, in list order. */
   roots: ranger.Key[];
   /** The keys whose children show under them. */
@@ -49,7 +49,7 @@ export interface UseTreeParams {
   fixed?: Map<ranger.Key, ranger.Key[]>;
 }
 
-export interface UseTreeReturn {
+export interface UseReturn {
   nodes: Node[];
   /** Reads the next page of the children of the range. */
   more: (key: ranger.Key) => void;
@@ -59,12 +59,7 @@ export interface UseTreeReturn {
  * Lays out the roots with the children of each expanded range under it, one page at a
  * time. A range shows once, at its first place.
  */
-export const useTree = ({
-  roots,
-  expanded,
-  order,
-  fixed,
-}: UseTreeParams): UseTreeReturn => {
+export const use = ({ roots, expanded, order, fixed }: UseParams): UseReturn => {
   const { children: read, more } = Ranger.useChildren({
     parents: expanded.filter((key) => fixed?.has(key) !== true),
     order,

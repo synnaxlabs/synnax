@@ -1,0 +1,92 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-item {
+    gap: 1rem;
+}
+
+.console-range-item__indent {
+    flex-shrink: 0;
+    width: calc(var(--console-range-depth, 0) * 3rem);
+    margin-right: -1rem;
+}
+
+.console-range-item__caret {
+    flex-shrink: 0;
+    justify-content: center;
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0;
+
+    & svg {
+        transition: transform 0.1s ease;
+    }
+}
+
+.console-range-item__caret--expanded svg {
+    transform: rotate(90deg);
+}
+
+.console-range-item__swatch {
+    display: flex;
+    flex-shrink: 0;
+    width: var(--pluto-height-tiny);
+}
+
+.console-range-item__name {
+    flex: 1 1 0;
+    min-width: 0;
+
+    & > :first-child {
+        flex-shrink: 0;
+        max-width: 100%;
+    }
+}
+
+.console-range-item__path {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.console-range-item__labels {
+    display: flex;
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.console-range-item__when {
+    flex-shrink: 0;
+}
+
+.console-range-item__start {
+    flex-shrink: 0;
+    width: 19rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.console-range-item__span {
+    flex-shrink: 0;
+    justify-content: flex-end;
+    width: 11rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.console-range-item__favorite {
+    flex-shrink: 0;
+    justify-content: center;
+    width: 4.5rem;
+    min-width: 4.5rem;
+}
