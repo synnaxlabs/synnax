@@ -497,7 +497,7 @@ jobs:
 
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
-      # One batch request stages every package or none.
+      # pnpm cannot stage a batch, so each package stages on its own.
       - name: Stage
         if: steps.claim.outputs.staged != 'true'
         env:
@@ -505,7 +505,7 @@ jobs:
             ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
         # The stamp dirties the tree, and the resolve job already checked the branch.
-        run: pnpm stage publish -r --batch --tag "$TAG" --no-git-checks
+        run: pnpm stage publish -r --tag "$TAG" --no-git-checks
 
       - name: Tag
         if: steps.claim.outputs.staged != 'true'
