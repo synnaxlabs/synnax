@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -121,11 +121,10 @@ var _ = Describe("Codec", func() {
 							BaseChannelField: fullyPopulatedBaseChannelField,
 							EnumValues:       []payload.FloatEntry{{Label: "test_10", Value: payload.Float(11.5)}},
 						}},
-						Fields: []v2.WriteField{
-							{Variant: v2.StaticWriteField{
-								BaseWriteField: v2.BaseWriteField{Key: "test_13", Pointer: "test_14"},
-								JSONType:       payload.JSONType("number"),
-								Value:          any(map[string]any{"key_16": "value_16"}),
+						Fields: []payload.WriteField{
+							{Variant: payload.FloatWriteField{
+								BaseWriteField: payload.BaseWriteField{Key: "test_13", Pointer: "test_14"},
+								Value:          payload.Float(15.5),
 							}},
 						},
 					}},
@@ -165,11 +164,10 @@ var _ = Describe("Codec", func() {
 					BaseChannelField: fullyPopulatedBaseChannelField,
 					EnumValues:       []payload.FloatEntry{{Label: "test_6", Value: payload.Float(7.5)}},
 				}},
-				Fields: []v2.WriteField{
-					{Variant: v2.StaticWriteField{
-						BaseWriteField: v2.BaseWriteField{Key: "test_9", Pointer: "test_10"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_12": "value_12"}),
+				Fields: []payload.WriteField{
+					{Variant: payload.FloatWriteField{
+						BaseWriteField: payload.BaseWriteField{Key: "test_9", Pointer: "test_10"},
+						Value:          payload.Float(11.5),
 					}},
 				},
 			}}),
@@ -239,11 +237,10 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 					BaseChannelField: fullyPopulatedBaseChannelField,
 					EnumValues:       []payload.FloatEntry{{Label: "test_10", Value: payload.Float(11.5)}},
 				}},
-				Fields: []v2.WriteField{
-					{Variant: v2.StaticWriteField{
-						BaseWriteField: v2.BaseWriteField{Key: "test_13", Pointer: "test_14"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_16": "value_16"}),
+				Fields: []payload.WriteField{
+					{Variant: payload.FloatWriteField{
+						BaseWriteField: payload.BaseWriteField{Key: "test_13", Pointer: "test_14"},
+						Value:          payload.Float(15.5),
 					}},
 				},
 			}},
@@ -274,11 +271,10 @@ func BenchmarkEncodeDecodeWriteTarget(b *testing.B) {
 			BaseChannelField: fullyPopulatedBaseChannelField,
 			EnumValues:       []payload.FloatEntry{{Label: "test_6", Value: payload.Float(7.5)}},
 		}},
-		Fields: []v2.WriteField{
-			{Variant: v2.StaticWriteField{
-				BaseWriteField: v2.BaseWriteField{Key: "test_9", Pointer: "test_10"},
-				JSONType:       payload.JSONType("number"),
-				Value:          any(map[string]any{"key_12": "value_12"}),
+		Fields: []payload.WriteField{
+			{Variant: payload.FloatWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "test_9", Pointer: "test_10"},
+				Value:          payload.Float(11.5),
 			}},
 		},
 	}}
@@ -470,11 +466,10 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 						BaseChannelField: fullyPopulatedBaseChannelField,
 						EnumValues:       []payload.FloatEntry{{Label: "test_10", Value: payload.Float(11.5)}},
 					}},
-					Fields: []v2.WriteField{
-						{Variant: v2.StaticWriteField{
-							BaseWriteField: v2.BaseWriteField{Key: "test_13", Pointer: "test_14"},
-							JSONType:       payload.JSONType("number"),
-							Value:          any(map[string]any{"key_16": "value_16"}),
+					Fields: []payload.WriteField{
+						{Variant: payload.FloatWriteField{
+							BaseWriteField: payload.BaseWriteField{Key: "test_13", Pointer: "test_14"},
+							Value:          payload.Float(15.5),
 						}},
 					},
 				}},
@@ -545,11 +540,10 @@ func FuzzDecodeWriteTarget(f *testing.F) {
 				BaseChannelField: fullyPopulatedBaseChannelField,
 				EnumValues:       []payload.FloatEntry{{Label: "test_6", Value: payload.Float(7.5)}},
 			}},
-			Fields: []v2.WriteField{
-				{Variant: v2.StaticWriteField{
-					BaseWriteField: v2.BaseWriteField{Key: "test_9", Pointer: "test_10"},
-					JSONType:       payload.JSONType("number"),
-					Value:          any(map[string]any{"key_12": "value_12"}),
+			Fields: []payload.WriteField{
+				{Variant: payload.FloatWriteField{
+					BaseWriteField: payload.BaseWriteField{Key: "test_9", Pointer: "test_10"},
+					Value:          payload.Float(11.5),
 				}},
 			},
 		}}

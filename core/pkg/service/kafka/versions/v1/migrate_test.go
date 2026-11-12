@@ -14,9 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payloadv1 "github.com/synnaxlabs/x/payload/versions/v1"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -152,5 +154,39 @@ var _ = Describe("Migrate", func() {
 		Expect(cfg.Channels).To(HaveExactElements(
 			v1.WriteChannel{Variant: v1.BooleanWriteChannel{BaseWriteChannel: base}},
 		))
+	})
+
+	It("Should lift the fields of a record and keep its pointers", func(
+		ctx SpecContext,
+	) {
+		rec := MustSucceed(v1.MigrateRecord(ctx, v0.Record{
+			ValuePointer:   "/v",
+			ChannelPointer: new("/c"),
+			TimeFormat:     payload.TimeFormatUnixMs,
+			Fields: []http.WriteField{
+				{Variant: http.StaticWriteField{
+					BaseWriteField: http.BaseWriteField{Key: "s", Pointer: "/s"},
+					JSONType:       payload.JSONTypeString,
+					Value:          "plant-1",
+				}},
+				{Variant: http.GeneratedWriteField{
+					BaseWriteField: http.BaseWriteField{Key: "id", Pointer: "/id"},
+					Generator:      payload.GeneratorTypeUUID,
+				}},
+				{Variant: http.GeneratedWriteField{Generator: "id"}},
+			},
+		}))
+		Expect(rec.ValuePointer).To(Equal("/v"))
+		Expect(rec.ChannelPointer).To(Equal(new("/c")))
+		Expect(rec.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
+		Expect(rec.Fields).To(Equal([]payloadv1.WriteField{
+			{Variant: payloadv1.StringWriteField{
+				BaseWriteField: payloadv1.BaseWriteField{Key: "s", Pointer: "/s"},
+				Value:          "plant-1",
+			}},
+			{Variant: payloadv1.UuidWriteField{
+				BaseWriteField: payloadv1.BaseWriteField{Key: "id", Pointer: "/id"},
+			}},
+		}))
 	})
 })

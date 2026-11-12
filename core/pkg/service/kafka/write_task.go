@@ -12,18 +12,15 @@ package kafka
 import (
 	"context"
 	"encoding/json/jsontext"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
 	"time"
-	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -60,13 +57,14 @@ const (
 	slotValue slotKind = iota
 	slotChannel
 	slotTimestamp
-	slotUUID
+	slotGenerated
 )
 
 // slot is how a record fills one slot of the template.
 type slot struct {
 	kind   slotKind
 	format xjson.TimeFormat
+	gen    payload.Generator
 }
 
 // recordSlots fills the template slots of one record.
@@ -91,9 +89,7 @@ func (r *recordSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, r.ts, s.format), nil
 	default:
-		dst = append(dst, '"')
-		dst, err := uuid.New().AppendText(dst)
-		return append(dst, '"'), err
+		return s.gen.Append(dst, r.ts)
 	}
 }
 
@@ -282,55 +278,15 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 			return nil, nil, err
 		}
 	}
-	for _, field := range rec.Fields {
-		var (
-			base    http.BaseWriteField
-			literal []byte
-			s       slot
-			err     error
-		)
-		switch v := field.Variant.(type) {
-		case http.StaticWriteField:
-			base = v.BaseWriteField
-			literal, err = xjson.Marshal(v.Value)
-		case http.GeneratedWriteField:
-			base = v.BaseWriteField
-			s, err = generatorSlot(v)
-		default:
-			return nil, nil, errors.Newf("unknown write field variant %T", v)
-		}
-		label := fmt.Sprintf("field %q", base.Key)
+	for _, wf := range rec.Fields {
+		field, gen, err := payload.TemplateField(wf)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, label)
-		}
-		if err = add(label, base.Pointer, literal, s); err != nil {
 			return nil, nil, err
 		}
+		fields = append(fields, field)
+		slots = append(slots, slot{kind: slotGenerated, gen: gen})
 	}
 	return fields, slots, nil
-}
-
-// generatorSlot returns the slot that fills a generated field.
-func generatorSlot(field http.GeneratedWriteField) (slot, error) {
-	switch field.Generator {
-	case payload.GeneratorTypeUUID:
-		return slot{kind: slotUUID}, nil
-	case payload.GeneratorTypeTimestamp:
-		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
-		if field.TimeFormat != nil {
-			var err error
-			if s.format, err = xjson.ParseTimeFormat(
-				string(*field.TimeFormat),
-			); err != nil {
-				return slot{}, err
-			}
-		}
-		return s, nil
-	default:
-		return slot{}, errors.Wrapf(
-			validate.ErrValidation, "unknown generator %q", field.Generator,
-		)
-	}
 }
 
 // Exec implements driver.Task. Start and stop answer the command with a status,

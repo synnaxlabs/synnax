@@ -111,15 +111,6 @@ export const channelFieldZ = z.object({
 });
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
 
-/** BaseWriteField carries the fields every write body field shares. */
-export const baseWriteFieldZ = z.object({
-  /** key uniquely identifies the field within the endpoint. */
-  key: z.string().default(id.create),
-  /** pointer is the JSON Pointer where the value is placed in the body. */
-  pointer: z.string().default(""),
-});
-export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
-
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
@@ -147,57 +138,6 @@ export const readEndpointZ = z.object({
 });
 export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
 
-/** StaticWriteField places a fixed value in the request body. */
-export const staticWriteFieldZ = baseWriteFieldZ.extend({
-  type: z.literal("static"),
-  /** jsonType is the JSON type the value is serialized as. */
-  jsonType: payload.jsonTypeZ.default("number"),
-  /** value is the fixed JSON value placed at the pointer. */
-  value: z.unknown(),
-});
-export interface StaticWriteField extends z.infer<typeof staticWriteFieldZ> {}
-
-/** GeneratedWriteField places a freshly generated UUID or timestamp in the body. */
-export const generatedWriteFieldZ = baseWriteFieldZ.extend({
-  type: z.literal("generated"),
-  /** generator is the generator that produces a fresh value per request. */
-  generator: payload.generatorTypeZ.default("uuid"),
-  /**
-   * timeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-});
-export interface GeneratedWriteField extends z.infer<typeof generatedWriteFieldZ> {}
-
-export const WRITE_FIELD_TYPES = ["static", "generated"] as const;
-export const writeFieldTypeZ = z.enum(WRITE_FIELD_TYPES);
-export type WriteFieldType = z.infer<typeof writeFieldTypeZ>;
-
-/**
- * WriteField is an additional body field on a write endpoint. The type field selects
- * whether the value is fixed or generated per request.
- */
-export const writeFieldZ = z.discriminatedUnion("type", [
-  staticWriteFieldZ,
-  generatedWriteFieldZ,
-]);
-export type WriteField = StaticWriteField | GeneratedWriteField;
-
-export const WRITE_FIELD_SCHEMAS: {
-  [K in WriteFieldType]: z.ZodType<Extract<WriteField, { type: K }>>;
-} = {
-  static: staticWriteFieldZ,
-  generated: generatedWriteFieldZ,
-};
-
-export const readConfigZ = task.persistConfigZ.extend({
-  device: device.keyZ.default(""),
-  rate: z.number().default(1),
-  endpoints: readEndpointZ.array().default(() => []),
-  nanFillEnabled: z.boolean().default(false),
-});
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
 /** WriteEndpoint is a single HTTP endpoint written to by a write task. */
 export const writeEndpointZ = z.object({
   /** key uniquely identifies the endpoint within the task. */
@@ -214,10 +154,18 @@ export const writeEndpointZ = z.object({
   queryParams: queryParamZ.array().default(() => []),
   /** channel is the command channel whose writes trigger this endpoint. */
   channel: channelFieldZ.prefault({}),
-  /** fields contains additional static or generated body fields. */
-  fields: writeFieldZ.array().default(() => []),
+  /** fields contains additional fixed or generated body fields. */
+  fields: payload.writeFieldZ.array().default(() => []),
 });
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
+
+export const readConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  rate: z.number().default(1),
+  endpoints: readEndpointZ.array().default(() => []),
+  nanFillEnabled: z.boolean().default(false),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),

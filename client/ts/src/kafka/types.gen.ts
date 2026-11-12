@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
-import { http } from "@/http";
 import { task } from "@/task";
 
 export const START_OFFSETS = ["latest", "earliest", "none"] as const;
@@ -90,8 +89,8 @@ export const recordZ = z.object({
   timestampPointer: z.string().optional(),
   /** timeFormat is the encoding of the sample timestamp. */
   timeFormat: payload.timeFormatZ.default("unix_ns"),
-  /** fields contains additional static or generated record fields. */
-  fields: http.writeFieldZ.array().default(() => []),
+  /** fields contains additional fixed or generated record fields. */
+  fields: payload.writeFieldZ.array().default(() => []),
 });
 export interface Record extends z.infer<typeof recordZ> {}
 

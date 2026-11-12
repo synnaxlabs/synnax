@@ -10,7 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v1"
 import "schemas/synnax/versions/task/v2"
-import "schemas/x/versions/payload/v0"
+import "schemas/x/versions/payload/v1"
 
 StartOffset = v0.StartOffset
 
@@ -101,7 +101,11 @@ WriteChannel union on type payload.Kind extends BaseWriteChannel {
     @go marshal
 }
 
-Record = v0.Record
+Record struct extends v0.Record {
+    fields payload.WriteField[] {
+        @doc value "contains additional fixed or generated record fields."
+    }
+}
 
 WriteConfig struct extends task.StartConfig {
     device     device.Key = "" {

@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
 from x import payload, telem
@@ -134,22 +134,6 @@ class BaseChannelField(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
     data_type: telem.DataType | None = None
-
-
-class BaseWriteField(BaseModel):
-    """Carries the fields every write payload field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the target.
-        pointer: Is the JSON Pointer where the value is placed in the payload.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class BaseWriteTarget(BaseModel):
@@ -314,30 +298,6 @@ ChannelField = Annotated[
 ]
 
 
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the payload."""
-
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
-
-
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the payload."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
-
-
-# Is an additional payload field on a plain write target. The type field selects
-# whether the value is fixed or generated per publish.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
-    Field(discriminator="type"),
-]
-
-
 class EdgeConfig(task.StartConfig):
     """Configures a Sparkplug B edge node task, which publishes Synnax channels as the
     tags of one edge node and writes inbound tag commands to Synnax channels.
@@ -389,7 +349,7 @@ class PlainWriteTarget(BaseWriteTarget):
     channel: ChannelField = Field(
         default_factory=lambda: FloatChannelField(type="float")
     )
-    fields: list[WriteField] = Field(default_factory=list)
+    fields: list[payload.WriteField] = Field(default_factory=list)
 
 
 class SparkplugWriteTarget(BaseWriteTarget):

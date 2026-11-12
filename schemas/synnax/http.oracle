@@ -230,50 +230,6 @@ ChannelField struct {
     @go marshal
 }
 
-BaseWriteField struct {
-    key     string = create {
-        @doc value "uniquely identifies the field within the endpoint."
-        @key
-    }
-    pointer string = "" {
-        @doc value "is the JSON Pointer where the value is placed in the body."
-    }
-
-    @doc value  "carries the fields every write body field shares."
-    @go marshal
-}
-
-WriteField union on type extends BaseWriteField {
-    static {
-        json_type payload.JSONType = number {
-            @doc value "is the JSON type the value is serialized as."
-        }
-        value     any              {
-            @doc value "is the fixed JSON value placed at the pointer."
-        }
-
-        @doc value "places a fixed value in the request body."
-    }
-    generated {
-        generator   payload.GeneratorType = uuid {
-            @doc value "is the generator that produces a fresh value per request."
-        }
-        time_format payload.TimeFormat?   {
-            @doc value """
-                is the output encoding for timestamp generators. Defaults to iso8601.
-            """
-        }
-
-        @doc value "places a freshly generated UUID or timestamp in the body."
-    }
-
-    @doc value  """
-        is an additional body field on a write endpoint. The type field selects whether
-        the value is fixed or generated per request.
-    """
-    @go marshal
-}
-
 WriteEndpoint struct {
     key          string = create {
         @doc value "uniquely identifies the endpoint within the task."
@@ -288,17 +244,17 @@ WriteEndpoint struct {
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]     {
+    headers      Header[]             {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[] {
+    query_params QueryParam[]         {
         @doc value "contains query parameters appended to the request URL."
     }
     channel      ChannelField = {} {
         @doc value "is the command channel whose writes trigger this endpoint."
     }
-    fields       WriteField[] {
-        @doc value "contains additional static or generated body fields."
+    fields       payload.WriteField[] {
+        @doc value "contains additional fixed or generated body fields."
     }
 
     @doc value  "is a single HTTP endpoint written to by a write task."

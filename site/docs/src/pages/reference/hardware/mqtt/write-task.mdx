@@ -34,10 +34,10 @@ publishes one message to the topic:
 - **Output type** -> the value goes out as a number, a string, or a boolean. The list
   shows only what the data type of the channel allows. The **Enum mapping** of each type
   writes a label in place of a matching value, such as `OPEN` for `1`.
-- **Additional fields** -> the same fields in each payload. A static field adds a fixed
+- **Additional fields** -> the same fields in each payload. A fixed field adds a fixed
   value, and a generated field adds a new UUID or the current time.
 
-With the pointer `/position`, a static field `/source`, and a generated UUID at `/id`, a
+With the pointer `/position`, a fixed field `/source`, and a generated UUID at `/id`, a
 command of 42 publishes:
 
 ```json
@@ -57,7 +57,7 @@ command of 42 publishes:
    value. For a topic that publishes rarely, click **Add a topic by name**.
 3. Click **Add** _N_ **targets**. Each field becomes a target.
 4. Select a target to set its **Pointer** and **Output type**. To add fields to the
-   payload, click **Static** or **Generated** under **Additional fields**.
+   payload, click **Fixed** or **Generated** under **Additional fields**.
 5. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel for each target.
@@ -72,6 +72,7 @@ Python does not create channels. Create the command channel and its index first.
 ```python
 import synnax as sy
 from synnax import mqtt
+from x import payload
 
 broker = client.devices.retrieve(name="Plant broker")
 cmd_time = client.channels.create(
@@ -89,10 +90,8 @@ task = mqtt.WriteTask(
             topic="plant/valve1/set",
             channel=mqtt.FloatChannelField(pointer="/position", channel=cmd.key),
             fields=[
-                mqtt.StaticWriteField(
-                    pointer="/source", json_type="string", value="synnax"
-                ),
-                mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
+                payload.StringWriteField(pointer="/source", value="synnax"),
+                payload.UuidWriteField(pointer="/id"),
             ],
         )
     ],
@@ -156,19 +155,24 @@ The data type of the command channel sets which types it can be written as:
 Each type has its own enum mapping, with values of that type. **Boolean** writes a
 nonzero value as the label of `true`.
 
-An additional field has these settings:
+An additional field has a **Pointer** (`pointer`) and a type (`type`). The type sets its
+value:
 
-| Setting                                  | Default  | Notes                                      |
-| ---------------------------------------- | -------- | ------------------------------------------ |
-| Pointer <small>`pointer`</small>         |          | Where the value goes.                      |
-| JSON type <small>`json_type`</small>     | Number   | Static fields only. The type of the value. |
-| Value <small>`value`</small>             |          | Static fields only. The fixed value.       |
-| Generator <small>`generator`</small>     | UUID     | Generated fields only. UUID or timestamp.  |
-| Time format <small>`time_format`</small> | ISO 8601 | Generated timestamps only.                 |
+| Type                                       | Value <small>`value`</small>                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------- |
+| String <small>`string`</small>             | Text.                                                                           |
+| Float <small>`float`</small>               | A finite number.                                                                |
+| Integer <small>`integer`</small>           | A signed 64-bit integer, written as decimal text.                               |
+| Unsigned integer <small>`unsigned`</small> | An unsigned 64-bit integer, written as decimal text.                            |
+| Boolean <small>`boolean`</small>           | `true` or `false`.                                                              |
+| JSON <small>`json`</small>                 | The JSON text of any value, such as `{"a": 1}`.                                 |
+| Base64 <small>`bytes`</small>              | Base64 text, sent as a string.                                                  |
+| UUID <small>`uuid`</small>                 | None. Each message gets a new UUID.                                             |
+| Timestamp <small>`timestamp`</small>       | None. Each message gets the current time in `time_format`, ISO 8601 by default. |
 
 In code, a target is `PlainWriteTarget`, and its command channel is a `ChannelField`
-such as `FloatChannelField`, named for its kind. The additional fields are
-`StaticWriteField` and `GeneratedWriteField`.
+such as `FloatChannelField`, named for its kind. An additional field comes from
+`x.payload` and is named for its type, such as `StringWriteField`.
 
 <Divider.Divider x />
 

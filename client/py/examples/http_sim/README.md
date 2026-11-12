@@ -199,22 +199,25 @@ sy.http.ChannelField(
 )
 ```
 
-### Static fields
+### Fixed fields
 
-Add fixed values to the request body:
+Add fixed values to the request body. The field type sets the JSON type of the value:
 
 ```python
-sy.http.StaticWriteField(pointer="/source", json_type="string", value="python-client")
-sy.http.StaticWriteField(pointer="/priority", json_type="number", value=1)
+from x import payload
+
+payload.StringWriteField(pointer="/source", value="python-client")
+payload.IntegerWriteField(pointer="/priority", value=1)
+payload.JsonWriteField(pointer="/meta", value='{"site": "a"}')
 ```
 
 ### Generated fields
 
-Add auto-generated values (UUIDs or timestamps):
+Add a new UUID or the current time to each request:
 
 ```python
-sy.http.GeneratedWriteField(pointer="/id", generator="uuid")
-sy.http.GeneratedWriteField(pointer="/ts", generator="timestamp", time_format="iso8601")
+payload.UuidWriteField(pointer="/id")
+payload.TimestampWriteField(pointer="/ts", time_format="iso8601")
 ```
 
 ## Troubleshooting
