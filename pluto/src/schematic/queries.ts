@@ -119,8 +119,9 @@ const useEdgeFormBase = (
   const form = Form.use({
     values: edge ?? EMPTY_EDGE,
     schema: schematic.edgeZ,
-    onChange: ({ values, valid }) => {
-      if (valid) dispatch(schematic.setEdge({ edge: values }));
+    onChange: ({ values, valid, path }) => {
+      // A reset reports an empty path. Dispatching on it would echo the stored edge.
+      if (valid && path !== "") dispatch(schematic.setEdge({ edge: values }));
     },
   });
   useEffect(() => {

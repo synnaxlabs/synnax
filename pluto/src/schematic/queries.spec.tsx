@@ -1136,6 +1136,27 @@ describe("schematic queries", () => {
       );
     });
 
+    it("should show a remote edge edit without sending it back", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderEdgeForm(schem.key);
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.schematics.retrieve({ key: schem.key });
+      const send = spyOnSend(client);
+      await act(async () => {
+        await remote.schematics.dispatch(
+          schem.key,
+          schematic.setEdge({ edge: { ...schem.edges[0], strokeWidth: 9 } }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.get(edgePath.strokeWidth).value).toBe(9),
+      );
+      expect(
+        send.mock.calls.filter(([target]) => target === "/schematic/dispatch"),
+      ).toHaveLength(0);
+    });
+
     it("should show the last of two variant changes", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderEdgeForm(schem.key);
