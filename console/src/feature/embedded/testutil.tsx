@@ -147,7 +147,8 @@ const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable()
 /**
  * Creates a discovery file and the supervisor command handlers that read and write it,
  * with the compare-and-swap of the shell. Pass the handlers to {@link mockSupervisor}.
- * @param beforeSave Runs before each save compares, as another window that saves first.
+ * @param beforeSave - Runs before each save compares, as another window that saves
+ * first.
  */
 export const createDiscoveryFile = (
   apiKey: string | null = null,

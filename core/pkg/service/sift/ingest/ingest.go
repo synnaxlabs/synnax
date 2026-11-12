@@ -23,6 +23,7 @@ import (
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/breaker"
@@ -57,6 +58,10 @@ type Checkpoint struct {
 // Config configures an Engine.
 type Config struct {
 	alamos.Instrumentation
+	// DB reads the channels in Keys and their indexes.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer reads the samples sent to Sift.
 	//
 	// [REQUIRED]
@@ -114,6 +119,7 @@ var DefaultConfig = Config{
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Conn = override.Nil(c.Conn, other.Conn)
@@ -132,6 +138,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("sift.ingest")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("conn", c.Conn)
@@ -178,27 +185,29 @@ func New(ctx context.Context, cfgs ...Config) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	var channels []channel.Channel
-	if err = cfg.Channel.NewRetrieve().
-		Where(channel.MatchKeys(cfg.Keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	indexKeys := make(set.Set[channel.Key])
-	for _, ch := range channels {
-		if !ch.IsIndex && ch.Index() != 0 {
-			indexKeys.Add(ch.Index())
+	var channels, indexes []channel.Channel
+	if err = cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(cfg.Keys...)).
+			Entries(&channels).
+			Exec(ctx, snap); err != nil {
+			return err
 		}
-	}
-	var indexes []channel.Channel
-	if len(indexKeys) > 0 {
-		if err = cfg.Channel.NewRetrieve().
+		indexKeys := make(set.Set[channel.Key])
+		for _, ch := range channels {
+			if !ch.IsIndex && ch.Index() != 0 {
+				indexKeys.Add(ch.Index())
+			}
+		}
+		if len(indexKeys) == 0 {
+			return nil
+		}
+		return cfg.Channel.NewRetrieve().
 			Where(channel.MatchKeys(indexKeys.Slice()...)).
 			Entries(&indexes).
-			Exec(ctx, nil); err != nil {
-			return nil, err
-		}
+			Exec(ctx, snap)
+	}); err != nil {
+		return nil, err
 	}
 	flows, err := buildFlows(channels, indexes)
 	if err != nil {

@@ -43,7 +43,7 @@ import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Store } from "@/framer/cache/store";
+import { calculated, type Floor, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -120,6 +120,9 @@ export class Points {
   // boundary is where tiles end and raw samples begin. It trails rawFrom until the
   // tiles that replace the samples before it land, so no span goes blank.
   private boundary = TimeStamp.ZERO;
+  // steps holds each rawFrom past the boundary whose tiles a rebuild asked for, oldest
+  // first.
+  private steps: TimeStamp[] = [];
   // raw holds the raw samples last served, which stand in for blocks being read again.
   private raw: Series[] = [];
   // rawRead is reading while a raw read or its backoff runs, and stopped once the read
@@ -199,7 +202,7 @@ export class Points {
     }
     if (this.index == null) return;
     this.stream(this.index);
-    if (moved) this.boundary = this.rawFrom(this.home());
+    if (moved) this.moveBoundary();
   }
 
   /**
@@ -235,6 +238,7 @@ export class Points {
     }
     this.stream(this.index);
     const home = this.home();
+    this.cutoff(home);
     const view = this.view(home);
     const next = this.advance(view, home);
     const extremesKept = this.limit.extremesKept === true;
@@ -356,7 +360,7 @@ export class Points {
           throw new ValidationError(`channel ${payload.name} has no index to draw on`);
         this.props.store.setChannel(payload);
         this.index = index;
-        this.boundary = this.rawFrom(this.home());
+        this.moveBoundary();
         this.stream(index);
         this.breaker.reset();
         this.readFailure = null;
@@ -400,15 +404,29 @@ export class Points {
   // rawFrom is where raw samples start. A dynamic window no wider than two raw blocks
   // draws only raw samples, from the edge of its level's tile before its start. Other
   // windows draw them from the raw block edge before the commit point, or from the end
-  // of a static window once the end commits.
+  // of a static window once the end commits. Raw samples never start before the floor
+  // of the store.
   private rawFrom(home: TimeRange): TimeStamp {
-    const level = tileLevel(home);
-    if (this.dynamic && level <= RAW_LEVEL)
-      return tileRange({ level, index: tileIndex(home.start, level) }).start;
     const committed = this.props.now().sub(COMMIT_MARGIN);
     if (!this.dynamic && !home.end.after(committed)) return home.end;
+    const floor = this.floor()?.start ?? TimeStamp.MIN;
+    const level = tileLevel(home);
+    if (this.dynamic && level <= RAW_LEVEL)
+      return TimeStamp.max(
+        tileRange({ level, index: tileIndex(home.start, level) }).start,
+        floor,
+      );
     const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
-    return TimeStamp.max(home.start, edge);
+    return TimeStamp.max(home.start, edge, floor);
+  }
+
+  private floor(): Floor | undefined {
+    return this.index == null ? undefined : this.props.store.floor(this.index);
+  }
+
+  private moveBoundary(): void {
+    this.boundary = this.rawFrom(this.home());
+    this.steps = [];
   }
 
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
@@ -485,18 +503,25 @@ export class Points {
       });
   }
 
-  // Moves the boundary to rawFrom once the tiles that replace the raw samples before
-  // rawFrom arrive. Returns the keys of those tiles while any is missing.
+  // Moves the boundary to the newest rawFrom it reached whose tiles arrived, so a
+  // floor that moves faster than its tiles land still moves it. Returns the keys of the
+  // tiles of each newer rawFrom.
   private advance(view: TimeRange, home: TimeRange): string[] {
     const rawFrom = this.rawFrom(home);
-    if (!rawFrom.after(this.boundary)) return [];
-    const next = this.targets(view, home, false, rawFrom);
-    const keys = next.map((spec) => tileRequestKey(spec));
-    if (keys.every((k) => this.held.has(k))) {
-      this.boundary = rawFrom;
-      return [];
+    if (rawFrom.after(this.steps.at(-1) ?? this.boundary)) this.steps.push(rawFrom);
+    this.steps = this.steps.filter((step) => step.after(this.boundary));
+    const keys: string[] = [];
+    for (let i = this.steps.length - 1; i >= 0; i--) {
+      const next = this.targets(view, home, false, this.steps[i]);
+      const stepKeys = next.map((spec) => tileRequestKey(spec));
+      if (stepKeys.every((k) => this.held.has(k))) {
+        this.boundary = this.steps[i];
+        this.steps = this.steps.slice(i + 1);
+        break;
+      }
+      next.forEach((spec) => this.request(spec));
+      keys.push(...stepKeys);
     }
-    next.forEach((spec) => this.request(spec));
     return keys;
   }
 
@@ -629,15 +654,14 @@ export class Points {
   // Returns the samples of the raw range, the tail of samples a waiting join holds in
   // it, and whether a block of it waits for its samples. While the window streams, the
   // join fills the blocks from the commit point on, and reads fill the rest. A block
-  // being filled shows the samples it showed before, and the tail shows the stream
-  // until the join catches up.
+  // being filled shows the samples it showed before, and so does a span the store
+  // dropped until its tiles land. The tail shows the stream until the join catches up.
   private rawEdge(home: TimeRange): {
     raw: Series[];
     tail: Series[];
     filling: boolean;
   } {
     if (this.parked != null) return { raw: [], tail: [], filling: false };
-    this.cutoff(home);
     const tr = this.rawRange(home);
     if (!tr.start.before(tr.end)) {
       this.raw = [];
@@ -646,6 +670,8 @@ export class Points {
     const { store } = this.props;
     const now = this.props.now();
     const last = this.lastBlock(tr);
+    const kept = this.floor()?.kept ?? TimeStamp.MIN;
+    const stored = new TimeRange(TimeStamp.max(tr.start, kept), tr.end);
     // A waiting join's catch-up read fills the blocks from its first held sample on.
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
@@ -653,25 +679,25 @@ export class Points {
     const current = rawIndex(now);
     const blocks: RawBlock[] = [];
     // A block after the one of now only draws once it holds samples.
-    for (let i = rawIndex(tr.start); i <= last; i++) {
+    for (let i = rawIndex(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
       if (b != null) blocks.push(b);
     }
     const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
-        .filter((b) => (b.index < joinFrom ? !b.covers(tr) : !joined))
+        .filter((b) => (b.index < joinFrom ? !b.covers(stored) : !joined))
         .map((b) => b.index),
     );
-    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(tr));
+    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(stored));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
     const fresh = blocks
       .filter((b) => !filling.has(b.index))
-      .flatMap((b) => b.seriesIn(tr));
+      .flatMap((b) => b.seriesIn(stored));
     const standIns = this.raw.filter(
       (s) =>
-        filling.has(rawIndex(s.timeRange.start)) &&
+        (filling.has(rawIndex(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
         !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
     );
     this.raw = [...fresh, ...standIns]
@@ -788,7 +814,7 @@ export class Points {
     this.rejection = null;
     this.rawRead = "idle";
     this.loading = true;
-    if (this.index != null) this.boundary = this.rawFrom(this.home());
+    if (this.index != null) this.moveBoundary();
     this.changed();
   }
 }

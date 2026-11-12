@@ -5,9 +5,9 @@
       "sequence_name": "project",
       "tests": [
         { "case": "console/project/project" },
-        { "case": "console/project/ontology" },
+        { "case": "console/project/groups" },
         { "case": "console/pages/file_drop" },
-        { "case": "console/channel/ontology" },
+        { "case": "console/channel/groups" },
         { "case": "console/task/task_lifecycle" },
         { "case": "console/channel/tree_virtualization" },
         { "case": "console/channel/toolbar_search" }
@@ -36,6 +36,7 @@
       "tests": [
         { "case": "console/arc/graph_toolbar" },
         { "case": "console/arc/editor_scrollbar" },
+        { "case": "console/log/log_history" },
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },

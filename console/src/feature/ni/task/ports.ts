@@ -14,22 +14,24 @@ import { type Device } from "@/feature/ni/device/types";
 import { getAIChannelSuffix } from "@/feature/ni/task/getAIChannelDeviceKey";
 import {
   type AIChannel,
+  AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type CIChannel,
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
+  isGenerated,
   type TerminalConfig,
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
 /**
  * A port of a device, and the port a differential channel on it uses as its negative
- * input.
+ * input. A negative of 0 means that the port has no pair.
  */
 export interface Port {
   port: number;
-  negative?: number;
+  negative: number;
 }
 
 /**
@@ -57,15 +59,19 @@ const resolveTerminalConfig = (
 ): TerminalConfig | null => {
   if (!("terminalConfig" in channel)) return null;
   const { terminalConfig } = channel;
-  if (terminalConfig !== "Cfg_Default") return terminalConfig;
-  return port?.defaultTerminalConfig ?? terminalConfig;
+  if (terminalConfig !== "Cfg_Default" || port == null) return terminalConfig;
+  return port.defaultTerminalConfig;
 };
 
 /** The ports an analog input channel holds: its own, then its negative input. */
 const analogInputHolds = (channel: AIChannel, hardware?: ni.Hardware): string[] => {
   if (!("port" in channel)) return [];
   const port = hardware?.analogInputs.find((p) => p.port === channel.port);
-  if (port?.negative == null || resolveTerminalConfig(channel, port) !== "Diff")
+  if (
+    port == null ||
+    port.negative === 0 ||
+    resolveTerminalConfig(channel, port) !== "Diff"
+  )
     return [`ai${channel.port}`];
   return [`ai${channel.port}`, `ai${port.negative}`];
 };
@@ -83,7 +89,7 @@ export const lowestFreePort = (
   const free = (p: Port) => holds(p).every((h) => !claims.has(h));
   if (ports == null) {
     let port = 0;
-    while (!free({ port })) port++;
+    while (!free({ port, negative: 0 })) port++;
     return port;
   }
   const found = ports.find(free);
@@ -92,7 +98,7 @@ export const lowestFreePort = (
 };
 
 const numbered = (list: { port: number }[]): Port[] =>
-  list.map(({ port }) => ({ port }));
+  list.map(({ port }) => ({ port, negative: 0 }));
 
 /** The digital ports that read input, or that write output. */
 export const digitalPorts = (
@@ -149,38 +155,37 @@ export const groups = ({
     port: number,
     row: number,
     column: number,
-    negative?: number,
+    negative: number = 0,
   ): Task.Port.Cell =>
     Task.Port.cell({
       key: String(port),
-      labels: negative == null ? [String(port)] : [String(port), String(negative)],
+      labels: negative === 0 ? [String(port)] : [String(port), String(negative)],
       row,
       column,
-      ports: negative == null ? [name(port)] : [name(port), name(negative)],
+      ports: negative === 0 ? [name(port)] : [name(port), name(negative)],
       claims,
       selected,
       describe,
     });
   const negatives = new Set(
-    ports.map(({ negative }) => negative).filter((n) => n != null),
+    ports.map(({ negative }) => negative).filter((n) => n !== 0),
   );
-  const positives = ports.filter(({ negative }) => negative != null);
+  const positives = ports.filter(({ negative }) => negative !== 0);
   const result: Task.Port.Group[] = [];
   for (let start = 0; start < positives.length; start += PAIRED_GROUP) {
     const chunk = positives.slice(start, start + PAIRED_GROUP);
     const cells: Task.Port.Cell[] = [];
     chunk.forEach(({ port, negative }, i) => {
-      const n = negative as number;
       const differential = on(port).some(({ channel }) =>
-        on(n).some((c) => c.negative && c.channel === channel),
+        on(negative).some((c) => c.negative && c.channel === channel),
       );
-      if (differential) cells.push(cell(port, 1, i + 1, n));
-      else cells.push(cell(port, 1, i + 1), cell(n, 2, i + 1));
+      if (differential) cells.push(cell(port, 1, i + 1, negative));
+      else cells.push(cell(port, 1, i + 1), cell(negative, 2, i + 1));
     });
     result.push({ key: `pairs-${chunk[0].port}`, columns: chunk.length, cells });
   }
   const rest = ports.filter(
-    ({ port, negative }) => negative == null && !negatives.has(port),
+    ({ port, negative }) => negative === 0 && !negatives.has(port),
   );
   for (let start = 0; start < rest.length; start += UNPAIRED_GROUP) {
     const chunk = rest.slice(start, start + UNPAIRED_GROUP);
@@ -258,7 +263,10 @@ export const ANALOG_OUTPUT: PortKind<AOChannel> = {
   prefix: "ao",
   ports: (hardware) => numbered(hardware.analogOutputs),
   holds: ({ port }) => [`ao${port}`],
-  name: (c, d) => named(c.cmdChannelName, () => `${identifierOf(d)}_ao_${c.port}_cmd`),
+  name: (c, d) =>
+    isGenerated(c)
+      ? AO_CHANNEL_TYPE_NAMES[c.type]
+      : named(c.cmdChannelName, () => `${identifierOf(d)}_ao_${c.port}_cmd`),
 };
 
 export const COUNTER_INPUT: PortKind<CIChannel> = {
@@ -269,8 +277,10 @@ export const COUNTER_INPUT: PortKind<CIChannel> = {
 };
 
 /** The name an analog output channel's state channel shows by. */
-export const analogOutputStateName = (c: AOChannel, d: Device): string =>
-  named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
+export const analogOutputStateName = (
+  c: Exclude<AOChannel, { type: "ao_func_gen" }>,
+  d: Device,
+): string => named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
 
 /** The name a digital input channel shows by. */
 export const digitalInputName = (

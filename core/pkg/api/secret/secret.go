@@ -11,19 +11,21 @@ package secret
 
 import (
 	"context"
-	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -94,8 +96,8 @@ type Input struct {
 	Name string `json:"name" msgpack:"name"`
 	// Value is the plain text value of a stored secret.
 	Value string `json:"value" msgpack:"value"`
-	// Path is the path of a file secret on the computer that uses it.
-	Path string `json:"path" msgpack:"path"`
+	// FileName is the name of a file secret's file in the secrets folder of the rack.
+	FileName string `json:"file_name" msgpack:"file_name"`
 	// Key selects the secret to replace. A zero key creates a new secret.
 	Key Key `json:"key" msgpack:"key"`
 }
@@ -105,184 +107,130 @@ func (in Input) secret() (Secret, error) {
 	v := validate.New("secret")
 	switch in.Source {
 	case secret.SourceStored:
-		if v.Ternary("path", in.Path != "", "must be empty for a stored secret") {
+		if v.Ternary(
+			"file_name",
+			in.FileName != "",
+			"must be empty for a stored secret",
+		) {
 			return Secret{}, v.Error()
 		}
 		return Secret{Variant: secret.StoredSecret{Base: base}}, nil
 	case secret.SourceFile:
-		return Secret{Variant: secret.FileSecret{Base: base, Path: in.Path}}, nil
+		return Secret{
+			Variant: secret.FileSecret{Base: base, FileName: in.FileName},
+		}, nil
 	}
 	v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
 	return Secret{}, v.Error()
 }
 
-// CreateRequest holds the secrets to create or replace.
-type CreateRequest struct {
+// SetRequest holds the secrets to create or replace.
+type SetRequest struct {
 	Secrets []Input `json:"secrets" msgpack:"secrets"`
 }
 
-// CreateResponse holds the created secrets, without their values.
-type CreateResponse struct {
+// SetResponse holds the set secrets, without their values.
+type SetResponse struct {
 	Secrets []Secret `json:"secrets" msgpack:"secrets"`
 }
 
-// Create creates the secrets, or replaces those whose key exists. It requires create
-// access on secrets, and update access on each secret it replaces.
-func (s *Service) Create(
+// Set creates the secrets, or replaces those whose key exists.
+func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
-	req CreateRequest,
-) (CreateResponse, error) {
-	enforcer := s.access.NewEnforcer(tx)
-	subject := auth.GetSubject(ctx)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeSecret}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
-	replaced, err := s.retrieveReplaced(ctx, tx, req.Secrets)
-	if err != nil {
-		return CreateResponse{}, err
-	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: secret.OntologyIDsFromSecrets(replaced),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
+	req SetRequest,
+) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	res := CreateResponse{Secrets: make([]Secret, len(req.Secrets))}
+	res := SetResponse{Secrets: make([]Secret, len(req.Secrets))}
 	for i, in := range req.Secrets {
 		sec, err := in.secret()
 		if err != nil {
-			return CreateResponse{}, err
+			return SetResponse{}, err
 		}
-		if err = w.Create(ctx, &sec, []byte(in.Value)); err != nil {
-			return CreateResponse{}, err
+		if err = w.Set(ctx, &sec, []byte(in.Value)); err != nil {
+			return SetResponse{}, err
 		}
 		res.Secrets[i] = sec
 	}
 	return res, nil
 }
 
-// retrieveReplaced returns the existing secrets whose keys the inputs give. A key that
-// no secret has creates a new secret.
-func (s *Service) retrieveReplaced(
-	ctx context.Context,
-	tx gorp.Tx,
-	inputs []Input,
-) ([]Secret, error) {
-	var keys []Key
-	for _, in := range inputs {
-		if in.Key != uuid.Nil() {
-			keys = append(keys, in.Key)
-		}
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the secrets that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
 	}
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var replaced []Secret
-	if err := s.internal.NewRetrieve().
-		Where(secret.MatchKeys(keys...)).
-		Entries(&replaced).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return nil, err
-	}
-	return replaced, nil
+	return bind.Keys(r.Where.Key, secret.ResourceID)
 }
 
-// Retrieve returns the secrets the request selects, with their uses when the request
-// asks for them. It requires retrieve access on each of them.
+// Retrieve returns the secrets that the request selects and that the subject can
+// retrieve, with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Secrets))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Secrets))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDsFromSecrets(res.Secrets),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, secret.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeUses {
-		if err = s.fillUses(ctx, res.Secrets); err != nil {
+		if err = s.fillUses(ctx, snap, res.Secrets); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
 	return res, nil
 }
 
-// fillUses sets the uses of each secret, leaving out the resources the caller cannot
-// read. A secret with no readable uses gets empty uses, so the response tells it apart
-// from a secret whose uses were not asked for.
-func (s *Service) fillUses(ctx context.Context, secrets []Secret) error {
-	keys := make([]Key, len(secrets))
-	resources := make(map[Key][]ontology.ID, len(secrets))
-	for i, sec := range secrets {
-		keys[i] = sec.Base().Key
-		resources[keys[i]] = []ontology.ID{}
-	}
-	uses, err := s.internal.Uses(ctx, nil, keys...)
-	if err != nil {
-		return err
-	}
-	enforcer := s.access.NewEnforcer(nil)
-	subject := auth.GetSubject(ctx)
-	for _, use := range uses {
-		err := enforcer.Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{use.Resource},
-		})
-		if errors.Is(err, access.ErrDenied) {
-			continue
-		}
+// fillUses sets the uses of each secret, leaving out the resources the subject cannot
+// retrieve. A task config that uses a secret appears as its task. A secret with no
+// readable uses gets empty uses, so the response tells it apart from a secret whose
+// uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	secrets []Secret,
+) error {
+	for i := range secrets {
+		base := secrets[i].Base()
+		uses, err := s.internal.Uses(ctx, snap, base.Key)
 		if err != nil {
 			return err
 		}
-		resources[use.Secret] = append(resources[use.Secret], use.Resource)
-	}
-	for i := range secrets {
-		base := secrets[i].Base()
-		base.Uses = resources[base.Key]
+		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
+			target := gorp.Target{Table: string(id.Type), Key: id.Key}
+			if t, ok := taskconfig.TaskOf(target); ok {
+				id = t
+			}
+			return id, snap.Allowed(id)
+		})
 		secrets[i].SetBase(base)
 	}
 	return nil
 }
 
-// RenameRequest names the secret to rename and its new name.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the secret to rename.
-	Key Key `json:"key" msgpack:"key"`
-}
+// DispatchRequest carries an action sequence to apply to a single secret. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[secret.Key, secret.Action]
 
-// Rename renames the secret. It requires update access on it.
-func (s *Service) Rename(
+// Dispatch applies the action sequence to the target secret atomically. Subscribers to
+// the secret action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
-	req RenameRequest,
+	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{secret.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 // DeleteRequest selects the secrets to delete.
@@ -290,28 +238,19 @@ type DeleteRequest struct {
 	Keys []Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the secrets. It requires delete access on each of them, and refuses
-// while anything uses one.
+// Delete deletes the secrets. It refuses while anything uses one.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: secret.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a subject and the secrets it may read once, whether or not
-// anything on the subject uses them.
+// GrantCreateRequest names a subject and the secrets it may read once.
 type GrantCreateRequest struct {
 	// Subject is the subject that may read the secrets. It must be a rack.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Secrets are the secrets the subject may read.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
 }
@@ -343,21 +282,21 @@ var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secre
 
 func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeUser {
+	if subject.Type != resource.TypeUser {
 		return errGrantSubject
 	}
 	enforcer := s.access.NewEnforcer(tx)
 	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
+		Objects: []resource.ID{{Type: resource.TypeDevice}},
 	}); err != nil {
 		return err
 	}
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: secret.OntologyIDs(keys),
+		Objects: secret.ResourceIDs(keys),
 	})
 }
 
@@ -392,10 +331,10 @@ func (s *Service) Resolve(
 	req ResolveRequest,
 ) (ResolveResponse, error) {
 	subject := auth.GetSubject(ctx)
-	if subject.Type != ontology.ResourceTypeRack {
+	if subject.Type != resource.TypeRack {
 		return ResolveResponse{}, errResolveSubject
 	}
-	values, err := s.internal.Resolve(ctx, nil, subject, req.Grant, req.Keys...)
+	values, err := s.internal.Resolve(ctx, subject, req.Grant, req.Keys...)
 	if err != nil {
 		return ResolveResponse{}, err
 	}

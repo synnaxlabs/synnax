@@ -241,10 +241,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     if (tpc == null) throw new Error(`no project named "${world.project}"`);
     const channels = await client.channels.retrieve(LIMITS.map(([, name]) => name));
-    await client.tables.create(
-      tpc.key,
-      limitTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
-    );
+    await client.tables.create({
+      ...limitTable(new Map(channels.map((ch) => [ch.name, ch.key]))),
+      project: tpc.key,
+    });
     await client.statuses.set(alarms(await pageNow()));
     const labels = new Map(
       (
@@ -256,7 +256,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     for (const { name, label } of ALARMS) {
       const key = labels.get(label);
       if (key == null) throw new Error(`no label named "${label}"`);
-      await client.labels.label(status.ontologyID(alarmKey(name)), [key]);
+      await client.labels.label(status.resourceID(alarmKey(name)), [key]);
     }
 
     await capture.login(session, world.project);

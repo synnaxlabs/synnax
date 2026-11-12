@@ -18,18 +18,19 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // testParent satisfies the registry's required-parent check; the Arc importer ignores
 // it and parents under the root Arcs directory, so the ID only has to be non-zero.
-var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
+var testParent = resource.ID{Type: resource.TypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -51,8 +52,10 @@ var _ = Describe("ImEx", func() {
 					Source: arc.Source{Variant: arc.TextSource{}},
 				},
 			)
-			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-			env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Base().Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
 			Expect(env.Type).To(Equal("arc-automation"))
 			Expect(env.Name).To(Equal("exported"))
@@ -70,8 +73,10 @@ var _ = Describe("ImEx", func() {
 						Variant: arc.TextSource{Text: text.Text{Raw: "x := 1"}},
 					},
 				})
-				Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Base().Key)))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
 				var body map[string]any
 				Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).
 					To(Succeed())
@@ -87,13 +92,16 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: uuid.New().String()}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			id := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
+			id := resource.ID{Type: resource.TypeArc, Key: "not-a-uuid"}
+			Expect(
+				svc.Export(ctx, db, id),
+			).Error().
+				To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 
@@ -102,11 +110,17 @@ var _ = Describe("ImEx", func() {
 			ctx SpecContext, path string, opts imex.ImportOptions,
 		) arc.Arc {
 			GinkgoHelper()
-			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeArc))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, LoadEnvelope(path), opts)
+				return err
+			})).To(Succeed())
+			Expect(id.Type).To(Equal(resource.TypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, key)
+				})).To(Succeed())
 			})
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
@@ -141,22 +155,16 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should parent the imported Arc under the root Arcs directory",
+			"Should put the imported Arc in the root Arcs directory",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_v3.json",
 					imex.ImportOptions{Parent: testParent},
 				)
-				var parents []ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(res.OntologyID()).
-					TraverseTo(ontology.ParentsTraverser).
-					Entries(&parents).
-					Exec(ctx, db)).To(Succeed())
-				Expect(parents).To(HaveLen(1))
-				Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeArcDirectory))
-				Expect(parents[0].Name).To(Equal("Arcs"))
+				root := rootDirectory(ctx, db)
+				Expect(root.Name).To(Equal("Arcs"))
+				Expect(res.Base().Directory).To(HaveValue(Equal(root.Key)))
 			},
 		)
 
@@ -248,10 +256,15 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
-					LoadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{Parent: testParent},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(
+						ctx,
+						tx,
+						LoadEnvelope("versions/testdata/import_bad_version.json"),
+						imex.ImportOptions{Parent: testParent},
+					)
+					return err
+				})).To(SatisfyAll(
 					MatchError(ContainSubstring("arc version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
 				))
@@ -261,17 +274,19 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should generate a fresh key, discarding the key on the wire",
 			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope(
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, LoadEnvelope(
 						"versions/testdata/import_v3.json",
 					),
-					imex.ImportOptions{Parent: testParent},
-				))
+						imex.ImportOptions{Parent: testParent})
+					return err
+				})).To(Succeed())
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 				key := MustSucceed(uuid.Parse(id.Key))
-				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, key)
+				})).To(Succeed())
 			},
 		)
 	})
@@ -286,16 +301,27 @@ var _ = Describe("ImEx", func() {
 						Variant: arc.TextSource{Text: text.Text{Raw: "b = 2"}},
 					},
 				})
-				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, arc.OntologyID(original.Base().Key)))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
+				env := MustSucceed(
+					svc.Export(ctx, db, arc.ResourceID(original.Base().Key)),
+				)
 				Expect(env.Type).To(Equal("arc-module"))
 				// The import lands beside the original, where the name is taken.
-				Expect(
-					svc.NewWriter(nil).Delete(ctx, original.Base().Key),
-				).To(Succeed())
-				id := MustSucceed(imexSvc.Import(
-					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
-				))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, original.Base().Key)
+				})).To(Succeed())
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(
+						ctx,
+						tx,
+						WireRoundTrip(env),
+						imex.ImportOptions{Parent: testParent},
+					)
+					return err
+				})).To(Succeed())
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Base().Key))
 				var res arc.Arc

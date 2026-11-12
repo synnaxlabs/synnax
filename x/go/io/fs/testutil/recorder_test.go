@@ -10,6 +10,7 @@
 package testutil_test
 
 import (
+	"io"
 	"os"
 	"sync"
 
@@ -255,7 +256,9 @@ var _ = Describe("Recorder", func() {
 					// recorder should still record the requested length, not the
 					// returned length.
 					buf := make([]byte, 16)
-					_, _ = f.ReadAt(buf, 0)
+					n, err := f.ReadAt(buf, 0)
+					Expect(n).To(Equal(2))
+					Expect(err).To(MatchError(io.EOF))
 					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
 						Event{
 							Op:     OpReadAt,
@@ -278,7 +281,7 @@ var _ = Describe("Recorder", func() {
 						// should still capture the attempt with the caller-requested
 						// length.
 						buf := make([]byte, 4)
-						_, _ = f.ReadAt(buf, 100)
+						Expect(f.ReadAt(buf, 100)).Error().To(MatchError(io.EOF))
 						Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
 							Event{
 								Op:     OpReadAt,
@@ -303,10 +306,11 @@ var _ = Describe("Recorder", func() {
 					wg.Add(writers)
 					for range writers {
 						go func() {
+							defer GinkgoRecover()
 							defer wg.Done()
 							payload := []byte("x")
 							for range writesPerWriter {
-								_, _ = f.WriteAt(payload, 0)
+								MustSucceed(f.WriteAt(payload, 0))
 							}
 						}()
 					}

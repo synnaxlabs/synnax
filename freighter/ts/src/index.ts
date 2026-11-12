@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { EOF, FreighterError, StreamClosed, Unreachable } from "@/errors";
+export {
+  EOF,
+  FreighterError,
+  ReceiveOverflow,
+  StreamClosed,
+  Timeout,
+  Unreachable,
+} from "@/errors";
 export {
   type FileEncoding,
   type FileOptions,
@@ -18,5 +25,5 @@ export { HTTPClient } from "@/http";
 export { type Context, type Middleware, type Next } from "@/middleware";
 export { type Stream, type StreamClient } from "@/stream";
 export { type UnaryClient, unaryWithBreaker } from "@/unary";
-export { WebSocketClient } from "@/websocket";
+export { type FlowControl, WebSocketClient } from "@/websocket";
 export { type WebsocketMessage } from "@/websocket";

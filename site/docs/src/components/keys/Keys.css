@@ -16,8 +16,9 @@
 }
 
 /* A flex box, so a flex parent centers the chip instead of setting it on a line of
-   text. The nav tooltip hides its keys with the hidden attribute. */
-.docs-keys:not([hidden]),
+   text. The nav tooltip hides its keys with the hidden attribute. `:where` drops the
+   specificity, so a class on the keys can hide them in any stylesheet order. */
+:where(.docs-keys:not([hidden])),
 .docs-keys__mac,
 .docs-keys__pc {
     display: inline-flex;

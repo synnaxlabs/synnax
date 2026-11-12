@@ -26,6 +26,12 @@
     color: var(--pluto-gray-l9);
 }
 
-.console-login__status {
-    height: 5rem;
+.console-login__error {
+    -webkit-user-select: text;
+    user-select: text;
+
+    /* keeps its space while empty, so the form never moves when an error shows */
+    &.console--ghost {
+        visibility: hidden;
+    }
 }

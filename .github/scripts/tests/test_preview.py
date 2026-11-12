@@ -122,7 +122,11 @@ class TestUp:
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
         )
         assert host.site(12).read_text() == (
-            "pr-12.preview.example.com {\n\treverse_proxy synnax-pr-12:9090\n}\n"
+            "pr-12.preview.example.com {\n"
+            "\treverse_proxy synnax-pr-12:9090 {\n"
+            "\t\tstream_close_delay 1h\n"
+            "\t}\n"
+            "}\n"
         )
 
     def test_passes_license_to_core(self, host: Host) -> None:

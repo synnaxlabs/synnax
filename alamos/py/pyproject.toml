@@ -9,7 +9,7 @@
 
 [project]
 name = "alamos"
-version = "0.60.0"
+version = "0.0.0"
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
@@ -58,6 +58,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.ruff.lint.isort]
 known-first-party = ["alamos"]
+combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.12"

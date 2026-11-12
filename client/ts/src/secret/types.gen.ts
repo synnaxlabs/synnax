@@ -12,11 +12,24 @@
 import { filter, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 export const SOURCES = ["stored", "file"] as const;
 export const sourceZ = z.enum(SOURCES);
 export type Source = z.infer<typeof sourceZ>;
+
+/** Order is a sort of secrets. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -27,13 +40,13 @@ export const baseZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the secret. */
   name: z.string().min(1, "name is required"),
-  /** updated is when the value or path of the secret last changed. */
+  /** updated is when the value or file name of the secret last changed. */
   updated: telem.timeStampZ,
   /**
    * uses are the resources that use the secret and that the caller can read, filled
    * only when a retrieve request asks for them.
    */
-  uses: zod.nullToUndefined(ontology.idZ.array()),
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
@@ -43,6 +56,7 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  name?: filter.String;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -59,7 +73,20 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** name selects by name. */
+  name: filter.stringZ.optional(),
 });
+
+/**
+ * Cursor is a position in an order of secrets: the sort value and the key of a secret.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the secret at the position. */
+  key: keyZ,
+  /** name is the name of the secret at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /** StoredSecret is a secret whose value the Core stores. */
 export const storedSecretZ = baseZ.extend({
@@ -67,11 +94,14 @@ export const storedSecretZ = baseZ.extend({
 });
 export interface StoredSecret extends z.infer<typeof storedSecretZ> {}
 
-/** FileSecret is a secret whose value is a file on the computer that uses it. */
+/**
+ * FileSecret is a secret whose value is a file in the secrets folder that an admin sets
+ * on the rack that uses it.
+ */
 export const fileSecretZ = baseZ.extend({
   source: z.literal("file"),
-  /** path is the path of the file on the computer that uses the secret. */
-  path: z.string(),
+  /** fileName is the name of the file in the secrets folder of the rack. */
+  fileName: z.string(),
 });
 export interface FileSecret extends z.infer<typeof fileSecretZ> {}
 
@@ -95,10 +125,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the secrets that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the secrets. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the secrets strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most secrets to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching secrets to skip. */
-  offset: z.uint32().optional(),
   /** includeUses includes the uses of each record. */
   includeUses: z.boolean().optional(),
 });
@@ -111,5 +143,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("secret");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("secret");
+export const TYPE_RESOURCE_ID = resourceID("");
