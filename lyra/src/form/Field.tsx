@@ -71,7 +71,10 @@ export const Field = <I = string | number, O = I>({
   if (field == null || !visible) return null;
   const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
-  const helpText = field.status.message;
+  const helpText =
+    field.mixed === true && field.status.variant === "success"
+      ? "Mixed"
+      : field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
   if (field.preview != null) childrenProps.preview = field.preview;

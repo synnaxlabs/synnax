@@ -12,12 +12,13 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { deep, errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
 import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
-import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
+import { AIChannelForm, AIChannelSettings } from "@/feature/ni/task/AIChannelForm";
 import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
@@ -88,6 +89,30 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const channelDetails = Component.renderProp(ChannelDetails);
+
+/** Edits the signal and the scale of the selected channels while they share a type. */
+const MultiDetails = ({ keys }: Task.Views.MultiDetailsProps) => {
+  const channels = PForm.useFieldValue(root.config.channels);
+  const types = unique.unique(
+    channels.filter((c) => keys.includes(c.key)).map((c) => c.type),
+  );
+  if (types.length > 1)
+    return (
+      <Text.Text level="small" color={9}>
+        Select channels of one type to edit them together.
+      </Text.Text>
+    );
+  const paths = keys.map((key) => root.config.channels[key]);
+  return (
+    <PForm.Fanout paths={paths}>
+      <PForm.Sections>
+        <AIChannelSettings type={types[0]} path={paths[0]} />
+      </PForm.Sections>
+    </PForm.Fanout>
+  );
+};
+
+const multiDetails = Component.renderProp(MultiDetails);
 
 const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
   const value = PForm.useFieldValue(path);
@@ -164,6 +189,7 @@ const Form: FC = () => {
       path={root.config.channels}
       listItem={listItem}
       details={channelDetails}
+      multiDetails={multiDetails}
       detailsTitle={detailsTitle}
       createChannel={(channels, copy) =>
         createNextAIChannel(channels, { copy }, devices)

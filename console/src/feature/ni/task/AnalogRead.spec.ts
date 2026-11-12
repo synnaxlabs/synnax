@@ -34,6 +34,7 @@ import {
   getInputTable,
   getLabeledInput,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -438,6 +439,52 @@ describe("AnalogRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+});
+
+describe("AnalogRead with several selected channels", () => {
+  const renderSelected = async (channels: NI.Task.AIChannel[]) => {
+    const rendered = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels,
+    });
+    fireEvent.click(await findChannelListItem(channels[0].name));
+    withControlHeld(() => {
+      for (const ch of channels.slice(1)) fireEvent.click(screen.getByText(ch.name));
+    });
+    expect(await screen.findByText(`${channels.length} channels`)).toBeTruthy();
+    return rendered;
+  };
+
+  it("should set the range of every selected channel", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", minVal: -10 }),
+      createChannel("ai_voltage", 1, { name: "chan_b", minVal: -5 }),
+    ]);
+    expect(await screen.findByText("Mixed")).toBeTruthy();
+    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Minimum value"), "-2");
+    await waitFor(() => expect(screen.queryByText("Mixed")).toBeNull());
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      const mins = saved.config.channels.map((c) =>
+        c.type === "ai_voltage" ? c.minVal : null,
+      );
+      expect(mins).toEqual([-2, -2]);
+    });
+  });
+
+  it("should ask for channels of one type when the selected types differ", async () => {
+    await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_volts" }),
+      createChannel("ai_thermocouple", 1, { name: "chan_temp" }),
+    ]);
+    expect(
+      await screen.findByText("Select channels of one type to edit them together."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Thermocouple type")).toBeNull();
   });
 });
 
