@@ -129,7 +129,7 @@ type Log struct {
 	Name string `json:"name" msgpack:"name"`
 	// Channels are the channels displayed in this log.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
-	// TimestampPrecision is the precision of displayed timestamps (0-3).
+	// TimestampPrecision is the precision of displayed timestamps (0-9).
 	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
@@ -187,7 +187,7 @@ func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
 	v.NotEmptyString("name", l.Name)
-	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
+	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 9)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

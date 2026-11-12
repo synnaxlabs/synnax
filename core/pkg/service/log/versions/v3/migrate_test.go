@@ -83,7 +83,8 @@ var _ = Describe("Migration", func() {
 		},
 		Entry("Should raise a negative value to 0", int32(-1), uint8(0)),
 		Entry("Should keep a value in range", int32(2), uint8(2)),
-		Entry("Should lower a value past 3", int32(9), uint8(3)),
+		Entry("Should keep a nanosecond value", int32(9), uint8(9)),
+		Entry("Should lower a value past 9", int32(12), uint8(9)),
 	)
 
 	It("Should lift every channel entry of a log", func(ctx SpecContext) {

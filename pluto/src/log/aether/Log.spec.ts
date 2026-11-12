@@ -381,14 +381,54 @@ describe("log/aether/Log", () => {
   });
 
   describe("timestampPrecision", () => {
-    it("should default to 0 and produce 8-char timestamps", () => {
-      const { log } = setup();
-      expect(log.state.timestampPrecision).toBe(0);
+    const lineTime = (timestampPrecision: number, stamp = 1_123_456_789n): string => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: new TimeStamp(stamp), value: "v" },
+      ];
+      const { log } = setup(entries, REGION_500, {
+        timestampPrecision,
+        timeZone: "UTC",
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      return selectedText(log).split(" ")[1];
+    };
+
+    it("should show whole seconds at a precision of 0", () => {
+      expect(lineTime(0)).toBe("00:00:01");
     });
 
-    it("should accept precision values 0-3", () => {
-      const { log } = setup([], REGION_500, { timestampPrecision: 3 });
-      expect(log.state.timestampPrecision).toBe(3);
+    it("should show milliseconds at a precision of 3", () => {
+      expect(lineTime(3)).toBe("00:00:01.123");
+    });
+
+    it("should show microseconds at a precision of 6", () => {
+      expect(lineTime(6)).toBe("00:00:01.123456");
+    });
+
+    it("should show nanoseconds at a precision of 9", () => {
+      expect(lineTime(9)).toBe("00:00:01.123456789");
+    });
+
+    it("should show the fraction of a timestamp before 1970", () => {
+      expect(lineTime(3, -1_123_456_789n)).toBe("23:59:58.876");
+    });
+
+    it("should pad leading zeros in the fraction", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: new TimeStamp(1_000_000_042n), value: "v" },
+      ];
+      const { log } = setup(entries, REGION_500, {
+        timestampPrecision: 9,
+        timeZone: "UTC",
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(selectedText(log)).toMatch(/ 00:00:01\.000000042 /);
     });
   });
 

@@ -666,11 +666,11 @@ var _ = Describe("Writer", func() {
 					Expect(dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
-								TimestampPrecision: 3,
+								TimestampPrecision: 9,
 							},
 						),
 					})).To(Succeed())
-					Expect(retrieve(ctx, l.Key).TimestampPrecision).To(Equal(uint8(3)))
+					Expect(retrieve(ctx, l.Key).TimestampPrecision).To(Equal(uint8(9)))
 				},
 			)
 
@@ -688,7 +688,7 @@ var _ = Describe("Writer", func() {
 						),
 					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 				},
-				Entry("above maximum", uint8(4)),
+				Entry("above maximum", uint8(10)),
 			)
 
 			It("Should reject an action with no payload", func(ctx SpecContext) {

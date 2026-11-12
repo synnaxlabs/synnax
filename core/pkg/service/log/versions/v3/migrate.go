@@ -23,7 +23,7 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// MigrateLog lifts a v2 log to v3, clamping the timestamp precision to 0-3. It drops
+// MigrateLog lifts a v2 log to v3, clamping the timestamp precision to 0-9. It drops
 // entries with channel 0 and keeps the first entry of each channel, as a later edit
 // would otherwise fail validation.
 func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
@@ -31,7 +31,7 @@ func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 	if err != nil {
 		return Log{}, err
 	}
-	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 3))
+	out.TimestampPrecision = uint8(min(max(old.TimestampPrecision, 0), 9))
 	out.TimestampsHidden = old.ReceiptTimestampHidden
 	out.TimeZone = telem.TimeZoneLocal
 	out.Channels = lo.UniqBy(
