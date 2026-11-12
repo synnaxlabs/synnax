@@ -172,6 +172,25 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(BeEmpty())
 	})
 
+	It("Should not write back the status of an upload deleted as it ends",
+		func(ctx SpecContext) {
+			server.FailRuns(grpcstatus.Error(codes.Unavailable, "runs are down"))
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantWarning))
+			// The open transaction holds the write lock, so the final status write
+			// waits for the delete to commit.
+			tx := DeferClose(db.OpenTx())
+			Expect(statusSvc.NewWriter(tx).Delete(ctx, key)).To(Succeed())
+			Eventually(server.Runs).WithTimeout(10 * time.Second).Should(HaveLen(1))
+			// Lets the upload reach the final status write.
+			Consistently(server.Runs, 100*time.Millisecond).Should(HaveLen(1))
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Consistently(func() error {
+				_, err := uploadStatus(ctx, key)
+				return err
+			}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
+		})
+
 	It("Should not start a waiting upload whose status is deleted",
 		func(ctx SpecContext) {
 			server.Pause()
