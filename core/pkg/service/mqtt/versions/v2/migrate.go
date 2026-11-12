@@ -11,6 +11,7 @@ package v2
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
@@ -25,10 +26,10 @@ import (
 // the shape, so a field with a channel, a time format, and no entries also becomes a
 // timestamp field, and its data type names the kind its JSON type writes, for the
 // caller to fall back to when the channel does not hold timestamps. Otherwise, a
-// boolean JSON type makes a boolean field, a string with no entries a string field,
-// and a number, or a string with entries, a float field that keeps the entries. The
-// caller reconciles the field against its channel, or against its data type when it
-// has none.
+// boolean JSON type makes a boolean field, and a number a float field that keeps its
+// entries. A string makes a string field whose entries take the decimal text of their
+// values, so a numeric sample writes the same JSON string as in v1. The caller
+// reconciles the field against its channel, or against its data type when it has none.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
 	dt := old.DataType
@@ -53,8 +54,19 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		c = xpayload.Channel{Kind: xpayload.KindTimestamp, TimeFormat: *old.TimeFormat}
 	case old.JSONType == payload.JSONTypeBoolean:
 		c = xpayload.Channel{Kind: xpayload.KindBoolean}
-	case old.JSONType == payload.JSONTypeString && len(old.EnumValues) == 0:
-		c = xpayload.Channel{Kind: xpayload.KindString}
+	case old.JSONType == payload.JSONTypeString:
+		c = xpayload.Channel{
+			Kind: xpayload.KindString,
+			String: lo.Map(
+				old.EnumValues,
+				func(e payload.EnumEntry, _ int) payload.StringEntry {
+					return payload.StringEntry{
+						Label: e.Label,
+						Value: strconv.FormatFloat(e.Value, 'f', -1, 64),
+					}
+				},
+			),
+		}
 	default:
 		c = xpayload.Channel{
 			Kind: xpayload.KindFloat,
