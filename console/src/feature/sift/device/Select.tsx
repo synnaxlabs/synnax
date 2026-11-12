@@ -12,10 +12,13 @@ import { MAKE } from "@/feature/sift/device/types";
 import { useConnectModal } from "@/feature/sift/device/useConnectModal";
 import { Device } from "@/platform/device";
 
-export const Select = () => {
+export interface SelectProps extends Pick<Device.SelectProps, "onChange"> {}
+
+export const Select = ({ onChange }: SelectProps) => {
   const openConnect = useConnectModal();
   return (
     <Device.Select
+      onChange={onChange}
       onConfigure={(deviceKey) => void openConnect({ deviceKey })}
       emptyContent="No Sift connections"
       label="Sift connection"

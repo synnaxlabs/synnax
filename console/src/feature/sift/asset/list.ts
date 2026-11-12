@@ -30,7 +30,7 @@ export interface ListResult extends z.infer<typeof listResultZ> {}
 /**
  * Lists the Sift assets that a device can see, through the scan task on its rack.
  *
- * @throws if the scan task fails the command, such as when Sift is unreachable.
+ * @throws {Error} if the scan task fails the command, such as when Sift is unreachable.
  */
 export const list = async (client: Synnax, key: device.Key): Promise<ListResult> => {
   const dev = await client.devices.retrieve({ key });

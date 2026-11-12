@@ -17,12 +17,13 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type deep, unique } from "@synnaxlabs/x";
-import { useRef, useState } from "react";
+import { type RefObject, useRef, useState } from "react";
 
 import { list } from "@/feature/sift/asset/list";
+import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { Modals } from "@/platform/modals";
 
-export interface FieldProps extends Omit<
+export interface DestinationProps extends Omit<
   Form.FieldProps<string>,
   "children" | "label" | "required"
 > {
@@ -31,32 +32,52 @@ export interface FieldProps extends Omit<
 }
 
 /**
- * Picks a Sift asset from the ones the device can see, or names a new one through an
- * explicit "New asset" action. It starts at the asset of the device's newest upload,
- * and starts again there when the device changes.
+ * Picks the Sift connection, and an asset from the ones the connection can see. A new
+ * asset needs the explicit "New asset" action. The asset starts at the asset of the
+ * connection's newest upload, and starts there again when this user picks another
+ * connection. A pick by another client of the same form does not move the asset.
  */
-export const Field = ({ devicePath, ...rest }: FieldProps) => {
+export const Destination = ({ devicePath, ...rest }: DestinationProps) => {
+  const picked = useRef(false);
+  return (
+    <>
+      <SelectDevice
+        onChange={(_, { set }) => {
+          picked.current = true;
+          set(rest.path, "");
+        }}
+      />
+      <Field {...rest} devicePath={devicePath} picked={picked} />
+    </>
+  );
+};
+
+interface FieldProps extends DestinationProps {
+  /** True from this user's pick of a connection until the field lists its assets. */
+  picked: RefObject<boolean>;
+}
+
+const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const deviceKey = Form.useFieldValue(devicePath);
   const { get, set, mode } = Form.useContext();
   const [assets, setAssets] = useState<string[]>([]);
-  const listedDevice = useRef<device.Key>("");
+  const listed = useRef(false);
   const rename = Modals.useRename();
   useAsyncEffect(
     async (signal) => {
       setAssets([]);
       if (client == null || deviceKey === "") return;
-      // A form loads its device after the first render, which is not a change.
-      const changed = listedDevice.current !== "" && listedDevice.current !== deviceKey;
-      listedDevice.current = deviceKey;
       handleError(async () => {
         const res = await list(client, deviceKey);
         if (signal.aborted) return;
         setAssets(res.assets);
-        if (mode === "preview") return;
-        const asset = get<string>(rest.path).value;
-        if ((changed || asset === "") && asset !== res.last) set(rest.path, res.last);
+        const fill = !listed.current || picked.current;
+        listed.current = true;
+        picked.current = false;
+        if (fill && mode !== "preview" && get<string>(rest.path).value === "")
+          set(rest.path, res.last);
       }, "Failed to list Sift assets");
     },
     [client, deviceKey, mode],

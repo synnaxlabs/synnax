@@ -31,7 +31,6 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -75,14 +74,14 @@ const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
-  onRejected: (reply: status.Status) => void;
+  onRejection: (rejection: status.Status | null) => void;
 }
 
 const UploadButton = ({
   rangeKey,
   rangeName,
   onUploaded,
-  onRejected,
+  onRejection,
 }: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useAsyncErrorHandler();
@@ -91,6 +90,7 @@ const UploadButton = ({
   const [pending, setPending] = useState(false);
   const handleClick = async (): Promise<void> => {
     if (!validate()) return;
+    onRejection(null);
     setPending(true);
     await handleError(
       async () => {
@@ -109,7 +109,7 @@ const UploadButton = ({
           args: { device, range: rangeKey, channels, asset },
         });
         // The reply of the scan task notifies a rejection on its own.
-        if (res.variant === "error") return onRejected(res);
+        if (res.variant === "error") return onRejection(res);
         addStatus({
           variant: "success",
           name: rangeName,
@@ -153,8 +153,7 @@ const Upload = ({
             Upload {rangeName} to Sift
           </Text.Text>
           <Flex.Box x gap="large">
-            <SelectDevice />
-            <Asset.Field
+            <Asset.Destination
               path={path.config.asset}
               devicePath={path.config.device}
               grow
@@ -187,7 +186,7 @@ const Upload = ({
               rangeKey={rangeKey}
               rangeName={rangeName}
               onUploaded={close}
-              onRejected={setRejection}
+              onRejection={setRejection}
             />
           </Nav.Bar.End>
         </Modal.Footer>
