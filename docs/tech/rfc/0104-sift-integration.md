@@ -84,6 +84,11 @@ start position, and an optional end.
   reply, saves the position, and opens a new stream. This reply is the only confirmation
   Sift gives; `sift_stream`, Sift's Rust client, checkpoints the same way. A stop ends
   the send at once and still confirms what was sent.
+- **Late channel writes**: A data channel can be written alone, at timestamps its index
+  already sent. The engine sees the write in a live frame, or in the keys of a dropped
+  frame, and sends the stored values of the channel. Until Sift confirms them, each
+  checkpoint saves the confirmed time of the channel (`Behind`), so a restart sends
+  them. The engine cannot see a late write made while no engine runs.
 - **Failure**: `UNAVAILABLE` and `RESOURCE_EXHAUSTED` are `driver.ErrTemporary`. The
   engine closes the streamer, waits 1 s doubling to 30 s (the MQTT reconnect values),
   and starts again from the position. `UNAUTHENTICATED`, `PERMISSION_DENIED`, and
@@ -272,6 +277,13 @@ stack, which made secrets grant-only.
 9. **A 10 s checkpoint**: Rejected 60 s, as in `sift_stream`, because a restart would
    send up to a minute again and the progress in the Console would stand still between
    checkpoints. The trade is real: a new stream opens six times as often.
+10. **Late writes seen live**: Rejected a position for every data channel. A position
+    cannot tell a channel with no value at a timestamp from one whose value came later,
+    so it would mark sparse channels as behind forever. Rejected a position for each
+    index alone, because a restart would send the other channels of the index again.
+    Rejected a rescan, which reads all stored data on each start. The trade is real: a
+    late write made while no engine runs, at timestamps Sift has for its index, never
+    reaches Sift.
 
 ## 7 Open questions
 
