@@ -132,15 +132,16 @@ class Client:
         name: str = "",
         messages: list[Message] | None = None,
     ) -> ICD | list[ICD]:
-        """Create one or more ICDs, or replace whole those whose keys already exist.
+        """Create one or more ICDs.
 
         :param icds: A single ICD or a list of them. When omitted, an ICD is created
             from the ``name`` and ``messages`` keyword arguments.
         :param name: The name of the ICD to create when ``icds`` is omitted.
         :param messages: The messages of the ICD to create when ``icds`` is omitted.
         :returns: The created ICD, or a list of created ICDs when ``icds`` is a list.
-        :raises ValidationError: If an ICD or one of its messages breaks a rule of its
-            schema. Problems that ``check`` finds do not stop a save.
+        :raises ValidationError: If an ICD with the same key exists, or if an ICD or one
+            of its messages breaks a rule of its schema. Problems that ``check`` finds
+            do not stop a save.
         """
         is_single = not isinstance(icds, list)
         if icds is None:
