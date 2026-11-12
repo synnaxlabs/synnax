@@ -42,6 +42,11 @@ export const baseZ = z.object({
   name: z.string().min(1, "name is required"),
   /** updated is when the value or file name of the secret last changed. */
   updated: telem.timeStampZ,
+  /**
+   * uses are the resources that use the secret and that the caller can read, filled
+   * only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
@@ -126,6 +131,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most secrets to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

@@ -75,6 +75,40 @@ describe("Certificate", () => {
       expect(key.source).toBe("stored");
     });
 
+    it("should be a use of its private key secret", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Used key",
+        source: "stored",
+        pem: PEM,
+        privateKeyPem: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
+      const [key] = await client.secrets.retrieve({
+        key: [privateKey],
+        includeUses: true,
+      });
+      expect(key.uses).toEqual([{ type: "certificate", key: c.key }]);
+      expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
+    });
+
+    it("should be a use of its private key secret retrieved by key", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Used key by key",
+        source: "stored",
+        pem: PEM,
+        privateKeyPem: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      const key = await client.secrets.retrieve({ key: privateKey, includeUses: true });
+      expect(key.uses).toEqual([{ type: "certificate", key: c.key }]);
+      expect((await client.secrets.retrieve(privateKey)).uses).toBeUndefined();
+    });
+
     it("should keep the private key of a retrieved certificate saved again", async () => {
       const client = createTestClient();
       const c = await client.certificates.set({

@@ -12,6 +12,7 @@ import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/secret/actions";
@@ -23,6 +24,7 @@ import {
   set,
 } from "@/secret/actions.gen";
 import {
+  type Base,
   fileSecretZ,
   type Key,
   keyZ,
@@ -46,11 +48,11 @@ import {
 export const ACTION_CHANNEL_NAME = "sy_secret_action_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
 
-const newStoredZ = storedSecretZ.omit({ updated: true }).extend({
+const newStoredZ = storedSecretZ.omit({ updated: true, uses: true }).extend({
   /** value is the hidden value. No client can read it back. */
   value: z.string(),
 });
-const newFileZ = fileSecretZ.omit({ updated: true });
+const newFileZ = fileSecretZ.omit({ updated: true, uses: true });
 
 /**
  * A secret to create, or to replace when its key exists. A stored secret carries its
@@ -76,17 +78,58 @@ const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 );
 
-export type RetrieveSingleParams = { key: Key };
+export type RetrieveSingleParams = {
+  key: Key;
+  /**
+   * Fills `uses` with the resources that use the secret and that the caller can read.
+   */
+  includeUses?: boolean;
+};
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
+
+/** Drops includeUses when unset so equivalent queries hash identically. */
+const normalizeSingle = ({
+  key,
+  includeUses,
+}: RetrieveSingleParams): RetrieveSingleParams =>
+  includeUses === true ? { key, includeUses } : { key };
+
+const singleQueryZ = z
+  .union([
+    z.strictObject({ key: keyZ, includeUses: z.boolean().optional() }),
+    keyZ.transform((key) => ({ key })),
+  ])
+  .transform(normalizeSingle);
+
+/** The resources that use a secret, keyed by the secret. */
+type Uses = Pick<Base, "key" | "uses">;
+
+/** The deletes of secrets that land while fetches of uses run. */
+interface Deletes {
+  inFlight: number;
+  seq: number;
+  at: Map<Key, number>;
+}
+
+const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Secret> {
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Secret,
+  Secret,
+  RetrieveSingleParams,
+  RetrieveSingleParams
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
+  private readonly usesStore: query.Table<Key, Uses>;
+  private readonly deletes: Deletes;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -95,6 +138,34 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       name: "secrets",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    // The secret table never holds uses. No change stream keeps uses current, so only a
+    // retrieve that asks for them writes or reads this table.
+    const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
+    // An answer that holds a secret composes its uses too.
+    usesStore.hold({ held: () => store.held() });
+    const deletes: Deletes = { inFlight: 0, seq: 0, at: new Map() };
+    // A secret created again under a deleted key reads its uses again.
+    store.subscribe((event) => {
+      if (event.variant !== "delete") return;
+      usesStore.evict(event.key);
+      if (deletes.inFlight > 0) deletes.at.set(event.key, ++deletes.seq);
+    });
+    const usesTrigger = query.trigger(
+      usesStore,
+      (event, q: RetrieveRequest | RetrieveSingleParams) =>
+        q.includeUses === true ? [event.key] : null,
+      { contentOnly: true },
+    );
+    const single = cache.queries<RetrieveSingleParams, Secret, Key, Secret>({
+      name: "secret",
+      table: store,
+      fetch: async (q) => [await this.fetchSingle(q)],
+      compose: (records, q) => this.compose(records[0], q.includeUses === true),
+      keyOf: (q) => q.key,
+      covers: (_, q) => q.includeUses !== true,
+      triggers: [usesTrigger],
+      single: true,
     });
     // Every write to a secret reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Secret, Action>({
@@ -115,13 +186,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (secret, req) => matches(secret, req.where),
+        fetch: async (req) => await this.fetchThrough(req),
+        // A secret whose uses the client does not hold fetches the query again.
+        matches: (secret, req) =>
+          req.includeUses === true && usesStore.get(secret.key) == null
+            ? null
+            : matches(secret, req.where),
         serverComputed: (req) => serverComputed(req.where),
+        triggers: [usesTrigger],
       },
+      compose: (record, q) =>
+        this.compose(record, (q as { includeUses?: boolean }).includeUses === true),
+      single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
+    this.usesStore = usesStore;
+    this.deletes = deletes;
     this.dispatcher = dispatcher;
   }
 
@@ -201,6 +282,54 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
       grantCreateResZ,
     );
     return res.grant;
+  }
+
+  private compose(secret: Secret, includeUses: boolean): Secret {
+    if (!includeUses) return secret;
+    return { ...secret, uses: this.usesStore.get(secret.key)?.uses };
+  }
+
+  private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
+    if (req.includeUses !== true) return await this.execRetrieve(req);
+    const secrets = await this.retrieveUses(req);
+    this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
+    return secrets.map(stripUses);
+  }
+
+  // A delete of a secret that a retrieve returns makes its uses stale, so the retrieve
+  // runs again.
+  private async retrieveUses(req: RetrieveRequest): Promise<Secret[]> {
+    const { deletes } = this;
+    const since = deletes.seq;
+    deletes.inFlight++;
+    let secrets: Secret[];
+    try {
+      secrets = await this.execRetrieve(req);
+    } finally {
+      deletes.inFlight--;
+    }
+    const overtaken = secrets.some(({ key }) => (deletes.at.get(key) ?? 0) > since);
+    if (deletes.inFlight === 0) deletes.at.clear();
+    return overtaken ? await this.retrieveUses(req) : secrets;
+  }
+
+  private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
+    if (includeUses === true)
+      return await this.store.track(async (since) => {
+        const secrets = await this.fetchThrough({
+          where: { key: { eq: key } },
+          includeUses,
+        });
+        if (secrets.length === 0) {
+          this.store.ingestDeletes([key], since);
+          throw new NotFoundError(`secret with key ${key} not found`);
+        }
+        this.store.ingest(secrets, { since });
+        return key;
+      });
+    if ((await this.store.retrieve([key])).length === 0)
+      throw new NotFoundError(`secret with key ${key} not found`);
+    return key;
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Secret[]> {

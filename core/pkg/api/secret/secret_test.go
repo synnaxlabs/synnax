@@ -10,7 +10,15 @@
 package secret_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json/v2"
+	"encoding/pem"
+	"math/big"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +29,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -31,15 +40,22 @@ import (
 )
 
 var (
-	secretType = resource.ID{Type: resource.TypeSecret}
-	deviceType = resource.ID{Type: resource.TypeDevice}
-	all        = access.AllActions
+	secretType      = resource.ID{Type: resource.TypeSecret}
+	deviceType      = resource.ID{Type: resource.TypeDevice}
+	certificateType = resource.ID{Type: resource.TypeCertificate}
+	all             = access.AllActions
 )
 
 func whereKeys(keys ...secret.Key) apisecret.RetrieveRequest {
 	return apisecret.RetrieveRequest{
 		Where: &secret.Where{Key: &filter.Set[secret.Key]{In: keys}},
 	}
+}
+
+func whereKeysWithUses(keys ...secret.Key) apisecret.RetrieveRequest {
+	req := whereKeys(keys...)
+	req.IncludeUses = true
+	return req
 }
 
 func createSecret(ctx SpecContext, name, value string) secret.Secret {
@@ -59,6 +75,31 @@ func retrieveSecret(ctx SpecContext, key secret.Key) secret.Secret {
 		Entry(&s).
 		Exec(ctx, db)).To(Succeed())
 	return s
+}
+
+// createCertificate creates a stored certificate with a private key, whose secret the
+// certificate uses.
+func createCertificate(ctx SpecContext) certificate.Certificate {
+	GinkgoHelper()
+	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "plant"},
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+	}
+	der := MustSucceed(
+		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
+	)
+	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
+	c := certificate.Certificate{Variant: certificate.StoredCertificate{
+		Base: certificate.Base{Name: "Plant"},
+		Pem:  string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+	}}
+	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Certificate.NewWriter(tx).Set(ctx, &c, privateKey)
+	})).To(Succeed())
+	return c
 }
 
 var _ = Describe("ServiceConfig", func() {
@@ -328,6 +369,69 @@ var _ = Describe("Service", func() {
 			))
 			Expect(res.Secrets).To(HaveLen(1))
 			Expect(res.Secrets[0].Base().Key).To(Equal(s.Base().Key))
+		})
+		Describe("IncludeUses", func() {
+			var (
+				u    user.User
+				cert certificate.Certificate
+				key  secret.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				u = createUser(ctx)
+				allow(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					secretType,
+				)
+				cert = createCertificate(ctx)
+				key = *cert.Variant.(certificate.StoredCertificate).PrivateKey
+			})
+			It("Should return the resources that use each secret",
+				func(ctx SpecContext) {
+					allow(
+						ctx,
+						u.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						certificateType,
+					)
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(key)),
+					)
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).
+						To(Equal([]resource.ID{cert.ResourceID()}))
+				},
+			)
+			It("Should leave out the uses that the caller cannot read",
+				func(ctx SpecContext) {
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(key)),
+					)
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(Equal([]resource.ID{}))
+				},
+			)
+			It("Should return empty uses for a secret that nothing uses",
+				func(ctx SpecContext) {
+					s := createSecret(ctx, "Password", "hunter2")
+					res := MustSucceed(retrieve(
+						AuthedCtx(ctx, u),
+						whereKeysWithUses(s.Base().Key),
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(Equal([]resource.ID{}))
+				},
+			)
+			It("Should leave uses nil when the request does not ask for them",
+				func(ctx SpecContext) {
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeys(key)),
+					)
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).To(BeNil())
+				},
+			)
 		})
 		It("Should deny a user without retrieve access", func(ctx SpecContext) {
 			u := createUser(ctx)

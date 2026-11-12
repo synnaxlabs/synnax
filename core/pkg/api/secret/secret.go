@@ -12,6 +12,7 @@ package secret
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -165,7 +166,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve returns the secrets that the request selects and that the subject can
-// retrieve.
+// retrieve, with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -179,7 +180,35 @@ func (s *Service) Retrieve(
 	if err = q.Where(bind.Filter(snap, secret.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Secrets); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each secret, leaving out the resources the subject cannot
+// retrieve. A secret with no readable uses gets empty uses, so the response tells it
+// apart from a secret whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	secrets []Secret,
+) error {
+	for i := range secrets {
+		base := secrets[i].Base()
+		uses, err := s.internal.Uses(ctx, snap, base.Key)
+		if err != nil {
+			return err
+		}
+		base.Uses = lo.Filter(
+			uses,
+			func(id resource.ID, _ int) bool { return snap.Allowed(id) },
+		)
+		secrets[i].SetBase(base)
+	}
+	return nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single secret. DispatchKey
