@@ -179,6 +179,9 @@ How the stream task sends data:
 - **Runs** -> when a range with one of the task labels ends and Sift has its data, the
   task makes a Sift run for it. A change to the name or span of the range updates the
   run.
+- **Errors** -> when Sift rejects the API key, the task stops with an error. When Sift
+  rejects the run of one range, the task shows an error and keeps sending data. Change
+  the range to make the run again.
 
 The task follows the standard
 [task lifecycle](/reference/hardware/tasks#task-lifecycle). It saves its progress in a
