@@ -60,7 +60,7 @@ struct Slaves {
         if (this->by_key.empty())
             this->network = props.network;
         else if (props.network != this->network) {
-            cfg.field_err(path + "device", "all slaves must be on the same network");
+            cfg.field_err(path + "device", "all modules must be on the same network");
             return nullptr;
         }
         return &this->by_key.emplace(key, std::move(props)).first->second;
@@ -90,7 +90,7 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "Slave {} ({}) is not on the bus.",
+                        "Module {} ({}) is not on the bus.",
                         saved.position,
                         saved.name
                     )
@@ -100,7 +100,7 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
+                        "Module {} ({}): expected {} {:#010x}, found {:#010x}.",
                         saved.position,
                         saved.name,
                         field,

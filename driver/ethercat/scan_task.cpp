@@ -73,22 +73,23 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              "of the device.";
         return;
     }
-    const auto state = slave::to_string(health.state);
+    const auto in_state = "The device is in " + slave::to_string(health.state) + ".";
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
-        status.message = "Error in " + state;
+        status.message = "Device reports an error";
         if (!health.startup_error.empty())
             status.description = errors::sentence(health.startup_error);
         else if (!health.al_status.empty())
-            status.description = health.al_status;
+            status.description = errors::sentence(health.al_status);
         else
-            status.description = "The device reports an error without an error "
-                                 "code. With IgH, the kernel log (dmesg) shows it.";
+            status.description = "The device gives no error code. With IgH, the "
+                                 "kernel log (dmesg) shows it.";
+        status.description.append(" ").append(in_state);
         return;
     }
     status.variant = synnax::status::VARIANT_WARNING;
-    status.message = "In " + state;
-    status.description = "The Driver is returning the device to OP.";
+    status.message = "Not operational";
+    status.description = in_state + " The Driver is returning it to OP.";
 }
 
 /// @brief sets status to the error of saved slave properties that do not parse.
@@ -303,7 +304,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
 
     synnax::device::Device dev;
     dev.key = key;
-    dev.name = props.name.empty() ? "EtherCAT Slave " + std::to_string(props.position)
+    dev.name = props.name.empty() ? "EtherCAT module " + std::to_string(props.position)
                                   : props.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
@@ -448,7 +449,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     VLOG(1) << SCAN_LOG_PREFIX << "test_interface: found " << slaves.size()
             << " slaves on " << args.interface;
     task_status.variant = synnax::status::VARIANT_SUCCESS;
-    task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
+    task_status.message = "Found " + std::to_string(slaves.size()) + " modules on " +
                           engine->name();
     this->ctx->set_status(task_status);
 }

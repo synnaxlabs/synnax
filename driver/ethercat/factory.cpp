@@ -95,7 +95,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             {},
             x::errors::Error(
                 dev_err,
-                "The Driver could not read the slave settings for " + name +
+                "The Driver could not read the module settings for " + name +
                     " from the Core: " + dev_err.data
             )
         };
@@ -110,7 +110,7 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                 {},
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    dev.name + " has invalid properties. Every slave on " + name +
+                    dev.name + " has invalid properties. Every module on " + name +
                         " starts with the bus, so fix them before you start the "
                         "task.\n" +
                         common::config_err_description(parser.error())

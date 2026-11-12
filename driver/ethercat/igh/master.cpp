@@ -107,7 +107,7 @@ check_op_mode(const slave::Properties &slave, const slave::Config &config) {
     return x::errors::Error(
         errors::SLAVE_CONFIG_ERROR,
         std::format(
-            "slave {} ({}) cannot use its chosen mode: {}",
+            "module {} ({}) cannot use its chosen mode: {}",
             slave.position,
             slave.name,
             err.data
@@ -177,7 +177,9 @@ x::errors::Error Master::initialize() {
         if (const int ret = this->api
                                 ->master_get_slave(this->ec_master, i, &slave_info);
             ret != 0)
-            return fail(std::format("failed to read slave {}: {}", i + 1, reason(ret)));
+            return fail(
+                std::format("failed to read module {}: {}", i + 1, reason(ret))
+            );
         slave::DiscoveryResult result{};
         result.properties.network = "igh:" + std::to_string(this->master_index);
         result.properties.position = static_cast<uint16_t>(i + 1);
@@ -247,7 +249,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
         return x::errors::NIL;
     return x::errors::Error(
         errors::STARTUP_PARAMETER_ERROR,
-        "slave " + std::to_string(slave.position) + " (" + slave.name +
+        "module " + std::to_string(slave.position) + " (" + slave.name +
             ") rejected startup parameter " + param.to_string() + ": " +
             errors::sdo_abort_reason(abort_code)
     );
@@ -260,7 +262,7 @@ x::errors::Error Master::write(
     if (position == 0 || position > this->cached_slaves.size())
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "no slave at position " + std::to_string(position)
+            "no module at position " + std::to_string(position)
         );
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
@@ -285,14 +287,14 @@ x::errors::Error Master::write(
             ) < 0)
             return x::errors::Error(
                 errors::STARTUP_PARAMETER_ERROR,
-                "slave " + std::to_string(position) + " (" + slave.name +
+                "module " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     errors::sdo_abort_reason(abort_code)
             );
         if (size != want.size() || held != want)
             return x::errors::Error(
                 errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of slave " +
+                "the IgH master cannot change " + param.to_string() + " of module " +
                     std::to_string(position) + " (" + slave.name +
                     ") while other tasks run the bus. Stop them, then start this "
                     "task first"
@@ -328,7 +330,7 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to slave " +
+                "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
@@ -369,7 +371,7 @@ master::Activation Master::activate(
             return {
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
-                    "failed to configure slave " + std::to_string(pos) + " (" +
+                    "failed to configure module " + std::to_string(pos) + " (" +
                         slave.properties.name + ")"
                 )
             };
@@ -446,7 +448,7 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
             ret != 0) {
             if (!msg.empty()) msg += "; ";
             msg += std::format(
-                "slave {} ({}): failed to read its state: {}",
+                "module {} ({}): failed to read its state: {}",
                 pos,
                 name,
                 reason(ret)
@@ -458,7 +460,7 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
         if (state == slave::State::OP) continue;
         if (!msg.empty()) msg += "; ";
         msg += std::format(
-            "slave {} ({}) is in {}",
+            "module {} ({}) is in {}",
             pos,
             name,
             slave::to_string(state)
@@ -527,7 +529,7 @@ x::errors::Error Master::receive() {
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
     if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
         (this->input_sz > 0 && this->input_domain_state.wc_state == EC_WC_ZERO))
-        return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
+        return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no modules responded");
 
     if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
         this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
@@ -585,7 +587,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
 x::errors::Error
 Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) {
     auto props = this->cached_slaves[position - 1].properties;
-    const auto slave_name = "slave " + std::to_string(position) + " (" + props.name +
+    const auto slave_name = "module " + std::to_string(position) + " (" + props.name +
                             ")";
     const auto [syncs, err] = read_layout(
         *this->api,
@@ -704,7 +706,7 @@ void Master::register_pdo_entries(
                 x::errors::Error(
                     errors::PDO_MAPPING_ERROR,
                     std::format(
-                        "the IgH master rejected PDO {} of slave {} ({}): {}",
+                        "the IgH master rejected PDO {} of module {} ({}): {}",
                         telem::format_index_sub_index(pdo.index, pdo.sub_index),
                         slave.position,
                         slave.name,

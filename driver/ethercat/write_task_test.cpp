@@ -238,7 +238,7 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     EXPECT_EQ(errors[0]["path"], "channels.1.index");
     EXPECT_EQ(
         errors[0]["message"],
-        "another channel already uses entry 0x7000:01 on slave Test Slave"
+        "another channel already uses entry 0x7000:01 on module Test Slave"
     );
 }
 
@@ -265,7 +265,7 @@ TEST_F(EtherCATWriteTest, ParseConfigReportsEachChannelWithNoEntry) {
     EXPECT_EQ(errors[1]["path"], "channels.1.pdo");
     EXPECT_EQ(
         errors[1]["message"],
-        "'Missing' matches no output entry on slave Test Slave. Pick an entry."
+        "'Missing' matches no output entry on module Test Slave. Pick an entry."
     );
 }
 
@@ -613,7 +613,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
+        "Module 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
     );
 }
 

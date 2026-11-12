@@ -319,7 +319,7 @@ is the one that the task read before, and it keeps the old channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"A channel on slave ... has no entry. Pick an entry."}>
+<Problem.Item message={"A channel on module ... has no entry. Pick an entry."}>
 <Problem.Cause>
 
 A channel has no entry selected.
@@ -332,7 +332,7 @@ Select an entry in **Entry**, or remove the channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Item message={"Module ... has no input entry at ..."}>
 <Problem.Cause>
 
 The module has no input entry at the address of the channel.
@@ -402,7 +402,7 @@ Set another name in **Channel**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The index channel name `<identifier>_time` belongs to another module, or to a channel
@@ -479,5 +479,5 @@ which module is lost. Check its power and its cable.
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

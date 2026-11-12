@@ -52,7 +52,7 @@ TEST(SlavesValidateTest, AcceptsTheSavedSlaves) {
 TEST(SlavesValidateTest, RejectsAMissingSlave) {
     const auto err = saved({on_bus(2, 2, 0xABCDEF00)}).validate({on_bus(1, 2, 1)});
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Slave 2 (Slave 2) is not on the bus.");
+    EXPECT_EQ(err.data, "Module 2 (Slave 2) is not on the bus.");
 }
 
 /// @brief it should reject a slave of another vendor at a saved position.
@@ -62,7 +62,7 @@ TEST(SlavesValidateTest, RejectsAnotherVendor) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "Slave 1 (Slave 1): expected vendor_id 0x00000099, found 0x00000002."
+        "Module 1 (Slave 1): expected vendor_id 0x00000099, found 0x00000002."
     );
 }
 
@@ -73,7 +73,7 @@ TEST(SlavesValidateTest, RejectsAnotherProduct) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "Slave 1 (Slave 1): expected product_code 0x87654321, found 0x12345678."
+        "Module 1 (Slave 1): expected product_code 0x87654321, found 0x12345678."
     );
 }
 
@@ -90,7 +90,7 @@ TEST(SlavesValidateTest, ReportsTheLowestMismatchedPosition) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "Slave 3 (Slave 3): expected vendor_id 0x00000099, found 0x00000002."
+        "Module 3 (Slave 3): expected vendor_id 0x00000099, found 0x00000002."
     );
 }
 }

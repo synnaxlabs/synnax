@@ -689,7 +689,7 @@ private:
     slave::DiscoveryResult &slave(const uint16_t position) {
         for (auto &slave: this->slave_list)
             if (slave.properties.position == position) return slave;
-        throw std::out_of_range("no slave at position " + std::to_string(position));
+        throw std::out_of_range("no module at position " + std::to_string(position));
     }
 
     void cache_pdo_offsets() {

@@ -755,14 +755,14 @@ class TestFindEntry:
         with pytest.raises(sy.MultipleFoundError) as exc:
             sy.ethercat.find_entry(_create_el1008(), "Input")
         assert str(exc.value) == (
-            f"input entry 'Input' on slave 'EL1008' matches {found}. "
+            f"input entry 'Input' on module 'EL1008' matches {found}. "
             "Pass pdo_name to pick one"
         )
 
     def test_unknown_name(self) -> None:
         """Should raise when no entry has the name."""
         with pytest.raises(
-            sy.NotFoundError, match=r"^no input entry 'Velocity' on slave 'EL1008'$"
+            sy.NotFoundError, match=r"^no input entry 'Velocity' on module 'EL1008'$"
         ):
             sy.ethercat.find_entry(_create_el1008(), "Velocity")
 
@@ -770,14 +770,14 @@ class TestFindEntry:
         """Should name the PDO when no entry in it has the name."""
         with pytest.raises(
             sy.NotFoundError,
-            match=r"^no input entry 'Input' in PDO 'Channel 9' on slave 'EL1008'$",
+            match=r"^no input entry 'Input' in PDO 'Channel 9' on module 'EL1008'$",
         ):
             sy.ethercat.find_entry(_create_el1008(), "Input", pdo_name="Channel 9")
 
     def test_wrong_direction(self) -> None:
         """Should only search entries in the given direction."""
         with pytest.raises(
-            sy.NotFoundError, match=r"^no input entry 'Output' on slave 'EL1008'$"
+            sy.NotFoundError, match=r"^no input entry 'Output' on module 'EL1008'$"
         ):
             sy.ethercat.find_entry(_create_el1008(), "Output")
 

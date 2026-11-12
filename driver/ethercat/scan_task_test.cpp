@@ -204,7 +204,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 slaves on Ethernet 2");
+    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 modules on Ethernet 2");
 }
 
 /// @brief it should return a permission error from a scan, so the error reaches the
@@ -291,7 +291,7 @@ protected:
 /// @brief it should probe an interface with no slaves only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT modules found on eth0")
     );
     for (int i = 0; i < 7; ++i)
         this->scan();
@@ -303,7 +303,7 @@ TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
 TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {
     const auto blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "No EtherCAT modules found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
         "is on this adapter."
     );
     this->master->inject_scan_error(blocked);
@@ -329,8 +329,8 @@ class EtherCATScanFilterTest : public EtherCATScanTest {
 protected:
     const x::errors::Error blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT slaves found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
-        "on this adapter."
+        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
     );
     std::unique_ptr<Scanner> scanner;
 
@@ -647,8 +647,8 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in SAFE-OP");
-    EXPECT_EQ(status.description, "Sync manager watchdog");
+    EXPECT_EQ(status.message, "Device reports an error");
+    EXPECT_EQ(status.description, "Sync manager watchdog. The device is in SAFE-OP.");
     EXPECT_TRUE(status.details.connected);
     this->master->clear_transition_failures();
     ASSERT_EVENTUALLY_TRUE(
@@ -669,11 +669,11 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in SAFE-OP");
+    EXPECT_EQ(status.message, "Device reports an error");
     EXPECT_EQ(
         status.description,
-        "The device reports an error without an error code. With IgH, the kernel "
-        "log (dmesg) shows it."
+        "The device gives no error code. With IgH, the kernel log (dmesg) shows it. "
+        "The device is in SAFE-OP."
     );
 }
 
@@ -694,11 +694,11 @@ TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASenten
     );
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in PRE-OP");
+    EXPECT_EQ(status.message, "Device reports an error");
     EXPECT_EQ(
         status.description,
         "Rejected startup parameter 0x8000:15 (Filter): Value of parameter written too "
-        "high."
+        "high. The device is in PRE-OP."
     );
 }
 
@@ -710,7 +710,7 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
         engine->open_reader({this->entry}, x::telem::Rate(100), 1)
     );
     this->master->set_slave_state(1, slave::State::PRE_OP);
-    this->master->fail_dc_restore(1, "no slave latched its receive time");
+    this->master->fail_dc_restore(1, "no module latched its receive time");
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && !engine->health()[0].dc_restore_error.empty()
     );
@@ -720,7 +720,7 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
     EXPECT_EQ(
         status.description,
         "The device lost its clock settings, and the Driver could not set them again: "
-        "no slave latched its receive time. The Driver keeps the device out of OP and "
+        "no module latched its receive time. The Driver keeps the device out of OP and "
         "tries again. If the error stays, check the power and cabling of the device."
     );
     EXPECT_TRUE(status.details.connected);
@@ -834,9 +834,12 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     );
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "In PRE-OP");
+    EXPECT_EQ(status.message, "Not operational");
     EXPECT_TRUE(status.details.connected);
-    EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
+    EXPECT_EQ(
+        status.description,
+        "The device is in PRE-OP. The Driver is returning it to OP."
+    );
 }
 /// @brief it should show a disabled slave as not connected.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {

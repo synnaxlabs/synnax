@@ -129,7 +129,7 @@ x::errors::Error left_out_error(
     const slave::Refusal &refusal
 ) {
     auto msg = std::format(
-        "Slave {} ({}) is not on the network: it {}. Fix the device, then stop every "
+        "Module {} ({}) is not on the network: it {}. Fix the device, then stop every "
         "task on the network to try it again.",
         position,
         name,
@@ -155,7 +155,7 @@ x::errors::Error Engine::start_error(
     for (const auto &[_, refusal]: refused)
         add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
-        err.data += " The Driver left out slave " + std::to_string(pos) +
+        err.data += " The Driver left out module " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
         add_advice(left.refusal);
     }
@@ -547,7 +547,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
-                "The bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
+                "The bus on {0} cycles at {1} Hz while a module runs DC sync, and the "
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
@@ -591,7 +591,7 @@ x::errors::Error Engine::cycle_error() const {
             return s.properties.position;
         });
         err.data += std::format(
-            ". Slave {} ({}) is not in OP: {}",
+            ". Module {} ({}) is not in OP: {}",
             h.position,
             slave == slaves.end() ? "" : slave->properties.name,
             h.to_string()
@@ -663,7 +663,7 @@ x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
                         return x::errors::Error(
                             errors::SETTING_CONFLICT,
                             std::format(
-                                "Another task sets {} of slave {} to {}. Stop it, or "
+                                "Another task sets {} of module {} to {}. Stop it, or "
                                 "give both tasks the same value.",
                                 telem::format_index_sub_index(
                                     param.index,

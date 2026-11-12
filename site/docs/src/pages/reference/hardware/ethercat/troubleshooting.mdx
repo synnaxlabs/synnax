@@ -11,8 +11,7 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Console and the Driver call an EtherCAT module a slave, so error messages say
-"slave" where these pages say "module". For errors about one channel of a task, see the
+For errors about one channel of a task, see the
 [read task](/reference/hardware/ethercat/read-task#troubleshooting) and the
 [write task](/reference/hardware/ethercat/write-task#troubleshooting).
 
@@ -74,7 +73,7 @@ select **EthercatDAQ Filter** again.
 </Problem.Fix>
 </Problem.Body>
 
-### `No EtherCAT slaves found on ...`
+### `No EtherCAT modules found on ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -204,7 +203,7 @@ then start the tasks again. If the error contains "Invalid DC SYNC configuration
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the network`
+### `Module ... is not on the network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -221,7 +220,7 @@ Fix the module, then stop every task on the port and start them again.
 </Problem.Fix>
 </Problem.Body>
 
-### `All slaves must be on the same network`
+### `All modules must be on the same network`
 
 <Problem.Body>
 <Problem.Cause>
@@ -236,7 +235,7 @@ Create one task for each port.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... is not on the bus` or `Slave ...: expected ..., found ...`
+### `Module ... is not on the bus` or `Module ...: expected ..., found ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -253,7 +252,7 @@ network now.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
+### `Module ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -301,7 +300,7 @@ that is set to DC sync and also lists an SM sync mode does not start.
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... cannot run its DC mode at a bus cycle of ...`
+### `Module ... cannot run its DC mode at a bus cycle of ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -321,7 +320,7 @@ cycle faster, for example with a write task at an execution rate of 250 Hz or mo
 </Problem.Fix>
 </Problem.Body>
 
-### `Slave ... cannot use its chosen mode`
+### `Module ... cannot use its chosen mode`
 
 <Problem.Body>
 <Problem.Cause>
@@ -345,7 +344,7 @@ module cannot start, so no task on the port starts. The error gives the reason:
 </Problem.Fix>
 </Problem.Body>
 
-### `The clock of slave ... is ... off the reference clock`
+### `The clock of module ... is ... off the reference clock`
 
 <Problem.Body>
 <Problem.Cause>
@@ -361,7 +360,7 @@ Check the cables and the power of the modules, then start the task again.
 </Problem.Fix>
 </Problem.Body>
 
-### `The bus on ... cycles at ... Hz while a slave runs DC sync`
+### `The bus on ... cycles at ... Hz while a module runs DC sync`
 
 <Problem.Body>
 <Problem.Cause>
