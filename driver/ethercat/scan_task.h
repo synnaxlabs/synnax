@@ -74,8 +74,8 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief periodic scan method to discover networks and slaves. Returns
-    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
-    /// slaves of the others.
+    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan or whose
+    /// replies a filter blocks, with the slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
@@ -95,8 +95,16 @@ private:
     synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    /// @brief the scan count at which to probe again each interface that had no slaves.
-    std::unordered_map<std::string, size_t> next_probes;
+    /// @brief when to probe again an interface that had no slaves.
+    struct Probe {
+        /// @brief the scan count at which to probe the interface.
+        size_t due = 0;
+        /// @brief why the interface had no slaves, which each scan reports until the
+        /// next probe, or empty when the user cannot fix it.
+        std::string failure;
+    };
+    /// @brief the next probe of each interface that had no slaves.
+    std::unordered_map<std::string, Probe> next_probes;
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;

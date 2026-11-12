@@ -682,7 +682,7 @@ func (s *Symbol) resolveMember(
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 	}
 	if !opts.includeInternal && s.UserDefined && !child.Exported {
-		return nil, &NotExportedError{Name: name, Module: s.Name}
+		return nil, &notExportedError{Name: name, Module: s.Name}
 	}
 	return child, nil
 }

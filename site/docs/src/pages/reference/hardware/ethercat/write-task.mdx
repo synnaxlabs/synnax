@@ -60,15 +60,15 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click a module and select **Create write task**. The
-   task opens with one empty channel.
+   task starts with a channel for each output of the module. To remove a channel,
+   right-click it and select **Remove**.
 2. Set **Execution rate** and **State update rate**.
-3. Select the empty channel, then select the module in **Slave device**.
-4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
-5. Click <Icon.Play /> (**Start**).
+3. Click <Icon.Play /> (**Start**).
 
-To add every output of the module at once, right-click the channel and select **Add
-every output of** _module name_. To add one channel, click **Add channel**. A new
-channel starts with the module of the last channel.
+To add a channel, click **Add channel**, select the module in **Device**, and select an
+entry in **Entry**. A new channel starts with the module of the last channel, and **Data
+type** shows the type of the entry. To add every output of a module at once, right-click
+one of its channels and select **Add every output of** _module name_.
 
 The Console creates a command channel and a state channel for each output. It names them
 after the identifier of the module and the name of the entry. If the module has more
@@ -203,9 +203,9 @@ TypeScript uses the same fields in camel case, such as `executionRate`.
 
 ## Channel reference
 
-Each channel has a `device`, the key of the module (**Slave device**), a `cmd_channel`,
-and a `state_channel`. A `state_channel` of 0 means no state channel. Each table shows
-the Console label of a setting, with its Python field under it.
+Each channel has a `device`, the key of the module (**Device**), a `cmd_channel`, and a
+`state_channel`. A `state_channel` of 0 means no state channel. Each table shows the
+Console label of a setting, with its Python field under it.
 
 <Channel.Types>
 
@@ -263,7 +263,7 @@ opens with.
 </Problem.Cause>
 <Problem.Fix>
 
-Select the module in **Slave device** and an entry in **Entry**, or remove the channel.
+Select the module in **Device** and an entry in **Entry**, or remove the channel.
 
 </Problem.Fix>
 </Problem.Item>
@@ -367,6 +367,6 @@ Change the [identifier](/reference/hardware/devices#identifiers) of the module.
 
 </Problem.List>
 
-For errors that stop every task on a port, such as `failed to reach SAFE-OP` or
-`no EtherCAT slaves found on ...`, see
+For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
+`No EtherCAT slaves found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).
