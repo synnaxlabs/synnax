@@ -144,16 +144,18 @@ const Form: FC = () => {
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
   client,
   deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  const keys = deviceKeys ?? (deviceKey == null ? [] : [deviceKey]);
   if (config == null)
     cfg.channels =
-      deviceKey == null
+      keys.length === 0
         ? [createWriteChannel([])]
         : await createSlaveChannels(
             client,
-            deviceKey,
+            keys,
             "outputs",
             createSlaveWriteChannel,
             createWriteChannel([]),

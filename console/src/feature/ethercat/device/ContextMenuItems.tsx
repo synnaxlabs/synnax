@@ -14,7 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 
 import {
   useEnabledState,
-  useResultSlave,
+  useSlavesByKeys,
   useToggleEnabled,
 } from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
@@ -35,12 +35,14 @@ const READ_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
+  multiDevice: { zeroProperties: {} },
 });
 
 const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
+  multiDevice: { zeroProperties: {} },
 });
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
@@ -49,11 +51,14 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const { data: first } = useResultSlave({ key: keys[0] });
-  const pdos = first?.properties.pdos;
+  const slaves = useSlavesByKeys(keys) ?? [];
+  const hasInputs = slaves.some(({ properties }) => properties.pdos.inputs.length > 0);
+  const hasOutputs = slaves.some(
+    ({ properties }) => properties.pdos.outputs.length > 0,
+  );
   const taskItems = [
-    ...(pdos != null && pdos.inputs.length > 0 ? [READ_TASK_ITEM] : []),
-    ...(pdos != null && pdos.outputs.length > 0 ? [WRITE_TASK_ITEM] : []),
+    ...(hasInputs ? [READ_TASK_ITEM] : []),
+    ...(hasOutputs ? [WRITE_TASK_ITEM] : []),
   ];
 
   const handleDisable = () => {

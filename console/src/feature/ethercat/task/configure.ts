@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  ethercat,
+  NotFoundError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 import {
@@ -116,28 +122,32 @@ const validateEntries = <C extends Channel>(
 };
 
 /**
- * @returns a channel from create for each usable entry on the side of the slave with
- * the key, or the empty channel on the slave when it has none. When the catalog of the
- * slave describes some of its entries, only those can get a channel, so status entries
- * stay out of the task.
+ * @returns a channel from create for each usable entry on the side of the slaves with
+ * the keys, in bus order, or the empty channel on the first slave when they have none.
+ * When the catalog of a slave describes some of its entries, only those can get a
+ * channel, so status entries stay out of the task.
  */
 export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
-  key: string,
+  keys: device.Key[],
   pdoType: PDOType,
   create: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C,
   empty: C,
 ): Promise<C[]> => {
-  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const { properties } = slave;
-  const described = (entry: ethercat.PDOEntry) =>
-    findInput(properties.settings, entry) != null;
-  const usable = usableEntries(properties, pdoType);
-  const entries = properties.pdos[pdoType].some(described)
-    ? usable.filter(described)
-    : usable;
-  if (entries.length === 0) return [{ ...empty, device: key }];
-  return entries.map((entry) => create(slave, entry));
+  const slaves = await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const channels = slaves
+    .sort((a, b) => a.properties.position - b.properties.position)
+    .flatMap((slave) => {
+      const { properties } = slave;
+      const described = (entry: ethercat.PDOEntry) =>
+        findInput(properties.settings, entry) != null;
+      const usable = usableEntries(properties, pdoType);
+      const entries = properties.pdos[pdoType].some(described)
+        ? usable.filter(described)
+        : usable;
+      return entries.map((entry) => create(slave, entry));
+    });
+  return channels.length === 0 ? [{ ...empty, device: keys[0] }] : channels;
 };
 
 /**

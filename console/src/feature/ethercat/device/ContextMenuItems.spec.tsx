@@ -36,6 +36,7 @@ import {
   createConsoleWrapper,
   getIconButton,
   resolveFocusedTab,
+  type TestStore,
   uniqueName,
 } from "@/testutil";
 
@@ -257,6 +258,61 @@ describe("EtherCAT device ContextMenuItems", () => {
     await renderContextMenu([slave]);
     expect(await screen.findByText("Create read task")).toBeTruthy();
     expect(screen.queryByText("Create write task")).toBeNull();
+  });
+
+  describe("several new slaves", () => {
+    const renderNewSlaves = async () => {
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const create = async (position: number, pdos: EtherCAT.Device.PDOs) =>
+        await createSlaveDevice(
+          client,
+          rack.key,
+          { name: "IOLITEr 6xSTG", network: "eth0", position, pdos },
+          false,
+        );
+      const second = await create(2, createPDOs());
+      const first = await create(1, { inputs: [STATUS_ENTRY], outputs: [] });
+      const { store } = await renderContextMenu([second, first]);
+      return { first, second, store };
+    };
+
+    const retrieveFocusedKey = async (store: TestStore): Promise<task.Key> => {
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      return tab.resource.key;
+    };
+
+    it("should create one read task with the inputs of each slave in bus order", async () => {
+      const { first, second, store } = await renderNewSlaves();
+      fireEvent.click(await screen.findByText("Create read task"));
+      const key = await retrieveFocusedKey(store);
+      const read = await client.tasks.retrieve({
+        key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(read.config.channels.map((ch) => ch.device)).toEqual([
+        first.key,
+        second.key,
+      ]);
+      expect(screen.queryByText("Sync mode")).toBeNull();
+      const saved = await client.devices.retrieve({
+        key: [first.key, second.key],
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(saved.map((d) => d.configured)).toEqual([true, true]);
+      expect(new Set(saved.map((d) => d.properties.identifier)).size).toBe(2);
+    });
+
+    it("should leave a slave with no outputs out of the write task", async () => {
+      const { second, store } = await renderNewSlaves();
+      fireEvent.click(await screen.findByText("Create write task"));
+      const key = await retrieveFocusedKey(store);
+      const write = await client.tasks.retrieve({
+        key,
+        schemas: EtherCAT.Task.WRITE_SCHEMAS,
+      });
+      expect(write.config.channels.map((ch) => ch.device)).toEqual([second.key]);
+    });
   });
 
   it("should disable every selected slave on the Core when Disable is clicked", async () => {
