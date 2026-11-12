@@ -67,6 +67,14 @@ const lower = (name: string): string => name.charAt(0).toLowerCase() + name.slic
 
 const formatRate = (hz: number): string => `${Math.floor(hz).toLocaleString()} Hz`;
 
+const formatMinRate = (hz: number): string => {
+  const rate = hz.toLocaleString(undefined, {
+    maximumSignificantDigits: 6,
+    roundingMode: "ceil",
+  });
+  return `${rate} Hz`;
+};
+
 const THERMOCOUPLE: AIChannel["type"] = "ai_thermocouple";
 
 // A device that reads thermocouples adds a CJC and an autozero channel to its scan.
@@ -81,6 +89,9 @@ const checkAnalogRate = (
     if (hardware == null) return;
     const enabled = config.channels.filter((c) => c.device === key && !c.disabled);
     if (enabled.length === 0) return;
+    const min = hardware.aiMinRate;
+    if (min !== 0 && config.sampleRate < min)
+      return report(["sampleRate"], `${model} samples at least ${formatMinRate(min)}`);
     const single = hardware.aiMaxSingleChannelRate;
     if (single !== 0 && config.sampleRate > single)
       return report(["sampleRate"], `${model} samples at most ${formatRate(single)}`);
