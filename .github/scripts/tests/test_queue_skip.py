@@ -98,7 +98,7 @@ def run(head: str = "head", **overrides: Any) -> dict[str, Any]:
         "head_sha": head,
         "event": "pull_request",
         "path": WORKFLOW,
-        "repository": {"full_name": REPO},
+        "head_repository": {"full_name": REPO},
         "status": "completed",
         "conclusion": "success",
         **overrides,
@@ -112,6 +112,7 @@ class FakeAPI:
         self.head = "head"
         self.trees = {"group": "tree", "head": "tree"}
         self.behind_by = 0
+        self.pulls = [{"number": 7, "head": {"sha": "head"}}]
         self.runs = [run()]
         self.jobs = dict(PASSED)
         self.failure: Exception | None = None
@@ -131,6 +132,8 @@ class FakeAPI:
             return {"tree": {"sha": self.trees[path.split("/")[-1]]}}
         if path == f"compare/{BASE}...{self.head}":
             return {"behind_by": self.behind_by}
+        if path == f"commits/{self.head}/pulls":
+            return self.pulls
         if path == "actions/workflows/ci.yaml/runs":
             assert params["head_sha"] == [self.head]
             assert params["event"] == ["pull_request"]
@@ -174,6 +177,17 @@ class TestConclusions:
         with pytest.raises(Unproven, match="behind"):
             find(api)
 
+    def test_should_reject_a_head_that_another_pull_request_has(self) -> None:
+        api = FakeAPI()
+        api.pulls.append({"number": 8, "head": {"sha": "head"}})
+        with pytest.raises(Unproven, match="pull requests"):
+            find(api)
+
+    def test_should_ignore_a_pull_request_that_only_contains_the_head(self) -> None:
+        api = FakeAPI()
+        api.pulls.append({"number": 8, "head": {"sha": "child"}})
+        assert find(api) == PASSED
+
     def test_should_reject_a_head_with_no_run(self) -> None:
         api = FakeAPI()
         api.runs = []
@@ -187,7 +201,7 @@ class TestConclusions:
             {"event": "pull_request_target"},
             {"event": "merge_group"},
             {"path": ".github/workflows/forged.yaml"},
-            {"repository": {"full_name": "fork/synnax"}},
+            {"head_repository": {"full_name": "fork/synnax"}},
             {"status": "in_progress", "conclusion": None},
             {"conclusion": "failure"},
             {"conclusion": "cancelled"},
@@ -350,6 +364,8 @@ class TestMain:
         [
             Transient("server error (502)"),
             HTTPError("https://api.github.com", 404, "Not Found", Message(), None),
+            ConnectionResetError("reset"),
+            KeyError("head"),
         ],
     )
     def test_should_change_nothing_when_the_api_fails(

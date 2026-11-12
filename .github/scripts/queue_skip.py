@@ -19,7 +19,8 @@ tree: the group and the pull request head have one tree, and the head contains t
 base of the group. A pull request run tests the merge of the head into its base, so
 the second condition makes that merge equal to the head. It is false for a group
 that sits behind another group. The proof is a successful pull_request run of the CI
-workflow file on that head. A job whose definition reads the event is not the same
+workflow file on that head, from a branch of this repository, when no other pull
+request has that head. A job whose definition reads the event is not the same
 job in the two runs, so it runs. A job that still runs goes in the ci list, and each
 filter becomes false. No proof, or a GitHub API failure, changes nothing.
 
@@ -32,13 +33,12 @@ import json
 import os
 import re
 import sys
-import urllib.error
 import urllib.parse
 from pathlib import Path
 from typing import Any
 
 from changed_jobs import FILTER_REF, WORKFLOW, load
-from wait_for_turn import API, Http, Request, Transient
+from wait_for_turn import API, Http, Request
 
 EVENT_REF = re.compile(r"github\.event")
 GROUP_REF = re.compile(r"/pr-(\d+)-[0-9a-f]{40}$")
@@ -48,12 +48,16 @@ class Unproven(Exception):
     """The pull request did not test the tree of the merge group."""
 
 
-def _pages(request: Request, url: str, key: str, **params: str) -> list[dict[str, Any]]:
+def _pages(
+    request: Request, url: str, key: str | None, **params: str
+) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
     while True:
         query = urllib.parse.urlencode({**params, "per_page": 100, "page": page})
-        batch = request(f"{url}?{query}", None)[key]
+        batch = request(f"{url}?{query}", None)
+        if key is not None:
+            batch = batch[key]
         items += batch
         if len(batch) < 100:
             return items
@@ -80,6 +84,11 @@ def conclusions(
     compare = request(f"{repo}/compare/{group['base_sha']}...{head}", None)
     if compare["behind_by"] != 0:
         raise Unproven(f"the head is {compare['behind_by']} commits behind the base")
+    # A run of another pull request on this head tested a merge into another base.
+    pulls = _pages(request, f"{repo}/commits/{head}/pulls", None)
+    others = [p["number"] for p in pulls if p["head"]["sha"] == head]
+    if others != [int(match[1])]:
+        raise Unproven(f"pull requests {others} have the head {head}")
     runs = [
         r
         for r in _pages(
@@ -93,7 +102,7 @@ def conclusions(
         if r["head_sha"] == head
         and r["event"] == "pull_request"
         and r["path"] == WORKFLOW
-        and r["repository"]["full_name"] == repository
+        and r["head_repository"]["full_name"] == repository
         and r["status"] == "completed"
         and r["conclusion"] == "success"
     ]
@@ -183,10 +192,10 @@ def main(request: Request | None = None) -> None:
             )
         except Unproven as e:
             print(f"Every job runs: {e}.", file=sys.stderr)
-        except (Transient, urllib.error.HTTPError) as e:
+        # The skip only saves runner time, so no failure of the lookup fails the gate.
+        except Exception as e:
             print(
-                f"::warning::Every job runs: the GitHub API failed: {e}",
-                file=sys.stderr,
+                f"::warning::Every job runs: the lookup failed: {e!r}", file=sys.stderr
             )
         else:
             jobs = load(Path(WORKFLOW).read_text())[0]["jobs"]
