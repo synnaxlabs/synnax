@@ -41,25 +41,33 @@ ScanConfig struct extends task.ScanConfig {
 
 StreamConfig struct extends task.StartConfig {
     device   device.Key = "" {
-        @doc value "is the key of the Sift device the task sends to."
+        @doc value     "is the key of the Sift device the task sends to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     asset    string = "" {
         @doc value "is the name of the Sift asset that receives the data."
     }
     channels channel.Key[] {
-        @doc value "are the channels the task sends."
+        @doc value     "are the channels the task sends."
+        @ref kind      use
+        @ref on_delete restrict
     }
     labels   label.Key[]   {
-        @doc value """
+        @doc value     """
             are the labels that make a range a Sift run. A range with any of them
             becomes a run once Sift has its data. Empty makes no runs.
         """
+        @ref kind      use
+        @ref on_delete detach
     }
 
-    @doc value  "configures a task that streams live data to Sift."
-    @go imex    body
+    @doc value           "configures a task that streams live data to Sift."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 Position struct {

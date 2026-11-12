@@ -86,7 +86,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            StreamTaskType,
 			Ladder:          versions.StreamConfigLadder,
+			References:      streamConfigReferences(),
 			SetEntryKey:     (*StreamConfig).SetKey,
+			PatchEntry:      (*StreamConfig).Patch,
+			HashEntry:       (*StreamConfig).HashContent,
 		},
 	); !ok(err, s.Stream) {
 		return nil, err
