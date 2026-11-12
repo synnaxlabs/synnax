@@ -227,6 +227,106 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
+	Describe("Replace", func() {
+		It(
+			"Should store the panel in place of the one with its key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := panel.Panel{Name: "stored", Project: &proj.Key}
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				key := uuid.New()
+				next := panel.Panel{
+					Key:     stored.Key,
+					Name:    "replaced",
+					Project: &proj.Key,
+					Root:    leafNode(tab(key)),
+				}
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				res := retrieve(ctx, tx, stored.Key)
+				Expect(res.Name).To(Equal("replaced"))
+				leaf := MustBeOk(asLeaf(res.Root))
+				Expect(leaf.Tabs).To(HaveLen(1))
+				Expect(leaf.Tabs[0].Key()).To(Equal(key))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := panel.Panel{Name: "stored", Project: &proj.Key}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				rec := &Recorder[panel.Key, panel.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				tx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(panel.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("Panel.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no panel has the key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				missing := panel.Panel{
+					Key:     uuid.New(),
+					Name:    "missing",
+					Project: &proj.Key,
+					Root:    leafNode(),
+				}
+				Expect(svc.NewWriter(tx).Replace(ctx, missing)).
+					To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(panel.MatchKeys(missing.Key)).
+					Entry(&panel.Panel{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		DescribeTable(
+			"Should return a validation error and keep the stored panel",
+			func(ctx SpecContext, change func(*panel.Panel), msg string) {
+				tx := DeferClose(db.OpenTx())
+				stored := panel.Panel{Name: "stored", Project: &proj.Key}
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := stored
+				change(&next)
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+			},
+			Entry("empty name", func(p *panel.Panel) { p.Name = "" }, "name: required"),
+			Entry("duplicate tab keys", func(p *panel.Panel) {
+				key := uuid.New()
+				p.Root = splitNode(
+					spatial.DirectionX, 0.5, leafNode(tab(key)), leafNode(tab(key)),
+				)
+			}, "duplicate tab key in panel tree"),
+			Entry(
+				"no owner",
+				func(p *panel.Panel) { p.Project = nil },
+				"project: must "+
+					"belong to exactly one of a project and a range",
+			),
+		)
+	})
+
 	Describe("Apply of a project move", func() {
 		It("Should move the panel into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())

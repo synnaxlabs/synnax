@@ -22,6 +22,8 @@ import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
 import { Window } from "@/app/window";
 import { Embedded } from "@/feature/embedded";
+import { Vcs } from "@/feature/vcs";
+import { FLAGS } from "@/flags";
 import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
 import { Runtime } from "@/platform/runtime";
@@ -39,6 +41,8 @@ const BuildContext = DESKTOP ? Embedded.Provider : Fragment;
 
 const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
+const VcsProvider = FLAGS.versionControl ? Vcs.Provider : Fragment;
+
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
@@ -54,9 +58,11 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
                     <Tree.Context>
                       <Range.Context>
                         <Task.Context>
-                          <Vis.Canvas>
-                            <Window.Window />
-                          </Vis.Canvas>
+                          <VcsProvider>
+                            <Vis.Canvas>
+                              <Window.Window />
+                            </Vis.Canvas>
+                          </VcsProvider>
                         </Task.Context>
                       </Range.Context>
                     </Tree.Context>

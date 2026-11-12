@@ -35,6 +35,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
@@ -68,6 +69,7 @@ const RangeAnnotationContextMenu = ({
         <Icon.LinePlot />
         Open in new plot
       </Menu.Item>
+      <Vcs.SnapshotMenuItem range={{ key: range.key, name: range.name }} />
       <Menu.Divider />
       <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
         <Icon.CSV />

@@ -114,6 +114,43 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
+// Replace stores s in place of the schematic with the same key, with the checks of
+// Create, and broadcasts it as a create. It returns query.ErrNotFound when no schematic
+// has the key, and a validation error for a snapshot or an invalid s.
+func (w Writer) Replace(ctx context.Context, s Schematic) error {
+	if s.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, s.Group, resource.TypeSchematic)
+		if err != nil {
+			return err
+		}
+		s.Project = proj
+	}
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Schematic](s.Key)).
+		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
+			if prev.Snapshot {
+				return prev, errors.Wrapf(
+					validate.ErrValidation,
+					"[Schematic] - cannot replace snapshot %s:%s",
+					s.Key,
+					prev.Name,
+				)
+			}
+			return s, validateScales(prev, s)
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Schematic: s}))
+	return nil
+}
+
 // CreateMany creates the given schematics. It returns an error wrapping
 // validate.ErrValidation when a schematic with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {

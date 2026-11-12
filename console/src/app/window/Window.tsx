@@ -17,6 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 
+import { Link } from "@/app/link";
 import { Notifications } from "@/app/notifications";
 import { Primary } from "@/app/window/Primary";
 import { Secondary } from "@/app/window/Secondary";
@@ -63,9 +64,11 @@ export const Window = memo((): ReactElement | null => {
   const stack = (
     <Modals.Stack>
       <Notifications.Feed />
-      <Menu.ContextMenu menu={menu} {...menuProps}>
-        {isMain ? <Primary /> : <Secondary />}
-      </Menu.ContextMenu>
+      <Link.Provider>
+        <Menu.ContextMenu menu={menu} {...menuProps}>
+          {isMain ? <Primary /> : <Secondary />}
+        </Menu.ContextMenu>
+      </Link.Provider>
     </Modals.Stack>
   );
 

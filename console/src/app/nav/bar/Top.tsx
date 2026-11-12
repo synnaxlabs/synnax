@@ -18,6 +18,7 @@ import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
 import { Embedded } from "@/feature/embedded";
 import { Panel } from "@/feature/panel";
+import { Vcs } from "@/feature/vcs";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Version } from "@/platform/version";
@@ -81,6 +82,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         ) : (
           <>
             <Version.Badge />
+            <Vcs.Badge />
             {DESKTOP && <Embedded.ConnectButton />}
             <Docs.OpenButton />
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}

@@ -24,6 +24,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+import { Link } from "@/app/link";
 import { Primary } from "@/app/window/Primary";
 import { Session } from "@/session";
 import { type ConsolePreloadedState, renderWithConsole } from "@/testutil";
@@ -53,11 +54,16 @@ const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
     mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
     onTestFinished(clearMocks);
   }
-  const { container } = await renderWithConsole(<Primary />, {
-    preloadedState: withWorkspace(),
-    // No Core is connected, so the panel boundary catches the disconnect.
-    onCaughtError: () => {},
-  });
+  const { container } = await renderWithConsole(
+    <Link.Provider>
+      <Primary />
+    </Link.Provider>,
+    {
+      preloadedState: withWorkspace(),
+      // No Core is connected, so the panel boundary catches the disconnect.
+      onCaughtError: () => {},
+    },
+  );
   const workspace = container.querySelector<HTMLElement>(WORKSPACE);
   assert(workspace != null);
   return workspace;

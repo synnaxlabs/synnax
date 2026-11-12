@@ -274,6 +274,7 @@ func BootupCore(
 			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
+		Dirname:              lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
 	})
 	if !ok(err, serviceLayer) {
 		return err

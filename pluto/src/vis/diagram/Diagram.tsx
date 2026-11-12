@@ -185,6 +185,8 @@ export interface DiagramProps
   onViewportModeChange: (v: BaseViewport.Mode) => void;
   triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
+  /** nodeClassName returns a class for the node with the given key. */
+  nodeClassName?: (key: string) => string | undefined;
   /**
    * Called when a copy event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the copy, derived from
@@ -296,6 +298,7 @@ export const create = ({
     fitViewOptions = diagram.FIT_VIEW_OPTIONS,
     className,
     dragHandleSelector,
+    nodeClassName,
     snapToGrid = false,
     viewportMode,
     onViewportModeChange,
@@ -375,6 +378,7 @@ export const create = ({
       (node) => ({
         ...node,
         measured: measured[node.id],
+        className: nodeClassName?.(node.id),
       }),
     );
 

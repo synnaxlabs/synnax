@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	stopCommandType = "stop"
+	stopCommandType  = "stop"
+	startCommandType = "start"
 	// stopPollInterval paces the status reads of a stop. The Core drops status
 	// notifications under load, so a read is the only reliable ack.
 	stopPollInterval = 20 * time.Millisecond
@@ -119,7 +120,9 @@ func (s *Stopper) stopAndWait(ctx context.Context, keys []Key) error {
 	if err != nil || len(running) == 0 {
 		return err
 	}
-	if err = s.sendStops(ctx, running); err != nil {
+	if err = s.send(ctx, lo.Map(running, func(k Key, _ int) Command {
+		return Command{Task: k, Type: stopCommandType}
+	})); err != nil {
 		return err
 	}
 	ticker := time.NewTicker(stopPollInterval)
@@ -163,18 +166,23 @@ func (s *Stopper) retrieveRunning(
 	return running, nil
 }
 
-func (s *Stopper) sendStops(ctx context.Context, keys []Key) error {
-	series, err := telem.NewJSONSeriesV(lo.Map(
-		keys,
-		func(k Key, _ int) Command {
-			return Command{
-				Task: k,
-				Type: stopCommandType,
-				Key:  uuid.New().String(),
-				Args: msgpack.EncodedJSON{},
-			}
-		},
-	)...)
+// Restart sends a start command at the stored config of each of the given tasks, so the
+// Driver redeploys a task whose live config differs. The caller must authorize the
+// tasks.
+func (s *Stopper) Restart(ctx context.Context, tasks []Task) error {
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout)
+	defer cancel()
+	return s.send(ctx, lo.Map(tasks, func(t Task, _ int) Command {
+		return Command{Task: t.Key, Type: startCommandType, ConfigHash: t.ConfigHash}
+	}))
+}
+
+func (s *Stopper) send(ctx context.Context, cmds []Command) error {
+	for i := range cmds {
+		cmds[i].Key = uuid.New().String()
+		cmds[i].Args = msgpack.EncodedJSON{}
+	}
+	series, err := telem.NewJSONSeriesV(cmds...)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,6 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
@@ -28,7 +27,12 @@ import {
   useState,
 } from "react";
 
-import { BASE_THEMES, type EditorExtension } from "@/code/language";
+import {
+  disableMonacoCommandPalette,
+  forwardGlobalTriggers,
+  useTheme,
+} from "@/code/embed";
+import { type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
 import { CSS } from "@/css";
@@ -57,53 +61,6 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   showFoldingControls: "mouseover",
   hover: { above: false },
   autoClosingQuotes: "always",
-};
-
-const disableMonacoCommandPalette = (
-  mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode">,
-): void => {
-  const NOOP_COMMAND = "noop";
-  mon.editor.addKeybindingRule({
-    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP,
-    command: NOOP_COMMAND,
-  });
-  mon.editor.addKeybindingRule({
-    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP | mon.KeyMod.Shift,
-    command: NOOP_COMMAND,
-  });
-};
-
-const hasGlobalModifier = (e: KeyboardEvent): boolean =>
-  e.ctrlKey || e.metaKey || e.altKey;
-
-const redispatchToWindow = (e: KeyboardEvent): void => {
-  const synthetic = new KeyboardEvent(e.type, {
-    key: e.key,
-    code: e.code,
-    ctrlKey: e.ctrlKey,
-    shiftKey: e.shiftKey,
-    altKey: e.altKey,
-    metaKey: e.metaKey,
-    bubbles: true,
-  });
-  window.dispatchEvent(synthetic);
-};
-
-const forwardGlobalTriggers = (
-  editor: Monaco.editor.IStandaloneCodeEditor,
-): Monaco.IDisposable => {
-  const downDispose = editor.onKeyDown((e) => {
-    if (hasGlobalModifier(e.browserEvent)) redispatchToWindow(e.browserEvent);
-  });
-  const upDispose = editor.onKeyUp((e) => {
-    if (hasGlobalModifier(e.browserEvent)) redispatchToWindow(e.browserEvent);
-  });
-  return {
-    dispose: () => {
-      downDispose.dispose();
-      upDispose.dispose();
-    },
-  };
 };
 
 // applyMinimalEdit reflects next into the model as the single contiguous edit that
@@ -207,13 +164,6 @@ const renderPlaceholder =
 const focusNextFrame: EditorExtension = (editor) => {
   const frame = requestAnimationFrame(() => editor.focus());
   return { dispose: () => cancelAnimationFrame(frame) };
-};
-
-const useTheme = (hasCustomTheme: boolean) => {
-  const theme = Theming.use();
-  const prefersDark = theme.key.includes("Dark");
-  if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
-  return prefersDark ? "vs-dark" : "vs";
 };
 
 interface UseReturn {

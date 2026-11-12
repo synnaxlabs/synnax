@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -209,6 +210,135 @@ var _ = Describe("Writer", func() {
 			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
 		})
+	})
+
+	Describe("Replace", func() {
+		createStored := func(ctx SpecContext) symbol.Symbol {
+			GinkgoHelper()
+			sym := defaults.Fill(symbol.Symbol{
+				Name: "stored",
+				Data: symbol.Spec{SVG: "<svg>stored</svg>", Variant: "valve"},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+			return sym
+		}
+		retrieve := func(ctx SpecContext, key symbol.Key) symbol.Symbol {
+			GinkgoHelper()
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It(
+			"Should store the symbol in place of the one with its key",
+			func(ctx SpecContext) {
+				stored := createStored(ctx)
+				g := group.Group{Name: "Replaced", Scope: resource.TypeSchematicSymbol}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				next := defaults.Fill(symbol.Symbol{
+					Key:   stored.Key,
+					Name:  "replaced",
+					Data:  symbol.Spec{SVG: "<svg>replaced</svg>", Variant: "static"},
+					Group: &g.Key,
+				})
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				Expect(retrieve(ctx, stored.Key)).To(Equal(next))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := createStored(ctx)
+				Expect(tx.Commit(ctx)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, stored.Key)
+					})).To(Succeed())
+				})
+				rec := &Recorder[symbol.Key, symbol.Action]{}
+				DeferCleanup(svc.Actions().OnChange(rec.Record))
+				replaceTx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(replaceTx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(replaceTx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(symbol.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("Symbol.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no symbol has the key",
+			func(ctx SpecContext) {
+				missing := defaults.Fill(symbol.Symbol{
+					Key:  uuid.New(),
+					Name: "missing",
+					Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				})
+				Expect(svc.NewWriter(tx).Replace(ctx, missing)).
+					To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(symbol.MatchKeys(missing.Key)).
+					Entry(&symbol.Symbol{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		DescribeTable(
+			"Should return a validation error and keep the stored symbol",
+			func(ctx SpecContext, change func(SpecContext, *symbol.Symbol), msg string) {
+				stored := createStored(ctx)
+				next := stored
+				change(ctx, &next)
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+				Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+			},
+			Entry("missing name", func(_ SpecContext, s *symbol.Symbol) {
+				s.Name = ""
+			}, "name: required"),
+			Entry("zero scale", func(_ SpecContext, s *symbol.Symbol) {
+				s.Data.Scale = 0
+			}, "data.scale: must be positive"),
+			Entry("group of another scope", func(ctx SpecContext, s *symbol.Symbol) {
+				g := group.Group{Name: "Channels", Scope: resource.TypeChannel}
+				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+				s.Group = &g.Key
+			}, "cannot sit in a channel group"),
+		)
+
+		It(
+			"Should keep a zero scale that the stored symbol holds",
+			func(ctx SpecContext) {
+				stored := symbol.Symbol{
+					Key:  uuid.New(),
+					Name: "stored",
+					Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				}
+				Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().
+					Entry(&stored).
+					Exec(ctx, tx)).To(Succeed())
+				next := stored
+				next.Name = "replaced"
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				Expect(retrieve(ctx, stored.Key)).To(Equal(next))
+			},
+		)
 	})
 
 	Describe("Rename", func() {

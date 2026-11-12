@@ -52,6 +52,9 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeView},
 }
 
+// versionControl is the builtin resource that version control checks access on.
+var versionControl = resource.ID{Type: resource.TypeBuiltin, Key: "version_control"}
+
 var (
 	ownerRoleName = "Owner"
 	ownerRole     = role.Role{
@@ -120,6 +123,16 @@ var (
 				{Type: resource.TypeBuiltin},
 			},
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Engineer Version Control Access",
+			Objects: []resource.ID{versionControl},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+				access.ActionUpdate,
+			},
 			Internal: true,
 		},
 	}
@@ -207,6 +220,12 @@ var (
 			Name:     "Operator View Access",
 			Objects:  allObjects,
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:     "Operator Version Control Access",
+			Objects:  []resource.ID{versionControl},
+			Actions:  []access.Action{access.ActionCreate},
 			Internal: true,
 		},
 	}

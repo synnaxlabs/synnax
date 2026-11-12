@@ -38,7 +38,7 @@ const renderNotification = async (): Promise<Element> => {
 describe("Status", () => {
   it.each([
     ["error", "--pluto-error-z"],
-    ["warning", "--pluto-warning-z"],
+    ["warning", "--pluto-warning-text"],
     ["success", "--pluto-primary-z"],
     ["disabled", "--pluto-text-disabled"],
   ] as const)("should color %s text with its variant token", async (variant, token) => {

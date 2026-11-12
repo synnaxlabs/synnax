@@ -1,0 +1,107 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Lists sit inset from the toolbar edges like the Console's trees, so an item's hover
+   fill has rounded corners clear of the edge. */
+.console-vcs__list {
+    min-height: 0;
+    padding: 0.5rem 1rem 1rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* A section title starts on the same edge as the item content below it. */
+.console-vcs__section-header {
+    min-height: 5rem;
+    padding: 0 1.5rem 0 2.5rem;
+}
+
+.console-vcs__list > .console-vcs__section-header {
+    padding-inline: 1.5rem 0.5rem;
+}
+
+.console-vcs__section-title {
+    min-width: 0;
+}
+
+.console-vcs__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.console-vcs__item {
+    min-height: 4.5rem;
+    padding: 0.75rem 1rem 0.75rem 1.5rem;
+    justify-content: center;
+}
+
+.console-vcs__item-line {
+    min-height: 3rem;
+}
+
+.console-vcs__type-icon {
+    flex-shrink: 0;
+}
+
+.console-vcs__name {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.console-vcs__item-end {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Content under the name lines up with the name: the icon and its gap. */
+.console-vcs__item-below {
+    padding-left: calc(1em + 1rem);
+}
+
+.console-vcs__item--start .console-vcs__item-below {
+    padding-left: calc(1em + 1rem + 3.5rem);
+}
+
+/* A checkbox before the icon keeps the item's left padding before its box and one gap
+   after it, so the icons of checked and plain items share an edge. */
+.console-vcs__check {
+    flex-shrink: 0;
+    margin-inline: -1rem -0.5rem;
+}
+
+.console-vcs__view-header {
+    min-height: 5.5rem;
+    padding: 0 1rem 0 0.5rem;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+.console-vcs__view-title {
+    min-width: 0;
+}
+
+.console-vcs__empty {
+    flex-grow: 1;
+    padding: 4rem 3rem;
+}
+
+.console-vcs__empty-text {
+    max-width: 40rem;
+    text-align: center;
+    text-wrap: pretty;
+}
+
+.console-vcs__status {
+    padding: 1.5rem 2.5rem;
+}
+
+.console-vcs__footer {
+    padding: 1.5rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}

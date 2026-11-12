@@ -103,6 +103,36 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
+// Replace stores t in place of the table with the same key, with the checks of Create,
+// and broadcasts it as a create. It returns query.ErrNotFound when no table has the
+// key, and a validation error for an invalid t.
+func (w Writer) Replace(ctx context.Context, t Table) error {
+	if t.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, t.Group, resource.TypeTable)
+		if err != nil {
+			return err
+		}
+		t.Project = proj
+	}
+	if err := t.Validate(); err != nil {
+		return err
+	}
+	if err := validateUniqueKeys(t); err != nil {
+		return err
+	}
+	if err := project.ValidateOwner(t.Project, t.Range); err != nil {
+		return err
+	}
+	if err := w.tbl.NewUpdate().
+		Where(gorp.MatchKeys[Key, Table](t.Key)).
+		Change(func(gorp.Context, Table) Table { return t }).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, t.Key, NewCreateAction(CreatePayload{Table: t}))
+	return nil
+}
+
 // CreateMany creates the given tables. It returns an error wrapping
 // validate.ErrValidation when a table with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {

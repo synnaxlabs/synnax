@@ -38,6 +38,7 @@ const noop = () => {};
 interface HarnessProps {
   onSelectionChange: (selected: string[]) => void;
   onViewportChange: (viewport: Diagram.Viewport) => void;
+  nodeClassName?: (key: string) => string | undefined;
 }
 
 // The diagram is controlled, so the harness feeds each selection back as the next
@@ -45,6 +46,7 @@ interface HarnessProps {
 const Harness = ({
   onSelectionChange,
   onViewportChange,
+  nodeClassName,
 }: HarnessProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
   const handleSelectionChange = (next: string[]): void => {
@@ -68,6 +70,7 @@ const Harness = ({
         setFitViewOnResize={noop}
         viewportMode="zoom"
         onViewportModeChange={noop}
+        nodeClassName={nodeClassName}
         visible
       />
     </Triggers.Provider>
@@ -99,13 +102,14 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-const renderDiagram = async () => {
+const renderDiagram = async (nodeClassName?: HarnessProps["nodeClassName"]) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
   render(
     <Harness
       onSelectionChange={onSelectionChange}
       onViewportChange={onViewportChange}
+      nodeClassName={nodeClassName}
     />,
     { registry: diagram.REGISTRY, render: true },
   );
@@ -165,6 +169,14 @@ describe("Diagram", () => {
         expect(onSelectionChange).toHaveBeenLastCalledWith(["a"]);
       },
     );
+  });
+
+  describe("nodeClassName", () => {
+    it("should give each node the class returned for its key", async () => {
+      await renderDiagram((key) => (key === "a" ? "changed" : undefined));
+      expect(node("a").classList.contains("changed")).toBe(true);
+      expect(node("b").classList.contains("changed")).toBe(false);
+    });
   });
 
   describe("zoom reset", () => {

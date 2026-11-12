@@ -417,7 +417,7 @@
     }
 
     &.lyra--status-warning {
-        color: var(--pluto-warning-z);
+        color: var(--pluto-warning-text);
     }
 
     &.lyra--status-success {

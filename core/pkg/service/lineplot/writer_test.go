@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -218,6 +219,123 @@ var _ = Describe("Writer", func() {
 				plots[1].Key,
 			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
+	Describe("Replace", func() {
+		retrieve := func(ctx SpecContext, tx gorp.Tx, key lineplot.Key) lineplot.LinePlot {
+			GinkgoHelper()
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It(
+			"Should store the line plot in place of the one with its key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := defaults.Fill(
+					lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+				)
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := defaults.Fill(lineplot.LinePlot{
+					Key:      stored.Key,
+					Project:  &proj.Key,
+					Name:     "replaced",
+					Channels: lineplot.Channels{X1: ch10, Y1: []channel.Key{ch5}},
+					Ranges:   refs(rk1),
+				})
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(Succeed())
+				res := retrieve(ctx, tx, stored.Key)
+				Expect(res.Name).To(Equal("replaced"))
+				Expect(lineKeysOf(res.Lines)).
+					To(ConsistOf(lk(stored.Key, ch10, ch5)))
+			},
+		)
+
+		It(
+			"Should broadcast the replace as a create after commit",
+			func(ctx SpecContext) {
+				stored := defaults.Fill(
+					lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+				)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				tx := DeferClose(db.OpenTx())
+				next := stored
+				next.Name = "replaced"
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Replace(ctx, next),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(stored.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(lineplot.ActionTypeCreate))
+				Expect(seen[0].Actions[0].Create).
+					To(HaveValue(HaveField("LinePlot.Name", "replaced")))
+			},
+		)
+
+		It(
+			"Should return query.ErrNotFound when no line plot has the key",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				missing := defaults.Fill(lineplot.LinePlot{
+					Key:     uuid.New(),
+					Project: &proj.Key,
+					Name:    "missing",
+				})
+				Expect(svc.NewWriter(tx).Replace(ctx, missing)).
+					To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchKeys(missing.Key)).
+					Entry(&lineplot.LinePlot{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
+			"Should return a validation error and keep the stored line plot",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				stored := defaults.Fill(
+					lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+				)
+				Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+				next := stored
+				next.Name = ""
+				Expect(svc.NewWriter(tx).Replace(ctx, next)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("name: required")),
+				))
+				Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+			},
+		)
+
+		It("Should reject a line plot with no owner", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := defaults.Fill(
+				lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			next := stored
+			next.Project = nil
+			Expect(svc.NewWriter(tx).Replace(ctx, next)).To(MatchError(
+				ContainSubstring(
+					"project: must belong to exactly one of a project and a range",
+				),
+			))
+			Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
 		})
 	})
 

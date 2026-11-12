@@ -102,6 +102,36 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
+// Replace stores p in place of the panel with the same key, with the checks of Create,
+// and broadcasts it as a create. It returns query.ErrNotFound when no panel has the
+// key, and a validation error for an invalid p.
+func (w Writer) Replace(ctx context.Context, p Panel) error {
+	if p.Group != nil {
+		proj, err := project.GroupProject(ctx, w.tx, p.Group, resource.TypePanel)
+		if err != nil {
+			return err
+		}
+		p.Project = proj
+	}
+	if err := validateTree(p.Root); err != nil {
+		return err
+	}
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if err := project.ValidateOwner(p.Project, p.Range); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Panel](p.Key)).
+		Change(func(gorp.Context, Panel) Panel { return p }).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, p.Key, NewCreateAction(CreatePayload{Panel: p}))
+	return nil
+}
+
 // CreateMany creates the given panels, applying the same key assignment, tree
 // defaulting, and validation as Create to each. It returns an error wrapping
 // validate.ErrValidation when a panel with one of their keys exists.

@@ -20,6 +20,7 @@ import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const useRename = Tree.createUseRename({
@@ -75,6 +76,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <ContextMenu.RenameItem onClick={rename} />
         </>
       )}
+      <Menu.Divider />
+      <Vcs.CommitContextMenuItem {...props} />
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
@@ -152,6 +155,8 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
+      <Menu.Divider />
+      <Vcs.CommitContextMenuItem {...props} />
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       {isSingle && (

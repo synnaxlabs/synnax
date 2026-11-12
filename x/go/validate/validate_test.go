@@ -159,6 +159,7 @@ var _ = Describe("Validate", func() {
 				v.Ternary("field", true, "100% wrong")
 				return v.Error()
 			}()),
+			Entry("an Errorf failure", validate.Errorf("wrong: %d", 1)),
 			Entry("a wrapped validation error", validate.ErrRequired),
 		)
 

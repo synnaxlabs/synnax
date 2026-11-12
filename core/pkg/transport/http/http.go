@@ -41,7 +41,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	apivcs "github.com/synnaxlabs/synnax/pkg/api/vcs"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/vcs"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
@@ -637,6 +639,72 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/imex/export",
 			http.WithResponseEncoders(imex.JSONCodec),
+		),
+
+		// VERSION CONTROL
+		VCSStatus: unary[apivcs.StatusRequest, vcs.Status](
+			router,
+			"/api/v1/vcs/status",
+		),
+		VCSConnect: unary[apivcs.ConnectRequest, vcs.Status](
+			router,
+			"/api/v1/vcs/connect",
+		),
+		VCSFetch: unary[apivcs.FetchRequest, vcs.Status](
+			router,
+			"/api/v1/vcs/fetch",
+		),
+		VCSCommit: unary[apivcs.CommitRequest, apivcs.CommitResponse](
+			router,
+			"/api/v1/vcs/commit",
+		),
+		VCSDiscard: unary[apivcs.DiscardRequest, vcs.Inverse](
+			router,
+			"/api/v1/vcs/discard",
+		),
+		VCSWrite: unary[vcs.Inverse, struct{}](
+			router,
+			"/api/v1/vcs/write",
+		),
+		VCSPlan: unary[apivcs.PlanRequest, vcs.Plan](
+			router,
+			"/api/v1/vcs/plan",
+		),
+		VCSApply: unary[apivcs.ApplyRequest, vcs.Inverse](
+			router,
+			"/api/v1/vcs/apply",
+		),
+		VCSFiles: unary[apivcs.FilesRequest, apivcs.FilesResponse](
+			router,
+			"/api/v1/vcs/files",
+		),
+		VCSLog: unary[apivcs.LogRequest, apivcs.LogResponse](
+			router,
+			"/api/v1/vcs/log",
+		),
+		VCSShow: unary[apivcs.ShowRequest, apivcs.ShowResponse](
+			router,
+			"/api/v1/vcs/show",
+		),
+		VCSConfigurations: unary[apivcs.ConfigurationsRequest, apivcs.ConfigurationsResponse](
+			router,
+			"/api/v1/vcs/configurations",
+		),
+		VCSClone: unary[apivcs.CloneRequest, vcs.Status](
+			router,
+			"/api/v1/vcs/clone",
+		),
+		VCSCompare: unary[apivcs.CompareRequest, apivcs.CompareResponse](
+			router,
+			"/api/v1/vcs/compare",
+		),
+		VCSSnapshot: unary[apivcs.SnapshotRequest, apivcs.SnapshotResponse](
+			router,
+			"/api/v1/vcs/snapshot",
+		),
+		VCSSnapshots: unary[apivcs.SnapshotsRequest, apivcs.SnapshotsResponse](
+			router,
+			"/api/v1/vcs/snapshots",
 		),
 	})
 }

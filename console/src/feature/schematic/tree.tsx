@@ -24,6 +24,7 @@ import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
@@ -151,6 +152,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
+      <Menu.Divider />
+      <Vcs.CommitContextMenuItem {...props} />
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       {singleResource && (

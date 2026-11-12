@@ -47,6 +47,7 @@ import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
+import { Vcs } from "@/platform/vcs";
 import { Session } from "@/session";
 
 const EmptyContent = () => {
@@ -337,6 +338,7 @@ const TaskListItem = ({
                 </Text.Text>
               </Tooltip.Dialog>
             )}
+            <Vcs.ModifiedMarker id={task.resourceID(itemKey)} />
           </Flex.Box>
         </Flex.Box>
         <Text.Text level="tiny" color={8}>
@@ -542,6 +544,14 @@ const ContextMenu = ({
           }
         />
       )}
+      <Menu.Divider />
+      <Vcs.CommitMenuItem
+        resources={selectedTasks.flatMap((t) => {
+          const arcKey = arc.task.arcKeyOf(t);
+          const own = task.resourceID(t.key);
+          return arcKey == null ? [own] : [own, arc.resourceID(arcKey)];
+        })}
+      />
       <Menu.Divider />
       {isSingle && (
         <>
