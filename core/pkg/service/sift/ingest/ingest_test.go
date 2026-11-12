@@ -155,7 +155,7 @@ var _ = Describe("Engine", func() {
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("channel "+ch.Name+" is virtual, and the Core stores no "+
-					"data for virtual channels: validation error"),
+					"data for virtual channels"),
 			))
 		})
 
@@ -181,7 +181,7 @@ var _ = Describe("Engine", func() {
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("channel "+ch.Name+" is calculated, and Sift can only "+
-					"take stored channels: validation error"),
+					"take stored channels"),
 			))
 		})
 
@@ -197,8 +197,7 @@ var _ = Describe("Engine", func() {
 				OnCheckpoint: rec.onCheckpoint,
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("select at least one channel that is not an index: "+
-					"validation error"),
+				MatchError("select at least one channel that is not an index"),
 			))
 		})
 
@@ -503,6 +502,35 @@ var _ = Describe("Engine", func() {
 					return server.Points("stand", ch.Name)
 				}).Should(Equal([]fake.Point{point(later, 2.0)}))
 				Expect(stop()).To(Succeed())
+			})
+
+		It("Should report the latest live position, though an index gets no samples",
+			func(ctx SpecContext) {
+				idleIdx := createIndex(ctx)
+				idle := createData(ctx, idleIdx, telem.Float64T)
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{idle.Key(), ch.Key()}, ingest.Config{
+					CheckpointInterval: 10 * telem.Millisecond,
+				})
+				stop := stream(ctx, e, ingest.Positions{
+					idleIdx.Key(): at(0),
+					idx.Key():     at(0),
+				})
+				// A sample written before the live stream opens arrives in a catch-up,
+				// where the idle index holds the position back, so write until one
+				// arrives live.
+				i := 0
+				Eventually(func() telem.TimeStamp {
+					i++
+					write(ctx, idx, []telem.TimeStamp{at(i)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+					return rec.last().Through
+				}).Should(BeNumerically(">", at(0)))
+				Expect(stop()).To(Succeed())
+				last := rec.last()
+				Expect(last.Through).To(Equal(last.Positions[idx.Key()]))
+				Expect(last.Positions[idleIdx.Key()]).To(Equal(at(0)))
 			})
 
 		It("Should confirm what it sent when stopped", func(ctx SpecContext) {
