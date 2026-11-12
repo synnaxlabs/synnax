@@ -105,6 +105,14 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(s))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
+}
+
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField struct {
 	// Key uniquely identifies the field within the task.

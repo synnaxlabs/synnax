@@ -88,6 +88,65 @@ var _ = Describe("DB", func() {
 				)
 			})
 
+			Describe("MarkClosed", func() {
+				var db *domain.DB
+				BeforeEach(func() {
+					db = MustOpen(domain.Open(domain.Config{
+						FS:              openFS(),
+						Instrumentation: PanicLogger(),
+					}))
+				})
+
+				It(
+					"Should refuse new writers until UnmarkClosed",
+					func(ctx SpecContext) {
+						Expect(db.MarkClosed()).To(Succeed())
+						Expect(
+							db.OpenWriter(ctx, domain.WriterConfig{}),
+						).Error().To(MatchError(domain.ErrDBClosed))
+						db.UnmarkClosed()
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should leave the DB open if a writer is open",
+					func(ctx SpecContext) {
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
+						Expect(w.Close()).To(Succeed())
+						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It("Should return ErrDBClosed if the DB is closed", func() {
+					Expect(db.MarkClosed()).To(Succeed())
+					Expect(db.MarkClosed()).To(MatchError(domain.ErrDBClosed))
+					db.UnmarkClosed()
+				})
+			})
+
+			Describe("Release", func() {
+				It(
+					"Should persist the data of a marked DB",
+					func(ctx SpecContext) {
+						fs := openFS()
+						cfg := domain.Config{FS: fs, Instrumentation: PanicLogger()}
+						db := MustSucceed(domain.Open(cfg))
+						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+						Expect(
+							testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3}),
+						).To(Succeed())
+						Expect(db.MarkClosed()).To(Succeed())
+						Expect(db.Release()).To(Succeed())
+						db = MustOpen(domain.Open(cfg))
+						Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
+					},
+				)
+			})
+
 			Describe("Size", func() {
 				var (
 					db *domain.DB

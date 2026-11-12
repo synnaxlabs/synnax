@@ -73,13 +73,15 @@ x::errors::Error Engine::Reader::read(
         if (in.failed_samples.exchange(0, std::memory_order_relaxed) > 0)
             return x::errors::Error(
                 errors::CYCLE_FAILED,
-                "every bus cycle failed: " + this->engine.cycle_error().data
+                errors::sentence(
+                    "Every bus cycle failed: " + this->engine.cycle_error().data
+                )
             );
         return x::errors::Error(
             errors::CYCLE_OVERRUN,
             std::format(
-                "no inputs from {} within {}",
-                this->engine.iface,
+                "No inputs from {} within {}.",
+                this->engine.network_name,
                 timeout.to_string()
             )
         );
@@ -105,7 +107,7 @@ x::errors::Error Engine::Reader::read(
 std::string Engine::Reader::warning() {
     std::string msg;
     if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
-        msg = "Bus cycles failed: " + this->engine.cycle_error().data + ".";
+        msg = errors::sentence("Bus cycles failed: " + this->engine.cycle_error().data);
     if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
         msg += std::string(msg.empty() ? "" : " ") +
                "The task cannot keep up with the bus. Lower the stream rate for the "

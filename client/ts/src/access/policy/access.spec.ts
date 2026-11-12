@@ -104,6 +104,28 @@ describe("policy", () => {
     });
   });
 
+  describe("rename", () => {
+    it("should rename the policy", async () => {
+      const p = await createPolicy();
+      const name = `renamed-${id.create()}`;
+      await client.access.policies.rename(p.key, name);
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the policy", async () => {
+      const p = await createPolicy();
+      await client.access.policies.dispatch(
+        p.key,
+        policy.set({ path: ["actions"], value: ["retrieve", "update"] }),
+      );
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.actions).toEqual(["retrieve", "update"]);
+    });
+  });
+
   describe("access control", () => {
     it("should deny access when no matching policy exists", async () => {
       // Create a user with no policy for retrieving policies
@@ -237,7 +259,7 @@ describe("cached reads", () => {
       const first = await client.access.policies.retrieve(p.key);
       expect(first.name).toEqual(p.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.policies.create({ ...p, name: renamed });
+      await remote.access.policies.rename(p.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -270,7 +292,7 @@ describe("cached reads", () => {
       try {
         await client.access.policies.retrieve(p.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.policies.create({ ...p, name: renamed });
+        await remote.access.policies.rename(p.key, renamed);
         await expect
           .poll(() => {
             const cached = client.access.policies.watch(p.key).getCached();

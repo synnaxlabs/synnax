@@ -18,6 +18,7 @@ description = "Test TLS keys for localhost; only test servers and specs use them
 paths = [
     '''^driver/http/(mock|testutil)/test_key\.pem$''',
     '''^freighter/cpp/grpc/(mock|testutil)/test_(leaf_)?key\.pem$''',
+    '''^core/pkg/service/driver/testdata/critical_extension_key\.pem$''',
 ]
 
 [[allowlists]]

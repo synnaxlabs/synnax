@@ -12,6 +12,7 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
+  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -32,7 +33,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
-import { isRunning } from "@/platform/device/racks";
+import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -85,7 +86,7 @@ const ScannerState = ({
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  if (!isRunning(r))
+  if (!isReady(r))
     return (
       <State
         variant="warning"
@@ -112,12 +113,9 @@ const ScannerState = ({
             onClick={() =>
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
-                // Never write the status back: the Driver owns it.
-                await client.tasks.create({
-                  ...scanner.payload,
-                  config: { ...scanner.config, disabled: false },
-                  status: undefined,
-                });
+                const set = task.set({ path: ["config", "disabled"], value: false });
+                if (!(await client.tasks.dispatch(scanner.key, set)))
+                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
               }, "Failed to turn on scanning")
             }
           >
@@ -139,7 +137,7 @@ const ScannerState = ({
 };
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  isRunning(r) &&
+  isReady(r) &&
   scanner != null &&
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
@@ -151,7 +149,6 @@ interface DeviceItemProps {
 
 const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
   <Pane.Item>
-    <PDevice.StatusIndicator status={d.status} />
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
@@ -177,6 +174,7 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
         Configure
       </Button.Button>
     )}
+    <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
   </Pane.Item>
 );
 
@@ -266,7 +264,7 @@ export const Find = ({
 }: FindProps): ReactElement => {
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
-  const running = allRacks?.some(isRunning) === true;
+  const running = allRacks?.some(isReady) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
@@ -282,8 +280,7 @@ export const Find = ({
   const [scanning, setScanning] = useState(false);
   const targets = (scanners ?? []).filter(
     (s) =>
-      !isScanDisabled(s) &&
-      racks?.some((r) => r.key === s.rack && isRunning(r)) === true,
+      !isScanDisabled(s) && racks?.some((r) => r.key === s.rack && isReady(r)) === true,
   );
   const scan = async () => {
     setScanning(true);

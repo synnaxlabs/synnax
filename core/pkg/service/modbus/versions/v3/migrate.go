@@ -60,8 +60,10 @@ func parseStoredString(old v2.ReadChannel) (storedString, bool) {
 
 // MigrateReadChannel lifts a v2 read channel to v3. A register value of the string
 // data type becomes the string variant of its register space, with its length clamped
-// to 1 through 250. Every other variant keeps its shape.
+// to 1 through 250. Every other variant keeps its shape. An empty v2 data type becomes
+// uint8, the v2 default.
 func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, error) {
+	old.ApplyDefaults()
 	s, ok := parseStoredString(old)
 	if !ok {
 		return autoMigrateReadChannel(ctx, old)
@@ -108,8 +110,27 @@ func migrateStoredRead(
 	return MigrateReadConfig(ctx, old)
 }
 
-// ReadMigration lifts stored read configs to v3.
-var ReadMigration = migrate.NewInstrumentedEntry(
-	"v61_string_registers",
-	migrateStoredRead,
+// MigrateWriteChannel lifts a v2 write channel to v3. Every v2 variant exists in v3. An
+// empty v2 data type becomes uint8, the v2 default.
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v2.WriteChannel,
+) (WriteChannel, error) {
+	old.ApplyDefaults()
+	return autoMigrateWriteChannel(ctx, old)
+}
+
+// MigrateWriteConfig lifts a v2 write config to v3.
+func MigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
+	return autoMigrateWriteConfig(ctx, old)
+}
+
+var (
+	// ReadMigration lifts stored read configs to v3.
+	ReadMigration = migrate.NewInstrumentedEntry(
+		"v61_string_registers",
+		migrateStoredRead,
+	)
+	// WriteMigration lifts stored write configs to v3.
+	WriteMigration = migrate.NewEntry("v61_register_bits", MigrateWriteConfig)
 )

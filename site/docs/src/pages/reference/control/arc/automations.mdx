@@ -36,7 +36,9 @@ See [users and roles](/reference/enterprise/users#roles).
 
 1. In the left nav, click **Arcs** (<Icon.Arc />), or press **A**.
 2. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
-3. Type a name, and click **Create**.
+3. Type a name, and click **Create**. To write a
+   [module](/reference/control/arc/modules) that other Arcs import, select the
+   **Module** type.
 
 The editor opens. You can also run the "Create Arc automation" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
@@ -90,6 +92,9 @@ automation keeps the code it started with until you redeploy it:
 
 The automation starts again with the new code. Its variables go back to their first
 values, and each sequence starts again. Stop and start also run the latest code.
+
+A change to a [module](/reference/control/arc/modules) that the automation imports also
+shows **Redeploy**.
 
 <Divider.Divider x />
 

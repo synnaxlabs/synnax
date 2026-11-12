@@ -32,7 +32,7 @@ const base = Flux.createUpdate<CreateParams>({
     const { directories } = client.arcs;
     await client.batch.send([
       directories.createRequest({ parent: parentID.key, key, name }),
-      directories.moveRequest(parentID, arc.directory.resourceID(key), ...top),
+      ...directories.moveRequests(arc.directory.resourceID(key), ...top),
     ]);
     return data;
   },

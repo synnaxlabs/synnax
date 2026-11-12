@@ -77,8 +77,9 @@ or generator logic and schemas disagree.
   `@go marshal omit` field, a doc, or a validation rule. To mint,
   `oracle migrate <resource>` scaffolds v(N+1).oracle (alias lines to definers,
   omit-transient declarations redeclared, imports carried), then convert the changed
-  types to full declarations and run `oracle sync`. Shipped-ness is developer knowledge;
-  Oracle never tracks it.
+  types to full declarations and run `oracle sync`. A version is shipped when the
+  shipped release holds its file: the newest stable Core tag (`core/vX.Y.Z`) on the X.Y
+  train of the newest stable tag that HEAD descends from.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
   live file == merged projection), import placement, stored-pin currency, and delta
   minimality (a redeclaration structurally identical to its resolved predecessor must be
@@ -86,7 +87,15 @@ or generator logic and schemas disagree.
   version aliases from a frozen definer has the same `@validate`, `@default`,
   `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
   dependency type such a definer reaches through its pins, at its current version, has
-  the same `@validate` and `@default` in its live file and its version file).
+  the same `@validate` and `@default` in its live file and its version file), and
+  shipped versions (each stored type of a version file the shipped release holds must
+  still decode the data that release wrote). The shipped check fills in each generic
+  type with its type arguments (defaults included) through aliases, distinct types, and
+  bases, then compares the filled-in shapes across pins: stored field names and order,
+  field types, optionality, `@key`, defaults, and enum and union members. A type may
+  move to another file or chain or become an alias with the same filled-in shape, and an
+  enum or union may gain members. Docs, rules, codec markers, and omit-transient types
+  may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
@@ -170,6 +179,17 @@ and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+`@py optional` makes a field optional in Python alone. Use it for an `any` field that
+must read an absent key as `None`, because the Python JSON codec drops `None` fields.
+
+## Action aliases
+
+`action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
+A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the action
+its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
+(in Go, a defined type that can carry `Handle`). The target must be a struct with no
+type parameters, and no two actions of a type may share one.
+
 ## Union discriminators
 
 A union's discriminator is a generated `<Union>Type` with one constant per variant. When
@@ -242,8 +262,8 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Path actions
 
-`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
-path actions may edit. A path to any other field fails, so a Core-owned field such as
+`@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
+actions may edit. A path to any other field fails, so a Core-owned field such as
 `labels` gets no tag. Go generates a `Patch` method for the document and for every
 struct that a `@patch` field reaches, in the version package that declares the struct. A
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares

@@ -185,17 +185,28 @@ class TestArc:
             text=sy.Text(raw="export func f() i64 { return 1 }"),
         )
         assert isinstance(client.arcs.retrieve(key=created.key), sy.arc.Module)
-        retrieved = client.arcs.retrieve(key=created.key, include_status=True)
-        assert isinstance(retrieved, sy.arc.Module)
-        assert retrieved.status is not None
-        assert retrieved.status.message == "Compiled"
+
+        def compiled() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_status=True)
+            assert isinstance(retrieved, sy.arc.Module)
+            assert retrieved.status is not None
+            assert retrieved.status.message == "Compiled"
+
+        assert_eventually(compiled)
 
     def test_retrieve_changes(self, client: sy.Synnax) -> None:
-        """Should name the automation's own edit once its task is deployed."""
+        """Should name an imported module that changed after the deploy."""
+        path = f"test_changes_{uuid4().hex}"
+        module = client.arcs.create(
+            name=path,
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func g() i64 { return 1 }"),
+        )
         created = client.arcs.create(
             name=f"test_changes_{uuid4().hex}",
             mode="text",
-            text=sy.Text(raw="func f() i64 { return 1 }"),
+            text=sy.Text(raw=f"import {path}\n\nfunc f() i64 {{ return {path}.g() }}"),
         )
         assert isinstance(created, sy.arc.Automation)
         rack = client.racks.create(name=f"test_changes_{uuid4().hex}")
@@ -214,18 +225,16 @@ class TestArc:
                 owner=tsk.resource_id,
             )
         )
-        client.arcs.create(
-            sy.arc.Automation(
-                key=created.key,
-                name=created.name,
-                source=sy.arc.TextSource(text=sy.Text(raw="func f() i64 { return 2 }")),
-            )
-        )
-        retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
-        assert isinstance(retrieved, sy.arc.Automation)
-        assert retrieved.changes == [
-            sy.arc.Change(type="automation", path="", kind="changed")
-        ]
+        client.arcs.set_text(module.key, "export func g() i64 { return 2 }")
+
+        def changed() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+            assert isinstance(retrieved, sy.arc.Automation)
+            assert retrieved.changes == [
+                sy.arc.Change(type="module", path=path, kind="changed")
+            ]
+
+        assert_eventually(changed)
 
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when include_program is not set."""
@@ -242,6 +251,22 @@ class TestArc:
         """Should raise NotFoundError when Arc is not found."""
         with pytest.raises(sy.NotFoundError):
             client.arcs.retrieve(name=f"nonexistent-arc-{uuid4()}")
+
+    def test_set_text(self, client: sy.Synnax) -> None:
+        """Should replace the text of an Arc on each call."""
+        arc = client.arcs.create(
+            name=f"test-arc-{uuid4()}", mode="text", text=sy.Text(raw="x := 1")
+        )
+        client.arcs.set_text(arc.key, "y := 2")
+        assert text_of(client.arcs.retrieve(key=arc.key)).raw == "y := 2"
+        client.arcs.set_text(arc.key, "z := 3 // é")
+        assert text_of(client.arcs.retrieve(key=arc.key)).raw == "z := 3 // é"
+
+    def test_set_text_of_a_graph(self, client: sy.Synnax) -> None:
+        """Should refuse to set the text of a graph-mode Arc."""
+        arc = client.arcs.create(name=f"test-arc-{uuid4()}", mode="graph")
+        with pytest.raises(ValueError, match="graph-mode Arc and has no text"):
+            client.arcs.set_text(arc.key, "x := 1")
 
     def test_delete_single(self, client: sy.Synnax) -> None:
         """Should delete a single Arc."""

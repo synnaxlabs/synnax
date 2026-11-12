@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -23,6 +24,7 @@ import (
 	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
+	"go.uber.org/zap"
 )
 
 // codeActionSnapshot bundles the document state CodeAction needs after
@@ -64,7 +66,25 @@ func (s *Server) CodeAction(
 	var (
 		actions []protocol.CommandOrCodeAction
 		hoist   *protocol.CodeAction
+		modules []*symbol.Symbol
+		listed  bool
 	)
+	// Every diagnostic of a request shares one listing of the user modules.
+	listModules := func() []*symbol.Symbol {
+		if listed {
+			return modules
+		}
+		listed = true
+		r := symbols.ModuleResolver()
+		if r == nil {
+			return nil
+		}
+		var err error
+		if modules, err = r.Search(ctx, ""); err != nil {
+			s.cfg.L.Error("failed to search modules", zap.Error(err))
+		}
+		return modules
+	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		switch string(code) {
@@ -90,9 +110,10 @@ func (s *Server) CodeAction(
 		// The handler's own filters (local resolution succeeds, no ambient
 		// match, already imported) reject non-candidates, so we don't need
 		// a separate code to gate it.
-		if action := missingImportQuickFix(ctx, snap, diag); action != nil {
-			actions = append(actions, action)
-		}
+		actions = append(
+			actions,
+			missingImportQuickFixes(ctx, snap, diag, listModules)...,
+		)
 	}
 	if hoist != nil {
 		actions = append(actions, hoist)
@@ -503,18 +524,16 @@ func replacementModule(repl *symbol.Symbol) string {
 	return repl.Parent.Name
 }
 
-// missingImportQuickFix offers `Add import 'X'` when the diagnostic range
-// references an ambient module that is not yet in scope. The candidate
-// identifier is the first IDENTIFIER token inside the range; it must (a)
-// fail to resolve at that position, (b) match a non-Internal KindModule
-// reachable through the ambient prelude, and (c) not already be imported
-// in the document. Failing any of the three returns nil, which makes the
-// handler safe to run for every diagnostic without code-matching.
-func missingImportQuickFix(
+// missingImportQuickFixes offers `Add import 'X'` for the first identifier in the
+// diagnostic range when it does not resolve there and names an ambient module or the
+// last segment of a user module path that is not imported yet. It returns none for
+// any other diagnostic, so it runs for every diagnostic without code-matching.
+func missingImportQuickFixes(
 	ctx context.Context,
 	snap codeActionSnapshot,
 	diag protocol.Diagnostic,
-) *protocol.CodeAction {
+	listModules func() []*symbol.Symbol,
+) []protocol.CommandOrCodeAction {
 	if snap.Symbols == nil {
 		return nil
 	}
@@ -539,22 +558,33 @@ func missingImportQuickFix(
 		sym != nil {
 		return nil
 	}
-	if !scope.IsAmbientModule(name) {
-		return nil
+	var paths []string
+	if scope.IsAmbientModule(name) {
+		paths = []string{name}
+	} else {
+		for _, m := range listModules() {
+			if m.Name == name || strings.HasSuffix(m.Name, "."+name) {
+				paths = append(paths, m.Name)
+			}
+		}
 	}
-	edits := buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, name)
-	if len(edits) == 0 {
-		return nil
+	var actions []protocol.CommandOrCodeAction
+	for _, path := range paths {
+		edits := buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, path)
+		if len(edits) == 0 {
+			continue
+		}
+		actions = append(actions, &protocol.CodeAction{
+			Title:       fmt.Sprintf("Add import '%s'", path),
+			Kind:        new(protocol.CodeActionKindQuickFix),
+			Diagnostics: []protocol.Diagnostic{diag},
+			IsPreferred: new(len(paths) == 1),
+			Edit: &protocol.WorkspaceEdit{
+				Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
+			},
+		})
 	}
-	return &protocol.CodeAction{
-		Title:       fmt.Sprintf("Add import '%s'", name),
-		Kind:        new(protocol.CodeActionKindQuickFix),
-		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: new(true),
-		Edit: &protocol.WorkspaceEdit{
-			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
-		},
-	}
+	return actions
 }
 
 // firstIdentifierInRange returns the first IDENTIFIER token whose start

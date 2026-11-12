@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -85,7 +84,8 @@ type (
 	CreateResponse = CreateRequest
 )
 
-// Create creates the projects, and overwrites each one whose key exists.
+// Create creates the projects. It returns an error wrapping validate.ErrValidation when
+// a project with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -95,20 +95,6 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
-}
-
-type RenameRequest struct {
-	Name string      `json:"name" msgpack:"name"`
-	Key  project.Key `json:"key"  msgpack:"key"`
-}
-
-// Rename renames the project with the given key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DispatchRequest carries an action sequence to apply to a single project. DispatchKey
@@ -209,17 +195,27 @@ type (
 	}
 )
 
-// Import imports a project bundle into a new project.
+// PrepareImport decodes the bundle in req. It returns a validation error for missing
+// params or an invalid bundle.
+func (s *Service) PrepareImport(
+	ctx context.Context,
+	req ImportRequest,
+) (bundle.Bundle, error) {
+	fileName, err := parseImportParams(ctx)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	return s.bundle.Decode(ctx, req, fileName)
+}
+
+// Import imports the bundle that PrepareImport decoded into a new project.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
-	req ImportRequest,
+	_ ImportRequest,
+	b bundle.Bundle,
 ) (ImportResponse, error) {
-	fileName, err := parseImportParams(ctx)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	p, err := s.bundle.Import(ctx, tx, req, fileName)
+	p, err := s.bundle.Import(ctx, tx, b)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -266,19 +262,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves projects into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key    `json:"group" msgpack:"group"`
-	Keys  []project.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the projects with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

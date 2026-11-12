@@ -43,7 +43,7 @@ func loadWire(name string) []byte {
 func decodeV6(ctx context.Context) v6.LinePlot {
 	GinkgoHelper()
 	var lp v6.LinePlot
-	Expect(orc.Codec.Decode(ctx, loadWire("v6_initial.hex"), &lp)).To(Succeed())
+	Expect(orc.Codec.Decode(loadWire("v6_initial.hex"), &lp)).To(Succeed())
 	return lp
 }
 
@@ -72,9 +72,9 @@ var _ = Describe("MigrateLinePlot", func() {
 	It("Should round-trip the migrated plot through the v7 codec",
 		func(ctx SpecContext) {
 			out := MustSucceed(v7.MigrateLinePlot(ctx, decodeV6(ctx)))
-			encoded := MustSucceed(orc.Codec.Encode(ctx, out))
+			encoded := MustSucceed(orc.Codec.Encode(out))
 			var decoded v7.LinePlot
-			Expect(orc.Codec.Decode(ctx, encoded, &decoded)).To(Succeed())
+			Expect(orc.Codec.Decode(encoded, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(out))
 		})
 })
@@ -144,7 +144,7 @@ var _ = Describe("Storage migration", func() {
 var _ = Describe("v7 wire format", func() {
 	It("Should decode the pinned v7 payload", func(ctx SpecContext) {
 		var lp v7.LinePlot
-		Expect(orc.Codec.Decode(ctx, loadWire("v7_initial.hex"), &lp)).To(Succeed())
+		Expect(orc.Codec.Decode(loadWire("v7_initial.hex"), &lp)).To(Succeed())
 		Expect(lp.Lines).To(HaveLen(2))
 		Expect(lp.Lines[0].Aggregation).To(Equal(v7.AggregationAverage))
 		Expect(lp.Lines[0].Detail).To(Equal(v7.DetailHigh))
@@ -155,15 +155,15 @@ var _ = Describe("v7 wire format", func() {
 	It("Should re-encode the payload byte for byte", func(ctx SpecContext) {
 		raw := loadWire("v7_initial.hex")
 		var lp v7.LinePlot
-		Expect(orc.Codec.Decode(ctx, raw, &lp)).To(Succeed())
-		Expect(orc.Codec.Encode(ctx, lp)).To(Equal(raw))
+		Expect(orc.Codec.Decode(raw, &lp)).To(Succeed())
+		Expect(orc.Codec.Encode(lp)).To(Equal(raw))
 	})
 
 	It("Should reject every truncation of a stored payload", func(ctx SpecContext) {
 		raw := loadWire("v7_initial.hex")
 		for n := 3; n < len(raw); n++ {
 			var lp v7.LinePlot
-			Expect(orc.Codec.Decode(ctx, raw[:n], &lp)).
+			Expect(orc.Codec.Decode(raw[:n], &lp)).
 				To(truncatedErr, "prefix length %d", n)
 		}
 	})

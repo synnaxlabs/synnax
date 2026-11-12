@@ -230,13 +230,16 @@ describe("TaskControls", () => {
     const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
     await reportTaskRunning(client, tsk);
-    await client.arcs.create({
-      ...m,
-      source: {
-        mode: "text",
-        text: { raw: "export func f() {t u8} i64 { return 2 }" },
-      },
-    });
+    const gen = new crdt.Text(2);
+    await client.arcs.dispatch(
+      m.key,
+      gen
+        .insert(0, "\nexport func g() i64 { return 2 }\n")
+        .map((op) => arc.insertChar(op)),
+    );
+    await expect
+      .poll(async () => await client.arcs.retrieveChanges(a.key), { timeout: 5000 })
+      .toEqual([{ type: "module", path: moduleName, kind: "changed" }]);
     await renderControls(a.key);
     await hoverRedeploy();
     await waitFor(async () =>

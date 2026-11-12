@@ -86,10 +86,8 @@ export interface RenameParams extends Pick<arc.directory.Directory, "key" | "nam
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    await client.arcs.directories.rename(data.key, data.name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+  update: async ({ client, data }) => {
+    await client.arcs.directories.rename(data.key, data.name);
     return data;
   },
 });

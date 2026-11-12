@@ -71,7 +71,8 @@ mask := data > 2.0 // [false, false, true] (series bool)
 
 **Rules**:
 
-- Out-of-bounds access = runtime error
+- An index or slice bound must be an integer type
+- `data[-1]` is the last element. Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Comparisons return `series bool` elementwise
 - Empty `[]` without a type takes its element type from its first typed write or use.
@@ -136,7 +137,7 @@ TypeCast ::= Type '(' Expression ')'
 
 - Widening (e.g., `i16(i8_val)`) is safe (sign/zero extend)
 - Narrowing (e.g., `i8(i64_val)`) truncates
-- Signed ↔ Unsigned saturates at bounds
+- Signed ↔ Unsigned keeps the bits, so `u8(i8(-1))` is `255`
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping. An expression made only of integer
   literals that overflows its type is a compile error (`ARC6001`).

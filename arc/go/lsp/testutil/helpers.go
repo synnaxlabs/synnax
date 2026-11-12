@@ -11,11 +11,15 @@ package testutil
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
@@ -26,6 +30,25 @@ import (
 func defaultNewRoot() *symbol.Symbol {
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	return root
+}
+
+// NewModuleRoot builds an STL-populated root that imports the user modules in
+// sources, keyed by import path.
+func NewModuleRoot(sources map[string]string) *symbol.Symbol {
+	loader := text.NewLoader(text.LoaderConfig{
+		Source: func(_ context.Context, path string) (text.Text, error) {
+			src, ok := sources[path]
+			if !ok {
+				return text.Text{}, errors.Wrapf(symbol.ErrModuleNotFound, "%q", path)
+			}
+			return text.Text{Raw: src}, nil
+		},
+		Paths: func(context.Context) ([]string, error) {
+			return slices.Sorted(maps.Keys(sources)), nil
+		},
+		Ambient: stl.NewSymbols,
+	})
+	return symbol.NewRoot(nil, stl.NewSymbols(), symbol.WithModules(loader))
 }
 
 // SetupTestServer creates a new arc LSP server with a MockClient for

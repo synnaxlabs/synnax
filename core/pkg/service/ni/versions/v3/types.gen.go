@@ -5077,6 +5077,7 @@ func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogReadConfig) Validate() error {
 	v := validate.New("AnalogReadConfig")
+	v.Exec(a.ReadConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5127,6 +5128,7 @@ func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (c CounterReadConfig) Validate() error {
 	v := validate.New("CounterReadConfig")
+	v.Exec(c.ReadConfig.Validate)
 	for i := range c.Channels {
 		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5179,6 +5181,7 @@ func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (a AnalogWriteConfig) Validate() error {
 	v := validate.New("AnalogWriteConfig")
+	v.Exec(a.WriteConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5227,6 +5230,7 @@ func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (d DigitalReadConfig) Validate() error {
 	v := validate.New("DigitalReadConfig")
+	v.Exec(d.ReadConfig.Validate)
 	for i := range d.Channels {
 		v.Exec(func() error { return validate.PathedError(d.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5273,6 +5277,7 @@ func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (d DigitalWriteConfig) Validate() error {
 	v := validate.New("DigitalWriteConfig")
+	v.Exec(d.WriteConfig.Validate)
 	for i := range d.Channels {
 		v.Exec(func() error { return validate.PathedError(d.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -5311,4 +5316,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

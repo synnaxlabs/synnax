@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, filter, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -97,7 +97,10 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
-  /** Builds requests that move schematics between groups. */
+  /**
+   * Builds requests that move schematics between groups. A move into a group of another
+   * project also moves the schematic into that project.
+   */
   readonly setGroupRequest: group.MoveRequest<Key>;
   /** Builds requests that move schematics out of their group and into a project. */
   readonly setProjectRequest: project.MoveRequest<Key>;
@@ -118,6 +121,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(
         cfg.unary,
@@ -144,11 +148,14 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/schematic/set-group", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/schematic/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
     );
     this.setProjectRequest = project.createMoveRequest(
-      "/schematic/set-project",
+      "/schematic/dispatch",
       (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
@@ -189,27 +196,8 @@ export class Client extends query.Retriever<
     return isMany ? res.schematics : res.schematics[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      query.partialUpdate(this.store, key, { name });
-      return () => {
-        query.partialUpdate(this.store, key, { name: prev });
-      };
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**

@@ -1,8 +1,8 @@
 # Synnax docs site
 
 The documentation site at [docs.synnaxlabs.com](https://docs.synnaxlabs.com), built with
-Astro and served by Vercel. Pages render at build time. The 404 page, the updater
-routes, and pages behind a flag render per request.
+Astro and served by Vercel. Pages render at build time. The 404 page and the updater
+routes render per request.
 
 ## Commands
 
@@ -54,25 +54,3 @@ train's release branch (`release/docs-0.60` for 0.60), and deploy the train. If 
 of the train shipped from `main`, first merge its tag into the branch. A 0.60 release
 deploys `release/docs-0.60` as it is, so pick the docs of a 0.60 patch onto it before
 the release.
-
-## Feature flags
-
-A flag is a static build-time boolean that hides unfinished docs in production. Flags
-are off by default, and preview deploys turn every flag on so reviewers see dark work. A
-flip is an environment variable plus a redeploy.
-
-To add a flag named `example`:
-
-1. Declare `FLAG_EXAMPLE` in the `env.schema` block of `astro.config.ts` as a public
-   client boolean with `default: false`.
-2. Register it in `src/flags.ts` as `example: flag(FLAG_EXAMPLE)`, with a comment naming
-   the owner and the release that removes the flag.
-3. Put `flag: "example"` in the frontmatter of each page behind it. The page renders per
-   request and returns 404 while the flag is off. Give the page's `PageNavNode` the same
-   `flag`, and the nav hides the node and its children while the flag is off.
-4. To turn it on in production, set `FLAG_EXAMPLE=true` in the Vercel project's
-   Production environment and redeploy. Set the same name as a repository variable in
-   GitHub Actions, or the search index job drops the flagged pages.
-5. When the work ships, delete the flag from all four places.
-
-An unknown flag name throws at render time, so a typo cannot hide a page silently.

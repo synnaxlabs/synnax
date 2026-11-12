@@ -30,8 +30,9 @@ import (
 )
 
 // VersionsGate verifies the explicitly managed version chains: the live file's
-// version-owned content matches chain resolution (the merged projection), and every
-// redeclaration differs structurally from its resolved predecessor.
+// version-owned content matches chain resolution (the merged projection), every
+// redeclaration differs structurally from its resolved predecessor, and no version file
+// changes a stored shape that Env.Shipped shipped.
 type versionsGate struct{}
 
 // NewVersionsGate returns a Checker that asserts the version chain is well formed.
@@ -49,6 +50,9 @@ func (g versionsGate) Run(
 		return r
 	}
 	chains, resolver := res.Chains, res.Versions
+	if env.Shipped != nil {
+		checkShipped(ctx, &r, chains, resolver, *env.Shipped)
+	}
 	if len(chains) == 0 || resolver == nil {
 		return r
 	}
@@ -377,14 +381,6 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 				visit(fd.Type)
 				if fd.Default != nil {
 					walkValue(*fd.Default, into)
-				}
-			}
-			for _, a := range form.Actions {
-				for _, fd := range a.Fields {
-					visit(fd.Type)
-				}
-				for _, e := range a.Extends {
-					visit(e)
 				}
 			}
 			for _, e := range form.Extends {

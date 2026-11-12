@@ -147,6 +147,24 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_TRUE(props.config.enabled);
 }
 
+/// @brief it should read back the settings that a scan wrote for a slave.
+TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    auto parser = x::json::Parser(
+        Properties{.name = "6xSTG", .settings = settings}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).settings, settings);
+}
+
+/// @brief it should leave the settings empty for a slave that the catalog does not
+/// describe.
+TEST(PropertiesParse, LeavesMissingSettingsEmpty) {
+    auto parser = x::json::Parser(Properties{.name = "EL3102"}.to_json());
+    EXPECT_FALSE(Properties::parse(parser).settings.has_value());
+}
+
 TEST(PropertiesParse, ParsesWithPdos) {
     nlohmann::json j = {
         {"serial", 0},
@@ -257,6 +275,41 @@ TEST(PropertiesParse, RoundTripsTheChosenMode) {
 /// stores no choice as a missing key.
 TEST(PropertiesToJson, LeavesOutAMissingChoice) {
     EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
+}
+
+/// @brief it should write the settings that the catalog describes for a slave.
+TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    const Properties props{.name = "6xSTG", .settings = settings};
+    EXPECT_EQ(props.to_json().at("settings"), settings);
+}
+
+/// @brief it should replace a startup parameter at the same address in place, and add a
+/// parameter at a new address last.
+TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
+    const auto param = [](const uint8_t sub_index, const double value) {
+        return StartupParameter{
+            .index = 0x8040,
+            .sub_index = sub_index,
+            .data_type = x::telem::UINT16_T,
+            .value = value,
+        };
+    };
+    Config config{.startup_parameters = {param(1, 1), param(2, 2)}};
+    config.add_startup_parameters({param(1, 5), param(3, 7)});
+    EXPECT_EQ(
+        config.startup_parameters,
+        (std::vector<StartupParameter>{param(1, 5), param(2, 2), param(3, 7)})
+    );
+}
+
+/// @brief it should leave out the settings of a slave that the catalog does not
+/// describe.
+TEST(PropertiesToJson, LeavesOutMissingSettings) {
+    EXPECT_FALSE(Properties{.name = "EL3102"}.to_json().contains("settings"));
 }
 
 TEST(PropertiesToJson, SerializesAllFields) {
@@ -575,5 +628,41 @@ TEST(Properties, ParsesWithoutStartupParameters) {
     const auto props = Properties::parse(parser);
     ASSERT_NIL(parser.error());
     EXPECT_TRUE(props.config.startup_parameters.empty());
+}
+
+/// @brief it should return the sync mode that the catalog gives for the card's mode.
+TEST(PropertiesCatalogOpMode, ReturnsTheModeThatTheCatalogGives) {
+    Properties props;
+    props.settings = x::json::json{
+        {"mode",
+         {{"value", 0},
+          {"op_mode",
+           {{"index", 1},
+            {"assign_activate", 0x0300},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 1000000000}}}}},
+    };
+    EXPECT_EQ(
+        props.catalog_op_mode(),
+        (dc::Choice{
+            .index = 1,
+            .assign_activate = 0x0300,
+            .cycles = {
+                .sync0 = x::telem::MICROSECOND,
+                .sync1 = x::telem::SECOND,
+            },
+        })
+    );
+}
+
+/// @brief it should return no sync mode when the catalog gives none for the card's
+/// mode, or describes no mode for the card.
+TEST(PropertiesCatalogOpMode, ReturnsNoneWhenTheCatalogGivesNone) {
+    Properties props;
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"device", x::json::json::array()}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"mode", {{"value", 1}, {"shared", true}}}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
 }
 }

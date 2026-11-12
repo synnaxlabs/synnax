@@ -12,7 +12,9 @@ package lsp_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -207,6 +209,27 @@ var _ = Describe("FoldingRange", func() {
 
 			Expect(ranges).To(BeEmpty())
 		})
+
+		It(
+			"Should not fold the members of an imported module",
+			func(ctx SpecContext) {
+				sources := map[string]string{
+					"m": "export func f() i64 {\n    return 1\n}",
+				}
+				server, uri := SetupTestServer(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				})
+				OpenArcDocument(server, ctx, uri, "import m\n\nx := m.f()")
+
+				ranges := MustSucceed(
+					server.FoldingRanges(ctx, &protocol.FoldingRangeParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					}),
+				)
+
+				Expect(ranges).To(BeEmpty())
+			},
+		)
 
 		It("Should handle block URIs", func(ctx SpecContext) {
 			server, _ := SetupTestServer()

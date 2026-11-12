@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
 from synnax import group as group_, imex
+from synnax.project import actions_gen
 from synnax.project.types_gen import (
     Cursor,
     Key,
@@ -42,9 +43,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _ExportRequest(BaseModel):
@@ -128,7 +130,9 @@ class Client:
         :param key: The key of the project to rename.
         :param name: The new name for the project.
         """
-        self._client.send("/project/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/project/dispatch", req, Empty)
 
     def export(
         self, key: Key, dest: FilePath, *, encoding: imex.Encoding = "JSON"

@@ -21,8 +21,8 @@ and writes the process data of the module, which EtherCAT calls PDOs. Before a t
 use a module, you configure it. For Dewesoft IOLITE and SIRIUS devices, also see
 [Dewesoft devices](/reference/hardware/ethercat/dewesoft).
 
-The Console and the Driver call a module a slave, as EtherCAT does. A label such as
-**Slave device**, or an error that says "slave", refers to a module.
+The Console and the Driver call a module a slave, as EtherCAT does. A message that says
+"slave" refers to a module.
 
 <Divider.Divider x />
 
@@ -141,7 +141,7 @@ yet.
   network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
   such as for 3 kHz and 4 kHz, the task fails to start. While a module runs in DC sync,
   the rate does not change until every task on the port stops. See
-  [`the bus on ... cycles at ... Hz while a slave runs DC sync`](/reference/hardware/ethercat/troubleshooting#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
+  [`The bus on ... cycles at ... Hz while a slave runs DC sync`](/reference/hardware/ethercat/troubleshooting#the-bus-on--cycles-at--hz-while-a-slave-runs-dc-sync).
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
   task stops, its outputs go to their stop values and hold them while the network runs.
   When the network stops, or the Driver loses contact with a module, the module sets its
@@ -172,7 +172,7 @@ yet.
 5. To write CoE settings when the network starts, add them under
    [**Startup parameters**](#set-startup-parameters).
 6. Click **Save**. For a module that is not configured yet, you can click **Save and
-   create read task** to also open a read task for it.
+   create read task** or **Save and create write task** to also open a task for it.
 
 Configure each module that a task uses.
 
@@ -241,38 +241,64 @@ Set `op_mode` to the mode at `index` in `op_modes`. Cycles are in nanoseconds, a
 uses the cycle of the mode:
 
 ```python
+import synnax as sy
+
 module = client.devices.retrieve(key="<module key>")
 index = 1  # the DC sync mode in module.properties["op_modes"]
-module.properties["op_mode"] = {
+op_mode = {
     "index": index,
     "assign_activate": module.properties["op_modes"][index]["assign_activate"],
     "sync0_cycle": 0,
     "sync1_cycle": 1_000_000_000,  # 1 s
 }
-client.devices.create(module)
+client.devices.dispatch(
+    module.key,
+    sy.device.set(sy.device.SetPayload(path=["properties", "op_mode"], value=op_mode)),
+)
 ```
 
-To use the default again, remove `op_mode` from the properties.
+To use the default again, remove `op_mode` from the properties:
+
+```python
+client.devices.dispatch(
+    module.key,
+    sy.device.remove(sy.device.RemovePayload(path=["properties"], key="op_mode")),
+)
+```
 
   </Fragment>
   <Fragment slot="typescript">
 
-Set `opMode` to the mode at `index` in `opModes`. Cycles are in nanoseconds, and 0 uses
-the cycle of the mode:
+Set `op_mode` to the mode at `index` in `opModes`. Cycles are in nanoseconds, and 0 uses
+the cycle of the mode. An action takes the snake_case keys that the Core stores:
 
 ```typescript
+import { device } from "@synnaxlabs/client";
+
 const module = await client.devices.retrieve({ key: "<module key>" });
 const index = 1; // the DC sync mode in module.properties.opModes
-module.properties.opMode = {
-  index,
-  assignActivate: module.properties.opModes[index].assignActivate,
-  sync0Cycle: 0,
-  sync1Cycle: 1_000_000_000, // 1 s
-};
-await client.devices.create(module);
+await client.devices.dispatch(
+  module.key,
+  device.set({
+    path: ["properties", "op_mode"],
+    value: {
+      index,
+      assign_activate: module.properties.opModes[index].assignActivate,
+      sync0_cycle: 0,
+      sync1_cycle: 1_000_000_000, // 1 s
+    },
+  }),
+);
 ```
 
-To use the default again, remove `opMode` from the properties.
+To use the default again, remove `op_mode` from the properties:
+
+```typescript
+await client.devices.dispatch(
+  module.key,
+  device.remove({ path: ["properties"], key: "op_mode" }),
+);
+```
 
   </Fragment>
 </Client.Tabs>
@@ -338,18 +364,24 @@ port, then start them again. To use the module again, right-click it and select
   <Fragment slot="python">
 
 ```python
-module = client.devices.retrieve(key="<module key>")
-module.properties["enabled"] = False
-client.devices.create(module)
+import synnax as sy
+
+client.devices.dispatch(
+    "<module key>",
+    sy.device.set(sy.device.SetPayload(path=["properties", "enabled"], value=False)),
+)
 ```
 
   </Fragment>
   <Fragment slot="typescript">
 
 ```typescript
-const module = await client.devices.retrieve({ key: "<module key>" });
-module.properties.enabled = false;
-await client.devices.create(module);
+import { device } from "@synnaxlabs/client";
+
+await client.devices.dispatch(
+  "<module key>",
+  device.set({ path: ["properties", "enabled"], value: false }),
+);
 ```
 
   </Fragment>
@@ -380,8 +412,9 @@ writes them again when a module returns after a power loss.
   <Fragment slot="python">
 
 ```python
-module = client.devices.retrieve(key="<module key>")
-module.properties["startup_parameters"] = [
+import synnax as sy
+
+startup_parameters = [
     {
         "index": 0x8000,
         "sub_index": 0x15,
@@ -390,24 +423,37 @@ module.properties["startup_parameters"] = [
         "name": "Filter settings",
     },
 ]
-client.devices.create(module)
+client.devices.dispatch(
+    "<module key>",
+    sy.device.set(
+        sy.device.SetPayload(
+            path=["properties", "startup_parameters"], value=startup_parameters
+        )
+    ),
+)
 ```
 
   </Fragment>
   <Fragment slot="typescript">
 
 ```typescript
-const module = await client.devices.retrieve({ key: "<module key>" });
-module.properties.startupParameters = [
-  {
-    index: 0x8000,
-    subIndex: 0x15,
-    dataType: "uint16",
-    value: 1,
-    name: "Filter settings",
-  },
-];
-await client.devices.create(module);
+import { device } from "@synnaxlabs/client";
+
+await client.devices.dispatch(
+  "<module key>",
+  device.set({
+    path: ["properties", "startup_parameters"],
+    value: [
+      {
+        index: 0x8000,
+        sub_index: 0x15,
+        data_type: "uint16",
+        value: 1,
+        name: "Filter settings",
+      },
+    ],
+  }),
+);
 ```
 
   </Fragment>

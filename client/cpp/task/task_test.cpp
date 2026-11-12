@@ -195,6 +195,41 @@ TEST(TaskTests, testDeleteTask) {
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
 }
 
+/// @brief it should set the name and config of a task with a dispatch, and keep its
+/// type.
+TEST(TaskTests, testDispatch) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task{
+        .name = "test_module",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}}
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_NIL(r.tasks.dispatch(
+        t.key,
+        {set({.path = {"name"}, .value = "renamed"}),
+         set({.path = {"config", "routing_key"}, .value = "rk-2"})}
+    ));
+    const auto got = ASSERT_NIL_P(r.tasks.retrieve(t.key));
+    ASSERT_EQ(got.name, "renamed");
+    ASSERT_EQ(got.config.at("routing_key"), "rk-2");
+    ASSERT_EQ(got.type, "pagerduty_alert");
+    ASSERT_NE(got.config_hash, t.config_hash);
+}
+
+/// @brief it should return a not found error when it dispatches to a task that does not
+/// exist.
+TEST(TaskTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.tasks
+            .dispatch(x::uuid::create(), {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should convert a task key to a resource ID
 TEST(TaskTests, testTaskResourceID) {
     const auto key = x::uuid::create();

@@ -9,12 +9,12 @@
 
 export * from "@/user/actions.gen";
 export {
+  ACTION_CHANNEL_NAME,
   Client,
   DELETE_CHANNEL_NAME,
   type KeyRetrieveRequest,
   resourceID,
   type RetrieveParams,
-  SET_CHANNEL_NAME,
   TYPE_RESOURCE_ID,
   type UsernameRetrieveRequest,
 } from "@/user/client";

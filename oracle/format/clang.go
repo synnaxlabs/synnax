@@ -11,16 +11,16 @@ package format
 
 import "context"
 
-// Clang is a Formatter that runs `clang-format` over its input via stdin.
+// clang is a formatter that runs `clang-format` over its input via stdin.
 // `--assume-filename=<absPath>` is passed so the tool can locate the
 // nearest .clang-format relative to the file's intended location.
-type Clang struct{}
+type clang struct{}
 
-// NewClang returns a Clang formatter.
-func NewClang() *Clang { return &Clang{} }
+// NewClang returns a clang formatter.
+func NewClang() *clang { return &clang{} }
 
 // Format runs clang-format with content on stdin.
-func (c *Clang) Format(
+func (c *clang) Format(
 	ctx context.Context,
 	content []byte,
 	absPath string,

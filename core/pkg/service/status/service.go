@@ -12,6 +12,7 @@ package status
 import (
 	"context"
 	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -128,7 +129,8 @@ func (s *Service) Changes(
 func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
-// match over name matches. Read-only; callers enforce access on and write the result.
+// match over name matches, which come in key order. Read-only; callers enforce access
+// on and write the result.
 func (s *Service) ResolveKeyOrName(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -154,6 +156,9 @@ func (s *Service) ResolveKeyOrName(
 		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
+	slices.SortFunc(matches, func(a, b Status[any]) int {
+		return strings.Compare(a.Key, b.Key)
+	})
 	return matches, nil
 }
 

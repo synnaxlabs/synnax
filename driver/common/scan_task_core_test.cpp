@@ -68,11 +68,24 @@ public:
         return this->api.retrieve_device(key);
     }
 
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const std::vector<std::string> &keys) override {
+        return this->api.retrieve_devices(keys);
+    }
+
     x::errors::Error
     create_devices(std::vector<synnax::device::Device> &devs) override {
         for (const auto &dev: devs)
             this->written.push_back(dev.key);
         return this->api.create_devices(devs);
+    }
+
+    x::errors::Error dispatch_device(
+        const std::string &key,
+        const std::vector<synnax::device::Action> &actions
+    ) override {
+        this->written.push_back(key);
+        return this->api.dispatch_device(key, actions);
     }
 
     x::errors::Error
@@ -141,5 +154,84 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
         cluster_api_ptr->written,
         (std::vector<std::string>{chassis.key, child.key})
     );
+}
+
+/// @brief returns a scan task on rack that reports the devices once per scan.
+std::unique_ptr<ScanTask> new_scan_task(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::rack::Key rack,
+    std::vector<synnax::device::Device> devices
+) {
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = rack;
+    task.name = "Test Scan Task";
+    return std::make_unique<ScanTask>(
+        std::make_unique<FixedScanner>(std::move(devices)),
+        std::make_shared<task::MockContext>(client),
+        task,
+        x::breaker::Config{},
+        x::telem::HERTZ * 100,
+        std::make_unique<SynnaxClusterAPI>(client)
+    );
+}
+
+/// @brief it should move a device that another rack holds to its own rack, and keep the
+/// name and configured flag of the device.
+TEST(TestScanTask, testTakesOverDeviceOnOtherRack) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto old_rack = ASSERT_NIL_P(client->racks.create("scan_task_old_rack"));
+    const auto new_rack = ASSERT_NIL_P(client->racks.create("scan_task_new_rack"));
+    synnax::device::Device dev{
+        .key = "taken_" + std::to_string(new_rack.key),
+        .rack = old_rack.key,
+        .location = "usb",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "user name",
+        .configured = true,
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto scanned = dev;
+    scanned.rack = new_rack.key;
+    scanned.name = "scanner name";
+    scanned.configured = false;
+    const auto scan_task = new_scan_task(client, new_rack.key, {scanned});
+
+    ASSERT_NIL(scan_task->init());
+    ASSERT_NIL(scan_task->scan());
+    const auto got = ASSERT_NIL_P(client->devices.retrieve(dev.key));
+    EXPECT_EQ(got.rack, new_rack.key);
+    EXPECT_EQ(got.name, "user name");
+    EXPECT_TRUE(got.configured);
+}
+
+/// @brief it should set the location of a device that a scan finds elsewhere, and keep
+/// the name a user gave the device.
+TEST(TestScanTask, testUpdatesDeviceLocation) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("scan_task_location_rack"));
+    synnax::device::Device dev{
+        .key = "moved_" + std::to_string(rack.key),
+        .rack = rack.key,
+        .location = "slot-1",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "user name",
+        .properties = {{"user_key", "user_value"}},
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto scanned = dev;
+    scanned.location = "slot-2";
+    scanned.name = "scanner name";
+    scanned.properties = {};
+    const auto scan_task = new_scan_task(client, rack.key, {scanned});
+
+    ASSERT_NIL(scan_task->init());
+    ASSERT_NIL(scan_task->scan());
+    const auto got = ASSERT_NIL_P(client->devices.retrieve(dev.key));
+    EXPECT_EQ(got.location, "slot-2");
+    EXPECT_EQ(got.name, "user name");
+    EXPECT_EQ(x::json::json(got.properties), x::json::json(dev.properties));
 }
 }

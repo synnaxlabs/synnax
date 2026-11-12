@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, resource } from "@synnaxlabs/client";
+import { arc, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc } from "@synnaxlabs/pluto";
@@ -213,22 +213,7 @@ const DirectoryItem = Tree.createItem({
   ],
   canDrop: ({ moved }) => moved.every(({ id }) => ENTRY_TYPES.has(id.type)),
   drop: async ({ client, destination, items }) => {
-    // Each item leaves its own directory: a selection can span several.
-    const bySource = new Map<string, resource.ID[]>();
-    items.forEach(({ id, ancestors: [source] }) => {
-      const key = resource.idToString(source);
-      bySource.set(key, [...(bySource.get(key) ?? []), id]);
-    });
-    await Promise.all(
-      [...bySource].map(
-        async ([source, ids]) =>
-          await client.arcs.directories.move(
-            resource.parseID(source),
-            destination.id,
-            ...ids,
-          ),
-      ),
-    );
+    await client.arcs.directories.move(destination.id, ...items.map(({ id }) => id));
   },
   haulItems: ({ id }) => [id],
   ContextMenu: DirectoryContextMenu,

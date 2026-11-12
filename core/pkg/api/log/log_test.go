@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -116,16 +117,17 @@ var _ = Describe("Create", func() {
 			Entry(&log.Log{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
-	It("Should refuse to overwrite a log without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a log whose key exists", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		stored := createLog(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
 			Logs: defaults.Fill(
 				[]log.Log{{Key: stored.Key, Name: "Overwritten", Project: &proj.Key}},
 			),
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("log %s already exists", stored.Key)),
+		))
 		Expect(retrieveLog(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 	It("Should require retrieve on each channel the log displays", func(
@@ -212,7 +214,7 @@ var _ = Describe("Dispatch", func() {
 		u = newUser(ctx)
 		l = createLog(ctx, "Dispatched")
 	})
-	dispatchAs := func(ctx SpecContext, acts ...log.Action) (struct{}, error) {
+	dispatchAs := func(ctx SpecContext, acts ...log.Action) (apilog.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apilog.DispatchRequest{
 			Key:     l.Key,
 			Actions: acts,
@@ -279,98 +281,6 @@ func retrieveLog(ctx SpecContext, key log.Key) log.Log {
 		Exec(ctx, db)).To(Succeed())
 	return l
 }
-
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			l := createLog(ctx, "Set group denied")
-			g := createGroup(ctx, "Set group denied")
-			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(l.Key))
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apilog.SetGroupRequest{Group: &g.Key, Keys: []log.Key{l.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveLog(ctx, l.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the log with update on the destination group",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			l := createLog(ctx, "Set group granted")
-			g := createGroup(ctx, "Set group granted")
-			grant(
-				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				log.ResourceID(l.Key),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apilog.SetGroupRequest{Group: &g.Key, Keys: []log.Key{l.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveLog(ctx, l.Key).Group).To(Equal(&g.Key))
-		},
-	)
-	Context("Into a group under another project", func() {
-		var (
-			u    user.User
-			x    log.Log
-			dest project.Project
-			g    group.Group
-		)
-		BeforeEach(func(ctx SpecContext) {
-			u = newUser(ctx)
-			x = createLog(ctx, "Cross project")
-			dest = project.Project{Name: "Destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Project.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Group.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-		})
-		move := func(ctx SpecContext) (struct{}, error) {
-			return setGroup(
-				AuthedCtx(ctx, u),
-				apilog.SetGroupRequest{Group: &g.Key, Keys: []log.Key{x.Key}},
-			)
-		}
-		DescribeTable(
-			"Should refuse the move without update on both projects",
-			func(ctx SpecContext, projects func() []resource.ID) {
-				objects := projects()
-				grant(ctx, access.ActionUpdate, u.ResourceID(), append(
-					objects,
-					log.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveLog(ctx, x.Key).Project).To(Equal(&proj.Key))
-			},
-			Entry("without the destination", func() []resource.ID {
-				return []resource.ID{project.ResourceID(proj.Key)}
-			}),
-			Entry("without the source", func() []resource.ID {
-				return []resource.ID{dest.ResourceID()}
-			}),
-		)
-		It("Should move the log with update on both projects", func(ctx SpecContext) {
-			objects := []resource.ID{project.ResourceID(proj.Key), dest.ResourceID()}
-			grant(ctx, access.ActionUpdate, u.ResourceID(), append(
-				objects,
-				log.ResourceID(x.Key),
-				g.ResourceID(),
-			)...)
-			MustSucceed(move(ctx))
-			Expect(retrieveLog(ctx, x.Key).Project).To(Equal(&dest.Key))
-		})
-	})
-})
 
 var _ = Describe("Create in a group", func() {
 	It(
@@ -470,93 +380,203 @@ var _ = Describe("Create with an owner", func() {
 	})
 })
 
-var _ = Describe("SetProject", func() {
-	createProject := func(ctx SpecContext) project.Project {
-		GinkgoHelper()
-		p := project.Project{Name: "destination"}
+var _ = Describe("Dispatch of a move", func() {
+	var (
+		u      user.User
+		target log.Log
+		g      group.Group
+		dest   project.Project
+		destG  group.Group
+		rec    *Recorder[log.Key, log.Action]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		target = createLog(ctx, "Moved")
+		g = createGroup(ctx, "Source")
+		dest = project.Project{Name: "Destination"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Project.NewWriter(tx).Create(ctx, &p)
+			return svc.Project.NewWriter(tx).Create(ctx, &dest)
 		})).To(Succeed())
-		return p
+		destG = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Group.NewWriter(tx).Create(ctx, &destG)
+		})).To(Succeed())
+		rec = &Recorder[log.Key, log.Action]{}
+	})
+	setGroup := func(k group.Key) log.Action {
+		return log.NewSetAction(log.SetPayload{Path: []string{"group"}, Value: k})
 	}
-	setProject := func(
-		ctx SpecContext,
-		u user.User,
-		to project.Key,
-		key log.Key,
-	) (struct{}, error) {
+	setProject := func(k project.Key) log.Action {
+		return log.NewSetAction(log.SetPayload{Path: []string{"project"}, Value: k})
+	}
+	removeGroup := log.NewRemoveAction(log.RemovePayload{Key: "group"})
+	// inGroup moves the log into g.
+	inGroup := func(ctx SpecContext) {
 		GinkgoHelper()
-		return setProject(AuthedCtx(ctx, u), apilog.SetProjectRequest{
-			Project: to,
-			Keys:    []log.Key{key},
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := svc.Log.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))
+			return err
+		})).To(Succeed())
+	}
+	// moveAs grants u update on the log and on objects, records the broadcasts that
+	// follow, and dispatches acts as u.
+	moveAs := func(
+		ctx SpecContext,
+		acts []log.Action,
+		objects ...resource.ID,
+	) (apilog.DispatchResponse, error) {
+		GinkgoHelper()
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			append(objects, target.ResourceID())...,
+		)
+		DeferCleanup(svc.Log.OnAction(rec.Record))
+		return dispatch(AuthedCtx(ctx, u), apilog.DispatchRequest{
+			Key:         target.Key,
+			DispatchKey: "dk-move",
+			Actions:     acts,
 		})
 	}
+	It("Should move the log into a group", func(ctx SpecContext) {
+		Expect(moveAs(ctx, []log.Action{setGroup(g.Key)}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLog(ctx, target.Key).Group).To(Equal(&g.Key))
+		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
+			HaveField("DispatchKey", "dk-move"),
+			HaveField("Actions", []log.Action{setGroup(g.Key)}),
+		)))
+	})
 	It(
-		"Should refuse the move without update on the destination project",
+		"Should move the log into the project of a group in another project",
 		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLog(ctx, "Set project denied")
-			dest := createProject(ctx)
-			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(e.Key))
-			Expect(
-				setProject(ctx, u, dest.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&proj.Key))
-		},
-	)
-	It(
-		"Should refuse the move without update on the source project",
-		func(ctx SpecContext) {
-			u := newUser(ctx)
-			e := createLog(ctx, "Set project denied")
-			dest := createProject(ctx)
-			grant(
+			res := MustSucceed(moveAs(
 				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				log.ResourceID(e.Key),
-				project.ResourceID(dest.Key),
-			)
-			Expect(
-				setProject(ctx, u, dest.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&proj.Key))
+				[]log.Action{setGroup(destG.Key)},
+				destG.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]log.Action{setProject(dest.Key)}))
+			moved := retrieveLog(ctx, target.Key)
+			Expect(moved.Group).To(Equal(&destG.Key))
+			Expect(moved.Project).To(Equal(&dest.Key))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]log.Action{setGroup(destG.Key), setProject(dest.Key)},
+			)))
 		},
 	)
+	It("Should move the log out of its group", func(ctx SpecContext) {
+		inGroup(ctx)
+		Expect(moveAs(ctx, []log.Action{removeGroup}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLog(ctx, target.Key).Group).To(BeNil())
+	})
+	It("Should move the log into another project", func(ctx SpecContext) {
+		Expect(moveAs(
+			ctx,
+			[]log.Action{setProject(dest.Key)},
+			project.ResourceID(proj.Key),
+			dest.ResourceID(),
+		)).To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLog(ctx, target.Key).Project).To(Equal(&dest.Key))
+	})
 	It(
-		"Should move the log with update on both projects",
+		"Should move the log out of its group when it moves into another project",
 		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLog(ctx, "Set project granted")
-			dest := createProject(ctx)
-			grant(
+			inGroup(ctx)
+			res := MustSucceed(moveAs(
 				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				log.ResourceID(e.Key),
-				project.ResourceID(dest.Key),
-			)
-			MustSucceed(setProject(ctx, u, dest.Key, e.Key))
-			Expect(retrieveLog(ctx, e.Key).Project).To(Equal(&dest.Key))
+				[]log.Action{setProject(dest.Key)},
+				g.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]log.Action{removeGroup}))
+			moved := retrieveLog(ctx, target.Key)
+			Expect(moved.Group).To(BeNil())
+			Expect(moved.Project).To(Equal(&dest.Key))
 		},
 	)
-	It(
-		"Should refuse a move out of a group the subject cannot update",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLog(ctx, "Set project grouped")
-			g := createGroup(ctx, "Set project grouped")
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Log.NewWriter(tx).SetGroup(ctx, &g.Key, e.Key)
-			})).To(Succeed())
-			grant(ctx, access.ActionUpdate, u.ResourceID(), log.ResourceID(e.Key))
-			Expect(
-				setProject(ctx, u, proj.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLog(ctx, e.Key).Group).To(Equal(&g.Key))
+	It("Should refuse a move into a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(moveAs(ctx, []log.Action{setGroup(missing)})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", missing)),
+		))
+		Expect(retrieveLog(ctx, target.Key).Group).To(BeNil())
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+	DescribeTable(
+		"Should refuse a move without update on a record it changes",
+		func(
+			ctx SpecContext,
+			grouped bool,
+			move func() ([]log.Action, []resource.ID, resource.ID),
+		) {
+			if grouped {
+				inGroup(ctx)
+			}
+			before := retrieveLog(ctx, target.Key)
+			acts, granted, refused := move()
+			Expect(moveAs(ctx, acts, granted...)).Error().
+				To(denied(u, access.ActionUpdate, refused))
+			Expect(retrieveLog(ctx, target.Key)).To(Equal(before))
+			Expect(rec.Snapshot()).To(BeEmpty())
 		},
+		Entry(
+			"into a group without the group",
+			false,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setGroup(g.Key)}, nil, g.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without that project",
+			false,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without the source project",
+			false,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"into another project without that project",
+			false,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into another project without the source project",
+			false,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setProject(dest.Key)},
+					[]resource.ID{dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"out of a group without the group",
+			true,
+			func() ([]log.Action, []resource.ID, resource.ID) {
+				return []log.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key), dest.ResourceID()},
+					g.ResourceID()
+			},
+		),
 	)
 })

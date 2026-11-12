@@ -11,7 +11,7 @@ import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/clien
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 /** @returns the channel with the given key, or null when it does not exist or is 0. */
-export const retrieveChannel = async (
+const retrieveChannel = async (
   client: Client,
   key: channel.Key,
 ): Promise<channel.Channel | null> => {
@@ -25,16 +25,14 @@ export const retrieveChannel = async (
 };
 
 /** @returns true when a channel with the given key exists. Never for 0. */
-export const channelExists = async (
-  client: Client,
-  key: channel.Key,
-): Promise<boolean> => (await retrieveChannel(client, key)) != null;
+const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
+  (await retrieveChannel(client, key)) != null;
 
 /**
  * Creates a Core channel for values of dataType. A fixed-density channel gets its own
  * index named `${name}_time`; a variable-density one is virtual.
  */
-export const createChannelWithIndex = async (
+const createChannelWithIndex = async (
   client: Client,
   name: string,
   dataType: string,

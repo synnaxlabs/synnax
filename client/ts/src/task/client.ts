@@ -29,6 +29,7 @@ import { query } from "@/query";
 import {
   type Key as RackKey,
   resourceID as rackResourceID,
+  statusDetailsZ as rackStatusDetailsZ,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { ranger } from "@/ranger";
@@ -40,6 +41,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/task/actions.gen";
 import {
   type Command,
@@ -100,8 +102,10 @@ export const drifted = (task: DriftedParams): boolean => {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-// The rack monitor marks a rack whose Driver is alive with one of these.
-const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+// A rack is healthy while its Driver runs and reports no error.
+const isRackHealthy = (stat: status.Status): boolean =>
+  rackStatusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
+  stat.variant !== "error";
 
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
@@ -379,7 +383,6 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
@@ -436,6 +439,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
@@ -600,19 +604,8 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**
@@ -725,7 +718,7 @@ export class Client extends query.Retriever<
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
     const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
-    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    if (stat == null || isRackHealthy(stat)) return undefined;
     return stat;
   }
 
@@ -1090,23 +1083,22 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     let states: Status<StatusData>[] = [];
     while (true) {
       const frame = await streamer.read();
-      // A frame can hold statuses for other tasks and racks, which have a different
-      // shape and fail to parse.
+      // A frame can hold statuses for other tasks and racks. Rack details parse as task
+      // details, so the owner tells a rack status apart.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
         const decoded = binary.JSON_CODEC.decodeString(str);
-        const res = statusZ(statusDataZ).safeParse(decoded);
-        if (!res.success) {
+        const rackRes = rackStatusZ.safeParse(decoded);
+        if (
+          rackRes.success &&
+          rackRes.data.owner != null &&
+          rackOwners.has(resource.idToString(rackRes.data.owner))
+        ) {
           // A down Driver never replies, so its rack's problem ends the wait.
-          const rackRes = rackStatusZ.safeParse(decoded);
-          if (
-            rackRes.success &&
-            rackRes.data.owner != null &&
-            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
-            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
-          )
-            throw status.toError(rackRes.data);
+          if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
           continue;
         }
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) continue;
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         // Any reply acknowledges its command. A loading reply is not the final one.

@@ -31,13 +31,8 @@ const createArc = async (): Promise<arc.Arc> =>
     source: { mode: "text" },
   });
 
-const moveArc = async (
-  a: arc.Arc,
-  from: arc.directory.Key,
-  to: arc.directory.Key,
-): Promise<void> =>
+const moveArc = async (a: arc.Arc, to: arc.directory.Key): Promise<void> =>
   await client.arcs.directories.move(
-    arc.directory.resourceID(from),
     arc.directory.resourceID(to),
     arc.resourceID(a.key),
   );
@@ -60,7 +55,7 @@ describe("Path", () => {
     const mid = await createDirectory(root.key);
     const leaf = await createDirectory(mid.key);
     const a = await createArc();
-    await moveArc(a, root.key, leaf.key);
+    await moveArc(a, leaf.key);
     const { container } = await renderPath(a.key);
     await waitFor(() =>
       expect(container.textContent).toBe(`${mid.name}${leaf.name}${a.name}`),
@@ -77,7 +72,7 @@ describe("Path", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const dir = await createDirectory(root.key);
     const a = await createArc();
-    await moveArc(a, root.key, dir.key);
+    await moveArc(a, dir.key);
     const { container } = await renderPath(a.key);
     await waitFor(() => expect(container.textContent).toBe(`${dir.name}${a.name}`));
     const name = uniqueName("renamed");
@@ -90,10 +85,10 @@ describe("Path", () => {
     const from = await createDirectory(root.key);
     const to = await createDirectory(root.key);
     const a = await createArc();
-    await moveArc(a, root.key, from.key);
+    await moveArc(a, from.key);
     const { container } = await renderPath(a.key);
     await waitFor(() => expect(container.textContent).toBe(`${from.name}${a.name}`));
-    await moveArc(a, from.key, to.key);
+    await moveArc(a, to.key);
     await waitFor(() => expect(container.textContent).toBe(`${to.name}${a.name}`));
   });
 });

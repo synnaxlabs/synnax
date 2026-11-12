@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -18,9 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -43,15 +47,9 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
-	renameServer = grpc.UnaryServer[
-		ranger.RenameRequest,
-		*RenameRequest,
-		struct{},
-		*emptypb.Empty,
-	]
-	setEndServer = grpc.UnaryServer[
-		ranger.SetEndRequest,
-		*SetEndRequest,
+	dispatchServer = grpc.UnaryServer[
+		ranger.DispatchRequest,
+		*DispatchRequest,
 		struct{},
 		*emptypb.Empty,
 	]
@@ -63,8 +61,7 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	renameRequestTranslator    struct{}
-	setEndRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
@@ -83,10 +80,7 @@ var (
 	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[ranger.RenameRequest, *RenameRequest] = (*renameRequestTranslator)(
-		nil,
-	)
-	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest] = (*setEndRequestTranslator)(
+	_ grpc.Translator[ranger.DispatchRequest, *DispatchRequest] = (*dispatchRequestTranslator)(
 		nil,
 	)
 )
@@ -193,40 +187,47 @@ func (deleteRequestTranslator) Backward(
 	return ranger.DeleteRequest{Keys: keys}, nil
 }
 
-func (renameRequestTranslator) Forward(
-	_ context.Context,
-	r ranger.RenameRequest,
-) (*RenameRequest, error) {
-	return &RenameRequest{Key: r.Key.String(), Name: r.Name}, nil
+func (dispatchRequestTranslator) Forward(
+	ctx context.Context,
+	r ranger.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts := make([][]byte, len(r.Actions))
+	for i, a := range r.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(a); err != nil {
+			return nil, err
+		}
+	}
+	return &DispatchRequest{
+		Key:         r.Key.String(),
+		DispatchKey: r.DispatchKey,
+		Actions:     acts,
+	}, nil
 }
 
-func (renameRequestTranslator) Backward(
-	_ context.Context,
-	r *RenameRequest,
-) (ranger.RenameRequest, error) {
+func (dispatchRequestTranslator) Backward(
+	ctx context.Context,
+	r *DispatchRequest,
+) (ranger.DispatchRequest, error) {
 	key, err := uuid.Parse(r.Key)
 	if err != nil {
-		return ranger.RenameRequest{}, err
+		return ranger.DispatchRequest{}, err
 	}
-	return ranger.RenameRequest{Key: key, Name: r.Name}, nil
-}
-
-func (setEndRequestTranslator) Forward(
-	_ context.Context,
-	r ranger.SetEndRequest,
-) (*SetEndRequest, error) {
-	return &SetEndRequest{Key: r.Key.String(), End: int64(r.End)}, nil
-}
-
-func (setEndRequestTranslator) Backward(
-	_ context.Context,
-	r *SetEndRequest,
-) (ranger.SetEndRequest, error) {
-	key, err := uuid.Parse(r.Key)
-	if err != nil {
-		return ranger.SetEndRequest{}, err
+	acts := make([]svcranger.Action, len(r.Actions))
+	for i, b := range r.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return ranger.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
 	}
-	return ranger.SetEndRequest{Key: key, End: telem.TimeStamp(r.End)}, nil
+	return ranger.DispatchRequest{
+		Key:         key,
+		DispatchKey: r.DispatchKey,
+		Actions:     acts,
+	}, nil
 }
 
 func New(t *api.Transport) grpc.BindableTransport {
@@ -248,23 +249,16 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &RangeDeleteService_ServiceDesc,
 	}
 	t.RangeDelete = rangeDelete
-	rename := &renameServer{
-		RequestTranslator:  renameRequestTranslator{},
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &RangeRenameService_ServiceDesc,
+		ServiceDesc:        &RangeDispatchService_ServiceDesc,
 	}
-	t.RangeRename = rename
-	setEnd := &setEndServer{
-		RequestTranslator:  setEndRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
-		ServiceDesc:        &RangeSetEndService_ServiceDesc,
-	}
-	t.RangeSetEnd = setEnd
+	t.RangeDispatch = dispatch
 	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		rangeDelete,
-		rename,
-		setEnd,
+		dispatch,
 	}
 }

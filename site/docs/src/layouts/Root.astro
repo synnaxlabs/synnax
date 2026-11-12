@@ -16,7 +16,6 @@ import Analytics from "@synnaxlabs/site-common/Analytics.astro";
 import { ClientRouter } from "astro:transitions";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
-import { enabled } from "@/flags";
 import { sectionOf } from "@/components/nav/tree";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
@@ -24,12 +23,9 @@ import { rootOf } from "@/util/version";
 import VersionBanner from "@/components/version/Banner.astro";
 import { VERSION } from "@/version";
 const {
-    frontmatter: { title, heading, description, image, flag },
+    frontmatter: { title, heading, description, image },
     article,
 } = Astro.props;
-// A page behind a flag that is off does not exist.
-const hidden = flag != null && !enabled(flag);
-if (hidden) Astro.response.status = 404;
 // Query strings (the ?client= switcher) and trailing slashes must not split a page
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
@@ -42,13 +38,12 @@ const pageTitle =
         ? `${cleanTitle} | ${section}`
         : cleanTitle;
 // The home page names the whole site, so its heading is the full title.
-const fullTitle = hidden
-    ? "Page not found | Synnax"
-    : route === "/reference" && heading != null
-      ? heading
-      : pageTitle
-        ? `${pageTitle} | Synnax`
-        : "Synnax";
+const fullTitle =
+    route === "/reference" && heading != null
+        ? heading
+        : pageTitle
+          ? `${pageTitle} | Synnax`
+          : "Synnax";
 
 // Pages no version owns live on the root, so other versions link there.
 const root = rootOf(VERSION);
@@ -102,20 +97,14 @@ const FOOTER_COLUMNS = [
         />
         <ClientRouter />
         <Mark />
-        {!hidden && <slot name="head" />}
+        <slot name="head" />
     </head>
     <body>
         <Header version={VERSION} transition:persist />
         <VersionBanner version={VERSION} />
-        {!hidden && <slot name="subheader" />}
+        <slot name="subheader" />
         <main>
-            {hidden ? (
-                <section class="not-found">
-                    <h1>Page not found</h1>
-                </section>
-            ) : (
-                <slot />
-            )}
+            <slot />
         </main>
         <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
         <Lightbox />

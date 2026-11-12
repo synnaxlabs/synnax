@@ -171,8 +171,9 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Field.Item name="clock_skew_threshold" default="1000000000">
   The difference between the clock of the computer and the clock of the Core, in
-  nanoseconds, above which the Driver logs a warning. In the configuration file, it goes
-  in `connection`.
+  nanoseconds, above which the rack status shows the warning [Clock out of sync with the
+  Core](/reference/enterprise/troubleshooting#clock-out-of-sync-with-the-core). In the
+  configuration file, it goes in `connection`.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">

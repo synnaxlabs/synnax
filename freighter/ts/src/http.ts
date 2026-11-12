@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, errors, runtime, type url } from "@synnaxlabs/x";
+import {
+  binary,
+  type CrudeTimeSpan,
+  errors,
+  runtime,
+  TimeSpan,
+  type url,
+} from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { Unreachable } from "@/errors";
+import { Timeout, Unreachable } from "@/errors";
 import {
   type FileEncoding,
   type FileOptions,
@@ -81,6 +88,20 @@ const shouldCastToUnreachable = (
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
+const DEFAULT_TIMEOUT = TimeSpan.seconds(60);
+
+// Browser and Node.js timers fire at once past a signed 32-bit count of milliseconds.
+const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
+
+/** Returns the timeout as a limit, or null when it sets no limit. */
+const limitOf = (timeout: CrudeTimeSpan): TimeSpan | null => {
+  if (typeof timeout === "number" && !Number.isFinite(timeout)) return null;
+  const span = new TimeSpan(timeout);
+  return span.greaterThan(TimeSpan.ZERO) && span.lessThanOrEqual(MAX_TIMEOUT)
+    ? span
+    : null;
+};
+
 /**
  * The single query parameter file transfer params travel on. The server exposes its
  * value to the handler as the "params" request param.
@@ -135,6 +156,10 @@ const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
+ * @param timeout - The longest a send waits for its response, body included. Defaults
+ * to 60 seconds. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds (about
+ * 24.8 days) sets no limit. File transfers have no limit, since their bodies can take
+ * longer.
  */
 export class HTTPClient
   extends MiddlewareCollector
@@ -142,11 +167,18 @@ export class HTTPClient
 {
   endpoint: url.URL;
   encoder: binary.Codec;
+  private readonly timeout: TimeSpan | null;
 
-  constructor(endpoint: url.URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(
+    endpoint: url.URL,
+    encoder: binary.Codec,
+    secure: boolean = false,
+    timeout: CrudeTimeSpan = DEFAULT_TIMEOUT,
+  ) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
+    this.timeout = limitOf(timeout);
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -163,6 +195,11 @@ export class HTTPClient
     };
   }
 
+  /**
+   * Sends a request to the target and waits for its response.
+   * @throws {Timeout} if no response arrives within the timeout.
+   * @throws {Unreachable} if the target cannot be reached.
+   */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
@@ -176,12 +213,26 @@ export class HTTPClient
       { ...this.context(url), params: { ...params } },
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const httpRes = await this.fetch(url, ctx.target, {
-          method: "POST",
-          body: this.encoder.encode(req, reqSchema),
-          headers: { ...this.defaultHeaders, ...ctx.params },
-        });
-        const data = await httpRes.arrayBuffer();
+        const { timeout } = this;
+        const signal =
+          timeout == null ? undefined : AbortSignal.timeout(timeout.milliseconds);
+        let httpRes: Response;
+        let data: ArrayBuffer;
+        try {
+          httpRes = await this.fetch(url, ctx.target, {
+            method: "POST",
+            body: this.encoder.encode(req, reqSchema),
+            headers: { ...this.defaultHeaders, ...ctx.params },
+            signal,
+          });
+          data = await httpRes.arrayBuffer();
+        } catch (e) {
+          if (timeout == null || signal?.aborted !== true) throw errors.fromUnknown(e);
+          throw new Timeout(
+            `[freighter] no response from ${ctx.target} within ${timeout.toString()}`,
+            { cause: e },
+          );
+        }
         if (httpRes.ok) {
           if (resSchema != null)
             res = this.encoder.decode<RS>(data, resSchema, {

@@ -289,6 +289,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(r.Sampling.Validate(), "sampling") })
 	return v.Error()
 }

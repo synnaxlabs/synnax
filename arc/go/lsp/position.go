@@ -51,6 +51,10 @@ func findScopeRecursive(scope *symbol.Symbol, line, col int, deepest **symbol.Sy
 			*deepest = scope
 		}
 	}
+	// An import's children are the module's members, positioned in the module's text.
+	if scope.Kind == symbol.KindModuleAlias {
+		return
+	}
 	for _, child := range scope.Children() {
 		findScopeRecursive(child, line, col, deepest)
 	}

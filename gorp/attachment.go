@@ -40,6 +40,21 @@ func (a *Attachment[T]) Add(tx Tx, values ...T) {
 	l.values = append(l.values, values...)
 }
 
+// Pending returns the values that a attached to tx so far, in the order that a attached
+// them. Work registered with BeforeCommit can call it to read every value. Call it on
+// the goroutine that writes through tx, and do not modify the values. It panics when tx
+// is a DB.
+func (a *Attachment[T]) Pending(tx Tx) []T {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - Attachment.Pending needs a transaction, not a DB")
+	}
+	if l := attachedBy(state.attached, a); l != nil {
+		return l.values
+	}
+	return nil
+}
+
 // Of returns the values that a attached to the transaction of c, in the order that a
 // attached them. The readers of c share the values, so a reader must not modify them.
 func (a *Attachment[T]) Of(c Commit) []T {

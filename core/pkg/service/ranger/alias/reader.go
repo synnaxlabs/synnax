@@ -151,9 +151,7 @@ func (r Reader) List(
 	if err := r.walk(ctx, rng, func(rng ranger.Key) (bool, error) {
 		var aliases []Alias
 		if err := r.table.NewRetrieve().
-			Where(gorp.Match(func(_ gorp.Context, a *Alias) (bool, error) {
-				return a.Range == rng, nil
-			})).
+			WherePrefix([]byte(rng.String()+keySeparator)).
 			Entries(&aliases).
 			Exec(ctx, r.snap); err != nil {
 			return false, err

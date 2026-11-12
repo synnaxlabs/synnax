@@ -46,24 +46,17 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// resolveStatus returns the status to persist for t. Without a provided status, a task
-// created for the first time provably has no live instance, so it gets a quiet "not
-// deployed" placeholder; an existing task can be running, so its placeholder stays a
-// "status unknown" warning. The owner selects the status, so a provided key is ignored.
-func resolveStatus(t *Task, provided *Status, existed bool) *Status {
+// resolveStatus returns the status to persist for t. Without a provided status, a new
+// task has no live instance, so it gets a quiet "not deployed" placeholder. The owner
+// selects the status, so a provided key is ignored.
+func resolveStatus(t *Task, provided *Status) *Status {
 	if provided == nil {
-		message := "Task status unknown"
-		variant := status.VariantWarning
-		if !existed {
-			message = "Task not deployed"
-			variant = status.VariantDisabled
-		}
 		return &Status{
 			Owner:   new(t.ResourceID()),
 			Time:    telem.Now(),
 			Name:    t.Name,
-			Message: message,
-			Variant: variant,
+			Message: "Task not deployed",
+			Variant: status.VariantDisabled,
 		}
 	}
 	provided.Key = ""
@@ -72,42 +65,13 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	return provided
 }
 
-// healStatus returns the task's effective status, writing stat first if no row exists.
-// Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
-// not overwrite a status the driver has already reported. An existing row takes the
-// task's current name.
-func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
-	var existing Status
-	err := w.statuses.NewRetrieve[StatusDetails]().
-		Where(status.MatchOwners[StatusDetails](*stat.Owner)).
-		Entry(&existing).
-		Exec(ctx, w.tx)
-	if err == nil {
-		if existing.Name != stat.Name {
-			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
-				return nil, err
-			}
-			existing.Name = stat.Name
-		}
-		return &existing, nil
-	}
-	if !errors.Is(err, query.ErrNotFound) {
-		return nil, err
-	}
-	if err := w.status.Set(ctx, stat); err != nil {
-		return nil, err
-	}
-	return stat, nil
-}
-
-// Create creates or updates a task. The task's config is stored as a record keyed by
-// the task's key in its type's config store; the task row itself carries only the
-// config hash. An existing snapshot stays a snapshot and keeps its config and range.
-// Create returns a validation error when a task that is not a snapshot has a range. A
-// provided status is persisted as given. Without one, a new task gets a "not deployed"
-// placeholder, and an existing task keeps its reported status (healed to "status
-// unknown" if the row is missing). After the transaction commits, Create broadcasts a
-// create action that carries the stored task.
+// Create creates a task. The task's config is stored as a record keyed by the task's
+// key in its type's config store; the task row itself carries only the config hash.
+// Create returns a validation error when a task that is not a snapshot has a range, and
+// an error wrapping validate.ErrValidation when a task with the key exists. A provided
+// status is persisted as given. Without one, the task gets a "not deployed"
+// placeholder. After the transaction commits, Create broadcasts a create action that
+// carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
@@ -122,78 +86,29 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if !ok {
 		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
-	var existing Task
-	existed := true
-	if err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Task](t.Key)).
-		Entry(&existing).
-		Exec(ctx, w.tx); err != nil {
-		if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		existed = false
+	record, err := store.Prepare(ctx, w.tx, t.Key, t.Config)
+	if err != nil {
+		return err
 	}
-	var record *config.Record
-	if existed && existing.Snapshot {
-		t.Snapshot = true
-		t.Range = existing.Range
-		t.ConfigHash = existing.ConfigHash
-		existingStore, ok := w.configs.Store(existing.Type)
-		if !ok {
-			return errors.Wrapf(
-				validate.ErrValidation, "unknown task type %q", existing.Type,
-			)
-		}
-		data, err := existingStore.Read(ctx, w.tx, t.Key)
-		if err != nil {
-			if !errors.Is(err, query.ErrNotFound) {
-				return err
-			}
-		} else {
-			t.Config = data
-		}
-	} else {
-		rec, err := store.Prepare(ctx, w.tx, t.Key, t.Config)
-		if err != nil {
-			return err
-		}
-		if t.Config, err = rec.Data(); err != nil {
-			return err
-		}
-		t.ConfigHash = rec.Hash()
-		record = &rec
+	if t.Config, err = record.Data(); err != nil {
+		return err
 	}
+	t.ConfigHash = record.Hash()
 	cfg := t.Config // Restored after the row write; rows do not store config.
 	providedStatus := t.Status
 	t.Config, t.Status = nil, nil
-	err := w.table.NewCreate().Entry(t).Exec(ctx, w.tx)
+	err = w.table.NewCreate().Exclusive().Entry(t).Exec(ctx, w.tx)
 	t.Config = cfg
 	if err != nil {
 		return err
 	}
-	if record != nil {
-		if err := record.Write(ctx, w.tx); err != nil {
-			return err
-		}
-		// Records of different types live in different tables, so the same key never
-		// collides.
-		if existed && existing.Type != t.Type {
-			if oldStore, ok := w.configs.Store(existing.Type); ok {
-				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	stat := resolveStatus(t, providedStatus, existed)
-	if providedStatus != nil {
-		if err := w.status.Set(ctx, stat); err != nil {
-			return err
-		}
-	} else if stat, err = w.healStatus(ctx, stat); err != nil {
+	if err = record.Write(ctx, w.tx); err != nil {
 		return err
 	}
-	t.Status = stat
+	t.Status = resolveStatus(t, providedStatus)
+	if err = w.status.Set(ctx, t.Status); err != nil {
+		return err
+	}
 	w.dispatcher.Attach(
 		w.tx,
 		t.Key,
@@ -202,8 +117,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	return nil
 }
 
-// CreateMany creates the given tasks. If tasks with the same key already exist, they
-// will be overwritten.
+// CreateMany creates the given tasks. It returns an error wrapping
+// validate.ErrValidation when a task with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 	for i := range *tasks {
 		if err := w.Create(ctx, &(*tasks)[i]); err != nil {
@@ -214,7 +129,7 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 }
 
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
-	// A missing status row is valid: the next Create heals it.
+	// The status API can delete the status of a task that still exists.
 	return errors.Skip(
 		w.status.RenameOwned(ctx, ResourceID(key), name),
 		query.ErrNotFound,
@@ -438,7 +353,7 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err := w.status.Set(ctx, resolveStatus(&res, nil, false)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
 	if store, ok := w.configs.Store(res.Type); ok {

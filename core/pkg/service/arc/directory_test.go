@@ -284,6 +284,62 @@ var _ = Describe("Directories", func() {
 		})
 	})
 
+	Describe("SetDirectory", func() {
+		setDirectory := func(ctx SpecContext, a arc.Arc, d directory.Key) error {
+			return w.Apply(
+				ctx,
+				a.Base().Key,
+				arc.NewSetDirectoryAction(arc.SetDirectoryPayload{Directory: d}),
+			)
+		}
+		It("Should move an Arc into a directory", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "lib", root)
+			m := createArc(ctx, "m", arc.TypeModule)
+			Expect(setDirectory(ctx, m, lib.Key)).To(Succeed())
+			Expect(parentsOf(ctx, m.ResourceID())).To(ConsistOf(lib.ResourceID()))
+		})
+		It("Should move an Arc back to the root", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "lib", root)
+			m := createArc(ctx, "m", arc.TypeModule)
+			Expect(setDirectory(ctx, m, lib.Key)).To(Succeed())
+			Expect(setDirectory(ctx, m, root)).To(Succeed())
+			Expect(parentsOf(ctx, m.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
+		})
+		It("Should reject a name used in the directory", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "lib", root)
+			first := createArc(ctx, "m", arc.TypeModule)
+			Expect(setDirectory(ctx, first, lib.Key)).To(Succeed())
+			second := createArc(ctx, "m", arc.TypeModule)
+			Expect(setDirectory(ctx, second, lib.Key)).
+				To(MatchError(ContainSubstring(`name "m" is already used`)))
+			Expect(parentsOf(ctx, second.ResourceID())).
+				To(ConsistOf(directory.ResourceID(root)))
+		})
+		It(
+			"Should reject a standard module name directly under the root",
+			func(ctx SpecContext) {
+				lib := createDirectory(ctx, "lib", root)
+				// A new Arc goes in the root, so the spec stores this one directly.
+				m := newModule(
+					arc.Base{Key: uuid.New(), Name: "time", Directory: &lib.Key},
+				)
+				m.ApplyDefaults()
+				Expect(gorp.NewCreate[arc.Key, arc.Arc]().
+					Entry(&m).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(setDirectory(ctx, m, root)).
+					To(MatchError(ContainSubstring("is a standard module name")))
+				Expect(parentsOf(ctx, m.ResourceID())).To(ConsistOf(lib.ResourceID()))
+			},
+		)
+		It("Should reject a directory that does not exist", func(ctx SpecContext) {
+			m := createArc(ctx, "m", arc.TypeModule)
+			Expect(setDirectory(ctx, m, uuid.New())).
+				To(MatchError(ContainSubstring("does not exist")))
+		})
+	})
+
 	Describe("Arc names", func() {
 		It("Should reject a module whose name is not an identifier", func(
 			ctx SpecContext,
@@ -372,7 +428,7 @@ var _ = Describe("Dispatched Arc names", func() {
 })
 
 var _ = Describe("Move broadcast", func() {
-	It("Should attach the moved Arc as a create to the transaction of the move", func(
+	It("Should attach a set of the directory to the transaction of the move", func(
 		ctx SpecContext,
 	) {
 		root := rootDirectory(ctx, db).Key
@@ -403,10 +459,8 @@ var _ = Describe("Move broadcast", func() {
 		seen := rec.Snapshot()
 		Expect(seen).To(HaveLen(1))
 		Expect(seen[0].Key).To(Equal(a.Base().Key))
-		Expect(seen[0].Actions).To(HaveLen(1))
-		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
-		moved := seen[0].Actions[0].Create.Arc.Base()
-		Expect(moved.Name).To(Equal("moved"))
-		Expect(moved.Directory).To(Equal(&lib.Key))
+		Expect(seen[0].Actions).To(Equal([]arc.Action{
+			arc.NewSetDirectoryAction(arc.SetDirectoryPayload{Directory: lib.Key}),
+		}))
 	})
 })

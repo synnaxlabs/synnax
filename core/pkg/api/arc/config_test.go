@@ -33,11 +33,11 @@ var _ = Describe("ServiceConfig", func() {
 			Status:          &status.Service{},
 			RBAC:            &rbac.Service{},
 			Stopper:         &task.Stopper{},
-			RenameChannel: func(
+			DispatchChannel: func(
 				context.Context,
-				apichannel.RenameRequest,
-			) (struct{}, error) {
-				return struct{}{}, nil
+				apichannel.DispatchRequest,
+			) (apichannel.DispatchResponse, error) {
+				return apichannel.DispatchResponse{}, nil
 			},
 		}
 	}
@@ -75,9 +75,9 @@ var _ = Describe("ServiceConfig", func() {
 				"rbac: must be non-nil",
 			),
 			Entry(
-				"rename_channel",
-				func(c *apiarc.ServiceConfig) { c.RenameChannel = nil },
-				"rename_channel: must be non-nil",
+				"dispatch_channel",
+				func(c *apiarc.ServiceConfig) { c.DispatchChannel = nil },
+				"dispatch_channel: must be non-nil",
 			),
 			Entry(
 				"stopper",
@@ -95,7 +95,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
-			Expect(merged.RenameChannel).ToNot(BeNil())
+			Expect(merged.DispatchChannel).ToNot(BeNil())
 			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
@@ -107,7 +107,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
-			Expect(merged.RenameChannel).ToNot(BeNil())
+			Expect(merged.DispatchChannel).ToNot(BeNil())
 			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})

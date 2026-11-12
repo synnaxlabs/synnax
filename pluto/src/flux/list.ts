@@ -157,9 +157,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const [last, setLast] = useState(current);
   if (current != null && current !== last) setLast(current);
   const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
-  // A failed read shows no records from an earlier query.
-  const window =
-    list == null ? undefined : status.variant === "error" ? current : (current ?? last);
+  const window = list == null ? undefined : (current ?? last);
   const reading = useRef<object | null>(null);
 
   const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
@@ -174,6 +172,9 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     }
     if (reading.current !== token) return;
     reading.current = null;
+    // A failed read drops the last answer, so neither the error nor a retry shows
+    // records from an earlier query.
+    if (next.variant === "error") setLast(undefined);
     setStatus(next);
   };
 
@@ -187,7 +188,10 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const more = () => {
     if (!started) return setStarted(true);
-    if (list == null || reading.current != null || current?.end == null) return;
+    if (list == null || reading.current != null) return;
+    // A failed first read leaves no window, so the first page reads again.
+    if (current == null) return void read(op, async () => await list.retrieve());
+    if (current.end == null) return;
     void read(`retrieve more ${name}`, async () => await list.more(pageSize));
   };
 

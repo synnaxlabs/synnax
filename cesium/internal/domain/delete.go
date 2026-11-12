@@ -213,7 +213,11 @@ func (db *DB) Delete(
 	write := db.idx.indexPersist.prepare(startDomain)
 	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
-	return span.Error(write.run())
+	err = write.run()
+	if errors.Is(err, errUncovered) {
+		err = db.idx.indexPersist.prepare(0).run()
+	}
+	return span.Error(err)
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant

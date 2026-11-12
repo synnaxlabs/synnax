@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -248,6 +249,30 @@ class TestChannel:
         )
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
+
+    def test_set_expression(self, client: sy.Synnax) -> None:
+        """Should set the expression of a calculated channel and infer its new data
+        type."""
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.INT64,
+            expression="return 1 + 1",
+        )
+        client.channels.set_expression(ch.key, "return 1.5 * 2.0")
+        res = client.channels.retrieve(ch.key)
+        assert res.expression == "return 1.5 * 2.0"
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_set_expression_not_calculated(self, client: sy.Synnax) -> None:
+        """Should refuse an expression for a channel that is not calculated."""
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(
+            sy.ValidationError, match="only a calculated channel can change"
+        ):
+            client.channels.set_expression(ch.key, "return 1")
+        assert client.channels.retrieve(ch.key).expression == ""
 
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax) -> None:
@@ -532,6 +557,34 @@ class TestChannel:
         for name in new_names:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+    def test_multiple_rename_missing_key(self, client: sy.Synnax) -> None:
+        """Should rename no channel when one key of the batch does not exist"""
+        kept, removed = client.channels.create(
+            [
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        client.channels.delete(removed.key)
+        with pytest.raises(
+            sy.NotFoundError,
+            match=re.escape(
+                f"requests.1: Channels with keys [{removed.key}] not found"
+            ),
+        ):
+            client.channels.rename(
+                [kept.key, removed.key], [channel_name(), channel_name()]
+            )
+        assert client.channels.retrieve(kept.key).name == kept.name
 
     @pytest.fixture(scope="class")
     @classmethod

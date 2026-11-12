@@ -75,7 +75,7 @@ protected:
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         auto dev = synnax::device::Device{
-            .key = "abc123",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -438,7 +438,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     // Create a device
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",

@@ -58,8 +58,8 @@ line.
   Those belong in the Enterprise section. A reference page may link to a CLI flag.
 - Desktop is the default reader. Pages lead with the Console, and the Console tab comes
   first.
-- The restructured site ships together with Synnax Desktop. Do not hide Desktop pages or
-  content behind a flag, and do not write a fallback for a site without Desktop.
+- The restructured site ships together with Synnax Desktop. Do not write a fallback for
+  a site without Desktop.
 
 ## Editions and clients
 
@@ -93,7 +93,7 @@ line.
 - Front matter: `title`, `description`, `layout: "@/layouts/Reference.astro"`, and
   optional `heading` (the displayed title when it differs from `title`). Never `prev`,
   `next`, or `edition`: order and edition come from the nav.
-- A page behind a flag has `flag:` in front matter and on its nav node.
+- Docs for an unreleased feature merge to `main` and show only on the `next` site.
 - Every page is in the nav. `check-site` fails an orphan page.
 - Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `arc`; `exclude` to drop
   one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`). The Arc tab shows

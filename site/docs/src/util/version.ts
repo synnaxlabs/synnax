@@ -36,6 +36,8 @@ export interface Entry {
 
 export interface Version extends Entry {
   status: Status;
+  /** The newest stable Core release of the train, such as `0.60.1`. Null on `next`. */
+  release: string | null;
   /** The versions the menu lists: `next`, then the newest trains, newest first. */
   versions: Entry[];
 }
@@ -77,9 +79,14 @@ const urlOf = (name: string, newest: string): string => {
 /**
  * Places a version among the trains with a docs site.
  * @param trains - The trains with a docs site, newest first.
+ * @param release - The newest stable Core release of the train, or null on `next`.
  * @throws {Error} if no train has a site, or if `name` is a train with no site.
  */
-export const resolve = (name: string, trains: string[]): Version => {
+export const resolve = (
+  name: string,
+  trains: string[],
+  release: string | null,
+): Version => {
   const [newest] = trains;
   if (newest == null) throw new Error("No train has a docs site");
   if (name !== NEXT && !trains.includes(name))
@@ -92,6 +99,7 @@ export const resolve = (name: string, trains: string[]): Version => {
     name,
     url: urlOf(name, newest),
     status,
+    release,
     versions: [NEXT, ...listed].map((entry) => ({
       name: entry,
       url: urlOf(entry, newest),

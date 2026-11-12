@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, filter, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -50,6 +50,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/where.gen";
+import { type batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
@@ -130,6 +131,7 @@ export interface ClientConfig {
   tasks: task.Client;
   cache: query.Cache;
   statuses: status.Client;
+  batch: batch.Client;
 }
 
 export class Client extends query.Retriever<
@@ -164,6 +166,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ, dispatchResZ),
       encode,
@@ -196,7 +199,12 @@ export class Client extends query.Retriever<
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
-    this.directories = new directory.Client({ unary: cfg.unary, cache, arcs: store });
+    this.directories = new directory.Client({
+      unary: cfg.unary,
+      cache,
+      arcs: store,
+      batch: cfg.batch,
+    });
     this.store = store;
     this.dispatcher = dispatcher;
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
@@ -289,26 +297,9 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string): Promise<void> {
     if (this.store.get(key)?.type === "module") validateIdentifier(name);
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      query.partialUpdate(this.store, key, { name });
-      return () => query.partialUpdate(this.store, key, { name: prev });
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {

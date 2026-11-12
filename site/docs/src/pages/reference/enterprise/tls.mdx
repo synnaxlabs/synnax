@@ -53,8 +53,9 @@ names of the computer. If you change the host, the next start replaces `node.crt
 `node.key` with a pair signed by the same CA, so clients need no new CA certificate.
 
 <Note.Note variant="warning">
-  `--auto-cert` replaces a `node.crt` that does not cover the `--listen` host, even one
-  you supplied. Do not use it with your own certificate.
+  `--auto-cert` replaces a `node.crt` that does not cover the `--listen` host, that
+  `ca.crt` did not sign, or whose subject matches its issuer, even one you supplied. Do
+  not use it with your own certificate.
 </Note.Note>
 
 In Docker, the certificate folder is inside the container. Mount a volume at

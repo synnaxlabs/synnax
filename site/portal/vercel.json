@@ -18,6 +18,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/audience",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/cron/sessions",
       "schedule": "*/15 * * * *"
     }

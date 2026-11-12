@@ -130,7 +130,7 @@ type Server struct {
 	protocol.UnimplementedServer
 	capabilities             protocol.ServerCapabilities
 	client                   protocol.Client
-	documents                map[uri.URI]*Document
+	documents                map[uri.URI]*document
 	cfg                      Config
 	mu                       sync.RWMutex
 	republishMu              sync.Mutex
@@ -149,7 +149,7 @@ func New(cfgs ...Config) (*Server, error) {
 	}
 	return &Server{
 		cfg:       cfg,
-		documents: make(map[uri.URI]*Document),
+		documents: make(map[uri.URI]*document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: new(true),
@@ -216,7 +216,7 @@ func (s *Server) SetClient(client protocol.Client) {
 // the write lock, and a reader holding the snapshot is unaffected. Callers must not
 // mutate the returned document — writes do not reach the live document and would be
 // lost.
-func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[docURI]
@@ -278,7 +278,7 @@ func (s *Server) Shutdown(context.Context) error {
 	s.republishMu.Unlock()
 	s.republishWG.Wait()
 	s.mu.RLock()
-	docs := make([]*Document, 0, len(s.documents))
+	docs := make([]*document, 0, len(s.documents))
 	for _, doc := range s.documents {
 		docs = append(docs, doc)
 	}
@@ -301,7 +301,7 @@ func (s *Server) DidOpen(
 		zap.String("uri", string(docURI)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
-	doc := &Document{
+	doc := &document{
 		URI:      docURI,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
@@ -404,7 +404,7 @@ func (s *Server) DidClose(
 
 func (s *Server) runAnalysis(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	docURI uri.URI,
 ) {
 	if ctx.Err() != nil {

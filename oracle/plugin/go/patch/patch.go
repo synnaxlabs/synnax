@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -284,14 +285,14 @@ func variantFields(
 	return fields
 }
 
-// document reports whether t declares path actions: an action that extends patch.Set.
-// A struct that only inherits @patch fields, such as a create request, is not one.
+// document reports whether t declares path actions: an action that aliases or extends
+// patch.Set. A struct that only inherits @patch fields, such as a create request, is
+// not one.
 func document(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.StructForm)
+	isSet := func(r resolution.TypeRef) bool { return r.Name == "patch.Set" }
 	return ok && slices.ContainsFunc(form.Actions, func(a resolution.Action) bool {
-		return slices.ContainsFunc(a.Extends, func(r resolution.TypeRef) bool {
-			return r.Name == "patch.Set"
-		})
+		return isSet(a.Alias) || slices.ContainsFunc(a.Extends, isSet)
 	})
 }
 
@@ -602,6 +603,9 @@ type fieldData struct {
 	// that the receiver embeds.
 	Selector string
 	Kind     kind
+	// Defaulted reports that a decode may set the field to a value other than its zero
+	// value, so a removal leaves that value.
+	Defaulted bool
 }
 
 // kind is how a Patch method applies an action to a field.
@@ -664,9 +668,10 @@ func structView(
 	if n.patched {
 		for _, f := range fields {
 			sd.Fields = append(sd.Fields, fieldData{
-				JSONName: casing.FieldSnake(f.Name),
-				Selector: selector(f),
-				Kind:     fieldKind(f, table),
+				JSONName:  casing.FieldSnake(f.Name),
+				Selector:  selector(f),
+				Kind:      fieldKind(f, table),
+				Defaulted: defaulted(f, table, make(set.Set[string])),
 			})
 		}
 	}
@@ -777,6 +782,71 @@ func fieldKind(f resolution.Field, table *resolution.Table) kind {
 		return kindOptionalValue
 	}
 	return kindValue
+}
+
+// defaulted reports whether a decode may set the field f to a value other than its
+// zero value before it reads its input. visited guards against recursive types.
+func defaulted(
+	f resolution.Field,
+	table *resolution.Table,
+	visited set.Set[string],
+) bool {
+	if f.Optional {
+		return false
+	}
+	if f.Default != nil {
+		return !zeroDefault(*f.Default, f.Type, table)
+	}
+	ref := f.Type
+	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
+		return false
+	}
+	typ, _, ok := resolution.Dealias(ref, table)
+	if !ok || visited.Contains(typ.QualifiedName) {
+		return false
+	}
+	if _, ok = typ.Form.(resolution.StructForm); !ok {
+		return false
+	}
+	visited.Add(typ.QualifiedName)
+	return slices.ContainsFunc(
+		resolution.UnifiedFields(typ, table),
+		func(f resolution.Field) bool { return defaulted(f, table, visited) },
+	)
+}
+
+// zeroDefault reports whether the default v of a field of type ref leaves the Go zero
+// value. An ident default other than a union variant or a string enum member, such as
+// create or an integer enum member, sets nothing.
+func zeroDefault(
+	v resolution.ExpressionValue,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) bool {
+	switch v.Kind {
+	case resolution.ValueKindIdent:
+		if _, ok := validation.ResolveUnionVariant(v.IdentValue, ref, table); ok {
+			return false
+		}
+		ev, ok := validation.ResolveEnumVariant(v.IdentValue, ref, table)
+		if !ok {
+			return true
+		}
+		form, _ := ev.Type.Form.(resolution.EnumForm)
+		return form.IsIntEnum
+	case resolution.ValueKindString:
+		return v.StringValue == ""
+	case resolution.ValueKindInt:
+		return v.IntValue == 0
+	case resolution.ValueKindFloat:
+		return v.FloatValue == 0
+	case resolution.ValueKindBool:
+		return !v.BoolValue
+	case resolution.ValueKindArray:
+		return len(v.Elements) == 0
+	default:
+		return false
+	}
 }
 
 // hashField returns the statements that write the field at sel to h.
@@ -973,7 +1043,9 @@ func receiver(goName string) string {
 	return name
 }
 
-var reserved = set.New("c", "content", "err", "h", "next", "ok", "patch", "v")
+var reserved = set.New(
+	"c", "content", "def", "err", "h", "next", "ok", "patch", "v",
+)
 
 // Generated methods call nested methods directly, never through a generic helper, so
 // the compiler can keep the document on the stack.
@@ -1056,6 +1128,7 @@ func ({{$r}} *{{.GoName}}) HashContent(h *content.Hash) {
 {{- end}}
 {{define "struct"}}
 {{- $r := .Receiver}}
+{{- $t := .GoName}}
 {{- if .Patched}}
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -1063,7 +1136,14 @@ func ({{$r}} *{{.GoName}}) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 {{- range .Fields}}
 	case "{{.JSONName}}":
-{{- if eq .Kind "struct"}}
+{{- if and (eq .Kind "struct") .Defaulted}}
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&{{$r}}.{{.Selector}}, c, func(def *{{$t}}) {
+				{{$r}}.{{.Selector}} = def.{{.Selector}}
+			})
+		}
+		return {{$r}}.{{.Selector}}.Patch(c)
+{{- else if eq .Kind "struct"}}
 		if c = c.Next(); c.Done() {
 			return patch.Value(&{{$r}}.{{.Selector}}, c)
 		}
@@ -1086,6 +1166,10 @@ func ({{$r}} *{{.GoName}}) Patch(c patch.Cursor) error {
 		return patch.OptionalAny(&{{$r}}.{{.Selector}}, c.Next())
 {{- else if eq .Kind "optionalValue"}}
 		return patch.OptionalValue(&{{$r}}.{{.Selector}}, c.Next())
+{{- else if .Defaulted}}
+		return patch.Defaulted(&{{$r}}.{{.Selector}}, c.Next(), func(def *{{$t}}) {
+			{{$r}}.{{.Selector}} = def.{{.Selector}}
+		})
 {{- else}}
 		return patch.Value(&{{$r}}.{{.Selector}}, c.Next())
 {{- end}}

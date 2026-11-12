@@ -217,24 +217,33 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Set extends patch.Set {
+    action SetDirectory {
+        directory uuid
+
+        @doc value """
+            moves the Arc into the directory with the given key. The root Arcs directory
+            holds the Arcs at the top level.
+        """
+    }
+
+    action Set = patch.Set {
         @doc value """
             replaces the Arc's name, or the value at a path in the graph's node inputs.
         """
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the graph's node
             inputs.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value "adds an entry to a list in the graph's node inputs."
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value "moves an entry in a list in the graph's node inputs."
     }
 

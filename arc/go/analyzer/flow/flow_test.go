@@ -1175,7 +1175,7 @@ sequence main {
 						{
 							Name: "out_chan",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
@@ -3955,6 +3955,14 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			substrings: []string{
 				"flag value type bool",
 				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("channel into a channel alias", mismatchCase{
+			source: "sequence main {\n    vlv := num_u8\n    num_f64 -> vlv\n}",
+			line:   2,
+			substrings: []string{
+				"num_f64 value type f64",
+				"does not match channel vlv value type u8",
 			},
 		}),
 		Entry("qualified func output into a bool channel", mismatchCase{

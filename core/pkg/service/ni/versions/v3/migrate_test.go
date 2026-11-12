@@ -210,14 +210,14 @@ var _ = Describe("MigrateCJC", func() {
 })
 
 var _ = Describe("MigrateCIChannel", func() {
-	DescribeTable("Should clamp the divisor to at least 1",
+	DescribeTable("Should clamp the divisor to at least 1 or default it",
 		func(ctx SpecContext, divisor int32, want uint32) {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIFrequencyChannel{Divisor: divisor},
 			}))
 			Expect(got.Variant.(v3.CIFrequencyChannel).Divisor).To(Equal(want))
 		},
-		Entry("absent", int32(0), uint32(0)),
+		Entry("absent", int32(0), uint32(4)),
 		Entry("negative", int32(-5), uint32(1)),
 		Entry("at the maximum", int32(math.MaxInt32), uint32(math.MaxInt32)),
 	)
@@ -237,7 +237,7 @@ var _ = Describe("MigrateCIChannel", func() {
 			Expect(got.Variant.(v3.CIPositionAngularChannel).PulsesPerRev).
 				To(Equal(want))
 		},
-		Entry("absent", 0.0, uint32(0)),
+		Entry("absent", 0.0, uint32(24)),
 		Entry("below 1", 0.5, uint32(1)),
 		Entry("a fraction", 24.9, uint32(24)),
 		Entry("above uint32", 1e12, uint32(math.MaxUint32)),

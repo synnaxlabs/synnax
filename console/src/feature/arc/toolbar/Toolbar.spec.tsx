@@ -103,7 +103,6 @@ describe("arc/Toolbar", () => {
     const dir = await createDirectory(arcsID);
     const arc = await createArc();
     await client.arcs.directories.move(
-      arcsID,
       clientArc.directory.resourceID(dir.key),
       clientArc.resourceID(arc.key),
     );
@@ -247,7 +246,6 @@ describe("arc/Toolbar search", () => {
     const dir = await createDirectory(arcsID);
     const arc = await createArc(name);
     await client.arcs.directories.move(
-      arcsID,
       clientArc.directory.resourceID(dir.key),
       clientArc.resourceID(arc.key),
     );

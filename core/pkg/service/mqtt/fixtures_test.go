@@ -160,24 +160,20 @@ func createBrokerDevice(
 		Model:      "broker",
 		Properties: properties,
 	}
-	writeDevice(ctx, &dev)
-	return dev
-}
-
-// writeDevice creates or updates dev in one transaction, as the API does, so the
-// device and its status change together.
-func writeDevice(ctx context.Context, dev *device.Device) {
-	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return deviceSvc.NewWriter(tx).Create(ctx, dev)
+		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 	})).To(Succeed())
+	return dev
 }
 
 // editDevice replaces the properties of dev.
 func editDevice(ctx context.Context, dev device.Device, props msgpack.EncodedJSON) {
 	GinkgoHelper()
-	dev.Properties = props
-	writeDevice(ctx, &dev)
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Apply(ctx, dev.Key, device.NewSetAction(
+			device.SetPayload{Path: []string{"properties"}, Value: props},
+		))
+	})).To(Succeed())
 }
 
 // createIndexed creates an index channel and one data channel of each data type.

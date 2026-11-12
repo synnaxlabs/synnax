@@ -79,112 +79,122 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:                 cfg.DB,
-			References:         analogReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.AnalogReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogReadConfigLadder,
-			Legacy:             &legacy.AnalogRead,
-			SetEntryKey:        (*AnalogReadConfig).SetKey,
-			PatchEntry:         (*AnalogReadConfig).Patch,
-			HashEntry:          (*AnalogReadConfig).HashContent,
-			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      analogReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogReadConfigLadder,
+			Legacy:          &legacy.AnalogRead,
+			SetEntryKey:     (*AnalogReadConfig).SetKey,
+			PatchEntry:      (*AnalogReadConfig).Patch,
+			HashEntry:       (*AnalogReadConfig).HashContent,
+			ValidateEntry: func(c *AnalogReadConfig) error {
+				v := validate.New("ni.AnalogReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.AnalogRead) {
 		return nil, err
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:                 cfg.DB,
-			References:         analogWriteConfigReferences(),
-			Migrations:         []gorp.Migration{v3.AnalogWriteMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogWriteConfigLadder,
-			Legacy:             &legacy.AnalogWrite,
-			SetEntryKey:        (*AnalogWriteConfig).SetKey,
-			PatchEntry:         (*AnalogWriteConfig).Patch,
-			HashEntry:          (*AnalogWriteConfig).HashContent,
-			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogWriteConfig).Validate,
+			DB:              cfg.DB,
+			References:      analogWriteConfigReferences(),
+			Migrations:      []gorp.Migration{v3.AnalogWriteMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogWriteConfigLadder,
+			Legacy:          &legacy.AnalogWrite,
+			SetEntryKey:     (*AnalogWriteConfig).SetKey,
+			PatchEntry:      (*AnalogWriteConfig).Patch,
+			HashEntry:       (*AnalogWriteConfig).HashContent,
+			ValidateEntry:   (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
 		return nil, err
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:                 cfg.DB,
-			References:         counterReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.CounterReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_counter_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.CounterReadConfigLadder,
-			Legacy:             &legacy.CounterRead,
-			SetEntryKey:        (*CounterReadConfig).SetKey,
-			PatchEntry:         (*CounterReadConfig).Patch,
-			HashEntry:          (*CounterReadConfig).HashContent,
-			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
-			ValidateEntry:      (*CounterReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      counterReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_counter_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.CounterReadConfigLadder,
+			Legacy:          &legacy.CounterRead,
+			SetEntryKey:     (*CounterReadConfig).SetKey,
+			PatchEntry:      (*CounterReadConfig).Patch,
+			HashEntry:       (*CounterReadConfig).HashContent,
+			ValidateEntry: func(c *CounterReadConfig) error {
+				v := validate.New("ni.CounterReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.CounterRead) {
 		return nil, err
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:                 cfg.DB,
-			References:         digitalReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.DigitalReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalReadConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalReadConfig).SetKey,
-			PatchEntry:         (*DigitalReadConfig).Patch,
-			HashEntry:          (*DigitalReadConfig).HashContent,
-			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
-			ValidateEntry:      (*DigitalReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      digitalReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.DigitalReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalReadConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalReadConfig).SetKey,
+			PatchEntry:      (*DigitalReadConfig).Patch,
+			HashEntry:       (*DigitalReadConfig).HashContent,
+			ValidateEntry: func(c *DigitalReadConfig) error {
+				v := validate.New("ni.DigitalReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.DigitalRead) {
 		return nil, err
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:                 cfg.DB,
-			References:         digitalWriteConfigReferences(),
-			Migrations:         []gorp.Migration{v3.DigitalWriteMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalWriteConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalWriteConfig).SetKey,
-			PatchEntry:         (*DigitalWriteConfig).Patch,
-			HashEntry:          (*DigitalWriteConfig).HashContent,
-			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
-			ValidateEntry:      (*DigitalWriteConfig).Validate,
+			DB:              cfg.DB,
+			References:      digitalWriteConfigReferences(),
+			Migrations:      []gorp.Migration{v3.DigitalWriteMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalWriteConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalWriteConfig).SetKey,
+			PatchEntry:      (*DigitalWriteConfig).Patch,
+			HashEntry:       (*DigitalWriteConfig).HashContent,
+			ValidateEntry:   (*DigitalWriteConfig).Validate,
 		},
 	); !ok(err, s.DigitalWrite) {
 		return nil, err
 	}
 	if s.Scanner, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_scanner",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scanner,
-			Migrations:         []gorp.Migration{v3.ScanMigration},
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_scanner",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scanner,
+			Migrations:      []gorp.Migration{v3.ScanMigration},
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scanner) {
 		return nil, err

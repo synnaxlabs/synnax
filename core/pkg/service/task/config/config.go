@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -73,12 +74,17 @@ type Store interface {
 	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
 	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
-	// Normalize converts a config blob at the given version to the current stored shape
-	// with defaults applied, and drops each target of the blob's references that does
-	// not exist in tx and that its reference can drop. It then reconciles the result
-	// with the resources in tx. A version that predates the type's ladder runs the
-	// type's legacy rewrite first. It returns a validation error when data does not
-	// decode at version or version is newer than the store's.
+	// Decode converts a config blob at the given version to the current stored shape
+	// with defaults applied. It reads no stored data. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
+	Decode(
+		ctx context.Context,
+		version imex.Version,
+		data msgpack.EncodedJSON,
+	) (Decoded, error)
+	// Normalize decodes data as Decode does, then normalizes the result on tx as
+	// Decoded.Normalize does.
 	Normalize(
 		ctx context.Context,
 		tx gorp.Tx,
@@ -92,6 +98,21 @@ type Store interface {
 	// a target from a record, with the key of the record. An error from the hook fails
 	// the delete. Set it before the store serves deletes.
 	OnDetach(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
+}
+
+// Decoded is a config blob in the current stored shape that is not yet checked against
+// stored resources. Only a Store builds one.
+type Decoded struct {
+	normalize func(ctx context.Context, tx gorp.Tx) (msgpack.EncodedJSON, error)
+}
+
+// Normalize drops each target of the config's references that does not exist in tx and
+// that its reference can drop, then reconciles the config with the resources in tx.
+func (d Decoded) Normalize(
+	ctx context.Context,
+	tx gorp.Tx,
+) (msgpack.EncodedJSON, error) {
+	return d.normalize(ctx, tx)
 }
 
 // Record is a validated configuration record that is not written yet. Only a Store
@@ -149,9 +170,6 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults fills absent fields of a decoded entry.
-	// [OPTIONAL] - nil when the entry type has no defaults.
-	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// snap, before the entry is validated and stored.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
@@ -179,7 +197,6 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ReconcileEntry = override.Nil(c.ReconcileEntry, other.ReconcileEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
@@ -321,6 +338,9 @@ func (s *Service[E]) Edit(
 		}
 	}
 	edited, keyed := s.hash(&e), e.GorpKey() == key
+	if e, err = redecode(e); err != nil {
+		return Record{}, false, err
+	}
 	rec, err := s.prepare(ctx, snap, key, &e)
 	if err != nil {
 		return Record{}, false, err
@@ -328,16 +348,28 @@ func (s *Service[E]) Edit(
 	return rec, filled || !keyed || rec.hash != edited, nil
 }
 
-// prepare fills the defaults of e, gives it key, resolves, and validates it.
+// redecode returns e as a decode of its JSON form gives it, which fills each default
+// group whose members are all zero.
+func redecode[E any](e E) (E, error) {
+	var out E
+	b, err := json.Marshal(e)
+	if err != nil {
+		return out, errors.Wrapf(validate.ErrValidation, "encoding config: %s", err)
+	}
+	if err = json.Unmarshal(b, &out); err != nil {
+		var zero E
+		return zero, errors.Wrapf(validate.ErrValidation, "decoding config: %s", err)
+	}
+	return out, nil
+}
+
+// prepare gives e key, resolves, and validates it.
 func (s *Service[E]) prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
 	e *E,
 ) (Record, error) {
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(e)
-	}
 	s.cfg.SetEntryKey(e, key)
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(ctx, snap, e); err != nil {
@@ -421,14 +453,16 @@ func (s *Service[E]) Delete(
 	return nil
 }
 
-// Normalize implements Store.
-func (s *Service[E]) Normalize(
+// Decode implements Store.
+func (s *Service[E]) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
+) (Decoded, error) {
 	ladder := s.cfg.Ladder
+	// A legacy rewrite or a migration gives a field that its source lacks the zero
+	// value.
+	older := version < ladder.Latest
 	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
@@ -436,33 +470,54 @@ func (s *Service[E]) Normalize(
 		}
 		if rewrite.Validate != nil {
 			if err := rewrite.Validate(data); err != nil {
-				return nil, errors.Wrapf(
+				return Decoded{}, errors.Wrapf(
 					validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 				)
 			}
 		}
 		data, version = rewrite.Apply(data), ladder.First
 	} else if version > ladder.Latest {
-		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, ladder.Latest)
+		return Decoded{}, imex.NewErrUnsupportedVersion(
+			s.cfg.Type, version, ladder.Latest,
+		)
 	}
 	e, err := ladder.Decode(ctx, version, data)
 	if err != nil {
-		return nil, errors.Wrapf(
+		return Decoded{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
+	if older {
+		e = defaults.Fill(e)
 	}
-	if _, err := s.table.DropDangling(ctx, tx, &e); err != nil {
-		return nil, err
-	}
-	if s.cfg.ReconcileEntry != nil {
-		if err := s.cfg.ReconcileEntry(ctx, tx, &e); err != nil {
+	return Decoded{normalize: func(
+		ctx context.Context,
+		tx gorp.Tx,
+	) (msgpack.EncodedJSON, error) {
+		if _, err := s.table.DropDangling(ctx, tx, &e); err != nil {
 			return nil, err
 		}
+		if s.cfg.ReconcileEntry != nil {
+			if err := s.cfg.ReconcileEntry(ctx, tx, &e); err != nil {
+				return nil, err
+			}
+		}
+		return encode(e)
+	}}, nil
+}
+
+// Normalize implements Store.
+func (s *Service[E]) Normalize(
+	ctx context.Context,
+	tx gorp.Tx,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error) {
+	d, err := s.Decode(ctx, version, data)
+	if err != nil {
+		return nil, err
 	}
-	return encode(e)
+	return d.Normalize(ctx, tx)
 }
 
 // Version implements Store.

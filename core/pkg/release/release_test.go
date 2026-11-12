@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -134,7 +135,12 @@ var _ = Describe("Download", func() {
 		write(name+".sig", signer.Sign(name, []byte("core")))
 		Expect(download(ctx)).To(Succeed())
 		Expect(os.ReadFile(dst)).To(Equal([]byte("core")))
-		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		mode := os.FileMode(0o600)
+		// Windows has no Unix permission bits, so Go reports a writable file as 0666.
+		if runtime.GOOS == "windows" {
+			mode = 0o666
+		}
+		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(mode))
 	})
 
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {

@@ -21,7 +21,8 @@ import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
-const createRack = async () => await createRunningRack(client, MQTT.Device.INTEGRATION);
+const createRack = async () =>
+  await createRunningRack(client, MQTT.Device.INTEGRATION_KEY);
 
 const renderConnectModal = async () => {
   const rack = await createRack();

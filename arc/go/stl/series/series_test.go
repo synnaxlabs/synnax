@@ -10,6 +10,9 @@
 package series_test
 
 import (
+	"fmt"
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -972,13 +975,6 @@ var _ = Describe("Series", func() {
 			).To(Equal(uint32(0)))
 		})
 
-		It("Should return 0 for an out-of-range index", func(ctx SpecContext) {
-			h := callU32(ctx, "create_empty_bool", testutil.U32(1))
-			Expect(
-				callU32(ctx, "index_bool", testutil.U32(h), testutil.U32(5)),
-			).To(BeZero())
-		})
-
 		It("Should return 0 for an invalid handle", func(ctx SpecContext) {
 			Expect(
 				callU32(ctx, "index_bool", testutil.U32(9999), testutil.U32(0)),
@@ -1095,6 +1091,60 @@ var _ = Describe("Series", func() {
 		)
 	})
 
+	Describe("element index", func() {
+		DescribeTable(
+			"a negative index counts from the end",
+			func(ctx SpecContext, suffix string, first, middle, last uint64) {
+				h := testutil.U32(callU32(ctx, "create_empty_"+suffix, testutil.U32(3)))
+				call(ctx, "set_element_"+suffix, h, testutil.I32(-3), first)
+				call(ctx, "set_element_"+suffix, h, testutil.I32(-2), middle)
+				call(ctx, "set_element_"+suffix, h, testutil.I32(-1), last)
+				for index, expected := range []uint64{first, middle, last} {
+					Expect(
+						call(ctx, "index_"+suffix, h, testutil.I32(int32(index)))[0],
+					).To(Equal(expected))
+					Expect(
+						call(ctx, "index_"+suffix, h, testutil.I32(int32(index-3)))[0],
+					).To(Equal(expected))
+				}
+			},
+			Entry("i32", "i32", testutil.U32(7), testutil.U32(8), testutil.U32(9)),
+			Entry("i64", "i64", testutil.U64(7), testutil.U64(8), testutil.U64(9)),
+			Entry(
+				"f64",
+				"f64",
+				testutil.F64(1.5),
+				testutil.F64(2.5),
+				testutil.F64(3.5),
+			),
+			Entry("bool", "bool", testutil.U32(1), testutil.U32(0), testutil.U32(1)),
+		)
+
+		DescribeTable("an out-of-range index panics",
+			func(ctx SpecContext, suffix string, index int32) {
+				h := testutil.U32(callU32(ctx, "create_empty_"+suffix, testutil.U32(3)))
+				message := fmt.Sprintf(
+					"index %d out of bounds for series of size 3",
+					index,
+				)
+				Expect(func() {
+					call(ctx, "index_"+suffix, h, testutil.I32(index))
+				}).To(PanicWith(ContainSubstring(message)))
+				Expect(func() {
+					call(ctx, "set_element_"+suffix, h, testutil.I32(index), 1)
+				}).To(PanicWith(ContainSubstring(message)))
+			},
+			Entry("i32 past the end", "i32", int32(3)),
+			Entry("i32 before the start", "i32", int32(-4)),
+			Entry("i64 past the end", "i64", int32(3)),
+			Entry("i64 before the start", "i64", int32(-4)),
+			Entry("f64 past the end", "f64", int32(3)),
+			Entry("f64 before the start", "f64", int32(-4)),
+			Entry("bool past the end", "bool", int32(3)),
+			Entry("bool before the start", "bool", int32(-4)),
+		)
+	})
+
 	Describe("series-series length mismatch", func() {
 		DescribeTable("panics",
 			func(ctx SpecContext, create, fn string) {
@@ -1159,18 +1209,122 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("index_from", func() {
+		DescribeTable("should return an index that fits in an i32",
+			func(ctx SpecContext, fn string, index uint64, expected int32) {
+				Expect(
+					int32(testutil.AsU32(call(ctx, fn, index)[0])),
+				).To(Equal(expected))
+			},
+			Entry("i64 zero", "index_from_i64", testutil.I64(0), int32(0)),
+			Entry("i64 negative", "index_from_i64", testutil.I64(-1), int32(-1)),
+			Entry(
+				"i64 maximum",
+				"index_from_i64",
+				testutil.I64(math.MaxInt32),
+				int32(math.MaxInt32),
+			),
+			Entry(
+				"i64 minimum",
+				"index_from_i64",
+				testutil.I64(math.MinInt32),
+				int32(math.MinInt32),
+			),
+			Entry(
+				"u64 maximum",
+				"index_from_u64",
+				testutil.U64(math.MaxInt32),
+				int32(math.MaxInt32),
+			),
+		)
+
+		DescribeTable("should panic for an index that does not fit in an i32",
+			func(ctx SpecContext, fn string, index uint64, text string) {
+				Expect(func() { call(ctx, fn, index) }).To(PanicWith(ContainSubstring(
+					"index " + text + " out of bounds for an i32 series index",
+				)))
+			},
+			Entry(
+				"i64 above the range",
+				"index_from_i64",
+				testutil.I64(math.MaxInt32+1),
+				"2147483648",
+			),
+			Entry(
+				"i64 below the range",
+				"index_from_i64",
+				testutil.I64(math.MinInt32-1),
+				"-2147483649",
+			),
+			Entry(
+				"u64 above the range",
+				"index_from_u64",
+				testutil.U64(math.MaxInt32+1),
+				"2147483648",
+			),
+			Entry(
+				"u64 maximum",
+				"index_from_u64",
+				testutil.U64(math.MaxUint64),
+				"18446744073709551615",
+			),
+		)
+	})
+
 	Describe("slice", func() {
-		It("Should slice a large series 100,000 times", func(ctx SpecContext) {
+		It("Should count the data of a slice toward MaxBytes", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_f64", testutil.U32(1<<17))
-			for range 100_000 {
-				callU32(
-					ctx,
-					"slice",
-					testutil.U32(h),
-					testutil.U32(0),
-					testutil.U32(1<<17),
-				)
-			}
+			Expect(func() {
+				for range series.MaxBytes >> 20 {
+					callU32(
+						ctx,
+						"slice",
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.U32(1<<17),
+					)
+				}
+			}).To(PanicWith(ContainSubstring(series.ErrLimit.Error())))
+		})
+
+		It("Should keep the parent on a write to a slice", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(rh),
+				testutil.U32(0),
+				testutil.U32(9),
+			)
+			parent := MustBeOk(ss.Get(h))
+			Expect(parent.ValueAt[int32](1)).To(BeZero())
+		})
+
+		It("Should keep a slice on a write to its parent", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(2),
+				testutil.U32(7),
+			)
+			sliced := MustBeOk(ss.Get(rh))
+			Expect(sliced.ValueAt[int32](1)).To(BeZero())
 		})
 
 		It("Should extract a subrange", func(ctx SpecContext) {
@@ -1242,5 +1396,44 @@ var _ = Describe("Series", func() {
 				),
 			).To(Equal(uint32(0)))
 		})
+
+		DescribeTable("Should count a negative bound from the end and stop at the ends",
+			func(ctx SpecContext, start, end int, expected []int32) {
+				h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+				for i := range uint32(4) {
+					callU32(
+						ctx,
+						"set_element_i32",
+						testutil.U32(h),
+						testutil.U32(i),
+						testutil.U32((i+1)*10),
+					)
+				}
+				rh := callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(uint32(int32(start))),
+					testutil.U32(uint32(int32(end))),
+				)
+				if len(expected) == 0 {
+					Expect(rh).To(BeZero())
+					return
+				}
+				ser := MustBeOk(ss.Get(rh))
+				Expect(ser.Len()).To(Equal(int64(len(expected))))
+				for i, v := range expected {
+					Expect(ser.ValueAt[int32](i)).To(Equal(v))
+				}
+			},
+			Entry("an open end", 2, math.MaxInt32, []int32{30, 40}),
+			Entry("an end past the length", 2, 10, []int32{30, 40}),
+			Entry("a negative end", 0, -1, []int32{10, 20, 30}),
+			Entry("a negative start", -2, math.MaxInt32, []int32{30, 40}),
+			Entry("two negative bounds", -3, -1, []int32{20, 30}),
+			Entry("a negative start before the series", -10, 2, []int32{10, 20}),
+			Entry("a negative end before the series", 0, -10, nil),
+			Entry("a start past the length", 4, math.MaxInt32, nil),
+		)
 	})
 })

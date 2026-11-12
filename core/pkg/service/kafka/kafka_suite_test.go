@@ -168,10 +168,11 @@ func clusterProperties() kafka.Properties {
 	return kafka.Properties{Brokers: cluster.ListenAddrs()}
 }
 
-// toJSON converts v into the map a stored task config or device holds.
-func toJSON(v any) msgpack.EncodedJSON {
+// toJSON converts v, marshaled with opts, into the map a stored task config or device
+// holds.
+func toJSON(v any, opts ...json.Options) msgpack.EncodedJSON {
 	GinkgoHelper()
-	b := MustSucceed(json.Marshal(v))
+	b := MustSucceed(json.Marshal(v, opts...))
 	var m msgpack.EncodedJSON
 	Expect(json.Unmarshal(b, &m)).To(Succeed())
 	return m
@@ -222,8 +223,10 @@ func createIndexed(
 	return index, data
 }
 
-// newTask stores and returns a task of typ holding cfg. It skips task.Writer, which
-// writes a status of its own, so a spec sees only the statuses the factory writes.
+// newTask stores and returns a task of typ holding cfg. It leaves out each zero struct
+// field, so the factory's decode gives that field its default as it does an absent one.
+// To send an explicit zero, pass cfg as a map. newTask skips task.Writer, which writes
+// a status of its own, so a spec sees only the statuses the factory writes.
 func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	GinkgoHelper()
 	t := task.Task{
@@ -231,7 +234,7 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 		Rack:   rackSvc.EmbeddedKey,
 		Name:   "test-" + typ,
 		Type:   typ,
-		Config: toJSON(cfg),
+		Config: toJSON(cfg, json.OmitZeroStructFields(true)),
 	}
 	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 		To(Succeed())

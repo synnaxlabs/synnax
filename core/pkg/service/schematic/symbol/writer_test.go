@@ -91,37 +91,6 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should accept a create that keeps a stored zero scale", func(
-			ctx SpecContext,
-		) {
-			sym := symbol.Symbol{
-				Key:  uuid.New(),
-				Name: "stored",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}
-			Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().
-				Entry(&sym).
-				Exec(ctx, tx)).To(Succeed())
-			sym.Name = "overwritten"
-			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-		})
-
-		It("Should reject a create that sets a stored positive scale to zero", func(
-			ctx SpecContext,
-		) {
-			sym := defaults.Fill(symbol.Symbol{
-				Name: "stored",
-				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			})
-			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-			Expect(sym.Data.Scale).To(Equal(1.0))
-			sym.Data.Scale = 0
-			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("data.scale: must be positive")),
-			))
-		})
-
 		It("Should reject a decoded symbol with a zero scale", func(ctx SpecContext) {
 			var sym symbol.Symbol
 			Expect(json.Unmarshal([]byte(
@@ -144,39 +113,34 @@ var _ = Describe("Writer", func() {
 			Expect(sym.Key).To(Equal(key))
 		})
 
-		It(
-			"Should update an existing Symbol if key already exists",
-			func(ctx SpecContext) {
-				key := uuid.New()
-				sym1 := defaults.Fill(symbol.Symbol{
-					Key:  key,
-					Name: "original-name",
-					Data: symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
-				})
-				Expect(
-					svc.NewWriter(tx).Create(ctx, &sym1),
-				).To(Succeed())
-
-				sym2 := defaults.Fill(symbol.Symbol{
-					Key:  key,
-					Name: "updated-name",
-					Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
-				})
-				Expect(
-					svc.NewWriter(tx).Create(ctx, &sym2),
-				).To(Succeed())
-
-				var retrieved symbol.Symbol
-				Expect(
-					svc.NewRetrieve().
-						Where(symbol.MatchKeys(key)).
-						Entry(&retrieved).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(retrieved.Name).To(Equal("updated-name"))
-				Expect(retrieved.Data.SVG).To(Equal("<svg>updated</svg>"))
-			},
-		)
+		It("Should refuse a symbol whose key exists", func(ctx SpecContext) {
+			g := group.Group{Name: "Stored", Scope: resource.TypeSchematicSymbol}
+			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
+			stored := defaults.Fill(symbol.Symbol{
+				Name:  "original-name",
+				Data:  symbol.Spec{SVG: "<svg>original</svg>", Variant: "valve"},
+				Group: &g.Key,
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := defaults.Fill(symbol.Symbol{
+				Key:  stored.Key,
+				Name: "updated-name",
+				Data: symbol.Spec{SVG: "<svg>updated</svg>", Variant: "valve"},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"schematic_symbol %s already exists",
+					stored.Key,
+				)),
+			))
+			var res symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It("Should create a symbol in a group", func(ctx SpecContext) {
 			g := group.Group{Name: "Valves", Scope: resource.TypeSchematicSymbol}
@@ -195,24 +159,6 @@ var _ = Describe("Writer", func() {
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(sym.Key))
 		})
-
-		It(
-			"Should keep the group of a symbol that already exists",
-			func(ctx SpecContext) {
-				g := group.Group{Name: "Kept", Scope: resource.TypeSchematicSymbol}
-				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-				sym := defaults.Fill(symbol.Symbol{
-					Name:  "kept",
-					Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-					Group: &g.Key,
-				})
-				Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-				sym.Group = nil
-				sym.Name = "kept-renamed"
-				Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
-				Expect(sym.Group).To(Equal(&g.Key))
-			},
-		)
 	})
 
 	Describe("SetGroup", func() {

@@ -145,11 +145,14 @@ describe("Write", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    const { channels } = updated.properties.write;
-    outputs.forEach((e, i) => {
-      expect(channels[`${e.index}_1`]).toBe(cmdKeys[i]);
-      expect(channels[`state_${e.index}_1`]).toBe(stateKeys[i]);
-    });
+    outputs.forEach((e, i) =>
+      expect(updated.properties.write.channels).toContainEqual({
+        index: e.index,
+        subIndex: 1,
+        command: cmdKeys[i],
+        state: stateKeys[i],
+      }),
+    );
   });
 
   it("should block configuration of an unresolved output channel", async () => {
@@ -264,9 +267,9 @@ describe("Write", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.writeStateIndex).not.toBe(0);
-    const { channels } = updated.properties.write;
-    expect(channels[`${0x7000}_1`]).toBe(ch.cmdChannel);
-    expect(channels[`state_${0x7000}_1`]).toBe(ch.stateChannel);
+    expect(updated.properties.write.channels).toEqual([
+      { index: 0x7000, subIndex: 1, command: ch.cmdChannel, state: ch.stateChannel },
+    ]);
     const stateIndex = await client.channels.retrieve(
       updated.properties.writeStateIndex,
     );
@@ -578,6 +581,31 @@ describe("Write", () => {
       EtherCAT.Task.WRITE_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+
+  it("should create the task from a slave with a channel for each output", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateWrite,
+      EtherCAT.Task.WRITE_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    const addresses = tsk.config.channels.map((ch) =>
+      ch.type === "entry"
+        ? { device: ch.device, index: ch.index, subIndex: ch.subIndex }
+        : ch.type,
+    );
+    expect(addresses).toEqual(
+      slave.properties.pdos.outputs.map(({ index, subIndex }) => ({
+        device: slave.key,
+        index,
+        subIndex,
+      })),
+    );
   });
 });
 

@@ -53,4 +53,13 @@ describe("SignUp", () => {
     expect(input.disabled).toBe(false);
     expect(input.autocomplete).toBe("username");
   });
+
+  it("should tell the visitor that the account gets release notes", () => {
+    render(<SignUp target="/" invited={null} />);
+    expect(
+      screen.getByText(
+        "We email you our release notes. You can unsubscribe at any time.",
+      ),
+    ).toBeTruthy();
+  });
 });

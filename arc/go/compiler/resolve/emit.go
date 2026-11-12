@@ -56,7 +56,7 @@ func (r *Resolver) EmitChannelRead(w *wasm.Writer, wID int, chanType types.Type)
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: elemType}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "channels", "read", ct, suffixForType(elemType))
+	r.emitImportCallWithSuffix(w, wID, "channels", "read", ct, suffixForType(elemType))
 }
 
 // EmitChannelWrite emits a call to channels.write for the given element
@@ -65,7 +65,7 @@ func (r *Resolver) EmitChannelWrite(w *wasm.Writer, wID int, elemType types.Type
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: elemType}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "channels", "write", ct, suffixForType(elemType))
+	r.emitImportCallWithSuffix(w, wID, "channels", "write", ct, suffixForType(elemType))
 }
 
 // EmitStateLoad emits a call to stateful.load for the given type. The host
@@ -75,7 +75,7 @@ func (r *Resolver) EmitStateLoad(w *wasm.Writer, wID int, t types.Type) {
 		Inputs:  types.Params{{Type: types.I32()}, {Type: t}},
 		Outputs: types.Params{{Type: t}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "stateful", "load", ct, suffixForType(t))
+	r.emitImportCallWithSuffix(w, wID, "stateful", "load", ct, suffixForType(t))
 }
 
 // EmitStateStore emits a call to stateful.store for the given type. The
@@ -84,7 +84,7 @@ func (r *Resolver) EmitStateStore(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: t}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "stateful", "store", ct, suffixForType(t))
+	r.emitImportCallWithSuffix(w, wID, "stateful", "store", ct, suffixForType(t))
 }
 
 // EmitStateLoadSeries emits a call to stateful.load_series. The elemType
@@ -95,7 +95,7 @@ func (r *Resolver) EmitStateLoadSeries(w *wasm.Writer, wID int, elemType types.T
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "stateful", "load_series", ct, elemType.String())
+	r.emitImportCallWithSuffix(w, wID, "stateful", "load_series", ct, elemType.String())
 }
 
 // EmitStateStoreSeries emits a call to stateful.store_series. The
@@ -104,7 +104,7 @@ func (r *Resolver) EmitStateStoreSeries(w *wasm.Writer, wID int, elemType types.
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(
+	r.emitImportCallWithSuffix(
 		w,
 		wID,
 		"stateful",
@@ -140,7 +140,7 @@ func (r *Resolver) EmitSeriesArithmetic(
 			Inputs:  types.Params{{Type: types.I32()}, {Type: elemType}},
 			Outputs: types.Params{{Type: types.I32()}},
 		})
-		r.EmitImportCallWithSuffix(
+		r.emitImportCallWithSuffix(
 			w,
 			wID,
 			"series",
@@ -154,7 +154,7 @@ func (r *Resolver) EmitSeriesArithmetic(
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(
+	r.emitImportCallWithSuffix(
 		w,
 		wID,
 		"series",
@@ -181,7 +181,7 @@ func (r *Resolver) EmitSeriesReverseArithmetic(
 		Inputs:  types.Params{{Type: elemType}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(
+	r.emitImportCallWithSuffix(
 		w,
 		wID,
 		"series",
@@ -228,33 +228,7 @@ func (r *Resolver) emitSeriesBinary(
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", name, ct, suffixForType(elemType))
-}
-
-// EmitSeriesScalarComparison emits a call to a series-to-scalar comparison function.
-func (r *Resolver) EmitSeriesScalarComparison(
-	w *wasm.Writer,
-	wID int,
-	op string,
-	elemType types.Type,
-) error {
-	name, ok := opToCompareName[op]
-	if !ok {
-		return errors.Newf("unknown comparison operator: %s", op)
-	}
-	ct := types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Type: types.I32()}, {Type: elemType}},
-		Outputs: types.Params{{Type: types.I32()}},
-	})
-	r.EmitImportCallWithSuffix(
-		w,
-		wID,
-		"series",
-		"compare_"+name+"_scalar",
-		ct,
-		suffixForType(elemType),
-	)
-	return nil
+	r.emitImportCallWithSuffix(w, wID, "series", name, ct, suffixForType(elemType))
 }
 
 // EmitSeriesCreateEmpty emits a call to series.create_empty for the given element type.
@@ -263,7 +237,7 @@ func (r *Resolver) EmitSeriesCreateEmpty(w *wasm.Writer, wID int, elemType types
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(
+	r.emitImportCallWithSuffix(
 		w,
 		wID,
 		"series",
@@ -283,7 +257,7 @@ func (r *Resolver) EmitSeriesSetElement(w *wasm.Writer, wID int, elemType types.
 		},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(
+	r.emitImportCallWithSuffix(
 		w,
 		wID,
 		"series",
@@ -299,7 +273,7 @@ func (r *Resolver) EmitSeriesIndex(w *wasm.Writer, wID int, elemType types.Type)
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: elemType}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "index", ct, suffixForType(elemType))
+	r.emitImportCallWithSuffix(w, wID, "series", "index", ct, suffixForType(elemType))
 }
 
 // EmitSeriesNegate emits a call to series.negate for the given element type.
@@ -308,7 +282,7 @@ func (r *Resolver) EmitSeriesNegate(w *wasm.Writer, wID int, elemType types.Type
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "negate", ct, suffixForType(elemType))
+	r.emitImportCallWithSuffix(w, wID, "series", "negate", ct, suffixForType(elemType))
 }
 
 // EmitSeriesLogical emits a call to a series logical operation. A scalar
@@ -349,6 +323,38 @@ func (r *Resolver) EmitSeriesLen(w *wasm.Writer, wID int) {
 		Outputs: types.Params{{Type: types.I64()}},
 	})
 	r.EmitImportCall(w, wID, "series", "len", ct)
+}
+
+// IndexFromName returns the name of the module function that narrows a 64-bit series
+// index of type t to i32.
+func IndexFromName(t types.Type) string {
+	if t.Kind == types.KindU64 {
+		return "$index_from_u64"
+	}
+	return "$index_from_i64"
+}
+
+func indexFromType(t types.Type) types.Type {
+	return types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: t}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+}
+
+// EmitIndexFrom emits a call to the module function that narrows a 64-bit series index
+// of type t to i32.
+func (r *Resolver) EmitIndexFrom(w *wasm.Writer, wID int, t types.Type) {
+	r.EmitLocalCall(w, wID, IndexFromName(t), indexFromType(t))
+}
+
+// EmitSeriesIndexFrom emits a call to the host function that traps for a 64-bit index
+// of type t that does not fit in an i32.
+func (r *Resolver) EmitSeriesIndexFrom(w *wasm.Writer, wID int, t types.Type) {
+	name := "index_from_i64"
+	if t.Kind == types.KindU64 {
+		name = "index_from_u64"
+	}
+	r.EmitImportCall(w, wID, "series", name, indexFromType(t))
 }
 
 // EmitSeriesSlice emits a call to series.slice.
@@ -471,13 +477,5 @@ func (r *Resolver) EmitMathPow(w *wasm.Writer, wID int, t types.Type) {
 		Inputs:  types.Params{{Type: t}, {Type: t}},
 		Outputs: types.Params{{Type: t}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "math", "pow", ct, suffixForType(t))
-}
-
-// EmitPanic emits a call to error.panic.
-func (r *Resolver) EmitPanic(w *wasm.Writer, wID int) {
-	ct := types.Function(types.FunctionProperties{
-		Inputs: types.Params{{Type: types.I32()}, {Type: types.I32()}},
-	})
-	r.EmitImportCall(w, wID, "error", "panic", ct)
+	r.emitImportCallWithSuffix(w, wID, "math", "pow", ct, suffixForType(t))
 }

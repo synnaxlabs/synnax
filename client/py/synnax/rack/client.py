@@ -15,6 +15,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_
 from synnax.exceptions import NotFoundError
+from synnax.rack import actions_gen
 from synnax.rack.types_gen import (
     Cursor,
     Key,
@@ -24,6 +25,7 @@ from synnax.rack.types_gen import (
     Where,
     WhereInput,
 )
+from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -37,9 +39,10 @@ class _CreateResponse(BaseModel):
     racks: list[Rack]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -48,11 +51,6 @@ class _DeleteRequest(BaseModel):
 
 class _RetrieveResponse(BaseModel):
     racks: list[Rack] = Field(default_factory=list)
-
-
-class _SetGroupRequest(BaseModel):
-    keys: list[Key]
-    group: group_.Key | None = None
 
 
 class Client:
@@ -112,7 +110,9 @@ class Client:
         :param name: The new name for the rack.
         :raises NotFoundError: If no rack has the given key.
         """
-        self._client.send("/rack/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/rack/dispatch", req, Empty)
         if self._embedded_rack is not None and self._embedded_rack.key == key:
             self._embedded_rack = None
 
@@ -122,8 +122,13 @@ class Client:
         :param keys: The key of the rack to move, or a list of keys.
         :param group: The key of the group to move the racks into.
         """
-        req = _SetGroupRequest(keys=normalize(keys), group=group)
-        self._client.send("/rack/set-group", req, Empty)
+        value = None if group is None else str(group)
+        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        send_batch(
+            self._client,
+            "/rack/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
+        )
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...

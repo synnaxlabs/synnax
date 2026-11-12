@@ -13,10 +13,10 @@ package chassis
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Chassis table for references. Pass it as
@@ -164,8 +164,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Chassis] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Chassis) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return want.Contains(e.Name), nil
 		})
 	}
 }
@@ -193,8 +194,9 @@ func MatchResourceNames(vals ...string) Filter {
 // provided values.
 func MatchModels(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Chassis] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Chassis) (bool, error) {
-			return slices.Contains(vals, e.Model), nil
+			return want.Contains(e.Model), nil
 		})
 	}
 }

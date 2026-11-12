@@ -623,6 +623,17 @@ class Client:
         """
         self._creator.set_group(normalize(keys), group)
 
+    def set_expression(self, key: Key, expression: str) -> None:
+        """Sets the expression of a calculated channel. The Core infers the data type
+        of the channel from the new expression.
+
+        :param key: The key of the calculated channel.
+        :param expression: The new expression.
+        :raises NotFoundError: If no channel has the given key.
+        :raises ValidationError: If the channel is not calculated.
+        """
+        self._creator.set_expression(key, expression)
+
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)

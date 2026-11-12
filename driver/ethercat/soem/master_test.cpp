@@ -24,11 +24,14 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::soem {
 namespace {
@@ -161,8 +164,17 @@ protected:
     void initialize_with_dc_slave(const std::vector<dc::OpMode> &modes) {
         MockSlaveInfo slave;
         slave.state = EC_STATE_PRE_OP;
-        slave.hasdc = true;
         slave.name = "16xAO";
+        this->initialize_with_dc_slave(slave, modes);
+    }
+
+    /// @brief initializes the master with slave as its one DC slave, which lists modes,
+    /// and gives it a DC system time of 5 s.
+    void initialize_with_dc_slave(
+        MockSlaveInfo slave,
+        const std::vector<dc::OpMode> &modes
+    ) {
+        slave.hasdc = true;
         this->add_slave(slave);
         this->set_op_modes(modes);
         this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
@@ -355,7 +367,7 @@ TEST_F(SOEMMasterTest, ScanInitFails) {
     EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
     EXPECT_EQ(
         err.data,
-        "cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
+        "Cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
         "CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
     EXPECT_TRUE(this->mock->close_called);
@@ -367,27 +379,28 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_FALSE(err.matches(errors::REPLIES_BLOCKED));
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. Check the cable and the power of the first "
+        "No EtherCAT slaves found on eth0. Check the cable and the power of the first "
         "device."
     );
     EXPECT_TRUE(this->mock->close_called);
 }
 
-/// @brief it should name the DewesoftX filter and the Windows name of the adapter when
-/// the filter is bound to an interface with no slaves.
+/// @brief it should return a blocked replies error that names the DewesoftX filter and
+/// the Windows name of the adapter when the filter is bound to an interface with no
+/// slaves.
 TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"Ethernet 2\". After DewesoftX starts, the filter blocks EtherCAT "
-        "replies, also after DewesoftX closes. Clear it in the properties of "
+        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "on this adapter blocks EtherCAT replies. Clear it in the properties of "
         "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
         "More network adapter options, then right-click the adapter > Properties)."
     );
@@ -400,14 +413,36 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"eth0\". After DewesoftX starts, the filter blocks EtherCAT replies, "
-        "also after DewesoftX closes. Clear it in the properties of \"eth0\" (Settings "
-        "> Network & internet > Advanced network settings > More network adapter "
-        "options, then right-click the adapter > Properties)."
+        "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" on "
+        "this adapter blocks EtherCAT replies. Clear it in the properties of \"eth0\" "
+        "(Settings > Network & internet > Advanced network settings > More network "
+        "adapter options, then right-click the adapter > Properties)."
+    );
+}
+
+/// @brief it should take the Windows name of the adapter as its name, or the interface
+/// name when the adapter has none.
+TEST_F(SOEMMasterTest, NameIsTheWindowsNameOfTheAdapter) {
+    EXPECT_EQ(this->master->name(), "eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    EXPECT_EQ(this->master->name(), "Ethernet 2");
+}
+
+/// @brief it should call the interface by the Windows name of its adapter when it does
+/// not open.
+TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
+    this->add_default_slave();
+    this->mock->init_return = 0;
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    const auto err = this->master->scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
+        "with CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
 }
 
@@ -940,6 +975,80 @@ TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
     EXPECT_TRUE(this->master->scan().first[0].properties.op_modes.empty());
 }
 
+/// @brief returns a standalone 6xSTG in PRE-OP that holds the objects of the 6xSTG on
+/// the station and lists the mailbox protocols in mbx_proto.
+MockSlaveInfo create_stg(const uint16_t mbx_proto) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_6XSTG;
+    slave.name = "6xSTG";
+    slave.mbx_proto = mbx_proto;
+    slave.sdo_objects = testutil::stg_objects(0);
+    return slave;
+}
+
+/// @brief it should store the settings that the catalog describes for a slave, read
+/// from that slave's own object dictionary.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
+    this->add_default_slave();
+    this->add_slave(create_stg(ECT_MBXPROT_COE));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    const auto expected = ASSERT_NIL_P(
+        esi::read_settings(
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG,
+            slaves[1].properties.revision,
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
+        )
+    );
+    ASSERT_TRUE(expected.has_value());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(slaves[1].properties.settings, expected);
+}
+
+/// @brief it should store the settings that the catalog describes for the revision of
+/// the slave.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_DIO;
+    slave.eep_rev = 0x00050000;
+    slave.name = "32xDO";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    const auto &device = slaves[0].properties.settings.value().at("device");
+    ASSERT_EQ(device.size(), 1);
+    EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
+}
+
+/// @brief it should report why a setting of a slave could not be read, and keep the
+/// other settings.
+TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
+    auto stg = create_stg(ECT_MBXPROT_COE);
+    stg.sdo_objects.erase({0x8050, 3});
+    this->add_slave(stg);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[0].properties.settings.value().contains("mode"));
+    EXPECT_EQ(
+        slaves[0].status.settings_error,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should read no settings from a slave that does not list CoE.
+TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
+    this->add_slave(create_stg(0));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+}
+
 ////////////////////// Activation //////////////////////
 
 /// @brief it should activate a scanned bus.
@@ -982,7 +1091,6 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
-    EXPECT_FALSE(this->activation.refusals.at(1).dc_sync_invalid);
 }
 
 /// @brief it should wait for a state change on the clock of its config, so a fake clock
@@ -1056,9 +1164,20 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {2,
          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-          .dc_sync_invalid = true}},
+          .advice = slave::DC_SYNC_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
+}
+
+/// @brief it should give the mode restart advice with the refusal of a slave that
+/// reports an invalid input or output configuration.
+TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
+    for (const uint16_t code: {0x001D, 0x001E}) {
+        this->create_master(x::telem::SECOND);
+        this->add_pending_and_refusing_slaves(code);
+        ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+        EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
+    }
 }
 
 /// @brief it should record why a slave refused OP after SAFE-OP when another slave with
@@ -1102,7 +1221,9 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {1, {.reason = "refused SAFE-OP: Invalid output configuration"}},
+        {1,
+         {.reason = "refused SAFE-OP: Invalid output configuration",
+          .advice = slave::MODE_RESTART_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1131,8 +1252,8 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration"
     );
-    EXPECT_TRUE(this->activation.refusals.at(1).dc_sync_invalid);
-    EXPECT_TRUE(this->activation.refusals.at(2).dc_sync_invalid);
+    EXPECT_EQ(this->activation.refusals.at(1).advice, slave::DC_SYNC_ADVICE);
+    EXPECT_EQ(this->activation.refusals.at(2).advice, slave::DC_SYNC_ADVICE);
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.
@@ -1452,6 +1573,26 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
         {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should run the DC mode that the catalog gives for the mode a slave holds
+/// when no mode is chosen, in place of the SM mode that it would pick.
+TEST_F(SOEMMasterTest, ActivateRunsTheCatalogModeWhenNoModeIsChosen) {
+    this->initialize_with_dc_slave(
+        create_stg(ECT_MBXPROT_COE),
+        {SM, {.name = "DC", .assign_activate = 0x0300}}
+    );
+    const auto catalog = this->master->scan().first.at(0).properties.catalog_op_mode();
+    ASSERT_TRUE(catalog.has_value());
+    EXPECT_EQ(catalog.value().assign_activate, 0x0300);
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].address, 0x09A0);
+    EXPECT_EQ(this->mock->register_writes[3].value, 1000);
+    EXPECT_EQ(this->mock->register_writes[4].address, 0x09A4);
+    EXPECT_EQ(this->mock->register_writes[4].value, 999'999'000);
+    EXPECT_EQ(this->mock->register_writes[6].address, 0x0981);
+    EXPECT_EQ(this->mock->register_writes[6].value, 0x07);
 }
 
 /// @brief it should leave DC sync off on a disabled slave.
@@ -2589,8 +2730,8 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
-        "entries hold 24 and 0"
+        "Slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
+        "entries hold 24 and 0."
     );
 }
 
@@ -2743,6 +2884,88 @@ TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
     this->master->check(this->brk);
     EXPECT_EQ(this->mock->sdo_writes.size(), 2);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should write parameters to a slave on the running bus, and write them
+/// again with its startup parameters when the slave recovers.
+TEST_F(SOEMMasterTest, WriteReachesTheRunningBusAndReplaysOnRecovery) {
+    this->initialize_with_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    this->activate_master();
+    this->mock->sdo_writes.clear();
+    const auto range = slave::StartupParameter{
+        .index = 0x8000,
+        .sub_index = 0x15,
+        .data_type = x::telem::UINT16_T,
+        .value = 5,
+    };
+    ASSERT_NIL(this->master->write(1, {range, RANGE}));
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x05, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+    this->mock->sdo_writes.clear();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x05, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+}
+
+/// @brief it should write parameters to a slave when no task runs the bus.
+TEST_F(SOEMMasterTest, WriteReachesASlaveOnAStoppedBus) {
+    this->initialize_with_slave();
+    ASSERT_NIL(this->master->write(1, {RANGE}));
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{{1, 0x8000, 0x19, {0x02}}})
+    );
+}
+
+/// @brief it should return the reason a slave rejects a parameter on the running bus,
+/// and leave the slave on the bus without a fault.
+TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    const auto err = this->master->write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high."
+    );
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_FALSE(health[0].faulted);
+    EXPECT_TRUE(health[0].startup_error.empty());
+}
+
+/// @brief it should read the value that a slave on the running bus holds in an object.
+TEST_F(SOEMMasterTest, ReadReturnsTheValueOfAnObjectOnTheRunningBus) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].sdo_objects[{0x8040, 0x15}] = 0x40000000;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->read(1, 0x8040, 0x15)), 0x40000000);
+}
+
+/// @brief it should return the abort of a read of an object that the slave does not
+/// have.
+TEST_F(SOEMMasterTest, ReadReturnsTheAbortOfAMissingObject) {
+    this->initialize_with_slave();
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: Object does not exist in the object dictionary"
+    );
 }
 
 /// @brief it should hold a slave in PRE-OP and report the failure when a startup

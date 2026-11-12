@@ -77,11 +77,19 @@ var _ = Describe("Where", Ordered, func() {
 			ImEx:    imex.NewService(),
 			Configs: MustSucceed(config.NewRegistry(lj.Stores()...)),
 		}))
-		for _, t := range v.Records {
-			r := rack.Rack{Key: t.Rack, Name: "Rack"}
+		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
+			_ string,
+			t task.Task,
+		) rack.Key {
+			return t.Rack
+		}))
+		for _, k := range rackKeys {
+			r := rack.Rack{Key: k, Name: "Rack"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return racks.NewWriter(tx).Create(ctx, &r)
 			})).To(Succeed())
+		}
+		for _, t := range v.Records {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &t)
 			})).To(Succeed())

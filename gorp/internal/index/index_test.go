@@ -367,4 +367,20 @@ var _ = Describe("Index", func() {
 			})
 		})
 	})
+
+	DescribeTable(
+		"AnyOf",
+		func(count, value int, expected bool) {
+			values := make([]int, count)
+			for i := range values {
+				values[i] = i
+			}
+			Expect(index.AnyOf(values)(value)).To(Equal(expected))
+		},
+		Entry("a few values holding the value", 3, 2, true),
+		Entry("a few values missing the value", 3, 3, false),
+		Entry("many values holding the value", 100, 99, true),
+		Entry("many values missing the value", 100, 100, false),
+		Entry("no values", 0, 0, false),
+	)
 })

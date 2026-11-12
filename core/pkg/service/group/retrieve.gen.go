@@ -13,11 +13,11 @@ package group
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Group table for references. Pass it as
@@ -194,10 +194,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}
@@ -208,8 +209,9 @@ func MatchNames(vals ...string) Filter {
 // provided values.
 func MatchScopes(vals ...resource.Type) Filter {
 	return func(Retrieve) gorp.Filter[Key, Group] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
-			return slices.Contains(vals, e.Scope), nil
+			return want.Contains(e.Scope), nil
 		})
 	}
 }

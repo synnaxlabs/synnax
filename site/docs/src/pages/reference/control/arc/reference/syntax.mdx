@@ -155,16 +155,18 @@ the number of digits after the decimal point: `{p:.2f}` gives `3.14`.
 
 ## Imports
 
-The standard library is in modules. Import a module before you use its members.
+You can import standard library modules or
+[your own modules](/reference/control/arc/modules).
 
 | Form  | Example                 | Use the member as |
 | ----- | ----------------------- | ----------------- |
 | One   | `import time`           | `time.wait()`     |
 | Alias | `import time as t`      | `t.wait()`        |
 | Group | `import ( math  time )` | `math.avg()`      |
+| Path  | `import lib.tank`       | `tank.vent`       |
 
-The modules are `control`, `math`, `ranges`, `stable`, `status`, and `time`. See the
-[standard library](/reference/control/arc/standard-library).
+The [standard library modules](/reference/control/arc/standard-library) are `control`,
+`math`, `ranges`, `stable`, `status`, and `time`.
 
 ```arc channels="tank_pt, tank_pt_avg, vent_vlv_cmd"
 import (
@@ -181,6 +183,7 @@ t.interval(period=1min) -> vent_vlv_cmd
 | Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
 | Each module must exist.                | `unknown module "foo"`                                                  |
 | Each import must be used.              | `imported module "time" is unused` (code `ARC5001`)                     |
+| Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.        |
 | A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
 
 <Divider.Divider x />

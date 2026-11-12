@@ -30,7 +30,9 @@ func (rc *ReadChannel) Patch(c patch.Cursor) error {
 	case "node_name":
 		return patch.Value(&rc.BaseChannel.NodeName, c.Next())
 	case "data_type":
-		return patch.Value(&rc.BaseChannel.DataType, c.Next())
+		return patch.Defaulted(&rc.BaseChannel.DataType, c.Next(), func(def *ReadChannel) {
+			rc.BaseChannel.DataType = def.BaseChannel.DataType
+		})
 	case "channel":
 		return patch.Value(&rc.Channel, c.Next())
 	case "is_index":
@@ -67,14 +69,20 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "sampling":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&rc.Sampling, c)
+			return patch.Defaulted(&rc.Sampling, c, func(def *ReadConfig) {
+				rc.Sampling = def.Sampling
+			})
 		}
 		return rc.Sampling.Patch(c)
 	case "channels":
@@ -165,7 +173,9 @@ func (us *UnarySampling) HashContent(h *content.Hash) {
 func (as *ArraySampling) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "size":
-		return patch.Value(&as.Size, c.Next())
+		return patch.Defaulted(&as.Size, c.Next(), func(def *ArraySampling) {
+			as.Size = def.Size
+		})
 	default:
 		return c.UnknownField()
 	}
