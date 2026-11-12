@@ -111,7 +111,7 @@ const useRecalibrate = (
     handleError(async () => {
       const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
       const ch = get<ReadChannel>(path).value;
-      if (!hasEntry(ch)) return;
+      if (!hasEntry(ch) || ch.device !== key) return;
       set(
         deep.variant(path, "type", "entry").calibrated,
         isCalibrated(slave.properties, ch),
