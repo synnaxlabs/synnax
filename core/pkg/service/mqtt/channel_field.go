@@ -23,6 +23,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -177,7 +178,8 @@ func resolveWriteConfig(
 
 // reconcileWriteConfig changes the channel field of each plain target of cfg to agree
 // with its channel, as payload.Channel.Reconcile does, clears its data type, and logs
-// each change. It skips a target with no channel, or one that does not exist.
+// each change. A field with no channel agrees with its data type instead, which it
+// keeps. It skips a field whose channel does not exist.
 func reconcileWriteConfig(
 	ctx context.Context,
 	svc *channel.Service,
@@ -192,21 +194,29 @@ func reconcileWriteConfig(
 	return plainTargets(cfg, func(path string, t *PlainWriteTarget) error {
 		base := t.Channel.Base()
 		ch, ok := channels[base.Channel]
-		if !ok {
+		var dt telem.DataType
+		switch {
+		case ok:
+			dt = ch.DataType
+		case base.Channel == 0 && base.DataType != nil:
+			dt = *base.DataType
+		default:
 			return nil
 		}
-		c, changes := channelOf(t.Channel).Reconcile(ch.DataType)
+		c, changes := channelOf(t.Channel).Reconcile(dt)
 		for _, change := range changes {
 			ins.L.Warn(
 				"changed an MQTT channel field to agree with its channel",
 				zap.Stringer("config", cfg.Key),
 				zap.String("field", path),
-				zap.Stringer("channel", ch.Key()),
-				zap.String("channel_name", ch.Name),
+				zap.Stringer("channel", base.Channel),
+				zap.String("data_type", string(dt)),
 				zap.String("change", change),
 			)
 		}
-		base.DataType = nil
+		if ok {
+			base.DataType = nil
+		}
 		t.Channel = newChannelField(base, c)
 		return nil
 	})

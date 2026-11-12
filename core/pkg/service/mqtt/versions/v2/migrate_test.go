@@ -51,29 +51,25 @@ var _ = Describe("Migrate", func() {
 				BaseChannelField: base(telem.Float64T),
 				EnumValues:       []payload.FloatEntry{},
 			}),
-		Entry("a number on an int16 channel as an integer",
+		Entry("a number for an int16 channel as a float, for the caller to reconcile",
 			v1.ChannelField{JSONType: payload.JSONTypeNumber, DataType: telem.Int16T},
-			v2.IntegerChannelField{BaseChannelField: base(telem.Int16T)}),
-		Entry("a string with entries as a number that keeps them",
+			v2.FloatChannelField{
+				BaseChannelField: base(telem.Int16T),
+				EnumValues:       []payload.FloatEntry{},
+			}),
+		Entry("a string with entries as a float that keeps them",
 			v1.ChannelField{
 				JSONType:   payload.JSONTypeString,
 				DataType:   telem.Uint8T,
 				EnumValues: onOff,
 			},
-			v2.UnsignedChannelField{
+			v2.FloatChannelField{
 				BaseChannelField: base(telem.Uint8T),
-				EnumValues: []payload.UnsignedEntry{
+				EnumValues: []payload.FloatEntry{
 					{Label: "OFF", Value: 0},
 					{Label: "ON", Value: 1},
 				},
 			}),
-		Entry("an entry that is not whole on an integer channel, dropped",
-			v1.ChannelField{
-				JSONType:   payload.JSONTypeString,
-				DataType:   telem.Int32T,
-				EnumValues: []payload.EnumEntry{{Label: "HALF", Value: 0.5}},
-			},
-			v2.IntegerChannelField{BaseChannelField: base(telem.Int32T)}),
 		Entry("a string with no entries as a string",
 			v1.ChannelField{JSONType: payload.JSONTypeString, DataType: telem.Float32T},
 			v2.StringChannelField{BaseChannelField: base(telem.Float32T)}),
@@ -127,9 +123,35 @@ var _ = Describe("Migrate", func() {
 				DataType:   new(telem.Int16T),
 				EnumValues: []payload.FloatEntry{},
 			}),
-		Entry("a UUID channel as a uuid",
-			v1.ChannelField{JSONType: payload.JSONTypeString, DataType: telem.UUIDT},
-			v2.UuidChannelField{BaseChannelField: base(telem.UUIDT)}),
+		Entry("a time format on a bound boolean field as a boolean",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeBoolean,
+				TimeFormat: &unixMs,
+			},
+			v2.BooleanChannelField{
+				Pointer:  "/v",
+				Channel:  7,
+				Name:     "cmd",
+				DataType: new(telem.Float64T),
+			}),
+		Entry("a time format on a bound field with entries as a float",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeString,
+				TimeFormat: &unixMs,
+				EnumValues: onOff,
+			},
+			v2.FloatChannelField{
+				Pointer:  "/v",
+				Channel:  7,
+				Name:     "cmd",
+				DataType: new(telem.Float64T),
+				EnumValues: []payload.FloatEntry{
+					{Label: "OFF", Value: 0},
+					{Label: "ON", Value: 1},
+				},
+			}),
 	)
 
 	It("Should lift every target and keep the rest of a write config", func(
