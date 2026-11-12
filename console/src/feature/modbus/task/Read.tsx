@@ -34,7 +34,7 @@ import {
   deployReadConfigZ,
   isStringReadChannel,
   isVariableDensityReadChannel,
-  nextChannel,
+  nextOpenChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -120,14 +120,15 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   );
 };
 
-const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
-  if (channels.length === 0)
+const getOpenChannel = (channels: ReadChannel[], copy?: string): ReadChannel => {
+  const next = nextOpenChannel(channels, copy);
+  if (next == null)
     return {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
   return {
-    ...nextChannel(channels[channels.length - 1]),
+    ...next,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
   };

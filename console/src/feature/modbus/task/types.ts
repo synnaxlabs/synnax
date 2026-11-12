@@ -194,10 +194,34 @@ export const findOverlaps = (channels: Channel[]): Overlaps => {
  * Returns the channel to add after the given one: the next bit of a bit channel, then
  * bit 0 of the next register, or the first address after any other channel.
  */
-export const nextChannel = <C extends Channel>(channel: C): C => {
+const nextChannel = <C extends Channel>(channel: C): C => {
   if (!("bit" in channel)) return { ...channel, address: nextAddress(channel) };
   if (channel.bit < BIT_BOUNDS.upper) return { ...channel, bit: channel.bit + 1 };
   return { ...channel, address: channel.address + 1, bit: 0 };
+};
+
+const takesSlotOf = (a: Channel, b: Channel): boolean => {
+  if (a.type !== b.type) return false;
+  if ("bit" in a && "bit" in b) return a.address === b.address && a.bit === b.bit;
+  const [aStart, aEnd] = addressSpan(a);
+  const [bStart, bEnd] = addressSpan(b);
+  return aStart <= bEnd && bStart <= aEnd;
+};
+
+/**
+ * @returns the channel to add after the channel with the given key, or after the last
+ * channel: the first slot after it that no channel of the same type takes. Returns
+ * null when there are no channels.
+ */
+export const nextOpenChannel = <C extends Channel>(
+  channels: C[],
+  copy?: string,
+): C | null => {
+  const base = channels.find(({ key }) => key === copy) ?? channels.at(-1);
+  if (base == null) return null;
+  let next = nextChannel(base);
+  while (channels.some((ch) => takesSlotOf(ch, next))) next = nextChannel(next);
+  return next;
 };
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;

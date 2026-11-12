@@ -47,6 +47,36 @@ describe("Modbus Read Task Types", () => {
       dataType,
     });
 
+  describe("nextOpenChannel", () => {
+    it("should place the channel after the channel to copy, not the last one", () => {
+      const next = Modbus.Task.nextOpenChannel(
+        [holding("a", 10, "float32"), holding("b", 40, "uint16")],
+        "a",
+      );
+      expect(next).toMatchObject({ address: 12, dataType: "float32" });
+    });
+
+    it("should skip the addresses that another channel of the type takes", () => {
+      const next = Modbus.Task.nextOpenChannel(
+        [holding("a", 10, "uint16"), holding("b", 11, "uint16")],
+        "a",
+      );
+      expect(next?.address).toBe(12);
+    });
+
+    it("should place the channel after the last channel with no key to copy", () => {
+      const next = Modbus.Task.nextOpenChannel([
+        holding("a", 10, "uint16"),
+        holding("b", 40, "uint16"),
+      ]);
+      expect(next?.address).toBe(41);
+    });
+
+    it("should return null with no channels", () => {
+      expect(Modbus.Task.nextOpenChannel([])).toBeNull();
+    });
+  });
+
   describe("addressSpan", () => {
     it("should span one address for a coil", () => {
       const coil = Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({
