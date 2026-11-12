@@ -22,49 +22,55 @@ export interface MinMaxValueFieldsProps {
   ranges?: bounds.Bounds[];
 }
 
+interface RangeSelectProps extends Omit<MinMaxValueFieldsProps, "ranges"> {
+  ranges: bounds.Bounds[];
+}
+
+const RangeSelect = ({ path, units, ranges }: RangeSelectProps) => {
+  const ctx = Form.useContext();
+  const lower = Form.useFieldValue(path.minVal);
+  const upper = Form.useFieldValue(path.maxVal);
+  const handleChange = (next: bounds.Bounds) =>
+    ctx.batch(() => {
+      ctx.set(path.minVal, next.lower);
+      ctx.set(path.maxVal, next.upper);
+    });
+  return (
+    <Bounds.Select
+      data={ranges}
+      value={{ lower, upper }}
+      onChange={handleChange}
+      units={units}
+      resourceName="range"
+    />
+  );
+};
+
 export const MinMaxValueFields = ({
   path,
   units,
   ranges = [],
-}: MinMaxValueFieldsProps) => {
-  const ctx = Form.useContext();
-  const min = Form.useFieldValue(path.minVal);
-  const max = Form.useFieldValue(path.maxVal);
-  const handleRangeChange = ({ lower, upper }: bounds.Bounds) =>
-    ctx.batch(() => {
-      ctx.set(path.minVal, lower);
-      ctx.set(path.maxVal, upper);
-    });
-  return (
-    <Input.Item label="Range">
-      <Flex.Box x gap="small">
-        {ranges.length > 0 && (
-          <Bounds.Select
-            data={ranges}
-            value={{ lower: min, upper: max }}
-            onChange={handleRangeChange}
-            units={units}
-            resourceName="range"
-          />
-        )}
-        <Form.NumericField
-          path={path.minVal}
-          label="Minimum value"
-          showLabel={false}
-          showHelpText={false}
-          inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
-        />
-        <Form.NumericField
-          path={path.maxVal}
-          label="Maximum value"
-          showLabel={false}
-          showHelpText={false}
-          inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
-        />
-      </Flex.Box>
-    </Input.Item>
-  );
-};
+}: MinMaxValueFieldsProps) => (
+  <Input.Item label="Range">
+    <Flex.Box x gap="small">
+      {ranges.length > 0 && <RangeSelect path={path} units={units} ranges={ranges} />}
+      <Form.NumericField
+        path={path.minVal}
+        label="Minimum value"
+        showLabel={false}
+        showHelpText={false}
+        inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
+      />
+      <Form.NumericField
+        path={path.maxVal}
+        label="Maximum value"
+        showLabel={false}
+        showHelpText={false}
+        inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
+      />
+    </Flex.Box>
+  </Input.Item>
+);
 
 type RangeList =
   "aiVoltageRanges" | "aiCurrentRanges" | "aoVoltageRanges" | "aoCurrentRanges";
