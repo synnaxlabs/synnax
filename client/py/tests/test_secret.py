@@ -93,6 +93,12 @@ class TestSecret:
         retrieved = client.secrets.retrieve(keys=[s.key for s in created])
         assert sorted(s.name for s in retrieved) == ["Multi 1", "Multi 2"]
 
+    def test_retrieve_unused(self, client: sy.Synnax) -> None:
+        """Should retrieve empty uses for a secret that nothing uses."""
+        s = client.secrets.set(secret.NewStored(name="Unused", value="abc"))
+        assert client.secrets.retrieve(key=s.key, include_uses=True).uses == []
+        assert client.secrets.retrieve(key=s.key).uses is None
+
     def test_retrieve_by_where(self, client: sy.Synnax) -> None:
         """Should leave out a key that no secret has."""
         s = client.secrets.set(secret.NewStored(name="Kept", value="a"))

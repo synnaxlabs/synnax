@@ -86,7 +86,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if !ok {
 		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
-	record, err := store.Prepare(ctx, w.tx, t.Key, t.Config)
+	record, err := store.Prepare(ctx, w.tx, t.Key, t.Name, t.Config)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (w Writer) editConfig(
 	if !ok {
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
-	rec, changed, err := store.Edit(ctx, w.tx, t.Key, cursors)
+	rec, changed, err := store.Edit(ctx, w.tx, t.Key, t.Name, cursors)
 	if err != nil {
 		return nil, err
 	}

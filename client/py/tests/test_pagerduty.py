@@ -7,11 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 import pytest
 
 import synnax as sy
+from synnax import secret
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
+
+ROUTING_KEY = UUID("6f1c2a4e-8b3d-4c5f-9a7e-0d2b4c6e8f1a")
+
+
+@pytest.fixture
+def routing_key(client: sy.Synnax) -> secret.Key:
+    """A stored secret that holds a PagerDuty routing key."""
+    return client.secrets.set(
+        name="PagerDuty routing key", value="12345678901234567890123456789012"
+    ).key
 
 
 @pytest.mark.pagerduty
@@ -24,7 +37,7 @@ class TestPagerDutyAlertTask:
             {
                 "name": "basic_single_alert",
                 "data": {
-                    "routing_key": "12345678901234567890123456789012",
+                    "routing_key": str(ROUTING_KEY),
                     "auto_start": False,
                     "alerts": [
                         {
@@ -42,7 +55,7 @@ class TestPagerDutyAlertTask:
             {
                 "name": "multiple_alerts",
                 "data": {
-                    "routing_key": "abcdefghijklmnopqrstuvwxyz123456",
+                    "routing_key": str(ROUTING_KEY),
                     "auto_start": True,
                     "alerts": [
                         {
@@ -69,7 +82,6 @@ class TestPagerDutyAlertTask:
             {
                 "name": "minimal_alert",
                 "data": {
-                    "routing_key": "00000000000000000000000000000000",
                     "alerts": [
                         {
                             "key": "alert-1",
@@ -84,6 +96,13 @@ class TestPagerDutyAlertTask:
     def test_parse_alert_task_config(self, test_data: dict[str, object]) -> None:
         """Test that TaskConfig can parse various configurations."""
         sy.pagerduty.TaskConfig.model_validate(test_data["data"])
+
+    def test_parse_rejects_plain_routing_key(self) -> None:
+        """Should reject a routing key that is not the key of a secret."""
+        with pytest.raises(ValueError, match="routing_key"):
+            sy.pagerduty.TaskConfig.model_validate(
+                {"routing_key": "R022XIJR9M266DX570EVE6EXP1AFBN6D"}
+            )
 
     def test_alert_defaults(self) -> None:
         """Test that Alert has correct defaults."""
@@ -115,17 +134,15 @@ class TestPagerDutyAlertTask:
 
     def test_task_config_defaults(self) -> None:
         """Test that TaskConfig has correct defaults."""
-        config = sy.pagerduty.TaskConfig(
-            routing_key="12345678901234567890123456789012",
-            alerts=[sy.pagerduty.Alert(status="s")],
-        )
+        config = sy.pagerduty.TaskConfig(alerts=[sy.pagerduty.Alert(status="s")])
         assert config.auto_start is False
+        assert config.routing_key is None
 
     def test_alert_task_auto_key_generation(self) -> None:
         """Test that the AlertTask assigns keys to alerts missing one."""
         task = sy.pagerduty.AlertTask(
             name="test",
-            routing_key="12345678901234567890123456789012",
+            routing_key=ROUTING_KEY,
             alerts=[sy.pagerduty.Alert(status="s")],
         )
         alert = task.config.alerts[0]
@@ -136,7 +153,7 @@ class TestPagerDutyAlertTask:
         """Test that AlertTask serializes correctly."""
         task = sy.pagerduty.AlertTask(
             name="test-alert",
-            routing_key="12345678901234567890123456789012",
+            routing_key=ROUTING_KEY,
             auto_start=True,
             alerts=[
                 sy.pagerduty.Alert(
@@ -149,7 +166,7 @@ class TestPagerDutyAlertTask:
             ],
         )
         payload = task.to_payload()
-        assert payload.config["routing_key"] == "12345678901234567890123456789012"
+        assert payload.config["routing_key"] == str(ROUTING_KEY)
         assert payload.config["auto_start"] is True
         alerts = arr(payload.config, "alerts")
         assert len(alerts) == 1
@@ -159,12 +176,12 @@ class TestPagerDutyAlertTask:
         assert "class_" not in alert
 
     def test_create_and_retrieve_alert_task(
-        self, client: sy.Synnax, task_targets: TaskTargets
+        self, client: sy.Synnax, routing_key: secret.Key, task_targets: TaskTargets
     ) -> None:
         """Test that AlertTask can be created and retrieved from the database."""
         task = sy.pagerduty.AlertTask(
             name="test-pagerduty-alert",
-            routing_key="12345678901234567890123456789012",
+            routing_key=routing_key,
             alerts=[
                 sy.pagerduty.Alert(
                     status="test-status",
@@ -181,7 +198,7 @@ class TestPagerDutyAlertTask:
             config=task.config,
         )
         tsk = sy.pagerduty.AlertTask(created)
-        assert tsk.config.routing_key == task.config.routing_key
+        assert tsk.config.routing_key == routing_key
         assert tsk.config.auto_start == task.config.auto_start
         assert len(tsk.config.alerts) == len(task.config.alerts)
         for orig, retr in zip(task.config.alerts, tsk.config.alerts, strict=True):
@@ -193,12 +210,12 @@ class TestPagerDutyAlertTask:
             assert retr.class_ == orig.class_
 
     def test_alert_task_serialization_round_trip(
-        self, client: sy.Synnax, task_targets: TaskTargets
+        self, client: sy.Synnax, routing_key: secret.Key, task_targets: TaskTargets
     ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.pagerduty.AlertTask(
             name="test-round-trip",
-            routing_key="abcdefghijklmnopqrstuvwxyz123456",
+            routing_key=routing_key,
             auto_start=True,
             alerts=[
                 sy.pagerduty.Alert(
@@ -224,7 +241,7 @@ class TestPagerDutyAlertTask:
             config=original.config,
         )
         retrieved = sy.pagerduty.AlertTask(created)
-        assert retrieved.config.routing_key == original.config.routing_key
+        assert retrieved.config.routing_key == routing_key
         assert retrieved.config.auto_start == original.config.auto_start
         assert len(retrieved.config.alerts) == len(original.config.alerts)
         for orig, retr in zip(

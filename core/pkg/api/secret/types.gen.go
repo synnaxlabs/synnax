@@ -71,6 +71,8 @@ type RetrieveRequest struct {
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most secrets to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// IncludeUses includes the uses of each record.
+	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -389,7 +389,11 @@ export default class Synnax extends framer.Client {
       batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
-    this.secrets = new secret.Client({ unary, cache });
+    this.secrets = new secret.Client({
+      unary,
+      cache,
+      usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
+    });
     this.certificates = new certificate.Client({ unary, cache });
     this.icds = new icd.Client({ unary, cache });
     this.groups = new group.Client({

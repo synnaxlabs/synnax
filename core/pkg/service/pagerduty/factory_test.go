@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -43,6 +44,15 @@ var _ = Describe("Factory", func() {
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("sender")))
 			})
 
+			It("Should return an error when Secret is nil", func() {
+				cfg := pd.FactoryConfig{
+					DB:     db,
+					Status: statusSvc,
+					Sender: newMockSender(),
+				}
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring("secret")))
+			})
+
 			It("Should return an error mentioning both fields when both are nil",
 				func() {
 					Expect(pd.FactoryConfig{}.Validate()).To(And(
@@ -56,6 +66,7 @@ var _ = Describe("Factory", func() {
 				cfg := pd.FactoryConfig{
 					DB:     db,
 					Status: statusSvc,
+					Secret: secretSvc,
 					Sender: newMockSender(),
 				}
 				Expect(cfg.Validate()).To(Succeed())
@@ -68,10 +79,12 @@ var _ = Describe("Factory", func() {
 				cfg := pd.FactoryConfig{}.Override(pd.FactoryConfig{
 					DB:     db,
 					Status: statusSvc,
+					Secret: secretSvc,
 					Sender: sender,
 				})
 				Expect(cfg.DB).To(Equal(db))
 				Expect(cfg.Status).To(Equal(statusSvc))
+				Expect(cfg.Secret).To(Equal(secretSvc))
 				Expect(cfg.Sender).To(Equal(sender))
 			})
 
@@ -97,24 +110,30 @@ var _ = Describe("Factory", func() {
 		})
 
 		It("Should use the default event sender when Sender is nil", func() {
-			Expect(pd.NewFactory(pd.FactoryConfig{DB: db, Status: statusSvc})).
-				ToNot(BeNil())
+			Expect(pd.NewFactory(pd.FactoryConfig{
+				DB:     db,
+				Status: statusSvc,
+				Secret: secretSvc,
+			})).ToNot(BeNil())
 		})
 	})
 
 	Describe("Factory", func() {
 		var (
-			sender  *mockEventSender
-			factory driver.Factory
+			sender     *mockEventSender
+			factory    driver.Factory
+			routingKey secret.Key
 		)
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			sender = newMockSender()
 			factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 				DB:     db,
 				Status: statusSvc,
+				Secret: secretSvc,
 				Sender: sender,
 			}))
+			routingKey = createRoutingKey(ctx, strings.Repeat("a", 32))
 		})
 
 		Describe("ConfigureTask", func() {
@@ -141,25 +160,24 @@ var _ = Describe("Factory", func() {
 						To(MatchError(ContainSubstring("json")))
 				})
 
-			It("Should return a validation error for invalid task config",
+			It("Should return a validation error without a routing key",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: "tooshort",
-						Alerts:     []pd.Alert{{Status: "test-status"}},
+						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
 					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
-						To(MatchError(ContainSubstring("routing_key")))
+						To(MatchError(ContainSubstring("routing_key: required")))
 				},
 			)
 
 			It("Should return a validation error when every alert is disabled",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: strings.Repeat("a", 32),
+						RoutingKey: &routingKey,
 						Alerts: []pd.Alert{
 							{Status: "test-status", Disabled: true},
 						},
@@ -176,8 +194,7 @@ var _ = Describe("Factory", func() {
 			It("Should attribute a failed configure to the start command",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: "tooshort",
-						Alerts:     []pd.Alert{{Status: "test-status"}},
+						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
 					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
@@ -198,13 +215,9 @@ var _ = Describe("Factory", func() {
 			DescribeTable("Should write no status for a successful configure "+
 				"without auto-start",
 				func(ctx context.Context, cmdKey string) {
-					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: strings.Repeat("a", 32),
+					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
+						RoutingKey: &routingKey,
 						Alerts:     []pd.Alert{{Status: "test-status"}},
-					})
-					t := createTask(ctx, task.Task{
-						Key: uuid.New(), Name: "PagerDuty Test",
-						Type: pd.AlertTaskType, Config: cfg,
 					})
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, cmdKey))
 					Expect(tsk).ToNot(BeNil())
@@ -219,14 +232,10 @@ var _ = Describe("Factory", func() {
 			)
 
 			It("Should configure and auto-start a task", func(ctx context.Context) {
-				cfg := encodeConfig(pd.TaskConfig{
+				t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
 					AutoStart:  true,
-					RoutingKey: strings.Repeat("a", 32),
+					RoutingKey: &routingKey,
 					Alerts:     []pd.Alert{{Status: "test-status"}},
-				})
-				t := createTask(ctx, task.Task{
-					Key: uuid.New(), Name: "PagerDuty Test",
-					Type: pd.AlertTaskType, Config: cfg,
 				})
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				Expect(tsk).ToNot(BeNil())
@@ -240,11 +249,33 @@ var _ = Describe("Factory", func() {
 				Expect(tsk.Stop(true)).To(Succeed())
 			})
 
+			It("Should answer the start command when an auto-start fails",
+				func(ctx context.Context) {
+					short := createRoutingKey(ctx, "tooshort")
+					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
+						AutoStart:  true,
+						RoutingKey: &short,
+						Alerts:     []pd.Alert{{Status: "test-status"}},
+					})
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
+						To(MatchError(ContainSubstring(
+							"routing_key: must be exactly 32 characters",
+						)))
+					var stat task.Status
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
+					Expect(stat.Variant).To(BeEquivalentTo("error"))
+					Expect(stat.Message).To(Equal("Failed to start task"))
+					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					Expect(stat.Details.Running).To(BeFalse())
+				},
+			)
+
 			It("Should not write a status for an invalid config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						RoutingKey: "tooshort",
-						Alerts:     []pd.Alert{{Status: "test-status"}},
+						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
 					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
@@ -262,9 +293,8 @@ var _ = Describe("Factory", func() {
 			It("Should write an error status for an invalid auto-start config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						AutoStart:  true,
-						RoutingKey: "tooshort",
-						Alerts:     []pd.Alert{{Status: "test-status"}},
+						AutoStart: true,
+						Alerts:    []pd.Alert{{Status: "test-status"}},
 					})
 					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
@@ -284,14 +314,10 @@ var _ = Describe("Factory", func() {
 
 			It("Should auto-start at boot when auto_start is true",
 				func(ctx context.Context) {
-					cfg := encodeConfig(pd.TaskConfig{
+					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
 						AutoStart:  true,
-						RoutingKey: strings.Repeat("a", 32),
+						RoutingKey: &routingKey,
 						Alerts:     []pd.Alert{{Status: "test-status"}},
-					})
-					t := createTask(ctx, task.Task{
-						Key: uuid.New(), Name: "PagerDuty Test",
-						Type: pd.AlertTaskType, Config: cfg,
 					})
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 					Expect(tsk).ToNot(BeNil())

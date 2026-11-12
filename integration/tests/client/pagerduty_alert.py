@@ -14,6 +14,7 @@ from pydantic import BaseModel, TypeAdapter
 
 import synnax as sy
 from framework.test_case import TestCase
+from synnax import secret
 from x import random_name
 
 ROUTING_KEY = os.environ.get("PAGERDUTY_ROUTING_KEY")
@@ -52,6 +53,8 @@ class PagerDutyAlert(TestCase):
         self.events = pagerduty.EventsApiV2Client(self.routing_key)
         self.rest = pagerduty.RestApiV2Client(API_KEY)
         self.open_alert_key: str | None = None
+        self.task_key: sy.task.Key | None = None
+        self.secret_key: secret.Key | None = None
         super().setup()
 
     def run(self) -> None:
@@ -82,17 +85,21 @@ class PagerDutyAlert(TestCase):
         go_rack = client.racks.retrieve(name="Node 1")
         self.log(f"Using Go driver rack: key={go_rack.key}, name={go_rack.name}")
 
-        # 4. Create the PagerDuty alert task on the Go driver rack.
-        # We stream sy_status_set to wait for the factory's configuration
-        # acknowledgment instead of sleeping.
+        # 4. Store the routing key as a secret, then create the PagerDuty alert
+        # task on the Go driver rack. We stream sy_status_set to wait for the
+        # factory's configuration acknowledgment instead of sleeping.
+        name = f"PD Integration Test {self.suffix}"
+        self.secret_key = client.secrets.set(
+            name=f"{name} routing key", value=self.routing_key
+        ).key
         self.log("Creating PagerDuty alert task...")
         streamer = client.open_streamer(["sy_status_set"])
         created = client.tasks.create(
             rack=go_rack.key,
-            name=f"PD Integration Test {self.suffix}",
+            name=name,
             type="pagerduty_alert",
             config=sy.pagerduty.TaskConfig(
-                routing_key=self.routing_key,
+                routing_key=self.secret_key,
                 auto_start=True,
                 alerts=[
                     sy.pagerduty.Alert(
@@ -105,6 +112,7 @@ class PagerDutyAlert(TestCase):
                 ],
             ),
         )
+        self.task_key = created.key
         self.log(f"Alert task created: key={created.key}")
 
         # Deploy the saved config: tasks only reach the driver on start.
@@ -210,4 +218,9 @@ class PagerDutyAlert(TestCase):
         if self.open_alert_key is not None:
             self.events.resolve(self.open_alert_key)
             self.log(f"Cleanup: resolved PagerDuty event {self.open_alert_key}")
+        # The Core refuses to delete a secret that a task uses.
+        if self.task_key is not None:
+            self.client.tasks.delete(self.task_key)
+        if self.secret_key is not None:
+            self.client.secrets.delete(self.secret_key)
         super().teardown()
