@@ -36,6 +36,10 @@ _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
 _WORD = re.compile(r"\w+")
+_FUNCTION_WORD = re.compile(
+    r"a|an|and|are|as|at|be|but|by|can|does|for|from|has|in|is|it|its|no|not|of|on|"
+    r"or|so|than|that|the|then|to|when|with"
+)
 # Reviewers write these blocks into the body. A review must not see another review.
 _REVIEWS = re.compile(
     r"<!-- (greptile|sedosaur)_comment -->.*?<!-- /\1_comment -->", re.S
@@ -391,8 +395,12 @@ def _focused(lens: Lens) -> str:
 
 
 def _alike(a: str, b: str) -> bool:
-    """Reports whether two titles share at least a third of their distinct words."""
-    x, y = set(_WORD.findall(a.lower())), set(_WORD.findall(b.lower()))
+    """Reports whether two titles share at least a third of their distinct words.
+    Function words do not count."""
+    x, y = (
+        {w for w in _WORD.findall(t.lower()) if not _FUNCTION_WORD.fullmatch(w)}
+        for t in (a, b)
+    )
     return 3 * len(x & y) >= len(x | y)
 
 

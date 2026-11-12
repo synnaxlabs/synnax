@@ -580,9 +580,15 @@ class TestLenses:
         races = FakeClaude(
             5, [rfc("Members menu offers `Delete` for the Root user", 1)]
         )
-        edges = FakeClaude(5, [rfc("Delete is offered for the root user", 1)])
+        edges = FakeClaude(5, [rfc("DELETE IS OFFERED FOR THE ROOT USER", 1)])
         _, (got, _) = self.lenses(races, edges)
         assert len(got.findings) == 1
+
+    def test_should_keep_titles_that_share_only_function_words(self) -> None:
+        races = FakeClaude(5, [rfc("Cache is not cleared", 1)])
+        edges = FakeClaude(5, [rfc("Lock is not released", 1)])
+        _, (got, _) = self.lenses(races, edges)
+        assert len(got.findings) == 2
 
     def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
         races = FakeClaude(5, [at("P2", 12) | {"title": "P2 on 12"}])
