@@ -11,8 +11,8 @@ package sift
 
 import (
 	"context"
+	"fmt"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -125,7 +125,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		CheckpointInterval: t.factoryCfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
 			t.Report(ctx, "", nil)
-			p.advance(ctx, cp.Positions)
+			p.advance(ctx, cp)
 			runs.signal()
 			return nil
 		},
@@ -170,30 +170,44 @@ func (t *streamTask) loadProgress(
 	ctx context.Context,
 	start telem.TimeStamp,
 ) (*progress, error) {
-	p := &progress{cfg: t.factoryCfg, task: t.task}
+	p := &progress{cfg: t.factoryCfg, task: t.task, asset: t.cfg.Asset}
 	err := t.factoryCfg.Status.NewRetrieve[StreamDetails]().
 		Where(status.MatchKeys[StreamDetails](ProgressKey(t.task.Key))).
 		Entry(&p.status).
 		Exec(ctx, t.factoryCfg.DB)
-	if errors.Is(err, query.ErrNotFound) {
+	switch {
+	case errors.Is(err, query.ErrNotFound):
 		p.status = ProgressStatus{
 			Key:     ProgressKey(t.task.Key),
 			Name:    t.task.Name,
 			Variant: status.VariantInfo,
 			Details: StreamDetails{RunsThrough: start},
 		}
-		return p, nil
+	case err != nil:
+		return nil, err
 	}
-	return p, err
+	p.sent = p.status.Details.RunsThrough
+	if len(p.status.Details.Positions) > 0 {
+		p.sent = telem.TimeStampMax
+		for _, pos := range p.status.Details.Positions {
+			p.sent = min(p.sent, pos.Time)
+		}
+	}
+	return p, nil
 }
 
 // progress is the progress status of a stream task. It is safe for concurrent use.
 type progress struct {
-	cfg  FactoryConfig
-	task task.Task
-	mu   sync.Mutex
-	// status is guarded by mu.
+	cfg   FactoryConfig
+	task  task.Task
+	asset string
+	mu    sync.Mutex
+	// status, sent, and samples are guarded by mu.
 	status ProgressStatus
+	// sent is the time before which Sift has every sample of the task.
+	sent telem.TimeStamp
+	// samples counts the values Sift confirmed since the task started.
+	samples int64
 }
 
 func (p *progress) positions() []Position {
@@ -207,27 +221,15 @@ func (p *progress) positions() []Position {
 func (p *progress) through() (sent, runs telem.TimeStamp) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.sent(), p.status.Details.RunsThrough
+	return p.sent, p.status.Details.RunsThrough
 }
 
-// sent returns the earliest position, or RunsThrough before the first checkpoint. p.mu
-// must be held.
-func (p *progress) sent() telem.TimeStamp {
-	d := p.status.Details
-	if len(d.Positions) == 0 {
-		return d.RunsThrough
-	}
-	sent := telem.TimeStampMax
-	for _, pos := range d.Positions {
-		sent = min(sent, pos.Time)
-	}
-	return sent
-}
-
-func (p *progress) advance(ctx context.Context, positions ingest.Positions) {
+func (p *progress) advance(ctx context.Context, cp ingest.Checkpoint) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.status.Details.Positions = toPositions(positions)
+	p.status.Details.Positions = toPositions(cp.Positions)
+	p.sent = cp.Through
+	p.samples += cp.Samples
 	p.write(ctx)
 }
 
@@ -240,8 +242,12 @@ func (p *progress) setRunsThrough(ctx context.Context, ts telem.TimeStamp) {
 
 // write saves the status. p.mu must be held.
 func (p *progress) write(ctx context.Context) {
-	p.status.Message = "Sent to Sift through " +
-		p.sent().Time().UTC().Format(time.RFC3339)
+	p.status.Message = "Sent to Sift"
+	p.status.Description = fmt.Sprintf(
+		"Sent %s samples to asset %s since the task started.",
+		group(p.samples),
+		p.asset,
+	)
 	p.status.Time = telem.Now()
 	ctx = context.WithoutCancel(ctx)
 	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
