@@ -189,3 +189,34 @@ export const holdResponses = (
   });
   return { responded, release, sent: () => sent };
 };
+
+/**
+ * Holds the first response to target until release is called, and sends the others on.
+ * responded resolves when the held response arrives. Call it inside a test: the hold
+ * ends when that test finishes.
+ */
+export const holdFirstResponse = (
+  client: Synnax,
+  target: string,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const responded = Promise.withResolvers<void>();
+  const released = Promise.withResolvers<void>();
+  let held = false;
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const res = await send(...args);
+    if (args[0] === target && !held) {
+      held = true;
+      responded.resolve();
+      await released.promise;
+    }
+    return res;
+  });
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
+  return { responded: responded.promise, release: () => released.resolve() };
+};

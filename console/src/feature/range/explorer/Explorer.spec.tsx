@@ -18,7 +18,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Modals } from "@/platform/modals";
@@ -67,6 +67,18 @@ const createRange = async (
 };
 
 /**
+ * Creates a range with no start. It sorts above every other range, so the spec deletes
+ * it once it finishes.
+ */
+const createPlanned = async (name: string): Promise<ranger.Range> => {
+  const rng = await createRange(name, {
+    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+  });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
+};
+
+/**
  * Creates a label, one range with it, and one range without it. Both start years ahead
  * of the ranges other specs create, so they lead the newest-first list.
  */
@@ -89,18 +101,23 @@ const createLabeled = async (): Promise<{
   return { label, labeled, other };
 };
 
-const search = (term: string): void => {
-  const input = screen.getByPlaceholderText<HTMLInputElement>("Search ranges...");
+const search = async (term: string): Promise<void> => {
+  const input =
+    await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
   fireEvent.change(input, { target: { value: term } });
 };
 
 /** @returns the list item of the named range. */
 const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { name });
 
+/** Waits for the list item of the named range. A search tints its term in names. */
+const findItem = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("listitem", { name });
+
 /** Searches for the range, then opens the context menu on it. */
 const openMenuOf = async (rng: ranger.Range): Promise<void> => {
-  search(rng.name);
-  fireEvent.contextMenu(await screen.findByRole("listitem", { name: rng.name }));
+  await search(rng.name);
+  fireEvent.contextMenu(await findItem(rng.name));
 };
 
 const menuItem = async (name: string): Promise<HTMLElement> =>
@@ -272,12 +289,29 @@ describe("range/explorer/Explorer", () => {
         parent: parent.key,
       });
       await renderExplorer();
-      search(token);
-      await screen.findByText(match.name);
-      await waitFor(() =>
-        within(itemOf(parent.name)).getByRole("button", { name: "Collapse" }),
-      );
+      await search(token);
+      await findItem(match.name);
+      // The list reads no page for the tree until it reads the term.
+      within(itemOf(parent.name)).getByRole("button", { name: "Collapse" });
       expect(screen.queryByText(sibling.name)).toBeNull();
+    });
+
+    it("should drop a deleted range that holds matches", async () => {
+      const token = uniqueToken();
+      const holder = await createRange(uniqueRangeName("holder"));
+      const other = await createRange(uniqueRangeName("other"));
+      const gone = await createRange(`${token} gone`, { parent: holder.key });
+      const kept = await createRange(`${token} kept`, { parent: other.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(gone.name);
+      within(itemOf(holder.name)).getByRole("button", { name: "Collapse" });
+      await findItem(kept.name);
+      await client.ranges.delete([gone.key, holder.key]);
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: holder.name })).toBeNull(),
+      );
+      expect(itemOf(kept.name)).toBeTruthy();
     });
 
     it("should show the first 100 matches and say so", async () => {
@@ -290,7 +324,7 @@ describe("range/explorer/Explorer", () => {
         })),
       );
       await renderExplorer();
-      search(token);
+      await search(token);
       await screen.findByText(/Showing the first 100 matches\./);
     });
   });
@@ -319,22 +353,57 @@ describe("range/explorer/Explorer", () => {
       );
     });
 
-    it("should pin the range", async () => {
+    it("should start a planned range now with no end", async () => {
+      const planned = await createPlanned(uniqueRangeName("planned"));
+      await renderExplorer();
+      await openMenuOf(planned);
+      fireEvent.click(await menuItem("Start"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(planned.key);
+        expect(timeRange.start.before(TimeStamp.now())).toBe(true);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(true);
+      });
+    });
+
+    it("should stop a running range", async () => {
+      const running = await createRange(uniqueRangeName("running"), {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await openMenuOf(running);
+      fireEvent.click(await menuItem("Stop"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(running.key);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(false);
+      });
+    });
+
+    it("should pin the range, then offer Unpin", async () => {
       const rng = await createRange(uniqueRangeName("pin"));
       const store = await renderExplorer();
       await openMenuOf(rng);
+      expect(screen.queryByRole("menuitem", { name: "Unpin" })).toBeNull();
       fireEvent.click(await menuItem("Pin"));
       await waitFor(() =>
         expect(selectRange(store.getState(), rng.key)?.variant).toBe("persisted"),
       );
+      fireEvent.contextMenu(itemOf(rng.name));
+      fireEvent.click(await menuItem("Unpin"));
+      await waitFor(() =>
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
+      );
     });
 
-    it("should open the create modal for a child range", async () => {
-      const rng = await createRange(uniqueRangeName("parent"));
+    it("should open the create modal under the range on Start child range", async () => {
+      const parent = await createRange(uniqueRangeName("parent"));
       await renderExplorer();
-      await openMenuOf(rng);
+      await openMenuOf(parent);
       fireEvent.click(await menuItem("Start child range"));
-      expect(await screen.findByText("Save locally")).toBeTruthy();
+      const name = await screen.findByLabelText("Range name");
+      const modal = name.closest<HTMLElement>(".console-range-create-layout");
+      if (modal == null) throw new Error("create modal not found");
+      // The parent select of the modal names the range.
+      await within(modal).findByText(parent.name);
     });
 
     it("should delete the range after the confirm", async () => {
@@ -346,12 +415,41 @@ describe("range/explorer/Explorer", () => {
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(() =>
-        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
+        expect(screen.queryByRole("listitem", { name: rng.name })).toBeNull(),
       );
+      expect(selectRange(store.getState(), rng.key)).toBeUndefined();
       await waitFor(
         async () =>
           await expect(client.ranges.retrieve(rng.key)).rejects.toThrow(NotFoundError),
       );
+    });
+  });
+
+  describe("timeline", () => {
+    it("should leave a range with no start out of the default window", async () => {
+      const token = uniqueToken();
+      await createPlanned(`${token} planned`);
+      const running = await createRange(`${token} running`);
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      // The search keeps the ranges that other specs start years ahead off the axis.
+      await search(token);
+      await findItem(running.name);
+      // A window that reached the unset start would mark years on its axis.
+      expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
+    });
+
+    it("should offer Fit all once a zoom or Now moves the window", async () => {
+      const rng = await createRange(uniqueRangeName("running"));
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      await findItem(rng.name);
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(screen.getByRole("button", { name: "Fit all" }));
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Now" }));
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
     });
   });
 

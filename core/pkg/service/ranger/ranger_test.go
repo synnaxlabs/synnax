@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -67,21 +68,27 @@ var _ = Describe("Ranger", func() {
 			leaf = ranger.Range{Name: "Leaf", TimeRange: tr}
 			Expect(w.Create(ctx, &leaf)).To(Succeed())
 		})
-		hasChildren := func(ctx SpecContext, snap gorp.Snapshot) map[string]bool {
+		all := func(ranger.Key) bool { return true }
+		// withChildren returns the names of the ranges that Derive marks.
+		withChildren := func(
+			ctx SpecContext,
+			snap gorp.Snapshot,
+			visible func(ranger.Key) bool,
+		) set.Set[string] {
 			GinkgoHelper()
 			ranges := []ranger.Range{parent, child, leaf}
-			Expect(svc.Derive(ctx, snap, ranges)).To(Succeed())
-			return lo.SliceToMap(ranges, func(r ranger.Range) (string, bool) {
-				return r.Name, r.HasChildren
-			})
+			Expect(svc.Derive(ctx, snap, ranges, visible)).To(Succeed())
+			names := make(set.Set[string])
+			for _, r := range ranges {
+				if r.HasChildren {
+					names.Add(r.Name)
+				}
+			}
+			return names
 		}
 
 		It("Should mark the ranges that have nested ranges", func(ctx SpecContext) {
-			Expect(hasChildren(ctx, tx)).To(Equal(map[string]bool{
-				"Parent": true,
-				"Child":  false,
-				"Leaf":   false,
-			}))
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Parent")))
 		})
 
 		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
@@ -89,11 +96,21 @@ var _ = Describe("Ranger", func() {
 				Path:  []string{"parent"},
 				Value: leaf.Key,
 			}))).To(Succeed())
-			Expect(hasChildren(ctx, tx)).To(Equal(map[string]bool{
-				"Parent": false,
-				"Child":  false,
-				"Leaf":   true,
-			}))
+			Expect(withChildren(ctx, tx, all)).To(Equal(set.New("Leaf")))
+		})
+
+		It("Should count only the nested ranges that visible accepts", func(
+			ctx SpecContext,
+		) {
+			hidden := func(k ranger.Key) bool { return k != child.Key }
+			Expect(withChildren(ctx, tx, hidden)).To(BeEmpty())
+			sibling := ranger.Range{
+				Name:      "Sibling",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				Parent:    &parent.Key,
+			}
+			Expect(w.Create(ctx, &sibling)).To(Succeed())
+			Expect(withChildren(ctx, tx, hidden)).To(Equal(set.New("Parent")))
 		})
 
 		It("Should not store the derived field", func(ctx SpecContext) {

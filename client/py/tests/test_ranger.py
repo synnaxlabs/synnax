@@ -709,6 +709,19 @@ class TestRangeClient:
             child_names = {child.name for child in children}
             assert child_names == {"child1", "child2"}
 
+        def test_has_children(self, client: sy.Synnax) -> None:
+            """Should mark a retrieved range that has a child range"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            child = parent_rng.create_child_range(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            )
+            assert client.ranges.retrieve(key=parent_rng.key).has_children
+            assert not client.ranges.retrieve(key=child.key).has_children
+
         def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax) -> None:
             """Client.create(parent=range) should attach the child under the parent"""
             parent_rng = client.ranges.create(

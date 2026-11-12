@@ -93,6 +93,22 @@ describe("Label.Filter.Chips", () => {
     await waitFor(() => expect(screen.getByText("3 labels")).toBeTruthy());
   });
 
+  it("should name only the labels that still exist", async () => {
+    const [kept, deleted] = await createLabels(2);
+    await client.labels.delete(deleted.key);
+    await renderFixture([kept.key, deleted.key]);
+    await waitFor(() => expect(screen.getByText(kept.name)).toBeTruthy());
+    expect(screen.getByText("has")).toBeTruthy();
+  });
+
+  it("should count no labels when every label is deleted", async () => {
+    const [deleted] = await createLabels(1);
+    await client.labels.delete(deleted.key);
+    await renderFixture([deleted.key]);
+    await waitFor(() => expect(screen.getByText("0 labels")).toBeTruthy());
+    expect(screen.getByText("has any of")).toBeTruthy();
+  });
+
   it("should drop the labels line when the chip is removed", async () => {
     const [first, second] = await createLabels(2);
     await renderFixture([first.key, second.key]);

@@ -491,7 +491,8 @@ type Where struct {
 	Labeled *bool `protobuf:"varint,10,opt,name=labeled,proto3,oneof" json:"labeled,omitempty"`
 	// stages matches ranges in any of the given stages at the Core's clock.
 	Stages *StageList `protobuf:"bytes,11,opt,name=stages,proto3" json:"stages,omitempty"`
-	// recent matches ranges that overlap the given span of time that ends now.
+	// recent matches ranges that overlap the span ending now, or starting now if
+	// negative.
 	Recent        *int64 `protobuf:"varint,12,opt,name=recent,proto3,oneof" json:"recent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

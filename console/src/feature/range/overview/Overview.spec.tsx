@@ -23,9 +23,9 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { type Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
@@ -99,20 +99,44 @@ const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
   });
 };
 
-/** Creates a schematic snapshot that the range owns. */
-const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> => {
+/** Creates the count of schematic snapshots that the range owns. */
+const createDocuments = async (
+  rng: ranger.Range,
+  count: number,
+): Promise<schematic.Schematic[]> => {
   const proj = await client.projects.create({ name: uniqueName("proj") });
   const sch = await client.schematics.create({
     project: proj.key,
     name: uniqueName("sch"),
   });
-  return await client.schematics.copy({
-    key: sch.key,
-    name: uniqueName("snap"),
-    snapshot: true,
-    range: rng.key,
-  });
+  return await Promise.all(
+    Array.from(
+      { length: count },
+      async () =>
+        await client.schematics.copy({
+          key: sch.key,
+          name: uniqueName("snap"),
+          snapshot: true,
+          range: rng.key,
+        }),
+    ),
+  );
 };
+
+/** Creates a schematic snapshot that the range owns. */
+const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =>
+  (await createDocuments(rng, 1))[0];
+
+/** Creates a range under the parent that starts at the start and runs one second. */
+const createChildAt = async (
+  parent: ranger.Range,
+  start: TimeStamp,
+): Promise<ranger.Range> =>
+  await client.ranges.create({
+    name: uniqueRangeName("child"),
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
+    parent: parent.key,
+  });
 
 describe("range/overview", () => {
   describe("header", () => {
@@ -160,30 +184,49 @@ describe("range/overview", () => {
       );
     });
 
-    it("should copy Python code that retrieves the range", async () => {
+    it("should show the ranges above as crumbs and open one on click", async () => {
+      const top = await createTestRange(client);
+      const parent = await createChild(top);
+      const rng = await createChild(parent);
+      const { store } = await renderOverview(rng.key);
+      await screen.findByRole("button", { name: parent.name });
+      const crumbs = screen
+        .getAllByRole("button")
+        .filter((el) => [top.name, parent.name].includes(el.textContent ?? ""));
+      expect(crumbs.map((el) => el.textContent)).toEqual([top.name, parent.name]);
+      fireEvent.click(screen.getByRole("button", { name: parent.name }));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) => t.variant === "resource" && t.resource.key === parent.key,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(parent.key));
+    });
+
+    it("should copy Python and TypeScript code that retrieves the range", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
       fireEvent.click(await screen.findByRole("button", { name: "Copy Python code" }));
       await waitFor(() =>
-        expect(writeText).toHaveBeenCalledWith(
+        expect(writeText).toHaveBeenLastCalledWith(
           `rng = client.ranges.retrieve(key="${rng.key}")`,
+        ),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Copy TypeScript code" }));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `const rng = await client.ranges.retrieve("${rng.key}");`,
         ),
       );
     });
 
-    it("should copy TypeScript code that retrieves the range", async () => {
-      const writeText = stubClipboardWriteText();
+    it("should open the CSV download for the range", async () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
-      fireEvent.click(
-        await screen.findByRole("button", { name: "Copy TypeScript code" }),
-      );
-      await waitFor(() =>
-        expect(writeText).toHaveBeenCalledWith(
-          `const rng = await client.ranges.retrieve("${rng.key}");`,
-        ),
-      );
+      fireEvent.click(await screen.findByRole("button", { name: "Download as CSV" }));
+      await screen.findByText(`Download data for ${rng.name} as CSV`);
     });
   });
 
@@ -249,7 +292,9 @@ describe("range/overview", () => {
       fireEvent.change(alias, { target: { value: "thrust" } });
       fireEvent.keyDown(alias, { key: "Enter" });
       await screen.findByDisplayValue("thrust");
-      expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" });
+      await waitFor(async () =>
+        expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" }),
+      );
     });
 
     it("should note an alias that the parent range sets as inherited", async () => {
@@ -276,6 +321,15 @@ describe("range/overview", () => {
       );
       if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
       expect(tab.resource).toEqual(schematic.resourceID(doc.key));
+    });
+
+    it("should read the documents past the first page on Show more", async () => {
+      const rng = await createTestRange(client);
+      const docs = await createDocuments(rng, 51);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Show more" }));
+      await waitFor(() => docs.forEach(({ name }) => screen.getByText(name)));
+      expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
     });
 
     it("should delete a document after the confirm", async () => {
@@ -318,6 +372,40 @@ describe("range/overview", () => {
       await createChild(parent);
       await waitFor(() => expect(caret(leaf)).not.toBeNull());
       expect(caret(parent)).not.toBeNull();
+    });
+
+    it("should show the children of a range that has not started on a timeline", async () => {
+      const now = TimeStamp.now();
+      const parent = await client.ranges.create({
+        name: uniqueRangeName("planned"),
+        timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
+      });
+      // A range that has not started sorts above every other in the explorer.
+      onTestFinished(async () => await client.ranges.delete(parent.key));
+      const child = await createChildAt(parent, now);
+      await renderOverview(parent.key, createTestClient());
+      await screen.findByRole("listitem", { name: child.name });
+      expect(screen.getByRole("button", { name: "Now" })).toBeTruthy();
+    });
+
+    it("should list the children of an open child newest first in the tree", async () => {
+      const end = TimeStamp.now();
+      const parent = await client.ranges.create({
+        name: uniqueRangeName("campaign"),
+        timeRange: new TimeRange(end.sub(TimeSpan.days(2)), end),
+      });
+      const child = await createChildAt(parent, end.sub(TimeSpan.hours(2)));
+      const older = await createChildAt(child, end.sub(TimeSpan.hours(2)));
+      const newer = await createChildAt(child, end.sub(TimeSpan.hours(1)));
+      // A fresh client reads that the parent has children.
+      await renderOverview(parent.key, createTestClient());
+      const item = await screen.findByRole("listitem", { name: child.name });
+      fireEvent.click(await within(item).findByRole("button", { name: "Expand" }));
+      await screen.findByRole("listitem", { name: older.name });
+      const names = screen
+        .getAllByRole("listitem")
+        .map((el) => el.getAttribute("aria-label"));
+      expect(names).toEqual([child.name, newer.name, older.name]);
     });
   });
 

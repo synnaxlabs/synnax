@@ -70,10 +70,7 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
   pageSize?: number;
   /** How many records the list reads at first. Defaults to `pageSize`. */
   initialSize?: number;
-  /**
-   * Reads the first page as the list mounts, and never a later one: `more` does
-   * nothing. For a list that shows one page at most.
-   */
+  /** Reads the first page as the list mounts, instead of on the first `more`. */
   eager?: boolean;
   /** How long a search term waits before the list reads it. */
   searchDebounce?: CrudeTimeSpan;
@@ -113,7 +110,7 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
   search: (term: string) => void;
   /**
    * The search term that data answers. It trails the term given to search until the
-   * list reads that term.
+   * list reads that term. Empty while the list has no answer.
    */
   searchTerm: string;
 };
@@ -191,7 +188,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   // Set only while a new query shows the last answer.
   const shown = list == null || current != null ? undefined : last;
   const window = current ?? shown?.window;
-  const searchTerm = shown?.searchTerm ?? term;
+  const searchTerm = window == null ? "" : (shown?.searchTerm ?? term);
   const reading = useRef<object | null>(null);
 
   const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
@@ -221,7 +218,6 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   }, [list, started]);
 
   const more = () => {
-    if (eager) return;
     if (!started) return setStarted(true);
     if (list == null || reading.current != null) return;
     // A failed first read leaves no window, so the first page reads again.

@@ -15,7 +15,10 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
-/** The search field of a frame, which holds the term. */
+/**
+ * The search field of a frame, which holds the term. It saves nothing, so every reader
+ * gets it.
+ */
 export const Search = (): ReactElement => {
   const { resourceType, searchTerm, setSearchTerm } = useContext("View.Search");
   return (

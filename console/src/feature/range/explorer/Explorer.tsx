@@ -12,12 +12,13 @@ import "@/feature/range/explorer/Explorer.css";
 import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { binary, location } from "@synnaxlabs/x";
+import { binary, location, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Chips, isEmpty, MenuItems } from "@/feature/range/explorer/Filter";
@@ -81,6 +82,10 @@ const NO_RANGES = <NoRanges />;
 
 const LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 
+const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+const NO_MORE = (): void => {};
+
 /** @returns whether a tree shows only the first matches, so that it holds still. */
 const isCapped = (
   term: string,
@@ -112,10 +117,13 @@ const useViewField = <F extends "sort" | "layout">(
 const Internal = (): ReactElement => {
   const { getInitialView, searchTerm, editable } = View.useContext();
   const [where, setWhere] = useState(() => getInitialView().where);
+  // The term that the list reads. The query follows it, so the list never reads a
+  // search page without the term, or the term without a search page.
+  const [term, setTerm] = useState("");
   const [sort, setSort] = useViewField("sort");
   const [layout, setLayout] = useViewField("layout");
   const flat = layout === "list";
-  const searching = isCapped(searchTerm, where, flat);
+  const searching = isCapped(term, where, flat);
   const scoped: ranger.Where | undefined =
     flat || searching
       ? where
@@ -126,9 +134,17 @@ const Internal = (): ReactElement => {
     name: "ranges",
     query: { where: scoped, order: Tree.ORDERS[sort] },
     initialSize: searching ? MATCH_LIMIT + 1 : undefined,
-    // A search in a tree reads its first page only.
     eager: searching,
+    searchDebounce: 0,
   });
+  const handleSearch = useDebouncedCallback(
+    (next: string) => {
+      setTerm(next);
+      root.search(next);
+    },
+    SEARCH_DEBOUNCE,
+    [root.search],
+  );
   // The list shows its last answer until a new search lands, so the tree follows the
   // term that the shown ranges answer.
   const capped = isCapped(root.searchTerm, where, flat);
@@ -176,8 +192,9 @@ const Internal = (): ReactElement => {
       getItem={root.getItem}
       subscribe={root.subscribe}
       answered={answered}
-      more={root.more}
-      search={root.search}
+      // A search in a tree reads its first page only.
+      more={searching ? NO_MORE : root.more}
+      search={handleSearch}
       onWhereChange={setWhere}
       itemHeight={Tree.itemHeight(layout)}
     >

@@ -12,6 +12,7 @@ import {
   DataType,
   id,
   math,
+  sleep,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -26,6 +27,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdFirstResponse,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -272,6 +274,36 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved.map((r) => r.key)).toContain(range.key);
     });
+    it("should page ranges by end time", async () => {
+      const parent = await client.ranges.create({
+        name: "End Order Parent",
+        timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(100)),
+      });
+      const child = async (start: number, end: number) =>
+        await client.ranges.create({
+          name: `${start}-${end}`,
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+          parent: parent.key,
+        });
+      const late = await child(1, 50);
+      const early = await child(20, 25);
+      const middle = await child(30, 35);
+      const order: ranger.Order = { field: "time_range_end", descending: false };
+      const first = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        limit: 2,
+      });
+      expect(first.map((r) => r.key)).toEqual([early.key, middle.key]);
+      const last = first[1];
+      const rest = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        after: { key: last.key, timeRangeEnd: last.timeRange.end },
+      });
+      expect(rest.map((r) => r.key)).toEqual([late.key]);
+    });
+
     it("should retrieve ranges by search term", async () => {
       const prefix = `searchable-range-${id.create()}`;
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
@@ -1255,6 +1287,30 @@ describe("cached reads", () => {
         await expect
           .poll(() => client.ranges.resolvedAliases.watch(child.key).getCached())
           .toEqual({ [ch.key]: "far" });
+      } finally {
+        off();
+      }
+    });
+
+    it("should keep the newer aliases when an older read lands late", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const watched = local.ranges.resolvedAliases.watch(rng.key);
+      const off = watched.onChange(vi.fn());
+      try {
+        expect(await local.ranges.resolvedAliases.retrieve(rng.key)).toEqual({});
+        const { responded, release } = holdFirstResponse(local, "/range/alias/list");
+        await rng.setAlias(ch.key, "old");
+        await responded;
+        await rng.setAlias(ch.key, "new");
+        await expect.poll(() => watched.getCached()).toEqual({ [ch.key]: "new" });
+        release();
+        // A timer runs only after the late answer's microtasks.
+        await sleep.sleep(TimeSpan.ZERO);
+        expect(watched.getCached()).toEqual({ [ch.key]: "new" });
       } finally {
         off();
       }

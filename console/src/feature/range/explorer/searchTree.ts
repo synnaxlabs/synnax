@@ -65,8 +65,11 @@ const place = (
   matches.forEach(visit);
   const records = new Map(getItem([...placed]).map((r) => [r.key, r]));
   const compareRanges = compareBy(order);
+  // The last answer can name ranges deleted since it landed.
   const sort = (keys: ranger.Key[]) =>
-    keys.toSorted((a, b) => compareRanges(records.get(a)!, records.get(b)!));
+    keys
+      .filter((key) => records.has(key))
+      .toSorted((a, b) => compareRanges(records.get(a)!, records.get(b)!));
   children.forEach((keys, key) => children.set(key, sort(keys)));
   const matched = new Set(matches);
   return {

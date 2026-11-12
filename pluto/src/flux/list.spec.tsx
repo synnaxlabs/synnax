@@ -356,6 +356,26 @@ describe("useList", () => {
     expect(result.current.searchTerm).toEqual(name);
   });
 
+  it("should report no search term before its first answer", async () => {
+    const name = randomWord();
+    const match = await create(name);
+    await waitForIndex(name);
+    const local = createTestClient();
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, { name: "ranges", query: byName(), searchDebounce: 0 }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    const { responded, release } = holdResponses(local, "/range/retrieve");
+    act(() => result.current.search(name));
+    await responded;
+    expect(result.current.answered).toBe(false);
+    expect(result.current.searchTerm).toEqual("");
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([match.key]));
+    expect(result.current.searchTerm).toEqual(name);
+  });
+
   it("should hide the records the filter rejects", async () => {
     await create("a");
     const b = await create("b");
@@ -409,10 +429,10 @@ describe("useList", () => {
     expect(result.current.data).toEqual([]);
   });
 
-  it("should read the first page of an eager list as it mounts, and no other", async () => {
+  it("should read the first page of an eager list as it mounts", async () => {
     const a = await create("a");
     const b = await create("b");
-    await create("c");
+    const c = await create("c");
     const { result } = renderHook(
       () =>
         Flux.useList(ranges, {
@@ -424,10 +444,9 @@ describe("useList", () => {
       { wrapper },
     );
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
-    act(() => result.current.more());
-    await act(async () => await sleep.sleep(TimeSpan.milliseconds(50)));
-    expect(result.current.data).toEqual([a.key, b.key]);
     expect(result.current.complete).toBe(false);
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
   });
 
   it("should start the list on a search", async () => {
@@ -466,6 +485,7 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.variant).toEqual("error"));
     expect(result.current.data).toEqual([]);
     expect(result.current.answered).toBe(false);
+    expect(result.current.searchTerm).toEqual("");
     act(() => result.current.more());
     expect(result.current.variant).toEqual("loading");
     expect(result.current.data).toEqual([]);

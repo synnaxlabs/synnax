@@ -21,13 +21,16 @@ import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 
 /**
- * A range longer than a day, such as a campaign, holds many children, so it lists them
- * newest first. A shorter one shows its children, such as phases, on a timeline.
+ * A range that has run longer than a day, such as a campaign, holds many children, so
+ * it lists them newest first. A shorter one shows its children, such as phases, on a
+ * timeline.
  */
 const defaultLayout = (range: ranger.Range, now: TimeStamp): view.RangeLayout => {
   const { start, end } = range.timeRange.makeValid();
-  const span = start.span(end.before(now) ? end : now);
-  return span.greaterThan(TimeSpan.DAY) ? "tree" : "timeline";
+  const ran = start.after(now)
+    ? TimeSpan.ZERO
+    : start.span(end.before(now) ? end : now);
+  return ran.greaterThan(TimeSpan.DAY) ? "tree" : "timeline";
 };
 
 /** A tree shows the newest child first, and a timeline shows its lanes in order. */
@@ -45,9 +48,10 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
   const openedAt = useNow(() => null);
   const [chosenLayout, setLayout] = useState<view.RangeLayout | null>(null);
   const layout = chosenLayout ?? defaultLayout(range, openedAt);
+  const order = childOrder(layout);
   const list = Flux.useList((client) => client.ranges, {
     name: "ranges",
-    query: Tree.childrenQuery(range.key, childOrder(layout)),
+    query: Tree.childrenQuery(range.key, order),
     pageSize: 100,
   });
   const children = Store.useItems({
@@ -58,7 +62,7 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
   const caretless = children.every((child) => !child.hasChildren);
   const [expanded, toggle] = Tree.useExpanded();
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const tree = Tree.use({ roots: list.data, expanded });
+  const tree = Tree.use({ roots: list.data, expanded, order });
   return (
     <Section
       title="Child ranges"

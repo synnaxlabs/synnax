@@ -155,12 +155,14 @@ class RangeLifecycle(ConsoleCase):
 
     def test_create_range_with_parent(self) -> None:
         """Test creating a range with a parent range."""
+        assert self.staged_range_name is not None
         self.log("Testing: Create range with parent")
         self.child_range_name = f"ChildRange_{self.rand_suffix}"
         self.console.ranges.create(
             self.child_range_name, persisted=True, parent=self.staged_range_name
         )
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.child_range_name), (
             "Child range should exist in explorer"
         )
@@ -633,6 +635,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.create_child_range(self.new_child_range_name)
 
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.new_child_range_name), (
             "New child range should appear in explorer"
         )
