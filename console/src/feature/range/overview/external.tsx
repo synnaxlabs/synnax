@@ -16,7 +16,10 @@ import { Panel } from "@/platform/panel";
 
 const TAB: Panel.Tab = {
   Content: FLAGS.ranges
-    ? Panel.lazyComponent(() => import("@/feature/range/next/Overview"), "Overview")
+    ? Panel.lazyComponent(
+        () => import("@/feature/range/next/overview/Overview"),
+        "Overview",
+      )
     : Panel.lazyComponent(
         () => import("@/feature/range/overview/Overview"),
         "Overview",
