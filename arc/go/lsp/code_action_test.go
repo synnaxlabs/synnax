@@ -11,6 +11,7 @@ package lsp_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -105,7 +107,9 @@ var _ = Describe("CodeAction", func() {
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(3))
 			for _, d := range diags {
-				Expect(DiagnosticCode(d)).To(Equal(string(codes.DeclarationAfterStep)))
+				Expect(
+					DiagnosticCode(d),
+				).To(Equal(string(codes.DeclarationAfterStep.Code)))
 			}
 			actions := asCodeActions(
 				MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
@@ -176,6 +180,92 @@ var _ = Describe("CodeAction", func() {
 		})
 	})
 
+	Describe("Numeric condition quick fix", func() {
+		const (
+			transition = "sequence main {\n    stage a { %s => next }\n    stage b {}\n}\n"
+			ifStmt     = "func f(x i64) i64 {\n    if %s { return 1 }\n    return 0\n}\n"
+			elseIfStmt = "func f(x i64) i64 {\n    if false { return 1 } " +
+				"else if %s { return 2 }\n    return 0\n}\n"
+		)
+
+		BeforeEach(func() {
+			server, uri, client = SetupTestServerWithClient(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+						Name: "gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					}))
+				},
+			})
+		})
+
+		DescribeTable(
+			"should make the condition a bool",
+			func(ctx SpecContext, format, numeric, fixed string) {
+				content := fmt.Sprintf(format, numeric)
+				OpenArcDocument(server, ctx, uri, content)
+				actions := asCodeActions(MustSucceed(
+					server.CodeAction(ctx, codeActionParams(client.Diagnostics())),
+				))
+				Expect(actions).To(HaveLen(1))
+				action := actions[0]
+				Expect(action.Title).To(Equal(fmt.Sprintf("Change to `%s`", fixed)))
+				Expect(
+					action.Kind,
+				).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+				Expect(action.IsPreferred).To(HaveValue(BeTrue()))
+				Expect(action.Diagnostics).To(HaveLen(1))
+				Expect(DiagnosticCode(action.Diagnostics[0])).
+					To(Equal(string(codes.TruthyCondition.Code)))
+				edits := action.Edit.Changes[uri]
+				Expect(edits).To(HaveLen(1))
+				Expect(xlsp.ApplyIncrementalChange(
+					content,
+					&protocol.TextDocumentContentChangePartial{
+						Range: edits[0].Range,
+						Text:  edits[0].NewText,
+					},
+				)).To(Equal(fmt.Sprintf(format, fixed)))
+			},
+			Entry("a nonzero integer transition", transition, "1", "true"),
+			Entry("a zero integer transition", transition, "0", "false"),
+			Entry("a zero float transition", transition, "0.0", "false"),
+			Entry("a unit literal transition", transition, "5s", "true"),
+			Entry("a string transition", transition, `"hello"`, "true"),
+			Entry("an empty string transition", transition, `""`, "false"),
+			Entry("a channel transition", transition, "gate", "gate != 0"),
+			Entry(
+				"a channel calculation transition",
+				transition,
+				"gate * 2",
+				"gate * 2 != 0",
+			),
+			Entry("a nonzero integer if", ifStmt, "2", "true"),
+			Entry("a negative integer if", ifStmt, "-3", "true"),
+			Entry("a zero integer if", ifStmt, "0", "false"),
+			Entry("a variable if", ifStmt, "x", "x != 0"),
+			Entry("a calculation if", ifStmt, "x + 1", "x + 1 != 0"),
+			Entry("a nonzero integer else if", elseIfStmt, "4", "true"),
+			Entry("a variable else if", elseIfStmt, "x", "x != 0"),
+		)
+
+		It(
+			"should return no action for a warning at another range",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, uri, fmt.Sprintf(transition, "1"))
+				diags := client.Diagnostics()
+				Expect(diags).To(HaveLen(1))
+				diags[0].Range.End.Character++
+				actions := asCodeActions(
+					MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+				)
+				Expect(actions).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("Unused import quick fix", func() {
 		It(
 			"should delete the whole statement when it imports a single module",
@@ -185,7 +275,9 @@ var _ = Describe("CodeAction", func() {
 
 				diags := client.Diagnostics()
 				Expect(diags).To(HaveLen(1))
-				Expect(DiagnosticCode(diags[0])).To(Equal(string(codes.UnusedImport)))
+				Expect(
+					DiagnosticCode(diags[0]),
+				).To(Equal(string(codes.UnusedImport.Code)))
 
 				actions := asCodeActions(
 					MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
@@ -222,7 +314,7 @@ var _ = Describe("CodeAction", func() {
 				diags := client.Diagnostics()
 				Expect(diags).To(HaveLen(2))
 				for _, d := range diags {
-					Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport)))
+					Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport.Code)))
 				}
 
 				actions := asCodeActions(
@@ -261,7 +353,7 @@ var _ = Describe("CodeAction", func() {
 				diags := client.Diagnostics()
 				Expect(diags).To(HaveLen(3))
 				for _, d := range diags {
-					Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport)))
+					Expect(DiagnosticCode(d)).To(Equal(string(codes.UnusedImport.Code)))
 				}
 
 				actions := asCodeActions(
@@ -361,7 +453,7 @@ var _ = Describe("CodeAction", func() {
 
 				diags := filterByCode(
 					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
+					string(codes.DeprecatedSymbol.Code),
 				)
 				Expect(diags).ToNot(BeEmpty())
 
@@ -406,7 +498,7 @@ var _ = Describe("CodeAction", func() {
 
 				diags := filterByCode(
 					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
+					string(codes.DeprecatedSymbol.Code),
 				)
 				Expect(diags).ToNot(BeEmpty())
 
@@ -429,7 +521,7 @@ var _ = Describe("CodeAction", func() {
 
 				diags := filterByCode(
 					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
+					string(codes.DeprecatedSymbol.Code),
 				)
 				Expect(diags).ToNot(BeEmpty())
 
@@ -453,7 +545,7 @@ var _ = Describe("CodeAction", func() {
 
 				deprecated := filterByCode(
 					client.Diagnostics(),
-					string(codes.DeprecatedSymbol),
+					string(codes.DeprecatedSymbol.Code),
 				)
 				Expect(deprecated).To(BeEmpty())
 			},

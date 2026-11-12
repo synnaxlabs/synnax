@@ -83,11 +83,7 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 		if child.Used || child.Target == nil {
 			continue
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			child.AST,
-			"imported module %q is unused",
-			child.Name,
-		).WithCode(codes.UnusedImport))
+		ctx.Diagnostics.Add(codes.UnusedImport.At(child.AST, child.Name))
 	}
 }
 

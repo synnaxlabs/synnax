@@ -13,6 +13,7 @@ package expression
 
 import (
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -372,14 +373,9 @@ func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 		if op == "!=" {
 			check = "not " + check
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"%s with %s is always %t, use %s instead",
-			op,
-			qid.GetText(),
-			op == "!=",
-			check,
-		).WithCode(codes.NaNComparison))
+		ctx.Diagnostics.Add(
+			codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check),
+		)
 		return
 	}
 }
@@ -881,4 +877,49 @@ func isValidCast(source, target basetypes.Type) bool {
 	}
 	return (source.IsNumeric() || source.Kind == basetypes.KindBool) &&
 		target.IsNumeric()
+}
+
+// TruthyCondition returns the warning for a non-boolean condition of type t, and false
+// for a bool. expr is nil when the condition is not an expression.
+func TruthyCondition(
+	condition antlr.ParserRuleContext,
+	expr parser.IExpressionContext,
+	t basetypes.Type,
+) (d diagnostics.Diagnostic, ok bool) {
+	zero := "0"
+	if t.Unwrap().Kind == basetypes.KindString {
+		zero = `""`
+	} else if !t.IsNumeric() {
+		return d, false
+	}
+	fix, known := literalTruth(expr)
+	if !known {
+		start, stop := condition.GetStart(), condition.GetStop()
+		fix = start.GetInputStream().GetText(start.GetStart(), stop.GetStop()) +
+			" != " + zero
+	}
+	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+}
+
+// literalTruth returns the bool that expr always is. ok is false when expr is not a
+// number or string literal with a known value.
+func literalTruth(expr parser.IExpressionContext) (truth string, ok bool) {
+	if expr == nil || !parser.IsLiteral(expr) {
+		return "", false
+	}
+	lit := parser.GetLiteral(expr)
+	if number := lit.NumericLiteral(); number != nil {
+		digits := number.INTEGER_LITERAL()
+		if digits == nil {
+			digits = number.FLOAT_LITERAL()
+		}
+		// A literal that is too large to parse has no known value.
+		value, err := strconv.ParseFloat(digits.GetText(), 64)
+		return strconv.FormatBool(value != 0), err == nil
+	}
+	if str := parser.StringTerminal(lit); str != nil {
+		body, flags, ok := literal.StripQuotes(str.GetText())
+		return strconv.FormatBool(body != ""), ok && !flags.Format
+	}
+	return "", false
 }

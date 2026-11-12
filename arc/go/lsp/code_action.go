@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/diagnostics"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -32,17 +33,17 @@ import (
 // with DidChange and runAnalysis, which write doc.Content and doc.IR under
 // s.mu.Lock.
 type codeActionSnapshot struct {
-	URI     uri.URI
-	Content string
-	Symbols *symbol.Symbol
-	Tokens  []antlr.Token
-	IsBlock bool
+	URI         uri.URI
+	Content     string
+	Symbols     *symbol.Symbol
+	Diagnostics diagnostics.Diagnostics
+	Tokens      []antlr.Token
+	IsBlock     bool
 }
 
-// CodeAction returns quick-fix actions for the diagnostics that intersect
-// the requested range. Actions are matched by diagnostic code, so analyzer
-// passes that want to expose a fix should tag their diagnostic with a
-// stable codes.ErrorCode and add a case in the dispatch below.
+// CodeAction returns quick-fix actions for the diagnostics that intersect the requested
+// range. A fix that the analyzer attached with WithFix needs no code here. A fix that
+// needs the state of the server takes a case for its code in the dispatch below.
 func (s *Server) CodeAction(
 	ctx context.Context,
 	params *protocol.CodeActionParams,
@@ -54,14 +55,16 @@ func (s *Server) CodeAction(
 	s.mu.RLock()
 	content := doc.Content
 	symbols := doc.IR.Symbols
+	analyzed := doc.Diagnostics
 	isBlock := doc.isBlock()
 	s.mu.RUnlock()
 	snap := codeActionSnapshot{
-		URI:     doc.URI,
-		Content: content,
-		Symbols: symbols,
-		Tokens:  tokenizeContent(content),
-		IsBlock: isBlock,
+		URI:         doc.URI,
+		Content:     content,
+		Symbols:     symbols,
+		Diagnostics: analyzed,
+		Tokens:      tokenizeContent(content),
+		IsBlock:     isBlock,
 	}
 	var (
 		actions []protocol.CommandOrCodeAction
@@ -88,15 +91,15 @@ func (s *Server) CodeAction(
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		switch string(code) {
-		case string(codes.UnusedImport):
+		case string(codes.UnusedImport.Code):
 			if action := unusedImportQuickFix(snap, diag); action != nil {
 				actions = append(actions, action)
 			}
-		case string(codes.DeprecatedSymbol):
+		case string(codes.DeprecatedSymbol.Code):
 			if action := deprecatedSymbolQuickFix(ctx, snap, diag); action != nil {
 				actions = append(actions, action)
 			}
-		case string(codes.DeclarationAfterStep):
+		case string(codes.DeclarationAfterStep.Code):
 			// One hoist covers the document, so every such warning shares it.
 			if hoist == nil {
 				hoist = hoistDeclarationsQuickFix(snap)
@@ -105,6 +108,7 @@ func (s *Server) CodeAction(
 				hoist.Diagnostics = append(hoist.Diagnostics, diag)
 			}
 		}
+		actions = append(actions, analyzedQuickFixes(snap, diag, string(code))...)
 		// Missing-import is offered for any diagnostic whose range contains
 		// a leading identifier that names an unimported ambient module.
 		// The handler's own filters (local resolution succeeds, no ambient
@@ -119,6 +123,32 @@ func (s *Server) CodeAction(
 		actions = append(actions, hoist)
 	}
 	return actions, nil
+}
+
+// analyzedQuickFixes builds one action for each fix the analyzer attached to diag.
+func analyzedQuickFixes(
+	snap codeActionSnapshot,
+	diag protocol.Diagnostic,
+	code string,
+) []protocol.CommandOrCodeAction {
+	var actions []protocol.CommandOrCodeAction
+	for _, analyzed := range snap.Diagnostics {
+		if analyzed.Range != diag.Range || string(analyzed.Code) != code {
+			continue
+		}
+		for _, fix := range analyzed.Fixes {
+			actions = append(actions, &protocol.CodeAction{
+				Title:       fix.Title,
+				Kind:        new(protocol.CodeActionKindQuickFix),
+				Diagnostics: []protocol.Diagnostic{diag},
+				IsPreferred: new(len(actions) == 0),
+				Edit: &protocol.WorkspaceEdit{
+					Changes: map[uri.URI][]protocol.TextEdit{snap.URI: fix.Edits},
+				},
+			})
+		}
+	}
+	return actions
 }
 
 // unusedImportQuickFix builds a quick-fix action for an unused-import

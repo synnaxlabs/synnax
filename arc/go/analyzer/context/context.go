@@ -237,12 +237,9 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
 	}
-	c.Diagnostics.Add(diagnostics.Warningf(
-		c.AST,
-		"'%s' is deprecated, use '%s' instead",
-		name,
-		sym.Deprecated.QualifiedName(),
-	).WithCode(codes.DeprecatedSymbol))
+	c.Diagnostics.Add(
+		codes.DeprecatedSymbol.At(c.AST, name, sym.Deprecated.QualifiedName()),
+	)
 }
 
 // ScopedKey returns a name for node that is unique across a program. A graph parses

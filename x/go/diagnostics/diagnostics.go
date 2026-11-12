@@ -58,6 +58,14 @@ type HintProvider interface {
 	GetHint() string
 }
 
+// Fix is a change to the source that resolves a diagnostic.
+type Fix struct {
+	// Title names the change.
+	Title string `json:"title"`
+	// Edits are the replacements that make the change together.
+	Edits []protocol.TextEdit `json:"edits"`
+}
+
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
 	Code     ErrorCode                               `json:"code"`
@@ -65,7 +73,9 @@ type Diagnostic struct {
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
-	cause    error
+	// Fixes each resolve the diagnostic on their own.
+	Fixes []Fix `json:"fixes"`
+	cause error
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.
@@ -151,6 +161,28 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{Message: note})
 	}
+	return d
+}
+
+// WithFix returns a copy of the diagnostic with a fix that changes the code at ctx to
+// newText, and a note that gives the fix.
+func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
+	var at Diagnostic
+	at.SetRange(ctx)
+	start, stop := ctx.GetStart(), ctx.GetStop()
+	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
+		"hint: change `%s` to `%s`",
+		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
+		newText,
+	)}
+	if at.Range != d.Range {
+		note.Location.Range = at.Range
+	}
+	d.Fixes = append(d.Fixes, Fix{
+		Title: fmt.Sprintf("Change to `%s`", newText),
+		Edits: []protocol.TextEdit{{Range: at.Range, NewText: newText}},
+	})
+	d.Notes = append(d.Notes, note)
 	return d
 }
 
