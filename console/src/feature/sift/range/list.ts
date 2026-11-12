@@ -29,7 +29,7 @@ const listResultZ = z.object({ uploads: status.keyZ.array() });
  *
  * @throws if the scan task fails the command.
  */
-export const list = async (
+const list = async (
   client: Synnax,
   range: ranger.Key,
 ): Promise<status.Key[]> => {
