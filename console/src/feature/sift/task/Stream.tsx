@@ -53,6 +53,9 @@ const CHANNEL_QUERY: Channel.ListQuery = {
   where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
 };
 
+// The query keeps calculated channels, which the Core does not store.
+const isStored = (ch: channel.Channel): boolean => !ch.isCalculated;
+
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to send",
 };
@@ -92,11 +95,13 @@ const Form: FC = () => (
   <PForm.Sections>
     <PForm.Section title="Data">
       <PForm.Field path={path.config.channels} label="Channels" required>
-        {({ value, onChange }) => (
+        {({ value, onChange, preview }) => (
           <Channel.SelectMultiple
             value={value}
             onChange={onChange}
+            preview={preview}
             query={CHANNEL_QUERY}
+            filter={isStored}
             triggerProps={CHANNEL_TRIGGER_PROPS}
             full="x"
           />
@@ -109,8 +114,13 @@ const Form: FC = () => (
         label="Labels"
         helpText="A range with one of these labels becomes a Sift run."
       >
-        {({ value, onChange }) => (
-          <Label.SelectMultiple value={value} onChange={onChange} full="x" />
+        {({ value, onChange, preview }) => (
+          <Label.SelectMultiple
+            value={value}
+            onChange={onChange}
+            preview={preview}
+            full="x"
+          />
         )}
       </PForm.Field>
     </PForm.Section>
