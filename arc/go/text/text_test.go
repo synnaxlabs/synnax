@@ -565,7 +565,6 @@ var _ = Describe("Text", func() {
 				Expect(hasEdge(inter, "scale_0", "var_d_0")).To(BeTrue())
 			},
 			Entry("a flow", "d := 1min\nother := 120s", `other -> d`, "s", "min"),
-			Entry("an assignment", "d := 1min\nother := 120s", `d = other`, "s", "min"),
 			Entry("typed variables",
 				"d i64 ms := 1s\nother i64 min := 2min", `other -> d`, "min", "ms"),
 			Entry(
@@ -609,6 +608,54 @@ var _ = Describe("Text", func() {
 			Entry("a float assigned to an untyped integer",
 				"d := 1min\nother := 90.0s", `d = other`, false),
 			Entry("a literal", "d := 1min", `120s -> d`, false),
+			Entry("a literal that leaves a remainder", "d := 1min", `90s -> d`, true),
+			Entry("an assigned literal that leaves a remainder",
+				"d := 1min", `d = 90s`, true),
+			Entry("a calculation", "d := 1min\nother := 120s", `other * 2 -> d`, true),
+		)
+
+		DescribeTable("Should warn when a value truncates an integer on its way",
+			func(ctx SpecContext, source string, warnings int) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(lo.Filter(
+					*diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitTruncation
+					},
+				)).To(HaveLen(warnings), diagnostics.String())
+			},
+			Entry("a declaration in a function",
+				"func f(x i64 s) i64 min {\ny i64 min := x\nreturn y\n}", 1),
+			Entry("an assignment in a function",
+				"func f(x i64 s) i64 min {\ny i64 min := 0min\ny = x\nreturn y\n}", 1),
+			Entry("a result of a function",
+				"func f(x i64 s) i64 min {\nreturn x\n}", 1),
+			Entry("an argument in a function",
+				"func g(m i64 min) i64 min {\nreturn m\n}\n"+
+					"func f(x i64 s) i64 min {\nreturn g(x)\n}", 1),
+			Entry("a literal with a remainder in a function",
+				"func f() i64 min {\ny i64 min := 90s\nreturn y\n}", 1),
+			Entry("a literal with no remainder in a function",
+				"func f() i64 min {\ny i64 min := 120s\nreturn y\n}", 0),
+			Entry("a float in a function",
+				"func f(x f64 s) f64 min {\nreturn x\n}", 0),
+			Entry("a smaller unit in a function",
+				"func f(x i64 min) i64 s {\nreturn x\n}", 0),
+			Entry("a literal with a remainder as an input",
+				"func hold(x i64 min) i64 min {\nreturn x\n}\n"+
+					"count_ch -> hold(x=90s) -> count_ch", 1),
+			Entry("a constant with a remainder as an input",
+				"d := 1500us\nfunc hold(x i64 ms) i64 ms {\nreturn x\n}\n"+
+					"count_ch -> hold(x=d) -> count_ch", 1),
+			Entry("a calculation as an input",
+				"d := 90s\nfunc hold(x i64 min) i64 min {\nreturn x\n}\n"+
+					"count_ch -> hold(x=d * 2) -> count_ch", 1),
 		)
 
 		DescribeTable(
@@ -631,8 +678,8 @@ var _ = Describe("Text", func() {
 				"b value type float does not match channel a value type integer"),
 		)
 
-		DescribeTable("Should reject a calculation with variables in another unit",
-			func(ctx SpecContext, statement, message string, hints ...string) {
+		DescribeTable("Should accept a calculation with variables in another unit",
+			func(ctx SpecContext, statement string) {
 				source := "import time\nsequence main {\nd := 1min\nt := 120s\n" +
 					"u f64 ms $= 5.0s\nc := t + t\nstage s1 {\n" + statement + "\n}\n}"
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -641,58 +688,19 @@ var _ = Describe("Text", func() {
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				found := lo.Filter(
-					*diagnostics,
-					func(d xdiagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.UnitCalculation
-					},
-				)
-				Expect(found).To(HaveLen(1), diagnostics.String())
-				Expect(found[0].Message).To(Equal(message))
-				Expect(lo.Map(
-					found[0].Notes,
-					func(n protocol.DiagnosticRelatedInformation, _ int) string {
-						return n.Message
-					},
-				)).To(ConsistOf(lo.ToAnySlice(hints)...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			},
-			Entry("an input",
-				`count_ch -> time.wait(t * 2) -> flag_ch`,
-				"'time.wait' cannot take a calculation with 't', which is in s",
-				"hint: change `t := 120s` to `t i64 ns := 120s`"),
-			Entry(
-				"an input with two variables",
-				`count_ch -> time.wait(t * i64(u)) -> flag_ch`,
-				"'time.wait' cannot take a calculation with 't', which is in s, and 'u', "+
-					"which is in ms",
-				"hint: change `t := 120s` to `t i64 ns := 120s`",
-				"hint: change `u f64 ms $= 5.0s` to `u f64 ns $= 5.0s`",
-			),
+			Entry("an input", `count_ch -> time.wait(t * 2) -> flag_ch`),
+			Entry("an input with two variables",
+				`count_ch -> time.wait(t * i64(u)) -> flag_ch`),
 			Entry("a flow into a variable",
-				`t * 60 -> d`,
-				"'d' is in min and cannot take a calculation with 't', which is in s",
-				"hint: change `t := 120s` to `t i64 min := 120s`",
-				"hint: change `d := 1min` to `d i64 s := 1min`"),
+				"t * 60 -> d\ncount_ch -> time.wait(1s) -> flag_ch"),
 			Entry("an assignment",
-				`d = t * 60`,
-				"'d' is in min and cannot take a calculation with 't', which is in s",
-				"hint: change `t := 120s` to `t i64 min := 120s`",
-				"hint: change `d := 1min` to `d i64 s := 1min`"),
+				"d = t * 60\ncount_ch -> time.wait(1s) -> flag_ch"),
 			Entry("a variable that is set from a calculation",
-				`count_ch -> time.wait(c * 2) -> flag_ch`,
-				"'time.wait' cannot take a calculation with 'c', which is in s",
-				"hint: change `t := 120s` to `t i64 ns := 120s`"),
+				`count_ch -> time.wait(c * 2) -> flag_ch`),
 			Entry("a typed declaration",
-				"x i64 ns := t + t\ncount_ch -> time.wait(x) -> flag_ch",
-				"'x' is in ns and cannot take a calculation with 't', which is in s",
-				"hint: change `t := 120s` to `t i64 ns := 120s`",
-				"hint: change `x i64 ns := t + t` to `x i64 s := t + t`"),
-			Entry(
-				"a literal that does not divide into the new unit",
-				"span := 90s\nspan * 60 -> d\ncount_ch -> time.wait(1s) -> flag_ch",
-				"'d' is in min and cannot take a calculation with 'span', which is in s",
-				"hint: change `d := 1min` to `d i64 s := 1min`",
-			),
+				"x i64 ns := t + t\ncount_ch -> time.wait(x) -> flag_ch"),
 		)
 
 		DescribeTable("Should accept a calculation in the unit of its target",
@@ -712,25 +720,6 @@ var _ = Describe("Text", func() {
 				`count_ch -> time.wait(n * 2) -> flag_ch`),
 			Entry("a variable in the unit of the variable written",
 				"d * 2 -> d\ncount_ch -> time.wait(n) -> flag_ch"),
-		)
-
-		DescribeTable(
-			"Should accept a variable in another unit that the target does not take",
-			func(ctx SpecContext, statement string) {
-				source := "import time\nfunc dbl(x i64 s) i64 ms {\nreturn 5ms\n}\n" +
-					"sequence main {\na i64 s := 1s\nb i64 ms := 1ms\nnow i64 s := 1s\n" +
-					"stamp i64 ns := 0ns\nstage s1 {\n" + statement + "\n}\n}"
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
-					ctx,
-					parsedText,
-					NewRoot(nil, varResolver...),
-				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			},
-			Entry("an argument of a call",
-				"b = dbl(a)\ncount_ch -> time.wait(1s) -> flag_ch"),
-			Entry("a member with the name of a variable", `stamp = time.now()`),
 		)
 
 		DescribeTable(
@@ -861,7 +850,6 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring(message))
 			},
-			Entry("a fraction of the unit", `d := 1min`, `20ms`, "fractional part"),
 			Entry("another dimension", `d := 1min`, `5psi`, "incompatible"),
 			Entry("a float into an integer", `d := 5`, `2.5`, "does not match"),
 		)
@@ -877,12 +865,6 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring(message))
 			},
-			Entry("a fractional value in the unit of the input", `
-			d := 1500us
-			func hold(x i64 ms) i64 {
-			    return x
-			}
-			count_ch -> hold(x=d) -> count_ch`, "fractional part"),
 			Entry("another kind", `
 			d := 5s
 			func hold(x f64 ns) f64 {
@@ -974,15 +956,10 @@ var _ = Describe("Text", func() {
 				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
 			)
 			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
-			scale := findNodeByKey(inter.Nodes, duration.Type.Name)
-			Expect(scale.Type).To(HavePrefix(compiler.ScaleSyntheticPrefix))
-			value := MustBeOk(scale.Inputs.Get("value"))
-			arg := findNodeByKey(inter.Nodes, value.Type.Name)
+			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
 			Expect(arg.Type).To(HavePrefix("expression_"))
-			for _, key := range []string{arg.Key, scale.Key} {
-				Expect(hasEdge(inter, nodeReading(inter, 901), key)).To(BeTrue(),
-					"the trigger must fire the computed input")
-			}
+			Expect(hasEdge(inter, nodeReading(inter, 901), arg.Key)).To(BeTrue(),
+				"the trigger must fire the computed input")
 		})
 
 		It(

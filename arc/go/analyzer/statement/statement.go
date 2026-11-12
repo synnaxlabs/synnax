@@ -12,8 +12,6 @@
 package statement
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -304,16 +302,10 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		if expr != nil {
 			exprType := atypes.InferFromExpression(ctx.Child(expr))
 			if exprType.IsValid() && varType.IsValid() {
-				// A variable outside a function body holds its value in its unit.
-				if _, fnErr := ctx.Scope.ClosestAncestorOfKind(
-					symbol.KindFunction,
-				); fnErr != nil && varType.Unit != nil && expression.ReportCalculation(
-					ctx, expr, varType, fmt.Sprintf(
-						"'%s' is in %s and cannot take", name, varType.Unit.Name,
-					), declaredSink(ctx, name, varType, expr),
-				) {
-					return types.Type{}
-				}
+				expression.WarnValueTruncation(
+					ctx, ctx.AST, expr, exprType, varType,
+					declaredSink(ctx, name, varType, expr),
+				)
 				// Check magnitude safety for unit conversions (warnings only)
 				if varType.Unit != nil && exprType.Unit != nil {
 					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
@@ -966,6 +958,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
+			expression.WarnValueTruncation(
+				ctx, ctx.AST, returnExpr, actualReturnType, expectedReturnType, nil,
+			)
 			// If either type is a type variable, add a constraint instead of checking
 			// directly
 			if actualReturnType.Kind == types.KindVariable ||
@@ -1486,24 +1481,13 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	if varScope.Reassigned && varType.Unit != nil && expression.ReportCalculation(
-		ctx, expr, varType,
-		fmt.Sprintf("'%s' is in %s and cannot take", name, varType.Unit.Name),
-		expression.SinkOf(ctx, varScope),
-	) {
-		return
-	}
-	// Lowering converts a variable assigned to a variable of another unit.
-	head, tail := parser.ExpressionNameParts(expr)
-	converted := head != "" && varScope.Reassigned &&
+	// A value assigned to a variable of another unit converts.
+	converted := !parser.IsLiteral(expr) &&
 		types.UnitsConvertible(exprType.Unit, varType.Unit)
-	if converted {
-		if src, srcErr := ctx.Scope.ResolveMember(ctx, head, tail); srcErr == nil {
-			expression.WarnTruncation(
-				ctx, ctx.AST, src, varScope.Type, expression.SinkOf(ctx, varScope),
-			)
-		}
-	} else if varType.Unit != nil && exprType.Unit != nil {
+	expression.WarnValueTruncation(
+		ctx, ctx.AST, expr, exprType, varType, expression.SinkOf(ctx, varScope),
+	)
+	if varType.Unit != nil && exprType.Unit != nil {
 		// Check magnitude safety for unit conversions (warnings only)
 		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
 	}

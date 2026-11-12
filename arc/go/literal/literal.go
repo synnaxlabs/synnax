@@ -27,6 +27,9 @@ type ParsedValue struct {
 	Value any
 	// Type is the Arc type of the value
 	Type types.Type
+	// Truncated is set when a conversion to a larger unit dropped a part of an
+	// integer.
+	Truncated bool
 }
 
 // Parse parses a literal AST node and returns its value and type. It supports numeric
@@ -186,12 +189,17 @@ func parseNumericWithUnit(
 	// A target in a unit takes the literal in that unit. Any other target takes the
 	// number as written.
 	value, valueUnit := numericValue, unit
+	truncated := false
 	if targetType.Unit != nil {
 		factor, err := units.ScaleFactor(unit, targetType.Unit)
 		if err != nil {
 			return ParsedValue{}, err
 		}
 		value, valueUnit = numericValue*factor, targetType.Unit
+		// An integer in a larger unit does not hold a part of that unit.
+		if targetType.IsInteger() && factor < 1 && !IsExactInteger(value) {
+			value, truncated = math.Trunc(value), true
+		}
 	}
 	if !targetType.IsValid() {
 		targetType.Kind = types.KindF64
@@ -199,7 +207,9 @@ func parseNumericWithUnit(
 			targetType.Kind = types.KindI64
 		}
 	}
-	return convertToTargetKind(value, targetType, valueUnit)
+	parsed, err := convertToTargetKind(value, targetType, valueUnit)
+	parsed.Truncated = truncated
+	return parsed, err
 }
 
 // parseIntegerLiteral converts an integer value to the target type.

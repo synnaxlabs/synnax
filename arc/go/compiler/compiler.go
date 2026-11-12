@@ -241,7 +241,12 @@ func compileItem(
 			)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
+		var t types.Type
+		t, err = expression.Compile(ctx.Child(exprCtx))
+		if err == nil && types.UnitsConvertible(t.Unit, results.Unit) {
+			err = expression.EmitCast(ctx, t, results)
+		}
+		if err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
 				"failed to compile expression '%s'",
@@ -278,11 +283,6 @@ func functionScope(fn ir.Function) (*symbol.Symbol, error) {
 		return nil, errors.Newf("function %q has no symbol", fn.Key)
 	}
 	return fn.Symbol, nil
-}
-
-func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
-	_, err := expression.Compile(ctx)
-	return err
 }
 
 // compileFmtStrSynthetic emits a WASM body returning the formatted string

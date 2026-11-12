@@ -17,7 +17,6 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -143,22 +142,13 @@ func checkArgType[T antlr.ParserRuleContext](
 		argType = argType.UnwrapChan()
 	}
 	paramType := param.Type
-	_, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fnErr != nil &&
-		ReportCalculation(ctx, arg.Expr, paramType, "'"+fnName+"' cannot take", nil) {
-		return
-	}
-	// The compiler converts an argument in a function body.
-	if fnErr == nil && types.UnitsConvertible(argType.Unit, paramType.Unit) {
-		argType.Unit, paramType.Unit = nil, nil
-	}
-	if init := convertedInitializer(ctx, arg.Expr, paramType, argType); init != nil {
-		if _, err := literal.ParseConst(init, paramType); err != nil {
-			ctx.Diagnostics.Add(
-				codes.FuncArgType.Wrap(err, arg.AST).WithNote("signature: " + signature),
-			)
-			return
+	// A value in another unit converts on the way to the parameter. Lowering warns
+	// for a flow variable, because it knows if the variable is a constant.
+	if types.UnitsConvertible(argType.Unit, paramType.Unit) {
+		if !readsFlowVariable(ctx, arg.Expr) {
+			WarnValueTruncation(ctx, arg.AST, arg.Expr, argType, paramType, nil)
 		}
+		TakeUnit(ctx, arg.Expr, paramType.Unit)
 		argType.Unit, paramType.Unit = nil, nil
 	}
 	if err := atypes.Check(ctx.Constraints, paramType, argType, arg.AST,
@@ -171,31 +161,39 @@ func checkArgType[T antlr.ParserRuleContext](
 	}
 }
 
-// convertedInitializer returns the literal that sets the variable expr names when a
-// flow call converts it to the unit of param, and nil otherwise.
-func convertedInitializer[T antlr.ParserRuleContext](
+// readsFlowVariable reports whether expr is the lone name of a variable outside a
+// function body.
+func readsFlowVariable[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
-	param, arg types.Type,
-) parser.IExpressionContext {
-	if !types.UnitsConvertible(arg.Unit, param.Unit) {
-		return nil
-	}
+) bool {
 	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
-		return nil
+		return false
 	}
 	head, tail := parser.ExpressionNameParts(expr)
 	if head == "" {
-		return nil
+		return false
 	}
 	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
-	if err != nil || !sym.IsValueVariable() {
-		return nil
+	return err == nil && sym.IsValueVariable()
+}
+
+// TakeUnit gives the node registered for expr the unit of the target that takes its
+// value, so that the node converts its value when it compiles.
+func TakeUnit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	unit *types.Unit,
+) {
+	node, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || len(node.Type.Outputs) == 0 ||
+		!types.UnitsConvertible(node.Type.Outputs[0].Type.Unit, unit) {
+		return
 	}
-	if init := sym.Initializer(); init != nil && parser.IsLiteral(init) {
-		return init
+	node.Type.Outputs[0].Type.Unit = unit
+	if node.Kind == symbol.KindConstant {
+		node.Type.Inputs[0].Type.Unit = unit
 	}
-	return nil
 }
 
 // computedArgType returns the output type of the node registered for a computed

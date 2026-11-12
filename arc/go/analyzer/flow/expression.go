@@ -116,21 +116,6 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	expression.Analyze(body)
 }
 
-// TakeUnit gives the constant of the literal expr the unit of the variable that it is
-// written to, so that the literal converts when it compiles.
-func TakeUnit[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	expr parser.IExpressionContext,
-	unit *types.Unit,
-) {
-	c, err := ctx.Scope.Root().GetChildByParserRule(expr)
-	if err != nil || c.Kind != symbol.KindConstant ||
-		!types.UnitsConvertible(c.Type.Outputs[0].Type.Unit, unit) {
-		return
-	}
-	c.Type.Inputs[0].Type.Unit, c.Type.Outputs[0].Type.Unit = unit, unit
-}
-
 // AnalyzeComputedArgs registers a synthetic function for each instance argument
 // that is not a literal, a float constant, or a bare name, so lowering can sample it
 // per fire.
@@ -252,13 +237,15 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	}
 }
 
-// BindOutput binds the untyped output of the node registered for expr to t, the type
-// of the variable it writes, so its literals take t.
+// BindOutput binds the output of the node registered for expr to t, the type of the
+// variable it writes. The node gives its value in the unit of t, and its untyped
+// literals take t.
 func BindOutput[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
 	t types.Type,
 ) {
+	expression.TakeUnit(ctx, expr, t.Unit)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil {
 		return

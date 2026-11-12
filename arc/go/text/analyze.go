@@ -953,26 +953,11 @@ func lowerAssignment(
 		return nil, nil, false
 	}
 	ref := varFeederRef(e.register)
-	nodes, source := []ir.Node{res.node}, res.output
-	var edges []ir.Edge
-	if from := res.node.Outputs[0].Type; types.UnitsConvertible(
-		from.Unit,
-		sym.Type.Unit,
-	) {
-		scale := buildScaleNode(from, sym.Type, kg)
-		nodes = append(nodes, scale.node)
-		edges = append(edges, ir.Edge{
-			Source: source,
-			Target: scale.input,
-			Kind:   ir.EdgeKindContinuous,
-		})
-		source = scale.output
-	}
-	return nodes, append(edges, ir.Edge{
-		Source: source,
+	return []ir.Node{res.node}, []ir.Edge{{
+		Source: res.output,
 		Target: ref.input,
 		Kind:   ir.EdgeKindContinuous,
-	}), true
+	}}, true
 }
 
 // lowerRebind re-points a register: a constant feeder carrying the new source
@@ -2316,6 +2301,9 @@ func extractInputValues(
 						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 						return nil, paramType, false
 					}
+					if parsed.Truncated {
+						expression.WarnTruncation(ctx, expr, sym, paramType, nil)
+					}
 					return parsed.Value, paramType, true
 				}
 			}
@@ -2341,13 +2329,8 @@ func extractInputValues(
 				return nil, paramType, false
 			}
 			args = append(args, res.node)
-			t, key := res.node.Outputs[0].Type, res.node.Key
-			if types.UnitsConvertible(t.Unit, paramType.Unit) {
-				scale := buildScaleNode(types.VarRef(t, key), paramType, kg)
-				args = append(args, scale.node)
-				t, key = paramType, scale.node.Key
-			}
-			return types.Zero(t), types.VarRef(t, key), true
+			t := res.node.Outputs[0].Type
+			return types.Zero(t), types.VarRef(t, res.node.Key), true
 		}
 
 		parsedValue, err := literal.ParseConst(expr, paramType)

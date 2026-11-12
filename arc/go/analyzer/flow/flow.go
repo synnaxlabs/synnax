@@ -428,27 +428,19 @@ func analyzeIdentifier(
 			))
 			return
 		}
-		if expr := prevNode.Expression(); expr != nil && sym.IsValueVariable() &&
-			chanValueType.Unit != nil && expression.ReportCalculation(
-			ctx, expr, chanValueType,
-			fmt.Sprintf("'%s' is in %s and cannot take", name, chanValueType.Unit.Name),
-			expression.SinkOf(ctx, sym),
-		) {
-			return
-		}
 		if srcType.IsValid() {
 			// A literal takes the type of the variable it is written to.
 			expected, actual, check := srcType, chanValueType, atypes.Check
-			converted := false
+			expr := prevNode.Expression()
 			if sym.IsValueVariable() {
 				expected, actual = chanValueType, srcType
-				if expr := prevNode.Expression(); expr != nil {
-					TakeUnit(ctx, expr, chanValueType.Unit)
+				// A value written to a variable of another unit converts.
+				if expr != nil {
+					expression.TakeUnit(ctx, expr, chanValueType.Unit)
 				}
-				// Lowering converts a variable written to a variable of another unit.
-				if prevNode.Identifier() != nil &&
+				if (expr == nil || !parser.IsLiteral(expr)) &&
 					types.UnitsConvertible(actual.Unit, expected.Unit) {
-					check, converted = atypes.CheckConverted, true
+					check = atypes.CheckConverted
 				}
 			}
 			if err = check(
@@ -464,8 +456,11 @@ func analyzeIdentifier(
 				))
 				return
 			}
-			if converted {
-				head, tail := parser.IdentifierParts(prevNode.Identifier())
+			if !sym.IsValueVariable() {
+				return
+			}
+			if id := prevNode.Identifier(); id != nil {
+				head, tail := parser.IdentifierParts(id)
 				if src, srcErr := ctx.Scope.ResolveMember(
 					ctx,
 					head,
@@ -475,7 +470,11 @@ func analyzeIdentifier(
 						ctx, ctx.AST, src, sym.Type, expression.SinkOf(ctx, sym),
 					)
 				}
+				return
 			}
+			expression.WarnValueTruncation(
+				ctx, ctx.AST, expr, srcType, sym.Type, expression.SinkOf(ctx, sym),
+			)
 		}
 	}
 }

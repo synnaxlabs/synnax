@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Loader", func() {
@@ -396,48 +395,27 @@ sequence main {
 			return (*diag)[0]
 		}
 
-		DescribeTable("Should reject a calculation and give no hint for the module",
-			func(ctx SpecContext, statement, message string, hints ...string) {
+		DescribeTable("Should give no hint for the module when a write truncates",
+			func(ctx SpecContext, statement string) {
 				d := analyzeStage(ctx, statement+"\ntrig -> time.wait(1s) -> out8")
-				Expect(d.Code).To(Equal(codes.UnitCalculation))
-				Expect(d.Message).To(Equal(message))
-				Expect(lo.Map(
-					d.Notes,
-					func(n protocol.DiagnosticRelatedInformation, _ int) string {
-						return n.Message
-					},
-				)).To(Equal(hints))
+				Expect(d.Code).To(Equal(codes.UnitTruncation))
+				Expect(d.Notes).To(HaveLen(1))
+				Expect(d.Notes[0].Message).To(Equal(sinkHint))
 			},
-			Entry("an assignment", `d = m.t * 2`,
-				"'d' is in min and cannot take a calculation with 'm.t', which is in s",
-				sinkHint),
-			Entry("a flow", `m.t * 2 -> d`,
-				"'d' is in min and cannot take a calculation with 'm.t', which is in s",
-				sinkHint),
-			Entry(
-				"a variable that the module variable sets",
-				`d = twice * 2`,
-				"'d' is in min and cannot take a calculation with 'twice', which is in s",
-				sinkHint,
-			),
+			Entry("the variable", `d = m.t`),
+			Entry("an assigned calculation", `d = m.t * 2`),
+			Entry("a calculation in a flow", `m.t * 2 -> d`),
+			Entry("a variable that the module variable sets", `d = twice * 2`),
 		)
 
-		It("Should reject a calculation that goes to an input", func(ctx SpecContext) {
-			d := analyzeStage(ctx, `trig -> time.wait(m.t * 2) -> out8`)
-			Expect(d.Code).To(Equal(codes.UnitCalculation))
-			Expect(d.Message).To(Equal(
-				"'time.wait' cannot take a calculation with 'm.t', which is in s",
-			))
-			Expect(d.Notes).To(BeEmpty())
-		})
-
-		It("Should give no hint for the module when a write truncates", func(
-			ctx SpecContext,
-		) {
-			d := analyzeStage(ctx, "d = m.t\ntrig -> time.wait(1s) -> out8")
-			Expect(d.Code).To(Equal(codes.UnitTruncation))
-			Expect(d.Notes).To(HaveLen(1))
-			Expect(d.Notes[0].Message).To(Equal(sinkHint))
+		It("Should accept a calculation that goes to an input", func(ctx SpecContext) {
+			sources["m"] = `export t := 120s`
+			diag := analyze(
+				ctx,
+				"import (m time)\n\ntrig -> time.wait(m.t * 2) -> out8",
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(*diag).To(BeEmpty())
 		})
 	})
 

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 )
 
@@ -88,53 +87,8 @@ type redeclare struct {
 	from, to string
 }
 
-// ReportCalculation reports expr when it calculates with variables in another unit
-// than target, and returns whether it did. sink is nil for an input.
-func ReportCalculation[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	expr parser.IExpressionContext,
-	target types.Type,
-	subject string,
-	sink *Sink,
-) bool {
-	if head, _ := parser.ExpressionNameParts(
-		expr,
-	); head != "" ||
-		parser.IsLiteral(expr) {
-		return false
-	}
-	variables := unitVariables(ctx, ctx.Scope, expr, target.Unit)
-	if len(variables) == 0 {
-		return false
-	}
-	names := make([]string, len(variables))
-	for i, v := range variables {
-		names[i] = fmt.Sprintf("'%s', which is in %s", v.name, v.sym.Type.Unit.Name)
-	}
-	var (
-		redeclares []redeclare
-		hinted     = set.New[*symbol.Symbol]()
-		unit       = variables[0].sym.Type.Unit
-	)
-	for _, v := range variables {
-		redeclares = append(
-			redeclares, sourceRedeclares(ctx, v.sym, target.Unit, hinted)...,
-		)
-		if !v.sym.Type.Unit.Equal(*unit) {
-			unit = nil
-		}
-	}
-	if r, ok := redeclaration(ctx, sink, unit, expr); ok {
-		redeclares = append(redeclares, r)
-	}
-	d := codes.UnitCalculation.At(expr, subject, strings.Join(names, ", and "))
-	d.Notes = hintNotes(redeclares)
-	ctx.Diagnostics.Add(d)
-	return true
-}
-
-// WarnTruncation warns at ast when an integer of source converts to the larger unit of
-// target, which truncates it. sink is nil for an input.
+// WarnTruncation warns at ast when the integer variable source converts to the larger
+// unit of target, which truncates it. sink is nil for an input.
 func WarnTruncation[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	ast antlr.ParserRuleContext,
@@ -142,12 +96,49 @@ func WarnTruncation[T antlr.ParserRuleContext](
 	target types.Type,
 	sink *Sink,
 ) {
-	from, to := source.Type.Unit, target.Unit
-	if from == nil || to == nil || from.Scale >= to.Scale {
+	warnTruncation(ctx, ast, source.Type, SinkOf(ctx, source), target, sink)
+}
+
+// WarnValueTruncation warns at ast when expr, an integer of type source, converts to
+// the larger unit of target. A literal warns only when it leaves a remainder. expr is
+// nil for a value that is not an expression, and sink is nil for an input.
+func WarnValueTruncation[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	ast antlr.ParserRuleContext,
+	expr parser.IExpressionContext,
+	source, target types.Type,
+	sink *Sink,
+) {
+	var sourceSink *Sink
+	if expr != nil && parser.IsLiteral(expr) {
+		if parsed, err := literal.ParseConst(
+			expr,
+			ctx.Constraints.ApplySubstitutions(target),
+		); err != nil || !parsed.Truncated {
+			return
+		}
+	} else if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		if sym, err := ctx.Scope.ResolveMember(ctx, head, tail); err == nil {
+			sourceSink = SinkOf(ctx, sym)
+		}
+	}
+	warnTruncation(ctx, ast, source, sourceSink, target, sink)
+}
+
+func warnTruncation[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	ast antlr.ParserRuleContext,
+	source types.Type,
+	sourceSink *Sink,
+	target types.Type,
+	sink *Sink,
+) {
+	from, to := source.Unwrap().Unit, target.Unwrap().Unit
+	if !types.UnitsConvertible(from, to) || from.Scale >= to.Scale {
 		return
 	}
-	for _, t := range []types.Type{source.Type, target} {
-		t = ctx.Constraints.ApplySubstitutions(t)
+	for _, t := range []types.Type{source, target} {
+		t = ctx.Constraints.ApplySubstitutions(t).Unwrap()
 		untyped := t.Kind == types.KindVariable && t.Constraint != nil &&
 			t.Constraint.Kind == types.KindIntegerConstant
 		if !t.IsInteger() && !untyped {
@@ -155,10 +146,10 @@ func WarnTruncation[T antlr.ParserRuleContext](
 		}
 	}
 	var redeclares []redeclare
-	if r, ok := redeclaration(ctx, sink, from, nil); ok {
+	if r, ok := redeclaration(ctx, sink, from); ok {
 		redeclares = append(redeclares, r)
 	}
-	if r, ok := redeclaration(ctx, SinkOf(ctx, source), to, nil); ok {
+	if r, ok := redeclaration(ctx, sourceSink, to); ok {
 		redeclares = append(redeclares, r)
 	}
 	d := codes.UnitTruncation.At(ast, from.Name, to.Name)
@@ -180,94 +171,15 @@ func hintNotes(redeclares []redeclare) []protocol.DiagnosticRelatedInformation {
 	return notes
 }
 
-// sourceRedeclares returns the redeclare of sym in unit when it is set from a literal,
-// and of the variables that set it otherwise. hinted holds the variables it has seen.
-func sourceRedeclares[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	sym *symbol.Symbol,
-	unit *types.Unit,
-	hinted set.Set[*symbol.Symbol],
-) []redeclare {
-	if hinted.Contains(sym) {
-		return nil
-	}
-	hinted.Add(sym)
-	if r, ok := redeclaration(ctx, SinkOf(ctx, sym), unit, nil); ok {
-		return []redeclare{r}
-	}
-	init := sym.Initializer()
-	if init == nil || sym.Parent == nil {
-		return nil
-	}
-	var out []redeclare
-	for _, source := range unitVariables(ctx, sym.Parent, init, unit) {
-		out = append(out, sourceRedeclares(ctx, source.sym, unit, hinted)...)
-	}
-	return out
-}
-
-// unitVariable is a variable that an expression reads, and the name it reads it by.
-type unitVariable struct {
-	sym  *symbol.Symbol
-	name string
-}
-
-// unitVariables returns the variables that expr reads in scope whose unit converts to
-// target.
-func unitVariables[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	scope *symbol.Symbol,
-	expr antlr.Tree,
-	target *types.Unit,
-) []unitVariable {
-	var (
-		variables []unitVariable
-		seen      = set.New[*symbol.Symbol]()
-		walk      func(antlr.Tree)
-	)
-	walk = func(node antlr.Tree) {
-		// An argument of a call goes to the call, and not to target.
-		if _, ok := node.(parser.IFunctionCallSuffixContext); ok {
-			return
-		}
-		primary, ok := node.(parser.IPrimaryExpressionContext)
-		if !ok {
-			for _, child := range node.GetChildren() {
-				walk(child)
-			}
-			return
-		}
-		head, tail := parser.PrimaryNameParts(primary)
-		if head == "" {
-			for _, child := range primary.GetChildren() {
-				walk(child)
-			}
-			return
-		}
-		sym, err := scope.ResolveMember(ctx, head, tail)
-		if err != nil || !sym.IsValueVariable() || seen.Contains(sym) ||
-			!types.UnitsConvertible(sym.Type.Unit, target) {
-			return
-		}
-		seen.Add(sym)
-		variables = append(
-			variables,
-			unitVariable{sym: sym, name: parser.PrimaryName(primary)},
-		)
-	}
-	walk(expr)
-	return variables
-}
-
 // redeclaration returns the declaration of sink in unit. ok is false when sink is not
-// set from a literal that converts to unit, or from the calculation value.
+// set from a literal that converts to unit with no remainder.
 func redeclaration[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	sink *Sink,
 	unit *types.Unit,
-	value parser.IExpressionContext,
 ) (redeclare, bool) {
-	if sink == nil || unit == nil || sink.Init == nil || sink.AST == nil {
+	if sink == nil || unit == nil || sink.Init == nil || sink.AST == nil ||
+		!parser.IsLiteral(sink.Init) {
 		return redeclare{}, false
 	}
 	t := ctx.Constraints.ApplySubstitutions(sink.Type)
@@ -279,11 +191,7 @@ func redeclaration[T antlr.ParserRuleContext](
 		t = types.Type{Kind: kind}
 	}
 	t.Unit = unit
-	if parser.IsLiteral(sink.Init) {
-		if _, err := literal.ParseConst(sink.Init, t); err != nil {
-			return redeclare{}, false
-		}
-	} else if sink.Init != value {
+	if parsed, err := literal.ParseConst(sink.Init, t); err != nil || parsed.Truncated {
 		return redeclare{}, false
 	}
 	declare := ":="

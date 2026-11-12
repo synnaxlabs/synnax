@@ -30,10 +30,6 @@ const (
 	// scaleRatioThresholdF32 is the maximum scale ratio for f32 additive operations.
 	// f32 has ~7 significant decimal digits.
 	scaleRatioThresholdF32 = 1e5
-
-	// truncationThreshold is the minimum scale factor below which integer assignment
-	// will warn about truncation to zero.
-	truncationThreshold = 1e-9
 )
 
 // checkAdditiveScaleSafety checks if combining two units in an additive operation
@@ -91,18 +87,8 @@ func checkAdditiveScaleSafety[AST antlr.ParserRuleContext](
 	}
 }
 
-// CheckAssignmentScaleSafety checks if assigning a value with one unit to a variable
-// with a different unit scale may cause truncation or overflow for integer types.
-// Adds a warning to the context if there's a potential problem.
-//
-// Example 1: 6pK assigned to i32 K
-//   - 6 * (1e-12 / 1.0) = 6e-12 K -> truncates to 0
-//
-// Example 2: 5000K assigned to i32 pK
-//   - 5000 * (1.0 / 1e-12) = 5e15 pK -> overflows i32
-//
-// The optional sourceValue parameter allows for more precise overflow checking
-// when the literal value is known at compile time.
+// CheckAssignmentScaleSafety warns when a value that converts to the unit of an
+// integer target can overflow it. sourceValue is the value, when it is a constant.
 func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 	ctx context.Context[AST],
 	sourceType, targetType types.Type,
@@ -125,19 +111,6 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 
 	// Calculate scale conversion factor: value_in_target = value_in_source * factor
 	scaleFactor := sourceType.Unit.Scale / targetType.Unit.Scale
-
-	// Check for potential truncation (scaling down to very small values)
-	if scaleFactor <= truncationThreshold {
-		ctx.Diagnostics.Add(diagnostics.Warningf(
-			ctx.AST,
-			"unit conversion from %s to %s may truncate to zero for integer type %s (scale factor: %.2e)",
-			sourceType.Unit.Name,
-			targetType.Unit.Name,
-			targetType.Kind.String(),
-			scaleFactor,
-		))
-		return
-	}
 
 	// Check for potential overflow (scaling up to very large values)
 	if scaleFactor > 1.0 {
