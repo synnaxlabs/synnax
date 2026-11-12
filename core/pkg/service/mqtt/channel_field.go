@@ -11,7 +11,6 @@ package mqtt
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"uuid"
 
@@ -180,8 +179,9 @@ func resolveWriteConfig(
 // reconcileWriteConfig changes the channel field of each plain target of cfg to agree
 // with its channel, as payload.Channel.Reconcile does, clears its data type, and logs
 // each change. A timestamp field on a channel that holds no timestamps becomes the
-// kind of its data type when the channel allows it. A field with no channel agrees with
-// its data type instead, which it keeps. It skips a field whose channel does not exist.
+// kind of its data type, and then the kind the channel allows. A field with no channel
+// agrees with its data type instead, which it keeps, and one with no data type takes
+// the data type of its kind. It skips a field whose channel does not exist.
 func reconcileWriteConfig(
 	ctx context.Context,
 	svc *channel.Service,
@@ -202,6 +202,15 @@ func reconcileWriteConfig(
 			dt = ch.DataType
 		case base.Channel == 0 && base.DataType != nil:
 			dt = *base.DataType
+		case base.Channel == 0:
+			dt = newChannelDataTypes[t.Channel.Type()]
+			base.DataType = &dt
+			ins.L.Warn(
+				"gave an MQTT channel field with no channel the data type of its kind",
+				zap.Stringer("config", cfg.Key),
+				zap.String("field", path),
+				zap.String("data_type", string(dt)),
+			)
 		default:
 			return nil
 		}
@@ -209,8 +218,7 @@ func reconcileWriteConfig(
 		var changes []string
 		if ok && c.Kind == payload.KindTimestamp && dt != telem.TimestampT &&
 			base.DataType != nil {
-			if k, known := payload.KindOf(*base.DataType); known &&
-				slices.Contains(payload.ChannelKinds(dt), k) {
+			if k, known := payload.KindOf(*base.DataType); known {
 				c = payload.Channel{Kind: k}
 				changes = append(
 					changes,
@@ -236,6 +244,19 @@ func reconcileWriteConfig(
 		t.Channel = newChannelField(base, c)
 		return nil
 	})
+}
+
+// newChannelDataTypes holds the data type of a new channel that each kind writes.
+var newChannelDataTypes = map[payload.Kind]telem.DataType{
+	payload.KindFloat:     telem.Float64T,
+	payload.KindInteger:   telem.Int64T,
+	payload.KindUnsigned:  telem.Uint64T,
+	payload.KindString:    telem.StringT,
+	payload.KindBoolean:   telem.Uint8T,
+	payload.KindTimestamp: telem.TimestampT,
+	payload.KindJSON:      telem.JSONT,
+	payload.KindUUID:      telem.UUIDT,
+	payload.KindBytes:     telem.BytesT,
 }
 
 // newWriteMigration returns the migration that lifts stored write configs to v2 and

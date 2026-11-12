@@ -298,6 +298,21 @@ var _ = Describe("Channel fields", func() {
 			},
 		)
 
+		It(
+			"Should give a field with no channel or data type the type of its kind",
+			func(
+				ctx SpecContext,
+			) {
+				f := field("integer", 0)
+				delete(f, "data_type")
+				f = firstField(MustSucceed(
+					svc.Write.Normalize(ctx, db, svc.Write.Version(), config(f)),
+				))
+				Expect(f).To(HaveKeyWithValue("type", "integer"))
+				Expect(f).To(HaveKeyWithValue("data_type", "int64"))
+			},
+		)
+
 		It("Should give a field with no channel the kind of its data type", func(
 			ctx SpecContext,
 		) {
@@ -384,6 +399,11 @@ var _ = Describe("Stored write configs", func() {
 					JSONType:   payload.JSONTypeBoolean,
 					TimeFormat: &unixMs,
 				}),
+				plain("g", v1.ChannelField{
+					Channel:    create(telem.BooleanT),
+					JSONType:   payload.JSONTypeNumber,
+					TimeFormat: &unixMs,
+				}),
 			}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())
@@ -401,7 +421,7 @@ var _ = Describe("Stored write configs", func() {
 				return t.(map[string]any)["channel"]
 			}
 			targets := data["targets"].([]any)
-			Expect(targets).To(HaveLen(6))
+			Expect(targets).To(HaveLen(7))
 			Expect(field(targets[0])).To(SatisfyAll(
 				HaveKeyWithValue("type", "unsigned"),
 				Not(HaveKey("data_type")),
@@ -426,6 +446,7 @@ var _ = Describe("Stored write configs", func() {
 				Not(HaveKey("time_format")),
 			))
 			Expect(field(targets[5])).To(HaveKeyWithValue("type", "boolean"))
+			Expect(field(targets[6])).To(HaveKeyWithValue("type", "unsigned"))
 		},
 	)
 })

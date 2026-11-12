@@ -314,6 +314,12 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   the numeric kind. `string` stays `string`, and its entries take the decimal text of
   their values, so a numeric sample writes the same JSON string as before. A v0
   timestamp row with `json_type: string` or entries takes `iso8601`, as v0 rejected it.
+  `boolean` stays `boolean`. An entry whose value repeats an earlier one's drops. On
+  MQTT, which encoded a timestamp channel in its time format whatever the shape, a field
+  with a channel, a `time_format`, and no entries becomes `timestamp`, and its
+  `data_type` names the kind of its JSON type. `Reconcile` falls back to that kind when
+  the channel holds no timestamps. A field with no channel keeps its `data_type`, and
+  one with none takes the data type of its kind.
 - **Static write field**: Lift by the stored Go type, not `json_type`, because the HTTP
   Driver sends the value as it is. A whole `float64` within 2^53 becomes `integer`, and
   other numbers become `float`. An `int64` or `uint64` keeps its value. A string or
