@@ -34,7 +34,7 @@ export interface DetailsProps<C extends Channel> {
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "path" | "resolve"
+  "tareable" | "listItem" | "contextMenuItems" | "path" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps<C>>;
   /** Names the selected channel in the details header, typically by its port. */

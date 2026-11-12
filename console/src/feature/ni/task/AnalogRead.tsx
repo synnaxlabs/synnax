@@ -54,33 +54,23 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Task.ChannelListItemProps {
-  onTare: (channelKey: channel.Key) => void;
-}
-
 // What the port cell shows for a channel type that reads from no port. Two characters,
 // matching the column's own width.
 const NO_PORT = "NA";
 
-const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const entry = root.config.channels[rest.itemKey];
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const entry = root.config.channels[itemKey];
   const value = PForm.useFieldValue(entry);
   const device = useChannelDevice(entry);
-  const { type, channel, disabled } = value;
-  const isSnapshot = Task.useIsSnapshot();
-  const isRunning = Task.useIsRunning();
-  const hasTareButton = channel !== 0 && !isSnapshot;
-  const canTare = !disabled && isRunning;
-  const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
+  const { type, channel } = value;
+  const skipped = Task.useSkipped(root.config.channels, itemKey, portOf);
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Task.Views.ListAndDetailsChannelItem
-      {...rest}
+      {...props}
       port={channelPort(value) ?? NO_PORT}
-      canTare={canTare}
-      onTare={onTare}
       path={entry}
-      hasTareButton={hasTareButton}
       channel={channel}
       defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
       skipped={skipped}
@@ -94,6 +84,8 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
   const type = PForm.useFieldValue(path.type);
   return <AIChannelForm type={type} path={path} channelsPath={root.config.channels} />;
 };
+
+const listItem = Component.renderProp(ChannelListItem);
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
@@ -137,7 +129,6 @@ const hasPortList = (devices: Device[]): boolean =>
   devices.some(({ properties }) => properties.hardware != null);
 
 const Form: FC = () => {
-  const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys(root.config.channels));
   PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
@@ -147,9 +138,6 @@ const Form: FC = () => {
       channel: dev.properties.analogInput.channels[getAIChannelDeviceKey(ch)] ?? 0,
     };
   };
-  const listItem = ({ key, ...rest }: Task.ChannelListItemProps) => (
-    <ChannelListItem key={key} {...rest} onTare={tare} />
-  );
   const ports =
     devices != null && hasPortList(devices)
       ? (props: Task.Views.PortsProps<AIChannel>) => (
@@ -180,8 +168,7 @@ const Form: FC = () => {
       createChannel={(channels, copy) =>
         createNextAIChannel(channels, { copy }, devices)
       }
-      onTare={handleTare}
-      allowTare={allowTare}
+      tareable
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
       ports={ports}

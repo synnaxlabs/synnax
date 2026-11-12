@@ -109,8 +109,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
       portMaxChars={20}
     />
   );
@@ -162,6 +160,7 @@ const Form: FC = () => {
       createChannel={createReadChannel}
       contextMenuItems={contextMenuItems}
       resolve={resolve}
+      tareable
     />
   );
 };

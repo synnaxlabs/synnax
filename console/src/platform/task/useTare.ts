@@ -12,51 +12,19 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
 import { useKey } from "@/platform/task/useKey";
-import { useIsRunning } from "@/platform/task/useStatus";
 
-export interface TareableChannel {
-  key: string;
-  channel: channel.Key;
-}
-
-export type UseTareProps<C extends TareableChannel> = {
-  isChannelTareable?: (channel: C) => boolean;
-};
-
-export type UseTareReturn<C extends TareableChannel> = [
-  tare: (key: channel.Key) => void,
-  allowTare: (keys: string[], channels: C[]) => boolean,
-  handleTare: (keys: string[], channels: C[]) => void,
-];
-
-export const useTare = <C extends TareableChannel>({
-  isChannelTareable,
-}: UseTareProps<C> = {}): UseTareReturn<C> => {
+/** @returns a function that zeroes the task's channels at their present values. */
+export const useTare = (): ((channels: channel.Key[]) => void) => {
   const client = Synnax.use();
   const key = useKey();
-  const isRunning = useIsRunning();
   const handleError = Status.useErrorHandler();
-  const tare = (keys: channel.Key[]) => {
+  return (keys) => {
     if (client == null) throw new DisconnectedError();
     if (key == null) throw new Error("Task has not been configured");
-    const args = { keys };
     handleError(
-      async () => await client.tasks.executeCommand({ task: key, type: "tare", args }),
+      async () =>
+        await client.tasks.executeCommand({ task: key, type: "tare", args: { keys } }),
       "Failed to tare channels",
     );
   };
-  const getTareableChannels = (keys: string[], channels: C[]) => {
-    const keySet = new Set(keys);
-    return channels.filter(
-      (channel) => keySet.has(channel.key) && isChannelTareable?.(channel) !== false,
-    );
-  };
-  const tareSingle = (key: channel.Key) => tare([key]);
-  const allowTare = (keys: string[], channels: C[]) =>
-    getTareableChannels(keys, channels).length > 0 && isRunning;
-  const handleTare = (keys: string[], channels: C[]) => {
-    const tareableChannels = getTareableChannels(keys, channels);
-    tare(tareableChannels.map(({ channel }) => channel));
-  };
-  return [tareSingle, allowTare, handleTare];
 };

@@ -86,10 +86,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       {...names}
       port={item.port}
-      hasTareButton={false}
       skipped={skipped}
       portMaxChars={2}
-      canTare={false}
       path={entry}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[item.type] }}
     />

@@ -161,6 +161,7 @@ const Form: FC = () => {
         path={path.config.channels}
         createChannel={getOpenChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
+        tareable
         listItem={listItem}
         resolve={resolve}
         map={map}

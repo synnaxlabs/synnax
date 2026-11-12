@@ -45,7 +45,6 @@ export interface ListAndDetailsChannelItemProps<
   port: ReactNode;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
-  canTare: boolean;
   /** The Synnax channel the item names. Absent when the channel type has none. */
   channel?: channel.Key;
   /** The name deploying the task gives the channel, shown while it has none. */
@@ -57,9 +56,9 @@ export interface ListAndDetailsChannelItemProps<
   stateDefaultName?: string;
   /** Deploying the task does not create the channels, because they are disabled. */
   skipped?: boolean;
-  onTare?: (channel: channel.Key) => void;
   path: deep.Target<ItemChannel>;
-  hasTareButton: boolean;
+  /** Shows a tare button for a float channel. */
+  tareable?: boolean;
   nameDirection?: direction.Direction;
 }
 
@@ -79,10 +78,8 @@ const getChannelNameProps = (
 export const ListAndDetailsChannelItem = <K extends string>({
   port,
   portMaxChars,
-  canTare,
-  onTare,
   path,
-  hasTareButton,
+  tareable = false,
   channel,
   defaultName,
   suffix,
@@ -161,11 +158,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
         )}
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">
-        {hasTareButton && (
-          <TareButton
-            disabled={!canTare}
-            onTare={() => channel != null && onTare?.(channel)}
-          />
+        {tareable && channel != null && (
+          <TareButton channel={channel} disabled={disabled} />
         )}
         <EnabledCheckbox path={item.disabled} />
       </Flex.Box>

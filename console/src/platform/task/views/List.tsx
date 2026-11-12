@@ -36,6 +36,7 @@ export interface ListProps<C extends Channel>
       | "checkable"
       | "emptyContent"
       | "addLabel"
+      | "tareable"
     >,
     Required<Pick<ChannelListProps<C>, "createChannel">> {
   /**
