@@ -196,16 +196,17 @@ var _ = Describe("Service", func() {
 			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
 			Expect(readData["channels"]).To(Equal([]any{
 				map[string]any{
-					"type":      "entry",
-					"key":       "a",
-					"name":      "",
-					"disabled":  false,
-					"channel":   float64(0),
-					"device":    "slave",
-					"index":     float64(0x6000),
-					"sub_index": float64(1),
-					"data_type": "int16",
-					"scale":     map[string]any{"type": "none"},
+					"type":       "entry",
+					"key":        "a",
+					"name":       "",
+					"disabled":   false,
+					"channel":    float64(0),
+					"device":     "slave",
+					"index":      float64(0x6000),
+					"sub_index":  float64(1),
+					"data_type":  "int16",
+					"calibrated": false,
+					"scale":      map[string]any{"type": "none"},
 				},
 				map[string]any{
 					"type":     "unresolved",

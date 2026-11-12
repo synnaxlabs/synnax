@@ -45,8 +45,9 @@ The Console and the Driver call an EtherCAT module a slave, so error messages sa
 DewesoftX adds a network filter, **EthercatDAQ Filter**, to each Ethernet port. After
 DewesoftX starts, the filter stops the replies of the modules before they get to the
 Driver. This continues after you close DewesoftX, and a restart of the port does not
-stop it. The scan finds no modules, and a task shows `no EtherCAT slaves found on ...`,
-with the name of the adapter that has the filter.
+stop it. The scan finds no modules and shows
+`The DewesoftX "EthercatDAQ Filter" on this adapter blocks EtherCAT replies`, with the
+name of the adapter.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -73,7 +74,7 @@ select **EthercatDAQ Filter** again.
 </Problem.Fix>
 </Problem.Body>
 
-### `no EtherCAT slaves found on ...`
+### `No EtherCAT slaves found on ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -143,7 +144,7 @@ Close other packet capture programs, such as Wireshark, then start the task agai
 </Problem.Fix>
 </Problem.Body>
 
-### `permission denied opening ...: the Driver needs CAP_NET_RAW`
+### `Permission denied opening ...: the Driver needs CAP_NET_RAW`
 
 <Problem.Body>
 <Problem.Cause>
@@ -181,7 +182,7 @@ See
 
 ## Network start
 
-### `failed to reach SAFE-OP` or `failed to reach OP`
+### `Failed to reach SAFE-OP` or `Failed to reach OP`
 
 <Problem.Body>
 <Problem.Cause>
@@ -198,7 +199,7 @@ text of the module, such as "Invalid output configuration".
 Check the error text in the documentation of the module. To run the other modules now,
 [disable](/reference/hardware/ethercat/configure-device#disable-a-device) the module,
 then start the tasks again. If the error contains "Invalid DC SYNC configuration", see
-[`failed to reach SAFE-OP: ... Invalid DC SYNC configuration`](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+[`Failed to reach SAFE-OP: ... Invalid DC SYNC configuration`](#failed-to-reach-safe-op--invalid-dc-sync-configuration).
 
 </Problem.Fix>
 </Problem.Body>
@@ -235,7 +236,7 @@ Create one task for each port.
 </Problem.Fix>
 </Problem.Body>
 
-### `slave ... is not on the bus` or `slave ...: expected ..., found ...`
+### `Slave ... is not on the bus` or `Slave ...: expected ..., found ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -252,7 +253,7 @@ network now.
 </Problem.Fix>
 </Problem.Body>
 
-### `slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
+### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -274,7 +275,7 @@ again. If the error stays, the module is not supported yet.
 
 ## Sync mode and clocks
 
-### `failed to reach SAFE-OP: ... Invalid DC SYNC configuration`
+### `Failed to reach SAFE-OP: ... Invalid DC SYNC configuration`
 
 <Problem.Body>
 <Problem.Cause>
@@ -300,7 +301,7 @@ that is set to DC sync and also lists an SM sync mode does not start.
 </Problem.Fix>
 </Problem.Body>
 
-### `slave ... cannot run its DC mode at a bus cycle of ...`
+### `Slave ... cannot run its DC mode at a bus cycle of ...`
 
 <Problem.Body>
 <Problem.Cause>
@@ -320,7 +321,7 @@ cycle faster, for example with a write task at an execution rate of 250 Hz or mo
 </Problem.Fix>
 </Problem.Body>
 
-### `slave ... cannot use its chosen mode`
+### `Slave ... cannot use its chosen mode`
 
 <Problem.Body>
 <Problem.Cause>
@@ -344,7 +345,7 @@ module cannot start, so no task on the port starts. The error gives the reason:
 </Problem.Fix>
 </Problem.Body>
 
-### `the clock of slave ... is ... off the reference clock`
+### `The clock of slave ... is ... off the reference clock`
 
 <Problem.Body>
 <Problem.Cause>
@@ -360,7 +361,7 @@ Check the cables and the power of the modules, then start the task again.
 </Problem.Fix>
 </Problem.Body>
 
-### `the bus on ... cycles at ... Hz while a slave runs DC sync`
+### `The bus on ... cycles at ... Hz while a slave runs DC sync`
 
 <Problem.Body>
 <Problem.Cause>

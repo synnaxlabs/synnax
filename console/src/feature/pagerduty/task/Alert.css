@@ -13,6 +13,11 @@
     max-width: 70rem;
 }
 
+/* A long name fades, so the enabled dot stays in view. */
+.console-pagerduty-alert__label {
+    min-width: 0;
+}
+
 .console-pagerduty-alert-details {
     padding: var(--console-details-padding);
     overflow-y: auto;

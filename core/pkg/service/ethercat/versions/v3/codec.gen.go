@@ -28,6 +28,7 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		w.Uint16(uint16(v.Index))
 		w.Uint8(uint8(v.SubIndex))
 		w.String(string(v.DataType))
+		w.Bool(v.Calibrated)
 		if err := v.Scale.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -67,6 +68,9 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.DataType = telem.DataType(rawV)
+		}
+		if v.Calibrated, err = r.Bool(); err != nil {
+			return err
 		}
 		if err = v.Scale.DecodeOrc(r); err != nil {
 			return err

@@ -27,6 +27,8 @@ using testutil::DEWESOFT;
 using testutil::IOLITE_6XSTG;
 using testutil::IOLITE_DIO;
 
+/// @brief the product code of the IOLITEi 1xSTG, a card with one EtherCAT bus.
+constexpr uint32_t IOLITEI_1XSTG = 0x9E;
 /// @brief the revision of an IOLITE 6xSTG in its ESI.
 constexpr uint32_t STG_REVISION = 0x00020001;
 
@@ -123,6 +125,17 @@ TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
     EXPECT_EQ(setting(input_2, 34)["value"], 0.0);
 }
 
+/// @brief it should give each setting of the whole 6xSTG the value that the card holds.
+TEST(ReadSettings, Gives6xSTGDeviceSettingsTheValuesOfTheCard) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &sample_rate = settings.value()["device"][0];
+    EXPECT_EQ(sample_rate["sub_index"], 1);
+    EXPECT_EQ(sample_rate["value"], 12);
+}
+
 /// @brief it should leave out a setting at a sub-index that the card does not have,
 /// with the rule that names it, and keep the other settings and the mode.
 TEST(ReadSettings, LeavesOutASettingAtASubIndexTheCardDoesNotHave) {
@@ -216,6 +229,27 @@ TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
     EXPECT_EQ(entries[1]["only_read_by"], "DewesoftX");
 }
 
+/// @brief it should give each SIRIUS input the calibration objects of its channel.
+TEST(ReadSettings, GivesEachSIRIUSInputTheCalibrationOfItsChannel) {
+    constexpr uint32_t SIRIUS = 0x66;
+    const auto settings = ASSERT_NIL_P(read_settings(
+        DEWESOFT,
+        SIRIUS,
+        0x02000001,
+        {},
+        testutil::read_of({{{0x8020, 7}, 2}})
+    ));
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    ASSERT_EQ(channels.size(), 16);
+    EXPECT_EQ(
+        channels[3]["entries"],
+        x::json::json::parse(R"([{"index": 24624, "sub_index": 4, "calibration": {
+            "data_type": "int32", "index": 32835, "gain_sub_index": 21,
+            "offset_sub_index": 20, "divisor": 1}}])")
+    );
+}
+
 /// @brief it should give a standalone 6xSTG the DC sync mode that its mode needs and
 /// nothing to switch.
 TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
@@ -258,6 +292,8 @@ TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
     const auto &mode = settings.value()["mode"];
     EXPECT_EQ(mode["value"], 1);
     EXPECT_TRUE(mode["shared"].get<bool>());
+    EXPECT_EQ(mode["shared_with"], "DewesoftX");
+    EXPECT_FALSE(mode.contains("only_read_by"));
     EXPECT_FALSE(mode.contains("op_mode"));
     EXPECT_EQ(
         mode["switch"],
@@ -272,6 +308,38 @@ TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
              {"value", 2}},
         })
     );
+}
+
+/// @brief it should put a 6xSTG on bus 1 or bus 2 by the bus bit of its revision.
+TEST(ReadSettings, Puts6xSTGOnTheBusOfItsRevision) {
+    for (const auto &[revision, bus]:
+         std::vector<std::pair<uint32_t, int>>{{0x00011001, 2}, {0x00010001, 1}}) {
+        const auto settings = ASSERT_NIL_P(
+            read_settings(DEWESOFT, IOLITE_6XSTG, revision, STG_OP_MODES, stg(1))
+        );
+        ASSERT_TRUE(settings.has_value());
+        EXPECT_EQ(settings.value()["mode"]["bus"], bus);
+    }
+}
+
+/// @brief it should name DewesoftX as the only reader of a card with one bus in the DC
+/// buffered mode of DewesoftX.
+TEST(ReadSettings, NamesDewesoftXAsTheOnlyReaderOfASingleBusCard) {
+    const auto buffered = testutil::read_of({{{0x8020, 7}, 1}, {{0x8020, 2}, 0}});
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITEI_1XSTG,
+        0x00100002,
+        {},
+        buffered
+    );
+    ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+    ASSERT_TRUE(settings.has_value());
+    const auto &mode = settings.value()["mode"];
+    EXPECT_TRUE(mode["shared"].get<bool>());
+    EXPECT_EQ(mode["only_read_by"], "DewesoftX");
+    EXPECT_FALSE(mode.contains("shared_with"));
+    EXPECT_FALSE(mode.contains("bus"));
 }
 
 /// @brief it should not add the save write for a 6xSTG that saves each change.

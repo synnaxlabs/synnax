@@ -49,9 +49,9 @@ const (
 	// IteratorResponseVariantAck is a response that indicates that an iteration request
 	// has completed successfully.
 	IteratorResponseVariantAck IteratorResponseVariant = iota + 1
-	// IteratorResponseVariantData is a response that indicates that an iteration
+	// iteratorResponseVariantData is a response that indicates that an iteration
 	// request returned data.
-	IteratorResponseVariantData
+	iteratorResponseVariantData
 )
 
 // IteratorCommand is an enumeration of commands that can be sent to an Iterator.
@@ -325,7 +325,7 @@ func (s *streamIterator) send(ctx context.Context, seqNum int, fr Frame) error {
 		return nil
 	}
 	return signal.SendUnderContext(ctx, s.Out.Inlet(), IteratorResponse{
-		Variant: IteratorResponseVariantData,
+		Variant: iteratorResponseVariantData,
 		Command: IteratorCommandNext,
 		SeqNum:  seqNum,
 		Frame:   fr,

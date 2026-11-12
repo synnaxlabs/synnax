@@ -19,7 +19,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class RequiresNamedParams(Error, TypeError):
+class _RequiresNamedParams(Error, TypeError):
     """
     Custom exception raised when a function is called with positional arguments
     instead of named arguments.
@@ -73,7 +73,7 @@ def require_named_params(
                         f" like: {param_example} instead of"
                         f" {func_name}({value_example})"
                     )
-                    raise RequiresNamedParams(message) from None
+                    raise _RequiresNamedParams(message) from None
                 raise
 
         return wrapper

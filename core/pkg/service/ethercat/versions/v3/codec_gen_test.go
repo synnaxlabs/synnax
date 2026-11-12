@@ -62,7 +62,8 @@ var _ = Describe("Codec", func() {
 				Index:           2,
 				SubIndex:        3,
 				DataType:        telem.DataType("test_3"),
-				Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+				Calibrated:      false,
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 6.5, Offset: 7.5}},
 			}}),
 			Entry("unresolved variant", v3.ReadChannel{Variant: v3.UnresolvedReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
@@ -93,19 +94,20 @@ var _ = Describe("Codec", func() {
 						Index:           8,
 						SubIndex:        9,
 						DataType:        telem.DataType("test_9"),
-						Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+						Calibrated:      false,
+						Scale:           task.Scale{Variant: task.LinearScale{Slope: 12.5, Offset: 13.5}},
 					}},
 				},
 				StartupParameters: []v3.SlaveStartupParameters{
 					{
-						Device: "test_14",
+						Device: "test_15",
 						Parameters: []v3.StartupParameter{
 							{
-								Index:    17,
-								SubIndex: 18,
-								DataType: telem.DataType("test_18"),
-								Value:    19.5,
-								Name:     "test_20",
+								Index:    18,
+								SubIndex: 19,
+								DataType: telem.DataType("test_19"),
+								Value:    20.5,
+								Name:     "test_21",
 							},
 						},
 					},
@@ -262,7 +264,8 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 		Index:           2,
 		SubIndex:        3,
 		DataType:        telem.DataType("test_3"),
-		Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+		Calibrated:      false,
+		Scale:           task.Scale{Variant: task.LinearScale{Slope: 6.5, Offset: 7.5}},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -292,19 +295,20 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Index:           8,
 				SubIndex:        9,
 				DataType:        telem.DataType("test_9"),
-				Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+				Calibrated:      false,
+				Scale:           task.Scale{Variant: task.LinearScale{Slope: 12.5, Offset: 13.5}},
 			}},
 		},
 		StartupParameters: []v3.SlaveStartupParameters{
 			{
-				Device: "test_14",
+				Device: "test_15",
 				Parameters: []v3.StartupParameter{
 					{
-						Index:    17,
-						SubIndex: 18,
-						DataType: telem.DataType("test_18"),
-						Value:    19.5,
-						Name:     "test_20",
+						Index:    18,
+						SubIndex: 19,
+						DataType: telem.DataType("test_19"),
+						Value:    20.5,
+						Name:     "test_21",
 					},
 				},
 			},
@@ -438,7 +442,8 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			Index:           2,
 			SubIndex:        3,
 			DataType:        telem.DataType("test_3"),
-			Scale:           task.Scale{Variant: task.LinearScale{Slope: 5.5, Offset: 6.5}},
+			Calibrated:      false,
+			Scale:           task.Scale{Variant: task.LinearScale{Slope: 6.5, Offset: 7.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -493,19 +498,20 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Index:           8,
 					SubIndex:        9,
 					DataType:        telem.DataType("test_9"),
-					Scale:           task.Scale{Variant: task.LinearScale{Slope: 11.5, Offset: 12.5}},
+					Calibrated:      false,
+					Scale:           task.Scale{Variant: task.LinearScale{Slope: 12.5, Offset: 13.5}},
 				}},
 			},
 			StartupParameters: []v3.SlaveStartupParameters{
 				{
-					Device: "test_14",
+					Device: "test_15",
 					Parameters: []v3.StartupParameter{
 						{
-							Index:    17,
-							SubIndex: 18,
-							DataType: telem.DataType("test_18"),
-							Value:    19.5,
-							Name:     "test_20",
+							Index:    18,
+							SubIndex: 19,
+							DataType: telem.DataType("test_19"),
+							Value:    20.5,
+							Name:     "test_21",
 						},
 					},
 				},

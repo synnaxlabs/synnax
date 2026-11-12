@@ -56,14 +56,6 @@ func Now() time.Duration {
 	return time.Duration(c/f*int64(time.Second) + c%f*int64(time.Second)/f)
 }
 
-// Wall returns the wall clock time from GetSystemTimePreciseAsFileTime. Go's time.Now
-// on Windows moves only on each system tick.
-func Wall() time.Time {
-	var ft windows.Filetime
-	windows.GetSystemTimePreciseAsFileTime(&ft)
-	return time.Unix(0, ft.Nanoseconds())
-}
-
 // platform waits on a waitable timer.
 type platform struct {
 	// handle is the waitable timer.

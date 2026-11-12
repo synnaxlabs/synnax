@@ -65,6 +65,17 @@ describe("Device.Select", () => {
     expect(onConfigure).not.toHaveBeenCalled();
   });
 
+  it("should run onChange with the key of the selected device", async () => {
+    const make = uniqueName("make");
+    const dev = await createTestDevice(client, { make, configured: true });
+    const onChange = vi.fn();
+    await renderSelect({ make, onConfigure: vi.fn(), onChange });
+    await openAndClick(dev.name);
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(dev.key, expect.anything()),
+    );
+  });
+
   it("should call onConfigure with the device key when an unconfigured device is selected", async () => {
     const make = uniqueName("make");
     const dev = await createTestDevice(client, { make, configured: false });

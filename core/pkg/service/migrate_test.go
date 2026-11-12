@@ -11,16 +11,20 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -30,6 +34,7 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -235,5 +240,103 @@ var _ = Describe("Ontology drop", func() {
 					To(BeEmpty())
 			},
 		)
+	})
+})
+
+var _ = Describe("Metrics upgrade", func() {
+	It("Should keep every metrics channel in the Metrics group", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		prefix := fmt.Sprintf("sy_node_%s_metrics_", n.Identity.HostKey)
+		idx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
+			Name:     prefix + "time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}}))[0]
+		var data []distchannel.Channel
+		for _, name := range []string{
+			"cpu_percentage", "mem_percentage", "ts_size_gb", "kv_size_gb",
+		} {
+			data = append(data, distchannel.Channel{
+				Name:       prefix + name,
+				DataType:   telem.Float32T,
+				LocalIndex: idx.LocalKey,
+			})
+		}
+		stored := append(
+			[]distchannel.Channel{idx},
+			MustSucceed(n.Channel.Allocate(ctx, data))...,
+		)
+		Expect(n.Channel.Create(ctx, stored)).To(Succeed())
+		calcIdx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
+			Name:        prefix + "total_size_gb_time",
+			Leaseholder: node.KeyFree,
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Virtual:     true,
+		}}))[0]
+		calc := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
+			Name:        prefix + "total_size_gb",
+			Leaseholder: node.KeyFree,
+			DataType:    telem.Float32T,
+			LocalIndex:  calcIdx.LocalKey,
+			Virtual:     true,
+		}}))[0]
+		var (
+			root      = groupv0.Group{Key: uuid.New(), Name: "Channels"}
+			metrics   = groupv0.Group{Key: uuid.New(), Name: "Metrics"}
+			rootID    = resource.ID{Type: resource.TypeGroup, Key: root.Key.String()}
+			metricsID = resource.ID{Type: resource.TypeGroup, Key: metrics.Key.String()}
+			resources = []ontology.Resource{{ID: rootID}, {ID: metricsID}}
+			edges     = []ontology.Relationship{
+				parentOf(ontology.RootID, rootID),
+				parentOf(rootID, metricsID),
+			}
+			records []channelv0.Channel
+		)
+		for _, ch := range append(stored, calcIdx, calc) {
+			rec := channelv0.Channel{
+				Name:        ch.Name,
+				Leaseholder: ch.Leaseholder,
+				DataType:    telemv0.DataType(ch.DataType),
+				IsIndex:     ch.IsIndex,
+				LocalKey:    ch.LocalKey,
+				LocalIndex:  ch.LocalIndex,
+				Virtual:     ch.Virtual,
+			}
+			if ch.Name == calc.Name {
+				rec.Expression = fmt.Sprintf(
+					"return %sts_size_gb + %skv_size_gb", prefix, prefix,
+				)
+			}
+			records = append(records, rec)
+			id := resource.ID{Type: resource.TypeChannel, Key: ch.Key().String()}
+			resources = append(resources, ontology.Resource{ID: id})
+			// 0.60 gave the index of a calculated metric no group edge.
+			if ch.Name != calcIdx.Name {
+				edges = append(edges, parentOf(metricsID, id))
+			}
+		}
+		Expect(gorp.WrapWriter[channelv0.Key, channelv0.Channel](legacyDB).
+			Set(ctx, records...)).To(Succeed())
+		Expect(gorp.WrapWriter[groupv0.Key, groupv0.Group](legacyDB).
+			Set(ctx, root, metrics)).To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Resource](n.DB).
+			Set(ctx, resources...)).To(Succeed())
+		Expect(gorp.WrapWriter[string, ontology.Relationship](n.DB).
+			Set(ctx, edges...)).To(Succeed())
+		layer := MustOpen(svctestutil.OpenLayer(ctx, n))
+		var chs []channel.Channel
+		Expect(layer.Channel.NewRetrieve().
+			Where(channel.MatchNames(lo.Map(
+				records,
+				func(r channelv0.Channel, _ int) string { return r.Name },
+			)...)).
+			Entries(&chs).
+			Exec(ctx, n.DB)).To(Succeed())
+		Expect(chs).To(HaveLen(len(records)))
+		for _, ch := range chs {
+			Expect(ch.Group).To(HaveValue(Equal(metrics.Key)), ch.Name)
+		}
 	})
 })

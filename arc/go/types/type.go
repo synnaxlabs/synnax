@@ -66,8 +66,6 @@
 package types
 
 import (
-	"slices"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -228,17 +226,6 @@ func paramsEqual(a, b Params) bool {
 	}
 	return true
 }
-
-var (
-	// UnsignedIntegers contains all unsigned integer types.
-	UnsignedIntegers = []Type{U8(), U16(), U32(), U64()}
-	// SignedIntegers contains all signed integer types.
-	SignedIntegers = []Type{I8(), I16(), I32(), I64()}
-	// Floats contains all floating-point types.
-	Floats = []Type{F32(), F64()}
-	// Numerics contains all numeric types (unsigned, signed, and floating-point).
-	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
-)
 
 // FromTelem converts a telemetry data type to an Arc type.
 func FromTelem(t telem.DataType) Type {
