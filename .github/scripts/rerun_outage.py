@@ -17,11 +17,14 @@ pull requests from <pulls.json>, a list of objects with number and headRefOid. I
 reruns a run only when all of these are true:
 
 - The run failed on its first attempt, so a run is never rerun two times.
-- No job other than OK has the conclusion failure or timed_out.
+- The run has an OK job, and no other job failed. A job failed when its conclusion is
+  failure or timed_out, or when it got a runner and then was cancelled, which is how a
+  job that reaches its timeout ends.
 - The run is the newest CI run for the head of an open pull request.
 - The pull request is not in the merge queue.
 
-Environment: GH_TOKEN and GITHUB_REPOSITORY.
+A failed request for one run does not stop the other runs: the script then exits with
+status 1 at the end. Environment: GH_TOKEN and GITHUB_REPOSITORY.
 """
 
 import json
@@ -50,13 +53,22 @@ Api = Callable[..., str]
 Run = dict[str, Any]
 
 
+def _failed(job: dict[str, Any]) -> bool:
+    # A job that no runner takes also ends as cancelled, but it has no runner.
+    return job["conclusion"] in FAILED or (
+        job["conclusion"] == "cancelled" and bool(job["runner_id"])
+    )
+
+
 def outage(run: Run, jobs: list[dict[str, Any]]) -> bool:
-    """Returns True if run failed on its first attempt and no job but OK failed."""
+    """Returns True if run failed on its first attempt, has an OK job, and no other
+    job failed."""
     return (
         run["status"] == "completed"
         and run["conclusion"] == "failure"
         and run["run_attempt"] == 1
-        and not any(j["name"] != GATE and j["conclusion"] in FAILED for j in jobs)
+        and any(j["name"] == GATE for j in jobs)
+        and not any(j["name"] != GATE and _failed(j) for j in jobs)
     )
 
 
@@ -97,44 +109,60 @@ def _current(api: Api, repo: str, number: int, sha: str) -> bool:
     return not pull["isInMergeQueue"] and pull["headRefOid"] == sha
 
 
-def sweep(api: Api, repo: str, pulls: list[dict[str, Any]], now: datetime) -> list[int]:
-    """Reruns each outage run of pulls and returns the IDs of the runs it reran. The
-    api argument calls `gh api` with its arguments and returns the output."""
+def _rerun(api: Api, repo: str, run: Run, numbers: list[int]) -> bool:
+    """Reruns run if it is an outage run and returns True if it did."""
+    runs_path = f"repos/{repo}/actions/workflows/{WORKFLOW}/runs"
+    run_path = f"repos/{repo}/actions/runs/{run['id']}"
+    sha = run["head_sha"]
+    jobs = _rows(
+        api,
+        f"{run_path}/jobs?per_page=100",
+        ".jobs[] | {name, conclusion, runner_id}",
+    )
+    if not outage(run, jobs):
+        return False
+    # A rerun of an older run cancels the newer run of the same pull request.
+    newest = api(
+        f"{runs_path}?head_sha={sha}&event=pull_request&per_page=1",
+        *("--jq", ".workflow_runs[0].id"),
+    )
+    if newest.strip() != str(run["id"]):
+        return False
+    if not all(_current(api, repo, number, sha) for number in numbers):
+        return False
+    # A rerun of only the failed jobs is not known to start a job that never ran.
+    api(f"{run_path}/rerun", "-X", "POST")
+    print(f"Reran CI run {run['id']} of #{', #'.join(map(str, numbers))}")
+    return True
+
+
+def sweep(
+    api: Api, repo: str, pulls: list[dict[str, Any]], now: datetime
+) -> tuple[list[int], list[int]]:
+    """Reruns each outage run of pulls. Returns the IDs of the runs it reran and the
+    IDs of the runs for which a request failed. The api argument calls `gh api` with
+    its arguments and returns the output."""
     heads: dict[str, list[int]] = {}
     for pull in pulls:
         heads.setdefault(pull["headRefOid"], []).append(pull["number"])
-    runs_path = f"repos/{repo}/actions/workflows/{WORKFLOW}/runs"
     created = (now - CREATED).strftime("%Y-%m-%dT%H:%M:%SZ")
     runs = _rows(
         api,
-        f"{runs_path}?status=failure&event=pull_request&created=>={created}"
-        "&per_page=100",
+        f"repos/{repo}/actions/workflows/{WORKFLOW}/runs?status=failure"
+        f"&event=pull_request&created=>={created}&per_page=100",
         ".workflow_runs[] | {id, status, conclusion, run_attempt, head_sha,"
         " updated_at}",
     )
     reran: list[int] = []
+    failed: list[int] = []
     for run in candidates(runs, set(heads), now - COMPLETED):
-        run_path = f"repos/{repo}/actions/runs/{run['id']}"
-        sha = run["head_sha"]
-        jobs = _rows(
-            api, f"{run_path}/jobs?per_page=100", ".jobs[] | {name, conclusion}"
-        )
-        if not outage(run, jobs):
-            continue
-        # A rerun of an older run cancels the newer run of the same pull request.
-        newest = api(
-            f"{runs_path}?head_sha={sha}&event=pull_request&per_page=1",
-            *("--jq", ".workflow_runs[0].id"),
-        )
-        if newest.strip() != str(run["id"]):
-            continue
-        if not all(_current(api, repo, number, sha) for number in heads[sha]):
-            continue
-        # A rerun of only the failed jobs is not known to start a job that never ran.
-        api(f"{run_path}/rerun", "-X", "POST")
-        print(f"Reran CI run {run['id']} of #{', #'.join(map(str, heads[sha]))}")
-        reran.append(run["id"])
-    return reran
+        try:
+            if _rerun(api, repo, run, heads[run["head_sha"]]):
+                reran.append(run["id"])
+        except subprocess.CalledProcessError as e:
+            print(f"CI run {run['id']}: {e}", file=sys.stderr)
+            failed.append(run["id"])
+    return reran, failed
 
 
 def _gh_api(*args: str) -> str:
@@ -148,7 +176,10 @@ def _gh_api(*args: str) -> str:
 
 def main(argv: list[str]) -> None:
     pulls = json.loads(Path(argv[1]).read_text())
-    sweep(_gh_api, os.environ["GITHUB_REPOSITORY"], pulls, datetime.now(UTC))
+    repo = os.environ["GITHUB_REPOSITORY"]
+    _, failed = sweep(_gh_api, repo, pulls, datetime.now(UTC))
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

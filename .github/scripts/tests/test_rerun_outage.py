@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,7 +43,11 @@ def run(
 
 
 def jobs(*rows: tuple[str, str | None]) -> list[dict[str, Any]]:
-    return [{"name": name, "conclusion": conclusion} for name, conclusion in rows]
+    """Returns jobs from names and conclusions. A job with a conclusion had a runner."""
+    return [
+        {"name": name, "conclusion": conclusion, "runner_id": conclusion and 1001}
+        for name, conclusion in rows
+    ]
 
 
 # Run 43090120253 of the outage on 2026-11-11: every job passed and OK got no runner.
@@ -86,8 +91,18 @@ class TestOutage:
     def test_should_be_true_when_only_ok_failed(self) -> None:
         assert outage(OK_FAILED, OK_FAILED_JOBS)
 
-    def test_should_be_true_when_other_jobs_were_cancelled(self) -> None:
-        assert outage(OK_FAILED, [*OK_FAILED_JOBS, *jobs(("knip", "cancelled"))])
+    def test_should_be_true_when_a_job_without_a_runner_was_cancelled(self) -> None:
+        cancelled = {"name": "knip", "conclusion": "cancelled", "runner_id": None}
+        assert outage(OK_FAILED, [*OK_FAILED_JOBS, cancelled])
+
+    def test_should_be_false_when_a_job_with_a_runner_was_cancelled(self) -> None:
+        assert not outage(OK_FAILED, [*OK_FAILED_JOBS, *jobs(("knip", "cancelled"))])
+
+    def test_should_be_false_for_a_run_without_jobs(self) -> None:
+        assert not outage(OK_QUEUED, [])
+
+    def test_should_be_false_for_a_run_without_an_ok_job(self) -> None:
+        assert not outage(OK_QUEUED, jobs(("changes", "success")))
 
     def test_should_be_false_when_another_job_failed(self) -> None:
         assert not outage(REAL, REAL_JOBS)
@@ -155,6 +170,7 @@ class FakeAPI:
         self.newest: dict[str, int] = {}
         self.queued: set[int] = set()
         self.heads: dict[int, str] = {}
+        self.refused: set[int] = set()
         self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str) -> str:
@@ -168,6 +184,8 @@ class FakeAPI:
             }
             return json.dumps({"data": {"repository": {"pullRequest": pull}}})
         if path.endswith("/rerun"):
+            if int(path.split("/")[-2]) in self.refused:
+                raise subprocess.CalledProcessError(1, "gh_api.sh")
             return ""
         if "/jobs?" in path:
             id = int(path.split("/")[-2])
@@ -206,8 +224,9 @@ class TestSweep:
 
     def test_should_rerun_only_the_outage_runs(self) -> None:
         api = fake(OK_QUEUED, REAL, OK_FAILED)
-        reran = sweep(api, REPO, pulls(OK_QUEUED, REAL, OK_FAILED), NOW)
+        reran, failed = sweep(api, REPO, pulls(OK_QUEUED, REAL, OK_FAILED), NOW)
         assert reran == [OK_QUEUED["id"], OK_FAILED["id"]]
+        assert failed == []
         assert api.reruns == [
             f"repos/{REPO}/actions/runs/{OK_QUEUED['id']}/rerun",
             f"repos/{REPO}/actions/runs/{OK_FAILED['id']}/rerun",
@@ -215,7 +234,7 @@ class TestSweep:
 
     def test_should_list_the_failed_runs_of_the_last_six_hours(self) -> None:
         api = fake()
-        assert sweep(api, REPO, [], NOW) == []
+        assert sweep(api, REPO, [], NOW) == ([], [])
         assert api.calls == [
             (
                 f"repos/{REPO}/actions/workflows/ci.yaml/runs?status=failure"
@@ -234,30 +253,30 @@ class TestSweep:
             f"repos/{REPO}/actions/runs/{OK_QUEUED['id']}/jobs?per_page=100",
             "--paginate",
             "--jq",
-            ".jobs[] | {name, conclusion} | tojson",
+            ".jobs[] | {name, conclusion, runner_id} | tojson",
         )
 
     def test_should_not_read_the_jobs_of_a_closed_pull_request(self) -> None:
         api = fake(OK_QUEUED)
-        assert sweep(api, REPO, [], NOW) == []
+        assert sweep(api, REPO, [], NOW) == ([], [])
         assert len(api.calls) == 1
 
     def test_should_not_rerun_a_run_that_is_not_the_newest_of_its_head(self) -> None:
         api = fake(OK_QUEUED)
         api.newest[OK_QUEUED["head_sha"]] = OK_QUEUED["id"] + 1
-        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == []
+        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == ([], [])
         assert api.reruns == []
 
     def test_should_not_rerun_a_run_of_a_pull_request_in_the_merge_queue(self) -> None:
         api = fake(OK_QUEUED)
         api.queued.add(1)
-        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == []
+        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == ([], [])
         assert api.reruns == []
 
     def test_should_not_rerun_a_run_of_a_head_that_moved(self) -> None:
         api = fake(OK_QUEUED)
         api.heads[1] = "moved"
-        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == []
+        assert sweep(api, REPO, pulls(OK_QUEUED), NOW) == ([], [])
         assert api.reruns == []
 
     def test_should_not_rerun_when_one_pull_request_of_the_head_is_queued(self) -> None:
@@ -265,8 +284,15 @@ class TestSweep:
         api.heads[2] = OK_QUEUED["head_sha"]
         api.queued.add(2)
         both = [*pulls(OK_QUEUED), {"number": 2, "headRefOid": OK_QUEUED["head_sha"]}]
-        assert sweep(api, REPO, both, NOW) == []
+        assert sweep(api, REPO, both, NOW) == ([], [])
         assert api.reruns == []
+
+    def test_should_continue_after_a_failed_request(self) -> None:
+        api = fake(OK_QUEUED, OK_FAILED)
+        api.refused.add(OK_QUEUED["id"])
+        reran, failed = sweep(api, REPO, pulls(OK_QUEUED, OK_FAILED), NOW)
+        assert reran == [OK_FAILED["id"]]
+        assert failed == [OK_QUEUED["id"]]
 
 
 class TestMain:
@@ -287,3 +313,17 @@ class TestMain:
         main(["rerun_outage.py", str(file)])
         assert api.reruns == [f"repos/{REPO}/actions/runs/{OK_QUEUED['id']}/rerun"]
         assert capsys.readouterr().out == "Reran CI run 43090120253 of #1\n"
+
+    def test_should_exit_with_an_error_after_a_failed_request(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recent = {**OK_QUEUED, "updated_at": datetime.now(UTC).isoformat()}
+        api = fake(recent)
+        api.refused.add(OK_QUEUED["id"])
+        monkeypatch.setattr(rerun_outage, "_gh_api", api)
+        monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+        file = tmp_path / "pulls.json"
+        file.write_text(json.dumps(pulls(recent)))
+        with pytest.raises(SystemExit) as e:
+            main(["rerun_outage.py", str(file)])
+        assert e.value.code == 1
