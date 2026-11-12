@@ -64,6 +64,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -114,6 +116,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
 	License license.ServiceConfig
+	// SecretsKey protects the value of every stored secret. It encrypts the random data
+	// key that encrypts each value.
+	//
+	// [REQUIRED]
+	SecretsKey secret.EncryptionKey
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -150,6 +157,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
+	c.SecretsKey = override.If(
+		c.SecretsKey,
+		other.SecretsKey,
+		other.SecretsKey != secret.EncryptionKey{},
+	)
 	return c
 }
 
@@ -158,6 +170,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
 	v.NotNil("security", c.Security)
+	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	return v.Error()
 }
 
@@ -247,6 +260,10 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Grant stores the grants that let a rack read secrets.
+	Grant *grant.Service
+	// Secret stores the hidden values that devices and tasks connect with.
+	Secret *secret.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node serves the host node of the Core as a resource.
@@ -871,6 +888,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
@@ -891,6 +923,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeRole:            l.RBAC.Role.Resources(),
 			resource.TypeSchematic:       l.Schematic.Resources(),
 			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
+			resource.TypeSecret:          l.Secret.Resources(),
 			resource.TypeStatus:          l.Status.Resources(),
 			resource.TypeTable:           l.Table.Resources(),
 			resource.TypeTask:            l.Task.Resources(),

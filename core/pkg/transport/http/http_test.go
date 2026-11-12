@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -60,6 +61,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Storage:         node.Storage,
 		RootCredentials: creds,
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
@@ -125,6 +127,12 @@ var _ = Describe("HTTP", func() {
 			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary secret grant create",
+				http.MethodPost,
+				"/api/v1/secret/grant/create",
+			),
 		)
 
 		DescribeTable("Should not register a route for a deleted edit endpoint",
@@ -183,6 +191,7 @@ var _ = Describe("HTTP", func() {
 				Storage:         node.Storage,
 				RootCredentials: creds,
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
+				SecretsKey:      secret.NewEncryptionKey(),
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,

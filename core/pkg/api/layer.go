@@ -50,6 +50,7 @@ import (
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -232,6 +233,14 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	// SECRET
+	SecretSet      freighter.UnaryServer[secret.SetRequest, secret.SetResponse]
+	SecretRetrieve freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
+	SecretDelete   freighter.UnaryServer[secret.DeleteRequest, struct{}]
+	// SecretDispatch applies path actions to a secret.
+	SecretDispatch    freighter.UnaryServer[secret.DispatchRequest, struct{}]
+	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
+	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -262,6 +271,7 @@ type Layer struct {
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
+	Secret       *secret.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -481,6 +491,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewDispatch,
+
+		// SECRET
+		t.SecretSet,
+		t.SecretRetrieve,
+		t.SecretDelete,
+		t.SecretDispatch,
+		t.SecretGrantCreate,
+		t.SecretResolve,
 
 		// ARC
 		t.ArcCreate,
@@ -709,6 +727,16 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
 	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
+	// SECRET
+	t.SecretSet.BindHandler(bind.Write(l.binder, l.Secret.Set))
+	t.SecretRetrieve.BindHandler(bind.Read(l.binder, l.Secret.Retrieve))
+	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
+	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
+	t.SecretGrantCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+	)
+	t.SecretResolve.BindHandler(l.Secret.Resolve)
+
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
 	t.ArcDelete.BindHandler(
@@ -921,6 +949,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Secret, err = secret.NewService(secret.ServiceConfig{
+		Secret: cfg.Service.Secret,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

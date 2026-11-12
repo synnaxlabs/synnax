@@ -50,6 +50,7 @@ var allObjects = []resource.ID{
 	{Type: resource.TypePolicy},
 	{Type: resource.TypeBuiltin},
 	{Type: resource.TypeView},
+	{Type: resource.TypeSecret},
 }
 
 var (
@@ -107,6 +108,7 @@ var (
 				{Type: resource.TypeSchematicSymbol},
 				{Type: resource.TypeStatus},
 				{Type: resource.TypeView},
+				{Type: resource.TypeSecret},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -162,6 +164,12 @@ var (
 		{
 			Name:     "Driver Channel View Access",
 			Objects:  []resource.ID{{Type: resource.TypeChannel}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:     "Driver Secret View Access",
+			Objects:  []resource.ID{{Type: resource.TypeSecret}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},

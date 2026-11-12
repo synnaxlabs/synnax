@@ -37,6 +37,7 @@ import (
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -625,6 +626,32 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewDispatch: unary[view.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathViewDispatch,
+		),
+
+		// SECRET
+		SecretSet: unary[secret.SetRequest, secret.SetResponse](
+			router,
+			"/api/v1/secret/set",
+		),
+		SecretRetrieve: unary[secret.RetrieveRequest, secret.RetrieveResponse](
+			router,
+			"/api/v1/secret/retrieve",
+		),
+		SecretDelete: unary[secret.DeleteRequest, struct{}](
+			router,
+			"/api/v1/secret/delete",
+		),
+		SecretDispatch: unary[secret.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathSecretDispatch,
+		),
+		SecretGrantCreate: unary[secret.GrantCreateRequest, secret.GrantCreateResponse](
+			router,
+			"/api/v1/secret/grant/create",
+		),
+		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
+			router,
+			"/api/v1/secret/resolve",
 		),
 
 		// IMPORT/EXPORT

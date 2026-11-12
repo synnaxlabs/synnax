@@ -162,6 +162,7 @@ markers = [
     "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "schematic: mark test as a schematic test",
+    "secret: mark test as a secret test",
     "series: mark test as a series test",
     "signals: mark test as a signals test",
     "status: mark test as a status test",

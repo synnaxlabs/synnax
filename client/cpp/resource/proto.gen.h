@@ -57,6 +57,7 @@ type_to_pb(const std::string &cpp) {
         {TYPE_NI_DEVICE, ::service::resource::pb::TYPE_NI_DEVICE},
         {TYPE_OPCUA_SERVER, ::service::resource::pb::TYPE_OPCUA_SERVER},
         {TYPE_ARC_DIRECTORY, ::service::resource::pb::TYPE_ARC_DIRECTORY},
+        {TYPE_SECRET, ::service::resource::pb::TYPE_SECRET},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -133,6 +134,8 @@ type_from_pb(::service::resource::pb::Type pb) {
             return {TYPE_OPCUA_SERVER, x::errors::NIL};
         case ::service::resource::pb::TYPE_ARC_DIRECTORY:
             return {TYPE_ARC_DIRECTORY, x::errors::NIL};
+        case ::service::resource::pb::TYPE_SECRET:
+            return {TYPE_SECRET, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Type protobuf value")};
     }

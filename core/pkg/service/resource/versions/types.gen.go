@@ -74,6 +74,8 @@ const (
 	TypeNiDevice       Type = v0.TypeNiDevice
 	TypeOpcuaServer    Type = v0.TypeOpcuaServer
 	TypeArcDirectory   Type = v0.TypeArcDirectory
+	// TypeSecret identifies a secret.
+	TypeSecret Type = v0.TypeSecret
 )
 
 // ID is a unique identifier for a Resource. An example:

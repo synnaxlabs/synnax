@@ -79,6 +79,8 @@ TYPE_OPCUA_SERVER: Literal["opcua_server"] = "opcua_server"
 
 TYPE_ARC_DIRECTORY: Literal["arc_directory"] = "arc_directory"
 
+TYPE_SECRET: Literal["secret"] = "secret"
+
 
 Type = Literal[
     "arc",
@@ -114,4 +116,5 @@ Type = Literal[
     "ni_device",
     "opcua_server",
     "arc_directory",
+    "secret",
 ]
