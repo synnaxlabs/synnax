@@ -62,20 +62,17 @@ const rangeOf = (s: status.Status): ranger.Key | undefined => {
   return details.success ? details.data.range : undefined;
 };
 
-/**
- * Lists the keys of the Sift uploads of a range, newest first, and keeps them live. A
- * null range lists nothing.
- */
-export const useList = (range: ranger.Key | null): Flux.Result<status.Key[]> => {
-  const res = useResult(range == null ? null : { range });
+/** Lists the keys of the Sift uploads of a range, newest first, and keeps them live. */
+export const useList = (range: ranger.Key): Flux.Result<status.Key[]> => {
+  const res = useResult({ range });
   const keys = res.data ?? [];
   const refresh = useRefresh();
   PStatus.useSetSynchronizer((s) => {
-    if (range == null || !s.key.startsWith(KEY_PREFIX) || keys.includes(s.key)) return;
+    if (!s.key.startsWith(KEY_PREFIX) || keys.includes(s.key)) return;
     if (rangeOf(s) === range) refresh({ range });
   });
   PStatus.useDeleteSynchronizer((key) => {
-    if (range != null && keys.includes(key)) refresh({ range });
+    if (keys.includes(key)) refresh({ range });
   });
   return res;
 };
