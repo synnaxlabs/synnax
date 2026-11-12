@@ -19,7 +19,7 @@ import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { useOpen, useStop } from "@/feature/range/next/Item";
+import { useOpen, useStart, useStop } from "@/feature/range/next/Item";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -43,6 +43,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
   const dispatch = Session.useDispatch();
   const open = useOpen();
   const plot = Range.useAddToNewPlot();
+  const start = useStart();
   const stop = useStop();
   const openCreate = Range.useCreateModal();
   const copyLink = Core.useCopyLinkToClipboard();
@@ -53,9 +54,10 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
   });
   const { update: del } = Ranger.useDelete();
   const now = useNow(() => null);
-  const running = ranges.filter(
-    (r) => Ranger.getStage(r.timeRange, now) === "in_progress",
-  );
+  const inStage = (stage: ranger.Stage) =>
+    ranges.filter((r) => Ranger.getStage(r.timeRange, now) === stage);
+  const planned = inStage("to_do");
+  const running = inStage("in_progress");
   const handleDelete = () =>
     handleError(async () => {
       if (!(await confirm(ranges))) return;
@@ -78,6 +80,12 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
         </Menu.Item>
       )}
       <Menu.Divider />
+      {planned.length > 0 && canUpdate && (
+        <Menu.Item itemKey="start" onClick={() => planned.forEach(start)}>
+          <Icon.Play />
+          Start
+        </Menu.Item>
+      )}
       {running.length > 0 && canUpdate && (
         <Menu.Item itemKey="stop" onClick={() => running.forEach(stop)}>
           <Icon.Stop />
@@ -86,11 +94,11 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
       )}
       {single != null && canCreate && (
         <Menu.Item
-          itemKey="createChild"
+          itemKey="startChild"
           onClick={() => openCreate({ parent: single.key })}
         >
           <CreateChildRangeIcon />
-          Create child range
+          Start child range
         </Menu.Item>
       )}
       {single != null && canUpdate && (

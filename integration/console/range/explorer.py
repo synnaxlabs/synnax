@@ -222,7 +222,7 @@ class Explorer(Surface):
         """
         item = self.get_item(parent_name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Create child range")
+        self.ctx_menu.action(item, "Start child range")
         self.fill_create_modal(child_name)
 
     def search(self, term: str) -> None:

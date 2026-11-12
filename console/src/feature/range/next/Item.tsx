@@ -23,7 +23,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEvent,
@@ -47,6 +47,19 @@ export { HighlightContext };
 export const useOpen = (): ((key: ranger.Key) => void) => {
   const openTab = Panel.useOpenTab();
   return (key) => openTab({ variant: "resource", resource: ranger.resourceID(key) });
+};
+
+/** Starts a planned range now, with no end until it stops. */
+export const useStart = (): ((range: ranger.Range) => void) => {
+  const { update } = Ranger.useSetTimeRange();
+  return (range) =>
+    update({
+      key: range.key,
+      timeRange: {
+        start: TimeStamp.now().nanoseconds,
+        end: TimeStamp.MAX.nanoseconds,
+      },
+    });
 };
 
 export const useStop = (): ((range: ranger.Range) => void) => {
