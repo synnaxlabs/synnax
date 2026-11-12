@@ -67,16 +67,18 @@ func encode(
 					len(columns),
 				),
 			}
+			var n int64
 			for i, c := range columns {
 				v := c.value(a)
 				if v != empty {
-					samples++
+					n++
 				}
 				req.ChannelValues[i] = v
 			}
 			if err := send(req); err != nil {
 				return next, samples, err
 			}
+			samples += n
 			next = max(next, ts+1)
 		}
 	}
