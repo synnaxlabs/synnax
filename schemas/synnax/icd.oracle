@@ -9,6 +9,7 @@
 
 import "schemas/x/filter"
 import "schemas/x/patch"
+import "schemas/x/payload"
 
 @go output "core/pkg/service/icd"
 @py output "client/py/synnax/icd"
@@ -31,16 +32,6 @@ ByteOrder enum {
     big_endian    = "big_endian"
 
     @doc value "is the byte order of a multi-byte binary field."
-}
-
-TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
-
-    @doc value "is the encoding of a timestamp in a JSON value."
 }
 
 Identifier union on type {
@@ -196,7 +187,7 @@ JSONField union on type extends JSONBaseField {
         @doc value "is a JSON boolean."
     }
     timestamp {
-        format TimeFormat {
+        format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
         }
 

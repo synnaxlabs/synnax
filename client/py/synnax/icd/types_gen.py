@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.resource import ID
-from x import filter
+from x import filter, payload as payload_
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
 
@@ -25,19 +25,6 @@ BYTE_ORDER_BIG_ENDIAN: Literal["big_endian"] = "big_endian"
 
 
 ByteOrder = Literal["little_endian", "big_endian"]
-
-TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
-
-TIME_FORMAT_UNIX_SEC: Literal["unix_sec"] = "unix_sec"
-
-TIME_FORMAT_UNIX_MS: Literal["unix_ms"] = "unix_ms"
-
-TIME_FORMAT_UNIX_US: Literal["unix_us"] = "unix_us"
-
-TIME_FORMAT_UNIX_NS: Literal["unix_ns"] = "unix_ns"
-
-
-TimeFormat = Literal["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]
 
 Key: TypeAlias = UUID
 
@@ -236,7 +223,7 @@ class TimestampJSONField(JSONBaseField):
     """Is a timestamp held in a JSON number or string."""
 
     type: Literal["timestamp"] = "timestamp"
-    format: TimeFormat
+    format: payload_.TimeFormat
 
 
 # Is a field read from a JSON document.

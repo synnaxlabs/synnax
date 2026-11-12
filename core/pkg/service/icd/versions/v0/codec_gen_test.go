@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -254,7 +255,7 @@ var _ = Describe("Codec", func() {
 			Entry("boolean variant", v0.JSONField{Variant: v0.BooleanJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
 			Entry("timestamp variant", v0.JSONField{Variant: v0.TimestampJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				Format:        v0.TimeFormat("iso8601"),
+				Format:        payload.TimeFormat("iso8601"),
 			}}),
 		)
 	})
@@ -1002,7 +1003,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.TimestampJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			Format:        v0.TimeFormat("iso8601"),
+			Format:        payload.TimeFormat("iso8601"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

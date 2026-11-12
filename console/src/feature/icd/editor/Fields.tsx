@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type record, uuid } from "@synnaxlabs/x";
+import { deep, type payload, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -119,7 +119,7 @@ const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
 };
 
 /** A JSON field type, with a timestamp named by its format. */
-type JSONType = Exclude<icd.JSONFieldType, "timestamp"> | icd.TimeFormat;
+type JSONType = Exclude<icd.JSONFieldType, "timestamp"> | payload.TimeFormat;
 
 const JSON_TYPE_NAMES: Record<JSONType, string> = {
   number: "Number",

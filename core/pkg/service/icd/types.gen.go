@@ -33,17 +33,6 @@ const (
 	ByteOrderBigEndian    ByteOrder = versions.ByteOrderBigEndian
 )
 
-// TimeFormat is the encoding of a timestamp in a JSON value.
-type TimeFormat = versions.TimeFormat
-
-const (
-	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
-	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = versions.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = versions.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = versions.TimeFormatUnixNs
-)
-
 // Identifier selects which frames on a bus belong to a binary message.
 type Identifier = versions.Identifier
 

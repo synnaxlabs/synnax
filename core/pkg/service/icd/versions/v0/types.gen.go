@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -45,28 +46,6 @@ const (
 func (b ByteOrder) IsValid() bool {
 	switch b {
 	case ByteOrderLittleEndian, ByteOrderBigEndian:
-		return true
-	default:
-		return false
-	}
-}
-
-// TimeFormat is the encoding of a timestamp in a JSON value.
-type TimeFormat string
-
-const (
-	TimeFormatISO8601 TimeFormat = "iso8601"
-	TimeFormatUnixSec TimeFormat = "unix_sec"
-	TimeFormatUnixMs  TimeFormat = "unix_ms"
-	TimeFormatUnixUs  TimeFormat = "unix_us"
-	TimeFormatUnixNs  TimeFormat = "unix_ns"
-)
-
-// IsValid reports whether t is one of the defined TimeFormat
-// values.
-func (t TimeFormat) IsValid() bool {
-	switch t {
-	case TimeFormatISO8601, TimeFormatUnixSec, TimeFormatUnixMs, TimeFormatUnixUs, TimeFormatUnixNs:
 		return true
 	default:
 		return false
@@ -640,7 +619,7 @@ func (b BooleanJSONField) Validate() error {
 type TimestampJSONField struct {
 	JSONBaseField
 	// Format is the encoding of the timestamp.
-	Format TimeFormat `json:"format" msgpack:"format"`
+	Format payload.TimeFormat `json:"format" msgpack:"format"`
 }
 
 func (TimestampJSONField) isJSONFieldVariant() {}
