@@ -138,6 +138,7 @@ const ChannelRow = ({
               onClear={() => handlePrecisionChange()}
               endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
+              integer
               disabled={disabled}
               shrink={false}
               variant="shadow"
