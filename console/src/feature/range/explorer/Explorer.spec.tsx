@@ -7,27 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
+import {
+  label,
+  NotFoundError,
+  ranger,
+  type Synnax as Client,
+  view,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
+import { Session } from "@/session";
 import {
+  awaitTextEditing,
+  commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
   renderSuspended,
+  resolveFocusedTab,
+  selectRange,
+  selectTestProject,
+  type TestStore,
   uniqueName,
   uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const renderExplorer = async (as: Client = client): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const renderExplorer = async (as: Client = client): Promise<TestStore> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   await renderSuspended(
     <>
       <Explorer />
@@ -36,6 +51,7 @@ const renderExplorer = async (as: Client = client): Promise<void> => {
     { wrapper },
   );
   await screen.findByText("All ranges");
+  return store;
 };
 
 const createRange = async (
@@ -80,6 +96,15 @@ const search = (term: string): void => {
 
 /** @returns the list item of the named range. */
 const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { name });
+
+/** Searches for the range, then opens the context menu on it. */
+const openMenuOf = async (rng: ranger.Range): Promise<void> => {
+  search(rng.name);
+  fireEvent.contextMenu(await screen.findByRole("listitem", { name: rng.name }));
+};
+
+const menuItem = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("menuitem", { name });
 
 const SWAP = "console-range-filter__picker--swap";
 
@@ -270,6 +295,66 @@ describe("range/explorer/Explorer", () => {
     });
   });
 
+  describe("context menu", () => {
+    it("should open the overview of the range", async () => {
+      const rng = await createRange(uniqueRangeName("open"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Open"));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(rng.key));
+    });
+
+    it("should rename the range in place", async () => {
+      const rng = await createRange(uniqueRangeName("rename"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Rename"));
+      const renamed = uniqueRangeName("renamed");
+      commitTextEdit(await awaitTextEditing(List.itemNameID(rng.key)), renamed);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
+      );
+    });
+
+    it("should pin the range", async () => {
+      const rng = await createRange(uniqueRangeName("pin"));
+      const store = await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Pin"));
+      await waitFor(() =>
+        expect(selectRange(store.getState(), rng.key)?.variant).toBe("persisted"),
+      );
+    });
+
+    it("should open the create modal for a child range", async () => {
+      const rng = await createRange(uniqueRangeName("parent"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Start child range"));
+      expect(await screen.findByText("Save locally")).toBeTruthy();
+    });
+
+    it("should delete the range after the confirm", async () => {
+      const rng = await createRange(uniqueRangeName("delete"));
+      const store = await renderExplorer();
+      store.dispatch(Session.Range.add({ variant: "persisted", key: rng.key }));
+      await openMenuOf(rng);
+      fireEvent.click(await menuItem("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(() =>
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
+      );
+      await waitFor(
+        async () =>
+          await expect(client.ranges.retrieve(rng.key)).rejects.toThrow(NotFoundError),
+      );
+    });
+  });
+
   describe("stored view", () => {
     it("should save the sort and the layout to the view", async () => {
       const stored = await client.views.create({
@@ -300,6 +385,36 @@ describe("range/explorer/Explorer", () => {
         ],
         create: [ranger.TYPE_RESOURCE_ID],
       });
+
+    it("should withhold the range writes from a subject with no range grants", async () => {
+      const rng = await createRange(uniqueRangeName("read"));
+      await renderExplorer(
+        await createTestClientWithGrants(client, {
+          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+        }),
+      );
+      await openMenuOf(rng);
+      await menuItem("Open");
+      expect(screen.queryByRole("menuitem", { name: "Rename" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: "Start child range" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
+    });
+
+    it("should offer the range writes to a subject granted them", async () => {
+      const rng = await createRange(uniqueRangeName("write"));
+      await renderExplorer(
+        await createTestClientWithGrants(client, {
+          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          create: [ranger.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
+        }),
+      );
+      await openMenuOf(rng);
+      expect(await menuItem("Rename")).toBeTruthy();
+      expect(await menuItem("Start child range")).toBeTruthy();
+      expect(await menuItem("Delete")).toBeTruthy();
+    });
 
     it("should let a subject who cannot update views sort and lay out all ranges", async () => {
       await renderExplorer(await createReader());
