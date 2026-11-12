@@ -400,17 +400,15 @@ var _ = Describe("Server", func() {
 				MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
 					ClientKey: &key,
 				}))
-				_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{
 					ClientKey: &key,
-				})
-				Expect(status.Code(err)).To(Equal(codes.AlreadyExists))
+				})).Error().To(WithTransform(status.Code, Equal(codes.AlreadyExists)))
 			})
 
 		It("Should reject an asset that does not exist", func(ctx SpecContext) {
-			_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{
+			Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{
 				AssetIds: []string{"asset-pad"},
-			})
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			})).Error().To(WithTransform(status.Code, Equal(codes.NotFound)))
 		})
 
 		It("Should reject a run that stops before it starts", func(ctx SpecContext) {
@@ -444,11 +442,10 @@ var _ = Describe("Server", func() {
 				if run.RunId == "" {
 					run.RunId = created.Run.RunId
 				}
-				_, err := runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+				Expect(runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
 					Run:        run,
 					UpdateMask: &fieldmaskpb.FieldMask{Paths: paths},
-				})
-				Expect(status.Code(err)).To(Equal(code))
+				})).Error().To(WithTransform(status.Code, Equal(code)))
 			},
 			Entry("missing run", &runsv2.Run{RunId: "run-9"}, []string{"name"},
 				codes.NotFound),
@@ -460,8 +457,8 @@ var _ = Describe("Server", func() {
 
 		It("Should return the errors FailRuns sets, in order", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "down"))
-			_, err := createRun(ctx, &runsv2.CreateAdhocRunRequest{})
-			Expect(status.Code(err)).To(Equal(codes.Unavailable))
+			Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{})).Error().
+				To(WithTransform(status.Code, Equal(codes.Unavailable)))
 			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 		})
 	})

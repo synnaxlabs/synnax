@@ -594,6 +594,30 @@ var _ = Describe("Engine", func() {
 			Expect(server.Runs()).To(HaveLen(1))
 		})
 
+		It("Should return the last error once it runs out of retries",
+			func(ctx SpecContext) {
+				server.FailRuns(
+					status.Error(codes.Unavailable, "sift is down"),
+					status.Error(codes.Unavailable, "sift is down"),
+				)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Retry: breaker.Config{MaxRetries: 1},
+				})
+				Expect(e.SetRun(ctx, run)).Error().
+					To(MatchError(ContainSubstring("sift is down")))
+				Expect(server.Runs()).To(BeEmpty())
+			})
+
+		It("Should name no single cause when Sift cannot find a thing",
+			func(ctx SpecContext) {
+				server.FailRuns(status.Error(codes.NotFound, "run not found"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				Expect(e.SetRun(ctx, run)).Error().To(MatchError(
+					"Sift could not find what the request names: rpc error: " +
+						"code = NotFound desc = run not found",
+				))
+			})
+
 		It("Should stop at a permanent failure", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.PermissionDenied, "no runs for you"))
 			e := open(ctx, channel.Keys{ch.Key()})
