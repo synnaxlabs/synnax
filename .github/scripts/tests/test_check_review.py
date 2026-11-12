@@ -10,11 +10,37 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_review.sh"
+
+
+EARLIER = "2026-11-07T20:07:30Z"
+LATER = "2026-11-07T20:09:05Z"
+
+
+def review(
+    score: int | None = 5,
+    conclusion: str | None = "success",
+    *,
+    started: str = EARLIER,
+    key: str = "42:main",
+    app: str = "sedosaur",
+) -> dict[str, Any]:
+    """A check run of a Sedosaur review."""
+    title = f"Confidence Score: {score}/5"
+    if score is None:
+        title = "The review ended with failure"
+    return {
+        "app": {"slug": app},
+        "external_id": key,
+        "started_at": started,
+        "conclusion": conclusion,
+        "output": {"title": title},
+    }
 
 
 class Harness:
@@ -29,13 +55,18 @@ class Harness:
         }
         self.pull("someone")
         self.commits(commit())
-        self.check_runs("head", ("Greptile Review", "success"))
-        self.edits(greptile_edit(5))
+        self.reviews("head", review())
 
-    def pull(self, author: str, *labels: str) -> None:
-        """Sets the account that opened the pull request and its labels."""
+    def pull(self, author: str, *labels: str, fork: bool = False) -> None:
+        """Sets the account that opened the pull request, its labels, and whether its
+        head is in a fork."""
+        repo = "synnaxlabs/synnax"
         payload = {
-            "head": {"sha": "head"},
+            "head": {
+                "sha": "head",
+                "repo": {"full_name": f"{author}/synnax" if fork else repo},
+            },
+            "base": {"ref": "main", "repo": {"full_name": repo}},
             "user": {"login": author},
             "labels": [{"name": n} for n in labels or ("review/bot",)],
         }
@@ -45,21 +76,9 @@ class Harness:
         """Sets the commits on the pull request's branch."""
         self.gh.serve("api */pulls/42/commits*", list(commits))
 
-    def check_runs(self, sha: str, *runs: tuple[str, str | None]) -> None:
-        """Sets the (name, conclusion) check runs a commit reports."""
-        payload = {"check_runs": [{"name": n, "conclusion": c} for n, c in runs]}
-        self.gh.serve(f"api */commits/{sha}/check-runs*", payload)
-
-    def edits(self, *edits: dict[str, object]) -> None:
-        """Sets the description revisions, newest first, as GitHub serves them."""
-        payload = {
-            "data": {
-                "repository": {
-                    "pullRequest": {"userContentEdits": {"nodes": list(edits)}}
-                }
-            }
-        }
-        self.gh.serve("api graphql", payload)
+    def reviews(self, sha: str, *runs: dict[str, Any]) -> None:
+        """Sets the Sedosaur Review check runs of a commit."""
+        self.gh.serve(f"api */commits/{sha}/check-runs*", {"check_runs": list(runs)})
 
     def run(self) -> tuple[str, str]:
         """Runs the script and returns the (state, description) it reports."""
@@ -86,125 +105,116 @@ def commit(
     }
 
 
-def edit(
-    body: str | None, *, login: str = "author", kind: str = "User"
-) -> dict[str, object]:
-    """A description revision by an account of the given kind."""
-    return {"editor": {"__typename": kind, "login": login}, "diff": body}
-
-
-def greptile_body(*scores: int, sha: str = "head") -> str:
-    """A description the way Greptile leaves it after it scores a commit."""
-    markers = "".join(f"<!-- greptile_confidence_score:{s} -->\n" for s in scores)
-    link = f"https://github.com/synnaxlabs/synnax/commit/{sha})"
-    return (
-        f"<!-- greptile_comment -->\n{markers}"
-        f'<sub>Last reviewed commit: ["Fix"]({link}</sub>\n<!-- /greptile_comment -->'
-    )
-
-
-def sedosaur_block(score: int, sha: str = "head") -> str:
-    """The summary another reviewer leaves in the description."""
-    link = f"https://github.com/synnaxlabs/synnax/commit/{sha}"
-    return (
-        f"<!-- sedosaur_comment -->\n<!-- sedosaur_confidence_score:{score} -->\n"
-        f"[Fix]({link})\n<!-- /sedosaur_comment -->"
-    )
-
-
-def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
-    """A description revision Greptile wrote after it scores a commit."""
-    return edit(greptile_body(*scores, sha=sha), login="greptile-apps", kind="Bot")
-
-
 @pytest.fixture
 def harness(tmp_path: Path) -> Harness:
     return Harness(tmp_path)
 
 
 class TestReview:
-    """Tests for the Greptile check run requirement."""
+    """Tests for the Sedosaur review requirement."""
 
     def test_passes_a_reviewed_head(self, harness: Harness) -> None:
-        assert harness.run() == ("success", "Greptile scored the head 5/5")
+        assert harness.run() == ("success", "Sedosaur scored the head 5/5")
 
     def test_pends_without_a_review(self, harness: Harness) -> None:
-        harness.check_runs("head")
+        harness.reviews("head")
         state, description = harness.run()
         assert state == "pending"
-        assert description == "waiting for the Greptile review of the head"
+        assert description == "waiting for the Sedosaur review of the head"
 
     def test_pends_while_the_review_runs(self, harness: Harness) -> None:
-        harness.check_runs("head", ("Greptile Review", None))
+        harness.reviews("head", review(None, None))
         assert harness.run()[0] == "pending"
 
-    def test_ignores_another_check_run(self, harness: Harness) -> None:
-        harness.check_runs("head", ("Check Formatting", "success"))
-        assert harness.run()[0] == "pending"
+    def test_fails_a_review_that_failed(self, harness: Harness) -> None:
+        harness.reviews("head", review(None, "failure"))
+        state, description = harness.run()
+        assert state == "failure"
+        assert description == "the Sedosaur review of the head ended failure"
 
     def test_rejects_a_review_of_an_earlier_commit(self, harness: Harness) -> None:
-        harness.check_runs("head")
-        harness.check_runs("earlier", ("Greptile Review", "success"))
+        harness.reviews("head")
+        harness.reviews("earlier", review())
         assert harness.run()[0] == "pending"
+
+    def test_ignores_another_app(self, harness: Harness) -> None:
+        harness.reviews("head", review(app="someone"))
+        assert harness.run()[0] == "pending"
+
+    def test_ignores_a_review_for_another_base(self, harness: Harness) -> None:
+        harness.reviews("head", review(key="42:release/core-0.57"))
+        assert harness.run()[0] == "pending"
+
+    def test_ignores_a_review_of_another_pull_request(self, harness: Harness) -> None:
+        harness.reviews("head", review(key="43:main"))
+        assert harness.run()[0] == "pending"
+
+    def test_takes_the_newest_review(self, harness: Harness) -> None:
+        harness.reviews("head", review(5, started=LATER), review(2))
+        assert harness.run()[0] == "success"
+
+    def test_rejects_an_earlier_success(self, harness: Harness) -> None:
+        harness.reviews("head", review(5), review(None, "cancelled", started=LATER))
+        assert harness.run() == (
+            "failure",
+            "the Sedosaur review of the head ended cancelled",
+        )
+
+    def test_asks_only_for_the_sedosaur_check_runs(self, harness: Harness) -> None:
+        harness.run()
+        [call] = [c for c in harness.gh.calls() if "check-runs" in c[1]]
+        assert "check_name=Sedosaur%20Review" in call[1]
+        assert "filter=all" in call[1]
 
 
 class TestScore:
-    """Tests for the Greptile confidence score requirement."""
+    """Tests for the Sedosaur confidence score requirement."""
 
     def test_fails_below_five(self, harness: Harness) -> None:
-        harness.edits(greptile_edit(4))
+        harness.reviews("head", review(4))
         state, description = harness.run()
         assert state == "failure"
-        assert description == "Greptile scored the head 4/5, not 5/5"
+        assert description == "Sedosaur scored the head 4/5, not 5/5"
 
-    def test_pends_without_a_score(self, harness: Harness) -> None:
-        harness.edits(edit("A description"))
-        state, description = harness.run()
-        assert state == "pending"
-        assert description == "waiting for Greptile to score the head"
+    def test_fails_without_a_score(self, harness: Harness) -> None:
+        harness.reviews("head", review(None))
+        assert harness.run() == ("failure", "Sedosaur left no score on the head")
 
-    def test_rejects_a_score_of_an_earlier_commit(self, harness: Harness) -> None:
-        harness.edits(greptile_edit(5, sha="earlier"))
-        assert harness.run()[0] == "pending"
 
-    def test_ignores_a_score_the_author_wrote(self, harness: Harness) -> None:
-        harness.edits(edit(greptile_body(5)), greptile_edit(2))
+class TestFork:
+    """Tests for pull requests from forks, which Sedosaur does not review."""
+
+    def test_fails_a_fork(self, harness: Harness) -> None:
+        harness.pull("someone", "review/human", fork=True)
+        harness.reviews("head")
+        assert harness.run() == (
+            "failure",
+            "Sedosaur does not review forks, so an admin merges this one",
+        )
+
+    def test_fails_a_deleted_fork(self, harness: Harness) -> None:
+        harness.pull("someone", "review/human")
+        payload = {
+            "head": {"sha": "head", "repo": None},
+            "base": {"ref": "main", "repo": {"full_name": "synnaxlabs/synnax"}},
+            "user": {"login": "someone"},
+            "labels": [{"name": "review/human"}],
+        }
+        harness.gh.serve("api */pulls/42", payload)
         assert harness.run()[0] == "failure"
 
-    def test_ignores_a_user_with_the_login_of_greptile(self, harness: Harness) -> None:
-        harness.edits(edit(greptile_body(5), login="greptile-apps"))
-        assert harness.run()[0] == "pending"
-
-    def test_takes_the_latest_score(self, harness: Harness) -> None:
-        harness.edits(greptile_edit(5), greptile_edit(2, sha="earlier"))
-        assert harness.run()[0] == "success"
-
-    def test_rejects_a_second_marker_that_is_not_a_five(self, harness: Harness) -> None:
-        harness.edits(greptile_edit(3, 5))
-        assert harness.run()[0] == "failure"
-
-    def test_rejects_another_block_that_names_the_head(self, harness: Harness) -> None:
-        body = greptile_body(5, sha="earlier") + sedosaur_block(5)
-        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
-        assert harness.run()[0] == "pending"
-
-    def test_ignores_a_marker_outside_the_block(self, harness: Harness) -> None:
-        body = "<!-- greptile_confidence_score:2 -->\n" + greptile_body(5)
-        harness.edits(edit(body, login="greptile-apps", kind="Bot"))
-        assert harness.run()[0] == "success"
-
-    def test_pends_on_a_deleted_revision(self, harness: Harness) -> None:
-        harness.edits(edit(None, login="greptile-apps", kind="Bot"), greptile_edit(5))
+    def test_waits_for_a_tier_first(self, harness: Harness) -> None:
+        harness.pull("someone", "core", fork=True)
         assert harness.run()[0] == "pending"
 
 
 class TestDependabot:
-    """Tests for the Dependabot exemption from the Greptile review."""
+    """Tests for the Dependabot exemption from the Sedosaur review."""
 
     @pytest.fixture(autouse=True)
     def unreviewed(self, harness: Harness) -> None:
         harness.pull("dependabot[bot]")
-        harness.check_runs("head")
+        harness.reviews("head")
 
     def test_passes_without_a_review(self, harness: Harness) -> None:
         assert harness.run() == ("success", "Dependabot wrote every commit")
@@ -249,13 +259,11 @@ class TestTier:
 
     def test_passes_a_human_tier_without_an_approval(self, harness: Harness) -> None:
         harness.pull("someone", "review/human")
-        assert harness.run() == ("success", "Greptile scored the head 5/5")
+        assert harness.run() == ("success", "Sedosaur scored the head 5/5")
 
-    @pytest.mark.parametrize(
-        "route", ["api */pulls/42", "api */check-runs*", "api graphql"]
-    )
+    @pytest.mark.parametrize("route", ["api */pulls/42", "api */check-runs*"])
     def test_retries_an_empty_response(self, harness: Harness, route: str) -> None:
         """Should decide from the retry when GitHub answers a read with nothing."""
         harness.env["GH_API_RETRY_DELAY"] = "0"
         harness.gh.fail(route, "unexpected end of JSON input")
-        assert harness.run() == ("success", "Greptile scored the head 5/5")
+        assert harness.run() == ("success", "Sedosaur scored the head 5/5")

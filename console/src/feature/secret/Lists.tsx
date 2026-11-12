@@ -35,8 +35,8 @@ import {
   useUses,
 } from "@/feature/secret/UsedBy";
 import { type Lists as ListsData, useLists } from "@/feature/secret/useLists";
-import { Validity } from "@/feature/secret/validity";
 import { CSS } from "@/platform/css";
+import { Secret as PlatformSecret } from "@/platform/secret";
 
 const POPOVER_LOCATION = {
   targetCorner: location.BOTTOM_RIGHT,
@@ -149,7 +149,7 @@ interface SecretItemProps extends List.ItemProps<secret.Key> {
 const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const { itemKey } = rest;
   const s = List.useItem<secret.Key, secret.Secret>(itemKey);
-  const canUpdate = Access.useUpdateGranted(secret.ontologyID(itemKey));
+  const canUpdate = Access.useUpdateGranted(secret.resourceID(itemKey));
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
   if (s == null) return null;
@@ -169,10 +169,9 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           onChange={canUpdate ? (name) => rename({ key: itemKey, name }) : undefined}
           allowDoubleClick={false}
           overflow="fade"
-          weight={450}
         />
         <Text.Text level="tiny" color={9} overflow="fade">
-          {Validity.describeSecret(s)}
+          {PlatformSecret.Validity.describeSecret(s)}
         </Text.Text>
       </Flex.Box>
       <UsedByPopover
@@ -191,10 +190,10 @@ interface CertificateItemProps extends List.ItemProps<certificate.Key> {
 const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
   const { itemKey } = rest;
   const c = List.useItem<certificate.Key, certificate.Certificate>(itemKey);
-  const canUpdate = Access.useUpdateGranted(certificate.ontologyID(itemKey));
+  const canUpdate = Access.useUpdateGranted(certificate.resourceID(itemKey));
   const { update: rename } = Certificate.useRename();
   if (c == null) return null;
-  const { text, status } = Validity.describeCertificate(c, now);
+  const { text, status } = PlatformSecret.Validity.describeCertificate(c, now);
   return (
     <Select.Item
       {...rest}
@@ -210,7 +209,6 @@ const CertificateItem = ({ now, ...rest }: CertificateItemProps) => {
           onChange={canUpdate ? (name) => rename({ key: itemKey, name }) : undefined}
           allowDoubleClick={false}
           overflow="fade"
-          weight={450}
         />
         <Text.Text level="tiny" color={9} status={status} overflow="fade">
           {text}
@@ -292,6 +290,7 @@ const SecretSection = ({
         data={list.data}
         getItem={list.getItem}
         subscribe={list.subscribe}
+        onFetchMore={list.more}
         value={selected}
         onChange={onSelect}
         allowNone
@@ -332,6 +331,7 @@ const CertificateSection = ({
         data={list.data}
         getItem={list.getItem}
         subscribe={list.subscribe}
+        onFetchMore={list.more}
         value={selected}
         onChange={onSelect}
         allowNone

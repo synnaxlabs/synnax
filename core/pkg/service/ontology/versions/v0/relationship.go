@@ -9,7 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"github.com/synnaxlabs/gorp"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+)
 
 // RelationshipType is a string that uniquely identifies the type of a relationship
 // between two resources. For example, a relationship of type "member" could indicate
@@ -31,9 +34,9 @@ const RelationshipTypeParentOf RelationshipType = "parent"
 // about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
 type Relationship struct {
 	// From is the ID of the resource that the relationship starts from.
-	From ID `json:"from" msgpack:"from"`
+	From resource.ID `json:"from" msgpack:"from"`
 	// To is the ID of the resource that the relationship ends at.
-	To ID `json:"to" msgpack:"to"`
+	To resource.ID `json:"to" msgpack:"to"`
 	// Type is the type of relationship between the two resources. For more information
 	// on relationship types, see the [RelationshipType] documentation.
 	Type RelationshipType `json:"type" msgpack:"type"`
@@ -41,19 +44,14 @@ type Relationship struct {
 
 var _ gorp.Entry[string] = Relationship{}
 
-// RelationshipKeySep separates the From, Type, and To fields in an encoded relationship
-// gorp key. The four Writer delete helpers depend on this layout to short-circuit scans
-// without decoding the entry.
-const RelationshipKeySep = "->"
+// relationshipKeySep separates the From, Type, and To fields of a gorp key.
+const relationshipKeySep = "->"
 
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() string {
 	return r.From.String() +
-		RelationshipKeySep +
+		relationshipKeySep +
 		string(r.Type) +
-		RelationshipKeySep +
+		relationshipKeySep +
 		r.To.String()
 }
-
-// SetOptions implements the gorp.Entry interface.
-func (Relationship) SetOptions() []any { return nil }

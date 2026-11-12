@@ -10,13 +10,9 @@
 package testutil_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
@@ -27,22 +23,14 @@ import (
 var _ = Describe("OpenService", func() {
 	It("Should open a service that stores and resolves secrets", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(
-			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
-		)
-		r := rack.Key(1).OntologyID()
-		svc := secrettestutil.OpenService(ctx, db, otg, g, func(
-			context.Context,
-			gorp.Tx,
-			[]secret.Key,
-		) ([]secret.Use, error) {
-			return nil, nil
-		})
+		r := rack.Key(1).ResourceID()
+		svc := secrettestutil.OpenService(ctx, db)
 		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
-		Expect(svc.NewWriter(nil).Create(ctx, &s, []byte("hunter2"))).To(Succeed())
-		grant := MustSucceed(svc.Grant(ctx, nil, r, s.Base().Key))
-		Expect(svc.Resolve(ctx, nil, r, grant, s.Base().Key)).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, &s, []byte("hunter2"))
+		})).To(Succeed())
+		grant := MustSucceed(svc.Grant(ctx, db, r, s.Base().Key))
+		Expect(svc.Resolve(ctx, r, grant, s.Base().Key)).
 			To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("hunter2")}))
 	})
 })

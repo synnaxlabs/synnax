@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { deep, type direction, type record } from "@synnaxlabs/x";
-import { cloneElement, type CSSProperties, type JSX } from "react";
+import { cloneElement, type CSSProperties, type JSX, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
@@ -42,13 +42,16 @@ export interface ListAndDetailsIconProps {
 export interface ListAndDetailsChannelItemProps<
   K extends record.Key,
 > extends List.ItemProps<K> {
-  port: string | number;
+  port: ReactNode;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
-  channel: channel.Key;
+  /** The Synnax channel the item names. Absent when the channel type has none. */
+  channel?: channel.Key;
   /** The name deploying the task gives the channel, shown while it has none. */
   defaultName?: string;
+  /** Ends the name in the form, as deploying the task ends it. */
+  suffix?: string;
   stateChannel?: channel.Key;
   /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
@@ -82,6 +85,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   hasTareButton,
   channel,
   defaultName,
+  suffix,
   icon,
   stateChannel,
   stateDefaultName,
@@ -110,8 +114,17 @@ export const ListAndDetailsChannelItem = <K extends string>({
         direction={nameDirection}
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
+        className={CSS.BE("channel-item", "label")}
       >
-        <Text.Text color={9} weight={500} style={portStyle}>
+        {/* A lone port element is not an icon, so the port is never square. */}
+        <Text.Text
+          color={9}
+          weight={500}
+          style={portStyle}
+          className={CSS.BE("channel-item", "port")}
+          overflow="fade"
+          square={false}
+        >
           {port}
         </Text.Text>
         {hasIcon && (
@@ -122,7 +135,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
             })}
           </Tooltip.Dialog>
         )}
-        {hasStateChannel ? (
+        {channel == null ? null : hasStateChannel ? (
           <Flex.Box direction="y" gap="small">
             <WriteChannelNames
               stateNamePath={item.stateChannelName}
@@ -140,15 +153,19 @@ export const ListAndDetailsChannelItem = <K extends string>({
             {...channelNameProps}
             channel={channel}
             defaultName={defaultName}
+            suffix={suffix}
             skipped={skipped}
             namePath={item.name}
             id={getChannelNameID(itemKey)}
           />
         )}
       </Flex.Box>
-      <Flex.Box pack direction="x" align="center" size="small">
+      <Flex.Box x align="center" gap="tiny">
         {hasTareButton && (
-          <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
+          <TareButton
+            disabled={!canTare}
+            onTare={() => channel != null && onTare?.(channel)}
+          />
         )}
         <EnabledCheckbox path={item.disabled} />
       </Flex.Box>

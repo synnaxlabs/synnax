@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -355,7 +356,10 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should stay silent when the change stream is denied", async () => {
+    it.each([
+      ["denied", AccessDeniedError],
+      ["refused for a failed login", AuthError],
+    ])("should stay silent when the change stream is %s", async (_, StreamError) => {
       const table = newTable();
       const onError = vi.fn();
       const answers = singleSpace(
@@ -366,7 +370,7 @@ describe("Answers", () => {
         },
         {
           ensureStreaming: async () => {
-            throw new AccessDeniedError("no permission to stream");
+            throw new StreamError("refused");
           },
           onError,
         },
@@ -794,6 +798,62 @@ describe("Answers", () => {
     });
   });
 
+  describe("refetchMatching", () => {
+    type SearchQ = { searchTerm: string };
+    const searchSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: SearchQ) => Promise<string[]>,
+    ) =>
+      new Space<SearchQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          serverFields: ["searchTerm"],
+        },
+        { teardownGrace: TimeSpan.seconds(5) },
+      );
+
+    it("refetches only the subscribed answers that match", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async (_: SearchQ): Promise<string[]> => []);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      answers.onChange({ searchTerm: "y" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      await answers.retrieve({ searchTerm: "y" });
+      answers.refetchMatching((q) => q.searchTerm === "x");
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      await wait(150);
+      expect(fetch.mock.calls.map(([q]) => q.searchTerm)).toEqual(["x", "y", "x"]);
+    });
+
+    it("refetches an idle answer on its next read", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      const off = answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      off();
+      answers.refetchMatching(() => true);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await answers.retrieve({ searchTerm: "x" });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("leaves an answer that nothing maintains alone", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => []);
+      const answers = searchSpace(table, fetch);
+      await answers.retrieve({ searchTerm: "x" });
+      answers.refetchMatching(() => true);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("entry coverage (covers)", () => {
     const coveringSpace = (
       table: query.Table<string, Rec>,
@@ -942,6 +1002,25 @@ describe("Answers", () => {
       const onError = vi.fn();
       const space = coveringSpace(
         table,
+        async () =>
+          await table.track(async (since) => {
+            table.ingestDeletes(["a"], since);
+            throw new NotFoundError("thing not found");
+          }),
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("reports a subscriber fetch that finds no record the table holds", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
         async () => {
           throw new NotFoundError("thing not found");
         },
@@ -949,7 +1028,7 @@ describe("Answers", () => {
       );
       const stop = space.onChange(qA, () => {});
       await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
-      expect(onError).not.toHaveBeenCalled();
+      expect(onError).toHaveBeenCalledTimes(1);
       stop();
     });
 
@@ -1416,7 +1495,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       await answers.retrieve({ min: 3 });
       foreign.set("f", rec("f", 1));
@@ -1565,7 +1644,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       answers.onChange({ min: 3 }, vi.fn());
       expect(await answers.retrieve({ min: 3 })).toEqual([rec("a", 5)]);
@@ -1895,7 +1974,7 @@ describe("Answers", () => {
   });
 
   describe("limited queries (rule 2)", () => {
-    type LimitQ = { min: number; limit?: number; offset?: number };
+    type LimitQ = { min: number; limit?: number; searchTerm?: string };
     const limitSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: LimitQ) => Promise<string[]>,
@@ -1906,7 +1985,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records,
         matches: (r, q) => r.value >= q.min,
-        serverFields: ["limit", "offset"],
+        serverFields: ["limit", "searchTerm"],
       });
     const fetchOf = (table: query.Table<string, Rec>, members: Rec[]) =>
       vi.fn(async () => {
@@ -1925,17 +2004,6 @@ describe("Answers", () => {
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
       await wait(150);
       expect(fetch).toHaveBeenCalledTimes(1);
-    });
-
-    it("refetches a full page with a zero offset on a new match", async () => {
-      const table = newTable();
-      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
-      const answers = limitSpace(table, fetch);
-      answers.onChange({ min: 3, limit: 2, offset: 0 }, vi.fn());
-      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
-      table.set("c", rec("c", 6));
-      await wait(150);
-      expect(fetch).toHaveBeenCalledTimes(2);
     });
 
     it("admits matches only up to the limit", async () => {
@@ -2037,6 +2105,30 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 
+    it("applies a change that raced a refetch over its answer", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
+      let bump = (_: number): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onEpoch: (callback) => ((bump = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      const refetched = Promise.withResolvers<string[]>();
+      fetch.mockImplementationOnce(async () => await refetched.promise);
+      bump(2);
+      table.set("b", rec("b", 2));
+      refetched.resolve(["a", "b"]);
+      await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
     it("ignores a change to a record that never matched", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
@@ -2062,8 +2154,8 @@ describe("Answers", () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
       const answers = limitSpace(table, fetch);
-      answers.onChange({ min: 3, limit: 2, offset: 1 }, vi.fn());
-      await answers.retrieve({ min: 3, limit: 2, offset: 1 });
+      answers.onChange({ min: 3, limit: 2, searchTerm: "a" }, vi.fn());
+      await answers.retrieve({ min: 3, limit: 2, searchTerm: "a" });
       table.set("z", rec("z", 1));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
@@ -2118,6 +2210,31 @@ describe("Answers", () => {
       handler.mockClear();
       table.delete("a");
       expect(handler).toHaveBeenCalledWith([]);
+    });
+
+    it("keeps the newer of two refetches when the older lands first", async () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2), rec("c", 3)]);
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      const older = Promise.withResolvers<string[]>();
+      const newer = Promise.withResolvers<string[]>();
+      fetch
+        .mockImplementationOnce(async () => await older.promise)
+        .mockImplementationOnce(async () => await newer.promise);
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("z", rec("z", 10));
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      older.resolve(["b"]);
+      await wait(0);
+      expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
+      newer.resolve(["c"]);
+      await expect
+        .poll(() => answers.getCached({ searchTerm: "x" }))
+        .toEqual([rec("c", 3)]);
     });
 
     it("does not notify for a change to a non-member entry", async () => {
@@ -2285,6 +2402,30 @@ describe("Answers", () => {
       key: string;
     }
 
+    it("notifies a server-computed answer of a content-only change without a fetch", async () => {
+      const primary = new query.Table<string, Rec>({ onError: () => {} });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      primary.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>({
+        name: "things",
+        table: primary,
+        fetch,
+        compose: (records) => records,
+        triggers: [
+          query.trigger(foreign, (event) => [event.key], { contentOnly: true }),
+        ],
+      });
+      const handler = vi.fn();
+      answers.onChange({ tag: "t" }, handler);
+      await answers.retrieve({ tag: "t" });
+      handler.mockClear();
+      foreign.set("a", { key: "a" });
+      expect(handler).toHaveBeenCalled();
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("rechecks and backfills keys surfaced by a foreign-table projection", async () => {
       const primary = new query.Table<string, Rec>({
         onError: () => {},
@@ -2301,7 +2442,7 @@ describe("Answers", () => {
         },
         compose: (records) => records,
         matches: (r) => foreign.has(r.key),
-        watch: [query.watch(foreign, (event) => [event.key])],
+        triggers: [query.trigger(foreign, (event) => [event.key])],
       });
       const handler = vi.fn();
       answers.onChange({ tag: "t" }, handler);
@@ -2358,7 +2499,7 @@ describe("Answers", () => {
           fetch: async () => [],
           compose: (records) => records,
           matches: (r) => foreign.has(r.key),
-          watch: [query.watch(foreign, (event) => [event.key, "gone"])],
+          triggers: [query.trigger(foreign, (event) => [event.key, "gone"])],
         },
         { onError },
       );
@@ -2389,7 +2530,7 @@ describe("Answers", () => {
         fetch,
         compose: (records) => records[0]?.value ?? 0,
         keyOf: (query) => query.k,
-        watch: [query.watch(foreign, () => "refetch")],
+        triggers: [query.trigger(foreign, () => "refetch")],
       });
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
@@ -2567,7 +2708,7 @@ describe("referential stability", () => {
       compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix}` }),
       keyOf: (query) => query.k,
       single: true,
-      watch: [query.watch(foreign, () => ["a"])],
+      triggers: [query.trigger(foreign, () => ["a"])],
     });
     const off = answers.onChange(qA, vi.fn());
     try {

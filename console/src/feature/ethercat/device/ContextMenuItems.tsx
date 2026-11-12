@@ -12,29 +12,49 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
+import {
+  useEnabledState,
+  useResultSlave,
+  useToggleEnabled,
+} from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 
-const TASK_CONTEXT_MENU_ITEMS = [
-  Device.createTaskContextMenuItem({
-    itemKey: "ethercat.readTask",
-    label: "Create read task",
-    useCreate: Task.useCreateRead,
-  }),
-  Device.createTaskContextMenuItem({
-    itemKey: "ethercat.writeTask",
-    label: "Create write task",
-    useCreate: Task.useCreateWrite,
-  }),
-];
+interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
+  deviceKey: device.Key;
+}
+
+const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
+  <Menu.Item itemKey="ethercat.configure" onClick={() => onConfigure(deviceKey)}>
+    <Icon.Hardware />
+    Configure
+  </Menu.Item>
+);
+
+const READ_TASK_ITEM = Device.createTaskContextMenuItem({
+  itemKey: "ethercat.readTask",
+  label: "Create read task",
+  useCreate: Task.useCreateRead,
+});
+
+const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
+  itemKey: "ethercat.writeTask",
+  label: "Create write task",
+  useCreate: Task.useCreateWrite,
+});
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
+  const { data: first } = useResultSlave({ key: keys[0] });
+  const pdos = first?.properties.pdos;
+  const taskItems = [
+    ...(pdos != null && pdos.inputs.length > 0 ? [READ_TASK_ITEM] : []),
+    ...(pdos != null && pdos.outputs.length > 0 ? [WRITE_TASK_ITEM] : []),
+  ];
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -46,11 +66,16 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      {hasUpdatePermission && keys.length === 1 && (
+        <ConfigureItem deviceKey={keys[0]} onConfigure={props.onConfigure} />
+      )}
       <Menu.Divider />
-      <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
-      <Menu.Divider />
+      {taskItems.length > 0 && (
+        <>
+          <Device.TaskContextMenuItems {...props} items={taskItems} />
+          <Menu.Divider />
+        </>
+      )}
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />

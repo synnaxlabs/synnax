@@ -23,7 +23,7 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/node",
-        "//client/cpp/ontology",
+        "//client/cpp/resource",
         "//client/cpp/status",
         "//core/pkg/service/channel:channel_grpc",
         "//core/pkg/service/status:status_grpc",

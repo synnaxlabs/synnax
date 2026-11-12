@@ -189,27 +189,154 @@ trig -> f()`
 		)
 
 		It(
-			"anchors the placeholder type diagnostic on the {...} span for an undeclared identifier",
+			"anchors an unsupported type's diagnostic on the {...} span",
+			func(specCtx SpecContext) {
+				// Source line 3: `    log = f"pre {s} post"`
+				// '{' sits at col 16 and '}' at col 18, so the span runs [16, 19).
+				code := "func f() {\n    s series bool := [true, false]\n" +
+					"    log = f\"pre {s} post\"\n}\ntrig -> f()"
+				d := expectError(specCtx, code, `placeholder "s" has type`)
+				Expect(d.Range.Start.Line).To(Equal(uint32(2)))
+				Expect(d.Range.Start.Character).To(Equal(uint32(16)))
+				Expect(d.Range.End.Character).To(Equal(uint32(19)))
+			},
+		)
+
+		It(
+			"reports an undeclared identifier in a placeholder where it is",
 			func(specCtx SpecContext) {
 				// Source line 2: `    log = f"pre {undeclared} post"`
-				// '{' sits at col 16 and '}' at col 27 in the analyzer's column scheme,
-				// so the placeholder span runs [16, 28).
+				// The identifier runs [17, 27) in the analyzer's column scheme.
 				code := "func f() {\n    log = f\"pre {undeclared} post\"\n}\ntrig -> f()"
 				diags := analyze(specCtx, code)
 				Expect(diags.Ok()).To(BeFalse())
-				d := findError(diags, `placeholder "undeclared"`)
+				Expect(findError(diags, `placeholder "undeclared"`)).To(BeNil())
+				d := findError(diags, "undefined symbol: undeclared")
 				Expect(d).ToNot(BeNil(),
-					"expected a placeholder type diagnostic naming \"undeclared\"; got:\n%s", diags.String())
+					"expected an undefined symbol diagnostic; got:\n%s", diags.String())
 				Expect(d.Range.Start.Line).To(Equal(uint32(1)))
 				Expect(d.Range.End.Line).To(Equal(uint32(1)))
-				Expect(
-					d.Range.Start.Character,
-				).To(Equal(uint32(16)), "span should start at the '{' column")
-				Expect(
-					d.Range.End.Character,
-				).To(Equal(uint32(28)), "span should end one past the '}' column")
+				Expect(d.Range.Start.Character).To(Equal(uint32(17)))
+				Expect(d.Range.End.Character).To(Equal(uint32(27)))
 			},
 		)
+	})
+
+	Describe("Placeholder calls", func() {
+		It("Should accept a call that returns a value", func(specCtx SpecContext) {
+			expectSuccess(specCtx, "func g() i64 { return 1 }\n"+
+				"func f() {\n    log = f\"pre {g()} post\"\n}\ntrig -> f()")
+		})
+
+		It("Should reject a call that returns nothing on its placeholder", func(
+			specCtx SpecContext,
+		) {
+			// Source line 2: `    log = f"pre {g()} post"`
+			// '{' sits at col 16 and '}' at col 20, so the span runs [16, 21).
+			code := "func g() {}\n" +
+				"func f() {\n    log = f\"pre {g()} post\"\n}\ntrig -> f()"
+			diags := analyze(specCtx, code)
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			d := findError(diags, `placeholder "g()" has type`)
+			Expect(d).ToNot(BeNil(), diags.String())
+			Expect(d.Range.Start.Line).To(Equal(uint32(2)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(16)))
+			Expect(d.Range.End.Character).To(Equal(uint32(21)))
+		})
+
+		It("Should report an undeclared function once", func(specCtx SpecContext) {
+			diags := analyze(specCtx, wrap(`    log = `+`f"{missing()}"`))
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			Expect(findError(diags, `placeholder "missing()"`)).To(BeNil())
+		})
+
+		It("Should report an undeclared name inside an expression once", func(
+			specCtx SpecContext,
+		) {
+			diags := analyze(specCtx, wrap(`    log = `+`f"{undeclared + 1}"`))
+			Expect(diags.Errors()).To(HaveLen(1), diags.String())
+			Expect(findError(diags, "undefined symbol: undeclared")).ToNot(BeNil())
+		})
+	})
+
+	DescribeTable("Should place a placeholder diagnostic after non-ASCII text",
+		func(specCtx SpecContext, placeholder, message string) {
+			diags := analyze(
+				specCtx,
+				"func f() {\n    log = f\"温度 "+placeholder+"\"\n}",
+			)
+			d := findError(diags, message)
+			Expect(d).ToNot(BeNil(), diags.String())
+			Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(d.Range.Start.Character).To(Equal(uint32(15)))
+			Expect(d.Range.End.Character).To(Equal(uint32(15 + len(placeholder))))
+		},
+		Entry("an empty placeholder", "{}", "must contain an expression"),
+		Entry("a parse error", "{1 +}", "invalid placeholder expression"),
+		Entry("a bad format spec", "{1:q}", "invalid format spec"),
+	)
+
+	It("Should count placeholder columns in runes", func(specCtx SpecContext) {
+		code := "func f() {\n    log = f\"温度°: {1 + undeclared}\"\n}"
+		diags := analyze(specCtx, code)
+		d := findError(diags, "undeclared")
+		Expect(d).ToNot(BeNil(), diags.String())
+		Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+		Expect(d.Range.Start.Character).To(Equal(uint32(22)))
+	})
+
+	It("Should reuse the placeholders of a format string analyzed twice", func(
+		specCtx SpecContext,
+	) {
+		expr := MustSucceed(parser.ParseExpression(`f"{1 + 2} {1 +} x"`))
+		strTerm := parser.StringTerminal(parser.GetLiteral(expr))
+		ctx := acontext.NewRoot(specCtx, expr, fmtResolver())
+		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		first := ctx.FmtStrings[strTerm]
+		Expect(first).To(HaveLen(4))
+		Expect(first[0].Expr).ToNot(BeNil())
+		Expect(first[2].Expr).To(BeNil())
+		Expect(first[3]).To(Equal(parser.FmtSegment{Text: " x"}))
+		expression.AnalyzeFmtStrLiteral(ctx, strTerm)
+		second := ctx.FmtStrings[strTerm]
+		Expect(second[0].Expr).To(BeIdenticalTo(first[0].Expr))
+		Expect(second[2].Expr).To(BeNil())
+	})
+
+	It("Should report an invalid escape in literal text", func(specCtx SpecContext) {
+		diags := analyze(specCtx, "func f() {\n    log = f\"\\u00zz{1}\"\n}")
+		Expect(findError(diags, "invalid \\u escape")).ToNot(BeNil(), diags.String())
+	})
+
+	It("Should parse each placeholder at its position in the source", func(
+		specCtx SpecContext,
+	) {
+		code := "func f() {\n    log = f`a {1 + 2}\n  {trig}`\n}\ntrig -> f()"
+		ast := MustSucceed(parser.Parse(code))
+		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.FmtStrings).To(HaveLen(1))
+		var starts [][2]int
+		for _, segments := range ctx.FmtStrings {
+			for _, seg := range segments {
+				if seg.Expr != nil {
+					start := seg.Expr.GetStart()
+					starts = append(starts, [2]int{start.GetLine(), start.GetColumn()})
+				}
+			}
+		}
+		Expect(starts).To(Equal([][2]int{{2, 15}, {3, 3}}))
+	})
+
+	It("Should anchor an error inside a placeholder on the expression", func(
+		specCtx SpecContext,
+	) {
+		diags := analyze(specCtx, "func f() {\n    log = f\"pre {1 + undeclared}\"\n}")
+		d := findError(diags, "undeclared")
+		Expect(d).ToNot(BeNil(), diags.String())
+		Expect(d.Range.Start.Line).To(Equal(uint32(1)))
+		Expect(d.Range.Start.Character).To(Equal(uint32(21)))
 	})
 
 	Describe("Format spec validation", func() {

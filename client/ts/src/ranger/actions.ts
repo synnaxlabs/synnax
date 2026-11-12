@@ -31,18 +31,26 @@ import { type Payload } from "@/ranger/types.gen";
 // The part of a range that path actions edit. It checks shape but not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.
 const documentZ = z
-  .object({ name: z.string(), timeRange: TimeRange.z, color: color.colorZ.nullish() })
+  .object({
+    name: z.string(),
+    timeRange: TimeRange.z,
+    color: color.colorZ.nullish(),
+    labels: z.string().array(),
+    parent: z.string().nullish(),
+  })
   .strict();
 
 // Actions hold the wire form of a range: snake_case keys and nanosecond timestamps.
 // Immer cannot draft the cached range's TimeRange, so each action applies to the wire
 // form of the range, which then decodes back.
 const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult => {
-  const { name, timeRange, color } = state;
-  const doc: record.Unknown = caseconv.camelToSnake(
-    { name, timeRange, color },
-    { schema: documentZ },
-  );
+  const { name, timeRange, color, parent } = state;
+  // The copy of the labels keeps draft proxies out of the inverse. A field the range
+  // lacks stays out of the document, so the inverse of its set is a remove.
+  const fields: record.Unknown = { name, timeRange, labels: [...state.labels] };
+  if (color != null) fields.color = color;
+  if (parent != null) fields.parent = parent;
+  const doc: record.Unknown = caseconv.camelToSnake(fields, { schema: documentZ });
   const inverse = patch.apply(doc, action);
   if (inverse.length === 0) return actions.NO_OP_RESULT;
   const next = zod.parse(documentZ, caseconv.snakeToCamel(doc, { schema: documentZ }), {
@@ -50,18 +58,34 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
   });
   const path = patch.pathOf(action);
   // Only the field the action reaches changes, so the others keep their identity.
-  if (path[0] === "name") state.name = next.name;
-  else if (path[0] === "time_range") state.timeRange = next.timeRange;
-  else if (next.color == null) delete state.color;
-  else state.color = next.color;
+  switch (path[0]) {
+    case "name":
+      state.name = next.name;
+      break;
+    case "time_range":
+      state.timeRange = next.timeRange;
+      break;
+    case "labels":
+      state.labels = next.labels;
+      break;
+    case "parent":
+      if (next.parent == null) delete state.parent;
+      else state.parent = next.parent;
+      break;
+    case "color":
+      if (next.color == null) delete state.color;
+      else state.color = next.color;
+  }
   return { inverse, targets: [path.join(".")] };
 };
 
 const handlers: Handlers = {
+  // A fetch can cache a label write that commits after the create, before the create
+  // echo arrives. The echo keeps the cached labels so it does not undo that write.
   create: (state, { range }) => {
     for (const key of Object.keys(state) as Array<keyof Payload>)
       if (!(key in range)) delete state[key];
-    Object.assign(state, range);
+    Object.assign(state, { ...range, labels: state.labels });
     return { inverse: [], targets: [range.key] };
   },
   ...actions.createPathHandlers(applyPath),
@@ -69,7 +93,7 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a range in order. Path actions edit only the range's name, time
- * range, and color.
+ * range, color, labels, and parent. A create keeps the labels of the range.
  * @throws {Error} if the range cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);

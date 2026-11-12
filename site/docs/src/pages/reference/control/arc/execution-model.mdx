@@ -111,7 +111,8 @@ When a stage starts:
   its body is different: it runs in every cycle while the stage is active.
 - **Earlier values** -> the stage reacts only to samples taken after it starts. A
   condition such as `tank_pt > 300` waits for the next `tank_pt` value, even when the
-  last value was 400.
+  last value was 400. The stage drops samples stamped before it started, so the clocks
+  of every host that writes to the channels the Arc reads must be in sync with NTP.
 - **Timers** -> `time.wait` counts from zero, and `time.interval` fires at once, then
   once each period.
 - **Variables** -> variables declared with `:=` in the stage or the sequence go back to
@@ -167,6 +168,5 @@ condition or a flow starts it.
 | The Core      | Synnax drops the output of that part for the cycle, shows a warning, and keeps running.                |
 | A Driver      | Synnax stops the automation and shows an error. A warning, such as a skipped sample, does not stop it. |
 
-An index outside a series gives 0 on the Core, and an error on a Driver. To choose where
-an automation runs, see
+To choose where an automation runs, see
 [where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).
