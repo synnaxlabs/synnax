@@ -165,9 +165,9 @@ func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, e
 }
 
 // migratePlainWriteTargetFields lifts the additional fields of a plain target of a
-// released Core to typed write fields, as
-// payload.LiftStaticWriteField and payload.LiftGeneratedWriteField do. A null field
-// and a field with an unknown generator, which no Driver ran, drop.
+// released Core to typed write fields, as payload.LiftStaticWriteField and
+// payload.LiftGeneratedWriteField do. A null field and a field with an unknown
+// generator, which no Driver ran, drop.
 func migratePlainWriteTargetFields(
 	_ context.Context,
 	old []v1.WriteField,
