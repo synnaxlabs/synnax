@@ -393,6 +393,7 @@ class TestShippedChanges:
                 "studio/a.ts": "a",
                 "vendor/open62541/a.c": "a",
                 "uv.lock": "a",
+                ".bazelrc": "a",
             }
         )
         docs = commit({"site/docs/a.md": "b", "studio/a.ts": "b"})
@@ -403,9 +404,11 @@ class TestShippedChanges:
                 "integration/tests/a.py": "b",
                 "vendor/open62541/a.c": "b",
                 "uv.lock": "b",
+                ".bazelrc": "b",
             }
         )
         assert shipped_changes(tmp_path, base=base, head=code) == [
+            ".bazelrc",
             "core/a.go",
             "integration/tests/a.py",
             "uv.lock",
