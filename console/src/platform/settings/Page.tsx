@@ -29,13 +29,22 @@ export const Page = ({ title, children }: PageProps): ReactElement => (
 
 export interface CardProps extends PropsWithChildren {
   title?: string;
+  /** Drops the card's inner padding, for content that pads itself, such as a tree. */
+  flush?: boolean;
 }
 
 /** Holds related entries in one card, under an optional title. */
-export const Card = ({ title, children }: CardProps): ReactElement => (
+export const Card = ({ title, flush = false, children }: CardProps): ReactElement => (
   <Flex.Box y gap="medium">
     {title != null && <Text.Text level="h5">{title}</Text.Text>}
-    <div className={CSS.BE("settings", "card")}>{children}</div>
+    <div
+      className={CSS.cls(
+        CSS.BE("settings", "card"),
+        flush && CSS.BEM("settings", "card", "flush"),
+      )}
+    >
+      {children}
+    </div>
   </Flex.Box>
 );
 
@@ -64,6 +73,13 @@ export const Entry = ({ label, description, children }: EntryProps): ReactElemen
         description
       )}
     </Flex.Box>
+    {children}
+  </Flex.Box>
+);
+
+/** Holds content that is not a list of entries, such as a form, inside a card. */
+export const Body = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box y className={CSS.BE("settings", "body")}>
     {children}
   </Flex.Box>
 );
