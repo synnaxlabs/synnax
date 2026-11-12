@@ -70,7 +70,7 @@ class TestSiftUpload:
     def test_future_time_range(self, client: sy.Synnax, sift_device: sy.Device) -> None:
         """Should send the time range to the Core, which rejects a future one."""
         start = sy.TimeStamp.now() + sy.TimeSpan.HOUR
-        with pytest.raises(RuntimeError, match="no time span to upload"):
+        with pytest.raises(RuntimeError, match="starts in the future"):
             sy.sift.upload(
                 client.tasks,
                 sift_device,
