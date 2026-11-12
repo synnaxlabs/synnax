@@ -32,7 +32,7 @@ import {
 import {
   deployWriteConfigZ,
   nextChannel,
-  UNSUPPORTED_WRITE_DATA_TYPES,
+  UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -40,6 +40,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/modbus/task/types";
+import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -144,7 +145,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
         <DataTypeCell
           path={entry}
           channel={ch}
-          hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES}
+          hideDataTypes={UNSUPPORTED_DATA_TYPES}
         />
       </List.Cell>
       <List.Cell>
@@ -225,6 +226,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   const { channels } = dev.properties.write;
   let changed = false;
   const commandsToCreate: WriteChannel[] = [];
@@ -269,7 +271,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     changed = true;
   }
-  if (changed) await client.devices.create(dev, SCHEMAS);
+  if (changed) await Device.setProperties(client, dev, before, SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,

@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, selectRange } from "@/testutil";
 
 const client = createTestClient();
 
@@ -26,7 +26,7 @@ describe("Range.FavoriteButton", () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Range.FavoriteButton range={range} />, { wrapper });
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+    expect(selectRange(store.getState(), range.key)).toBeUndefined();
     expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   });
 
@@ -36,7 +36,7 @@ describe("Range.FavoriteButton", () => {
     render(<Range.FavoriteButton range={range} />, { wrapper });
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
     fireEvent.click(screen.getByRole("checkbox"));
-    const state = Session.Range.selectState(store.getState(), range.key);
+    const state = selectRange(store.getState(), range.key);
     expect(state).toBeDefined();
     expect(state?.variant).toBe("persisted");
   });
@@ -49,13 +49,14 @@ describe("Range.FavoriteButton", () => {
         [Session.Range.SLICE_NAME]: {
           version: 0,
           ranges: Session.Range.fromClient(range),
+          staticKeysRewritten: false,
         },
       },
     });
     render(<Range.FavoriteButton range={range} />, { wrapper });
     await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
+    expect(selectRange(store.getState(), range.key)).toBeDefined();
     fireEvent.click(screen.getByRole("checkbox"));
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+    expect(selectRange(store.getState(), range.key)).toBeUndefined();
   });
 });

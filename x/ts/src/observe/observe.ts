@@ -68,14 +68,15 @@ export interface ObservableAsyncCloseable<T> extends Observable<T> {
 }
 
 /** A function that transforms a value of type I into a value of type O.
- * @param value The value to transform.
+ * @param value - The value to transform.
  * @returns A tuple containing the transformed value and a boolean indicating whether
  * the value has changed (i.e. whether the observable should notify its handlers).
  */
 export type Transform<I, O> = (value: I) => [O, true] | [O | null, false];
 
 /**
- * An implementation fo the Observable interface that can be manually notified of changes.
+ * An implementation fo the Observable interface that can be manually notified of
+ * changes.
  */
 export class Observer<I, O = I> implements ObservableAsyncCloseable<O> {
   private readonly handlers: Map<Handler<O>, null>;

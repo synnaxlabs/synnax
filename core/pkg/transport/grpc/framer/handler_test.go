@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -49,7 +50,9 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 			Virtual:  true,
 		}
 	}
-	Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
+	})).To(Succeed())
 	return channel.KeysFromChannels(chs)
 }
 
@@ -218,19 +221,28 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Eventually(errs).Should(Receive(MatchError(query.ErrNotFound)))
 		})
 
-		It("Should send the command and end of a response", func(ctx SpecContext) {
-			serve(transport.FrameWriter, 1, framer.WriterResponse{
-				Command: framer.WriterCommandCommit,
-				End:     telem.TimeStamp(123),
-			})
-			res := exchange(
-				MustSucceed(client.Exec(ctx)),
-				1,
-				&grpcframer.WriterRequest{Command: int32(framer.WriterCommandCommit)},
-			)[0]
-			Expect(res.Command).To(Equal(int32(framer.WriterCommandCommit)))
-			Expect(res.End).To(Equal(int64(123)))
-		})
+		DescribeTable(
+			"Should send the command, end, and authorization of a response",
+			func(ctx SpecContext, authorized bool) {
+				serve(transport.FrameWriter, 1, framer.WriterResponse{
+					Command:    framer.WriterCommandCommit,
+					End:        telem.TimeStamp(123),
+					Authorized: authorized,
+				})
+				res := exchange(
+					MustSucceed(client.Exec(ctx)),
+					1,
+					&grpcframer.WriterRequest{
+						Command: int32(framer.WriterCommandCommit),
+					},
+				)[0]
+				Expect(res.Command).To(Equal(int32(framer.WriterCommandCommit)))
+				Expect(res.End).To(Equal(int64(123)))
+				Expect(res.Unauthorized).To(Equal(!authorized))
+			},
+			Entry("authorized", true),
+			Entry("unauthorized", false),
+		)
 	})
 
 	Describe("Streamer", func() {

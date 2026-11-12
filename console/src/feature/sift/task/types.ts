@@ -23,6 +23,8 @@ export const LIST_ASSETS_COMMAND_TYPE = "list_assets";
 
 export const UPLOAD_COMMAND_TYPE = "upload";
 
+export const LIST_UPLOADS_COMMAND_TYPE = "list_uploads";
+
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),

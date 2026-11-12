@@ -35,9 +35,6 @@ const std::string WRITE_TASK_TYPE = "ethercat_write";
 /// @brief task type for scan tasks.
 const std::string SCAN_TASK_TYPE = "ethercat_scan";
 
-/// @brief creates the default manager for the current platform.
-std::unique_ptr<master::Manager> default_manager();
-
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
@@ -57,13 +54,25 @@ class Factory final : public task::Factory {
     );
 
 public:
-    /// @brief constructs a Factory with default manager.
-    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
+    /// @brief constructs a Factory with the default manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client, and stops retrying
+    /// after op_timeout, the timeout of a task operation.
+    Factory(
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        x::telem::TimeSpan op_timeout = task::ManagerConfig().op_timeout
+    );
 
-    /// @brief constructs a Factory with custom manager.
-    explicit Factory(
+    /// @brief constructs a Factory with a custom manager. Each bus start reads the
+    /// settings of the slave devices saved on rack through client, and stops retrying
+    /// after op_timeout, the timeout of a task operation.
+    Factory(
         std::unique_ptr<master::Manager> manager,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        std::shared_ptr<synnax::Synnax> client,
+        synnax::rack::Key rack,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr,
+        x::telem::TimeSpan op_timeout = task::ManagerConfig().op_timeout
     );
 
     ~Factory() override = default;
@@ -84,13 +93,6 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override;
-
-    /// @brief checks if a master has an active engine.
-    [[nodiscard]] bool is_interface_active(const std::string &key) const;
-
-    /// @brief returns cached slaves for a master.
-    [[nodiscard]] std::vector<slave::Properties>
-    get_cached_slaves(const std::string &key) const;
 };
 
 }

@@ -106,8 +106,9 @@ const forwardGlobalTriggers = (
   };
 };
 
-// applyMinimalEdit reflects next into the model as the single contiguous edit that turns
-// its current value into it, so the local cursor and selection survive a programmatic set.
+// applyMinimalEdit reflects next into the model as the single contiguous edit that
+// turns its current value into it, so the local cursor and selection survive a
+// programmatic set.
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
@@ -127,13 +128,13 @@ const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void =
   ]);
 };
 
-/** EditorHandle is the imperative surface an Editor exposes through its ref, for consumers
- * that own the editor's text and update it programmatically rather than through React
- * state. */
+/** EditorHandle is the imperative surface an Editor exposes through its ref, for
+ * consumers that own the editor's text and update it programmatically rather than
+ * through React state. */
 export interface EditorHandle {
   /** setValue reconciles the editor's model to next as a minimal edit, preserving the
-   * local cursor and selection. It is a no-op when the model already holds next, and does
-   * not fire onChange, since the edit did not originate from the user. */
+   * local cursor and selection. It is a no-op when the model already holds next, and
+   * does not fire onChange, since the edit did not originate from the user. */
   setValue: (next: string) => void;
 }
 
@@ -164,9 +165,9 @@ const PLACEHOLDER_RANGE: Monaco.IRange = {
   endColumn: 1,
 };
 
-// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing without
-// it. Injected text takes a cursor stop on both sides by default, letting a click park
-// the caret after the placeholder, so the placeholder takes neither stop.
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
+// without it. Injected text takes a cursor stop on both sides by default, letting a
+// click park the caret after the placeholder, so the placeholder takes neither stop.
 const renderPlaceholder =
   (content: string, mon: Pick<typeof Monaco, "editor">): EditorExtension =>
   (editor) => {
@@ -296,8 +297,8 @@ const setValueSuppressed = (
 };
 
 // useRenameAvailable reports whether the editor's rename action would succeed at the
-// current cursor position, re-probing the LSP rename providers (debounced) on each cursor
-// move. It returns false while no editor or monaco instance is available.
+// current cursor position, re-probing the LSP rename providers (debounced) on each
+// cursor move. It returns false while no editor or monaco instance is available.
 const useRenameAvailable = (
   editor: Monaco.editor.IStandaloneCodeEditor | null,
   monaco: typeof Monaco | null,

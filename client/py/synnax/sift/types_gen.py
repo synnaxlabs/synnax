@@ -15,8 +15,7 @@ from typing import override as _override
 
 from pydantic import BaseModel, Field
 
-from synnax import channel, label, ranger, secret, task
-from synnax import device as device_
+from synnax import channel, device as device_, label, ranger, secret, task
 from x import telem
 
 

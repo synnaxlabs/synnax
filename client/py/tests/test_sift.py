@@ -16,8 +16,8 @@ from x.strings import random_name
 @pytest.fixture
 def sift_device(client: sy.Synnax) -> sy.Device:
     """A Sift device on the rack of the Core, with an unreachable URI."""
-    api_key = client.secrets.create(name="Sift API key", value="key").key
-    rack = client.racks.retrieve(integrations=sy.sift.INTEGRATION)[0]
+    api_key = client.secrets.set(name="Sift API key", value="key").key
+    rack = client.racks.retrieve(embedded=True, integrations=sy.sift.INTEGRATION)[0]
     return client.devices.create(
         sy.sift.Device(
             uri="localhost:1", api_key=api_key, rack=rack.key, name=random_name()
@@ -78,3 +78,23 @@ class TestSiftUpload:
                 channels=[1],
                 time_range=sy.TimeRange(start, start + sy.TimeSpan.SECOND),
             )
+
+    def test_returns_status_key(
+        self,
+        client: sy.Synnax,
+        sift_device: sy.Device,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+    ) -> None:
+        """Should return the key of the status that reports the upload."""
+        _, data = indexed_pair
+        end = sy.TimeStamp.now() - sy.TimeSpan.SECOND
+        key = sy.sift.upload(
+            client.tasks,
+            sift_device,
+            asset="Stand 1",
+            channels=[data.key],
+            time_range=sy.TimeRange(end - sy.TimeSpan.SECOND, end),
+        )
+        assert key.startswith("sift_upload:")
+        assert client.statuses.retrieve(key=key).name == "Stand 1"
+        client.statuses.delete(key)

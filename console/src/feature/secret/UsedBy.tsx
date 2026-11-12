@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type ontology, type secret } from "@synnaxlabs/client";
+import { type certificate, type resource, type secret } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology, Secret } from "@synnaxlabs/pluto";
+import { Resource, Secret } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { CSS } from "@/platform/css";
@@ -30,7 +30,7 @@ export const UsesBoundary = ({ children }: PropsWithChildren): ReactElement => (
   <Suspense fallback={null}>{children}</Suspense>
 );
 
-const NO_USES: ontology.ID[] = [];
+const NO_USES: resource.ID[] = [];
 
 /** Every secret's uses, read in one request that a deleted secret cannot fail. */
 const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
@@ -39,16 +39,16 @@ const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
  * Returns the IDs of the resources that use the secret and that the caller can read.
  * Suspends while the uses load.
  */
-export const useUses = (key: secret.Key): ontology.ID[] =>
+export const useUses = (key: secret.Key): resource.ID[] =>
   Secret.useMultiple(ALL_USES).find((s) => s.key === key)?.uses ?? NO_USES;
 
-interface ResourceProps {
-  resource: ontology.Resource;
+interface UseProps {
+  resource: resource.Resource;
   onSelectCertificate?: SelectCertificate;
 }
 
 /** A resource that uses a secret, shown with the icon of its type. */
-const Resource = ({ resource, onSelectCertificate }: ResourceProps): ReactElement => {
+const Use = ({ resource, onSelectCertificate }: UseProps): ReactElement => {
   const Item = Tree.useItems()[resource.id.type] ?? Tree.DefaultItem;
   const renderButton = (onClick: () => void) => (
     <Button.Button
@@ -74,27 +74,34 @@ const Resource = ({ resource, onSelectCertificate }: ResourceProps): ReactElemen
   );
 };
 
-interface ResourcesProps extends Pick<ResourceProps, "onSelectCertificate"> {
-  ids: ontology.ID[];
+interface UsesProps extends Pick<UseProps, "onSelectCertificate"> {
+  ids: resource.ID[];
 }
 
-const Resources = ({ ids, onSelectCertificate }: ResourcesProps): ReactElement => {
-  // The uses are a snapshot, so a resource in them may since have been deleted.
-  const resources = Ontology.useResources({ ids, ignoreNotFoundError: true });
+const Unused = (): ReactElement => (
+  <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
+    Nothing uses this secret.
+  </Text.Text>
+);
+
+const Uses = ({ ids, onSelectCertificate }: UsesProps): ReactElement => {
+  // A resource in the uses can be deleted between the read of the uses and this read.
+  const resources = Resource.useMultiple({ ids });
+  if (resources.length === 0) return <Unused />;
   return (
-    <>
+    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
       {resources.map((r) => (
-        <Resource
+        <Use
           key={`${r.id.type}:${r.id.key}`}
           resource={r}
           onSelectCertificate={onSelectCertificate}
         />
       ))}
-    </>
+    </Flex.Box>
   );
 };
 
-export interface UsedByProps extends Pick<ResourceProps, "onSelectCertificate"> {
+export interface UsedByProps extends Pick<UseProps, "onSelectCertificate"> {
   secretKey: secret.Key;
 }
 
@@ -104,15 +111,6 @@ export const UsedBy = ({
   onSelectCertificate,
 }: UsedByProps): ReactElement => {
   const uses = useUses(secretKey);
-  if (uses.length === 0)
-    return (
-      <Text.Text level="small" color={9} className={CSS.BE("credentials", "unused")}>
-        Nothing uses this secret.
-      </Text.Text>
-    );
-  return (
-    <Flex.Box y empty className={CSS.BE("credentials", "resources")}>
-      <Resources ids={uses} onSelectCertificate={onSelectCertificate} />
-    </Flex.Box>
-  );
+  if (uses.length === 0) return <Unused />;
+  return <Uses ids={uses} onSelectCertificate={onSelectCertificate} />;
 };

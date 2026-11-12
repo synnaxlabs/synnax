@@ -37,8 +37,8 @@ const (
 // StatusDetails contains rack-specific status details.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// rack is the key of the rack this status pertains to.
-	Rack          uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
+	// running is true when the status comes from a running Driver.
+	Running       bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,11 +73,11 @@ func (*StatusDetails) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *StatusDetails) GetRack() uint32 {
+func (x *StatusDetails) GetRunning() bool {
 	if x != nil {
-		return x.Rack
+		return x.Running
 	}
-	return 0
+	return false
 }
 
 // Rack is a collection container for hardware devices and tasks running on a specific
@@ -95,7 +95,12 @@ type Rack struct {
 	Status *pb.Status `protobuf:"bytes,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations  []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
+	Integrations []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
+	// version is the version of the Driver that runs the rack, written at each connect.
+	// Absent until a Driver reports it.
+	Version *string `protobuf:"bytes,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	// group is the group the rack sits in, if any.
+	Group         *string `protobuf:"bytes,7,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,6 +168,20 @@ func (x *Rack) GetIntegrations() []string {
 		return x.Integrations
 	}
 	return nil
+}
+
+func (x *Rack) GetVersion() string {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return ""
+}
+
+func (x *Rack) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
+	}
+	return ""
 }
 
 type WhereList struct {
@@ -399,6 +418,50 @@ func (x *StringContains) GetAny() *StringList {
 	return nil
 }
 
+type GroupKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GroupKeyList) Reset() {
+	*x = GroupKeyList{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GroupKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GroupKeyList) ProtoMessage() {}
+
+func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GroupKeyList.ProtoReflect.Descriptor instead.
+func (*GroupKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GroupKeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 // Where is a filter that selects racks.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -416,16 +479,17 @@ type Where struct {
 	Embedded *pb1.Bool `protobuf:"bytes,6,opt,name=embedded,proto3,oneof" json:"embedded,omitempty"`
 	// integrations selects by integrations.
 	Integrations *StringContains `protobuf:"bytes,7,opt,name=integrations,proto3,oneof" json:"integrations,omitempty"`
-	// host_is_node matches racks on the Core that serves the request, or racks on other
-	// Cores when false.
-	HostIsNode    *bool `protobuf:"varint,8,opt,name=host_is_node,json=hostIsNode,proto3,oneof" json:"host_is_node,omitempty"`
+	// groups matches the racks in any of the given groups.
+	Groups *GroupKeyList `protobuf:"bytes,8,opt,name=groups,proto3" json:"groups,omitempty"`
+	// grouped matches the racks in a group, or in no group when false.
+	Grouped       *bool `protobuf:"varint,9,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Where) Reset() {
 	*x = Where{}
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +501,7 @@ func (x *Where) String() string {
 func (*Where) ProtoMessage() {}
 
 func (x *Where) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +514,7 @@ func (x *Where) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Where.ProtoReflect.Descriptor instead.
 func (*Where) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Where) GetAnd() *WhereList {
@@ -502,9 +566,16 @@ func (x *Where) GetIntegrations() *StringContains {
 	return nil
 }
 
-func (x *Where) GetHostIsNode() bool {
-	if x != nil && x.HostIsNode != nil {
-		return *x.HostIsNode
+func (x *Where) GetGroups() *GroupKeyList {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+func (x *Where) GetGrouped() bool {
+	if x != nil && x.Grouped != nil {
+		return *x.Grouped
 	}
 	return false
 }
@@ -513,16 +584,21 @@ var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"#\n" +
-	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaf\x01\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\")\n" +
+	"\rStatusDetails\x12\x18\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\"\x85\x02\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bembedded\x18\x03 \x01(\bR\bembedded\x126\n" +
 	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
-	"\fintegrations\x18\x05 \x03(\tR\fintegrationsB\t\n" +
-	"\a_status\";\n" +
+	"\fintegrations\x18\x05 \x03(\tR\fintegrations\x12\x1d\n" +
+	"\aversion\x18\x06 \x01(\tH\x01R\aversion\x88\x01\x01\x12\x19\n" +
+	"\x05group\x18\a \x01(\tH\x02R\x05group\x88\x01\x01B\t\n" +
+	"\a_statusB\n" +
+	"\n" +
+	"\b_versionB\b\n" +
+	"\x06_groupJ\x04\b\b\x10\t\";\n" +
 	"\tWhereList\x12.\n" +
 	"\x06values\x18\x01 \x03(\v2\x16.service.rack.pb.WhereR\x06values\"!\n" +
 	"\aKeyList\x12\x16\n" +
@@ -535,7 +611,9 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"StringList\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"?\n" +
 	"\x0eStringContains\x12-\n" +
-	"\x03any\x18\x01 \x01(\v2\x1b.service.rack.pb.StringListR\x03any\"\xdb\x03\n" +
+	"\x03any\x18\x01 \x01(\v2\x1b.service.rack.pb.StringListR\x03any\"&\n" +
+	"\fGroupKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x85\x04\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.rack.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.rack.pb.WhereListR\x02or\x12-\n" +
@@ -543,15 +621,16 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x03key\x18\x04 \x01(\v2\x17.service.rack.pb.KeySetH\x01R\x03key\x88\x01\x01\x12,\n" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x122\n" +
 	"\bembedded\x18\x06 \x01(\v2\x11.x.filter.pb.BoolH\x03R\bembedded\x88\x01\x01\x12H\n" +
-	"\fintegrations\x18\a \x01(\v2\x1f.service.rack.pb.StringContainsH\x04R\fintegrations\x88\x01\x01\x12%\n" +
-	"\fhost_is_node\x18\b \x01(\bH\x05R\n" +
-	"hostIsNode\x88\x01\x01B\x06\n" +
+	"\fintegrations\x18\a \x01(\v2\x1f.service.rack.pb.StringContainsH\x04R\fintegrations\x88\x01\x01\x125\n" +
+	"\x06groups\x18\b \x01(\v2\x1d.service.rack.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\t \x01(\bH\x05R\agrouped\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\v\n" +
 	"\t_embeddedB\x0f\n" +
-	"\r_integrationsB\x0f\n" +
-	"\r_host_is_nodeB\xb0\x01\n" +
+	"\r_integrationsB\n" +
+	"\n" +
+	"\b_groupedB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"
 
 var (
@@ -566,7 +645,7 @@ func file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_rack_pb_rack_proto_rawDescData
 }
 
-var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
 	(*StatusDetails)(nil),  // 0: service.rack.pb.StatusDetails
 	(*Rack)(nil),           // 1: service.rack.pb.Rack
@@ -575,28 +654,30 @@ var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
 	(*KeySet)(nil),         // 4: service.rack.pb.KeySet
 	(*StringList)(nil),     // 5: service.rack.pb.StringList
 	(*StringContains)(nil), // 6: service.rack.pb.StringContains
-	(*Where)(nil),          // 7: service.rack.pb.Where
-	(*pb.Status)(nil),      // 8: service.status.pb.Status
-	(*pb1.String)(nil),     // 9: x.filter.pb.String
-	(*pb1.Bool)(nil),       // 10: x.filter.pb.Bool
+	(*GroupKeyList)(nil),   // 7: service.rack.pb.GroupKeyList
+	(*Where)(nil),          // 8: service.rack.pb.Where
+	(*pb.Status)(nil),      // 9: service.status.pb.Status
+	(*pb1.String)(nil),     // 10: x.filter.pb.String
+	(*pb1.Bool)(nil),       // 11: x.filter.pb.Bool
 }
 var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
-	8,  // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
-	7,  // 1: service.rack.pb.WhereList.values:type_name -> service.rack.pb.Where
+	9,  // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
+	8,  // 1: service.rack.pb.WhereList.values:type_name -> service.rack.pb.Where
 	3,  // 2: service.rack.pb.KeySet.in:type_name -> service.rack.pb.KeyList
 	5,  // 3: service.rack.pb.StringContains.any:type_name -> service.rack.pb.StringList
 	2,  // 4: service.rack.pb.Where.and:type_name -> service.rack.pb.WhereList
 	2,  // 5: service.rack.pb.Where.or:type_name -> service.rack.pb.WhereList
-	7,  // 6: service.rack.pb.Where.not:type_name -> service.rack.pb.Where
+	8,  // 6: service.rack.pb.Where.not:type_name -> service.rack.pb.Where
 	4,  // 7: service.rack.pb.Where.key:type_name -> service.rack.pb.KeySet
-	9,  // 8: service.rack.pb.Where.name:type_name -> x.filter.pb.String
-	10, // 9: service.rack.pb.Where.embedded:type_name -> x.filter.pb.Bool
+	10, // 8: service.rack.pb.Where.name:type_name -> x.filter.pb.String
+	11, // 9: service.rack.pb.Where.embedded:type_name -> x.filter.pb.Bool
 	6,  // 10: service.rack.pb.Where.integrations:type_name -> service.rack.pb.StringContains
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	7,  // 11: service.rack.pb.Where.groups:type_name -> service.rack.pb.GroupKeyList
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_rack_pb_rack_proto_init() }
@@ -606,14 +687,14 @@ func file_core_pkg_service_rack_pb_rack_proto_init() {
 	}
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[4].OneofWrappers = []any{}
-	file_core_pkg_service_rack_pb_rack_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_rack_pb_rack_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_rack_pb_rack_proto_rawDesc), len(file_core_pkg_service_rack_pb_rack_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

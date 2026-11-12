@@ -18,7 +18,8 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -35,17 +36,28 @@
 namespace synnax::arc {
 
 struct Where;
-struct RetrieveRequest;
+struct Cursor;
+struct Change;
+struct Order;
 struct Base;
+struct RetrieveRequest;
 struct RetrieveResponse;
-
-constexpr const char *MODE_TEXT = "text";
-constexpr const char *MODE_GRAPH = "graph";
 
 constexpr const char *TYPE_AUTOMATION = "automation";
 constexpr const char *TYPE_MODULE = "module";
 
+constexpr const char *CHANGE_KIND_CHANGED = "changed";
+constexpr const char *CHANGE_KIND_ADDED = "added";
+constexpr const char *CHANGE_KIND_REMOVED = "removed";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
+
+constexpr const char *MODE_TEXT = "text";
+constexpr const char *MODE_GRAPH = "graph";
+
 using Key = x::uuid::UUID;
+
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Where is a filter that selects Arcs.
 struct Where {
@@ -59,6 +71,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
     ::x::filter::Field<::x::filter::String> name;
+    /// @brief directories matches the Arcs in any of the given directories.
+    ::x::filter::List<x::uuid::UUID> directories;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -93,6 +107,23 @@ struct Where {
     to_proto() const;
     static std::pair<Where, x::errors::Error>
     from_proto(const ::service::arc::pb::Where &pb);
+};
+
+/// @brief Cursor is a position in an order of arcs: the sort value and the key of a
+/// arc.
+struct Cursor {
+    /// @brief key is the key of the arc at the position.
+    Key key;
+    /// @brief name is the name of the arc at the position, when the order sorts by it.
+    std::optional<std::string> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::Cursor;
+    [[nodiscard]] std::pair<::api::arc::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::arc::pb::Cursor &pb);
 };
 
 /// @brief TextSource is Arc source code written as text.
@@ -137,27 +168,40 @@ to_proto(const Source &value);
 std::pair<Source, x::errors::Error>
 source_from_proto(const ::service::arc::pb::Source &pb);
 
-/// @brief RetrieveRequest is a request to retrieve arcs.
-struct RetrieveRequest {
-    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the arcs that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most arcs to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching arcs to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_program includes the program of each record.
-    bool include_program = false;
+/// @brief Change is one difference between an automation's content and what its task
+/// last ran.
+struct Change {
+    /// @brief type is whether the automation's own text or a module changed.
+    std::string type;
+    /// @brief path is the import path of the module. Empty for the automation.
+    std::string path = "";
+    /// @brief kind is how the content differs from what the task last ran.
+    std::string kind;
 
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Change parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::arc::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::service::arc::pb::Change;
+    [[nodiscard]] std::pair<::service::arc::pb::Change, x::errors::Error>
     to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
+    static std::pair<Change, x::errors::Error>
+    from_proto(const ::service::arc::pb::Change &pb);
+};
+
+/// @brief Order is a sort of arcs.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::Order;
+    [[nodiscard]] std::pair<::api::arc::pb::Order, x::errors::Error> to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::arc::pb::Order &pb);
 };
 
 /// @brief Base carries the fields that every Arc shares.
@@ -168,6 +212,8 @@ struct Base {
     std::string name;
     /// @brief source is the Arc's source code, written as text or drawn as a graph.
     Source source = TextSource{};
+    /// @brief directory is the key of the directory that holds the Arc.
+    std::optional<x::uuid::UUID> directory;
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -179,12 +225,75 @@ struct Base {
     from_proto(const ::service::arc::pb::Base &pb);
 };
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the arcs. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the arcs strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve arcs.
+struct RetrieveRequest {
+    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the arcs. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the arcs strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+    /// @brief include_changes includes the changes of each record.
+    bool include_changes = false;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_program = options.include_program,
+            .include_changes = options.include_changes,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
+};
+
 /// @brief AutomationArc is an Arc that runs on a rack as a task.
 struct AutomationArc : public Base {
     std::string type = TYPE_AUTOMATION;
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
+    /// @brief changes is what changed in the automation since its task was deployed.
+    std::optional<std::vector<Change>> changes;
 
     static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -199,6 +308,8 @@ struct AutomationArc : public Base {
 /// @brief ModuleArc is an Arc that holds code for other Arcs to import.
 struct ModuleArc : public Base {
     std::string type = TYPE_MODULE;
+    /// @brief status is the result of the module's last compile on the Core.
+    std::optional<Status> status;
 
     static ModuleArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -241,9 +352,9 @@ struct RetrieveResponse {
     from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("arc", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("arc", key.to_string());
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("arc", key.to_string());
 }
 }

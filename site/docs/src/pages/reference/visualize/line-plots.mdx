@@ -39,7 +39,8 @@ a range is active, the plot shows that range instead.
 You can also run the "Create line plot" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). In the
 channels toolbar, double-click a channel to add it to the focused line plot, or to a new
-line plot when none is focused.
+line plot when none is focused. To create a line plot from a Python or TypeScript
+script, see [visualizations in code](/reference/visualize/code#create-a-line-plot).
 
 <Video id="console/line-plots/create" />
 
@@ -47,25 +48,39 @@ line plot when none is focused.
 
 ## Choose a time range
 
-The **Ranges** field on the **Data** tab sets the time that the plot shows. Select one
-or more items:
+The **Ranges** field on the **Data** tab sets the time that the plot shows. Click the
+field to open the range picker:
 
-- A rolling span, such as **Rolling 30s** or **Rolling 1h**, shows live data. The plot
-  moves as new samples arrive.
-- **Custom** sets your own rolling span. Enter a duration such as `1h 30m`.
-- A range shows the data of that range. The list holds your favorite ranges and the
-  ranges that you added to plots. To add a range to the list,
+- **Live** -> click a span, from **30s** to **30d**, to show the live data of that span.
+  The plot moves as new samples arrive. A plot shows one live span at most, so a new
+  span replaces the old one. Click **Off** to show no live data.
+- **A typed duration** -> type a duration such as `1h 30min` in the search field, then
+  press **Enter**. The plot shows the live data of that span.
+- **A range** -> click a range to show its data. The list holds your favorite ranges and
+  the ranges that you added to plots. To add a range to the list,
   [favorite it](/reference/ranges/find#favorites).
+
+The field shows the live span as a tag with a live icon, such as **30s**. A plot can
+show a live span and one or more ranges together.
 
 To plot a range from the ranges toolbar, right-click the range and select **Add to new
 plot**. To add it to the focused line plot, select **Add to active plot**.
 
 Each range keeps its real times, so two runs on different days sit apart on the x-axis.
 
-The plot marks each range in Synnax that overlaps the visible time as a shaded band with
-its name. Right-click a band to select **View details**, **Open in new plot**, or
-**Download as CSV**. To hide the bands, click <Icon.Range /> in the top right of the
-plot.
+The plot shows each range in Synnax that overlaps the visible time as a bar in a strip
+above the plot. Only ranges that have a color show.
+
+- **Hover over a bar** -> see the name, start, end, and duration of the range.
+- **Click a bar** -> zoom to the range and pause the plot. Click the bar again to go
+  back to the view from before.
+- **Right-click a bar** -> select **View details**, **Open in new plot**, or **Download
+  as CSV**.
+
+To hide the bars, click <Icon.Range /> (**Hide range annotations**) in the top right of
+the plot.
+
+<Video id="console/line-plots/range-zoom" />
 
 <Divider.Divider x />
 
@@ -76,12 +91,14 @@ On the **Data** tab:
 - **Y1** plots channels against the left axis.
 - **Y2** plots channels against the right axis. Use it for channels with a different
   unit, such as temperature next to pressure.
-- **X1** sets the channel of the x-axis. Leave it empty to plot against time.
+- **X1** sets the channel of the x-axis. Keep **Time**, the default, to plot each
+  channel against its own timestamps.
 
 You can also drag a channel from the channels toolbar onto an axis of the plot.
 
-The axis lists do not show virtual, `string`, `json`, or `uuid` channels. To see text
-values, use a [log](/reference/visualize/logs).
+The axis lists do not show `string`, `json`, or `uuid` channels, or virtual channels
+that are not [calculated](/reference/channels/calculated). To see these values, use a
+[log](/reference/visualize/logs).
 
 <Divider.Divider x />
 
@@ -109,28 +126,6 @@ To stop a live plot from moving, click <Icon.Pause /> or press **H**. Click <Ico
 
 To show the time and the value of each line under the cursor, turn on **Show tooltip on
 hover** (<Icon.Tooltip />). It is on by default.
-
-<Divider.Divider x />
-
-## How the plot loads data
-
-A line plot does not draw each sample of a long time range. It loads groups of samples
-that fit the width of the plot. The **Aggregation** and **Detail** of each line set how
-the plot draws the groups. See [lines](#lines).
-
-- **Zoom in** -> the plot loads finer data for the new view. The coarse data stays on
-  the plot until the finer data arrives.
-- **Pan past the time range** -> the plot loads the data there. To go back to the time
-  range, click <Icon.Expand /> or **Ctrl+click** the plot.
-- **First load** -> while the plot loads a range, or a rolling span longer than one
-  minute, it shows a message such as **Fetching 1h of data**.
-
-## Where a line breaks
-
-A line breaks where a writer stopped. When a task stops and starts again, the plot
-leaves the time between the two runs empty, however short it is. A writer that stays
-open usually keeps one line through a pause, though a long pause can show as a break. A
-sample with a break on both sides draws no line, but the tooltip still finds it.
 
 <Divider.Divider x />
 
@@ -188,21 +183,46 @@ The legend lists each line with its color and label.
 
 <Divider.Divider x />
 
+## How the plot loads data
+
+A line plot does not draw each sample of a long time range. It loads groups of samples
+that fit the width of the plot. The **Aggregation** and **Detail** of each line set how
+the plot draws the groups. See [lines](#lines).
+
+- **Zoom in** -> the plot loads finer data for the new view. The coarse data stays on
+  the plot until the finer data arrives.
+- **Pan past the time range** -> the plot loads the data there. To go back to the time
+  range, click <Icon.Expand /> or **Ctrl+click** the plot.
+- **First load** -> while the plot loads a range, or a live span longer than one minute,
+  it shows a message such as **Fetching 1h of data**.
+
+<Divider.Divider x />
+
+## Where a line breaks
+
+A line breaks where a writer stopped. When a task stops and starts again, the plot
+leaves the time between the two runs empty, however short it is. A writer that stays
+open usually keeps one line through a pause, though a long pause can show as a break. A
+sample with a break on both sides draws no line, but the tooltip still finds it.
+
+<Divider.Divider x />
+
 ## Toolbar reference
 
 Open the component toolbar with **V**, or double-click the plot. The header has buttons
-to download the data as CSV, export the plot, and copy a link to it.
+to download the data as CSV, export the plot, and copy a link to it. Synnax Desktop does
+not show **Copy link**.
 
 <Video id="console/line-plots/toolbar" />
 
 ### Data
 
-| Field  | Default     | Description                                       |
-| ------ | ----------- | ------------------------------------------------- |
-| Ranges | Rolling 30s | The rolling spans and ranges that the plot shows. |
-| Y1     | None        | Channels plotted against the left axis.           |
-| Y2     | None        | Channels plotted against the right axis.          |
-| X1     | None (time) | The channel of the x-axis.                        |
+| Field  | Default  | Description                                       |
+| ------ | -------- | ------------------------------------------------- |
+| Ranges | Live 30s | The live span and the ranges that the plot shows. |
+| Y1     | None     | Channels plotted against the left axis.           |
+| Y2     | None     | Channels plotted against the right axis.          |
+| X1     | Time     | The channel of the x-axis.                        |
 
 ### Lines
 
@@ -263,8 +283,8 @@ The time range has no data for the channels.
 </Problem.Cause>
 <Problem.Fix>
 
-- **The range has no samples** -> make sure that **Ranges** has a rolling span or a
-  range in which the channels have samples.
+- **The range has no samples** -> make sure that **Ranges** has a live span or a range
+  in which the channels have samples.
 - **No live data arrives** -> check that a task or a script writes to the channels.
 
 </Problem.Fix>
@@ -286,17 +306,54 @@ toolbar and select **Add to active plot**.
 </Problem.Fix>
 </Problem.Body>
 
+### A range in Ranges shows "Deleted range" or "Unavailable range"
+
+<Problem.Body>
+<Problem.Cause>
+
+The plot refers to a range that the Core no longer has, or that the Console cannot read.
+Hover over the tag to see the error.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click the close button of the tag to remove the range from the plot.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A range does not show above the plot
+
+<Problem.Body>
+<Problem.Cause>
+
+The plot draws a bar only for a range that has a color. When more than 100 ranges
+overlap the visible time, the plot draws no bars.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The range has no color** -> set its color from Python or TypeScript. The Console
+  cannot set it. See [edit ranges](/reference/ranges/edit).
+- **Too many ranges are in view** -> zoom in until 100 ranges or fewer are in view.
+- **The bars are hidden** -> click <Icon.Range /> (**Show range annotations**) in the
+  top right of the plot.
+
+</Problem.Fix>
+</Problem.Body>
+
 ### A channel is not in the Y1 list
 
 <Problem.Body>
 <Problem.Cause>
 
-The axis lists hide virtual, `string`, `json`, and `uuid` channels.
+The axis lists hide `string`, `json`, and `uuid` channels, and virtual channels that are
+not calculated.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Use a [log](/reference/visualize/logs) for text values.
+Use a [log](/reference/visualize/logs) for these values.
 
 </Problem.Fix>
 </Problem.Body>

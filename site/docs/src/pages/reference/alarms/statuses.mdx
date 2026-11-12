@@ -9,6 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -21,8 +22,8 @@ Console shows each change as a notification. Statuses are the base of
 
 ## Set a status
 
-Setting a status with a key that already exists replaces the whole status. Give every
-field each time, or the fields that you leave out become empty.
+Setting a status with a key that already exists replaces every field except its labels.
+Give every other field each time, or the fields that you leave out become empty.
 
 <Client.Tabs>
 
@@ -34,6 +35,8 @@ field each time, or the fields that you leave out become empty.
 2. Enter a name, then select a **Variant** and enter a **Message**.
 3. Optional: select labels.
 4. Click **Create**.
+
+<Video id="console/statuses/create" />
 
   </Fragment>
 
@@ -112,7 +115,8 @@ variant.
 
 ```python
 status = client.statuses.retrieve(key="tank-pressure")
-errors = client.statuses.retrieve(variants=["error"])
+errors = client.statuses.retrieve(variant="error")
+tank = client.statuses.retrieve(search_term="tank", limit=10)
 ```
 
   </Fragment>
@@ -121,6 +125,8 @@ errors = client.statuses.retrieve(variants=["error"])
 
 ```typescript
 const status = await client.statuses.retrieve("tank-pressure");
+const errors = await client.statuses.retrieve({ variant: "error" });
+const tank = await client.statuses.retrieve({ searchTerm: "tank", limit: 10 });
 ```
 
   </Fragment>
@@ -136,7 +142,7 @@ const status = await client.statuses.retrieve("tank-pressure");
 
 In the status explorer, right-click one or more statuses and select:
 
-- **Rename** -> change the name.
+- **Rename** -> change the name of one status.
 - **Favorite** or **Unfavorite** -> add them to the statuses toolbar or remove them.
 - **Copy diagnostics** -> copy the details to the clipboard.
 - **Delete** -> delete them, after you confirm.
@@ -207,7 +213,32 @@ unless it is a success, loading, or disabled status.
 | Description | No       | Why, and what to do now, in full sentences.                          |
 | Time        | No       | The time of the change. The default is now.                          |
 | Details     | No       | Extra data in JSON, such as the value that set off the alarm.        |
-| Labels      | No       | Labels that group related statuses. Set them in the Console.         |
+| Labels      | No       | Labels that group related statuses. See [labels](#labels).           |
+
+### Labels
+
+Labels group related statuses. Give a status its labels when you create it: select them
+in the Console, or set `labels` in code. A later set keeps the stored labels. To change
+the labels of a status that exists, use the label client:
+
+<Client.Tabs exclude={["console", "arc"]}>
+
+  <Fragment slot="python">
+
+```python
+client.labels.label(sy.status.resource_id("tank-pressure"), label.key)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.labels.label(status.resourceID("tank-pressure"), [label.key]);
+```
+
+  </Fragment>
+</Client.Tabs>
 
 ### Variants
 

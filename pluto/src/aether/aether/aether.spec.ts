@@ -130,7 +130,9 @@ class ConditionalReader extends aether.Leaf<typeof exampleProps> {
   }
 }
 
-/** Republishes "key" as `state.x * 10`, shadowing an ancestor that also publishes it. */
+/**
+ * Republishes "key" as `state.x * 10`, shadowing an ancestor that also publishes it.
+ */
 class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
   updatef = vi.fn();
   schema = exampleProps;
@@ -165,6 +167,7 @@ const invokeMethodsSchema = {
     output: z.promise(z.number()),
   }),
   throwError: z.function(),
+  isEven: z.function({ input: z.tuple([z.number()]), output: z.boolean() }),
 } satisfies aether.MethodsSchema;
 
 class InvokeLeaf
@@ -196,6 +199,10 @@ class InvokeLeaf
 
   asyncMethod(n: number): Promise<number> {
     return this.asyncMethodSpy(n);
+  }
+
+  isEven(n: number): boolean {
+    return n % 2 === 0;
   }
 
   throwError(): void {
@@ -241,8 +248,8 @@ const shouldNotCallCreate = (): aether.Component => {
   throw new Error("should not call create");
 };
 
-/** Issues a self/child state update with the standard `{ x }` state. `create` defaults to
- * {@link shouldNotCallCreate} for updates that should not spawn a child. */
+/** Issues a self/child state update with the standard `{ x }` state. `create` defaults
+ * to {@link shouldNotCallCreate} for updates that should not spawn a child. */
 const update = (
   c: aether.Component,
   path: string[],
@@ -944,10 +951,10 @@ describe("message", () => {
 });
 
 // Property/oracle test for context propagation. The incremental engine (re-run only the
-// subscribers of a changed key, cascading) is checked against a trivially-correct oracle
-// — a full top-down recompute of the whole tree. For random trees and random update /
-// delete sequences, every live node's resolved context must match the recompute; any
-// missed propagation (a stale node) makes the two disagree.
+// subscribers of a changed key, cascading) is checked against a trivially-correct
+// oracle — a full top-down recompute of the whole tree. For random trees and random
+// update / delete sequences, every live node's resolved context must match the
+// recompute; any missed propagation (a stale node) makes the two disagree.
 
 const stateZ = z.object({ x: z.number(), id: z.string() });
 
@@ -1132,7 +1139,8 @@ describe("aether context propagation (property/oracle)", () => {
       const states = new Map<string, number>();
       const randX = () => Math.floor(rand() * 6);
 
-      // Build and drive the tree by routing through the root, exactly as production does.
+      // Build and drive the tree by routing through the root, exactly as production
+      // does.
       const root = mk(nodes[0], null);
       const apply = (
         node: TreeNode,

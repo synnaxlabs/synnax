@@ -12,10 +12,14 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -38,11 +42,15 @@ func OperationToPB(r channel.Operation) (*Operation, error) {
 }
 
 // OperationFromPB converts Operation to Operation.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	var r channel.Operation
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Type, err = OperationTypeFromPB(pb.Type)
 	if err != nil {
@@ -50,6 +58,7 @@ func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	}
 	r.ResetChannel = channel.Key(pb.ResetChannel)
 	r.Duration = telem.TimeSpan(pb.Duration)
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -102,6 +111,10 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
 	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	return pb, nil
 }
 
@@ -129,6 +142,13 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return channel.Channel{}, err
+		}
+		r.Group = &v
+	}
 	return r, nil
 }
 
@@ -392,8 +412,11 @@ func WhereToPB(r channel.Where) (*Where, error) {
 	if r.Virtual != nil {
 		pb.Virtual = r.Virtual
 	}
-	if r.NamePatterns != nil {
-		pb.NamePatterns = &StringList{Values: r.NamePatterns}
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
 	}
 	return pb, nil
 }
@@ -470,8 +493,25 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual
 	}
-	if pb.NamePatterns != nil {
-		r.NamePatterns = xpb.ListValues(pb.NamePatterns.Values)
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
 	}
 	return r, nil
 }

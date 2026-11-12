@@ -96,7 +96,8 @@ export const renderTable = async (
   Component: ComponentType,
   { table: overrides, preloadedState, as = client }: RenderTableOptions = {},
 ) => {
-  const created = await client.tables.create(await project(), {
+  const created = await client.tables.create({
+    project: await project(),
     name: "Test Table",
     ...overrides,
   });
@@ -107,7 +108,7 @@ export const renderTable = async (
   await loadTable(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    clientTable.ontologyID(created.key),
+    clientTable.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // React counts a `use` read as a suspend even when it is cached. A sync act leaves

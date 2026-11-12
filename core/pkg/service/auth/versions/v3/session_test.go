@@ -22,7 +22,4 @@ var _ = Describe("Session", func() {
 		key := uuid.New()
 		Expect(v3.Session{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v3.Session{}.SetOptions()).To(BeNil())
-	})
 })

@@ -131,6 +131,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   PlatformDevice.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(
@@ -222,7 +223,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);

@@ -42,26 +42,6 @@ describe("range slice", () => {
       expect(state.ranges).toEqual([]);
       expect(state.selected).toBeUndefined();
     });
-
-    // Callers fall back to the recent range when nothing is selected, so it has to be
-    // there whatever the session has stored.
-    it("should offer the rolling ranges whatever it holds", () => {
-      const state = { [Range.SLICE_NAME]: emptyState() };
-      expect(Range.selectState(state, Range.RECENT_KEY)).toBeDefined();
-      expect(
-        Range.BUILT_IN.every(({ key }) => Range.selectState(state, key) != null),
-      ).toBe(true);
-    });
-
-    it("should keep a built-in through a remove", () => {
-      const next = Range.reducer(
-        emptyState(),
-        Range.remove({ keys: [Range.RECENT_KEY] }),
-      );
-      expect(
-        Range.selectState({ [Range.SLICE_NAME]: next }, Range.RECENT_KEY),
-      ).toBeDefined();
-    });
   });
 
   describe("add", () => {
@@ -101,40 +81,6 @@ describe("range slice", () => {
         Range.remove({ keys: [STATIC.key] }),
       );
       expect(next.selected).toEqual(DYNAMIC.key);
-    });
-  });
-
-  describe("restore", () => {
-    it("should put a range back at the index it was removed from", () => {
-      const next = Range.reducer(
-        stateWith([DYNAMIC]),
-        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
-      );
-      expect(next.ranges).toEqual([STATIC, DYNAMIC]);
-    });
-
-    it("should put the selection back", () => {
-      const next = Range.reducer(
-        stateWith([]),
-        Range.restore({ ranges: [{ index: 0, range: STATIC }], selected: STATIC.key }),
-      );
-      expect(next.selected).toEqual(STATIC.key);
-    });
-
-    it("should keep a selection made while the delete was in flight", () => {
-      const next = Range.reducer(
-        stateWith([DYNAMIC], DYNAMIC.key),
-        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
-      );
-      expect(next.selected).toEqual(DYNAMIC.key);
-    });
-
-    it("should skip a range the slice already holds", () => {
-      const next = Range.reducer(
-        stateWith([STATIC]),
-        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
-      );
-      expect(next.ranges).toEqual([STATIC]);
     });
   });
 

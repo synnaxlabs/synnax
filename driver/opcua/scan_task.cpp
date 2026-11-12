@@ -57,19 +57,28 @@ std::string failure_message(
     return fallback;
 }
 
+/// @returns true when err is a reply from the server, such as a rejected login or
+/// certificate.
+bool server_answered(const x::errors::Error &err) {
+    return err.matches(errors::SESSION_REJECTED) ||
+           err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED) ||
+           err.matches(errors::SERVER_CERTIFICATE_TIME_INVALID) ||
+           err.matches(errors::CLIENT_CERTIFICATE_REJECTED);
+}
+
 /// @returns an error status for the reply to cmd, which each handler fills in.
 synnax::task::Status
 command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
     return {
-        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(task.key),
     };
 }
 }
@@ -155,17 +164,18 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
     synnax::device::Status status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Server connected",
         .time = ::x::telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
+        .details = {.rack = rack_key, .connected = true},
+        .owner = synnax::device::resource_id(dev.key),
     };
     if (parser.error()) {
         status.variant = synnax::status::VARIANT_WARNING;
         status.message = "Invalid device properties";
         status.description = common::config_err_description(parser.error());
+        status.details.connected = false;
         dev.status = status;
         return parser.error();
     }
@@ -183,6 +193,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                                ? synnax::status::VARIANT_ERROR
                                : synnax::status::VARIANT_WARNING;
             status.description = conn_err.data;
+            status.details.connected = server_answered(conn_err);
             dev.status = status;
             return x::errors::NIL;
         }

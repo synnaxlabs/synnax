@@ -1,6 +1,5 @@
 ---
 layout: "@/layouts/Reference.astro"
-flag: "sift"
 title: "Send data to Sift"
 description: "Upload stored data and stream live data from Synnax to Sift."
 ---
@@ -50,8 +49,8 @@ import synnax as sy
 
 client = sy.Synnax()
 
-api_key = client.secrets.create(name="Sift API key", value="<your-sift-api-key>")
-rack = client.racks.retrieve(integrations=sy.sift.INTEGRATION)[0]
+api_key = client.secrets.set(name="Sift API key", value="<your-sift-api-key>")
+rack = client.racks.retrieve(embedded=True, integrations=sy.sift.INTEGRATION)[0]
 sift = client.devices.create(
     sy.sift.Device(
         uri="grpc-api.siftstack.com:443",
@@ -101,17 +100,18 @@ Then:
 rng = client.ranges.retrieve(name="Hotfire 12")
 pressure = client.channels.retrieve("pressure")
 
-sy.sift.upload(
+upload = sy.sift.upload(
     client.tasks,
     sift,
     asset="Test stand 1",
     channels=[pressure.key],
     range_key=rng.key,
 )
+print(client.statuses.retrieve(key=upload).message)
 ```
 
-To upload a time span with no range, pass `time_range=sy.TimeRange(start, end)` in place
-of `range_key`.
+`upload` returns the key of the status of the upload. To upload a time span with no
+range, pass `time_range=sy.TimeRange(start, end)` in place of `range_key`.
 
   </Fragment>
 </Client.Tabs>

@@ -19,10 +19,13 @@ export interface DetailsTitleProps {
   /** The channel's port and its state. Null for a channel type with no port. */
   port: { label: string; state: Task.Port.State; disabled: boolean } | null;
   type: { icon: JSX.Element; name: string };
-  channel: channel.Key;
-  namePath: deep.Target<string | undefined>;
-  /** The name deploying the task gives a channel with no name. */
-  defaultName?: string;
+  /** The Synnax channel the title names. Absent when the channel type has none. */
+  name?: {
+    channel: channel.Key;
+    path: deep.Target<string | undefined>;
+    /** The name deploying the task gives a channel with no name. */
+    defaultName?: string;
+  };
   /** Deploying the task does not create the channel. */
   skipped?: boolean;
   model?: string;
@@ -35,9 +38,7 @@ export interface DetailsTitleProps {
 export const DetailsTitle = ({
   port,
   type,
-  channel,
-  namePath,
-  defaultName,
+  name,
   skipped,
   model,
 }: DetailsTitleProps): ReactElement => (
@@ -51,15 +52,17 @@ export const DetailsTitle = ({
         {type.icon}
       </Text.Text>
     </Tooltip.Dialog>
-    <Task.ChannelName
-      channel={channel}
-      namePath={namePath}
-      defaultName={defaultName}
-      skipped={skipped}
-      level="p"
-      weight={500}
-      overflow="fade"
-    />
+    {name != null && (
+      <Task.ChannelName
+        channel={name.channel}
+        namePath={name.path}
+        defaultName={name.defaultName}
+        skipped={skipped}
+        level="p"
+        weight={500}
+        overflow="fade"
+      />
+    )}
     {model != null && (
       <Text.Text level="small" color={9} wrap={false}>
         {model}

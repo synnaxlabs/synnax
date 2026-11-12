@@ -10,10 +10,15 @@
 import type { MiddlewareHandler } from "astro";
 
 import { Releases } from "@/util/releases";
+import { VERSION } from "@/version";
 
 // The one lookup instance, so one listing serves every page of a build and every
 // request of a warm function. `DOCS_GITHUB_TOKEN` raises the GitHub API rate limit.
-const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
+// Download links keep to the train the docs describe; `next` takes the newest.
+const releases = new Releases({
+  token: process.env.DOCS_GITHUB_TOKEN,
+  train: VERSION == null || VERSION.status === "next" ? undefined : VERSION.name,
+});
 
 export const onRequest: MiddlewareHandler = (context, next) => {
   context.locals.releases = releases;

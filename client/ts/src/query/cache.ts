@@ -20,7 +20,8 @@ import type z from "zod";
 import { AccessDeniedError, isConnectionError } from "@/errors";
 import { type framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
-import { type Retrieves, Space, type SpaceConfig } from "@/query/query";
+import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
+import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import { type Data, type Params } from "@/query/types";
@@ -52,7 +53,20 @@ export interface CacheParams {
    * handling, and background reconciliation. Defaults to console logging.
    */
   onError?: (error: Error) => void;
+  /**
+   * The most records a table holds while the change stream is live. Past it, the table
+   * drops the least recently read records that no answer, list, or keyed read needs.
+   * Defaults to {@link DEFAULT_RECORD_CAP}.
+   */
+  recordCap?: number;
 }
+
+/** The most records a table holds by default. */
+const DEFAULT_RECORD_CAP = 10_000;
+
+// A trim drops records down to this share of the cap, so the next few writes do not
+// trim again.
+const TRIM_FLOOR = 0.9;
 
 /** Configuration for a derived table owned by a {@link Cache}. */
 export interface DerivedConfig<
@@ -79,6 +93,8 @@ export interface TableConfig<
 
 interface RegisteredTable {
   name: string;
+  trim: (size: number) => void;
+  size: () => number;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
   reset: () => void;
@@ -86,7 +102,7 @@ interface RegisteredTable {
   close: () => void;
 }
 
-/** The cache-facing lifecycle of an answer space, generics erased. */
+/** The cache-facing lifecycle of an answer space or of lists, generics erased. */
 interface SpaceLifecycle {
   close: () => void;
   reset: () => void;
@@ -107,10 +123,14 @@ export class Cache {
   private readonly spaces: SpaceLifecycle[] = [];
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
+  private readonly downObserver = new observe.Observer<void>();
   private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
   private unmaintained = false;
+  /** Whether the change stream is live, so tables may drop records. */
+  private live = false;
+  private trimScheduled = false;
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
@@ -135,8 +155,11 @@ export class Cache {
       throw new Error(`cannot create table ${config.name} after streaming has started`);
     const { name, listen, ...params } = config;
     const table = new Table<Key, Value>({ ...params, onError: this.onError });
+    this.register(table);
     this.tables.push({
       name,
+      trim: (size) => table.trim(size),
+      size: () => table.size,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
       reset: () => table.reset(),
@@ -148,28 +171,64 @@ export class Cache {
 
   /**
    * Creates a table materialized from another table owned by this cache. Composed
-   * entries are replaced on source and watch events, so entry identity changes exactly
-   * when composition changes; misses on read fetch through the source. Resets with the
-   * cache. No stream listeners of its own, so it may be created at any time.
+   * entries are replaced on source and trigger events, so entry identity changes
+   * exactly when composition changes; misses on read fetch through the source. Resets
+   * with the cache. No stream listeners of its own, so it may be created at any time.
    */
   derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
     config: DerivedConfig<Key, Value, Composed>,
   ): Table<Key, Composed> {
-    const { name, source, compose, watch, equal } = config;
+    const { name, source, compose, triggers, equal } = config;
     const table = new Table<Key, Composed>({
       onError: this.onError,
       equal,
       fetch: async (keys) => (await source.retrieve(keys)).map(compose),
     });
-    this.detachers.push(bindDerived(table, { source, compose, watch }));
+    this.detachers.push(bindDerived(table, { source, compose, triggers }));
+    this.register(table);
     this.tables.push({
       name,
+      trim: (size) => table.trim(size),
+      size: () => table.size,
       listeners: [],
       reset: () => table.reset(),
       clearPendingDeletes: () => table.clearPendingDeletes(),
       close: () => table.close(),
     });
     return table;
+  }
+
+  /** Trims the cache after each write that grows the table past the cap. */
+  private register<Key extends record.Key, Value extends state.State>(
+    table: Table<Key, Value>,
+  ): void {
+    const cap = this.params.recordCap ?? DEFAULT_RECORD_CAP;
+    this.detachers.push(
+      table.subscribeBatch(() => {
+        if (table.size > cap) this.scheduleTrim();
+      }),
+    );
+  }
+
+  private scheduleTrim(): void {
+    if (this.trimScheduled) return;
+    this.trimScheduled = true;
+    queueMicrotask(() => {
+      this.trimScheduled = false;
+      this.trim();
+    });
+  }
+
+  /**
+   * Drops records past the cap from every table. Nothing drops while the change stream
+   * is down, so a view reopened offline still shows what it showed.
+   */
+  private trim(): void {
+    if (!this.live) return;
+    const cap = this.params.recordCap ?? DEFAULT_RECORD_CAP;
+    this.tables.forEach(({ trim, size }) => {
+      if (size() > cap) trim(Math.floor(cap * TRIM_FLOOR));
+    });
   }
 
   /**
@@ -195,16 +254,37 @@ export class Cache {
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,
-  >(config: SpaceConfig<Q, D, K, V>): Retrieves<Q, D> {
-    const space = new Space(config, {
+  >(config: SpaceConfig<Q, D, K, V>): Space<Q, D, K, V> {
+    const space = new Space(config, this.spaceHooks());
+    this.spaces.push(space);
+    return space;
+  }
+
+  /**
+   * Constructs the lists of a table, wired to this cache as {@link queries} wires an
+   * answer space.
+   */
+  lists<
+    Q extends ListQuery<O, C> & { readonly [key: string]: Params },
+    D extends Data,
+    K extends record.Key,
+    V extends Keyed<K>,
+    C,
+    O,
+  >(config: ListsConfig<Q, D, K, V, C, O>): Lists<Q, D, K, V, C, O> {
+    const lists = new Lists(config, this.spaceHooks());
+    this.spaces.push(lists);
+    return lists;
+  }
+
+  private spaceHooks(): SpaceHooks {
+    return {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
       epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
-    });
-    this.spaces.push(space);
-    return space;
+    };
   }
 
   /**
@@ -236,24 +316,32 @@ export class Cache {
         ],
         onError: this.onError,
         onLive: onStreamLive,
-        onDrop: onStreamDrop,
+        onDrop: (error) => {
+          if (this.streamer === streamer) this.goDown();
+          onStreamDrop?.(error);
+        },
         onRetry: onStreamRetry,
         // Both run before the stream's first frame.
         onOpen: () => {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
           this.unmaintained = false;
+          this.live = true;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
+          this.trim();
         },
         onReopen: () => {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
+          this.live = true;
           this.bumpEpoch();
+          this.trim();
         },
         onDead: (error) => {
           if (this.streamer !== streamer) return;
           this.unmaintained = true;
+          this.goDown();
           if (AccessDeniedError.matches(error)) onStreamDenied?.(error);
         },
       });
@@ -285,6 +373,20 @@ export class Cache {
   }
 
   /**
+   * Subscribes to the change stream going down: a drop that starts a reconnect, a
+   * failure that ends it, or a close. No change made while it is down ever arrives.
+   * Returns a destructor that unsubscribes.
+   */
+  onStreamDown(callback: () => void): destructor.Destructor {
+    return this.downObserver.onChange(callback);
+  }
+
+  private goDown(): void {
+    this.live = false;
+    this.downObserver.notify();
+  }
+
+  /**
    * Re-checks every cached entry against the cluster: refreshes entries that
    * still exist and tombstones entries that vanished. Runs after every
    * reconnect for tables that declare a fetch.
@@ -313,6 +415,7 @@ export class Cache {
   async reset(): Promise<void> {
     const { streamer } = this;
     this.streamer = null;
+    this.live = false;
     // Drain the retired stream first so a late frame cannot repopulate the
     // tables cleared below. A close failure must not block the reset: the
     // stream is retired either way.
@@ -351,6 +454,7 @@ export class Cache {
     this.spaces.forEach((space) => space.close());
     this.tables.forEach(({ close }) => close());
     if (this.streamer == null) return;
+    this.goDown();
     await this.streamer.close();
   }
 }

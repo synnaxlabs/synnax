@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -87,7 +88,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 	if err := t.factoryCfg.Device.NewRetrieve().
 		Where(device.MatchKeys(t.cfg.Device)).
 		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, t.factoryCfg.DB); err != nil {
 		return nil, err
 	}
 	props, err := decodeProperties(dev)
@@ -98,7 +99,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 	if err != nil {
 		return nil, err
 	}
-	conn, err := connect(ctx, t.factoryCfg.Secret, props)
+	conn, err := connect(ctx, t.factoryCfg.Secret, t.factoryCfg.DB, props)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +115,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		changed:  make(set.Set[ranger.Key]),
 	}
 	e, err := ingest.New(ctx, ingest.Config{
+		DB:                 t.factoryCfg.DB,
 		Instrumentation:    t.factoryCfg.Child("stream"),
 		Framer:             t.factoryCfg.Framer,
 		Channel:            t.factoryCfg.Channel,
@@ -172,7 +174,7 @@ func (t *streamTask) loadProgress(
 	err := t.factoryCfg.Status.NewRetrieve[StreamDetails]().
 		Where(status.MatchKeys[StreamDetails](ProgressKey(t.task.Key))).
 		Entry(&p.status).
-		Exec(ctx, nil)
+		Exec(ctx, t.factoryCfg.DB)
 	if errors.Is(err, query.ErrNotFound) {
 		p.status = ProgressStatus{
 			Key:     ProgressKey(t.task.Key),
@@ -241,11 +243,10 @@ func (p *progress) write(ctx context.Context) {
 	p.status.Message = "Sent to Sift through " +
 		p.sent().Time().UTC().Format(time.RFC3339)
 	p.status.Time = telem.Now()
-	if err := p.cfg.Status.NewWriter(nil).SetWithParent(
-		context.WithoutCancel(ctx),
-		&p.status,
-		p.task.OntologyID(),
-	); err != nil {
+	ctx = context.WithoutCancel(ctx)
+	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return p.cfg.Status.NewWriter(tx).Set(ctx, &p.status)
+	}); err != nil {
 		p.cfg.L.Error(
 			"failed to save stream progress",
 			zap.Stringer("task", p.task),
@@ -314,7 +315,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	if err = r.task.factoryCfg.Ranger.NewRetrieve().
 		Where(ranger.MatchLabels(r.task.cfg.Labels...)).
 		Entries(&ranges).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, r.task.factoryCfg.DB); err != nil {
 		return err
 	}
 	for _, rng := range ranges {
@@ -322,7 +323,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		if end > sent || (end <= since && !changed.Contains(rng.Key)) {
 			continue
 		}
-		tags, err := rangeTags(ctx, r.task.factoryCfg.Label, rng.Key)
+		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
 		if err != nil {
 			return err
 		}
@@ -341,16 +342,21 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	return nil
 }
 
-// rangeTags returns the names of the labels of the range with key, which become the
-// tags of its Sift run.
+// rangeTags returns the names of the labels of rng, which become the tags of its Sift
+// run.
 func rangeTags(
 	ctx context.Context,
-	labels *label.Service,
-	key ranger.Key,
+	cfg FactoryConfig,
+	rng ranger.Range,
 ) ([]string, error) {
-	ls, err := labels.RetrieveFor(ctx, ranger.OntologyID(key), nil)
-	if err != nil {
-		return nil, err
+	var ls []label.Label
+	if len(rng.Labels) > 0 {
+		if err := cfg.Label.NewRetrieve().
+			Where(label.MatchKeys(rng.Labels...)).
+			Entries(&ls).
+			Exec(ctx, cfg.DB); err != nil {
+			return nil, err
+		}
 	}
 	tags := make([]string, len(ls))
 	for i, l := range ls {

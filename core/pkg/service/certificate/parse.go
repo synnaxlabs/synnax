@@ -42,7 +42,7 @@ func parseChain(text string) (string, *x509.Certificate, error) {
 		}
 		if strings.HasSuffix(block.Type, "PRIVATE KEY") {
 			return "", nil, pemError(
-				"holds a %s block. Send a private key as private_key",
+				"holds a %s block. Send a private key as private_key_pem",
 				block.Type,
 			)
 		}
@@ -121,7 +121,7 @@ func parsePrivateKey(block *pem.Block) (crypto.Signer, bool) {
 func keyError(msg string) error {
 	return validate.PathedError(
 		errors.Wrap(validate.ErrValidation, msg),
-		"private_key",
+		"private_key_pem",
 	)
 }
 
