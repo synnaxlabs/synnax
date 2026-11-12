@@ -30,6 +30,12 @@ A Dewesoft device runs in one of two setups. Each module stores its setup.
   **EtherCAT bus 1 IN** and the Driver to **EtherCAT bus 2 IN**. On a SIRIUS, connect
   DewesoftX to the USB port and the Driver to **EtherCAT IN**.
 
+If the Driver connects to bus 2 of a standalone IOLITE, the Console shows **Connect
+Synnax to EtherCAT bus 1 IN** on the module.
+
+In dual mode, DewesoftX drives the digital outputs of an IOLITE 32xDO or 8xDI-4xDO. To
+drive them from Synnax, run the device in standalone mode.
+
 In dual mode, one converter gives the data to both systems, and DewesoftX sets its
 sample rate. The data on the Driver's bus gets no added anti-aliasing filter, so a
 network that cycles slower than the sample rate can show aliases.
@@ -61,9 +67,26 @@ Console shows the settings of the module by name:
 
 The Driver writes each setting as a startup parameter when the task starts.
 
-If the module is set up for DewesoftX, the **Configure** dialog shows a note and no
-settings. To use the module with Synnax only, click **Switch to Synnax only**, then
-restart the power of the device.
+If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
+settings:
+
+- **DewesoftX sets up this device** -> Synnax uses the device, and DewesoftX sets its
+  settings.
+- **Only DewesoftX can use this device** -> Synnax gets no data from the device.
+
+To give the module to Synnax, click **Switch to Synnax**, then restart the power of the
+device.
+
+<Divider.Divider x />
+
+## Physical values
+
+The SIRIUS, the IOLITE 8xLA, 8xLV, and 8xSTGS, the IOLITEi 1xACC, and the KRYPTON 3xSTG
+and 6xSTG can send raw counts. The Console marks a channel on one of these inputs as
+calibrated when you pick its entry. When a read task starts, the Driver reads the gain
+and offset that the module stores for each calibrated channel, and records physical
+values. A scale on the channel applies to the physical values. In code, set
+`calibrated=True` and use a `float32` or `float64` channel.
 
 <Divider.Divider x />
 
@@ -79,8 +102,8 @@ same sync mode, with the cycles from the Dewesoft manual. **Sync mode** shows th
 with an **Auto** badge. For other modules, the Driver runs SM sync when the module lists
 an SM sync mode.
 
-In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV, 8xSTGS,
-and 8xTH can also run SM sync on bus 1. To set the sync mode yourself:
+In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV, 8xRTD,
+8xSTGS, and 8xTH can also run SM sync on bus 1. To set the sync mode yourself:
 
 1. In the devices toolbar, right-click the module and select **Configure**.
 2. Under

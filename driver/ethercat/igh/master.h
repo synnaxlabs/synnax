@@ -86,6 +86,11 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
+    /// @brief returns the key of the master, such as "igh:0".
+    [[nodiscard]] std::string name() const override {
+        return "igh:" + std::to_string(this->master_index);
+    }
+
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
@@ -122,6 +127,9 @@ public:
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
     ) override;
+
+    std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) override;
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {

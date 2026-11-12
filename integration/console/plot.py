@@ -21,7 +21,7 @@ Axis = Literal["x1", "y1", "y2"]
 """The keys of `sy.lineplot.AxisKey` that the Console toolbar offers."""
 
 # The middle of the range strip's first lane: 4 px of padding, then a 20 px lane.
-FIRST_LANE_CENTER = 14
+_FIRST_LANE_CENTER = 14
 
 
 class Plot(ConsolePage):
@@ -341,7 +341,7 @@ class Plot(ConsolePage):
         if box is None:
             raise RuntimeError("Range strip not visible")
         x = box["x"] + box["width"] / 2
-        y = box["y"] + FIRST_LANE_CENTER
+        y = box["y"] + _FIRST_LANE_CENTER
         self.page.mouse.move(x, y)
         expect(strip).to_have_class(re.compile(r"pluto--hovered"), timeout=5000)
         self.page.mouse.click(x, y, button=button)

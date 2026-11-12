@@ -185,12 +185,31 @@ export const createSettingsDescription = (): Description => {
 };
 
 /**
+ * Builds the catalog fields of {@link createSettingsDescription}, with the gain at
+ * 0x8040:15 and the offset at 0x8040:14 calibrating the samples of
+ * {@link STRAIN_ENTRY}.
+ */
+export const createCalibratedDescription = (): Description => {
+  const description = createSettingsDescription();
+  description.channels[0].entries[0].calibration = {
+    dataType: "int32",
+    index: 0x8040,
+    gainSubIndex: 0x15,
+    offsetSubIndex: 0x14,
+    divisor: 1,
+    rawOffset: false,
+  };
+  return description;
+};
+
+/**
  * Builds the catalog of {@link createSettingsDescription} for a card in which only
  * DewesoftX reads {@link STRAIN_SAMPLE_ENTRY}. A shared card is one that DewesoftX also
  * sets up, and a scan gives it the write that switches it to Synnax only.
  */
 export const createDewesoftXSettings = (
   shared: boolean,
+  bus: 1 | 2 = 1,
 ): NonNullable<SlaveProperties["settings"]> => {
   const description = createSettingsDescription();
   return {
@@ -209,6 +228,8 @@ export const createDewesoftXSettings = (
       subIndex: 9,
       value: shared ? 1 : 0,
       shared,
+      ...(shared ? { sharedWith: "DewesoftX" } : {}),
+      bus,
       switch: shared
         ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
         : [],

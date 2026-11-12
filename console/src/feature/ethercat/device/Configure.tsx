@@ -60,9 +60,6 @@ const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
 /** The start of the name of a network that the IgH master runs. */
 const IGH_PREFIX = "igh:";
 
-const APPLY_NOTE =
-  "A change applies the next time the network starts, after every task on it stops.";
-
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
 
@@ -281,6 +278,39 @@ const NAME_INPUT_PROPS = {
   "aria-label": "Name",
 } as const;
 
+const General = (): ReactElement => {
+  const name = Form.useFieldValue(path.name);
+  const { set } = Form.useContext();
+  return (
+    <Form.Section title="General">
+      <Form.TextField
+        path={path.properties.identifier}
+        label="Identifier"
+        padHelpText={false}
+        inputProps={{ placeholder: "dev1" }}
+      />
+      <Flex.Box y gap="small">
+        <Text.Text level="small" color={9}>
+          A short prefix for every channel on this device.
+        </Text.Text>
+        <Flex.Box x align="center" wrap>
+          <Icon.Bolt />
+          {strings.createShortIdentifiers(name ?? "").map((id) => (
+            <Button.Button
+              key={id}
+              onClick={() => set(path.properties.identifier, id)}
+              size="small"
+              variant="text"
+            >
+              {id}
+            </Button.Button>
+          ))}
+        </Flex.Box>
+      </Flex.Box>
+    </Form.Section>
+  );
+};
+
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
  * of one EtherCAT slave.
@@ -289,7 +319,8 @@ export const Configure = ({
   deviceKey,
   close,
   onBack,
-  onCreateTask,
+  onCreateReadTask,
+  onCreateWriteTask,
 }: Device.ConfigureProps): ReactElement => {
   const { form, saveAsync, variant } = useForm({
     query: { key: deviceKey },
@@ -300,16 +331,20 @@ export const Configure = ({
   const checked = useRef(false);
   // The checks show the platform's messages in place of the stored schema's.
   useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
-  const name = Form.useFieldValue(path.name, { ctx: form });
   const modes = Form.useFieldValue(path.properties.opModes, { ctx: form }) ?? [];
   const choice =
     Form.useFieldValue(OP_MODE_PATH, { ctx: form, optional: true }) ?? null;
   const setChoice = (next: OpModeChoice | null) =>
     form.set(OP_MODE_PATH, next ?? undefined);
-  const given =
-    Form.useFieldValue(path.properties.settings, { ctx: form, optional: true })?.mode
-      ?.opMode ?? null;
+  const settings = Form.useFieldValue(path.properties.settings, {
+    ctx: form,
+    optional: true,
+  });
+  const given = settings?.mode?.opMode ?? null;
+  // The Driver writes no startup parameters to a slave that other software sets up.
+  const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
+  const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =
     given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
@@ -329,7 +364,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask: boolean) => {
+  const save = async (createTask?: (deviceKey: string) => void) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -340,17 +375,59 @@ export const Configure = ({
     if (choice != null && mode == null) setChoice(choose(modes, choice.index));
     if (!(await saveAsync())) return;
     if (!opened.configured) capture("device_configured", { make: MAKE });
-    if (createTask) onCreateTask?.(deviceKey);
+    createTask?.(deviceKey);
     close();
   };
-  let help: HelpProps;
+  // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
+  let help: HelpProps | null = null;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
   else if (cycleProblem != null) help = { text: cycleProblem, problem: severity };
-  else if (mode != null) help = { text: describeTicks(mode, effective) };
-  else if (choice == null) help = { text: autoDescription(modes, catalog) };
-  else help = { text: describeMode(modes[choice.index]) };
+  else if (choice != null)
+    help = {
+      text:
+        mode == null ? describeMode(modes[choice.index]) : describeTicks(mode, choice),
+    };
+  const syncMode = (
+    <Form.Section title="Sync mode">
+      <Input.Item label="Mode" padHelpText={false}>
+        <ModeSelect
+          modes={modes}
+          catalog={catalog}
+          value={choice}
+          stale={stale}
+          onChange={setChoice}
+        />
+      </Input.Item>
+      {mode != null && index != null && (choice != null || cycleProblem != null) && (
+        <Flex.Box x>
+          <CycleField
+            label="SYNC0 cycle"
+            value={choice == null ? 0 : choice.sync0Cycle}
+            problem={sync0Problem == null ? undefined : severity}
+            onChange={(ns) =>
+              setChoice(withCycle(modes, choice, catalog, index, "sync0Cycle", ns))
+            }
+          />
+          <CycleField
+            label="SYNC1 cycle"
+            value={choice == null ? 0 : choice.sync1Cycle}
+            problem={sync1Problem == null ? undefined : severity}
+            onChange={(ns) =>
+              setChoice(withCycle(modes, choice, catalog, index, "sync1Cycle", ns))
+            }
+          />
+        </Flex.Box>
+      )}
+      {help != null && <Help {...help} />}
+    </Form.Section>
+  );
   return (
-    <Modal.Frame className={CSS.BE("ethercat-configure", "frame")}>
+    <Modal.Frame
+      className={CSS.cls(
+        CSS.BE("ethercat-configure", "frame"),
+        !shared && CSS.M("wide"),
+      )}
+    >
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
         {[opened.name, "Configure"]}
       </Modal.Header>
@@ -363,79 +440,27 @@ export const Configure = ({
             inputProps={NAME_INPUT_PROPS}
           />
           <SetupNote deviceKey={deviceKey} />
-          <Form.Sections>
-            <Form.Section title="General">
-              <Form.TextField
-                path={path.properties.identifier}
-                label="Identifier"
-                padHelpText={false}
-                inputProps={{ placeholder: "dev1" }}
-              />
-              <Flex.Box y gap="small">
-                <Text.Text level="small" color={9}>
-                  A short prefix for every channel on this device.
-                </Text.Text>
-                <Flex.Box x align="center">
-                  <Icon.Bolt />
-                  {strings.createShortIdentifiers(name ?? "").map((id) => (
-                    <Button.Button
-                      key={id}
-                      onClick={() => form.set(path.properties.identifier, id)}
-                      size="small"
-                      variant="text"
-                    >
-                      {id}
-                    </Button.Button>
-                  ))}
-                </Flex.Box>
-              </Flex.Box>
-            </Form.Section>
-            <Form.Section title="Sync mode">
-              <Input.Item label="Mode" padHelpText={false}>
-                <ModeSelect
-                  modes={modes}
-                  catalog={catalog}
-                  value={choice}
-                  stale={stale}
-                  onChange={setChoice}
-                />
-              </Input.Item>
-              {mode != null && index != null && (
-                <Flex.Box x>
-                  <CycleField
-                    label="SYNC0 cycle"
-                    value={choice == null ? 0 : choice.sync0Cycle}
-                    problem={sync0Problem == null ? undefined : severity}
-                    onChange={(ns) =>
-                      setChoice(
-                        withCycle(modes, choice, catalog, index, "sync0Cycle", ns),
-                      )
-                    }
-                  />
-                  <CycleField
-                    label="SYNC1 cycle"
-                    value={choice == null ? 0 : choice.sync1Cycle}
-                    problem={sync1Problem == null ? undefined : severity}
-                    onChange={(ns) =>
-                      setChoice(
-                        withCycle(modes, choice, catalog, index, "sync1Cycle", ns),
-                      )
-                    }
-                  />
-                </Flex.Box>
-              )}
-              <Flex.Box y gap="small">
-                <Help {...help} />
-                <Text.Text level="small" color={9}>
-                  {APPLY_NOTE}
-                </Text.Text>
-              </Flex.Box>
-            </Form.Section>
-            <SlaveSettings />
-            <Form.Section title="Startup parameters">
-              <StartupParameters />
-            </Form.Section>
-          </Form.Sections>
+          <div className={CSS.BE("ethercat-configure", "columns")}>
+            {shared ? (
+              <Form.Sections>
+                <General />
+                {syncMode}
+              </Form.Sections>
+            ) : (
+              <>
+                <Form.Sections>
+                  <General />
+                  <SlaveSettings />
+                </Form.Sections>
+                <Form.Sections>
+                  {syncMode}
+                  <Form.Section title="Startup parameters">
+                    <StartupParameters />
+                  </Form.Section>
+                </Form.Sections>
+              </>
+            )}
+          </div>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
@@ -448,17 +473,30 @@ export const Configure = ({
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
-          {onCreateTask != null && !opened.configured && (
+          <Text.Text level="small" color={9}>
+            Changes apply after every task on this network restarts.
+          </Text.Text>
+          {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(true)}
+              onClick={() => void save(onCreateReadTask)}
             >
               Save and create read task
             </Button.Button>
           )}
+          {onCreateWriteTask != null &&
+            !opened.configured &&
+            pdos.outputs.length > 0 && (
+              <Button.Button
+                status={status.keepVariants(variant, "loading")}
+                onClick={() => void save(onCreateWriteTask)}
+              >
+                Save and create write task
+              </Button.Button>
+            )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
-            onClick={() => void save(false)}
+            onClick={() => void save()}
             variant="filled"
             trigger={Triggers.SAVE}
             triggerIndicator

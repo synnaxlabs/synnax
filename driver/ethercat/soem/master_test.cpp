@@ -24,6 +24,7 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
@@ -366,7 +367,7 @@ TEST_F(SOEMMasterTest, ScanInitFails) {
     EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
     EXPECT_EQ(
         err.data,
-        "cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
+        "Cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
         "CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
     EXPECT_TRUE(this->mock->close_called);
@@ -378,27 +379,28 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_FALSE(err.matches(errors::REPLIES_BLOCKED));
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. Check the cable and the power of the first "
+        "No EtherCAT slaves found on eth0. Check the cable and the power of the first "
         "device."
     );
     EXPECT_TRUE(this->mock->close_called);
 }
 
-/// @brief it should name the DewesoftX filter and the Windows name of the adapter when
-/// the filter is bound to an interface with no slaves.
+/// @brief it should return a blocked replies error that names the DewesoftX filter and
+/// the Windows name of the adapter when the filter is bound to an interface with no
+/// slaves.
 TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"Ethernet 2\". After DewesoftX starts, the filter blocks EtherCAT "
-        "replies, also after DewesoftX closes. Clear it in the properties of "
+        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "on this adapter blocks EtherCAT replies. Clear it in the properties of "
         "\"Ethernet 2\" (Settings > Network & internet > Advanced network settings > "
         "More network adapter options, then right-click the adapter > Properties)."
     );
@@ -411,14 +413,36 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     this->mock->config_init_return = 0;
     this->mock->filtered_interfaces.insert("eth0");
     const auto err = this->master->scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
         err.data,
-        "no EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" is on "
-        "adapter \"eth0\". After DewesoftX starts, the filter blocks EtherCAT replies, "
-        "also after DewesoftX closes. Clear it in the properties of \"eth0\" (Settings "
-        "> Network & internet > Advanced network settings > More network adapter "
-        "options, then right-click the adapter > Properties)."
+        "No EtherCAT slaves found on eth0. The DewesoftX \"EthercatDAQ Filter\" on "
+        "this adapter blocks EtherCAT replies. Clear it in the properties of \"eth0\" "
+        "(Settings > Network & internet > Advanced network settings > More network "
+        "adapter options, then right-click the adapter > Properties)."
+    );
+}
+
+/// @brief it should take the Windows name of the adapter as its name, or the interface
+/// name when the adapter has none.
+TEST_F(SOEMMasterTest, NameIsTheWindowsNameOfTheAdapter) {
+    EXPECT_EQ(this->master->name(), "eth0");
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    EXPECT_EQ(this->master->name(), "Ethernet 2");
+}
+
+/// @brief it should call the interface by the Windows name of its adapter when it does
+/// not open.
+TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
+    this->add_default_slave();
+    this->mock->init_return = 0;
+    this->mock->adapter_names["eth0"] = "Ethernet 2";
+    const auto err = this->master->scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "Cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
+        "with CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
 }
 
@@ -2706,8 +2730,8 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
-        "entries hold 24 and 0"
+        "Slave 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
+        "entries hold 24 and 0."
     );
 }
 
@@ -2915,13 +2939,33 @@ TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
-        "parameter written too high"
+        "Slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high."
     );
     const auto health = this->master->check(this->brk);
     ASSERT_EQ(health.size(), 1);
     EXPECT_FALSE(health[0].faulted);
     EXPECT_TRUE(health[0].startup_error.empty());
+}
+
+/// @brief it should read the value that a slave on the running bus holds in an object.
+TEST_F(SOEMMasterTest, ReadReturnsTheValueOfAnObjectOnTheRunningBus) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].sdo_objects[{0x8040, 0x15}] = 0x40000000;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->read(1, 0x8040, 0x15)), 0x40000000);
+}
+
+/// @brief it should return the abort of a read of an object that the slave does not
+/// have.
+TEST_F(SOEMMasterTest, ReadReturnsTheAbortOfAMissingObject) {
+    this->initialize_with_slave();
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: Object does not exist in the object dictionary"
+    );
 }
 
 /// @brief it should hold a slave in PRE-OP and report the failure when a startup
