@@ -17,6 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { useContext } from "@/platform/view/context";
 
 const SEGMENT_CLASS = CSS.BE("view", "filter-segment");
 
@@ -79,28 +80,32 @@ export const FilterChipValue = ({ children }: FilterChipValueProps): ReactElemen
 
 export interface FilterChipTriggerProps extends Omit<
   Dialog.TriggerProps,
-  "variant" | "size" | "level" | "hideCaret" | "sharp"
+  "variant" | "size" | "level" | "hideCaret" | "sharp" | "preview"
 > {}
 
 /**
  * A part of a {@link FilterChip} that opens a dialog, such as a picker of its value or
- * a choice of its operator.
+ * a choice of its operator. It opens nothing while the view is not editable.
  */
 export const FilterChipTrigger = ({
   className,
   ...rest
-}: FilterChipTriggerProps): ReactElement => (
-  <Dialog.Trigger
-    variant="text"
-    size="small"
-    level="p"
-    gap="small"
-    hideCaret
-    sharp
-    className={CSS.cls(SEGMENT_CLASS, CSS.BE("view", "filter-trigger"), className)}
-    {...rest}
-  />
-);
+}: FilterChipTriggerProps): ReactElement => {
+  const { editable } = useContext("View.FilterChipTrigger");
+  return (
+    <Dialog.Trigger
+      variant="text"
+      size="small"
+      level="p"
+      gap="small"
+      hideCaret
+      sharp
+      preview={!editable}
+      className={CSS.cls(SEGMENT_CLASS, CSS.BE("view", "filter-trigger"), className)}
+      {...rest}
+    />
+  );
+};
 
 export interface FilterChipRemoveProps {
   /** The name of the property, which names the button for assistive technology. */

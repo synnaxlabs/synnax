@@ -430,10 +430,6 @@ export const MenuItems = (): ReactElement => {
   );
 };
 
-const Operator = ({ children }: { children: string }): ReactElement => (
-  <View.FilterChipOperator>{children}</View.FilterChipOperator>
-);
-
 /** @returns "is" for one value, else "is any of". */
 const isAnyOf = (count: number): string => (count === 1 ? "is" : "is any of");
 
@@ -453,15 +449,13 @@ const KEY_MATCHES = Object.keys(LABEL_MATCHES) as KeyMatch[];
 
 interface ChipValueProps<P extends Property> {
   condition: ConditionOf<P>;
-  editable: boolean;
 }
 
 interface MatchSelectProps {
   condition: ConditionOf<"labels"> & { match: KeyMatch };
-  editable: boolean;
 }
 
-const MatchSelect = ({ condition, editable }: MatchSelectProps): ReactElement => {
+const MatchSelect = ({ condition }: MatchSelectProps): ReactElement => {
   const [conditions, setConditions] = useConditions();
   return (
     <Dialog.Frame variant="floating" location={BELOW}>
@@ -472,7 +466,7 @@ const MatchSelect = ({ condition, editable }: MatchSelectProps): ReactElement =>
         }
         closeDialogOnSelect
       >
-        <View.FilterChipTrigger textColor={9} preview={!editable}>
+        <View.FilterChipTrigger textColor={9}>
           {LABEL_MATCHES[condition.match]}
         </View.FilterChipTrigger>
         <Select.Dialog surface="menu" className={pickerClass()}>
@@ -489,23 +483,20 @@ const MatchSelect = ({ condition, editable }: MatchSelectProps): ReactElement =>
   );
 };
 
-const LabelsValue = ({
-  condition,
-  editable,
-}: ChipValueProps<"labels">): ReactElement => {
+const LabelsValue = ({ condition }: ChipValueProps<"labels">): ReactElement => {
   const { data: labels = [] } = Label.useResultMultiple({ keys: condition.keys });
   const { match } = condition;
   return (
     <>
       {match === "empty" ? (
-        <Operator>is</Operator>
+        <View.FilterChipOperator>is</View.FilterChipOperator>
       ) : (
-        <MatchSelect condition={{ ...condition, match }} editable={editable} />
+        <MatchSelect condition={{ ...condition, match }} />
       )}
       <LabelPicker
         location={BELOW}
         trigger={
-          <View.FilterChipTrigger preview={!editable}>
+          <View.FilterChipTrigger>
             {match === "empty" ? (
               "No labels"
             ) : (
@@ -528,13 +519,15 @@ const LabelsValue = ({
   );
 };
 
-const StageValue = ({ condition, editable }: ChipValueProps<"stage">): ReactElement => (
+const StageValue = ({ condition }: ChipValueProps<"stage">): ReactElement => (
   <>
-    <Operator>{isAnyOf(condition.stages.length)}</Operator>
+    <View.FilterChipOperator>
+      {isAnyOf(condition.stages.length)}
+    </View.FilterChipOperator>
     <StagePicker
       location={BELOW}
       trigger={
-        <View.FilterChipTrigger preview={!editable}>
+        <View.FilterChipTrigger>
           {condition.stages.map((stage) => {
             const StageIcon = Ranger.STAGE_ICONS[stage];
             return <StageIcon key={stage} />;
@@ -555,13 +548,13 @@ const formatWindow = (window: TimeSpan | TimeRange): string => {
   return window.toPrettyString();
 };
 
-const TimeValue = ({ condition, editable }: ChipValueProps<"time">): ReactElement => (
+const TimeValue = ({ condition }: ChipValueProps<"time">): ReactElement => (
   <>
-    <Operator>overlaps</Operator>
+    <View.FilterChipOperator>overlaps</View.FilterChipOperator>
     <TimePicker
       location={BELOW}
       trigger={
-        <View.FilterChipTrigger preview={!editable}>
+        <View.FilterChipTrigger>
           {formatWindow(condition.window)}
         </View.FilterChipTrigger>
       }
@@ -569,18 +562,17 @@ const TimeValue = ({ condition, editable }: ChipValueProps<"time">): ReactElemen
   </>
 );
 
-const ParentValue = ({
-  condition,
-  editable,
-}: ChipValueProps<"parent">): ReactElement => {
+const ParentValue = ({ condition }: ChipValueProps<"parent">): ReactElement => {
   const { data: ranges = [] } = Ranger.useResultMultiple({ keys: condition.keys });
   return (
     <>
-      <Operator>{isAnyOf(condition.keys.length)}</Operator>
+      <View.FilterChipOperator>
+        {isAnyOf(condition.keys.length)}
+      </View.FilterChipOperator>
       <ParentPicker
         location={BELOW}
         trigger={
-          <View.FilterChipTrigger preview={!editable}>
+          <View.FilterChipTrigger>
             {summarize(
               ranges.map(({ name }) => name),
               "ranges",
@@ -592,16 +584,16 @@ const ParentValue = ({
   );
 };
 
-const ChipValue = ({ condition, editable }: ChipValueProps<Property>): ReactElement => {
+const ChipValue = ({ condition }: ChipValueProps<Property>): ReactElement => {
   switch (condition.property) {
     case "labels":
-      return <LabelsValue condition={condition} editable={editable} />;
+      return <LabelsValue condition={condition} />;
     case "stage":
-      return <StageValue condition={condition} editable={editable} />;
+      return <StageValue condition={condition} />;
     case "time":
-      return <TimeValue condition={condition} editable={editable} />;
+      return <TimeValue condition={condition} />;
     case "parent":
-      return <ParentValue condition={condition} editable={editable} />;
+      return <ParentValue condition={condition} />;
     case "other":
       return (
         <View.FilterChipValue>{xfilter.describe(condition.where)}</View.FilterChipValue>
@@ -620,7 +612,7 @@ const Chip = ({ condition, editable, onRemove }: ChipProps): ReactElement => {
   return (
     <View.FilterChip>
       <View.FilterChipName icon={icon}>{name}</View.FilterChipName>
-      <ChipValue condition={condition} editable={editable} />
+      <ChipValue condition={condition} />
       {editable && <View.FilterChipRemove name={name} onClick={onRemove} />}
     </View.FilterChip>
   );
