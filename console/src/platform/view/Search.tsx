@@ -14,11 +14,13 @@ import { type ReactElement } from "react";
 
 import { useContext } from "@/platform/view/context";
 
-/** The search field of a frame, which holds the term. */
-export const SearchInput = (): ReactElement | null => {
-  const { editable, resourceType, searchInViews, searchTerm, setSearchTerm } =
+/**
+ * The search field of a frame, which holds the term. It saves nothing, so every reader
+ * gets it.
+ */
+export const SearchInput = (): ReactElement => {
+  const { resourceType, searchInViews, searchTerm, setSearchTerm } =
     useContext("View.Search");
-  if (!editable) return null;
   return (
     <Input.Text
       size="small"

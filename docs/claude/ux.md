@@ -56,8 +56,9 @@ lighter step or the base step in dark mode.
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
   rem to a whole pixel with `round(..., 1px)`.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
-  and text buttons, inputs, and keycaps use tiny. Filled buttons, tabs, tags, and
-  tooltips use small. Modals and context menus use large. Do not add a step.
+  and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
+  tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
+  bars, and page sections use large. Do not add a step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 

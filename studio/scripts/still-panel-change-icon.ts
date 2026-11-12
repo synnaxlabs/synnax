@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(menu.getByText("Change icon", { exact: true }).first(), {
       zoom: false,
     });
-    const picker = page.locator(".console-panel-icon-picker").first();
+    const picker = page.locator(".console-appearance-dialog").first();
     await session.waitFor(picker);
     await session.click(picker.locator(".lyra-color-swatch").nth(4), { zoom: false });
     await session.settle(400);

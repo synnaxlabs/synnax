@@ -126,6 +126,15 @@ var _ = Describe("Where", func() {
 			},
 		)
 
+		It("Should match the ranges that a negative recent span reaches", func(
+			ctx SpecContext,
+		) {
+			Expect(match(ctx, ranger.Where{Recent: new(-2 * telem.Hour)})).
+				To(ConsistOf("Running", "Planned"))
+			Expect(match(ctx, ranger.Where{Recent: new(-30 * telem.Minute)})).
+				To(ConsistOf("Running"))
+		})
+
 		It("Should match the ranges that overlap a time range", func(ctx SpecContext) {
 			tr := done.TimeRange.End.Add(-telem.Minute).SpanRange(2 * telem.Hour)
 			Expect(match(ctx, ranger.Where{Overlaps: &tr})).

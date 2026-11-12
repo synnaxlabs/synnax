@@ -100,7 +100,8 @@ class Where(BaseModel):
         nested: Matches the ranges nested in a range, or top-level ranges when false.
         labeled: Matches ranges that have a label, or ranges with none when false.
         stages: Matches ranges in any of the given stages at the Core's clock.
-        recent: Matches ranges that overlap the given span of time that ends now.
+        recent: Matches ranges that overlap the span ending now, or starting now if
+            negative.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")

@@ -113,7 +113,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   labeled: z.boolean().optional(),
   /** stages matches ranges in any of the given stages at the Core's clock. */
   stages: zod.nullToUndefined(stageZ.array()),
-  /** recent matches ranges that overlap the given span of time that ends now. */
+  /**
+   * recent matches ranges that overlap the span ending now, or starting now if
+   * negative.
+   */
   recent: telem.timeSpanZ.optional(),
 });
 

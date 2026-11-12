@@ -209,6 +209,14 @@ describe("View queries", () => {
       expect(result.current.variant).toEqual("error");
       expect(result.current.form.value().name).toEqual("typed-view");
     });
+    it("should refuse a name made only of spaces", async () => {
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
+      act(() => result.current.form.set(path.name, "   "));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      const { status } = result.current.form.get(path.name);
+      expect(status.variant).toEqual("error");
+      expect(status.message).toEqual("Name is required");
+    });
     it("should save a view it starts from without a query", async () => {
       const view = await client.views.create({ name: "existing-view", type: "range" });
       const { result } = renderHook(

@@ -322,14 +322,38 @@ describe("View permissions", () => {
       retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
     });
 
-  it("should leave the view read-only for a subject who cannot update views", async () => {
-    await renderHarness(await createSubject({}));
-    await enableEditing();
-    await screen.findByText("All ranges");
-    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+  it("should let a subject who cannot update views search and filter a static view", async () => {
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    await screen.findByPlaceholderText("Search ranges...");
+    expect(queryIconButton(document.body, "filter")).toBeTruthy();
     expect(
-      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      queryIconButton(getBySelector(document.body, ".console-view__views"), "add"),
     ).toBeNull();
+  });
+
+  it("should let a subject who cannot update views search a saved view but not filter it", async () => {
+    const start = TimeStamp.now();
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+    const alpha = await client.ranges.create({
+      name: uniqueRangeName("alpha"),
+      timeRange,
+    });
+    const bravo = await client.ranges.create({
+      name: uniqueRangeName("bravo"),
+      timeRange,
+    });
+    const saved = await createView();
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: alpha.name } });
+    await waitFor(() => {
+      expect(screen.getByText(String(alpha.key))).toBeTruthy();
+      expect(screen.queryByText(String(bravo.key))).toBeNull();
+    });
+    expect(queryIconButton(document.body, "filter")).toBeNull();
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
