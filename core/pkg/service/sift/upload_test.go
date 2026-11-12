@@ -104,6 +104,17 @@ var _ = Describe("Upload", func() {
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
 	})
 
+	It("Should count a single sample in the singular", func(ctx SpecContext) {
+		idx := createIndex(ctx)
+		ch = createData(ctx, idx)
+		write(ctx, idx, ch, []telem.TimeStamp{at(10)}, telem.NewSeriesV(1.0))
+		rng = createRange(ctx, telem.TimeRange{Start: at(10), End: at(12)})
+		key := upload(ctx)
+		statusOf(ctx, key).Should(
+			HaveField("Description", "Sent 1 sample to asset stand."),
+		)
+	})
+
 	It("Should group the digits of the sample count", func(ctx SpecContext) {
 		idx := createIndex(ctx)
 		ch = createData(ctx, idx)
@@ -186,7 +197,7 @@ var _ = Describe("Upload", func() {
 			stat := execCommand(ctx, dt, t, "upload", args())
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to upload to Sift"))
-			Expect(stat.Description).To(ContainSubstring(msg))
+			Expect(stat.Description).To(HaveSuffix(msg))
 		},
 		Entry("no asset", func() map[string]any {
 			return map[string]any{
@@ -201,7 +212,7 @@ var _ = Describe("Upload", func() {
 				"range":  rng.Key,
 				"asset":  "stand",
 			}
-		}, "channels"),
+		}, "channels: must be non-empty"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),
