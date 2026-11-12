@@ -104,6 +104,20 @@ var _ = Describe("Upload", func() {
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
 	})
 
+	It("Should group the digits of the sample count", func(ctx SpecContext) {
+		idx := createIndex(ctx)
+		ch = createData(ctx, idx)
+		stamps := make([]telem.TimeStamp, 1234)
+		for i := range stamps {
+			stamps[i] = at(10) + telem.TimeStamp(i)*telem.MillisecondTS
+		}
+		write(ctx, idx, ch, stamps, telem.NewSeries(make([]float64, len(stamps))))
+		rng = createRange(ctx, telem.TimeRange{Start: at(10), End: at(12)})
+		statusOf(ctx, upload(ctx)).Should(
+			HaveField("Description", "Sent 1,234 samples to asset stand."),
+		)
+	})
+
 	It("Should run the uploads of one device one at a time", func(ctx SpecContext) {
 		server.Pause()
 		first := upload(ctx)

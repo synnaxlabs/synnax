@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -414,7 +415,16 @@ func (u *uploader) write(ctx context.Context, up *upload, s *UploadStatus) {
 }
 
 func progress(d UploadDetails) string {
-	return fmt.Sprintf("Sent %d samples to asset %s.", d.Samples, d.Asset)
+	return fmt.Sprintf("Sent %s samples to asset %s.", group(d.Samples), d.Asset)
+}
+
+// group formats n with a comma between each group of three digits.
+func group(n int64) string {
+	s := strconv.FormatInt(n, 10)
+	for i := len(s) - 3; i > 0 && s[i-1] != '-'; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 func toPositions(p ingest.Positions) []Position {
