@@ -25,7 +25,6 @@ import {
 } from "@/feature/ni/task/ports";
 import {
   AI_CHANNEL_TYPE_NAMES,
-  type AIChannel,
   AO_CHANNEL_TYPE_NAMES,
   CI_CHANNEL_TYPE_NAMES,
   type DigitalChannel,
@@ -65,48 +64,13 @@ const reportConflicts = <C extends Task.Channel & { device: string }>(
 
 const lower = (name: string): string => name.charAt(0).toLowerCase() + name.slice(1);
 
-const formatRate = (hz: number): string => `${Math.floor(hz).toLocaleString()} Hz`;
-
-const THERMOCOUPLE: AIChannel["type"] = "ai_thermocouple";
-
-// A device that reads thermocouples adds a CJC and an autozero channel to its scan.
-const SCAN_CHANNELS_PER_THERMOCOUPLE_DEVICE = 2;
-
-const checkAnalogRate = (
-  config: ni.AnalogReadConfig,
-  devices: Device[],
-  report: Task.ReportIssue,
-): void => {
-  devices.forEach(({ key, model, properties: { hardware } }) => {
-    if (hardware == null) return;
-    const enabled = config.channels.filter((c) => c.device === key && !c.disabled);
-    if (enabled.length === 0) return;
-    const single = hardware.aiMaxSingleChannelRate;
-    if (single !== 0 && config.sampleRate > single)
-      return report(["sampleRate"], `${model} samples at most ${formatRate(single)}`);
-    const multi = hardware.aiMaxMultiChannelRate;
-    if (multi === 0) return;
-    let count = enabled.length;
-    if (enabled.some((c) => c.type === THERMOCOUPLE))
-      count += SCAN_CHANNELS_PER_THERMOCOUPLE_DEVICE;
-    if (count < 2 || config.sampleRate <= multi / count) return;
-    const max = formatRate(multi / count);
-    report(
-      ["sampleRate"],
-      `${model} may not sample ${count} channels faster than ${max}`,
-      "warning",
-    );
-  });
-};
-
 /**
  * Checks an analog read config against the ports of its devices: the ports two
- * channels on a device share, each channel's port, type, and terminal configuration,
- * and the sample rate. Only the port checks run on a device with no port data.
+ * channels on a device share, and each channel's port, type, and terminal
+ * configuration. Only the port checks run on a device with no port data.
  */
 export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
-  Task.check<ni.AnalogReadConfig>((config, report) => {
-    const { channels } = config;
+  Task.check<ni.AnalogReadConfig>(({ channels }, report) => {
     reportConflicts(ANALOG_INPUT, channels, devices, report);
     channels.forEach((c, i) => {
       const hardware = hardwareOf(devices, c.device);
@@ -130,7 +94,6 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
           `${name} does not take ${lower(TERMINAL_CONFIG_NAMES[c.terminalConfig])}`,
         );
     });
-    checkAnalogRate(config, devices, report);
   });
 
 /** Checks an analog write config against the ports of its device. */

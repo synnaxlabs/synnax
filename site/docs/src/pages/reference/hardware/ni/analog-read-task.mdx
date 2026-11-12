@@ -988,34 +988,6 @@ Select a terminal configuration that the port takes, or **Default**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... samples at most ... Hz"}>
-<Problem.Cause>
-
-The **Sample rate** is higher than the maximum rate of the device.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Lower the **Sample rate** to the rate in the message.
-
-</Problem.Fix>
-</Problem.Item>
-
-<Problem.Item message={"... may not sample ... channels faster than ... Hz"} severity="warning">
-<Problem.Cause>
-
-The device shares its maximum rate between its channels. A device with thermocouple
-channels also scans two more channels. The task can start, but the device can fail to
-keep up.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Lower the **Sample rate**, or move channels to another module.
-
-</Problem.Fix>
-</Problem.Item>
-
 <Problem.Item message={"No device provided for channel ..."}>
 <Problem.Cause>
 
