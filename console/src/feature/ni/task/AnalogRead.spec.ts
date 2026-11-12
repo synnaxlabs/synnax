@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
@@ -562,6 +562,31 @@ describe("AnalogRead ports", () => {
     });
     await screen.findByText("Ports");
     expect(screen.queryByText(/samples at most|may not sample/)).toBeNull();
+  });
+
+  it("should show a Driver error on the minimum under the range", async () => {
+    const dev = await createNIDevice(client);
+    const { draft } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
+    await screen.findByRole("textbox", { name: "Minimum value" });
+    await client.statuses.set({
+      owner: task.resourceID(draft.key),
+      name: draft.name,
+      variant: "error",
+      message: "Failed to start task",
+      time: TimeStamp.now(),
+      details: {
+        running: false,
+        data: {
+          errors: [
+            { path: "channels.0.min_val", message: "Must be between -10 and 10" },
+          ],
+        },
+      },
+    });
+    expect(await screen.findByText("Must be between -10 and 10")).toBeTruthy();
   });
 
   it("should deploy channels on free ports of the device", async () => {
