@@ -189,7 +189,8 @@ var _ = Describe("Upload", func() {
 		func(ctx SpecContext, args func() map[string]any, msg string) {
 			stat := execCommand(ctx, dt, t, "upload", args())
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring(msg))
+			Expect(stat.Message).To(Equal("Failed to upload to Sift"))
+			Expect(stat.Description).To(ContainSubstring(msg))
 		},
 		Entry("no asset", func() map[string]any {
 			return map[string]any{
@@ -231,7 +232,7 @@ var _ = Describe("Upload", func() {
 				"channels": []channel.Key{ch.Key()},
 				"asset":    "stand",
 			}
-		}, "time range has no time span to upload"),
+		}, "time range starts in the future, so it has no data yet"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),
@@ -240,6 +241,19 @@ var _ = Describe("Upload", func() {
 			return map[string]any{
 				"device":   dev.Key,
 				"range":    future.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "starts in the future, so it has no data yet"),
+		Entry("a range with no time span", func() map[string]any {
+			now := telem.Now()
+			empty := createRange(context.Background(), telem.TimeRange{
+				Start: now,
+				End:   now,
+			})
+			return map[string]any{
+				"device":   dev.Key,
+				"range":    empty.Key,
 				"channels": []channel.Key{ch.Key()},
 				"asset":    "stand",
 			}
