@@ -428,13 +428,20 @@ describe("range/explorer/Explorer", () => {
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
       const token = uniqueToken();
-      await createPlanned(`${token} planned`);
+      const planned = await createPlanned(`${token} planned`);
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
       // The search keeps the ranges that other specs start years ahead off the axis.
       await search(token);
-      await findItem(running.name);
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole("listitem")
+            .map((el) => el.getAttribute("aria-label"))
+            .toSorted(),
+        ).toEqual([planned.name, running.name].toSorted()),
+      );
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
     });
