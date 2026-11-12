@@ -79,7 +79,7 @@ type FactoryConfig struct {
 	// CheckpointInterval is how long uploads and streams send before they wait for
 	// Sift to confirm what they sent and save their progress.
 	//
-	// [OPTIONAL] - Defaults to 60 s.
+	// [OPTIONAL] - Defaults to 10 s.
 	CheckpointInterval telem.TimeSpan
 }
 
@@ -88,7 +88,7 @@ var _ config.Config[FactoryConfig] = FactoryConfig{}
 // DefaultFactoryConfig is the default configuration for the Sift driver factory.
 var DefaultFactoryConfig = FactoryConfig{
 	Timeout:            10 * telem.Second,
-	CheckpointInterval: 60 * telem.Second,
+	CheckpointInterval: 10 * telem.Second,
 }
 
 // Override implements config.Config.
