@@ -1,0 +1,87 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v1"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v0"
+
+StartOffset = v0.StartOffset
+
+RecordKey = v0.RecordKey
+
+ScanConfig = v0.ScanConfig
+
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    name     string = "" {
+        @doc value "is the name given to the channel when the task creates it."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer  string = "" {
+        @doc value "is the JSON Pointer to the value within the record value."
+    }
+
+    @doc value  "carries the fields every Kafka read field shares."
+    @go marshal
+}
+
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a number into a float channel."
+    }
+    integer extends payload.IntegerRead {
+        @doc value "reads a number into a signed integer channel."
+    }
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads a number into an unsigned integer channel."
+    }
+    string extends payload.StringRead {
+        @doc value "reads a string into a string channel."
+    }
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean into a boolean channel."
+    }
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp into a timestamp channel."
+    }
+    json {
+        @doc value "reads any JSON value into a JSON channel."
+    }
+    uuid {
+        @doc value "reads a UUID string into a UUID channel."
+    }
+    bytes {
+        @doc value "reads a base64 string into a bytes channel."
+    }
+
+    @doc value  """
+        is a single value extracted from a record's JSON value. The type is the kind of
+        value the field reads.
+    """
+    @go marshal
+}
+
+ReadRecord struct extends v0.ReadRecord {}
+
+ReadConfig struct extends v0.ReadConfig {}
+
+WriteChannel = v0.WriteChannel
+
+Record = v0.Record
+
+WriteConfig = v0.WriteConfig

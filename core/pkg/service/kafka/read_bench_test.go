@@ -332,25 +332,34 @@ func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
 		rec := kafka.ReadRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
 		if !sc.kafkaTime {
 			rec.Index = "ts"
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:        "ts",
-				Channel:    g.index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: &unixNs,
-			})
+			rec.Fields = append(
+				rec.Fields,
+				timestampField(
+					kafka.BaseReadField{
+						Key:     "ts",
+						Channel: g.index.Key(),
+						Pointer: "/ts",
+					},
+					unixNs,
+				),
+			)
 		}
 		for i, ch := range g.data {
 			ptr := "/value"
 			if sc.shape == wide {
 				ptr = "/c" + strconv.Itoa(i)
 			}
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:      "f" + strconv.Itoa(i),
-				Channel:  ch.Key(),
-				Pointer:  ptr,
-				DataType: telem.Float64T,
-			})
+			rec.Fields = append(
+				rec.Fields,
+				readField(
+					kafka.BaseReadField{
+						Key:     "f" + strconv.Itoa(i),
+						Channel: ch.Key(),
+						Pointer: ptr,
+					},
+					telem.Float64T,
+				),
+			)
 		}
 		recs[gi] = rec
 	}

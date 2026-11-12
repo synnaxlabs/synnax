@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -87,6 +88,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	reconcile := func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
+		return reconcileReadConfig(ctx, tx, cfg.Channel, cfg.Instrumentation, c)
+	}
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,
@@ -94,10 +98,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            ReadTaskType,
 			Ladder:          versions.ReadConfigLadder,
+			Migrations:      []gorp.Migration{v1.NewReadMigration(reconcile)},
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
-			ValidateEntry:   (*ReadConfig).Validate,
+			ValidateEntry:   validateReadConfig,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *ReadConfig,
+			) error {
+				return resolveReadConfig(ctx, snap, cfg.Channel, c)
+			},
+			ReconcileEntry: reconcile,
 		},
 	); !ok(err, s.Read) {
 		return nil, err

@@ -149,6 +149,7 @@ markers = [
     "lineplot: mark test as a line plot test",
     "log: mark test as a log test",
     "io: mark test as an io test",
+    "kafka: mark test as a kafka test",
     "multi_node: mark test as a multi_node test",
     "modbus: mark test as a modbus test",
     "mqtt: mark test as an mqtt test",

@@ -9,7 +9,13 @@
 
 from synnax.kafka.types_gen import (
     SASL,
+    BaseReadField,
+    BooleanReadField,
+    BytesReadField,
     Credentials,
+    FloatReadField,
+    IntegerReadField,
+    JsonReadField,
     NoneSASL,
     PlainSASL,
     Properties,
@@ -22,13 +28,23 @@ from synnax.kafka.types_gen import (
     ScramSha256SASL,
     ScramSha512SASL,
     StartOffset,
+    StringReadField,
+    TimestampReadField,
+    UnsignedReadField,
+    UuidReadField,
     WriteChannel,
     WriteConfig,
 )
 
 __all__ = [
     "SASL",
+    "BaseReadField",
+    "BooleanReadField",
+    "BytesReadField",
     "Credentials",
+    "FloatReadField",
+    "IntegerReadField",
+    "JsonReadField",
     "NoneSASL",
     "PlainSASL",
     "Properties",
@@ -41,6 +57,10 @@ __all__ = [
     "ScramSha256SASL",
     "ScramSha512SASL",
     "StartOffset",
+    "StringReadField",
+    "TimestampReadField",
+    "UnsignedReadField",
+    "UuidReadField",
     "WriteChannel",
     "WriteConfig",
 ]

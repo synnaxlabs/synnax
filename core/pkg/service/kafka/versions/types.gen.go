@@ -11,50 +11,84 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 
 // StartOffset is where a consumer group with no committed offset starts reading a
 // topic. none fails the start instead of guessing.
-type StartOffset = v0.StartOffset
+type StartOffset = v1.StartOffset
 
 const (
 	// StartOffsetLatest starts at the end of the topic and reads only new records.
-	StartOffsetLatest StartOffset = v0.StartOffsetLatest
+	StartOffsetLatest StartOffset = v1.StartOffsetLatest
 	// StartOffsetEarliest starts at the oldest record the topic retains.
-	StartOffsetEarliest StartOffset = v0.StartOffsetEarliest
+	StartOffsetEarliest StartOffset = v1.StartOffsetEarliest
 	// StartOffsetNone fails the start.
-	StartOffsetNone StartOffset = v0.StartOffsetNone
+	StartOffsetNone StartOffset = v1.StartOffsetNone
 )
 
 // RecordKey is the source of the key placed on every record a write task produces.
-type RecordKey = v0.RecordKey
+type RecordKey = v1.RecordKey
 
 const (
 	// RecordKeyNone writes records with no key.
-	RecordKeyNone RecordKey = v0.RecordKeyNone
+	RecordKeyNone RecordKey = v1.RecordKeyNone
 	// RecordKeyChannelName uses the name of the source channel as the key.
-	RecordKeyChannelName RecordKey = v0.RecordKeyChannelName
+	RecordKeyChannelName RecordKey = v1.RecordKeyChannelName
 )
 
 // ScanConfig configures a Kafka scan task.
-type ScanConfig = v0.ScanConfig
+type ScanConfig = v1.ScanConfig
 
-// ReadField is a single value extracted from a record's JSON value.
-type ReadField = v0.ReadField
+// BaseReadField carries the fields every Kafka read field shares.
+type BaseReadField = v1.BaseReadField
+
+// ReadField is a single value extracted from a record's JSON value. The type is the
+// kind of value the field reads.
+type ReadField = v1.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = v1.ReadFieldVariant
+
+// FloatReadField reads a number into a float channel.
+type FloatReadField = v1.FloatReadField
+
+// IntegerReadField reads a number into a signed integer channel.
+type IntegerReadField = v1.IntegerReadField
+
+// UnsignedReadField reads a number into an unsigned integer channel.
+type UnsignedReadField = v1.UnsignedReadField
+
+// StringReadField reads a string into a string channel.
+type StringReadField = v1.StringReadField
+
+// BooleanReadField reads a boolean into a boolean channel.
+type BooleanReadField = v1.BooleanReadField
+
+// TimestampReadField reads a timestamp into a timestamp channel.
+type TimestampReadField = v1.TimestampReadField
+
+// JsonReadField reads any JSON value into a JSON channel.
+type JsonReadField = v1.JsonReadField
+
+// UuidReadField reads a UUID string into a UUID channel.
+type UuidReadField = v1.UuidReadField
+
+// BytesReadField reads a base64 string into a bytes channel.
+type BytesReadField = v1.BytesReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
-type ReadConfig = v0.ReadConfig
+type ReadConfig = v1.ReadConfig
 
 // WriteChannel is a channel whose samples a write task produces as records.
-type WriteChannel = v0.WriteChannel
+type WriteChannel = v1.WriteChannel
 
 // Record is the shape of every record a write task produces.
-type Record = v0.Record
+type Record = v1.Record
 
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v1.WriteConfig
 
 // ReadRecord is a set of fields read from the records with one Kafka key.
-type ReadRecord = v0.ReadRecord
+type ReadRecord = v1.ReadRecord
