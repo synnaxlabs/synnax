@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button as LyraButton } from "@synnaxlabs/lyra/button";
+import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
@@ -20,7 +20,7 @@ export const Button = (): ReactElement | null => {
   const canOpen = Panel.useCanOpenTab();
   if (!canOpen) return null;
   return (
-    <LyraButton.Button
+    <Base.Button
       size="small"
       variant="text"
       onClick={open}
@@ -28,6 +28,6 @@ export const Button = (): ReactElement | null => {
       aria-label="Settings"
     >
       <Icon.Settings />
-    </LyraButton.Button>
+    </Base.Button>
   );
 };
