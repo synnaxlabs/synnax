@@ -17,7 +17,7 @@ import { type Device } from "@/platform/device";
 export const NETWORK: Device.Network = {
   key: INTEGRATION,
   name: "Sift",
-  title: "Sift connection",
+  title: "Sift",
   description: "Send live and recorded data to Sift for review.",
   icon: <Icon.Logo.Sift />,
   make: MAKE,
