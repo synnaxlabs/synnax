@@ -9,6 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import { TimeStamp } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -78,5 +79,21 @@ describe("Sift stream form", () => {
       asset: "Test stand 1",
       channels: [data.key],
     });
+  });
+
+  it("should show the progress of the stream once the Core writes it", async () => {
+    const t = await client.tasks.create(ZERO_DRAFT, Sift.Task.STREAM_SCHEMAS);
+    await renderStream({ taskKey: t.key });
+    const description = "Sent 12 samples to asset Test stand 1 since the task started.";
+    await client.statuses.set({
+      key: `${Sift.Task.PROGRESS_KEY_PREFIX}${t.key}`,
+      name: t.name,
+      variant: "info",
+      message: "Sent to Sift",
+      description,
+      time: TimeStamp.now(),
+    });
+    expect(await screen.findByText(description)).toBeTruthy();
+    expect(screen.getByText("Sent to Sift")).toBeTruthy();
   });
 });
