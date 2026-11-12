@@ -208,8 +208,6 @@ const NO_RANGES = <NoRanges />;
 
 const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 
-const noop = () => {};
-
 /** The sort or the layout of the open view, saved to the view when it is stored. */
 const useViewField = <F extends "sort" | "layout">(
   field: F,
@@ -250,6 +248,8 @@ const Internal = (): ReactElement => {
     name: "ranges",
     query: { where: scoped, order: ORDERS[sort] },
     initialSize: searching ? MATCH_LIMIT + 1 : undefined,
+    // A search in a tree reads its first page only.
+    eager: searching,
   });
   // The list shows its last answer until a new search lands, so the tree follows the
   // term that the shown ranges answer.
@@ -298,8 +298,7 @@ const Internal = (): ReactElement => {
       getItem={root.getItem}
       subscribe={root.subscribe}
       answered={answered}
-      // The tree of a search reads the first page only.
-      more={capped && root.answered ? noop : root.more}
+      more={root.more}
       search={root.search}
       onWhereChange={setWhere}
       itemHeight={itemHeight(layout)}
