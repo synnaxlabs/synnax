@@ -21,6 +21,7 @@
 
 #include "driver/ni/channel/scale.h"
 #include "driver/ni/channel/units.h"
+#include "driver/ni/channel/verify.h"
 #include "driver/ni/daqmx/sugared.h"
 
 namespace driver::ni::channel {
@@ -210,6 +211,13 @@ struct TwoPointLinConfig {
         physical_units(units_or_volts(physical_units_str)) {}
 };
 
+/// @brief returns the config path that a parser prefix names: "channels.0." becomes
+/// "channels.0".
+inline std::string format_path(const std::string &prefix) {
+    if (prefix.empty()) return prefix;
+    return prefix.substr(0, prefix.size() - 1);
+}
+
 inline std::string format_cfg_path(const std::string &path) {
     auto formatted = path;
     std::ranges::replace(formatted, '.', '_');
@@ -265,18 +273,9 @@ inline CJCArgs parse_cjc(const ::synnax::ni::CJC &cjc) {
 struct ApplyContext {
     /// @brief the physical device location, e.g. "cDAQ1Mod1".
     std::string dev_loc;
-    /// @brief the channel's path within the task config, used for error
-    /// propagation and as the DAQmx channel name.
+    /// @brief the DAQmx channel name.
     std::string cfg_path;
 };
-
-/// @brief prefixes an apply failure with the channel's config path, so the
-/// message names the channel the failure came from.
-inline x::errors::Error
-at_cfg_path(const x::errors::Error &err, const std::string &cfg_path) {
-    if (!err) return err;
-    return {err, cfg_path + ": " + err.data};
-}
 
 inline x::errors::Error apply(
     const ::synnax::ni::AIAccelChannel &ch,
@@ -2072,8 +2071,9 @@ struct Input {
     /// @brief the key of the device the channel belongs to. Empty when the
     /// owning task supplies a single device.
     std::string dev_key;
-    /// @brief the channel's path within the task config, used for error
-    /// propagation and as the DAQmx channel name.
+    /// @brief the channel's path within the task config, such as "channels.0".
+    std::string path;
+    /// @brief the DAQmx channel name: the config path with underscores for dots.
     std::string cfg_path;
     /// @brief the key of the Synnax channel acquired data is written to.
     synnax::channel::Key synnax_key = 0;
@@ -2096,7 +2096,7 @@ struct Input {
             [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
-        return at_cfg_path(err, this->cfg_path);
+        return at_channel(err, this->path, this->cfg_path);
     }
 };
 
@@ -2108,7 +2108,9 @@ struct Output {
     /// @brief true when the hardware generates the output on its own. The channel
     /// runs with the task and has no command or state channel.
     bool free_running = false;
-    /// @brief the channel's path within the task config.
+    /// @brief the channel's path within the task config, such as "channels.0".
+    std::string path;
+    /// @brief the DAQmx channel name: the config path with underscores for dots.
     std::string cfg_path;
     /// @brief the key of the Synnax channel commands are read from.
     synnax::channel::Key cmd_ch_key = 0;
@@ -2133,7 +2135,7 @@ struct Output {
             [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
-        return at_cfg_path(err, this->cfg_path);
+        return at_channel(err, this->path, this->cfg_path);
     }
 };
 
@@ -2142,6 +2144,7 @@ struct Output {
 inline std::unique_ptr<Input>
 parse_input(x::json::Parser &cfg, const std::string &task_type) {
     auto out = std::make_unique<Input>();
+    out->path = format_path(cfg.path_prefix);
     out->cfg_path = format_cfg_path(cfg.path_prefix);
     if (task_type == "ni_analog_read") {
         out->channel = ::synnax::ni::parse_ai_channel(cfg);
@@ -2169,6 +2172,7 @@ parse_input(x::json::Parser &cfg, const std::string &task_type) {
 inline std::unique_ptr<Output>
 parse_output(x::json::Parser &cfg, const std::string &task_type) {
     auto out = std::make_unique<Output>();
+    out->path = format_path(cfg.path_prefix);
     out->cfg_path = format_cfg_path(cfg.path_prefix);
     if (task_type == "ni_analog_write")
         out->channel = ::synnax::ni::parse_ao_channel(cfg);

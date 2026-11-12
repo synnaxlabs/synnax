@@ -183,10 +183,48 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return chs;
     }
 
+    /// @brief applies the configuration to the DAQmx task and verifies it. A value
+    /// that DAQmx rejects comes back as a field error.
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
+        if (const auto err = this->apply_timing(dmx, handle)) return err;
+        return channel::verify(dmx, handle, this->channels);
+    }
+
+    [[nodiscard]] synnax::framer::WriterConfig writer() const {
+        std::vector<synnax::channel::Key> keys;
+        keys.reserve(this->channels.size() + this->indexes.size());
+        for (const auto &ch: this->channels)
+            keys.push_back(ch->ch.key);
+        for (const auto &idx: this->indexes)
+            keys.push_back(idx);
+        return synnax::framer::WriterConfig{
+            .channels = keys,
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
+        };
+    }
+
+    [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
+        if (this->software_timed)
+            return std::make_unique<common::SoftwareTimedSampleClock>(
+                this->stream_rate
+            );
+        return std::make_unique<common::HardwareTimedSampleClock>(
+            common::HardwareTimedSampleClockConfig::create_simple(
+                sample_rate,
+                stream_rate,
+                this->timing.correct_skew
+            )
+        );
+    }
+
+private:
+    [[nodiscard]] x::errors::Error apply_timing(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle handle
+    ) const {
         if (this->software_timed) return x::errors::NIL;
 
         std::set<std::string> device_locations;
@@ -224,41 +262,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             }
         }
 
-        return dmx->CfgSampClkTiming(
+        return channel::at_task(dmx->CfgSampClkTiming(
             handle,
             this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
             this->sample_rate.hz(),
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
             this->samples_per_chan
-        );
-    }
-
-    [[nodiscard]] synnax::framer::WriterConfig writer() const {
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->channels.size() + this->indexes.size());
-        for (const auto &ch: this->channels)
-            keys.push_back(ch->ch.key);
-        for (const auto &idx: this->indexes)
-            keys.push_back(idx);
-        return synnax::framer::WriterConfig{
-            .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
-        };
-    }
-
-    [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
-        if (this->software_timed)
-            return std::make_unique<common::SoftwareTimedSampleClock>(
-                this->stream_rate
-            );
-        return std::make_unique<common::HardwareTimedSampleClock>(
-            common::HardwareTimedSampleClockConfig::create_simple(
-                sample_rate,
-                stream_rate,
-                this->timing.correct_skew
-            )
-        );
+        ));
     }
 };
 
