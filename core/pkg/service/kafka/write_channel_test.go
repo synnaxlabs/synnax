@@ -110,7 +110,7 @@ var _ = Describe("Write channels", func() {
 	}
 
 	prepare := func(ctx SpecContext, data msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
-		rec, err := svc.Write.Prepare(ctx, db, uuid.New(), data)
+		rec, err := svc.Write.Prepare(ctx, db, uuid.New(), "", data)
 		if err != nil {
 			return nil, err
 		}
