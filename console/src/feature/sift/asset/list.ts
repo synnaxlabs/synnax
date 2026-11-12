@@ -18,7 +18,7 @@ import {
 
 const LIST_TIMEOUT = TimeSpan.seconds(15);
 
-export const listResultZ = z.object({
+const listResultZ = z.object({
   /** The names of the assets the device can see, in the order Sift lists them. */
   assets: z.string().array(),
   /** The asset of the newest upload from the device, or empty. */
