@@ -64,7 +64,7 @@ export const Frame = ({
   children,
 }: FrameProps): ReactElement => {
   const [searchTerm, setSearchTerm] = useState("");
-  const staticViewKey = uuid.create();
+  const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
     {
       key: staticViewKey,
@@ -127,7 +127,6 @@ export const Frame = ({
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}
           onFetchMore={remoteProps.more}
-          staticViews={staticViews}
           onSelect={select}
           listProps={combinedProps}
           selected={selected}
@@ -143,7 +142,6 @@ interface SelectorProps {
   editable: boolean;
   onEditableClick: () => void;
   resourceType: view.Type;
-  staticViews: StaticView[];
   onSelect: (key: view.Key) => void;
   selected: view.Key;
   listProps: List.FrameProps<view.Key, View>;
