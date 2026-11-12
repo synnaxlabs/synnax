@@ -137,6 +137,17 @@ var _ = Describe("Stream task", func() {
 			Eventually(values).Should(HaveExactElements(1.0, 3.0))
 		})
 
+	It("Should save where it starts before it sends anything", func(ctx SpecContext) {
+		before := telem.Now()
+		start(ctx, streamConfig())
+		Expect(progressOf(ctx)).To(HaveField("Details.Positions", HaveExactElements(
+			SatisfyAll(
+				HaveField("Index", idx.Key()),
+				HaveField("Time", BeNumerically(">=", before)),
+			),
+		)))
+	})
+
 	It("Should start at the current time without progress", func(ctx SpecContext) {
 		write(ctx, idx, ch,
 			[]telem.TimeStamp{telem.Now().Add(-10 * telem.Second)},
@@ -186,6 +197,24 @@ var _ = Describe("Stream task", func() {
 				)))
 			})
 
+		It("Should make a run of a range that ends after the last sample",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				now := telem.Now()
+				send(ctx, 1)
+				rng := createRange(ctx, telem.TimeRange{
+					Start: now,
+					End:   now.Add(100 * telem.Millisecond),
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{l.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
 		It("Should make a run when one index of the task gets no samples",
 			func(ctx SpecContext) {
 				idleIdx := createIndex(ctx)
@@ -214,6 +243,25 @@ var _ = Describe("Stream task", func() {
 				HaveField("Name", "renamed"),
 			))
 		})
+
+		It("Should update the run of a range that changed while the task was stopped",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(dt.Stop(false)).To(Succeed())
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			})
 
 		It("Should not make a run of a range without a task label",
 			func(ctx SpecContext) {
