@@ -46,11 +46,7 @@ const keepaliveTime = 20 * time.Second
 // error when dev is not a Sift device or its properties are incomplete.
 func decodeProperties(dev device.Device) (Properties, error) {
 	if dev.Make != Make {
-		return Properties{}, errors.Wrapf(
-			validate.ErrValidation,
-			"device %s is not a Sift device",
-			dev.Name,
-		)
+		return Properties{}, validate.Errorf("device %s is not a Sift device", dev.Name)
 	}
 	var props Properties
 	if err := dev.Properties.Unmarshal(&props); err != nil {
