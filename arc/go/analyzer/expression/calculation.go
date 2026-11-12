@@ -60,7 +60,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	}
 	if from != nil && to == nil && w.Target.IsNumeric() {
 		d := codes.UnitMissing.At(w.AST, w.Subject, from.Name)
-		t := concrete(ctx, w.Target)
+		t := types.Concrete(ctx.Constraints.ApplySubstitutions(w.Target))
 		inUnit := t
 		inUnit.Unit = from
 		if r, ok := retyped(w, inUnit); ok {
@@ -94,7 +94,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	}
 	if !w.Lowered && truncates(ctx, w, isLiteral) {
 		d := codes.UnitTruncation.At(w.AST, from.Name, to.Name)
-		t := concrete(ctx, w.Target)
+		t := types.Concrete(ctx.Constraints.ApplySubstitutions(w.Target))
 		if decl, ok := redeclarable(w); ok && t.IsInteger() {
 			float := diagnostics.Replacement{Node: decl, Text: redeclared(
 				decl,
@@ -140,33 +140,15 @@ func redeclarable(w Write) (declaration, bool) {
 
 // retyped returns the replacement that gives the target of w the type t.
 func retyped(w Write, t types.Type) (r diagnostics.Replacement, ok bool) {
-	switch decl := w.Declaration.(type) {
-	case parser.ITypeContext:
-		return diagnostics.Replacement{Node: decl, Text: t.String()}, true
-	case declaration:
-		if init := decl.Expression(); parser.IsLiteral(init) {
-			return diagnostics.Replacement{
-				Node: decl,
-				Text: redeclared(decl, t.String(), sourceText(init)),
-			}, true
-		}
+	if typ, ok := w.Declaration.(parser.ITypeContext); ok {
+		return diagnostics.Replacement{Node: typ, Text: t.String()}, true
 	}
-	return r, false
-}
-
-// concrete returns t with a literal type resolved to i64 or f64.
-func concrete[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	t types.Type,
-) types.Type {
-	t = ctx.Constraints.ApplySubstitutions(t)
-	if t.Kind != types.KindVariable {
-		return t
+	decl, ok := redeclarable(w)
+	if !ok {
+		return r, false
 	}
-	if c := t.Constraint; c != nil && c.Kind == types.KindIntegerConstant {
-		return types.Type{Kind: types.KindI64}
-	}
-	return types.Type{Kind: types.KindF64}
+	text := redeclared(decl, t.String(), sourceText(decl.Expression()))
+	return diagnostics.Replacement{Node: decl, Text: text}, true
 }
 
 // valueOf returns the node of the value of w, or nil for a value with no node.
@@ -255,10 +237,8 @@ func integersTruncate[T antlr.ParserRuleContext](
 		return false
 	}
 	for _, t := range []types.Type{from, to} {
-		t = ctx.Constraints.ApplySubstitutions(t).Unwrap()
-		untyped := t.Kind == types.KindVariable && t.Constraint != nil &&
-			t.Constraint.Kind == types.KindIntegerConstant
-		if !t.IsInteger() && !untyped {
+		t = types.Concrete(ctx.Constraints.ApplySubstitutions(t).Unwrap())
+		if !t.IsInteger() {
 			return false
 		}
 	}

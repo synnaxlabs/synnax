@@ -32,6 +32,41 @@ var _ = Describe("UnitsAssignable", func() {
 	)
 })
 
+var _ = Describe("WithUnit", func() {
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+
+	DescribeTable("Should set the unit of the value type",
+		func(t types.Type) {
+			Expect(types.WithUnit(t, s).Unwrap().Unit).To(BeIdenticalTo(s))
+			Expect(t.Unwrap().Unit).To(BeNil())
+		},
+		Entry("a value", types.I64()),
+		Entry("a series", types.Series(types.I64())),
+		Entry("a channel", types.Chan(types.I64())),
+	)
+})
+
+var _ = Describe("Concrete", func() {
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+	variable := func(constraint *types.Type) types.Type {
+		t := types.Variable("T", constraint)
+		t.Unit = s
+		return t
+	}
+	integer, float := types.IntegerConstraint(), types.FloatConstraint()
+
+	DescribeTable("Should resolve the type of an untyped literal",
+		func(t, want types.Type) {
+			Expect(types.Concrete(t)).To(Equal(want))
+		},
+		Entry("an integer literal", variable(&integer), types.WithUnit(types.I64(), s)),
+		Entry("a float literal", variable(&float), types.WithUnit(types.F64(), s)),
+		Entry("a type variable with no constraint",
+			variable(nil), types.WithUnit(types.F64(), s)),
+		Entry("a type that is not a type variable", types.I32(), types.I32()),
+	)
+})
+
 var _ = Describe("UnitsConvertible", func() {
 	ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
 	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}

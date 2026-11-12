@@ -200,17 +200,6 @@ func checkArgType[T antlr.ParserRuleContext](
 	}
 }
 
-// WithUnit returns t with unit on its value type.
-func WithUnit(t types.Type, unit *types.Unit) types.Type {
-	if (t.Kind == types.KindChan || t.Kind == types.KindSeries) && t.Elem != nil {
-		elem := WithUnit(*t.Elem, unit)
-		t.Elem = &elem
-		return t
-	}
-	t.Unit = unit
-	return t
-}
-
 // readsFlowVariable reports whether expr names a variable outside a function body.
 func readsFlowVariable[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],

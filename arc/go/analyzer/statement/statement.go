@@ -304,7 +304,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 			if exprType.IsValid() && varType.IsValid() {
 				// A declaration with no unit takes the unit of its value.
 				if value := varType.Unwrap(); value.IsNumeric() && value.Unit == nil {
-					varType = expression.WithUnit(varType, exprType.Unwrap().Unit)
+					varType = types.WithUnit(varType, exprType.Unwrap().Unit)
 				}
 				if _, ok := checkUnits(
 					ctx, name, ctx.AST, expr, exprType, varType,

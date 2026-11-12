@@ -2266,55 +2266,40 @@ func extractInputValues(
 		if head, tail := parser.ExpressionNameParts(expr); head != "" {
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
-				t := sym.Type.UnwrapChan()
-				convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
-				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-					ref := types.VarRef(t, rn.Key)
-					value := varValue(sym)
-					if !convertible {
-						return value, ref, true
-					}
-					if sym.DefaultValue != nil {
+				rn := shell.varNodes[sym].readNode(sym)
+				if rn != nil || (!sym.Reassigned && sym.DefaultValue != nil) {
+					t, value := sym.Type.UnwrapChan(), varValue(sym)
+					convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
+					check := convertible && rn != nil
+					if convertible && sym.DefaultValue != nil {
 						parsed, err := literal.ParseConst(sym.Initializer(), paramType)
 						if err != nil {
 							ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 							return nil, paramType, false
 						}
-						value = parsed.Value
+						value, check = parsed.Value, check || parsed.Truncated
 					}
-					expression.CheckUnits(ctx, expression.Write{
-						AST: expr, Source: sym.Type, Target: paramType,
-					})
+					if check {
+						expression.CheckUnits(ctx, expression.Write{
+							AST: expr, Source: sym.Type, Target: paramType,
+						})
+					}
+					if rn == nil {
+						return value, paramType, true
+					}
+					ref := types.VarRef(t, rn.Key)
+					if !convertible {
+						return value, ref, true
+					}
 					// A native node converts the register when it reads it. Any other
 					// node reads a scale node that fires with the call.
 					if fnSym.Exec != symbol.ExecFlow {
 						scale := buildScaleNode(ref, paramType, kg)
 						args = append(args, scale.node)
-						return value, types.VarRef(
-							paramType,
-							scale.node.Key,
-						), true
+						return value, types.VarRef(paramType, scale.node.Key), true
 					}
 					ref.Unit = paramType.Unit
 					return value, ref, true
-				}
-				if !sym.Reassigned && sym.DefaultValue != nil {
-					if !convertible {
-						return sym.DefaultValue, paramType, true
-					}
-					parsed, err := literal.ParseConst(sym.Initializer(), paramType)
-					if err != nil {
-						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-						return nil, paramType, false
-					}
-					if parsed.Truncated {
-						expression.CheckUnits(ctx, expression.Write{
-							AST:    expr,
-							Source: sym.Type,
-							Target: paramType,
-						})
-					}
-					return parsed.Value, paramType, true
 				}
 			}
 			if err == nil && sym.Type.Kind == types.KindChan {

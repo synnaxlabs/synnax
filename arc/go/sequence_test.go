@@ -5627,15 +5627,19 @@ var _ = Describe("Sequence", func() {
 			}
 			return got
 		}
-		lastLog := func(ctx SpecContext, h *runtimeHarness) string {
-			GinkgoHelper()
+		logsOf := func(ctx SpecContext, h *runtimeHarness, triggers int) []string {
 			var logged []string
-			for i := range 5 {
+			for i := range triggers {
 				h.Ingest(100, telem.NewSeriesV[int64](1))
 				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
 				out, _ := h.Flush()
 				logged = append(logged, drainStrings(out, 101)...)
 			}
+			return logged
+		}
+		lastLog := func(ctx SpecContext, h *runtimeHarness) string {
+			GinkgoHelper()
+			logged := logsOf(ctx, h, 5)
 			Expect(logged).ToNot(BeEmpty())
 			return logged[len(logged)-1]
 		}
@@ -5864,30 +5868,6 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf(ctx, h, 20*telem.Millisecond)
 		})
 
-		It("Converts a literal to the unit of the variable it is written to", func(
-			ctx SpecContext,
-		) {
-			h := newRuntimeHarness(ctx, `
-				sequence main {
-				    d := 1min
-				    stage write {
-				        120s -> d
-				        raw -> `+`f"d={d}"`+` -> log
-				    }
-				}
-				1 => main`, resolver, digests...)
-			defer h.Close(ctx)
-			var logged []string
-			for i := range 3 {
-				h.Ingest(100, telem.NewSeriesV[int64](1))
-				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-				out, _ := h.Flush()
-				logged = append(logged, drainStrings(out, 101)...)
-			}
-			Expect(logged).To(ContainElement("d=2"))
-			Expect(logged).ToNot(ContainElement("d=120"))
-		})
-
 		DescribeTable("Converts a variable written to a variable of another unit",
 			func(ctx SpecContext, write, expected string) {
 				h := newRuntimeHarness(ctx, `
@@ -5906,6 +5886,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				Expect(lastLog(ctx, h)).To(Equal(expected))
 			},
+			Entry("a literal", `120s -> d`, "d=2 other=120 typed=120000 p=1"),
 			Entry("a flow to a larger unit",
 				`other -> d`, "d=2 other=120 typed=120000 p=1"),
 			Entry("an assignment to a larger unit",
@@ -5992,15 +5973,8 @@ var _ = Describe("Sequence", func() {
 				}
 				1 => main`, resolver, digests...)
 				defer h.Close(ctx)
-				var logged []string
-				for i := range 4 {
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-					out, _ := h.Flush()
-					logged = append(logged, drainStrings(out, 101)...)
-				}
 				// The first cycle starts the sequence, and each later trigger logs.
-				Expect(logged).To(Equal([]string{
+				Expect(logsOf(ctx, h, 4)).To(Equal([]string{
 					"x=6000000000", "x=6000000000", "x=6000000000",
 				}))
 			},
@@ -6027,23 +6001,6 @@ var _ = Describe("Sequence", func() {
 			Entry("a variable in the same unit", `f64 psi`, `p`, "14.7"),
 			Entry("a literal in another unit", `f64 bar`, `14.7psi`, "1.01352972"),
 			Entry("a variable in another unit", `f64 bar`, `p`, "1.01352972"),
-		)
-
-		It(
-			"Converts a variable to the unit of a function input",
-			func(ctx SpecContext) {
-				h := newRuntimeHarness(ctx, `
-				p := 1.0bar
-				func show(x f64 psi) str {
-				    return `+`f"psi={x:.3f}"`+`
-				}
-				raw -> show(x=p) -> log`, resolver, digests...)
-				defer h.Close(ctx)
-				h.Ingest(100, telem.NewSeriesV[int64](1))
-				advance(h, ctx, telem.Millisecond)
-				out, _ := h.Flush()
-				Expect(drainStrings(out, 101)).To(Equal([]string{"psi=14.504"}))
-			},
 		)
 
 		DescribeTable("Holds a value as the number in its unit in a calculation",

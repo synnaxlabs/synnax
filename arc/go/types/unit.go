@@ -26,6 +26,17 @@ func UnitsAssignable(a, b *Unit) bool {
 	return a.Equal(*b)
 }
 
+// WithUnit returns t with unit on its value type.
+func WithUnit(t Type, unit *Unit) Type {
+	if (t.Kind == KindChan || t.Kind == KindSeries) && t.Elem != nil {
+		elem := WithUnit(*t.Elem, unit)
+		t.Elem = &elem
+		return t
+	}
+	t.Unit = unit
+	return t
+}
+
 // InputScale returns what to multiply a variable by to get the unit of the input that
 // reads it, and what to divide it by. A variable in s read by an input in ns gives 1e9
 // and 1e-9.

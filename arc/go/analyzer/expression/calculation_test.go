@@ -34,7 +34,7 @@ var (
 
 var _ = Describe("CheckUnits", func() {
 	i64 := func(unit *types.Unit) types.Type {
-		return expression.WithUnit(types.I64(), unit)
+		return types.WithUnit(types.I64(), unit)
 	}
 	check := func(
 		bCtx SpecContext,
@@ -69,7 +69,7 @@ var _ = Describe("CheckUnits", func() {
 		Entry("a smaller unit", "x", i64(unitMS), true, 0),
 		Entry("a larger unit", "x", i64(unitMin), true, 1),
 		Entry("a float in a larger unit",
-			"x", expression.WithUnit(types.F64(), unitMin), true, 0),
+			"x", types.WithUnit(types.F64(), unitMin), true, 0),
 		Entry("a literal with no remainder", "120s", i64(unitMin), false, 0),
 		Entry("a literal with a remainder", "90s", i64(unitMin), false, 1),
 		Entry("a target that is not a number", "x", types.String(), false, 0),
@@ -107,20 +107,8 @@ var _ = Describe("CheckUnits", func() {
 	})
 })
 
-var _ = Describe("WithUnit", func() {
-	DescribeTable("Should set the unit of the value type",
-		func(t types.Type) {
-			Expect(expression.WithUnit(t, unitS).Unwrap().Unit).To(BeIdenticalTo(unitS))
-			Expect(t.Unwrap().Unit).To(BeNil())
-		},
-		Entry("a value", types.I64()),
-		Entry("a series", types.Series(types.I64())),
-		Entry("a channel", types.Chan(types.I64())),
-	)
-})
-
 var _ = Describe("TakeUnit", func() {
-	seconds := expression.WithUnit(types.I64(), unitS)
+	seconds := types.WithUnit(types.I64(), unitS)
 
 	DescribeTable("the node of an expression",
 		func(

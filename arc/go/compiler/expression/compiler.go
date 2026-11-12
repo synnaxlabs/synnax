@@ -92,7 +92,7 @@ func compileAdditive(
 	if len(muls) == 1 {
 		return compileMultiplicative(ctx.Child(muls[0]))
 	}
-	return compileBinaryAdditive(ctx)
+	return compileArithmetic(ctx, muls, compileMultiplicative)
 }
 
 func compileMultiplicative(
@@ -102,7 +102,7 @@ func compileMultiplicative(
 	if len(unaries) == 1 {
 		return compileUnary(ctx.Child(unaries[0]))
 	}
-	return compileBinaryMultiplicative(ctx)
+	return compileArithmetic(ctx, unaries, compileUnary)
 }
 
 func compilePower(
