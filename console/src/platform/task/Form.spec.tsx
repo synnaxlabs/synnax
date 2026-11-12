@@ -678,7 +678,7 @@ describe("Driver field errors", () => {
   const readSchemas = {
     type: z.literal("opc_read"),
     config: z.object({
-      sampleRate: z.number().default(50),
+      sampleRate: z.number().min(1, "Must be at least 1").default(50),
       channels: z.array(z.object({ key: z.string(), nodeId: z.string() })).default([]),
     }),
     statusData: Task.fieldErrorsZ.nullish(),
@@ -768,6 +768,16 @@ describe("Driver field errors", () => {
     await renderWithRateError(client);
     commitFieldInput(getLabeledInput("Sample rate"), "20");
     await waitFor(() => expect(screen.queryByText(RATE_ERROR)).toBeNull());
+  });
+
+  it("should keep a form error that replaced a field error at the next start", async () => {
+    const client = createTestClient();
+    const { container } = await renderWithRateError(client);
+    commitFieldInput(getLabeledInput("Sample rate"), "0");
+    await screen.findByText("Must be at least 1");
+    await clickDeploy(container);
+    await waitFor(() => expect(screen.getByText("Must be at least 1")).toBeTruthy());
+    expect(screen.queryByText(RATE_ERROR)).toBeNull();
   });
 
   it("should start a task whose status holds field errors", async () => {

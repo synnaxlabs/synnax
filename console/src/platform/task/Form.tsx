@@ -116,8 +116,8 @@ const CLEARED: Status.Crude = { variant: "success", message: "" };
 
 /**
  * Shows each field error of the task status on its config field. Each new status
- * replaces the errors of the last one. The Driver names a field by its snake_case
- * config path, with list indexes.
+ * replaces the errors of the last one, and leaves a status that replaced one alone. The
+ * Driver names a field by its snake_case config path, with list indexes.
  *
  * @returns a function that clears the errors.
  */
@@ -126,9 +126,12 @@ const useFieldErrors = <Z extends z.ZodType>(
   configZ: z.ZodType,
 ): (() => void) => {
   const status = useStatus(form);
-  const shown = useRef<deep.Target<unknown>[]>([]);
+  const shown = useRef<{ target: deep.Target<unknown>; message: string }[]>([]);
   const clear = () => {
-    shown.current.forEach((target) => form.setStatus(target, CLEARED));
+    shown.current.forEach(({ target, message }) => {
+      if (form.get(target, { optional: true })?.status.message === message)
+        form.setStatus(target, CLEARED);
+    });
     shown.current = [];
   };
   useEffect(() => {
@@ -146,7 +149,7 @@ const useFieldErrors = <Z extends z.ZodType>(
         .split(deep.SEPARATOR)
         .reduce<deep.Path<unknown>>((p, part) => p[part], deep.path<unknown>());
       form.setStatus(target, { variant: "error", message });
-      shown.current.push(target);
+      shown.current.push({ target, message });
     });
   }, [status, form, configZ, clear]);
   return clear;
