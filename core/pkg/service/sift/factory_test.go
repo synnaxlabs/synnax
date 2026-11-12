@@ -46,6 +46,25 @@ var _ = Describe("Factory", func() {
 				Status: statusSvc,
 			})).Error().To(MatchError(ContainSubstring("secret: must be non-nil")))
 		})
+
+		DescribeTable("Should reject an invalid config",
+			func(mutate func(*sift.FactoryConfig), msg string) {
+				cfg := factoryConfig()
+				mutate(&cfg)
+				Expect(
+					sift.NewFactory(cfg),
+				).Error().
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("no label service",
+				func(c *sift.FactoryConfig) { c.Label = nil },
+				"label: must be non-nil",
+			),
+			Entry("a checkpoint interval that is not positive",
+				func(c *sift.FactoryConfig) { c.CheckpointInterval = -telem.Second },
+				"checkpoint_interval: must be positive",
+			),
+		)
 	})
 
 	Describe("Name", func() {
