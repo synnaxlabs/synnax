@@ -79,7 +79,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     setSelected(key);
     setSearchTerm("");
   };
-  const editable = Access.useUpdateGranted(view.resourceID(selected));
+  const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
+  // A static view saves nothing, so everyone may change it.
+  const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");

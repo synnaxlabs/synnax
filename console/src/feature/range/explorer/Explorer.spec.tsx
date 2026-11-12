@@ -284,14 +284,9 @@ describe("range/explorer/Explorer", () => {
   });
 
   describe("permissions", () => {
-    it("should show a stored view read-only to a subject who cannot update views", async () => {
-      const { label: lbl, labeled } = await createLabeled();
-      const stored = await client.views.create({
-        name: uniqueName("view"),
-        type: "range",
-        where: { labels: [lbl.key] },
-      });
-      const as = await createTestClientWithGrants(client, {
+    /** @returns a client whose subject may read views but not update them. */
+    const createReader = async (): Promise<Client> =>
+      await createTestClientWithGrants(client, {
         retrieve: [
           ranger.TYPE_RESOURCE_ID,
           view.TYPE_RESOURCE_ID,
@@ -299,7 +294,28 @@ describe("range/explorer/Explorer", () => {
         ],
         create: [ranger.TYPE_RESOURCE_ID],
       });
-      await renderExplorer(as);
+
+    it("should let a subject who cannot update views sort and lay out all ranges", async () => {
+      await renderExplorer(await createReader());
+      fireEvent.click(await screen.findByRole("button", { name: /Newest first/ }));
+      fireEvent.click(await screen.findByText("Name"));
+      fireEvent.click(screen.getByRole("button", { name: /List/ }));
+      await waitFor(() => expect(screen.queryByText("Newest first")).toBeNull());
+      expect(screen.getByRole("button", { name: /List/ }).className).toContain(
+        "lyra--selected",
+      );
+      expect(screen.getByRole("button", { name: "Filter" })).toBeTruthy();
+      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy();
+    });
+
+    it("should show a stored view read-only to a subject who cannot update views", async () => {
+      const { label: lbl, labeled } = await createLabeled();
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+        where: { labels: [lbl.key] },
+      });
+      await renderExplorer(await createReader());
       fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
       await screen.findByText(labeled.name);
       await screen.findByRole("button", { name: "Create range" });
