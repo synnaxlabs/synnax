@@ -22,7 +22,6 @@ import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Asset } from "@/feature/sift/asset";
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { MAKE } from "@/feature/sift/device/types";
 import {
   deployStreamConfigZ,
@@ -39,10 +38,7 @@ import { Task } from "@/platform/task";
 const path = deep.path<Task.Values<StreamSchemas>>();
 
 const Properties = () => (
-  <>
-    <SelectDevice />
-    <Asset.Field path={path.config.asset} devicePath={path.config.device} grow />
-  </>
+  <Asset.Destination path={path.config.asset} devicePath={path.config.device} grow />
 );
 
 // Sift stores only persisted data channels. The Core sends each index on its own.

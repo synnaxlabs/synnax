@@ -28,7 +28,11 @@ const client = createTestClient();
 const START = TimeStamp.seconds(10);
 
 // The device sits on a new rack with no uploader, so a pending upload stays pending.
-const createUpload = async (rng: ranger.Range, variant: status.Variant) => {
+const createUpload = async (
+  rng: ranger.Range,
+  variant: status.Variant,
+  reached: TimeSpan[] = [TimeSpan.seconds(5)],
+) => {
   const dev = await createSiftDevice(client);
   return await client.statuses.set<typeof sift.uploadDetailsZ>({
     key: `sift_upload:${uniqueName("upload")}`,
@@ -42,15 +46,15 @@ const createUpload = async (rng: ranger.Range, variant: status.Variant) => {
       timeRange: new TimeRange(START, START.add(TimeSpan.seconds(10))),
       channels: [],
       asset: "stand",
-      positions: [{ index: 1, time: START.add(TimeSpan.seconds(5)) }],
+      positions: reached.map((p, i) => ({ index: i + 1, time: START.add(p) })),
       samples: 5,
     },
   });
 };
 
-const renderUploads = async (rng: ranger.Range) => {
+const renderUploads = async (rangeKey: ranger.Key) => {
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Sift.Range.Uploads rangeKey={rng.key} />, { wrapper });
+  render(<Sift.Range.Uploads rangeKey={rangeKey} />, { wrapper });
 };
 
 const createRange = async () =>
@@ -63,16 +67,43 @@ describe("Sift.Range.Uploads", () => {
   it("should show each upload of the range with its progress", async () => {
     const rng = await createRange();
     await createUpload(rng, "loading");
-    await renderUploads(rng);
+    await renderUploads(rng.key);
     expect(await screen.findByText("stand")).toBeTruthy();
     expect(screen.getByText("Uploading to Sift")).toBeTruthy();
     expect(screen.getByText("50%")).toBeTruthy();
   });
 
+  it("should show no progress before the first checkpoint", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "loading", []);
+    await renderUploads(rng.key);
+    expect(await screen.findByText("0%")).toBeTruthy();
+  });
+
+  it("should show the progress of the index that has reached the least far", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "loading", [TimeSpan.seconds(8), TimeSpan.seconds(4)]);
+    await renderUploads(rng.key);
+    expect(await screen.findByText("40%")).toBeTruthy();
+  });
+
+  it("should stop the progress at 100%", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "loading", [TimeSpan.seconds(20)]);
+    await renderUploads(rng.key);
+    expect(await screen.findByText("100%")).toBeTruthy();
+  });
+
+  it("should show the error when the uploads fail to list", async () => {
+    await createSiftDevice(client);
+    await renderUploads("not-a-range");
+    expect(await screen.findByText("Failed to retrieve Sift uploads")).toBeTruthy();
+  });
+
   it("should cancel an upload by deleting its status", async () => {
     const rng = await createRange();
     const upload = await createUpload(rng, "loading");
-    await renderUploads(rng);
+    await renderUploads(rng.key);
     fireEvent.click(await screen.findByRole("button", { name: "Cancel upload" }));
     await waitFor(async () =>
       expect(await client.statuses.retrieve({ key: [upload.key] })).toHaveLength(0),
@@ -82,7 +113,7 @@ describe("Sift.Range.Uploads", () => {
   it("should show an upload that starts while the section is open", async () => {
     const rng = await createRange();
     await createUpload(rng, "success");
-    await renderUploads(rng);
+    await renderUploads(rng.key);
     expect(await screen.findAllByText("stand")).toHaveLength(1);
     await createUpload(rng, "loading");
     await waitFor(() => expect(screen.getAllByText("stand")).toHaveLength(2));
@@ -91,7 +122,7 @@ describe("Sift.Range.Uploads", () => {
   it("should drop an upload that is deleted elsewhere", async () => {
     const rng = await createRange();
     const upload = await createUpload(rng, "success");
-    await renderUploads(rng);
+    await renderUploads(rng.key);
     expect(await screen.findByText("stand")).toBeTruthy();
     await client.statuses.delete(upload.key);
     await waitFor(() => expect(screen.queryByText("stand")).toBeNull());
@@ -102,7 +133,7 @@ describe("Sift.Range.Uploads", () => {
     await createUpload(rng, "success");
     const other = await createRange();
     await createUpload(other, "loading");
-    await renderUploads(rng);
+    await renderUploads(rng.key);
     expect(await screen.findAllByText("stand")).toHaveLength(1);
     expect(screen.queryByText("50%")).toBeNull();
   });
@@ -110,8 +141,8 @@ describe("Sift.Range.Uploads", () => {
   it("should not show the progress of a finished upload", async () => {
     const rng = await createRange();
     await createUpload(rng, "success");
-    await renderUploads(rng);
-    expect(await screen.findByRole("button", { name: "Remove upload" })).toBeTruthy();
+    await renderUploads(rng.key);
+    expect(await screen.findByRole("button", { name: "Delete upload" })).toBeTruthy();
     expect(screen.queryByText("50%")).toBeNull();
   });
 });

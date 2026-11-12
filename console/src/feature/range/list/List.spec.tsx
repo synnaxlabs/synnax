@@ -89,6 +89,13 @@ describe("range/list/List", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
+  it("should open the Sift upload modal from a range's context menu", async () => {
+    const [, rng] = await showRange();
+    fireEvent.contextMenu(await screen.findByText(rng.name));
+    fireEvent.click(await screen.findByText("Upload to Sift"));
+    expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
+  });
+
   it("should end a range on the Core from its stage selector", async () => {
     const [container, rng] = await showRange();
     const item = within(container).getByLabelText(rng.name);
