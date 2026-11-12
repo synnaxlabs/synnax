@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"os"
@@ -27,6 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -45,6 +48,7 @@ type stack struct {
 	task   *task.Service
 	imex   *imex.Service
 	status *status.Service
+	secret *secret.Service
 	rack   *rack.Rack
 }
 
@@ -70,7 +74,12 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 			racktestutil.CreateDriverRole(ctx, db, roleSvc),
 		),
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+	secretSvc := secrettestutil.OpenService(ctx, db)
+	createRoutingKeys(ctx, db, secretSvc, routingKey1)
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     db,
+		Secret: secretSvc,
+	}))
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
@@ -84,8 +93,18 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rackSvc.NewWriter(tx).Create(ctx, r)
 	})).To(Succeed())
-	return stack{db: db, task: taskSvc, imex: imexSvc, status: statusSvc, rack: r}
+	return stack{
+		db:     db,
+		task:   taskSvc,
+		imex:   imexSvc,
+		status: statusSvc,
+		secret: secretSvc,
+		rack:   r,
+	}
 }
+
+// stampedRoutingKey is the routing key in testdata/import_typed_stamped.json.
+const stampedRoutingKey = "5a3c0e7d-91b4-4f2e-8d6a-3b7f0c1e2d48"
 
 var _ = Describe("ImEx", Ordered, func() {
 	var (
@@ -94,11 +113,13 @@ var _ = Describe("ImEx", Ordered, func() {
 		testRack  *rack.Rack
 		imexSvc   *imex.Service
 		statusSvc *status.Service
+		secretSvc *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		s := openStack(ctx, "Test Rack")
-		db, svc, imexSvc, statusSvc, testRack = s.db, s.task, s.imex, s.status, s.rack
+		db, svc, imexSvc, statusSvc, secretSvc, testRack = s.db, s.task, s.imex,
+			s.status, s.secret, s.rack
 	})
 
 	Describe("Export", func() {
@@ -110,7 +131,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					Name: "Exported Task",
 					Type: pagerduty.AlertTaskType,
 					Config: msgpack.EncodedJSON{
-						"routing_key": "rk-1",
+						"routing_key": routingKey1,
 						"auto_start":  true,
 					},
 				}
@@ -130,11 +151,11 @@ var _ = Describe("ImEx", Ordered, func() {
 				// The driver reads the file as its config, so config fields sit flat
 				// at the top level rather than nested under a "config" key.
 				Expect(body).ToNot(HaveKey("config"))
-				Expect(body["routing_key"]).To(Equal("rk-1"))
+				Expect(body["routing_key"]).To(Equal(routingKey1))
 				Expect(body["auto_start"]).To(BeTrue())
 				Expect(body["type"]).To(Equal(pagerduty.AlertTaskType))
 				Expect(body["name"]).To(Equal("Exported Task"))
-				Expect(body["version"]).To(BeEquivalentTo(1))
+				Expect(body["version"]).To(BeEquivalentTo(2))
 			},
 		)
 
@@ -170,7 +191,7 @@ var _ = Describe("ImEx", Ordered, func() {
 					Name: "Round Trip Task",
 					Type: pagerduty.AlertTaskType,
 					Config: msgpack.EncodedJSON{
-						"routing_key": "rk-rt",
+						"routing_key": routingKey1,
 						"auto_start":  true,
 						"alerts": []any{map[string]any{
 							"key":      "a1",
@@ -188,7 +209,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(imported.Rack).To(Equal(rack.Key(0)))
 				Expect(imported.Name).To(Equal("Round Trip Task"))
 				Expect(imported.Type).To(Equal(pagerduty.AlertTaskType))
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-rt"))
+				Expect(imported.Config).To(HaveKeyWithValue("routing_key", routingKey1))
 				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
 				alerts, ok := imported.Config["alerts"].([]any)
 				Expect(ok).To(BeTrue())
@@ -211,7 +232,15 @@ var _ = Describe("ImEx", Ordered, func() {
 					"alerts": [{"key": "a1", "status": "warning", "enabled": false}]
 				}`)
 				imported := reimport(ctx, legacy)
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
+				Expect(imported.Config).ToNot(HaveKey("plain_routing_key"))
+				Expect(imported.Config["routing_key"]).To(BeAssignableToTypeOf(""))
+				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				var s secret.Secret
+				Expect(secretSvc.NewRetrieve().
+					Where(secret.MatchKeys(routingKey)).
+					Entry(&s).
+					Exec(ctx, db)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("Legacy PD Task routing key"))
 				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
 				alerts, ok := imported.Config["alerts"].([]any)
 				Expect(ok).To(BeTrue())
@@ -244,7 +273,13 @@ var _ = Describe("ImEx", Ordered, func() {
 					Where(task.MatchKeys(uuid.MustParse(id.Key))).
 					Entry(&imported).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-locked"))
+				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				var s secret.Secret
+				Expect(secretSvc.NewRetrieve().
+					Where(secret.MatchKeys(routingKey)).
+					Entry(&s).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("Locked PD Task routing key"))
 			},
 		)
 
@@ -259,6 +294,7 @@ var _ = Describe("ImEx", Ordered, func() {
 						Time:    telem.Now(),
 					})
 				})).To(Succeed())
+				createRoutingKeys(ctx, db, secretSvc, stampedRoutingKey)
 				raw := MustSucceed(os.ReadFile(
 					filepath.Join("testdata", "import_typed_stamped.json"),
 				))
@@ -274,6 +310,20 @@ var _ = Describe("ImEx", Ordered, func() {
 				for k, v := range body {
 					Expect(config[k]).To(BeComparableTo(v), "field %q changed", k)
 				}
+			},
+		)
+
+		It(
+			"Should drop a routing key that names no secret on import",
+			func(ctx SpecContext) {
+				raw := bytes.ReplaceAll(
+					MustSucceed(os.ReadFile(
+						filepath.Join("testdata", "import_typed_stamped.json"),
+					)),
+					[]byte(stampedRoutingKey),
+					[]byte(uuid.New().String()),
+				)
+				Expect(reimport(ctx, raw).Config).ToNot(HaveKey("routing_key"))
 			},
 		)
 
@@ -366,7 +416,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Rack:   excluded.rack.Key,
 				Name:   "Excluded Task",
 				Type:   pagerduty.AlertTaskType,
-				Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+				Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 			}
 			Expect(excluded.db.WithTx(ctx, func(tx gorp.Tx) error {
 				return excluded.task.NewWriter(tx).Create(ctx, t)

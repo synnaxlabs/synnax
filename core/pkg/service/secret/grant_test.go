@@ -134,6 +134,32 @@ var _ = Describe("Grants", func() {
 				To(MatchError(ContainSubstring(`decrypt secret "Token"`)))
 		})
 	})
+
+	Describe("Reveal", func() {
+		It("Should read a secret that no rack uses or holds a grant for", func(
+			ctx SpecContext,
+		) {
+			Expect(e.svc.Reveal(ctx, e.db, key)).
+				To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
+		})
+		It("Should return not found for a missing secret", func(ctx SpecContext) {
+			Expect(e.svc.Reveal(ctx, e.db, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should refuse to reveal a file secret", func(ctx SpecContext) {
+			s := secret.Secret{Variant: secret.FileSecret{
+				Base:     secret.Base{Name: "Client key"},
+				FileName: "k.pem",
+			}}
+			Expect(e.write(ctx, func(w secret.Writer) error {
+				return w.Set(ctx, &s, nil)
+			})).To(Succeed())
+			Expect(e.svc.Reveal(ctx, e.db, s.Base().Key)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`secret "Client key" is a file`)),
+			))
+		})
+	})
 })
 
 // storedGrants returns every grant in the DB of e.

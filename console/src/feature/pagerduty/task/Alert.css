@@ -9,8 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A secret shows its name and date, so it takes more room than the rack. */
 .console-pagerduty-routing-key {
-    max-width: 70rem;
+    flex: 2 1 0;
+    min-width: 0;
 }
 
 /* A long name fades, so the enabled dot stays in view. */

@@ -584,6 +584,8 @@ export class Lists<
     entry.handlers.add(handler);
     entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
+    // A change in the grace window found no subscriber to refetch for.
+    else if (entry.stale && entry.fetched) this.scheduleRefetch(entry);
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
