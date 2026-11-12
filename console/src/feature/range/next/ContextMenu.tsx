@@ -16,31 +16,16 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { useOpen, useStop } from "@/feature/range/next/Item";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
-import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-/** Creates a line plot of the ranges, and opens it. */
-export const usePlot = (): ((ranges: ranger.Range[]) => void) => {
-  const create = LinePlot.useCreate();
-  return (ranges) =>
-    create({
-      name: strings.naturalLanguageJoin(
-        ranges.map((r) => r.name),
-        "range",
-      ),
-      ranges: ranges.map(({ key }) => ({ variant: "key", key })),
-    });
-};
 
 /** The menu for ranges in the explorer and the overview. */
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
@@ -57,7 +42,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
   const favoriteKeys = Session.Range.useSelectKeys();
   const dispatch = Session.useDispatch();
   const open = useOpen();
-  const plot = usePlot();
+  const plot = Range.useAddToNewPlot();
   const stop = useStop();
   const openCreate = Range.useCreateModal();
   const copyLink = Core.useCopyLinkToClipboard();
@@ -87,7 +72,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
         </Menu.Item>
       )}
       {canPlot && ranges.length > 0 && (
-        <Menu.Item itemKey="plot" onClick={() => plot(ranges)}>
+        <Menu.Item itemKey="plot" onClick={() => plot(keys)}>
           <Icon.LinePlot />
           Plot
         </Menu.Item>

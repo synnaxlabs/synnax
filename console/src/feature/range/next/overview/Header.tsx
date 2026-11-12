@@ -18,7 +18,6 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { usePlot } from "@/feature/range/next/ContextMenu";
 import { useOpen } from "@/feature/range/next/Item";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -114,7 +113,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
     mode: canEdit ? "normal" : "preview",
   });
   const name = Form.useFieldValue(path.name, { ctx: form });
-  const plot = usePlot();
+  const plot = Range.useAddToNewPlot();
   const openCSV = Framer.useDownloadCSVModal();
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -149,7 +148,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
                 <Button.Button
                   variant="outlined"
                   gap="small"
-                  onClick={() => plot([range])}
+                  onClick={() => plot([rangeKey])}
                 >
                   <Icon.LinePlot />
                   Plot
