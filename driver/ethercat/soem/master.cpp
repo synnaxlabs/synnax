@@ -123,20 +123,32 @@ uint32_t pop_sdo_abort(
     return code;
 }
 
-std::string no_slaves_message(API &api, const std::string &iface) {
-    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+/// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
+/// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
+x::errors::Error
+no_slaves_error(API &api, const std::string &iface, const std::string &name) {
+    const auto found = "No EtherCAT slaves found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
-        return found + "Check the cable and the power of the first device.";
-    return found + std::format(
-                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
-                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
-                       "also after DewesoftX closes. Clear it in the properties of "
-                       "\"{0}\" (Settings > Network & internet > Advanced network "
-                       "settings > More network adapter options, then right-click the "
-                       "adapter > Properties).",
-                       api.adapter_name(iface.c_str()).value_or(iface)
-                   );
+        return x::errors::Error(
+            errors::NO_SLAVES_FOUND,
+            found + "Check the cable and the power of the first device."
+        );
+    return x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        found + std::format(
+                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
+                    "EtherCAT replies. Clear it in the properties of \"{}\" "
+                    "(Settings > Network & internet > Advanced network settings > "
+                    "More network adapter options, then right-click the adapter > "
+                    "Properties).",
+                    name
+                )
+    );
 }
+}
+
+std::string Master::name() const {
+    return this->api->adapter_name(this->iface_name.c_str()).value_or(this->iface_name);
 }
 
 Master::Master(std::unique_ptr<API> api, std::string interface_name, Config cfg):
@@ -160,7 +172,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
                 {},
                 x::errors::Error(
                     errors::MASTER_INIT_ERROR,
-                    "cannot open " + this->iface_name +
+                    "Cannot open " + this->name() +
                         " for raw Ethernet access. Run the Driver as root (or with "
                         "CAP_NET_RAW on Linux), and install Npcap on Windows."
                 )
@@ -168,13 +180,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         }
         if (this->api->config_init() <= 0) {
             this->api->close();
-            return {
-                {},
-                x::errors::Error(
-                    errors::NO_SLAVES_FOUND,
-                    no_slaves_message(*this->api, this->iface_name)
-                )
-            };
+            return {{}, no_slaves_error(*this->api, this->iface_name, this->name())};
         }
         // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
         // request to a slave whose last read state is below PRE-OP.
@@ -484,12 +490,18 @@ x::errors::Error Master::write(
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
-                err.data
+            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                err.data + "."
         );
     if (this->session)
         this->session->plan.slaves[pos].add_startup_parameters(parameters);
     return x::errors::NIL;
+}
+
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
+    std::lock_guard lock(this->mailbox_mu);
+    return this->read_sdo(pos, index, sub_index);
 }
 
 void Master::update_lost(const uint16_t pos) {
@@ -612,8 +624,8 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "slave {} ({}) maps {} input and {} output bits, but its discovered "
-                    "PDO entries hold {} and {}",
+                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
                     mapped_input_bits,

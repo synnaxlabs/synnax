@@ -76,6 +76,8 @@ class Engine {
     /// @brief the network interface of the bus.
     std::string iface;
     std::shared_ptr<master::Master> master;
+    /// @brief what messages to the user call the network.
+    std::string network_name;
     /// @brief the slaves of the latest discovery, with the layouts of the running bus.
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief the process data of the running bus. Written only while the bus is
@@ -194,9 +196,9 @@ class Engine {
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
-    /// @brief returns err, the error of the last pass of a failed start, with a
-    /// sentence for each slave in left_out. The error ends with each distinct advice of
-    /// the refusals in refused and left_out.
+    /// @brief returns err, the error of the last pass of a failed start, as a sentence,
+    /// then a sentence for each slave in left_out. The error ends with each distinct
+    /// advice of the refusals in refused and left_out.
     static x::errors::Error start_error(
         x::errors::Error err,
         const std::map<uint16_t, slave::Refusal> &refused,
@@ -227,6 +229,9 @@ class Engine {
     /// @brief copies the staged outputs into the process image. Waits for write_mu when
     /// wait is true, and otherwise keeps the last outputs while a writer holds it.
     void write_outputs(bool wait);
+    /// @brief returns why the latest failed cycle failed. A working counter error also
+    /// names each slave that the latest check found out of OP. Call it only while the
+    /// bus runs.
     [[nodiscard]] x::errors::Error cycle_error() const;
     /// @brief returns the offset of each entry in the process image.
     /// @returns errors::STATE_CHANGE_REFUSED for an entry on a left-out slave, or
@@ -387,6 +392,10 @@ public:
         x::telem::Rate execution_rate
     );
 
+    /// @brief returns the name that messages to the user give the network, as
+    /// master::Master::name() gave it when the engine was made.
+    [[nodiscard]] const std::string &name() const { return this->network_name; }
+
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }
 
@@ -413,6 +422,12 @@ public:
         const slave::Properties &slave,
         const std::vector<slave::StartupParameter> &parameters
     );
+
+    /// @brief reads an object of at most four bytes from the slave at position on the
+    /// running bus, as an unsigned value. Thread-safe.
+    /// @returns coe::read_error() when the read fails.
+    [[nodiscard]] std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index);
 
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.

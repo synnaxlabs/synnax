@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, query, type Synnax as Client } from "@synnaxlabs/client";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { type LocalCache, setSettled, subscribeReader } from "@/flux/suspend";
+import { ensureFetch, type LocalCache, subscribeReader } from "@/flux/suspend";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const newLocal = (): LocalCache<number> => ({
@@ -26,39 +26,49 @@ const newLocal = (): LocalCache<number> => ({
   listeners: new Map(),
 });
 
-describe("setSettled", () => {
-  it("evicts the oldest entry once the cap is exceeded", () => {
+// settle lands a fetch of key that answers data in local's settled entries.
+const settle = async (local: LocalCache<number>, key: string, data: number) =>
+  await ensureFetch(
+    { client, query: { key } },
+    { name: "Number", retrieve: async () => data, local },
+  );
+
+const hashOf = (key: string): string => query.hash({ key });
+
+describe("ensureFetch", () => {
+  it("evicts the oldest settled entry once the cap is exceeded", async () => {
     const local = newLocal();
-    for (let i = 0; i < 257; i++) setSettled(local, `q${i}`, { data: i });
+    for (let i = 0; i < 257; i++) await settle(local, `q${i}`, i);
     expect(local.settled.size).toEqual(256);
-    expect(local.settled.has("q0")).toBe(false);
-    expect(local.settled.has("q1")).toBe(true);
-    expect(local.settled.has("q256")).toBe(true);
+    expect(local.settled.has(hashOf("q0"))).toBe(false);
+    expect(local.settled.has(hashOf("q1"))).toBe(true);
+    expect(local.settled.has(hashOf("q256"))).toBe(true);
   });
 
-  it("refreshes recency on re-insert so hot entries survive eviction", () => {
+  it("refreshes recency on re-insert so hot entries survive eviction", async () => {
     const local = newLocal();
-    for (let i = 0; i < 256; i++) setSettled(local, `q${i}`, { data: i });
-    setSettled(local, "q0", { data: -1 });
-    setSettled(local, "fresh", { data: 999 });
-    expect(local.settled.has("q0")).toBe(true);
-    expect(local.settled.get("q0")).toEqual({ data: -1 });
-    expect(local.settled.has("q1")).toBe(false);
+    for (let i = 0; i < 256; i++) await settle(local, `q${i}`, i);
+    await settle(local, "q0", -1);
+    await settle(local, "fresh", 999);
+    expect(local.settled.get(hashOf("q0"))).toEqual({ data: -1 });
+    expect(local.settled.has(hashOf("q1"))).toBe(false);
   });
 
-  it("notifies listeners after the entry lands", () => {
+  it("notifies readers after the entry lands", async () => {
     const local = newLocal();
-    const listener = vi.fn(() => expect(local.settled.get("q")).toEqual({ data: 1 }));
-    subscribeReader(local, "q", listener);
-    setSettled(local, "q", { data: 1 });
+    const listener = vi.fn(() =>
+      expect(local.settled.get(hashOf("q"))).toEqual({ data: 1 }),
+    );
+    subscribeReader(local, hashOf("q"), listener);
+    await settle(local, "q", 1);
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it("notifies only the readers of the settled query", () => {
+  it("notifies only the readers of the settled query", async () => {
     const local = newLocal();
     const listener = vi.fn();
-    subscribeReader(local, "other", listener);
-    setSettled(local, "q", { data: 1 });
+    subscribeReader(local, hashOf("other"), listener);
+    await settle(local, "q", 1);
     expect(listener).not.toHaveBeenCalled();
   });
 });

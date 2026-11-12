@@ -42,8 +42,8 @@ Pool::acquire(const std::string &key) {
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     engine::Config cfg;
-    cfg.slave_configs = [slave_configs = this->slave_configs, key] {
-        return slave_configs(key);
+    cfg.slave_configs = [slave_configs = this->slave_configs, key, name = m->name()] {
+        return slave_configs(key, name);
     };
     cfg.start_timeout = this->start_timeout;
     cfg.rt_manager = this->rt_manager;
