@@ -16,12 +16,10 @@
  * expression is true when `DESKTOP` is. Each entry names its owner, its Linear
  * umbrella issue, and the release that removes it.
  */
-const ENABLED = IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
-
 export const FLAGS = {
   // Owner: Emiliano Bonilla. Umbrella: SY-3591. Removed in the release that ships the
   // Sift integration.
-  sift: ENABLED,
+  sift: IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true",
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
