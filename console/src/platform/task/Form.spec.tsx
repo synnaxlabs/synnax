@@ -780,7 +780,7 @@ describe("Driver field errors", () => {
     expect(screen.queryByText(RATE_ERROR)).toBeNull();
   });
 
-  it("should start a task whose status holds field errors", async () => {
+  it("should clear the field errors and start a task whose status holds them", async () => {
     const client = createTestClient();
     const rck = await client.racks.create({ name: uniqueName("rack") });
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -791,6 +791,7 @@ describe("Driver field errors", () => {
       );
       await clickDeploy(container);
       expect((await awaitCommand(streamer, tsk.key)).type).toBe("start");
+      expect(screen.queryByText(RATE_ERROR)).toBeNull();
     } finally {
       streamer.close();
     }
