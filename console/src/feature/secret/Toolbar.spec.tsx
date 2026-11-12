@@ -10,8 +10,10 @@
 import {
   certificate,
   NotFoundError,
+  pagerduty,
   secret,
   type Synnax as Client,
+  task,
   user,
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
@@ -28,7 +30,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
+import { PagerDuty } from "@/feature/pagerduty";
 import { Secret } from "@/feature/secret";
+import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createSecret } from "@/platform/secret/testutil";
@@ -45,6 +49,8 @@ import {
   getIconButton,
   openContextMenu,
   renderHookWithConsole,
+  resolveFocusedTab,
+  selectTestProject,
   uniqueName,
 } from "@/testutil";
 
@@ -54,6 +60,7 @@ const client = createTestClient();
 // what it created.
 const createdSecrets: secret.Key[] = [];
 const createdCertificates: certificate.Key[] = [];
+const createdTasks: task.Key[] = [];
 
 // Deletion tests already removed their secret, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -63,6 +70,7 @@ const ignoreNotFound = (err: unknown) => {
 afterEach(async () => {
   // Unmount first, or the toolbar would watch the deletions below.
   cleanup();
+  for (const key of createdTasks.splice(0)) await client.tasks.delete(key);
   for (const key of createdCertificates.splice(0))
     await client.certificates.delete(key).catch(ignoreNotFound);
   for (const key of createdSecrets.splice(0))
@@ -82,14 +90,17 @@ const createCertificate = async () => {
   return { certificate: c, privateKey: await client.secrets.retrieve(c.privateKey) };
 };
 
-const renderToolbar = async (as: Client = client) => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const renderToolbar = async (
+  as: Client = client,
+  items: Tree.Items = Secret.TREE_ITEMS,
+) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   let statuses: Status.NotificationSpec[] = [];
   // A list the client already holds renders its secrets at once, and each one
   // suspends to read its uses.
   await act(async () => {
     render(
-      <Tree.Provider items={Secret.TREE_ITEMS}>
+      <Tree.Provider items={items}>
         {Secret.TOOLBAR.content}
         <Modals.Stack />
         <CaptureStatuses onStatuses={(s) => (statuses = s)} />
@@ -97,7 +108,7 @@ const renderToolbar = async (as: Client = client) => {
       { wrapper },
     );
   });
-  return { statuses: () => statuses };
+  return { statuses: () => statuses, store };
 };
 
 const retrieveByName = async (name: string): Promise<secret.Secret[]> =>
@@ -292,6 +303,45 @@ describe("secret/Toolbar", () => {
     await within(dialog).findByText(c.name);
     fireEvent.pointerLeave(count);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("opens a task that uses a secret from its users", async () => {
+    const s = await createSecret(client, createdSecrets);
+    // The Core refuses an alert that names a status it does not hold.
+    const st = await client.statuses.set({
+      key: uniqueName("status"),
+      name: "st",
+      variant: "info",
+      message: "st",
+    });
+    const t = await client.tasks.create(
+      {
+        name: uniqueName("alerts"),
+        type: PagerDuty.Task.ALERT_TYPE,
+        config: {
+          ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+          routingKey: s.key,
+          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
+        },
+      },
+      PagerDuty.Task.ALERT_SCHEMAS,
+    );
+    createdTasks.push(t.key);
+    const { store } = await renderToolbar(client, {
+      ...Secret.TREE_ITEMS,
+      ...Task.TREE_ITEMS,
+    });
+    // A task opens in a tab of the selected project.
+    await selectTestProject(store, client);
+    const count = await waitFor(() => within(getOption(s.name)).getByText("Used by 1"));
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByText(t.name));
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource).toEqual(task.resourceID(t.key));
   });
 
   it("renames a certificate through the inline editor", async () => {

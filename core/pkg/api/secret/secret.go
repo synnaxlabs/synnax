@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -189,8 +190,9 @@ func (s *Service) Retrieve(
 }
 
 // fillUses sets the uses of each secret, leaving out the resources the subject cannot
-// retrieve. A secret with no readable uses gets empty uses, so the response tells it
-// apart from a secret whose uses were not asked for.
+// retrieve. A task config that uses a secret appears as its task. A secret with no
+// readable uses gets empty uses, so the response tells it apart from a secret whose
+// uses were not asked for.
 func (s *Service) fillUses(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -202,10 +204,13 @@ func (s *Service) fillUses(
 		if err != nil {
 			return err
 		}
-		base.Uses = lo.Filter(
-			uses,
-			func(id resource.ID, _ int) bool { return snap.Allowed(id) },
-		)
+		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
+			target := gorp.Target{Table: string(id.Type), Key: id.Key}
+			if t, ok := taskconfig.TaskOf(target); ok {
+				id = t
+			}
+			return id, snap.Allowed(id)
+		})
 		secrets[i].SetBase(base)
 	}
 	return nil

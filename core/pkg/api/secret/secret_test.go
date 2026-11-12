@@ -30,10 +30,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -401,6 +404,35 @@ var _ = Describe("Service", func() {
 					Expect(res.Secrets).To(HaveLen(1))
 					Expect(res.Secrets[0].Base().Uses).
 						To(Equal([]resource.ID{cert.ResourceID()}))
+				},
+			)
+			It("Should return the task of a config that uses a secret",
+				func(ctx SpecContext) {
+					s := createSecret(ctx, "Routing key", "rk")
+					t := task.Task{
+						Type: pagerduty.AlertTaskType,
+						Rack: svc.Rack.EmbeddedKey,
+						Name: "Alerts",
+						Config: msgpack.EncodedJSON{
+							"routing_key": s.Base().Key.String(),
+						},
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Task.NewWriter(tx).Create(ctx, &t)
+					})).To(Succeed())
+					allow(
+						ctx,
+						u.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						t.ResourceID(),
+					)
+					res := MustSucceed(retrieve(
+						AuthedCtx(ctx, u),
+						whereKeysWithUses(s.Base().Key),
+					))
+					Expect(res.Secrets).To(HaveLen(1))
+					Expect(res.Secrets[0].Base().Uses).
+						To(Equal([]resource.ID{t.ResourceID()}))
 				},
 			)
 			It("Should leave out the uses that the caller cannot read",

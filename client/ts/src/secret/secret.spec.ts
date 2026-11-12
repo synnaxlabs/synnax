@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { id, Series, TimeSpan, uuid } from "@synnaxlabs/x";
+import { id, Series, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 import { type z } from "zod";
 
@@ -17,6 +17,7 @@ import { NotFoundError, PathError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { secret } from "@/secret";
+import { task } from "@/task";
 import {
   CERTIFICATE,
   createTestClient,
@@ -362,6 +363,163 @@ describe("Secret", () => {
       }
     });
 
+    it("should update the uses of a secret when a task starts using it", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.watch(q).onChange(() => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const r = await client.racks.create({ name: "Uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.watch(q).getCached()).uses).toEqual([
+            task.resourceID(t.key),
+          ]),
+        );
+        await client.tasks.delete(t.key);
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.watch(q).getCached()).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should refetch uses that change while a list reads them", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Listed routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const held = holdResponses(client, "/secret/retrieve");
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      const usesOf = () => list.getCached()?.records.find((r) => r.key === s.key)?.uses;
+      try {
+        const fetched = list.retrieve();
+        await held.responded;
+        const r = await client.racks.create({ name: "Listed uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        // Long enough for the task change to reach the client.
+        await sleep.sleep(TimeSpan.seconds(1));
+        held.release();
+        await fetched;
+        await vi.waitFor(() => expect(usesOf()).toEqual([task.resourceID(t.key)]));
+      } finally {
+        off();
+      }
+    });
+
+    it("should apply refetched uses in the order of the changes", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Ordered routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const off = client.secrets.watch(q).onChange(() => {});
+      try {
+        expect((await client.secrets.retrieve(q)).uses).toEqual([]);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Ordered uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await client.tasks.delete(t.key);
+        // Long enough for the deletion to reach the client.
+        await sleep.sleep(TimeSpan.seconds(1));
+        expect(held.sent()).toBe(1);
+        held.release();
+        await vi.waitFor(() =>
+          expect(expectLive(client.secrets.watch(q).getCached()).uses).toEqual([]),
+        );
+      } finally {
+        off();
+      }
+    });
+
+    it("should apply other changes while it refetches uses", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Waiting routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      const offUses = client.secrets.watch(q).onChange(() => {});
+      const off = client.secrets.watch(s.key).onChange(() => {});
+      try {
+        await client.secrets.retrieve(q);
+        const held = holdResponses(client, "/secret/retrieve");
+        const r = await client.racks.create({ name: "Waiting uses" });
+        await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        await held.responded;
+        await createTestClient().secrets.rename(s.key, "Renamed routing key");
+        await expect
+          .poll(() => expectLive(client.secrets.watch(s.key).getCached()).name)
+          .toBe("Renamed routing key");
+        held.release();
+      } finally {
+        off();
+        offUses();
+      }
+    });
+
+    it("should report no error for a uses refetch that a close stops", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({
+        onInternalError: (error) => internal.push(error),
+      });
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Closed routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      client.secrets.watch(q).onChange(() => {});
+      await client.secrets.retrieve(q);
+      const held = holdResponses(client, "/secret/retrieve");
+      const r = await client.racks.create({ name: "Closed uses" });
+      await r.createTask({
+        name: "Alerts",
+        type: "pagerduty_alert",
+        config: { routingKey: s.key },
+      });
+      await held.responded;
+      await client.close();
+      held.release();
+      // Long enough for the refetch to fail.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(internal).toEqual([]);
+    });
+
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
@@ -592,7 +750,7 @@ describe("Secret", () => {
         recordCap: 4,
       });
       onTestFinished(async () => await cache.close());
-      const secrets = new secret.Client({ unary, cache });
+      const secrets = new secret.Client({ unary, cache, usesChannels: [] });
       await cache.ensureStreaming();
       const [held, ...others] = Array.from({ length: 6 }, () => uuid.create());
       const q = { key: held, includeUses: true };

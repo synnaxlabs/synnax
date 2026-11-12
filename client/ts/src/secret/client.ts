@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter } from "@synnaxlabs/x";
+import { array, filter, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { NotFoundError } from "@/errors";
+import { isConnectionError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/secret/actions";
@@ -112,10 +112,16 @@ interface Deletes {
 }
 
 const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
+const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
 
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  /**
+   * The channels that announce changes to resources that can use a secret. A change on
+   * one refetches the uses the client holds.
+   */
+  usesChannels: string[];
 }
 
 export class Client extends query.Retriever<
@@ -130,6 +136,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Secret>;
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly deletes: Deletes;
+  private readonly usesChanges: { count: number };
+  private readonly refetchUses: () => void;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -139,9 +147,14 @@ export class Client extends query.Retriever<
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
-    // The secret table never holds uses. No change stream keeps uses current, so only a
-    // retrieve that asks for them writes or reads this table.
-    const usesStore = cache.createTable<Key, Uses>({ name: "secret.uses" });
+    // The secret table never holds uses. A retrieve that asks for them reads this one.
+    const usesStore = cache.createTable<Key, Uses>({
+      name: "secret.uses",
+      fetch: async (keys) =>
+        (
+          await this.retrieveUses({ ...query.keysRequest(keys), includeUses: true })
+        ).map(toUses),
+    });
     // An answer that holds a secret composes its uses too.
     usesStore.hold({ held: () => store.held() });
     const deletes: Deletes = { inFlight: 0, seq: 0, at: new Map() };
@@ -151,6 +164,35 @@ export class Client extends query.Retriever<
       usesStore.evict(event.key);
       if (deletes.inFlight > 0) deletes.at.set(event.key, ++deletes.seq);
     });
+    // The Core announces no change to uses. Refetches run outside the change stream and
+    // one at a time, so an older reply cannot overwrite a newer one. A change that
+    // arrives while a refetch waits joins it.
+    const refetchMu = sync.newMutex({ waiting: false });
+    const refetchUses = () => {
+      if (refetchMu.waiting) return;
+      refetchMu.waiting = true;
+      refetchMu
+        .runExclusive(async () => {
+          refetchMu.waiting = false;
+          await usesStore.reconcile();
+        })
+        .catch((exc: unknown) => {
+          // The reconcile after the next reconnect fetches the uses again.
+          if (isConnectionError(exc)) return;
+          cache.onError(new Error("failed to refetch secret uses", { cause: exc }));
+        });
+    };
+    const usesChanges = { count: 0 };
+    cfg.usesChannels.forEach((channel) =>
+      cache.listen({
+        channel,
+        schema: z.unknown(),
+        onChange: () => {
+          usesChanges.count++;
+          refetchUses();
+        },
+      }),
+    );
     const usesTrigger = query.trigger(
       usesStore,
       (event, q: RetrieveRequest | RetrieveSingleParams) =>
@@ -203,6 +245,8 @@ export class Client extends query.Retriever<
     this.store = store;
     this.usesStore = usesStore;
     this.deletes = deletes;
+    this.usesChanges = usesChanges;
+    this.refetchUses = refetchUses;
     this.dispatcher = dispatcher;
   }
 
@@ -291,8 +335,11 @@ export class Client extends query.Retriever<
 
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
     if (req.includeUses !== true) return await this.execRetrieve(req);
+    const changes = this.usesChanges.count;
     const secrets = await this.retrieveUses(req);
-    this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
+    this.usesStore.set(secrets.map(toUses));
+    // A refetch that a change started can miss these keys or land first.
+    if (this.usesChanges.count !== changes) this.refetchUses();
     return secrets.map(stripUses);
   }
 

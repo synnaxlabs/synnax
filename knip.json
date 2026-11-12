@@ -46,7 +46,6 @@
         "src/app/nav/{bar,drawer}/{Bottom,Left,Top}.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
         "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
-        "src/platform/secret/Field.tsx": ["exports"],
         "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
       }
     },

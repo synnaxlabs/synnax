@@ -828,6 +828,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -1015,6 +1016,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
 	})
 	if !ok(err, nil) {
 		return nil, err
