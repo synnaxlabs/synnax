@@ -211,7 +211,10 @@ export const Provider = ({
       } catch (error) {
         const st = status.fromException(error, "Failed to update Console");
         addStatus(st);
-        setDownload((p) => ({ ...p, variant: "error", status: st }));
+        // Once the checks drop the update, its error no longer applies.
+        if (held.current === update)
+          setDownload((p) => ({ ...p, variant: "error", status: st }));
+        else setDownload(IDLE);
       }
     })();
   return (

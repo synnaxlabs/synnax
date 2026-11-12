@@ -89,6 +89,30 @@ describe("Version.Update", () => {
     );
   });
 
+  it("should leave out the failure of an update that the checks dropped", async () => {
+    let fail = (): void => {};
+    const ipc = mockUpdater({
+      served: "1.5.1",
+      download: async () =>
+        await new Promise<void>((_, reject) => {
+          fail = () => reject(new Error("download failed"));
+        }),
+    });
+    const setStatus = await renderProvider(
+      <>
+        <Version.Update />
+        <Modals.Stack />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole("button", UPDATE));
+    await screen.findByText("Downloading update");
+    setStatus(createStatus("1.5.1"));
+    await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(2));
+    await act(async () => fail());
+    expect(await screen.findByText("Version 1.5.1 available")).toBeTruthy();
+    expect(screen.queryByText("Failed to update Console")).toBeNull();
+  });
+
   it("should clear a failed update when the checks start again", async () => {
     mockUpdater({
       served: "1.5.1",
