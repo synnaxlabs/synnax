@@ -280,6 +280,24 @@ var _ = Describe("Channel fields", func() {
 			Expect(f).To(HaveKeyWithValue("time_format", "unix_ms"))
 		})
 
+		It(
+			"Should import a v1 timestamp field whose channel is gone as its JSON type",
+			func(
+				ctx SpecContext,
+			) {
+				old := map[string]any{
+					"channel":     999999,
+					"json_type":   "string",
+					"time_format": "unix_ms",
+				}
+				f := firstField(
+					MustSucceed(svc.Write.Normalize(ctx, db, 1, config(old))),
+				)
+				Expect(f).To(HaveKeyWithValue("channel", BeNumerically("==", 0)))
+				Expect(f).To(HaveKeyWithValue("type", "string"))
+			},
+		)
+
 		It("Should give a field with no channel the kind of its data type", func(
 			ctx SpecContext,
 		) {
