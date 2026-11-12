@@ -93,10 +93,13 @@ jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths. The ci output is a JSON list of the jobs that an
   # edit to this file or the change map selects. spec_only is true when the change
-  # touches only unit tests.
+  # touches only unit tests. A merge group with the tree that its pull request tested
+  # skips each job that passed there: the filters are false, and ci lists the rest.
   changes:
-    # paths-filter lists the changed files of a pull request through the API.
+    # paths-filter lists the changed files of a pull request through the API. The skip
+    # reads the jobs of the pull request run.
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     runs-on: ubuntu-latest
@@ -109,7 +112,7 @@ jobs:
       arc_go: ${{ steps.filter.outputs.arc_go }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
-      ci: ${{ steps.ci.outputs.jobs }}
+      ci: ${{ steps.filter.outputs.ci }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
@@ -161,7 +164,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
+        id: touched
         with:
           filters: .github/filters.yaml
 
@@ -192,6 +195,16 @@ jobs:
             python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
           echo "$spec_only"
           echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
+
+      - name: Skip the jobs that passed on the same tree
+        id: filter
+        env:
+          CI_JOBS: ${{ steps.ci.outputs.jobs }}
+          GH_TOKEN: ${{ github.token }}
+          TOUCHED: ${{ toJSON(steps.touched.outputs) }}
+        run: |
+          uv run --locked --project .github/scripts \
+            python .github/scripts/queue_skip.py >> "$GITHUB_OUTPUT"
 
   actionlint:
     needs: changes
