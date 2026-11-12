@@ -32,6 +32,7 @@ import { View } from "@/platform/view";
 interface SortSelectProps {
   value: view.RangeSort;
   onChange: (value: view.RangeSort) => void;
+  preview: boolean;
 }
 
 const SORT_ICONS: Record<view.RangeSort, Icon.ReactElement> = {
@@ -40,12 +41,13 @@ const SORT_ICONS: Record<view.RangeSort, Icon.ReactElement> = {
   name: <Icon.Text />,
 };
 
-const SortSelect = ({ value, onChange }: SortSelectProps): ReactElement => (
+const SortSelect = ({ value, onChange, preview }: SortSelectProps): ReactElement => (
   <Select.Simple<view.RangeSort>
     resourceName="order"
     searchHidden
     value={value}
     onChange={onChange}
+    preview={preview}
     triggerProps={{ variant: "text", size: "medium", hideCaret: true, textColor: 9 }}
   >
     <Select.Item<view.RangeSort> itemKey="newest">
@@ -86,7 +88,7 @@ const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 const useViewField = <F extends "sort" | "layout">(
   field: F,
 ): [view.RangeView[F], (next: view.RangeView[F]) => void] => {
-  const { selected, staticViews, editable, getInitialView } = View.useContext();
+  const { selected, staticViews, getInitialView } = View.useContext();
   const stored = !staticViews.includes(selected);
   const [local, setLocal] = useState(() => (getInitialView() as view.RangeView)[field]);
   const live = PView.useResult(stored ? { key: selected } : null).data;
@@ -95,15 +97,13 @@ const useViewField = <F extends "sort" | "layout">(
   const value = live?.type === "range" ? live[field] : local;
   return [
     value,
-    (next) => {
-      if (editable)
-        update({ key: selected, actions: view.set({ path: [field], value: next }) });
-    },
+    (next) =>
+      update({ key: selected, actions: view.set({ path: [field], value: next }) }),
   ];
 };
 
 const Internal = (): ReactElement => {
-  const { getInitialView, searchTerm } = View.useContext();
+  const { getInitialView, searchTerm, editable } = View.useContext();
   const [where, setWhere] = useState(() => getInitialView().where);
   const [sort, setSort] = useViewField("sort");
   const [layout, setLayout] = useViewField("layout");
@@ -183,12 +183,15 @@ const Internal = (): ReactElement => {
           <Chips />
         </Flex.Box>
         <Flex.Box x align="center" gap="small">
-          {searchTerm === "" && <SortSelect value={sort} onChange={setSort} />}
+          {searchTerm === "" && (
+            <SortSelect value={sort} onChange={setSort} preview={!editable} />
+          )}
           <Tree.LayoutSelect
             value={layout}
             onChange={setLayout}
             layouts={EXPLORER_LAYOUTS}
             size="medium"
+            preview={!editable}
           />
           {canCreate && (
             <Button.Button

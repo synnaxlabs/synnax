@@ -12,8 +12,8 @@ import { waitFor } from "@testing-library/react";
 import { getBySelector, getIconButton } from "@/testutil";
 
 /**
- * Waits for the icon button with the given icon name in the mounted View.Toolbar,
- * which renders once the update permission check resolves, and returns it.
+ * Waits for the icon button with the given icon name in the mounted View.Toolbar, and
+ * returns it.
  */
 export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonElement> =>
   await waitFor(() =>

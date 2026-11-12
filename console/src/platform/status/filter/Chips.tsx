@@ -21,7 +21,6 @@ const path = deep.path<{ where?: { variant?: status.Where["variant"] } }>();
 
 /** A chip for the variants in the filter of the view. Without any, it is absent. */
 export const Chips = (): ReactElement | null => {
-  const { editable } = View.useContext();
   const field = Form.useField(deep.present(path.where).variant, {
     optional: true,
   });
@@ -39,12 +38,10 @@ export const Chips = (): ReactElement | null => {
         ))}
         {variants.map((variant) => caseconv.capitalize(variant)).join(", ")}
       </View.FilterChipValue>
-      {editable && (
-        <View.FilterChipRemove
-          name="Variants"
-          onClick={() => field.onChange(undefined)}
-        />
-      )}
+      <View.FilterChipRemove
+        name="Variants"
+        onClick={() => field.onChange(undefined)}
+      />
     </View.FilterChip>
   );
 };

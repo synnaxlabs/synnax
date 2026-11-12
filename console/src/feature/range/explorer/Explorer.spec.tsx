@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { label, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -18,6 +18,7 @@ import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
+  createTestClientWithGrants,
   renderSuspended,
   uniqueName,
   uniqueToken,
@@ -25,8 +26,8 @@ import {
 
 const client = createTestClient();
 
-const renderExplorer = async (): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderExplorer = async (as: Client = client): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   await renderSuspended(
     <>
       <Explorer />
@@ -279,6 +280,38 @@ describe("range/explorer/Explorer", () => {
         if (saved.type !== "range") throw new Error("not a range view");
         expect([saved.sort, saved.layout]).toEqual(["name", "list"]);
       });
+    });
+  });
+
+  describe("permissions", () => {
+    it("should show a stored view read-only to a subject who cannot update views", async () => {
+      const { label: lbl, labeled } = await createLabeled();
+      const stored = await client.views.create({
+        name: uniqueName("view"),
+        type: "range",
+        where: { labels: [lbl.key] },
+      });
+      const as = await createTestClientWithGrants(client, {
+        retrieve: [
+          ranger.TYPE_RESOURCE_ID,
+          view.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+        ],
+        create: [ranger.TYPE_RESOURCE_ID],
+      });
+      await renderExplorer(as);
+      fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
+      await screen.findByText(labeled.name);
+      await screen.findByRole("button", { name: "Create range" });
+      await act(async () => {});
+      expect(screen.getByText("Labels")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Remove Labels filter" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
+      expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+      fireEvent.click(screen.getByText("Newest first"));
+      expect(screen.queryByText("Oldest first")).toBeNull();
+      expect(screen.getByText("Tree")).toBeTruthy();
+      expect(screen.queryByText("List")).toBeNull();
     });
   });
 });

@@ -47,7 +47,6 @@ const Value = ({ keys }: ValueProps): ReactElement => {
 
 /** A chip for the labels in the filter of the view. Without labels, it is absent. */
 export const Chips = (): ReactElement | null => {
-  const { editable } = View.useContext();
   const field = Form.useField(deep.present(path.where).labels, {
     optional: true,
   });
@@ -64,12 +63,7 @@ export const Chips = (): ReactElement | null => {
           <Value keys={labels} />
         </Errors.SuspenseBoundary>
       </View.FilterChipValue>
-      {editable && (
-        <View.FilterChipRemove
-          name="Labels"
-          onClick={() => field.onChange(undefined)}
-        />
-      )}
+      <View.FilterChipRemove name="Labels" onClick={() => field.onChange(undefined)} />
     </View.FilterChip>
   );
 };

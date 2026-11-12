@@ -607,17 +607,16 @@ const ChipValue = ({ condition }: ChipValueProps<Property>): ReactElement => {
 
 interface ChipProps {
   condition: Condition;
-  editable: boolean;
   onRemove: () => void;
 }
 
-const Chip = ({ condition, editable, onRemove }: ChipProps): ReactElement => {
+const Chip = ({ condition, onRemove }: ChipProps): ReactElement => {
   const { name, icon } = PROPERTIES[condition.property];
   return (
     <View.FilterChip>
       <View.FilterChipName icon={icon}>{name}</View.FilterChipName>
       <ChipValue condition={condition} />
-      {editable && <View.FilterChipRemove name={name} onClick={onRemove} />}
+      <View.FilterChipRemove name={name} onClick={onRemove} />
     </View.FilterChip>
   );
 };
@@ -633,7 +632,6 @@ export const Chips = (): ReactElement | null => {
         <Chip
           key={`${condition.property}-${i}`}
           condition={condition}
-          editable={editable}
           onRemove={() => setConditions(conditions.filter((c) => c !== condition))}
         />
       ))}

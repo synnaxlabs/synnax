@@ -113,23 +113,30 @@ export interface FilterChipRemoveProps {
   onClick: () => void;
 }
 
-/** Removes the condition of a {@link FilterChip} from the filter. */
+/**
+ * Removes the condition of a {@link FilterChip} from the filter. It is absent while the
+ * view is not editable.
+ */
 export const FilterChipRemove = ({
   name,
   onClick,
-}: FilterChipRemoveProps): ReactElement => (
-  <Button.Button
-    variant="text"
-    size="small"
-    square
-    sharp
-    textColor={8}
-    className={CSS.BE("view", "filter-remove")}
-    aria-label={`Remove ${name} filter`}
-    tooltip="Remove filter"
-    tooltipLocation="bottom"
-    onClick={onClick}
-  >
-    <Icon.Close />
-  </Button.Button>
-);
+}: FilterChipRemoveProps): ReactElement | null => {
+  const { editable } = useContext("View.FilterChipRemove");
+  if (!editable) return null;
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      square
+      sharp
+      textColor={8}
+      className={CSS.BE("view", "filter-remove")}
+      aria-label={`Remove ${name} filter`}
+      tooltip="Remove filter"
+      tooltipLocation="bottom"
+      onClick={onClick}
+    >
+      <Icon.Close />
+    </Button.Button>
+  );
+};

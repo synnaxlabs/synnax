@@ -55,6 +55,8 @@ export interface LayoutSelectProps {
   /** The layouts to offer, in order. */
   layouts: view.RangeLayout[];
   size?: Button.ButtonProps["size"];
+  /** Shows the layout and offers no other. */
+  preview?: boolean;
 }
 
 export const LayoutSelect = ({
@@ -62,8 +64,14 @@ export const LayoutSelect = ({
   onChange,
   layouts,
   size = "small",
+  preview,
 }: LayoutSelectProps): ReactElement => (
-  <Select.Buttons<view.RangeLayout> size={size} value={value} onChange={onChange}>
+  <Select.Buttons<view.RangeLayout>
+    size={size}
+    value={value}
+    onChange={onChange}
+    preview={preview}
+  >
     {layouts.map((layout) => (
       <Select.Item<view.RangeLayout> key={layout} itemKey={layout} size={size}>
         {LAYOUTS[layout].icon}
