@@ -12,14 +12,28 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { role } from "@/access/role";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of users. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * User is an account entity representing a person accessing the Synnax system. Users
- * can have roles assigned for permission management.
+ * User is an account entity representing a person accessing the Synnax system. Each
+ * user holds one role, which grants its permissions.
  */
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
@@ -31,6 +45,8 @@ export const userZ = z.object({
    * cannot be deleted.
    */
   rootUser: z.boolean().default(false),
+  /** role is the role that grants the user its permissions. */
+  role: role.keyZ.min(1, "role is required"),
 });
 export interface User extends z.infer<typeof userZ> {}
 
@@ -41,6 +57,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   usernames?: string[];
+  roles?: role.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -59,7 +76,18 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** usernames matches the users whose password has any of the given usernames. */
   usernames: zod.nullToUndefined(z.string().array()),
+  /** roles matches the users that hold any of the given roles. */
+  roles: zod.nullToUndefined(role.keyZ.array()),
 });
+
+/** Cursor is a position in an order of users: the sort value and the key of a user. */
+export const cursorZ = z.object({
+  /** key is the key of the user at the position. */
+  key: keyZ,
+  /** name is the name of the user at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 export const newZ = userZ
   .omit({ rootUser: true })
@@ -83,12 +111,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the users that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the users. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the users strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most users to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching users to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("user");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("user");
+export const TYPE_RESOURCE_ID = resourceID("");

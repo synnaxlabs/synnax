@@ -11,7 +11,8 @@
  * Joins an array of strings into a natural language list.
  *
  * @param strings - The array of strings to join.
- * @param zeroLength - The string to return if the array is empty. Defaults to an empty string.
+ * @param zeroLength - The string to return if the array is empty. Defaults to an empty
+ * string.
  * @returns A string that represents the natural language list.
  *
  * @example
@@ -39,12 +40,14 @@ export const naturalLanguageJoin = (
  * Creates a list of short identifiers from a given name.
  *
  * @param name - The name to create identifiers from.
- * @returns An array of unique short identifiers.
+ * @returns An array of unique short identifiers. Each starts with a letter and holds
+ * only letters, digits, and underscores.
  *
  * @example
  * ```typescript
  * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
- * createShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * createShortIdentifiers("Alice 123");
+ * // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
  * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
@@ -79,7 +82,7 @@ export const createShortIdentifiers = (name: string): string[] => {
   identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
 
   const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
+    (id) => id.length >= 2 && id.length <= 12 && /^[a-zA-Z]\w*$/.test(id),
   );
 
   return filteredIdentifiers;
@@ -90,7 +93,8 @@ export const createShortIdentifiers = (name: string): string[] => {
  *
  * @param str - The string to remove the prefix from.
  * @param prefix - The prefix to remove.
- * @returns The string with the prefix removed if it was present, otherwise the original string.
+ * @returns The string with the prefix removed if it was present, otherwise the original
+ * string.
  *
  * @example
  * ```typescript

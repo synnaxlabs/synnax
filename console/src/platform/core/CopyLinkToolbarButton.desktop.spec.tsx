@@ -21,7 +21,7 @@ describe("CopyLinkToolbarButton", () => {
     await renderCoreUI(
       <Core.CopyLinkToolbarButton
         name="My Range"
-        ontologyID={{ type: "range", key: "range-key" }}
+        resourceID={{ type: "range", key: "range-key" }}
       />,
       createCoreState([CORE], CORE.key),
     );

@@ -10,7 +10,6 @@
 //! Supervises the embedded Core: starts it, reports when it is ready, restarts it after
 //! a crash or a hang, and stops it on request.
 
-mod backup;
 pub mod commands;
 mod diagnostics;
 pub mod discovery;
@@ -43,9 +42,7 @@ const CONFIG_FILE: &str = "core.json";
 pub struct Config {
     /// The Core executable.
     pub program: PathBuf,
-    /// The version of the app, and so of the bundled Core.
-    pub version: String,
-    /// The directory that receives the Core config file and the data backups.
+    /// The directory that receives the Core config file.
     pub work_dir: PathBuf,
     /// The Core data directory.
     pub data_dir: PathBuf,
@@ -68,18 +65,10 @@ pub struct Config {
 }
 
 impl Config {
-    /// Returns the production configuration for the given executable, app version, and
-    /// directories.
-    pub fn new(
-        program: PathBuf,
-        version: String,
-        work_dir: PathBuf,
-        data_dir: PathBuf,
-        log_dir: PathBuf,
-    ) -> Self {
+    /// Returns the production configuration for the given executable and directories.
+    pub fn new(program: PathBuf, work_dir: PathBuf, data_dir: PathBuf, log_dir: PathBuf) -> Self {
         Self {
             program,
-            version,
             work_dir,
             data_dir,
             log_dir,
@@ -404,28 +393,18 @@ impl Task {
             message,
         };
         let cfg = self.cfg.clone();
-        let prepare = move || {
+        let sweep = move || {
             // A directory that a reset retired holds no live data, so one that cannot be
             // removed yet does not block the start.
             if let Err(err) = reset::sweep(&cfg) {
                 eprintln!("failed to remove erased data: {err}");
             }
-            backup::run(&cfg)
         };
-        match tokio::task::spawn_blocking(prepare).await {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                return exited(
-                    Reason::FailedToStart,
-                    format!("failed to back up the data: {err}"),
-                );
-            }
-            Err(err) => {
-                return exited(
-                    Reason::FailedToStart,
-                    format!("failed to back up the data: {err}"),
-                );
-            }
+        if let Err(err) = tokio::task::spawn_blocking(sweep).await {
+            return exited(
+                Reason::FailedToStart,
+                format!("failed to remove erased data: {err}"),
+            );
         }
         let (mut child, port) = match self.spawn() {
             Ok(v) => v,
@@ -700,7 +679,6 @@ while true; do sleep 1; done
                 probe,
                 ..Config::new(
                     program,
-                    "0.0.0".to_string(),
                     dir.path().join("work"),
                     dir.path().join("data"),
                     dir.path().join("logs"),
@@ -1044,20 +1022,6 @@ while true; do sleep 1; done
         assert!(exit.message.contains("signal"));
         sup.stop().await;
         assert_eq!(sup.history().ready_at, None);
-    }
-
-    #[tokio::test]
-    async fn backs_up_the_store_before_the_core_of_a_new_version_starts() {
-        let f = Fixture::new(OBEDIENT, always(true));
-        std::fs::create_dir_all(f.cfg.data_dir.join("kv")).unwrap();
-        std::fs::write(f.cfg.data_dir.join("kv").join("MANIFEST"), "old").unwrap();
-        let sup = Supervisor::open(f.cfg.clone()).unwrap();
-        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
-        let backups: Vec<_> = std::fs::read_dir(f.cfg.work_dir.join("backups"))
-            .unwrap()
-            .collect();
-        assert_eq!(backups.len(), 1);
-        sup.stop().await;
     }
 
     #[tokio::test]

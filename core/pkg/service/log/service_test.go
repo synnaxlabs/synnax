@@ -12,17 +12,15 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,33 +28,22 @@ var _ = Describe("ServiceConfig", func() {
 	Describe("Validate", func() {
 		It("Should succeed when all required fields are set", func() {
 			cfg := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
 		It("Should fail when DB is nil", func() {
 			cfg := log.ServiceConfig{
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				ImEx: imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
 		})
 
-		It("Should fail when Ontology is nil", func() {
-			cfg := log.ServiceConfig{
-				DB:   db,
-				ImEx: imex.NewService(),
-			}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("ontology")))
-		})
-
 		It("Should fail when ImEx is nil", func() {
 			cfg := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
+				DB: db,
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("imex")))
 		})
@@ -66,25 +53,21 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should prefer the other config's fields when set", func() {
 			initial := log.ServiceConfig{}
 			other := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}
 			merged := initial.Override(other)
 			Expect(merged.DB).To(BeIdenticalTo(other.DB))
-			Expect(merged.Ontology).To(BeIdenticalTo(other.Ontology))
 			Expect(merged.ImEx).To(BeIdenticalTo(other.ImEx))
 		})
 
 		It("Should preserve the receiver's fields when other's are nil", func() {
 			initial := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}
 			merged := initial.Override(log.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(initial.DB))
-			Expect(merged.Ontology).To(BeIdenticalTo(initial.Ontology))
 			Expect(merged.ImEx).To(BeIdenticalTo(initial.ImEx))
 		})
 	})
@@ -95,7 +78,7 @@ var _ = Describe("OpenService", func() {
 		"Should fail when ServiceConfig is missing required fields",
 		func(ctx SpecContext) {
 			Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
-				MatchError(ContainSubstring("ontology")),
+				MatchError(ContainSubstring("imex")),
 			)
 		},
 	)
@@ -103,65 +86,43 @@ var _ = Describe("OpenService", func() {
 	It(
 		"Should register itself with the configured ImEx registry on open",
 		func(ctx SpecContext) {
-			l := log.Log{Name: "auto-registered"}
-			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
+			l := defaults.Fill(log.Log{Project: &proj.Key, Name: "auto-registered"})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
+			env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 			Expect(env.Type).To(Equal("log"))
 		},
 	)
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
-		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			Channel: node.Channel,
 			DB:      node.DB,
-			Channel: channelSvc,
+			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
-		}))
-		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:           node.DB,
-			Framer:       node.Framer,
-			Channel:      channelSvc,
-			ChannelGraph: channelGraph,
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      node.DB,
 			Channel: channelSvc,
-			Framer:  framerSvc,
+			Framer:  node.Framer,
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			ImEx:     imex.NewService(),
-			Signals:  sigs,
+			DB:      node.DB,
+			ImEx:    imex.NewService(),
+			Signals: sigs,
 		}))
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
-				Entry(&ch).Exec(ctx, nil)).To(Succeed())
+				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}

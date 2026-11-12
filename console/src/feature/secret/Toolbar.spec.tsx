@@ -32,10 +32,10 @@ import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import { Secret } from "@/feature/secret";
-import { createSecret } from "@/feature/secret/testutil";
 import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { createSecret } from "@/platform/secret/testutil";
 import { Tree } from "@/platform/tree";
 import {
   assertDefined,
@@ -79,7 +79,7 @@ afterEach(async () => {
 
 /** Creates a certificate with a private key, which makes the key a used secret. */
 const createCertificate = async () => {
-  const c = await client.certificates.create({
+  const c = await client.certificates.set({
     name: uniqueName("certificate"),
     source: "stored",
     ...CERTIFICATE,
@@ -140,8 +140,11 @@ const getOption = (name: string): HTMLElement => {
 describe("secret/Toolbar", () => {
   it("creates a secret from the header action", async () => {
     await renderToolbar();
-    await waitFor(() => getIconButton(document.body, "add"));
-    fireEvent.click(getIconButton(document.body, "add"));
+    const add = await waitFor(() => getIconButton(document.body, "add"));
+    // Secrets left on the Core can still be reading their uses.
+    await act(async () => {
+      fireEvent.click(add);
+    });
     const name = uniqueName("created");
     fireEvent.change(await screen.findByLabelText("Secret name"), {
       target: { value: name },
@@ -209,14 +212,26 @@ describe("secret/Toolbar", () => {
     });
   });
 
-  it("offers no replacement to a user who cannot create secrets", async () => {
+  it("offers a replacement to a user who can update but not create secrets", async () => {
     const s = await createSecret(client, createdSecrets);
     const editor = await createTestClientWithGrants(client, {
-      retrieve: [secret.TYPE_ONTOLOGY_ID],
-      update: [secret.TYPE_ONTOLOGY_ID],
+      retrieve: [secret.TYPE_RESOURCE_ID],
+      update: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(editor);
     await openMenu(s.name);
+    await screen.findByText("Replace value");
+  });
+
+  it("offers no replacement for a file secret", async () => {
+    const s = await client.secrets.set({
+      name: uniqueName("secret"),
+      source: "file",
+      fileName: "token",
+    });
+    createdSecrets.push(s.key);
+    await renderToolbar();
+    await openContextMenu(s.name);
     await screen.findByText("Rename");
     expect(screen.queryByText("Replace value")).toBeNull();
   });
@@ -243,8 +258,8 @@ describe("secret/Toolbar", () => {
     });
     expect(failed.message).toBe("Failed to delete secret");
     expect(failed.description).toBe(
-      `cannot delete secret "${privateKey.name}" because certificate ` +
-        `"${c.name}" uses it: validation error`,
+      `cannot delete secret ${privateKey.name} because certificate ${c.name} ` +
+        "uses it as its private_key: validation error",
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
   });
@@ -292,6 +307,13 @@ describe("secret/Toolbar", () => {
 
   it("opens a task that uses a secret from its users", async () => {
     const s = await createSecret(client, createdSecrets);
+    // The Core refuses an alert that names a status it does not hold.
+    const st = await client.statuses.set({
+      key: uniqueName("status"),
+      name: "st",
+      variant: "info",
+      message: "st",
+    });
     const t = await client.tasks.create(
       {
         name: uniqueName("alerts"),
@@ -299,7 +321,7 @@ describe("secret/Toolbar", () => {
         config: {
           ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
           routingKey: s.key,
-          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: "st" }],
+          alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
         },
       },
       PagerDuty.Task.ALERT_SCHEMAS,
@@ -319,7 +341,7 @@ describe("secret/Toolbar", () => {
     fireEvent.click(await within(dialog).findByText(t.name));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource).toEqual(task.ontologyID(t.key));
+    expect(tab.resource).toEqual(task.resourceID(t.key));
   });
 
   it("renames a certificate through the inline editor", async () => {
@@ -349,7 +371,7 @@ describe("secret/Toolbar", () => {
   it("lists only certificates to a user who cannot read secrets", async () => {
     const { certificate: c, privateKey } = await createCertificate();
     const reader = await createTestClientWithGrants(client, {
-      retrieve: [certificate.TYPE_ONTOLOGY_ID],
+      retrieve: [certificate.TYPE_RESOURCE_ID],
     });
     await renderToolbar(reader);
     await screen.findByText(c.name);
@@ -361,7 +383,7 @@ describe("secret/Toolbar", () => {
     assertDefined(Secret.TOOLBAR.useVisible);
     const { result } = await renderHookWithConsole(Secret.TOOLBAR.useVisible, {
       client: await createTestClientWithGrants(client, {
-        retrieve: [certificate.TYPE_ONTOLOGY_ID],
+        retrieve: [certificate.TYPE_RESOURCE_ID],
       }),
     });
     await waitFor(() => expect(result.current).toBe(true));
@@ -373,7 +395,7 @@ describe("secret/Toolbar", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: useVisible(),
-        resolved: Access.useRetrieveGranted(user.TYPE_ONTOLOGY_ID),
+        resolved: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
       }),
       { client: await createTestClientWithGrants(client) },
     );
@@ -383,7 +405,7 @@ describe("secret/Toolbar", () => {
 
   it("offers to create a secret when there are no credentials", async () => {
     const creator = await createTestClientWithGrants(client, {
-      create: [secret.TYPE_ONTOLOGY_ID],
+      create: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(creator);
     await screen.findByText("No credentials");
@@ -393,7 +415,7 @@ describe("secret/Toolbar", () => {
 
   it("offers no create action to a user who cannot create secrets", async () => {
     const outsider = await createTestClientWithGrants(client);
-    await awaitGranted(outsider, user.TYPE_ONTOLOGY_ID, "retrieve");
+    await awaitGranted(outsider, user.TYPE_RESOURCE_ID, "retrieve");
     await renderToolbar(outsider);
     await screen.findByText("No credentials");
     expect(screen.queryByText("Create secret")).toBeNull();

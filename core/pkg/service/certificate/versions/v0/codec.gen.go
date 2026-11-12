@@ -61,9 +61,9 @@ func (c Certificate) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(v.CertificatePath)
-		if v.PrivateKeyPath != nil {
+		if v.PrivateKeyFile != nil {
 			w.Bool(true)
-			w.String(*v.PrivateKeyPath)
+			w.String(*v.PrivateKeyFile)
 		} else {
 			w.Bool(false)
 		}
@@ -83,11 +83,11 @@ func (c Certificate) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (c *Certificate) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "stored":
 		var v StoredCertificate
 		if err := v.Base.DecodeOrc(r); err != nil {
@@ -131,7 +131,7 @@ func (c *Certificate) DecodeOrc(r *orc.Reader) error {
 				if hv, err = r.String(); err != nil {
 					return err
 				}
-				v.PrivateKeyPath = &hv
+				v.PrivateKeyFile = &hv
 			}
 		}
 		{

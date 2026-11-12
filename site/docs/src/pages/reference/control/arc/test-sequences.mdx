@@ -77,7 +77,7 @@ how stages start and stop, see the
 If the press valve sticks closed, `pressurize` waits forever. Add a timer as the last
 transition of the stage:
 
-```arc channels="tank_pt, abort_cmd" bodies="abort, hold"
+```arc channels="tank_pt" bodies="abort, hold"
 stage pressurize {
     // ...
     tank_pt > 300 => hold
@@ -95,7 +95,7 @@ code wins, so the safety checks above it still come first.
 In `hold`, a falling pressure means a leak. Add the over-pressure check and a leak
 check:
 
-```arc channels="tank_pt, abort_cmd" bodies="abort, vent"
+```arc channels="press_vlv_cmd, tank_pt, abort_cmd" bodies="abort, vent"
 stage hold {
     0 -> press_vlv_cmd
     tank_pt > 450 => abort
@@ -139,7 +139,7 @@ rate to a channel and plot it during a real run:
 Add a `done` stage that both `vent` and `abort` go to when the tank is empty, and that
 waits for the next start:
 
-```arc channels="tank_pt, start_cmd, vent_vlv_cmd" bodies="done, pressurize"
+```arc channels="tank_pt, start_cmd, press_vlv_cmd, vent_vlv_cmd" bodies="done, pressurize"
 stage vent {
     1 -> vent_vlv_cmd
     tank_pt < 5 => done

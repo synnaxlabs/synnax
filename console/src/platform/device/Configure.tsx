@@ -9,7 +9,7 @@
 
 import "@/platform/device/Configure.css";
 
-import { device as clientDevice, type device, status } from "@synnaxlabs/client";
+import { actions, device, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,73 +17,89 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device } from "@synnaxlabs/pluto";
-import { deep, type record, strings } from "@synnaxlabs/x";
+import { Device, Flux } from "@synnaxlabs/pluto";
+import { deep, type record, strings, verbs } from "@synnaxlabs/x";
+import { type ComponentType, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Hardware } from "@/platform/device/integration";
-import { type ConfigureParams, identifierZ, nameZ } from "@/platform/device/types";
+import {
+  type ConfigureParams,
+  type ConfigureProps,
+  identifierZ,
+  nameZ,
+} from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const path = deep.path<z.infer<ConfigurablePropertiesZ>>();
 
-interface InternalProps<
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
-> {
-  close: () => void;
+interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
   icon: Icon.ReactElement;
-  device: device.Device<Properties, Make, Model>;
-  initialProperties: z.infer<Properties>;
-  /** Opens a new read task for the device. Adds a "Save and create read task" action. */
-  onCreateTask?: (deviceKey: device.Key) => void;
-  /** Returns to the view that opened the form. Adds a "Back" action. */
-  onBack?: () => void;
+  device: device.Device;
+  initialProperties: record.Unknown;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
-const Internal = <
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
->({
+interface SaveParams {
+  prev: device.Device;
+  next: device.Device;
+}
+
+const { useUpdate: useSave } = Flux.createUpdate<SaveParams>({
+  name: "device",
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { prev, next } = data;
+    const edits = actions.diffFields(device.deviceZ(), prev, next, [
+      "name",
+      "configured",
+      "properties",
+    ]);
+    if (edits.length > 0) await client.devices.dispatch(prev.key, edits);
+    return data;
+  },
+});
+
+const Internal = ({
   device,
   device: { name },
   close,
   icon,
   initialProperties,
-  onCreateTask,
+  onCreateReadTask,
   onBack,
-}: InternalProps<Properties, Make, Model>) => {
+}: InternalProps) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
-  const { updateAsync, variant } = Device.useCreate();
+  const { updateAsync, variant } = useSave();
   const suggestions = strings.createShortIdentifiers(currentName);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
-      ...clientDevice.toUpdate(device),
-      configured: true,
-      name: methods.get(path.name).value,
-      properties: {
-        ...(deep.copy(initialProperties) as record.Unknown),
-        ...(device.properties as record.Unknown),
-        identifier: methods.get(path.identifier).value,
+      prev: device,
+      next: {
+        ...device,
+        configured: true,
+        name: methods.get(path.name).value,
+        properties: {
+          ...deep.copy(initialProperties),
+          ...device.properties,
+          identifier: methods.get(path.identifier).value,
+        },
       },
     });
     if (!saved) return;
     capture("device_configured", { make: device.make });
-    if (createTask) onCreateTask?.(device.key);
+    if (createTask) onCreateReadTask?.(device.key);
     close();
   };
 
@@ -132,7 +148,7 @@ const Internal = <
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End gap="small">
-          {onCreateTask != null && (
+          {onCreateReadTask != null && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               onClick={() => void save(true)}
@@ -156,41 +172,38 @@ const Internal = <
   );
 };
 
-export interface ConfigureProps<
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
-> extends Pick<
-  InternalProps<Properties, Make, Model>,
-  "close" | "icon" | "initialProperties" | "onCreateTask" | "onBack"
-> {
-  deviceKey: device.Key;
+export interface CreateConfigureArgs {
+  icon: Icon.ReactElement;
+  /** The properties a device starts with when the user configures it. */
+  zeroProperties: record.Unknown;
 }
 
-export const Configure = <
-  Properties extends z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string>,
-  Model extends z.ZodType<string>,
->({
-  deviceKey,
-  ...rest
-}: ConfigureProps<Properties, Make, Model>) => {
-  const device = Device.use({ key: deviceKey });
-  return <Internal device={device} {...rest} />;
+/** Creates the form that names a found device and sets its identifier. */
+export const createConfigure = ({
+  icon,
+  zeroProperties,
+}: CreateConfigureArgs): ComponentType<ConfigureProps> => {
+  const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
+    const device = Device.use({ key: deviceKey });
+    return (
+      <Internal
+        device={device}
+        icon={icon}
+        initialProperties={zeroProperties}
+        {...rest}
+      />
+    );
+  };
+  return Configure;
 };
 
 export interface ConfigureModalParams extends ConfigureParams {
   hardware: Hardware;
 }
 
-/** Opens {@link Configure} for a device of the hardware integration. */
+/** Opens the configure form of a device of the hardware integration. */
 export const useConfigureModal = Modals.create<ConfigureModalParams>(
-  ({ deviceKey, hardware, close }) => (
-    <Configure
-      deviceKey={deviceKey}
-      close={close}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
-    />
+  ({ deviceKey, hardware: { Configure }, close }) => (
+    <Configure deviceKey={deviceKey} close={close} />
   ),
 );

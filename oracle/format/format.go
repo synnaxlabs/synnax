@@ -18,7 +18,7 @@ package format
 
 import "context"
 
-// Formatter produces canonical bytes for a single generated file.
+// formatter produces canonical bytes for a single generated file.
 //
 // Implementations must be idempotent: Format(Format(x)) == Format(x). They
 // must also be deterministic given the same content and path; the sync
@@ -26,6 +26,6 @@ import "context"
 // whether a write is needed. ctx carries cancellation from the parent
 // sync call so long-running shell-outs (eslint, prettier) terminate when
 // the caller aborts.
-type Formatter interface {
+type formatter interface {
 	Format(ctx context.Context, content []byte, absPath string) ([]byte, error)
 }

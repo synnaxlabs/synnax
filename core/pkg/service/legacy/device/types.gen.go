@@ -12,6 +12,7 @@
 package device
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/filter"
@@ -20,8 +21,8 @@ import (
 // Key is a unique identifier for the device
 type Key = versions.Key
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
 type StatusDetails = versions.StatusDetails
 
 // Status is device-specific status information including operational state and device
@@ -53,4 +54,13 @@ type Where struct {
 	Location *filter.String `json:"location,omitzero" msgpack:"location,omitempty"`
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	// Groups matches the devices in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the devices in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Parents matches the devices that any of the given devices hold.
+	Parents []Key `json:"parents,omitzero" msgpack:"parents,omitempty"`
+	// Nested matches the devices that another device holds, or the devices that sit
+	// directly on their rack when false.
+	Nested *bool `json:"nested,omitzero" msgpack:"nested,omitempty"`
 }

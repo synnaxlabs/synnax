@@ -22,7 +22,7 @@ import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 const client = createTestClient();
 
 const createSecret = async (name: string): Promise<secret.Secret> =>
-  await client.secrets.create({ name, source: "stored", value: "hunter2" });
+  await client.secrets.set({ name, source: "stored", value: "hunter2" });
 
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -31,47 +31,48 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should list secrets by key", async () => {
-      const first = await createSecret("list 1");
-      const second = await createSecret("list 2");
-      const { result } = renderHook(() => Secret.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({ key: [first.key, second.key] });
-      });
-      expect(result.current.data).toEqual([first.key, second.key]);
-      expect(result.current.getItem(first.key)).toEqual(first);
+    it("should list secrets by name and move a renamed one", async () => {
+      const prefix = id.create();
+      const b = await createSecret(`${prefix} b`);
+      const a = await createSecret(`${prefix} a`);
+      const { result } = renderHook(
+        () => Secret.useList({ query: { key: [b.key, a.key] } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+      expect(result.current.getItem(a.key)).toEqual(a);
+      await client.secrets.rename(a.key, `${prefix} c`);
+      await waitFor(() => expect(result.current.data).toEqual([b.key, a.key]));
     });
 
     it("should find a secret by a search term", async () => {
       const name = `${id.create()} password`;
       const created = await createSecret(name);
       const { result } = renderHook(() => Secret.useList(), { wrapper });
-      await waitFor(async () => {
-        await act(async () => {
-          await result.current.retrieveAsync({ searchTerm: name });
-        });
-        expect(result.current.data).toContain(created.key);
-      });
+      act(() => result.current.search(name));
+      await waitFor(() => expect(result.current.data).toContain(created.key));
     });
 
-    it("should add a secret when it is created", async () => {
+    it("should add a secret that matches a search when it is created", async () => {
+      const prefix = id.create();
       const { result } = renderHook(() => Secret.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({});
-      });
-      const created = await createSecret("created after list");
+      act(() => result.current.search(prefix));
+      await waitFor(() => expect(result.current.answered).toBe(true));
+      const created = await createSecret(`${prefix} created`);
       await waitFor(() => expect(result.current.data).toContain(created.key));
     });
 
     it("should remove a secret when it is deleted", async () => {
       const created = await createSecret("deleted after list");
-      const { result } = renderHook(() => Secret.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({});
-      });
-      expect(result.current.data).toContain(created.key);
+      const { result } = renderHook(
+        () => Secret.useList({ query: { key: [created.key] } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([created.key]));
       await client.secrets.delete(created.key);
-      await waitFor(() => expect(result.current.data).not.toContain(created.key));
+      await waitFor(() => expect(result.current.data).toEqual([]));
     });
   });
 
@@ -87,11 +88,11 @@ describe("queries", () => {
     });
 
     it("should retrieve the resources that use a secret", async () => {
-      const cert = await client.certificates.create({
+      const cert = await client.certificates.set({
         name: "Uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const { privateKey } = cert;
@@ -148,11 +149,11 @@ describe("queries", () => {
 
   describe("useMultiple", () => {
     it("should retrieve the uses of several secrets in one read", async () => {
-      const cert = await client.certificates.create({
+      const cert = await client.certificates.set({
         name: "Multiple uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const unused = await createSecret("multiple unused");
@@ -161,10 +162,13 @@ describe("queries", () => {
         () => Secret.useMultiple({ key: keys, includeUses: true }),
         { wrapper },
       );
-      expect(result.current.map(({ key, uses }) => ({ key, uses }))).toEqual([
-        { key: cert.privateKey, uses: [{ type: "certificate", key: cert.key }] },
-        { key: unused.key, uses: [] },
-      ]);
+      const uses = new Map(result.current.map(({ key, uses }) => [key, uses]));
+      expect(uses).toEqual(
+        new Map([
+          [cert.privateKey, [{ type: "certificate", key: cert.key }]],
+          [unused.key, []],
+        ]),
+      );
     });
 
     it("should keep the uses of a secret when it is renamed", async () => {
@@ -178,7 +182,7 @@ describe("queries", () => {
         await client.secrets.rename(first.key, "multiple after rename");
       });
       await waitFor(() =>
-        expect(result.current.map(({ name }) => name)).toEqual([
+        expect(result.current.map(({ name }) => name).sort()).toEqual([
           "multiple after rename",
           "multiple untouched",
         ]),
@@ -204,11 +208,11 @@ describe("queries", () => {
 
   describe("useMultiple without keys", () => {
     it("should read the uses of every secret and track additions and deletions", async () => {
-      const cert = await client.certificates.create({
+      const cert = await client.certificates.set({
         name: "All uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,
-        privateKey: CERTIFICATE.privateKey,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const deleted = await createSecret("all uses deleted");

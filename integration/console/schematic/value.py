@@ -38,15 +38,14 @@ class Value(Symbol):
     ):
         """Initialize a value symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the value display
-            notation: Number notation format (optional)
-            precision: Decimal precision (optional)
-            averaging_window: Averaging window size (optional)
-            stale_color: Color for stale data (optional)
-            stale_timeout: Timeout for stale data in milliseconds (optional)
-            symbol_type: The type of symbol (default: "Value")
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the value display
+        :param notation: Number notation format (optional)
+        :param precision: Decimal precision (optional)
+        :param averaging_window: Averaging window size (optional)
+        :param stale_color: Color for stale data (optional)
+        :param stale_timeout: Timeout for stale data in milliseconds (optional)
+        :param symbol_type: The type of symbol (default: "Value")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name

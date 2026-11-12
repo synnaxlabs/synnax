@@ -13,16 +13,13 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
 	tx         gorp.Tx
-	otg        ontology.Writer
 	table      *gorp.Table[Key, Label]
 	dispatcher actions.Dispatcher[Key, Action]
 }
@@ -34,9 +31,9 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten. After the
-// transaction commits, Create broadcasts a create action that carries the stored label.
+// Create creates a new label, assigning it a unique key if one is not provided. It
+// returns an error wrapping validate.ErrValidation when a label with the key exists.
+// The commit carries a create action that holds the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -44,16 +41,28 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := l.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
+	w.dispatcher.Attach(
 		w.tx,
 		l.Key,
 		NewCreateAction(CreatePayload{Label: *l}),
 	)
-	return w.otg.DefineResources(ctx, l.OntologyID())
+	return nil
+}
+
+// Apply applies the actions to the label with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
+// label has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.apply(ctx, key, acts); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // apply applies the actions to the label with the given key and stores the result.
@@ -74,8 +83,8 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 		Exec(ctx, w.tx)
 }
 
-// CreateMany creates multiple labels in a single transaction. If any of the labels
-// exist, they will be overwritten.
+// CreateMany creates multiple labels in a single transaction. It returns an error
+// wrapping validate.ErrValidation when a label with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, labels *[]Label) error {
 	for i := range *labels {
 		if err := w.Create(ctx, &(*labels)[i]); err != nil {
@@ -85,49 +94,10 @@ func (w Writer) CreateMany(ctx context.Context, labels *[]Label) error {
 	return nil
 }
 
-// Delete removes a label from the database and ontology. Delete is idempotent, and will
-// not return an error if the label does not exist.
+// Delete removes a label from the database. Delete is idempotent, and will not return
+// an error if the label does not exist.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Label](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
-}
-
-// Label assigns a set of labels to the target resource. If the target resource already
-// has labels, Label will add the new labels to the existing set.
-func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) error {
-	return w.otg.DefineRelationships(
-		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
-	)
-}
-
-// Replace makes the given labels the complete set of labels on the target resource.
-// Labels the target already has are left untouched.
-func (w Writer) Replace(ctx context.Context, target ontology.ID, labels []Key) error {
-	return w.otg.ReplaceOutgoingRelationshipsOfType(
-		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
-	)
-}
-
-// RemoveLabel removes a set of labels from the target resource. RemoveLabel is
-// idempotent, and will not return an error if the target resource does not have the
-// specified labels.
-func (w Writer) RemoveLabel(
-	ctx context.Context,
-	target ontology.ID,
-	labels []Key,
-) error {
-	return w.otg.DeleteRelationships(
-		ctx,
-		lo.Map(labels, func(key Key, _ int) ontology.Relationship {
-			return ontology.Relationship{
-				From: target,
-				Type: OntologyRelationshipTypeLabeledBy,
-				To:   OntologyID(key),
-			}
-		})...,
-	)
+		Exec(ctx, w.tx)
 }

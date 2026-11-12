@@ -304,8 +304,9 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     );
     CaptureSink sink;
     for (std::size_t i = 0; i < 3; i++) {
-        auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
-        ASSERT_FALSE(err) << err;
+        const auto devices = ASSERT_NIL_P(
+            scanner.scan(common::ScannerContext{.count = i})
+        );
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].key, "01A2B3C4");
     }
@@ -326,9 +327,7 @@ std::vector<synnax::device::Device> scan_once(
         ScanTaskConfig(p),
         synnax::task::Task{}
     );
-    auto [devices, err] = scanner.scan(common::ScannerContext{});
-    EXPECT_FALSE(err) << err;
-    return devices;
+    return ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
 }
 
 /// @brief the scanner should skip cRIO and unknown devices whether or not their product
@@ -522,10 +521,9 @@ struct HardwareScanner {
 
     /// @brief scans once and stores the devices found, as the scan task does.
     synnax::device::Device scan() {
-        auto [devices, err] = this->scanner.scan(
-            common::ScannerContext{.devices = &this->stored}
+        auto devices = ASSERT_NIL_P(
+            this->scanner.scan(common::ScannerContext{.devices = &this->stored})
         );
-        EXPECT_FALSE(err) << err;
         EXPECT_EQ(devices.size(), 1);
         auto &dev = devices.at(0);
         auto &stored = this->stored[dev.key];
@@ -581,6 +579,37 @@ TEST(ScannerTest, testReadsWhenStoredRecordLacksHardware) {
     EXPECT_EQ(s.dmx->reads(), 1);
 }
 
+/// @brief it should keep stored hardware that has removed keys and lacks the keys with
+/// defaults, when no port needs a default terminal configuration read back.
+TEST(ScannerTest, testKeepsCompleteEarlierHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = x::json::json{
+        {"product_category", "x_series_daq"},
+        {"product_type", "PCIe-6363"},
+        {"analog_inputs",
+         {{{"port", 0},
+           {"terminal_configs", {"RSE", "Diff"}},
+           {"default_terminal_config", "Diff"},
+           {"types", {"ai_voltage"}}}}},
+    };
+    EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 0);
+}
+
+/// @brief it should read again when stored hardware lacks a default terminal
+/// configuration that the port needs.
+TEST(ScannerTest, testRereadsIncompleteEarlierHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = x::json::json{
+        {"analog_inputs",
+         {{{"port", 0},
+           {"terminal_configs", {"RSE", "Diff"}},
+           {"types", {"ai_voltage"}}}}},
+    };
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 1);
+}
+
 /// @brief it should keep a device whose hardware read fails, and read again on the next
 /// scan.
 TEST(ScannerTest, testRetriesFailedHardwareRead) {
@@ -611,7 +640,10 @@ TEST(ScannerTest, testStoresIncompleteHardware) {
         hw.analog_inputs[0].terminal_configs,
         std::vector<std::string>({"RSE", "Diff"})
     );
-    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(
+        hw.analog_inputs[0].default_terminal_config,
+        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+    );
     EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
 }
 

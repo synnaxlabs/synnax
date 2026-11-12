@@ -25,6 +25,7 @@ jobs:
   deploy:
     name: Deploy to Sandbox-Windows
     runs-on: ubuntu-latest
+    environment: runners
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -37,15 +38,17 @@ jobs:
 
       - name: Store secrets
         env:
-          GH_TOKEN_VALUE: ${{ secrets.RUNNERS_GH_TOKEN }}
+          GH_APP_ID_VALUE: ${{ secrets.RUNNERS_GH_APP_ID }}
+          GH_APP_KEY_VALUE: ${{ secrets.RUNNERS_GH_APP_KEY }}
           GH_WEBHOOK_SECRET_VALUE: ${{ secrets.RUNNERS_GH_WEBHOOK_SECRET }}
           SYNNAX_PASSWORD_VALUE: ${{ secrets.RUNNERS_SYNNAX_PASSWORD }}
         run: |
           put() {
             aws ssm put-parameter --name "/runners/$1" --type SecureString \
-              --overwrite --value "$2" > /dev/null
+              --overwrite --value="$2" > /dev/null
           }
-          put gh-token "$GH_TOKEN_VALUE"
+          put gh-app-id "$GH_APP_ID_VALUE"
+          put gh-app-key "$GH_APP_KEY_VALUE"
           put gh-webhook-secret "$GH_WEBHOOK_SECRET_VALUE"
           put synnax-password "$SYNNAX_PASSWORD_VALUE"
 

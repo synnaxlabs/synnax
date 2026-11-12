@@ -10,28 +10,32 @@
 from synnax.certificate.client import Client
 from synnax.certificate.payload import New, NewStored
 from synnax.certificate.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Certificate,
+    Cursor,
     Details,
     FileCertificate,
     Key,
+    Order,
     StoredCertificate,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Certificate",
     "Client",
+    "Cursor",
     "Details",
     "FileCertificate",
     "Key",
     "New",
     "NewStored",
+    "Order",
     "StoredCertificate",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

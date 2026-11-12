@@ -11,6 +11,8 @@ package domain_test
 
 import (
 	"math"
+	"os"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,13 +35,10 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			BeforeEach(func() {
 				fs = openFS()
 			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
-			})
 
 			Context("Happy path - one file", func() {
 				It("Should garbage collect one tombstone", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        9 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
@@ -115,7 +114,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 
 				It("Should garbage collect multiple tombstones", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
@@ -175,8 +174,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							domain.WriterConfig{Start: 50 * telem.SecondTS},
 						),
 					)
-					_, err := w2.Write([]byte{50, 51, 52})
-					Expect(err).To(Succeed())
+					MustSucceed(w2.Write([]byte{50, 51, 52}))
 					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(9)))
 					Expect(w2.Commit(ctx, 52*telem.SecondTS+1)).To(Succeed())
 					Expect(w2.Close()).To(Succeed())
@@ -230,7 +228,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should garbage collect multiple tombstones based on the threshold",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        (1.25 * 20) * telem.Byte,
 							GCThreshold:     float32(16) / 20,
@@ -327,7 +325,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should not garbage collect a file that is oversize but not still being written to",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        13 * telem.Byte,
 							GCThreshold:     math.SmallestNonzeroFloat32,
@@ -406,7 +404,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should not garbage collect a file that has an open reader on it",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        9 * telem.Byte,
 							GCThreshold:     math.SmallestNonzeroFloat32,
@@ -484,7 +482,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 			Context("Happy path - multiple files", func() {
 				It("Should garbage collect multiple tombstones", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  4,
 						FileSize:        2 * telem.Byte,
@@ -602,7 +600,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should garbage collect multiple tombstones across many files",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        7 * telem.Byte,
 							GCThreshold:     math.SmallestNonzeroFloat32,
@@ -732,7 +730,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should garbage collect tombstones based on the threshold",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        7 * telem.Byte,
 							GCThreshold:     0.4,
@@ -843,7 +841,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It(
 					"Should preserve the tombstones after database closure",
 					func(ctx SpecContext) {
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        7 * telem.Byte,
 							GCThreshold:     0.4,
@@ -897,7 +895,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						By("Reopening the DB")
 						Expect(db.Close()).To(Succeed())
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        7 * telem.Byte,
 							GCThreshold:     0.4,
@@ -988,7 +986,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// no readers on the old file that is still symlinking to the old file,
 				// causing the reading of incorrect data.
 				Specify("Reader should be recycled", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
 						GCThreshold:     0,
@@ -1062,7 +1060,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// Previously, the slice was being popped while iterated, causing
 				// out-of-bounds errors.
 				Specify("Reader gc", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        7 * telem.Byte,
 						GCThreshold:     0,
@@ -1094,7 +1092,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 			Context("Close", func() {
 				It("Should not allow GC on a closed DB", func(ctx SpecContext) {
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
@@ -1109,7 +1107,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				var faulty *FaultyFS
 				BeforeEach(func(ctx SpecContext) {
 					faulty = WrapFaultyFS(fs)
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              faulty,
 						FileSize:        9 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
@@ -1159,6 +1157,55 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 
+				DescribeTable(
+					"Should persist the offsets of a file compacted before a failure",
+					func(ctx SpecContext, fail FaultyFSOption) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(30 * telem.SecondTS).Range(39*telem.SecondTS+1),
+							[]byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39},
+						)).To(Succeed())
+						Expect(db.Delete(
+							ctx,
+							telem.TimeRange{
+								Start: 32*telem.SecondTS + 1,
+								End:   36*telem.SecondTS + 1,
+							},
+							fixedOffset(3),
+							fixedOffset(7),
+						)).To(Succeed())
+						faulty.SetOptions(fail)
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+						faulty.SetOptions()
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(50 * telem.SecondTS).Range(52*telem.SecondTS+1),
+							[]byte{50, 51, 52},
+						)).To(Succeed())
+
+						Expect(db.Close()).To(Succeed())
+						db = MustOpen(domain.Open(domain.Config{
+							FS:              faulty,
+							FileSize:        9 * telem.Byte,
+							Instrumentation: PanicLogger(),
+						}))
+						Expect(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						).To(Equal([]byte{
+							10, 11, 12, 17, 18, 19,
+							30, 31, 32, 37, 38, 39,
+							50, 51, 52,
+						}))
+					},
+					Entry("writing the copy", WithFailWrite("2.domain_gc")),
+					Entry("renaming the file", WithFailRename("2.domain")),
+				)
+
 				It("Should surface a failed rejuvenation", func(ctx SpecContext) {
 					faulty.SetOptions(
 						WithFailStat("1.domain"),
@@ -1169,4 +1216,20 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 		})
 	}
+	It("Should collect a DB with the maximum file key", func(ctx SpecContext) {
+		memFS := fs.NewMem()
+		createCounter(memFS, math.MaxUint16)
+		for key := 1; key <= math.MaxUint16; key++ {
+			f := MustSucceed(memFS.Open(
+				strconv.Itoa(key)+".domain",
+				os.O_CREATE|os.O_RDWR,
+			))
+			Expect(f.Close()).To(Succeed())
+		}
+		db := MustOpen(domain.Open(domain.Config{
+			FS:              memFS,
+			Instrumentation: PanicLogger(),
+		}))
+		Expect(db.GarbageCollect(ctx)).To(Succeed())
+	})
 })

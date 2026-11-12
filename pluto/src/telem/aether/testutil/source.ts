@@ -35,6 +35,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   readonly id: string;
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
+  sorted?: boolean;
   time?: TimeStamp;
   appended?: number;
   private _value: V;
@@ -48,8 +49,8 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   }
 
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, time, appended } = this;
-    return { data: this._value, status, aggregation, time, appended };
+    const { status, aggregation, sorted, time, appended } = this;
+    return { data: this._value, status, aggregation, sorted, time, appended };
   }
 
   setValue(v: V): void {
