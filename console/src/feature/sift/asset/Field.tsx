@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type deep, unique } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { list } from "@/feature/sift/asset/list";
 import { Modals } from "@/platform/modals";
@@ -32,36 +32,43 @@ export interface FieldProps extends Omit<
 
 /**
  * Picks a Sift asset from the ones the device can see, or names a new one through an
- * explicit "New asset" action. It starts at the asset of the device's newest upload.
+ * explicit "New asset" action. It starts at the asset of the device's newest upload,
+ * and starts again there when the device changes.
  */
 export const Field = ({ devicePath, ...rest }: FieldProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const deviceKey = Form.useFieldValue(devicePath);
-  const { get, set } = Form.useContext();
+  const { get, set, mode } = Form.useContext();
   const [assets, setAssets] = useState<string[]>([]);
+  const listedDevice = useRef<device.Key>("");
   const rename = Modals.useRename();
   useAsyncEffect(
     async (signal) => {
       setAssets([]);
       if (client == null || deviceKey === "") return;
+      // A form loads its device after the first render, which is not a change.
+      const changed = listedDevice.current !== "" && listedDevice.current !== deviceKey;
+      listedDevice.current = deviceKey;
       handleError(async () => {
         const res = await list(client, deviceKey);
         if (signal.aborted) return;
         setAssets(res.assets);
-        if (get<string>(rest.path).value === "" && res.last !== "")
-          set(rest.path, res.last);
+        if (mode === "preview") return;
+        const asset = get<string>(rest.path).value;
+        if ((changed || asset === "") && asset !== res.last) set(rest.path, res.last);
       }, "Failed to list Sift assets");
     },
-    [client, deviceKey],
+    [client, deviceKey, mode],
   );
   return (
     <Form.Field<string> {...rest} label="Asset" required>
-      {({ value, onChange }) => (
+      {({ value, onChange, preview }) => (
         <Flex.Box x gap="small" grow>
           <Select.Simple<string>
             value={value}
             onChange={onChange}
+            preview={preview}
             resourceName="asset"
             emptyContent="No assets in Sift"
             disabled={deviceKey === ""}
@@ -76,23 +83,25 @@ export const Field = ({ devicePath, ...rest }: FieldProps) => {
                 </Select.Item>
               ))}
           </Select.Simple>
-          <Button.Button
-            variant="outlined"
-            disabled={deviceKey === ""}
-            onClick={() =>
-              handleError(async () => {
-                const name = await rename({
-                  title: "New asset",
-                  label: "Asset name",
-                  icon: <Icon.Logo.Sift />,
-                });
-                if (name != null) onChange(name);
-              }, "Failed to name the new asset")
-            }
-          >
-            <Icon.Add />
-            New asset
-          </Button.Button>
+          {preview !== true && (
+            <Button.Button
+              variant="outlined"
+              disabled={deviceKey === ""}
+              onClick={() =>
+                handleError(async () => {
+                  const name = await rename({
+                    title: "New asset",
+                    label: "Asset name",
+                    icon: <Icon.Logo.Sift />,
+                  });
+                  if (name != null) onChange(name);
+                }, "Failed to name the new asset")
+              }
+            >
+              <Icon.Add />
+              New asset
+            </Button.Button>
+          )}
         </Flex.Box>
       )}
     </Form.Field>
