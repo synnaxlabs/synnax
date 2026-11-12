@@ -141,11 +141,13 @@ on hosted runners: they sign inside the build and take 12 to 18 minutes.
 - **CI**: §3.2 reuses the green run.
 - **Builds**: A rerun of failed jobs keeps the passed builds. A new dispatch builds
   again, which costs about 20 minutes.
-- **Go caches**: Every shard of a full run saves its cache under a key of its own and
-  restores from that key, on `main` and on `release/**`. The shard keys take a prefix
-  apart from `go-test-<os>-<dir>-`, so the warm prune (`warm.go.yaml:63-67`) keeps them
-  and a pull request never restores one (`test.go.yaml:280-297`). Today the shards share
-  one key and only shard 1 on `main` saves (`test.go.yaml:392-395`).
+- **Go caches**: Every shard of a full run saves its cache, on `main` and on
+  `release/**`, and the next full run on that ref restores it. Today the shards share
+  one key and only shard 1 on `main` saves (`test.go.yaml:392-395`). Three rules keep
+  the repository cache in its limit: a shard key has a prefix apart from
+  `go-test-<os>-<dir>-`, so no pull request restores it (`test.go.yaml:280-297`); each
+  save deletes the older cache of the same shard and ref; and the warm prune
+  (`warm.go.yaml:63-67`) leaves the shard caches alone.
 
 ### 3.5 Development loop
 
