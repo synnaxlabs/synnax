@@ -26,21 +26,3 @@ export interface Group {
   name: string;
   sections: Section[];
 }
-
-/**
- * Returns the groups with only the sections the user can use, and drops a group that
- * has none. Calls every section's visibility hook, so groups has to be a module-level
- * constant to keep the hook order stable.
- */
-export const useVisibleGroups = (groups: Group[]): Group[] => {
-  "use no memo"; // Calls a hook per section, so the group list sets the hook order.
-  const sections = groups.flatMap((group) => group.sections);
-  const visibilities = sections.map((section) => section.useVisible?.() ?? true);
-  const visible = new Set(sections.filter((_, i) => visibilities[i]));
-  return groups
-    .map((group) => ({
-      ...group,
-      sections: group.sections.filter((s) => visible.has(s)),
-    }))
-    .filter((group) => group.sections.length > 0);
-};

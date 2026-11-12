@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Drift } from "@synnaxlabs/drift";
+import { mockWindows } from "@tauri-apps/api/mocks";
 import { render, screen } from "@testing-library/react";
 import {
   afterEach,
@@ -37,6 +39,7 @@ describe("Version.Settings", () => {
   let latestCore: MockInstance<typeof fetch>;
   beforeEach(() => {
     mocks.engine = "tauri";
+    mockWindows(Drift.MAIN_WINDOW);
     // The Core notice asks the docs site for the newest Core.
     latestCore = mockLatestCore("1.5.0");
   });
@@ -51,6 +54,14 @@ describe("Version.Settings", () => {
     render(<Version.Settings />, { wrapper: await createWrapper() });
     expect(await screen.findByText("Version 1.5.1 available")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Update and restart" })).toBeTruthy();
+  });
+
+  it("should leave out updates in a secondary window", async () => {
+    mockUpdater({ served: "1.5.1" });
+    mockWindows("secondary", Drift.MAIN_WINDOW);
+    render(<Version.Settings />, { wrapper: await createWrapper() });
+    expect(await screen.findByText("v1.5.0")).toBeTruthy();
+    expect(screen.queryByText("Updates")).toBeNull();
   });
 
   it("should leave out updates on the web", async () => {

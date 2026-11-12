@@ -24,9 +24,7 @@ const client = createTestClient();
 
 const settingsTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
-  return root.tabs.filter(
-    (tab) => tab.variant === "view" && tab.type === Settings.TAB_TYPE,
-  );
+  return root.tabs.filter((tab) => tab.variant === "view" && tab.type === "settings");
 };
 
 describe("Settings.useOpen", () => {

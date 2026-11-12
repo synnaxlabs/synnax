@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Panel } from "@/platform/panel";
 
-export const TAB_TYPE = "settings";
+const TAB_TYPE = "settings";
 
 const TAB: Panel.Tab = {
   Icon: Icon.Settings,

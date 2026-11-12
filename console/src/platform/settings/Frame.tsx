@@ -15,7 +15,20 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Group, useVisibleGroups } from "@/platform/settings/section";
+import { type Group } from "@/platform/settings/section";
+
+const useVisibleGroups = (groups: Group[]): Group[] => {
+  "use no memo"; // Calls a hook per section, so the group list sets the hook order.
+  const sections = groups.flatMap((group) => group.sections);
+  const visibilities = sections.map((section) => section.useVisible?.() ?? true);
+  const visible = new Set(sections.filter((_, i) => visibilities[i]));
+  return groups
+    .map((group) => ({
+      ...group,
+      sections: group.sections.filter((s) => visible.has(s)),
+    }))
+    .filter((group) => group.sections.length > 0);
+};
 
 export interface FrameProps {
   /** A module-level constant, since each section's visibility hook runs in order. */

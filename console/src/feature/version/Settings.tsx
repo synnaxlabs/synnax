@@ -15,7 +15,7 @@ import { Settings as PlatformSettings } from "@/platform/settings";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
-/** The Console version and, on Desktop, its updates. */
+/** The Console version and, in the main Desktop window, its updates. */
 export const Settings = (): ReactElement => {
   const version = Session.Version.use();
   return (
@@ -25,7 +25,8 @@ export const Settings = (): ReactElement => {
           <Text.Text color={10}>{`v${version}`}</Text.Text>
         </PlatformSettings.Entry>
       )}
-      {Session.Runtime.ENGINE === "tauri" && (
+      {/* Only the main window checks for and installs updates. */}
+      {Session.Runtime.ENGINE === "tauri" && Session.Runtime.isMainWindow() && (
         <PlatformSettings.Entry label="Updates">
           <Flex.Box x align="center" gap="medium">
             <Version.Update level="p" />

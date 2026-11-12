@@ -19,7 +19,6 @@ import { Schematic } from "@/feature/schematic";
 import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 
 const TABS: Panel.Tabs = {
@@ -32,7 +31,7 @@ const TABS: Panel.Tabs = {
   ...Schematic.TABS,
   ...Table.TABS,
   ...Task.TABS,
-  ...(FLAGS.settings ? Settings.TABS : {}),
+  ...Settings.TABS,
 };
 
 export interface ContextProps extends PropsWithChildren {}
