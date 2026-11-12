@@ -49,9 +49,9 @@ var _ = Describe("Actions", func() {
 			"[color]: decoding value",
 		),
 		Entry(
-			"an alpha above the 0-255 scale",
-			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 300}),
-			"alpha 300 is outside the 0-255 range",
+			"a legacy object color",
+			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 0.5}),
+			"color is not a hex string",
 		),
 		Entry(
 			"a path into the color",
@@ -104,16 +104,6 @@ var _ = Describe("Actions", func() {
 			Expect(res.Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 			Expect(res.Name).To(Equal(base.Name))
 		})
-		DescribeTable("Should lift a legacy alpha", func(alpha float64, want uint8) {
-			res := MustSucceed(label.Reduce(base, set(
-				[]string{"color"},
-				map[string]any{"r": 255, "g": 0, "b": 0, "a": alpha},
-			)))
-			Expect(res.Color.A).To(Equal(want))
-		},
-			Entry("just above 1", 1.5, uint8(255)),
-			Entry("on the 0-255 scale", 128.0, uint8(128)),
-		)
 	})
 
 	Describe("RemovePayload", func() {

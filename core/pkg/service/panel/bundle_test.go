@@ -222,6 +222,20 @@ var _ = Describe("DecodeBundle", func() {
 		Expect(decoded.Color).To(BeNil())
 	})
 
+	It("Should migrate the 0-1 alpha of a v2 member's color to a byte", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{Version: 2, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root":  map[string]any{"variant": "leaf", "tabs": []any{}},
+			"color": map[string]any{"r": 220, "g": 19, "b": 108, "a": 0.5},
+		})).To(Succeed())
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		Expect(
+			decoded.Color,
+		).To(HaveValue(Equal(color.Color{R: 220, G: 19, B: 108, A: 128})))
+	})
+
 	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
 		view := viewTab(uuid.New(), "docs")
 		p := panel.Panel{Name: "Controls", Root: leafNode(view)}
