@@ -331,6 +331,34 @@ var _ = Describe("ArraySize", func() {
 		}, int64(2)),
 	)
 
+	generic := func(name string, arg resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: []resolution.TypeRef{arg}}
+	}
+
+	DescribeTable(
+		"Should apply the type arguments of a generic alias or distinct type",
+		func(makeRef func() resolution.TypeRef, wantKind string, wantSize int64) {
+			kind, ok := resolution.CollectionKind(makeRef(), table)
+			Expect(ok).To(Equal(wantKind != ""))
+			Expect(kind).To(Equal(wantKind))
+			size, ok := resolution.ArraySize(makeRef(), table)
+			Expect(ok).To(Equal(wantSize != 0))
+			Expect(size).To(Equal(wantSize))
+		},
+		Entry("alias of a string", func() resolution.TypeRef {
+			return generic("t.Wrap", ref("string"))
+		}, "", int64(0)),
+		Entry("alias of a map", func() resolution.TypeRef {
+			return generic("t.Wrap", ref("Map"))
+		}, "Map", int64(0)),
+		Entry("distinct over a string", func() resolution.TypeRef {
+			return generic("t.Fixed", ref("string"))
+		}, "", int64(0)),
+		Entry("nested aliases", func() resolution.TypeRef {
+			return generic("t.Wrap", generic("t.Wrap", sized(3)))
+		}, "Array", int64(3)),
+	)
+
 	DescribeTable(
 		"Should return false for a type that is not a fixed-size array",
 		func(makeRef func() resolution.TypeRef) {

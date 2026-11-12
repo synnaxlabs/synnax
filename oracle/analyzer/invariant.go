@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/set"
 )
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
@@ -236,51 +235,16 @@ func checkArraySizes(
 	}
 }
 
-// arrayElement returns the element type of the array that ref resolves to through
-// type parameter constraints and defaults, aliases, and distinct bases, applying the
-// type arguments of a generic alias or distinct type.
+// arrayElement returns the element type of the array that ref resolves to.
 func arrayElement(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 ) (resolution.TypeRef, bool) {
-	visited := make(set.Set[string])
-	for !visited.Contains(ref.Name) {
-		visited.Add(ref.Name)
-		if ref.IsTypeParam() {
-			switch {
-			case ref.TypeParam == nil:
-				return resolution.TypeRef{}, false
-			case ref.TypeParam.Constraint != nil:
-				ref = *ref.TypeParam.Constraint
-			case ref.TypeParam.Default != nil:
-				ref = *ref.TypeParam.Default
-			default:
-				return resolution.TypeRef{}, false
-			}
-			continue
-		}
-		if ref.Name == "Array" {
-			if len(ref.TypeArgs) == 0 {
-				return resolution.TypeRef{}, false
-			}
-			return ref.TypeArgs[0], true
-		}
-		resolved, target, ok := resolution.Dealias(ref, table)
-		if !ok {
-			return resolution.TypeRef{}, false
-		}
-		if target.Name == "Array" {
-			ref = target
-			continue
-		}
-		distinct, ok := resolved.Form.(resolution.DistinctForm)
-		if !ok {
-			return resolution.TypeRef{}, false
-		}
-		args := resolution.TypeArgMap(distinct.TypeParams, target.TypeArgs)
-		ref = resolution.SubstituteTypeRef(distinct.Base, args)
+	collection, ok := resolution.Collection(ref, table)
+	if !ok || collection.Name != "Array" || len(collection.TypeArgs) == 0 {
+		return resolution.TypeRef{}, false
 	}
-	return resolution.TypeRef{}, false
+	return collection.TypeArgs[0], true
 }
 
 // forEachDefaultedField calls fn for every field carrying a default on every struct

@@ -476,93 +476,68 @@ func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
 	return ""
 }
 
+// maxCollectionDepth bounds the walk of Collection, so a cyclic or self-expanding
+// alias or distinct chain ends instead of looping.
+const maxCollectionDepth = 64
+
+// Collection returns the builtin collection reference ("Array", "Map", or "record")
+// that ref ultimately resolves to. It follows type-parameter constraints and defaults,
+// alias targets, and distinct bases, and applies the type arguments of a generic alias
+// or distinct type. ok is false when ref does not resolve to a collection.
+func Collection(ref TypeRef, table *Table) (TypeRef, bool) {
+	for range maxCollectionDepth {
+		if ref.IsTypeParam() {
+			switch {
+			case ref.TypeParam == nil:
+				return TypeRef{}, false
+			case ref.TypeParam.Constraint != nil:
+				ref = *ref.TypeParam.Constraint
+			case ref.TypeParam.Default != nil:
+				ref = *ref.TypeParam.Default
+			default:
+				return TypeRef{}, false
+			}
+			continue
+		}
+		if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
+			return ref, true
+		}
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			return TypeRef{}, false
+		}
+		switch form := resolved.Form.(type) {
+		case DistinctForm:
+			args := TypeArgMap(form.TypeParams, ref.TypeArgs)
+			ref = SubstituteTypeRef(form.Base, args)
+		case AliasForm:
+			args := TypeArgMap(form.TypeParams, ref.TypeArgs)
+			ref = SubstituteTypeRef(form.Target, args)
+		default:
+			return TypeRef{}, false
+		}
+	}
+	return TypeRef{}, false
+}
+
 // CollectionKind reports the collection kind that ref ultimately resolves to:
-// "Array", "Map", or "record". It follows type-parameter constraints and defaults,
-// alias targets, and distinct bases. ok is false when ref does not resolve to a
-// collection. Generators use it to decide which fields are nilable collections (for
-// omitzero tagging and empty defaults) even when the field is typed through an alias
-// or a constrained type parameter.
+// "Array", "Map", or "record", as Collection resolves it. ok is false when ref does
+// not resolve to a collection. Generators use it to decide which fields are nilable
+// collections (for omitzero tagging and empty defaults) even when the field is typed
+// through an alias or a constrained type parameter.
 func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
-	return collectionKind(ref, table, set.New[string]())
+	collection, ok := Collection(ref, table)
+	return collection.Name, ok
 }
 
-func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string, bool) {
-	if ref.IsTypeParam() {
-		if ref.TypeParam == nil {
-			return "", false
-		}
-		if ref.TypeParam.Constraint != nil {
-			return collectionKind(*ref.TypeParam.Constraint, table, visited)
-		}
-		if ref.TypeParam.Default != nil {
-			return collectionKind(*ref.TypeParam.Default, table, visited)
-		}
-		return "", false
-	}
-	if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
-		return ref.Name, true
-	}
-	if visited.Contains(ref.Name) {
-		return "", false
-	}
-	visited.Add(ref.Name)
-	resolved, ok := table.Get(ref.Name)
-	if !ok {
-		return "", false
-	}
-	switch form := resolved.Form.(type) {
-	case DistinctForm:
-		return collectionKind(form.Base, table, visited)
-	case AliasForm:
-		return collectionKind(form.Target, table, visited)
-	}
-	return "", false
-}
-
-// ArraySize returns the size of the fixed-size array that ref ultimately resolves to.
-// Like CollectionKind, it follows type-parameter constraints and defaults, alias
-// targets, and distinct bases, applying the type arguments of a generic alias or
-// distinct type. ok is false when ref is not a fixed-size array.
+// ArraySize returns the size of the fixed-size array that ref ultimately resolves to,
+// as Collection resolves it. ok is false when ref is not a fixed-size array.
 func ArraySize(ref TypeRef, table *Table) (size int64, ok bool) {
-	return arraySize(ref, table, set.New[string]())
-}
-
-func arraySize(ref TypeRef, table *Table, visited set.Set[string]) (int64, bool) {
-	if ref.IsTypeParam() {
-		if ref.TypeParam == nil {
-			return 0, false
-		}
-		if ref.TypeParam.Constraint != nil {
-			return arraySize(*ref.TypeParam.Constraint, table, visited)
-		}
-		if ref.TypeParam.Default != nil {
-			return arraySize(*ref.TypeParam.Default, table, visited)
-		}
+	collection, ok := Collection(ref, table)
+	if !ok || collection.Name != "Array" || collection.ArraySize == nil {
 		return 0, false
 	}
-	if ref.Name == "Array" {
-		if ref.ArraySize == nil {
-			return 0, false
-		}
-		return *ref.ArraySize, true
-	}
-	if visited.Contains(ref.Name) {
-		return 0, false
-	}
-	visited.Add(ref.Name)
-	resolved, ok := table.Get(ref.Name)
-	if !ok {
-		return 0, false
-	}
-	switch form := resolved.Form.(type) {
-	case DistinctForm:
-		args := TypeArgMap(form.TypeParams, ref.TypeArgs)
-		return arraySize(SubstituteTypeRef(form.Base, args), table, visited)
-	case AliasForm:
-		args := TypeArgMap(form.TypeParams, ref.TypeArgs)
-		return arraySize(SubstituteTypeRef(form.Target, args), table, visited)
-	}
-	return 0, false
+	return *collection.ArraySize, true
 }
 
 type TypeParam struct {

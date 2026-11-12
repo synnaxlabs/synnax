@@ -2644,6 +2644,23 @@ ChannelStatus = status.Status<nil>
 			)
 
 			It(
+				"Should not default a generic alias field whose argument is a scalar",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Wrap<T = uint8[2]> = T
+
+					Item struct {
+						w Wrap<string>
+					}
+				`
+					resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToNotContain("default_factory")
+				},
+			)
+
+			It(
 				"Should require a field typed by a fixed-size array type parameter",
 				func(ctx SpecContext) {
 					source := `
