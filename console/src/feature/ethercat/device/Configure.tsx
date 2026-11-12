@@ -18,11 +18,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { useRunningOnNetwork } from "@/feature/ethercat/device/queries";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -50,6 +52,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
+import { Task } from "@/platform/task";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
@@ -313,6 +316,12 @@ const General = (): ReactElement => {
   );
 };
 
+interface SaveOptions {
+  createTask?: (deviceKey: string) => void;
+  /** Stops the tasks that run on the network during the save, then starts them. */
+  restart?: boolean;
+}
+
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
  * of one EtherCAT slave.
@@ -347,6 +356,8 @@ export const Configure = ({
   const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
+  const running = useRunningOnNetwork(opened.rack, network);
+  const handleError = Status.useErrorHandler();
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =
     given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
@@ -366,7 +377,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask?: (deviceKey: string) => void) => {
+  const save = async ({ createTask, restart = false }: SaveOptions = {}) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -375,7 +386,13 @@ export const Configure = ({
     if (stale || cycleError != null) return;
     // A mode that takes no cycles fails the start with any cycle.
     if (choice != null && mode == null) setChoice(choose(modes, choice.index));
-    if (!(await saveAsync())) return;
+    let saved = false;
+    const write = async () => {
+      saved = await saveAsync();
+    };
+    if (restart) await Task.whileStopped({ tasks: running }, write);
+    else await write();
+    if (!saved) return;
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);
     close();
@@ -481,7 +498,7 @@ export const Configure = ({
           {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(onCreateReadTask)}
+              onClick={() => void save({ createTask: onCreateReadTask })}
             >
               Save and create read task
             </Button.Button>
@@ -491,11 +508,24 @@ export const Configure = ({
             pdos.outputs.length > 0 && (
               <Button.Button
                 status={status.keepVariants(variant, "loading")}
-                onClick={() => void save(onCreateWriteTask)}
+                onClick={() => void save({ createTask: onCreateWriteTask })}
               >
                 Save and create write task
               </Button.Button>
             )}
+          {opened.configured && running.length > 0 && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() =>
+                handleError(
+                  async () => await save({ restart: true }),
+                  "Failed to restart the tasks",
+                )
+              }
+            >
+              Save and restart tasks
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             onClick={() => void save()}

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, type rack, status, type Synnax, type task } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { Device, Flux, Task as PTask } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -94,6 +94,23 @@ const channelDevicesZ = z.object({
   channels: z.array(z.object({ device: z.string() })).default(() => []),
 });
 
+const devicesOf = (t: task.Task): device.Key[] =>
+  unique.unique(channelDevicesZ.parse(t.config).channels.map((ch) => ch.device));
+
+const isRunning = (t: task.Task): boolean =>
+  (t.type === READ_TYPE || t.type === WRITE_TYPE) && t.status?.details.running === true;
+
+const onNetwork = (
+  tasks: task.Task[],
+  slaves: SlaveDevice[],
+  network: string,
+): task.Task[] => {
+  const keys = new Set(
+    slaves.filter((s) => s.properties.network === network).map((s) => s.key),
+  );
+  return tasks.filter((t) => devicesOf(t).some((k) => keys.has(k)));
+};
+
 /** @returns the EtherCAT read and write tasks that run on the network of the rack. */
 const retrieveRunningOnNetwork = async (
   client: Synnax,
@@ -102,23 +119,25 @@ const retrieveRunningOnNetwork = async (
 ): Promise<task.Task[]> => {
   const running = (
     await client.tasks.retrieve({ rack: rackKey, includeStatus: true })
-  ).filter(
-    (t) =>
-      (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
-      t.status?.details.running === true,
-  );
-  const devicesOf = (config: unknown): string[] =>
-    channelDevicesZ.parse(config).channels.map((ch) => ch.device);
-  const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
-  const onNetwork = new Set(
-    (keys.length === 0
+  ).filter(isRunning);
+  const keys = unique.unique(running.flatMap(devicesOf));
+  const slaves =
+    keys.length === 0
       ? []
-      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
-    )
-      .filter((s) => s.properties.network === network)
-      .map((s) => s.key),
-  );
-  return running.filter((t) => devicesOf(t.config).some((k) => onNetwork.has(k)));
+      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  return onNetwork(running, slaves, network);
+};
+
+/** The EtherCAT read and write tasks that run on the network of the rack, kept live. */
+export const useRunningOnNetwork = (
+  rackKey: rack.Key,
+  network: string,
+): task.Task[] => {
+  const tasks =
+    PTask.useResultMultiple({ where: { rack: { eq: rackKey } } }).data ?? [];
+  const running = tasks.filter(isRunning);
+  const slaves = useSlavesByKeys(unique.unique(running.flatMap(devicesOf))) ?? [];
+  return onNetwork(running, slaves, network);
 };
 
 export interface SetStandaloneParams {

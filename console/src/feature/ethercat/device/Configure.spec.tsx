@@ -20,6 +20,7 @@ import {
   createIdentifier,
   createSettingsDescription,
   createSlaveDevice,
+  STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
@@ -28,7 +29,13 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
+import {
+  answerCommandsUntil,
+  answerNextCommand,
+  type CommandAnswer,
+  reportTaskRunning,
+  reportTaskStopped,
+} from "@/platform/task/testutil";
 import { fakePickedFile, interceptFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -851,6 +858,48 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           FILTER,
         ]),
       );
+    });
+  });
+
+  describe("restart", () => {
+    const RESTART = "Save and restart tasks";
+
+    const createRunningRead = async (slave: EtherCAT.Device.SlaveDevice) => {
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const read = await rack.createTask({
+        name: uniqueName("ecat_read"),
+        type: EtherCAT.Task.READ_TYPE,
+        config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+          channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+        }),
+      });
+      await reportTaskRunning(client, read);
+      return read;
+    };
+
+    it("should stop the tasks on the network, save, then start them", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      const driver = await answerCommandsUntil(client, [read], "start");
+      const name = uniqueName("renamed");
+      fireEvent.change(nameInput(), { target: { value: name } });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      const commands = await driver.answered;
+      expect(commands.map((c) => c.type)).toEqual(["stop", "start"]);
+      expect((await retrieve(slave.key)).name).toBe(name);
+    });
+
+    it("should offer no restart once no task on the network runs", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      const elsewhere = await createSlaveDevice(client, slave.rack, {
+        network: "eth1",
+      });
+      await createRunningRead(elsewhere);
+      expect(await screen.findByText(RESTART)).toBeTruthy();
+      await reportTaskStopped(client, read);
+      await waitFor(() => expect(screen.queryByText(RESTART)).toBeNull());
     });
   });
 

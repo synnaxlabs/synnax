@@ -172,7 +172,8 @@ yet.
 5. To write CoE settings when the network starts, add them under
    [**Startup parameters**](#set-startup-parameters).
 6. Click **Save**. For a module that is not configured yet, you can click **Save and
-   create read task** or **Save and create write task** to also open a task for it.
+   create read task** or **Save and create write task** to also open a task for it. When
+   tasks run on the port, click **Save and restart tasks** to apply the change at once.
 
 Configure each module that a task uses.
 
@@ -318,8 +319,9 @@ Type one.", "SYNC1 cycle must be a multiple of the SYNC0 cycle", or "... is over
 limit of ...". When the module no longer lists the saved mode, it shows "The device no
 longer lists this mode, so the network fails to start. Pick a mode."
 
-A change applies the next time the network starts: stop every task on the port, then
-start them again.
+A change applies the next time the network starts. In the Console, click **Save and
+restart tasks** to apply it at once. In code, stop every task on the port, then start
+them again.
 
 <Edition.Enterprise>
 
@@ -460,7 +462,8 @@ await client.devices.dispatch(
 </Client.Tabs>
 
 - **When changes apply** -> If the network is running, a change applies the next time
-  the network starts. Stop every task on the port, then start them again.
+  the network starts. Click **Save and restart tasks**, or stop every task on the port,
+  then start them again.
 - **Rejected values** -> If a module rejects a value, the task does not start. The error
   names the parameter and the reason that the module gave, for example
   `rejected startup parameter 0x8000:15 (Filter settings): Value of parameter written too high`.

@@ -65,7 +65,9 @@ Console shows the settings of the module by name:
 - **Settings** of a read channel -> the settings of its input, such as the range and the
   filter.
 
-The Driver writes each setting as a startup parameter when the task starts.
+The Driver writes each setting as a startup parameter. An input setting applies when its
+task starts. A module setting applies when the network on the port starts. To apply it
+at once, click **Save and restart tasks** in the **Configure** dialog.
 
 If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
 settings:
@@ -110,9 +112,8 @@ In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV,
    [**Sync mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode),
    select the DC sync mode of the module.
 3. Enter the **SYNC0 cycle** and **SYNC1 cycle**, in µs, from the table of the model in
-   the Dewesoft manual. For example, a standalone 6xSTG in DC sync uses a SYNC0 cycle of
-   1 µs and a SYNC1 cycle of 1 s.
-4. Click **Save**, then stop every task on the port and start them again.
+   the Dewesoft manual.
+4. Click **Save and restart tasks**. If no task runs on the port, click **Save**.
 
 Some modules list one DC sync mode for each bus, such as **DC-bus1** and **DC-bus2** on
 the IOLITE GATE. Select the mode for the bus that the Driver connects to. A mode for the
