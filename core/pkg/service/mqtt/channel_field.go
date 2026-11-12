@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"uuid"
 
@@ -178,8 +179,9 @@ func resolveWriteConfig(
 
 // reconcileWriteConfig changes the channel field of each plain target of cfg to agree
 // with its channel, as payload.Channel.Reconcile does, clears its data type, and logs
-// each change. A field with no channel agrees with its data type instead, which it
-// keeps. It skips a field whose channel does not exist.
+// each change. A timestamp field on a channel that holds no timestamps becomes the
+// kind of its data type when the channel allows it. A field with no channel agrees with
+// its data type instead, which it keeps. It skips a field whose channel does not exist.
 func reconcileWriteConfig(
 	ctx context.Context,
 	svc *channel.Service,
@@ -203,7 +205,21 @@ func reconcileWriteConfig(
 		default:
 			return nil
 		}
-		c, changes := channelOf(t.Channel).Reconcile(dt)
+		c := channelOf(t.Channel)
+		var changes []string
+		if ok && c.Kind == payload.KindTimestamp && dt != telem.TimestampT &&
+			base.DataType != nil {
+			if k, known := payload.KindOf(*base.DataType); known &&
+				slices.Contains(payload.ChannelKinds(dt), k) {
+				c = payload.Channel{Kind: k}
+				changes = append(
+					changes,
+					"changed the kind from timestamp to "+string(k),
+				)
+			}
+		}
+		c, more := c.Reconcile(dt)
+		changes = append(changes, more...)
 		for _, change := range changes {
 			ins.L.Warn(
 				"changed an MQTT channel field to agree with its channel",
