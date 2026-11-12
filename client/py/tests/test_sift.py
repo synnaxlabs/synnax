@@ -67,15 +67,21 @@ class TestSiftUpload:
         with pytest.raises(RuntimeError, match="a range or a time range is required"):
             sy.sift.upload(client.tasks, sift_device, asset="Stand 1", channels=[1])
 
-    def test_future_time_range(self, client: sy.Synnax, sift_device: sy.Device) -> None:
+    def test_future_time_range(
+        self,
+        client: sy.Synnax,
+        sift_device: sy.Device,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+    ) -> None:
         """Should send the time range to the Core, which rejects a future one."""
+        _, data = indexed_pair
         start = sy.TimeStamp.now() + sy.TimeSpan.HOUR
         with pytest.raises(RuntimeError, match="starts in the future"):
             sy.sift.upload(
                 client.tasks,
                 sift_device,
                 asset="Stand 1",
-                channels=[1],
+                channels=[data.key],
                 time_range=sy.TimeRange(start, start + sy.TimeSpan.SECOND),
             )
 
