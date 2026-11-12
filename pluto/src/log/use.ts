@@ -77,6 +77,7 @@ export const use = ({
   timestampPrecision = 0,
   timeZone = "local",
   channels: rawChannels,
+  hiddenChannels,
   color,
   telem,
   hold,
@@ -109,6 +110,7 @@ export const use = ({
     channelNames,
     channelDataTypes,
     channels,
+    hiddenChannels,
     ...(hold != null && { scrolling: hold }),
   });
 

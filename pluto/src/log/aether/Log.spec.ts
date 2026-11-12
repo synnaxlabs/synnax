@@ -409,6 +409,65 @@ describe("log/aether/Log", () => {
       expect(keys).toContain(2);
       expect(keys).not.toContain(99);
     });
+
+    it("should not show the entries of a hidden channel", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i, (i % 2) + 1));
+      const { log } = setup(entries, REGION_500, { hiddenChannels: [2] });
+      expect(log.entries.map((e) => e.channelKey)).toEqual(Array(5).fill(1));
+    });
+
+    it("should return a paused view to its time when a channel hides", () => {
+      const entries = Array.from({ length: 400 }, (_, i) => makeEntry(i, (i % 2) + 1));
+      const { log, source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      const time = log.entries[log.scrollState.offset - 1].timestamp.valueOf();
+      // The source reloads only its newest entries when the filter changes.
+      source.setEntries(entries.slice(300));
+      updateState({ ...base, wheelPos: 2000, scrolling: true, hiddenChannels: [2] });
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries(entries);
+      source.notify();
+      const shown = log.entries.filter((e) => e.timestamp.valueOf() <= time);
+      expect(log.scrollState.offset).toBe(shown.length);
+    });
+
+    it("should stay paused when every channel hides", () => {
+      const entries = Array.from({ length: 400 }, (_, i) => makeEntry(i, (i % 2) + 1));
+      const { log, source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      const hidden = {
+        ...base,
+        wheelPos: 2000,
+        scrolling: true,
+        hiddenChannels: [1, 2],
+      };
+      updateState(hidden);
+      updateState(hidden);
+      expect(log.state.scrolling).toBe(true);
+      expect(source.resumeCalls).toBe(0);
+    });
+
+    it("should stay paused when the shown entries fit on one screen", () => {
+      const entries = Array.from({ length: 400 }, (_, i) => makeEntry(i, (i % 2) + 1));
+      const { log, source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      source.setEntries(entries.slice(394));
+      source.exhausted = true;
+      const hidden = { ...base, wheelPos: 2000, scrolling: true, hiddenChannels: [2] };
+      updateState(hidden);
+      updateState(hidden);
+      expect(log.state.scrolling).toBe(true);
+      expect(source.resumeCalls).toBe(0);
+    });
   });
 
   describe("color handling", () => {

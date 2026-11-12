@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type log, UnexpectedError } from "@synnaxlabs/client";
+import { channel, type log, UnexpectedError } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
@@ -26,6 +26,7 @@ const stateZ = z.object({
   /** Where the log stood when it last unmounted. A remount reads it while on hold. */
   position: z.string().default(""),
   toolbar: toolbarStateZ.prefault({}),
+  hiddenChannels: z.array(channel.keyZ).default([]),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -67,6 +68,11 @@ export interface SetPositionPayload extends KeyedPayload {
   position: string;
 }
 
+export interface SetChannelVisiblePayload extends KeyedPayload {
+  channel: channel.Key;
+  visible: boolean;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -101,6 +107,14 @@ export const { actions, reducer } = createSlice({
       const doc = state.windows[windowKey]?.[key];
       if (doc != null) doc.position = position;
     },
+    setChannelVisible: withSelectedState<SetChannelVisiblePayload, SliceState>(
+      (state, { payload: { channel, visible } }) => {
+        const hidden = new Set(state.hiddenChannels);
+        if (visible) hidden.delete(channel);
+        else hidden.add(channel);
+        state.hiddenChannels = Array.from(hidden);
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -108,7 +122,14 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { create, setSelectedToolbarTab, setHold, setPosition, remove } = actions;
+export const {
+  create,
+  setSelectedToolbarTab,
+  setHold,
+  setPosition,
+  setChannelVisible,
+  remove,
+} = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
@@ -118,5 +139,6 @@ export const MIDDLEWARE = [
     setSelectedToolbarTab,
     setHold,
     setPosition,
+    setChannelVisible,
   ]),
 ];

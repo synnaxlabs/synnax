@@ -10,14 +10,15 @@
 import { DataType, log } from "@synnaxlabs/client";
 import { aether } from "@synnaxlabs/pluto/ether";
 import { color, id } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Log } from "@/feature/log/Log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
+import { Session } from "@/session";
 
-const stateZ = z.looseObject({});
+const stateZ = z.looseObject({ hiddenChannels: z.array(z.number()).optional() });
 
 // The real worker needs a canvas. The log renders its empty content without one.
 class WorkerStub extends aether.Leaf<typeof stateZ> {
@@ -48,5 +49,23 @@ describe("log/Log", () => {
     });
     expect(await screen.findByText("No data received yet")).toBeDefined();
     expect(screen.queryByText("Configure channels")).toBeNull();
+  });
+
+  it("hands the hidden channels of the session to the log", async () => {
+    const hidden: Array<number[] | undefined> = [];
+    class Recorder extends WorkerStub {
+      afterUpdate(): void {
+        hidden.push(this.state.hiddenChannels);
+      }
+    }
+    const { key, store } = await renderLog(Log, {
+      additionalRegistry: { [Recorder.TYPE]: Recorder },
+    });
+    act(() => {
+      store.dispatch(
+        Session.Log.setChannelVisible({ key, channel: 7, visible: false }),
+      );
+    });
+    await waitFor(() => expect(hidden.at(-1)).toEqual([7]));
   });
 });

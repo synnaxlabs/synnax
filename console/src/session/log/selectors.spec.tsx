@@ -22,6 +22,7 @@ const customState: Log.State = {
   hold: true,
   position: "",
   toolbar: { selectedTab: "properties" },
+  hiddenChannels: [3],
 };
 
 const storeWith = (slice: Log.SliceState) =>
@@ -75,6 +76,13 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe("");
+  });
+
+  it("should read the hidden channels", () => {
+    const { result } = renderHook(() => Log.useSelectHiddenChannels(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toEqual([3]);
   });
 
   it("should track hold across dispatches", () => {

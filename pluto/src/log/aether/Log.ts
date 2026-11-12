@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type status } from "@synnaxlabs/client";
+import { channel, log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
   color,
+  compare,
   DataType,
   type destructor,
   notation,
@@ -56,6 +57,7 @@ export const logStateZ = log.logZ
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
     channelNames: z.record(z.string(), z.string()).default({}),
     channelDataTypes: z.record(z.string(), z.string()).default({}),
+    hiddenChannels: z.array(channel.keyZ).default([]),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -352,6 +354,17 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
+    const { hiddenChannels } = this.state;
+    // A new filter reloads the entries, so a paused view returns to its time.
+    if (
+      this.state.scrolling &&
+      this.seeking == null &&
+      compare.primitiveArrays(hiddenChannels, this.prevState.hiddenChannels) !==
+        compare.EQUAL
+    )
+      this.seeking =
+        this.entries[this.scrollState.offset - 1]?.timestamp.valueOf() ?? null;
+    i.telem.wrapped.setFilter?.({ hiddenChannels });
     const { data } = i.telem.value();
     this.entries = data;
 
@@ -399,10 +412,12 @@ export class Log
         this.setState((s) => ({ ...s, wheelPos: locked }));
       }
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
-      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      // taken at the bottom starts there, so it takes a return or a downward scroll. A
+      // view that waits for its time stays paused.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
       else if (
+        this.seeking == null &&
         i.telem.wrapped.live !== false &&
         (scrollState.awayFromEnd || dist < 0)
       ) {
@@ -814,18 +829,21 @@ export class Log
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
-    if (!reached && telem.wrapped.exhausted === false) return;
+    let lo = 0;
     if (reached) {
-      let [lo, hi] = [0, this.entries.length];
+      let hi = this.entries.length;
       while (lo < hi) {
         const mid = (lo + hi) >>> 1;
         if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
         else hi = mid;
       }
-      this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
-      this.scrollState.tail = 0;
     }
+    this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
+    this.scrollState.tail = 0;
+    if (!reached && telem.wrapped.exhausted === false) return;
     this.seeking = null;
+    // A view that lands on the newest entry starts there, as a pause does.
+    this.scrollState.awayFromEnd = false;
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 

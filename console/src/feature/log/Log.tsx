@@ -24,6 +24,7 @@ const Internal: Panel.Content = () => {
   const hasChannels = Base.useChannelKeys().length > 0;
   const hold = Session.Log.useSelectHold();
   const position = Session.Log.useSelectPosition();
+  const hiddenChannels = Session.Log.useSelectHiddenChannels();
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -44,6 +45,7 @@ const Internal: Panel.Content = () => {
       hold={hold}
       onHold={handleHold}
       position={position}
+      hiddenChannels={hiddenChannels}
       onLeave={handleLeave}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
