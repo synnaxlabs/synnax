@@ -34,7 +34,7 @@ const (
 	testConnectionCommand = "test_connection"
 	// listAssetsCommand lists the assets that a Sift device can see.
 	listAssetsCommand = "list_assets"
-	// uploadCommand queues an upload of the data of a range.
+	// uploadCommand queues an upload of the data of a range or a time range.
 	uploadCommand = "upload"
 	// listUploadsCommand lists the uploads of a range.
 	listUploadsCommand = "list_uploads"
