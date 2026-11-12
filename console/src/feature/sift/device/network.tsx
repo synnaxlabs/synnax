@@ -22,6 +22,6 @@ export const NETWORK: Device.Network = {
   icon: <Icon.Logo.Sift />,
   make: MAKE,
   scanType: SCAN_TYPE,
-  location: { shape: "address" },
+  location: { shape: "address", hiddenSchemes: ["https://", "http://"] },
   Connect,
 };
