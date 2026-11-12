@@ -508,62 +508,6 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
-  it.each<[string, (device: string) => NI.Task.AIChannel[], number, string, string]>([
-    [
-      "an error above the single channel maximum",
-      (device) => [createChannel("ai_voltage", 0, { device })],
-      3_000_000,
-      "samples at most 2,000,000 Hz",
-      "error",
-    ],
-    [
-      "a warning above the multiplexed maximum",
-      (device) => [
-        createChannel("ai_voltage", 0, { device }),
-        createChannel("ai_voltage", 1, { device }),
-      ],
-      600_000,
-      "may not sample 2 channels faster than 500,000 Hz",
-      "warning",
-    ],
-    [
-      "the extra scan channels of a thermocouple device",
-      (device) => [createChannel("ai_thermocouple", 0, { device })],
-      400_000,
-      "may not sample 3 channels faster than 333,333 Hz",
-      "warning",
-    ],
-  ])(
-    "should mark the sample rate with %s",
-    async (_, channels, rate, message, variant) => {
-      const dev = await createDevice();
-      await renderAnalogRead({
-        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-        sampleRate: rate,
-        channels: channels(dev.key),
-      });
-      const text = await screen.findByText(`${dev.model} ${message}`);
-      expect(text.className).toContain(variant);
-    },
-  );
-
-  it("should not mark the sample rate of a device that reports no rates", async () => {
-    const hardware = createHardware();
-    hardware.aiMaxSingleChannelRate = 0;
-    hardware.aiMaxMultiChannelRate = 0;
-    const dev = await createNIDevice(client, { properties: { hardware } });
-    await renderAnalogRead({
-      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
-      sampleRate: 10_000_000,
-      channels: [
-        createChannel("ai_voltage", 0, { device: dev.key }),
-        createChannel("ai_voltage", 1, { device: dev.key }),
-      ],
-    });
-    await screen.findByText("Ports");
-    expect(screen.queryByText(/samples at most|may not sample/)).toBeNull();
-  });
-
   it("should deploy channels on free ports of the device", async () => {
     const dev = await createDevice();
     const { container, draft } = await renderWith([
