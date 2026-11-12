@@ -82,6 +82,40 @@ describe("Sift stream form", () => {
     });
   });
 
+  it("should save the labels that the user picks", async () => {
+    const dev = await createSiftDevice(client);
+    const [, data] = await newIndexedPair(client);
+    const hotfire = await client.labels.create({
+      name: uniqueName("hotfire"),
+      color: "#FF0000",
+    });
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: {
+          ...ZERO_DRAFT.config,
+          device: dev.key,
+          asset: "Test stand 1",
+          channels: [data.key],
+        },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const { container } = await renderStream({ taskKey: t.key });
+    fireEvent.click(await screen.findByText("Select labels"));
+    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+      target: { value: hotfire.name },
+    });
+    fireEvent.click(await screen.findByText(hotfire.name));
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      t.key,
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    expect(deployed.config.labels).toEqual([hotfire.key]);
+  });
+
   it("should not list calculated channels, which the Core does not store", async () => {
     const prefix = uniqueName("sift_stored");
     const index = await client.channels.create({
