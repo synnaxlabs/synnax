@@ -132,7 +132,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-				"channels": []any{map[string]any{"key": "ch-1"}},
+				"channels": []any{map[string]any{"key": "ch-1", "type": "float"}},
 			}))
 			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["record_key"]).To(Equal("channel_name"))
@@ -143,7 +143,7 @@ var _ = Describe("Service", func() {
 				Not(HaveKey("timestamp_pointer")),
 			))
 			Expect(data["channels"]).To(HaveExactElements(
-				HaveKeyWithValue("json_type", "number"),
+				HaveKeyWithValue("type", "float"),
 			))
 		})
 

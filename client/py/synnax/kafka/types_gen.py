@@ -86,26 +86,18 @@ class ReadField(BaseModel):
         return hash(self.key)
 
 
-class WriteChannel(BaseModel):
-    """Is a channel whose samples a write task produces as records.
+class BaseWriteChannel(BaseModel):
+    """Carries the fields every Kafka write channel shares.
 
     Attributes:
         key: Uniquely identifies the channel within the task.
         disabled: Is true when the channel is excluded from the task.
         channel: Is the Synnax channel whose samples are produced.
-        json_type: Is the JSON type the sample value is serialized as.
-        time_format: Is the output encoding when the channel holds timestamps. Required
-            for timestamp channels.
-        enum_values: Maps numeric or boolean channel values to string labels. Only valid
-            when json_type is 'string'.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    json_type: payload.JSONType = "number"
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -185,27 +177,81 @@ class ReadRecord(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(task.StartConfig):
-    """Configures a Kafka write task, which produces one record per sample of each
-    channel to a topic.
+class FloatWriteChannel(BaseWriteChannel):
+    """Writes each sample as a JSON number."""
 
-    Attributes:
-        device: Is the key of the Kafka cluster device to produce to.
-        topic: Is the topic the task produces to.
-        record_key: Is the source of the key placed on every record.
-        record: Is the shape of every record.
-        channels: Contains the channels whose samples are produced.
-    """
+    type: Literal["float"] = "float"
+    enum_values: list[payload.FloatEntry] = Field(default_factory=list)
 
-    device: device_.Key = ""
-    topic: str = ""
-    record_key: RecordKey = "channel_name"
-    record: Record = Field(default_factory=lambda: Record())
-    channels: list[WriteChannel] = Field(default_factory=list)
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+class IntegerWriteChannel(BaseWriteChannel):
+    """Writes each sample as a JSON number."""
+
+    type: Literal["integer"] = "integer"
+    enum_values: list[payload.IntegerEntry] = Field(default_factory=list)
+
+
+class UnsignedWriteChannel(BaseWriteChannel):
+    """Writes each sample as a JSON number."""
+
+    type: Literal["unsigned"] = "unsigned"
+    enum_values: list[payload.UnsignedEntry] = Field(default_factory=list)
+
+
+class StringWriteChannel(BaseWriteChannel):
+    """Writes each sample as a JSON string."""
+
+    type: Literal["string"] = "string"
+    enum_values: list[payload.StringEntry] = Field(default_factory=list)
+
+
+class BooleanWriteChannel(BaseWriteChannel):
+    """Writes each sample as a JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    enum_values: list[payload.BooleanEntry] = Field(default_factory=list)
+
+
+class TimestampWriteChannel(BaseWriteChannel):
+    """Writes each sample of a timestamp channel in a time format."""
+
+    type: Literal["timestamp"] = "timestamp"
+    time_format: payload.TimeFormat
+
+
+class JsonWriteChannel(BaseWriteChannel):
+    """Writes each sample of a JSON channel as its JSON value."""
+
+    type: Literal["json"] = "json"
+
+
+class UuidWriteChannel(BaseWriteChannel):
+    """Writes each sample of a UUID channel as a JSON string."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class BytesWriteChannel(BaseWriteChannel):
+    """Writes each sample of a bytes channel as a base64 JSON string."""
+
+    type: Literal["bytes"] = "bytes"
+
+
+# Is a channel whose samples a write task produces as records. The type selects
+# the JSON value of each sample. A sample that matches an entry of enum_values is
+# written as the entry's label.
+WriteChannel = Annotated[
+    FloatWriteChannel
+    | IntegerWriteChannel
+    | UnsignedWriteChannel
+    | StringWriteChannel
+    | BooleanWriteChannel
+    | TimestampWriteChannel
+    | JsonWriteChannel
+    | UuidWriteChannel
+    | BytesWriteChannel,
+    Field(discriminator="type"),
+]
 
 
 class Properties(BaseModel):
@@ -243,6 +289,29 @@ class ReadConfig(task.PersistConfig):
     group: str = ""
     start_offset: StartOffset = "latest"
     records: list[ReadRecord] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.StartConfig):
+    """Configures a Kafka write task, which produces one record per sample of each
+    channel to a topic.
+
+    Attributes:
+        device: Is the key of the Kafka cluster device to produce to.
+        topic: Is the topic the task produces to.
+        record_key: Is the source of the key placed on every record.
+        record: Is the shape of every record.
+        channels: Contains the channels whose samples are produced.
+    """
+
+    device: device_.Key = ""
+    topic: str = ""
+    record_key: RecordKey = "channel_name"
+    record: Record = Field(default_factory=lambda: Record())
+    channels: list[WriteChannel] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

@@ -54,8 +54,8 @@ type ReadField = versions.ReadField
 // fields into channels.
 type ReadConfig = versions.ReadConfig
 
-// WriteChannel is a channel whose samples a write task produces as records.
-type WriteChannel = versions.WriteChannel
+// BaseWriteChannel carries the fields every Kafka write channel shares.
+type BaseWriteChannel = versions.BaseWriteChannel
 
 // Record is the shape of every record a write task produces.
 type Record = versions.Record
@@ -66,6 +66,41 @@ type WriteConfig = versions.WriteConfig
 
 // ReadRecord is a set of fields read from the records with one Kafka key.
 type ReadRecord = versions.ReadRecord
+
+// WriteChannel is a channel whose samples a write task produces as records. The type
+// selects the JSON value of each sample. A sample that matches an entry of enum_values
+// is written as the entry's label.
+type WriteChannel = versions.WriteChannel
+
+// WriteChannelVariant is implemented by every WriteChannel variant.
+type WriteChannelVariant = versions.WriteChannelVariant
+
+// FloatWriteChannel writes each sample as a JSON number.
+type FloatWriteChannel = versions.FloatWriteChannel
+
+// IntegerWriteChannel writes each sample as a JSON number.
+type IntegerWriteChannel = versions.IntegerWriteChannel
+
+// UnsignedWriteChannel writes each sample as a JSON number.
+type UnsignedWriteChannel = versions.UnsignedWriteChannel
+
+// StringWriteChannel writes each sample as a JSON string.
+type StringWriteChannel = versions.StringWriteChannel
+
+// BooleanWriteChannel writes each sample as a JSON boolean.
+type BooleanWriteChannel = versions.BooleanWriteChannel
+
+// TimestampWriteChannel writes each sample of a timestamp channel in a time format.
+type TimestampWriteChannel = versions.TimestampWriteChannel
+
+// JsonWriteChannel writes each sample of a JSON channel as its JSON value.
+type JsonWriteChannel = versions.JsonWriteChannel
+
+// UuidWriteChannel writes each sample of a UUID channel as a JSON string.
+type UuidWriteChannel = versions.UuidWriteChannel
+
+// BytesWriteChannel writes each sample of a bytes channel as a base64 JSON string.
+type BytesWriteChannel = versions.BytesWriteChannel
 
 // Credentials carries the username and password of a SASL mechanism.
 type Credentials struct {

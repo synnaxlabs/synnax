@@ -37,3 +37,19 @@ func KindOf(dt telem.DataType) (k Kind, ok bool) {
 		return "", false
 	}
 }
+
+// ChannelKinds returns the kinds a channel field can write a sample of data type dt
+// as. The first is KindOf(dt). It returns nil when dt is not a known data type.
+func ChannelKinds(dt telem.DataType) []Kind {
+	k, ok := KindOf(dt)
+	switch {
+	case !ok:
+		return nil
+	case k == KindBoolean:
+		return []Kind{KindBoolean, KindUnsigned, KindString}
+	case k == KindFloat, k == KindInteger, k == KindUnsigned:
+		return []Kind{k, KindString, KindBoolean}
+	default:
+		return []Kind{k}
+	}
+}

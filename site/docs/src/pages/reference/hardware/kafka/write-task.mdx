@@ -32,7 +32,8 @@ it records nothing in Synnax.
    can also run the "Create Kafka write task" command.
 2. Enter the **Topic**, such as `synnax-samples`.
 3. Click **Add channel**, then select a channel in **Channel**.
-4. Set the **JSON type** of the value: **Number**, **String**, or **Boolean**.
+4. In **Write as**, select how the value goes out: **Number**, **String**, or
+   **Boolean**. The list shows only what the data type of the channel allows.
 5. Click <Icon.Play /> (**Start**).
 
 The task starts to send records at once. Each record holds the value, the channel name,
@@ -59,7 +60,7 @@ task = client.tasks.create(
         record=kafka.Record(
             channel_pointer="/channel", timestamp_pointer="/timestamp"
         ),
-        channels=[kafka.WriteChannel(channel=temperature.key)],
+        channels=[kafka.FloatWriteChannel(channel=temperature.key)],
     ),
 )
 task.start()
@@ -87,7 +88,7 @@ const task = await client.tasks.create({
     device: cluster.key,
     topic: "synnax-samples",
     record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    channels: [{ channel: temperature.key }],
+    channels: [{ type: "float", channel: temperature.key }],
   }),
 });
 await task.start();
@@ -163,14 +164,29 @@ TypeScript uses the same fields in camel case, such as `recordKey`.
 
 ## Channel reference
 
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Channel <small>`channel`</small>          |         | The channel whose samples the task sends.                   |
-| JSON type <small>`json_type`</small>      | Number  | **Number**, **String**, or **Boolean**.                     |
-| Time format <small>`time_format`</small>  | None    | Required for a `timestamp` channel. Replaces the JSON type. |
-| Enum mapping <small>`enum_values`</small> | None    | With **String**, maps numbers to text labels.               |
+| Setting                                   | Default | Notes                                                            |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------- |
+| Channel <small>`channel`</small>          |         | The channel whose samples the task sends.                        |
+| Write as <small>`type`</small>            |         | How each sample goes out. See the table below.                   |
+| Time format <small>`time_format`</small>  |         | Required with `timestamp`. The Console sets ISO 8601.            |
+| Enum mapping <small>`enum_values`</small> | None    | With a number, string, or boolean type, labels matching samples. |
 
-A string, JSON, or UUID channel always goes out as a string.
+The data type of the channel sets which types it can be written as:
+
+| Channel data type | Write as (`type`)                                   |
+| ----------------- | --------------------------------------------------- |
+| Float             | **Number** (`float`), **String**, or **Boolean**    |
+| Signed integer    | **Number** (`integer`), **String**, or **Boolean**  |
+| Unsigned integer  | **Number** (`unsigned`), **String**, or **Boolean** |
+| Boolean           | **Boolean**, **Number** (`unsigned`), or **String** |
+| Timestamp         | `timestamp`, in its time format                     |
+| String            | **String**                                          |
+| JSON              | `json`, as its JSON value                           |
+| UUID              | `uuid`, as a string                                 |
+| Bytes             | `bytes`, as base64 text                             |
+
+Each type has its own enum mapping, with values of that type. **Boolean** writes a
+nonzero sample as the label of `true`.
 
 <Divider.Divider x />
 
@@ -195,7 +211,7 @@ The task could not send a record. The description gives the reason:
   user cannot write to the topic.
 - **Channel ... arrived without its index** -> a sample came with no timestamp from its
   index channel.
-- **Record build failed** -> a value does not fit the JSON type or the enum mapping.
+- **Record build failed** -> a value has no JSON value in its type, such as NaN.
 
 The task keeps running.
 
@@ -205,7 +221,8 @@ The task keeps running.
 - **Produce failed** -> check the topic name and the ACLs of the user.
 - **Channel ... arrived without its index** -> write the index channel in the same frame
   as the channel.
-- **Record build failed** -> match the JSON type and the enum mapping to the values.
+- **Record build failed** -> map the value in the enum mapping, or write it as
+  **String**.
 
 </Problem.Fix>
 </Problem.Item>
@@ -237,15 +254,31 @@ Add a channel, or enable one.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"channel ...: time_format is required for timestamp channel ..."}>
+<Problem.Item message={"channel ...: unknown time format ..."}>
 <Problem.Cause>
 
-A `timestamp` channel has no time format.
+A channel written as `timestamp` has no time format, or one that is not valid. A channel
+that is disabled, has no channel set, or names a deleted channel reports this as
+`channels.0.time_format: invalid time_format: ...`, where the number is the position of
+the channel in the task, from 0.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Set **Time format** on the channel.
+Set **Time format** on the channel. In code, set `time_format`, such as `iso8601`.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel ...: a ... channel cannot be written as ..."}>
+<Problem.Cause>
+
+The data type of the channel does not allow the type in **Write as**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a type that the channel allows, as in [channel reference](#channel-reference).
 
 </Problem.Fix>
 </Problem.Item>

@@ -132,7 +132,9 @@ var _ = Describe("Factory", func() {
 			AutoStart: autoStart,
 			Device:    dev,
 			Topic:     uniqueTopic(),
-			Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			Channels: []kafka.WriteChannel{
+				writeAs(data.Key(), kafka.FloatWriteChannel{}),
+			},
 		}
 	}
 	type buildConfig = func(ctx context.Context, dev device.Key, autoStart bool) any

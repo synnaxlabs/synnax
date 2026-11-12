@@ -63,28 +63,16 @@ export const readFieldZ = z.object({
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
-/** WriteChannel is a channel whose samples a write task produces as records. */
-export const writeChannelZ = z.object({
+/** BaseWriteChannel carries the fields every Kafka write channel shares. */
+export const baseWriteChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
   key: z.string().default(id.create),
   /** disabled is true when the channel is excluded from the task. */
   disabled: z.boolean().default(false),
   /** channel is the Synnax channel whose samples are produced. */
   channel: channel.keyZ.default(0),
-  /** jsonType is the JSON type the sample value is serialized as. */
-  jsonType: payload.jsonTypeZ.default("number"),
-  /**
-   * timeFormat is the output encoding when the channel holds timestamps. Required for
-   * timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /**
-   * enumValues maps numeric or boolean channel values to string labels. Only valid when
-   * json_type is 'string'.
-   */
-  enumValues: payload.enumEntryZ.array().default(() => []),
 });
-export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 
 /** Record is the shape of every record a write task produces. */
 export const recordZ = z.object({
@@ -172,14 +160,112 @@ export const readRecordZ = z.object({
 });
 export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  topic: z.string().default(""),
-  recordKey: recordKeyZ.default("channel_name"),
-  record: recordZ.prefault({}),
-  channels: writeChannelZ.array().default(() => []),
+/** FloatWriteChannel writes each sample as a JSON number. */
+export const floatWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("float"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.floatEntryZ.array().default(() => []),
 });
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+export interface FloatWriteChannel extends z.infer<typeof floatWriteChannelZ> {}
+
+/** IntegerWriteChannel writes each sample as a JSON number. */
+export const integerWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("integer"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.integerEntryZ.array().default(() => []),
+});
+export interface IntegerWriteChannel extends z.infer<typeof integerWriteChannelZ> {}
+
+/** UnsignedWriteChannel writes each sample as a JSON number. */
+export const unsignedWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("unsigned"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.unsignedEntryZ.array().default(() => []),
+});
+export interface UnsignedWriteChannel extends z.infer<typeof unsignedWriteChannelZ> {}
+
+/** StringWriteChannel writes each sample as a JSON string. */
+export const stringWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("string"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.stringEntryZ.array().default(() => []),
+});
+export interface StringWriteChannel extends z.infer<typeof stringWriteChannelZ> {}
+
+/** BooleanWriteChannel writes each sample as a JSON boolean. */
+export const booleanWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("boolean"),
+  /** enumValues maps channel values to the labels written in their place. */
+  enumValues: payload.booleanEntryZ.array().default(() => []),
+});
+export interface BooleanWriteChannel extends z.infer<typeof booleanWriteChannelZ> {}
+
+/** TimestampWriteChannel writes each sample of a timestamp channel in a time format. */
+export const timestampWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("timestamp"),
+  /** timeFormat is the encoding of each sample. */
+  timeFormat: payload.timeFormatZ,
+});
+export interface TimestampWriteChannel extends z.infer<typeof timestampWriteChannelZ> {}
+
+/** JsonWriteChannel writes each sample of a JSON channel as its JSON value. */
+export const jsonWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("json"),
+});
+export interface JsonWriteChannel extends z.infer<typeof jsonWriteChannelZ> {}
+
+/** UuidWriteChannel writes each sample of a UUID channel as a JSON string. */
+export const uuidWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidWriteChannel extends z.infer<typeof uuidWriteChannelZ> {}
+
+/** BytesWriteChannel writes each sample of a bytes channel as a base64 JSON string. */
+export const bytesWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("bytes"),
+});
+export interface BytesWriteChannel extends z.infer<typeof bytesWriteChannelZ> {}
+
+/**
+ * WriteChannel is a channel whose samples a write task produces as records. The type
+ * selects the JSON value of each sample. A sample that matches an entry of enum_values
+ * is written as the entry's label.
+ */
+export const writeChannelZ = z.discriminatedUnion("type", [
+  floatWriteChannelZ,
+  integerWriteChannelZ,
+  unsignedWriteChannelZ,
+  stringWriteChannelZ,
+  booleanWriteChannelZ,
+  timestampWriteChannelZ,
+  jsonWriteChannelZ,
+  uuidWriteChannelZ,
+  bytesWriteChannelZ,
+]);
+export type WriteChannel =
+  | FloatWriteChannel
+  | IntegerWriteChannel
+  | UnsignedWriteChannel
+  | StringWriteChannel
+  | BooleanWriteChannel
+  | TimestampWriteChannel
+  | JsonWriteChannel
+  | UuidWriteChannel
+  | BytesWriteChannel;
+
+export const WRITE_CHANNEL_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<WriteChannel, { type: K }>>;
+} = {
+  float: floatWriteChannelZ,
+  integer: integerWriteChannelZ,
+  unsigned: unsignedWriteChannelZ,
+  string: stringWriteChannelZ,
+  boolean: booleanWriteChannelZ,
+  timestamp: timestampWriteChannelZ,
+  json: jsonWriteChannelZ,
+  uuid: uuidWriteChannelZ,
+  bytes: bytesWriteChannelZ,
+};
 
 /** Properties configures the connection to a Kafka cluster device. */
 export const propertiesZ = z.object({
@@ -208,3 +294,12 @@ export const readConfigZ = task.persistConfigZ.extend({
   records: readRecordZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  topic: z.string().default(""),
+  recordKey: recordKeyZ.default("channel_name"),
+  record: recordZ.prefault({}),
+  channels: writeChannelZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

@@ -133,12 +133,13 @@ type Field struct {
 	// TimeFormat encodes timestamp samples.
 	TimeFormat TimeFormat
 	// Type is the JSON type an Encoder writes a sample as. Timestamp samples take
-	// TimeFormat instead.
+	// TimeFormat instead, and JSON samples keep their own type.
 	Type Type
 	// Enums label the samples of a numeric, boolean, or string data type. A Decoder
 	// reads a label as its sample. An Encoder writes a sample as the label of the first
-	// entry that matches it, whatever the Type. Floats match by value, and a NaN entry
-	// matches any NaN.
+	// entry that matches it. Floats match by value, and a NaN entry matches any NaN.
+	// With Type Boolean, a numeric sample matches by its truth value, and NaN matches
+	// no entry.
 	Enums []Enum
 }
 
@@ -391,11 +392,11 @@ type Encoder struct {
 }
 
 // NewEncoder returns an Encoder for f. It returns an error wrapping
-// validate.ErrValidation when f.Type cannot hold a sample of f.DataType, or an enum
-// value does not convert to f.DataType.
+// validate.ErrValidation when f.Type cannot hold a sample of f.DataType, an enum value
+// does not convert to f.DataType, or two enum values convert to samples that match.
 func NewEncoder(f Field) (*Encoder, error) {
 	dt := f.DataType
-	if dt != telem.TimestampT && !numeric(dt) && f.Type != String {
+	if dt != telem.TimestampT && dt != telem.JSONT && !numeric(dt) && f.Type != String {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "data type %s only serializes as a string", dt,
 		)
@@ -403,6 +404,18 @@ func NewEncoder(f Field) (*Encoder, error) {
 	enums, err := encodeEnums(f.Enums, dt)
 	if err != nil {
 		return nil, err
+	}
+	e := &Encoder{field: f}
+	for i, a := range enums {
+		for _, b := range enums[:i] {
+			if e.matches(a.sample, b.sample) {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"enum labels %q and %q have the same %s value",
+					b.label, a.label, dt,
+				)
+			}
+		}
 	}
 	for i := range enums {
 		label := enums[i].label
@@ -412,18 +425,20 @@ func NewEncoder(f Field) (*Encoder, error) {
 		}
 		enums[i].label = string(quoted)
 	}
-	return &Encoder{field: f, enums: enums}, nil
+	e.enums = enums
+	return e, nil
 }
 
 // Append appends the JSON value of sample to dst. A variable-density sample is its data
-// alone, without a length. Bytes are standard, padded base64. A sample that matches no
-// enum and is a NaN or infinite number writes as NaN, Infinity, or -Infinity when Type
-// is String. It returns an error wrapping validate.ErrValidation when sample has no
-// JSON value: a NaN or infinite number, or a NaN boolean.
+// alone, without a length. A JSON sample is written as it is, and bytes are standard,
+// padded base64. A sample that matches no enum and is a NaN or infinite number writes
+// as NaN, Infinity, or -Infinity when Type is String. It returns an error wrapping
+// validate.ErrValidation when sample has no JSON value: a NaN or infinite number, or a
+// NaN boolean.
 func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	dt := e.field.DataType
 	for _, en := range e.enums {
-		if matches(dt, en.sample, sample) {
+		if e.matches(en.sample, sample) {
 			return append(dst, en.label...), nil
 		}
 	}
@@ -431,6 +446,8 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	case dt == telem.TimestampT:
 		ts := telem.TimeStamp(telem.ByteOrder.Uint64(sample))
 		return AppendTimeStamp(dst, ts, e.field.TimeFormat), nil
+	case dt == telem.JSONT:
+		return append(dst, sample...), nil
 	case dt == telem.UUIDT:
 		dst = append(dst, '"')
 		var err error
@@ -457,6 +474,15 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	default:
 		return appendJSONNumber(dst, n)
 	}
+}
+
+func (e *Encoder) matches(en, sample []byte) bool {
+	dt := e.field.DataType
+	if e.field.Type != Boolean || dt == telem.BooleanT || !numeric(dt) {
+		return matches(dt, en, sample)
+	}
+	x, y := sampleNumber(dt, en).float(), sampleNumber(dt, sample).float()
+	return !math.IsNaN(x) && !math.IsNaN(y) && (x != 0) == (y != 0)
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,

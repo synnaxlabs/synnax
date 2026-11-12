@@ -154,15 +154,16 @@ func (f *factory) configureWrite(
 	}
 	var keys channel.Keys
 	for _, wc := range cfg.Channels {
-		if wc.Disabled {
+		b := wc.Base()
+		if b.Disabled {
 			continue
 		}
-		if wc.Channel == 0 {
+		if b.Channel == 0 {
 			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %q: channel must be set", wc.Key,
+				validate.ErrValidation, "channel %q: channel must be set", b.Key,
 			)
 		}
-		keys = append(keys, wc.Channel)
+		keys = append(keys, b.Channel)
 	}
 	if len(keys) == 0 {
 		return nil, errors.Wrap(
@@ -192,27 +193,12 @@ func (f *factory) configureWrite(
 	}
 	streamed := make(set.Set[channel.Key], len(keys))
 	for _, wc := range cfg.Channels {
-		if wc.Disabled {
+		b := wc.Base()
+		if b.Disabled {
 			continue
 		}
-		ch := channels[wc.Channel]
-		if ch.DataType == telem.TimestampT {
-			if wc.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format is required for timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
-			if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format alone encodes timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
-		}
-		if wt.channels[wc.Channel], err = newWriteChannel(cfg, wc, ch); err != nil {
+		ch := channels[b.Channel]
+		if wt.channels[b.Channel], err = newWriteChannel(cfg, wc, ch); err != nil {
 			return nil, err
 		}
 		for _, k := range []channel.Key{ch.Key(), ch.Index()} {
@@ -232,28 +218,15 @@ func newWriteChannel(
 ) (*writeChannel, error) {
 	name, err := jsontext.AppendQuote(nil, ch.Name)
 	if err != nil {
-		return nil, errors.Wrapf(err, "channel %q", wc.Key)
+		return nil, errors.Wrapf(err, "channel %q", wc.Base().Key)
 	}
-	f := xjson.Field{DataType: ch.DataType, Enums: enums(wc.EnumValues)}
-	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
-		return nil, errors.Wrapf(err, "channel %q", wc.Key)
-	}
-	if len(f.Enums) > 0 && f.Type != xjson.String {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"channel %q: enum values require the string JSON type", wc.Key,
-		)
-	}
-	if wc.TimeFormat != nil {
-		if f.TimeFormat, err = xjson.ParseTimeFormat(
-			string(*wc.TimeFormat),
-		); err != nil {
-			return nil, errors.Wrapf(err, "channel %q", wc.Key)
-		}
+	f, err := fieldOf(wc, ch.DataType)
+	if err != nil {
+		return nil, errors.Wrapf(err, "channel %q", wc.Base().Key)
 	}
 	out := &writeChannel{cfg: wc, ch: ch, name: name}
 	if out.encoder, err = xjson.NewEncoder(f); err != nil {
-		return nil, errors.Wrapf(err, "channel %q", wc.Key)
+		return nil, errors.Wrapf(err, "channel %q", wc.Base().Key)
 	}
 	if cfg.RecordKey == RecordKeyChannelName {
 		out.key = []byte(ch.Name)
