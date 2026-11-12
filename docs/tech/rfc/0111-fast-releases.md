@@ -67,26 +67,29 @@ reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
 Desktop joins a run with the other products only on `main`. A Desktop patch is its own
 dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
 
-Desktop bundles released binaries: the Core of the run, or the newest stable Core on the
-train of the newest Core tag reachable from `HEAD`, and the newest stable Driver on that
-train (`latest_version.sh`). A Core patch is tagged on `release/X.Y`, so the train
-lookup finds it and reachability alone does not. This changes behavior. Today Desktop
-builds both from source at `HEAD` (`release.desktop.yaml:142-158`), so a Core or Driver
-fix on `release/desktop-X.Y` reaches a Desktop patch. After this RFC, the fix needs a
-Core or Driver release first.
+Desktop bundles the released Driver and builds its own Core:
+
+- **Driver**: The Driver of the run, or the newest stable Driver on the train of the
+  newest Core tag reachable from `HEAD` (`latest_version.sh`). It is the same binary
+  that the Driver release ships. This changes behavior: today Desktop builds the Driver
+  from source at `HEAD` (`release.desktop.yaml:142-158`), so a Driver fix on
+  `release/desktop-X.Y` now needs a Driver release first.
+- **Core**: Built from source at `HEAD`, as today. The released Core is 250 MB to 308
+  MB, since it embeds the Console and its installers, and the Desktop installer is 45 MB
+  to 70 MB. The Go build takes 3 to 4 minutes on a bot.
 
 ### 3.1 Job graph
 
 ```
 resolve ─┬─ verify (green run lookup, else full CI) ───────────────┐
          ├─ build Driver (Windows, macOS, Linux, NI Linux RT) ──┐  │
+         │    └─ build Desktop (own Core, Tauri app)            │  │
          ├─ build Console web ──────────────────────────────────┤  │
          ├─ build Console app (macOS, Windows)                  │  │
          ├─ build packages (npm, PyPI)                          │  │
          │                                    build Core ◄──────┘  │
          │                                      ├─ Windows installer
-         │                                      ├─ Core image       │
-         │                                      └─ build Desktop    │
+         │                                      └─ Core image       │
          └────────────────────────────── publish (all) ◄───────────┘
                                              └─ deploy docs
 ```
@@ -95,8 +98,8 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   Core build downloads the Driver and the Console web bundle from the drafts of the run.
   A run that does not release a product downloads its newest release on the train, as
   today (`release.yaml:211-238`).
-- **Desktop takes binaries**: The Desktop build downloads the Core and the Driver of the
-  run, or the releases that §3.0 names. It compiles only the Tauri app.
+- **Desktop**: The Desktop build downloads the Driver that §3.0 names, builds its Core
+  on a bot, and compiles the Tauri app. It needs no other build of the run.
 - **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
   upload move to the publish stage.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
@@ -213,9 +216,10 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
 4. **One publish stage**: A publish per product let the Driver and Console go out before
    a Core build failed. One stage keeps a failed run invisible. The cost is that no
    product ships until the slowest build ends.
-5. **Desktop in the same workflow**: A second workflow repeated CI, the Driver build,
-   and the Core build. Desktop keeps its own version line and its `bump`, as RFC 0058 §4
-   decision 5 states.
+5. **Desktop in the same workflow, with the released Driver**: A second workflow
+   repeated CI and the 2-hour Driver build. The released Core was rejected for Desktop:
+   it is four times the size of the installer. Desktop keeps its own version line and
+   its `bump`, as RFC 0058 §4 decision 5 states.
 6. **One branch per train**: Three branches at one commit gave three dispatches. This
    reverses the branch names of RFC 0058 §2.0 and keeps its version rules.
 7. **Docs deploy stays**: The pages are prerendered, so the deploy sets the links. It
