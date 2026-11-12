@@ -13,7 +13,7 @@ package sift
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/versions"
@@ -44,7 +44,7 @@ type Position struct {
 // UploadDetails is the state of an upload to Sift, held in the details of its status.
 type UploadDetails struct {
 	// Device is the key of the Sift device the upload sends to.
-	Device service.Key `json:"device" msgpack:"device"`
+	Device device.Key `json:"device" msgpack:"device"`
 	// Range is the key of the range whose data the upload sends.
 	Range ranger.Key `json:"range" msgpack:"range"`
 	// TimeRange is the span of data the upload sends.
