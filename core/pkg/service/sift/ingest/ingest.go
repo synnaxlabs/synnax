@@ -84,7 +84,7 @@ type Config struct {
 	// CheckpointInterval is how long the engine sends before it waits for Sift to
 	// confirm what it sent.
 	//
-	// [OPTIONAL] - Defaults to 60 s.
+	// [OPTIONAL] - Defaults to 10 s.
 	CheckpointInterval telem.TimeSpan
 	// Retry sets the wait between attempts after a temporary failure.
 	//
@@ -104,7 +104,7 @@ var _ config.Config[Config] = Config{}
 
 // DefaultConfig is the default configuration for an Engine.
 var DefaultConfig = Config{
-	CheckpointInterval: 60 * telem.Second,
+	CheckpointInterval: 10 * telem.Second,
 	Retry: breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
