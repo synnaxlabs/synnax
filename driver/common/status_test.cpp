@@ -170,27 +170,90 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(ctx->statuses.size(), count);
 }
 
-/// @brief a failed start should send the field errors of its error, and the next
-/// start should drop them.
-TEST(TestTaskStateHandler, StartSendsFieldErrors) {
+namespace {
+/// @brief returns a parser validation error with one field error.
+x::errors::Error field_error() {
+    x::json::Parser parser(x::json::json::object());
+    parser.field_err("channels.2.min_val", "Must be between -10 and 10");
+    return parser.error();
+}
+}
+
+/// @brief it should send the field errors of a failed start, and drop them on the next
+/// start.
+TEST(TestTaskStateHandler, testStartSendsFieldErrors) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
-    x::json::Parser parser(x::json::json::object());
-    parser.field_err("channels.2.min_val", "Must be between -10 and 10");
-    handler.error(parser.error(), "Failed to start task");
+    const auto err = field_error();
+    handler.error(err, "Failed to start task");
     handler.send_start("start_cmd");
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto failed = ctx->statuses[0];
     EXPECT_EQ(failed.message, "Failed to start task");
     EXPECT_EQ(failed.description, "channels.2.min_val: Must be between -10 and 10");
     ASSERT_TRUE(failed.details.data.has_value());
-    EXPECT_EQ(x::json::json(*failed.details.data), parser.error_json());
+    EXPECT_EQ(
+        x::json::json(failed.details.data.value()),
+        x::json::json::parse(err.data)
+    );
     handler.reset();
     handler.send_start("start_cmd_2");
     ASSERT_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].message, "Started task");
     EXPECT_FALSE(ctx->statuses[1].details.data.has_value());
+}
+
+/// @brief it should send the field errors of an error that it sends right away.
+TEST(TestTaskStateHandler, testSendErrorSendsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_write"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+    const auto err = field_error();
+    handler.send_error(err, "Failed to write");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(
+        ctx->statuses[0].description,
+        "channels.2.min_val: Must be between -10 and 10"
+    );
+    ASSERT_TRUE(ctx->statuses[0].details.data.has_value());
+    EXPECT_EQ(
+        x::json::json(ctx->statuses[0].details.data.value()),
+        x::json::json::parse(err.data)
+    );
+}
+
+/// @brief it should send the field errors of an error that a stop reports.
+TEST(TestTaskStateHandler, testStopSendsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+    const auto err = field_error();
+    handler.error(err, "Failed to stop task");
+    handler.send_stop("stop_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    ASSERT_TRUE(ctx->statuses[0].details.data.has_value());
+    EXPECT_EQ(
+        x::json::json(ctx->statuses[0].details.data.value()),
+        x::json::json::parse(err.data)
+    );
+}
+
+/// @brief it should drop the field errors of an earlier error on a warning and on the
+/// status that clears it.
+TEST(TestTaskStateHandler, testWarningDropsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+    handler.send_error(field_error(), "Failed to read");
+    handler.reset();
+    handler.send_warning("Buffer overflow", "");
+    handler.clear_warning();
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[1].message, "Buffer overflow");
+    EXPECT_FALSE(ctx->statuses[1].details.data.has_value());
+    EXPECT_EQ(ctx->statuses[2].message, "Task running");
+    EXPECT_FALSE(ctx->statuses[2].details.data.has_value());
 }
 
 /// @brief it should correctly communicate the stopping state of a task.
@@ -594,8 +657,8 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
     );
 }
 
-/// @brief a config error should send its field errors in the status details.
-TEST(TestHandleConfigErr, SendsFieldErrors) {
+/// @brief it should send the field errors of a config error in the status details.
+TEST(TestHandleConfigErr, testSendsFieldErrors) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     x::json::Parser parser(x::json::json::object());
@@ -603,11 +666,14 @@ TEST(TestHandleConfigErr, SendsFieldErrors) {
     handle_config_err(ctx, task, {ConfigureResult{}, parser.error()}, "start_cmd");
     ASSERT_EQ(ctx->statuses.size(), 1);
     ASSERT_TRUE(ctx->statuses[0].details.data.has_value());
-    EXPECT_EQ(x::json::json(*ctx->statuses[0].details.data), parser.error_json());
+    EXPECT_EQ(
+        x::json::json(ctx->statuses[0].details.data.value()),
+        parser.error_json()
+    );
 }
 
-/// @brief a config error with no field errors should send no status data.
-TEST(TestHandleConfigErr, SendsNoDataForPlainError) {
+/// @brief it should send no status data for a config error with no field errors.
+TEST(TestHandleConfigErr, testSendsNoDataForPlainError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     handle_config_err(
