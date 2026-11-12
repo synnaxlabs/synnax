@@ -30,6 +30,7 @@ runs:
       uses: ./.github/actions/setup-zstd
 
     # The path text is part of the cache version too, so it is the same on each runner.
+    # Each Windows runner is alone on its machine, so no other job writes to this path.
     # A cache holds paths relative to the workspace, which is on another drive on a
     # build bot, so an entry from a hosted runner unpacks to the wrong place there.
     - name: Restore trusted-signing-cli
