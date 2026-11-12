@@ -13,7 +13,7 @@ import {
   channel,
   DisconnectedError,
   type ranger,
-  status,
+  type status,
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/client";
@@ -29,6 +29,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
+import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
@@ -81,9 +82,15 @@ const encodeTimeRange = (tr: CrudeTimeRange) => {
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
+  onRejected: (reply: status.Status) => void;
 }
 
-const UploadButton = ({ name, source, onUploaded }: UploadButtonProps) => {
+const UploadButton = ({
+  name,
+  source,
+  onUploaded,
+  onRejected,
+}: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
@@ -110,7 +117,8 @@ const UploadButton = ({ name, source, onUploaded }: UploadButtonProps) => {
           timeout: UPLOAD_TIMEOUT,
           args: { device, channels, asset, ...data },
         });
-        if (res.variant === "error") throw status.toError(res);
+        // The reply of the scan task notifies a rejection on its own.
+        if (res.variant === "error") return onRejected(res);
         addStatus({
           variant: "success",
           name,
@@ -142,6 +150,7 @@ const Upload = ({
     schema: formSchema,
     values: { rack: 0, config: { device: "", asset: "", channels: [] } },
   });
+  const [rejection, setRejection] = useState<status.Status | null>(null);
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
@@ -178,8 +187,21 @@ const Upload = ({
           </Form.Field>
         </Modal.Body>
         <Modal.Footer>
+          {rejection != null && (
+            <Nav.Bar.Start>
+              <Status.Summary
+                variant="error"
+                message={rejection.description ?? rejection.message}
+              />
+            </Nav.Bar.Start>
+          )}
           <Nav.Bar.End x align="center">
-            <UploadButton name={name} source={source} onUploaded={close} />
+            <UploadButton
+              name={name}
+              source={source}
+              onUploaded={close}
+              onRejected={setRejection}
+            />
           </Nav.Bar.End>
         </Modal.Footer>
       </Modal.Frame>
