@@ -20,15 +20,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// confirmTimeout bounds how long the sender waits for Sift to confirm a stream.
-const confirmTimeout = 30 * time.Second
-
 // sender sends requests on an ingest stream that it opens on the first send after
 // each confirm. A sender is not safe for concurrent use.
 type sender struct {
 	client ingestv1.IngestServiceClient
-	stream ingestv1.IngestService_IngestWithConfigDataStreamClient
-	cancel context.CancelFunc
+	// timeout bounds a confirm, and a stream after the context of its sends ends.
+	timeout time.Duration
+	stream  ingestv1.IngestService_IngestWithConfigDataStreamClient
+	cancel  context.CancelFunc
+	release func() bool
 }
 
 func (s *sender) send(
@@ -37,13 +37,24 @@ func (s *sender) send(
 ) error {
 	if s.stream == nil {
 		// The stream outlives ctx so that a stopping task can still confirm what it
-		// sent.
+		// sent. A Sift that stops reading would then block the stop, so the stream
+		// ends one timeout after ctx does.
 		streamCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 		stream, err := s.client.IngestWithConfigDataStream(streamCtx)
 		if err != nil {
 			cancel()
 			return err
 		}
+		timeout := s.timeout
+		s.release = context.AfterFunc(ctx, func() {
+			t := time.NewTimer(timeout)
+			defer t.Stop()
+			select {
+			case <-t.C:
+				cancel()
+			case <-streamCtx.Done():
+			}
+		})
 		s.stream, s.cancel = stream, cancel
 	}
 	if err := s.stream.Send(req); err != nil {
@@ -71,7 +82,7 @@ func (s *sender) confirm() error {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(confirmTimeout):
+	case <-time.After(s.timeout):
 		err = status.Error(codes.DeadlineExceeded, "Sift did not confirm the data sent")
 	}
 	s.abort()
@@ -81,9 +92,10 @@ func (s *sender) confirm() error {
 // abort drops the stream without waiting for Sift.
 func (s *sender) abort() {
 	if s.cancel != nil {
+		s.release()
 		s.cancel()
 	}
-	s.stream, s.cancel = nil, nil
+	s.stream, s.cancel, s.release = nil, nil, nil
 }
 
 // permanentCodes are the gRPC codes that retrying cannot fix.
