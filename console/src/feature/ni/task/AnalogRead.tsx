@@ -204,13 +204,15 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
   if (config == null) {
-    const first = createNextAIChannel([]);
-    if (deviceKey != null) first.device = deviceKey;
-    cfg.channels = [first];
+    const devices = deviceKeys ?? (deviceKey == null ? [""] : [deviceKey]);
+    cfg.channels = [];
+    for (const device of devices)
+      cfg.channels.push(createNextAIChannel(cfg.channels, { device }));
   }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };

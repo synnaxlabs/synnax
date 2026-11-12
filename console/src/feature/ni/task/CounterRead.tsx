@@ -158,13 +158,15 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
   deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = counterReadConfigZ.parse(config ?? {});
   if (config == null) {
-    const first = createNextCIChannel([]);
-    if (deviceKey != null) first.device = deviceKey;
-    cfg.channels = [first];
+    const devices = deviceKeys ?? (deviceKey == null ? [""] : [deviceKey]);
+    cfg.channels = [];
+    for (const device of devices)
+      cfg.channels.push(createNextCIChannel(cfg.channels, { device }));
   }
   return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
 };

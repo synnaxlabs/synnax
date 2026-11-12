@@ -210,8 +210,8 @@ const takesSlotOf = (a: Channel, b: Channel): boolean => {
 
 /**
  * @returns the channel to add after the channel with the given key, or after the last
- * channel: the first slot after it that no channel of the same type takes. Returns
- * null when there are no channels.
+ * channel: the first slot after it that no channel of the same type takes. Returns null
+ * when there are no channels.
  */
 export const nextOpenChannel = <C extends Channel>(
   channels: C[],
