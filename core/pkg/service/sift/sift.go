@@ -14,20 +14,25 @@ package sift
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
+	"strings"
 	"time"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // Make is the make of a Sift device.
@@ -81,6 +86,7 @@ func connect(
 
 // dial opens a connection to the Sift API at uri that sends apiKey with every call.
 func dial(uri, apiKey string) (*grpc.ClientConn, error) {
+	uri = target(uri)
 	creds := credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})
 	if isLocal(uri) {
 		creds = insecure.NewCredentials()
@@ -113,6 +119,62 @@ func dial(uri, apiKey string) (*grpc.ClientConn, error) {
 			return streamer(auth(ctx), desc, cc, method, opts...)
 		}),
 	)
+}
+
+// target returns the gRPC target of a Sift URI. It drops an http or https scheme and a
+// trailing slash, so that a URI copied from a browser connects.
+func target(uri string) string {
+	if scheme, rest, ok := strings.Cut(uri, "://"); ok &&
+		(strings.EqualFold(scheme, "https") || strings.EqualFold(scheme, "http")) {
+		uri = rest
+	}
+	return strings.TrimSuffix(uri, "/")
+}
+
+// failure returns a driver.Failure that says why a call to the Sift API at uri failed,
+// or err itself when the call did not fail with a gRPC status.
+func failure(uri string, err error) error {
+	st, ok := grpcstatus.FromError(err)
+	if err == nil || !ok {
+		return err
+	}
+	switch st.Code() {
+	case codes.Unauthenticated:
+		return driver.Failure{
+			Message: "Authentication failed",
+			Description: "Sift rejected the API key. Check that the key is current and " +
+				"that it belongs to the Sift environment of the URI.",
+		}
+	case codes.PermissionDenied:
+		return driver.Failure{
+			Message:     "Permission denied",
+			Description: "The API key has no permission for this: " + st.Message() + ".",
+		}
+	case codes.Unavailable, codes.DeadlineExceeded:
+		reason := st.Message()
+		switch {
+		case st.Code() == codes.DeadlineExceeded:
+			reason = "Sift did not answer in time"
+		case strings.Contains(reason, "produced zero addresses"):
+			reason = "the host was not found"
+		case strings.Contains(reason, "connection refused"):
+			reason = "the connection was refused"
+		}
+		return driver.Failure{
+			Message: "Failed to reach Sift",
+			Description: fmt.Sprintf(
+				"Could not reach %s: %s. Check the URI, and that the network of the "+
+					"Core can reach Sift.",
+				target(uri),
+				reason,
+			),
+		}
+	default:
+		return driver.Failure{
+			Message:     "Sift rejected the request",
+			Description: st.Message() + ".",
+		}
+	}
 }
 
 // isLocal reports whether uri names this computer, which Sift's own clients reach
