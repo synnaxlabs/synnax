@@ -229,6 +229,17 @@ var _ = Describe("MigrateReadField", func() {
 		))
 	})
 
+	It("Should lift an unknown data type with a time format to the float kind", func() {
+		old := storedField("complex128")
+		old.TimeFormat = new(payload.TimeFormatUnixSec)
+		f, changes := v2.MigrateReadField(old)
+		Expect(f.Type()).To(Equal(payload.KindFloat))
+		Expect(changes).To(ConsistOf(
+			`unknown data type "complex128" became the float kind`,
+			"time format unix_sec was dropped, because the field is float",
+		))
+	})
+
 	It("Should take float64 for an empty data type", func() {
 		f, changes := v2.MigrateReadField(storedField(""))
 		Expect(v2.ReadOf(f).Number.DataType).To(HaveValue(Equal(telem.Float64T)))
