@@ -66,17 +66,36 @@ var _ = Describe("Migrate", func() {
 					{Label: "HIGH", Value: payload.Float(math.Inf(1))},
 				},
 			}),
+		Entry("an unknown JSON type as a float",
+			v0.WriteChannel{JSONType: "object"},
+			v1.FloatWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues:       []payload.FloatEntry{},
+			}),
 		Entry("a string with no entries as a string",
 			v0.WriteChannel{JSONType: payload.JSONTypeString},
 			v1.StringWriteChannel{BaseWriteChannel: base}),
 		Entry("a boolean as a boolean",
 			v0.WriteChannel{JSONType: payload.JSONTypeBoolean, EnumValues: onOff},
 			v1.BooleanWriteChannel{BaseWriteChannel: base}),
-		Entry("a time format as a timestamp, whatever the JSON type",
-			v0.WriteChannel{JSONType: payload.JSONTypeString, TimeFormat: &unixMs},
+		Entry("a number with a time format as a timestamp",
+			v0.WriteChannel{JSONType: payload.JSONTypeNumber, TimeFormat: &unixMs},
 			v1.TimestampWriteChannel{
 				BaseWriteChannel: base,
 				TimeFormat:       payload.TimeFormatUnixMs,
+			}),
+		Entry("a string with entries and a stale time format as a float",
+			v0.WriteChannel{
+				JSONType:   payload.JSONTypeString,
+				TimeFormat: &unixMs,
+				EnumValues: onOff,
+			},
+			v1.FloatWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues: []payload.FloatEntry{
+					{Label: "OFF", Value: 0},
+					{Label: "ON", Value: 1},
+				},
 			}),
 	)
 

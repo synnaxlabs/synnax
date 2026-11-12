@@ -370,7 +370,7 @@ var _ = Describe("Write channels", func() {
 
 var _ = Describe("Stored write configs", func() {
 	It(
-		"Should lift v0 channels to the kinds their channels allow",
+		"Should rewrite each v0 record in place, in the kinds its channels allow",
 		func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
@@ -410,6 +410,7 @@ var _ = Describe("Stored write configs", func() {
 					Channel:  create(telem.StringT),
 					JSONType: payload.JSONTypeString,
 				},
+				{Key: "c4", Channel: 999999, JSONType: "object"},
 			}}
 			old.Key = uuid.New()
 			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
@@ -430,6 +431,14 @@ var _ = Describe("Stored write configs", func() {
 					))),
 				),
 				HaveKeyWithValue("type", "string"),
+				HaveKeyWithValue("type", "float"),
+			))
+			var stored []kafka.WriteConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, kafka.WriteConfig]().
+				Entries(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored).To(HaveExactElements(
+				HaveField("Key", old.Key),
 			))
 		},
 	)
