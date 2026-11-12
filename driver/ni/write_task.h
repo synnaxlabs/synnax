@@ -128,15 +128,21 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         return {WriteTaskConfig(client, parser, task.type), parser.error()};
     }
 
-    /// @brief applies the configuration to the given DAQmx task. Commanded outputs
-    /// come first, so buf_indexes follow the channel order of the DAQmx task.
+    /// @brief applies the configuration to the given DAQmx task and verifies it.
+    /// Commanded outputs come first, so buf_indexes follow the channel order of the
+    /// DAQmx task. A value that DAQmx rejects comes back as a field error.
     x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
-        for (const auto &[_, ch]: channels)
+        std::vector<const channel::Output *> outputs;
+        for (const auto &[_, ch]: channels) {
             if (const auto err = ch->apply(dmx, task_handle)) return err;
-        for (const auto &generator: this->generators)
+            outputs.push_back(ch.get());
+        }
+        for (const auto &generator: this->generators) {
             if (const auto err = generator->apply(dmx, task_handle)) return err;
-        return x::errors::NIL;
+            outputs.push_back(generator.get());
+        }
+        return channel::verify(dmx, task_handle, outputs);
     }
 };
 
