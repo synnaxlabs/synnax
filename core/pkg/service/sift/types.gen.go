@@ -64,6 +64,9 @@ type UploadDetails struct {
 
 // StreamDetails is the progress of a stream to Sift, held in the details of its status.
 type StreamDetails struct {
+	// Start is the time the task started to send from, so a range that ends at or
+	// before it gets no run.
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// Positions holds, for each index, how far Sift has confirmed the stream.
 	Positions []Position `json:"positions" msgpack:"positions"`
 	// RunsThrough is the time before which every labeled range that ended has a run.

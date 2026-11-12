@@ -192,7 +192,7 @@ func (t *streamTask) loadProgress(
 			Key:     ProgressKey(t.task.Key),
 			Name:    t.task.Name,
 			Variant: status.VariantInfo,
-			Details: StreamDetails{RunsThrough: start},
+			Details: StreamDetails{Start: start, RunsThrough: start},
 		}
 	case err != nil:
 		return nil, err
@@ -227,12 +227,13 @@ func (p *progress) positions() []Position {
 	return p.status.Details.Positions
 }
 
-// through returns the time before which Sift has every sample of the task, and the
-// time before which every labeled range that ended has a run.
-func (p *progress) through() (sent, runs telem.TimeStamp) {
+// through returns the time the task started to send from, the time before which Sift
+// has every sample of the task, and the time before which every labeled range that
+// ended has a run.
+func (p *progress) through() (start, sent, runs telem.TimeStamp) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.sent, p.status.Details.RunsThrough
+	return p.status.Details.Start, p.sent, p.status.Details.RunsThrough
 }
 
 // begin saves the positions the task starts from, so that a restart before the first
@@ -337,7 +338,7 @@ func (r *runSync) run(ctx context.Context) error {
 }
 
 func (r *runSync) sync(ctx context.Context) (err error) {
-	sent, since := r.progress.through()
+	start, sent, since := r.progress.through()
 	r.mu.Lock()
 	changed := r.changed
 	r.changed = make(set.Set[ranger.Key])
@@ -367,7 +368,8 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		if end <= since {
 			ready = !r.synced || changed.Contains(rng.Key)
 		}
-		if !ready || r.rejected.Contains(rng.Key) {
+		// Sift has no data of a range that ends by start.
+		if end <= start || !ready || r.rejected.Contains(rng.Key) {
 			continue
 		}
 		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)

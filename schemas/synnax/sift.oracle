@@ -111,6 +111,12 @@ UploadDetails struct {
 }
 
 StreamDetails struct {
+    start        telem.TimeStamp {
+        @doc value """
+            is the time the task started to send from, so a range that ends at or before
+            it gets no run.
+        """
+    }
     positions    Position[]      {
         @doc value "holds, for each index, how far Sift has confirmed the stream."
     }

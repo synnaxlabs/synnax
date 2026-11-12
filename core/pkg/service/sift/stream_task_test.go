@@ -310,6 +310,68 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		// pastRange creates a range that ended before the task started.
+		pastRange := func(ctx context.Context) ranger.Range {
+			GinkgoHelper()
+			now := telem.Now()
+			return createRange(ctx, telem.TimeRange{
+				Start: now.Add(-10 * telem.Second),
+				End:   now.Add(-5 * telem.Second),
+			})
+		}
+
+		addLabel := func(ctx context.Context, rng ranger.Range) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).
+					AddLabels(ctx, rng.Key, []label.Key{l.Key})
+			})).To(Succeed())
+		}
+
+		It("Should not make a run of a range that ended before the task started",
+			func(ctx SpecContext) {
+				addLabel(ctx, pastRange(ctx))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+				Consistently(server.Runs).WithTimeout(200 * time.Millisecond).
+					Should(HaveExactElements(HaveField("Name", rng.Name)))
+			})
+
+		It("Should not make a run before its first start after a restart",
+			func(ctx SpecContext) {
+				past := pastRange(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(dt.Stop(false)).To(Succeed())
+				stopped := MustSucceed(progressOf(ctx)).Details
+				addLabel(ctx, past)
+				start(ctx, streamConfig(l.Key))
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">", stopped.RunsThrough),
+				))
+				Expect(progressOf(ctx)).To(HaveField("Details.Start", stopped.Start))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("Name", rng.Name)))
+			})
+
+		It("Should make a run of a range that gets a label after it ended",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx)
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">=", rng.TimeRange.End),
+				))
+				addLabel(ctx, rng)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
 		It("Should make a run of a range that ended while the task was stopped",
 			func(ctx SpecContext) {
 				start(ctx, streamConfig(l.Key))
