@@ -200,9 +200,25 @@ var _ = Describe("MigrateReadField", func() {
 			Expect(unsigned.EnumValues).To(Equal(
 				[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
 			))
-			Expect(changes).To(BeEmpty())
+			Expect(changes).To(ConsistOf(
+				"time format unix_sec was dropped, because the field is unsigned",
+			))
 		},
 	)
+
+	It("Should keep the entries of a default field with a time format", func() {
+		old := storedField("", payload.EnumEntry{Label: "ON", Value: 1})
+		old.TimeFormat = new(payload.TimeFormatUnixSec)
+		f, changes := v2.MigrateReadField(old)
+		float, ok := f.Variant.(v2.FloatReadField)
+		Expect(ok).To(BeTrue())
+		Expect(
+			float.EnumValues,
+		).To(Equal([]payload.FloatEntry{{Label: "ON", Value: 1}}))
+		Expect(changes).To(ConsistOf(
+			"time format unix_sec was dropped, because the field is float",
+		))
+	})
 
 	It("Should lift an unknown data type to the float kind and describe it", func() {
 		f, changes := v2.MigrateReadField(storedField("complex128"))
