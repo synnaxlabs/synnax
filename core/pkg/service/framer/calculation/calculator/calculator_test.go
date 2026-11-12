@@ -16,15 +16,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,38 +34,26 @@ func saveReport(context.Context, channel.Key, calculator.Status) bool { return t
 
 var _ = Describe("Calculator", Ordered, func() {
 	var (
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
+		db         *gorp.DB
+		channelSvc *channel.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		db = node.DB
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 	})
 
 	open := func(
@@ -77,7 +64,9 @@ var _ = Describe("Calculator", Ordered, func() {
 	) *calculator.Calculator {
 		GinkgoHelper()
 		if indexes != nil {
-			Expect(channelWriter.CreateMany(ctx, indexes)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, indexes)
+			})).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -91,10 +80,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 		}
-		Expect(channelWriter.Create(ctx, calc)).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, calc)
+		})).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
@@ -975,13 +968,17 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Uint8T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &reset)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &reset)
+				})).To(Succeed())
 				base := []channel.Channel{{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
@@ -991,8 +988,10 @@ var _ = Describe("Calculator", Ordered, func() {
 						{Type: "max", ResetChannel: reset.Key()},
 					},
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				Expect(compiler.Compile(ctx, compiler.Config{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
@@ -1417,14 +1416,18 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			GinkgoHelper()
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
+				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
 					Analyze(ctx, *calc),
 			)
 			calc.DataType = res.ChanDataType
-			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
-			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calc)
+			})).To(Succeed())
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        *calc,
 			}))
@@ -1526,9 +1529,13 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:    true,
 					Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 				}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				}))

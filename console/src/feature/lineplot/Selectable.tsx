@@ -15,10 +15,10 @@ import { LinePlot } from "@/platform/lineplot";
 import { type Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = {
-  type: lineplot.TYPE_ONTOLOGY_ID.type,
+  type: lineplot.TYPE_RESOURCE_ID.type,
   title: "Line plot",
   icon: <Icon.LinePlot />,
   description: "Live and past data",
   useOnSelect: LinePlot.useCreate,
-  useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID),
 };

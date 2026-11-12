@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { mqtt, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -40,7 +40,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {
   config: MQTT.Task.EDGE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.EdgePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.EdgeConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.EDGE_SCHEMAS);
 
 const createTag = (
@@ -61,7 +61,7 @@ const retrieveTags = async (key: task.Key) =>
 const createEdgeConfig = (
   device: string,
   tags: MQTT.Task.EdgeTag[],
-): MQTT.Task.EdgePayload["config"] => ({
+): mqtt.EdgeConfig => ({
   ...MQTT.Task.EDGE_SCHEMAS.config.parse({}),
   device,
   group: "plant",
@@ -192,9 +192,7 @@ describe("MQTT Edge form", () => {
         { commandChannel: 0, commandChannelName: cmdName },
       ]),
     );
-    expect(
-      await client.channels.retrieve({ where: { name: { eq: cmdName } } }),
-    ).toEqual([]);
+    expect(await client.channels.retrieve({ name: [cmdName] })).toEqual([]);
   });
 
   it("should mark a new command channel, unless its tag is disabled", async () => {
@@ -375,17 +373,27 @@ describe("MQTT Edge form", () => {
       expect(cmd.dataType.toString()).toBe("string");
     });
 
-    it("should create a command channel again when it no longer exists", async () => {
+    it("should replace a gone command channel the broker maps", async () => {
       const ch = await createDataChannel();
       const kept = await createDataChannel();
       const deleted = await createDataChannel();
       await client.channels.delete(deleted.key);
       const name = uniqueName("b");
-      const { container, draft } = await renderEdge([
-        createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
-        createTag("t2", { name, channel: ch.key, commandChannel: deleted.key }),
-        createTag("t3", { name: "c", channel: ch.key }),
-      ]);
+      const dev = await createBroker(client, {
+        properties: { edge: { [`spBv1.0/plant/line1//${name}`]: deleted.key } },
+      });
+      const draft = await createDraft(
+        client,
+        createEdgeConfig(dev.key, [
+          createTag("t1", { name: "a", channel: ch.key, commandChannel: kept.key }),
+          createTag("t2", { name, channel: ch.key, commandChannelName: `${name}_cmd` }),
+          createTag("t3", { name: "c", channel: ch.key }),
+        ]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
+        client,
+        taskKey: draft.key,
+      });
       const created = await deployAndAwaitTask(
         client,
         container,
@@ -424,9 +432,7 @@ describe("MQTT Edge form", () => {
         MQTT.Task.EDGE_SCHEMAS,
       );
       expect(created.config.tags[1].commandChannel).toBe(0);
-      expect(
-        await client.channels.retrieve({ where: { name: { eq: disabledName } } }),
-      ).toEqual([]);
+      expect(await client.channels.retrieve({ name: [disabledName] })).toEqual([]);
     });
 
     it("should reuse the command channel of a failed deploy after the form reopens", async () => {
@@ -451,10 +457,13 @@ describe("MQTT Edge form", () => {
       );
       first.unmount();
       const fixed = { ...failing, commandChannelName: uniqueName("b_cmd") };
-      await client.tasks.create(
-        { ...first.draft, config: createEdgeConfig(first.dev.key, [tag, fixed]) },
-        MQTT.Task.EDGE_SCHEMAS,
-      );
+      const config = createEdgeConfig(first.dev.key, [tag, fixed]);
+      expect(
+        await client.tasks.dispatch(
+          first.draft.key,
+          task.set({ path: ["config"], value: config }),
+        ),
+      ).toBe(true);
       const { container } = await renderTaskFormTab(MQTT.Task.Edge, {
         client,
         taskKey: first.draft.key,
@@ -465,9 +474,7 @@ describe("MQTT Edge form", () => {
         first.draft.key,
         MQTT.Task.EDGE_SCHEMAS,
       );
-      const named = await client.channels.retrieve({
-        where: { name: { eq: cmdName } },
-      });
+      const named = await client.channels.retrieve({ name: [cmdName] });
       expect(named.map(({ key }) => key)).toEqual([
         created.config.tags[0].commandChannel,
       ]);

@@ -15,12 +15,19 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/compare"
 )
+
+// tableName names the Panel table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "panel"
 
 // Retrieve is used to retrieve Panel records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Panel]
 	indexes indexes
 }
@@ -30,7 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	search *gorp.SearchIndex[Key, Panel]
+	name     *gorp.SortedIndex[Key, Panel, string]
+	group    *gorp.KeyReference[Key, Panel, group.Key]
+	project  *gorp.KeyReference[Key, Panel, project.Key]
+	rangeVal *gorp.KeyReference[Key, Panel, ranger.Key]
+	search   *gorp.SearchIndex[Key, Panel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -38,6 +49,47 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Panel, string](
+			"name",
+			func(e *Panel) string { return compare.TextKey(string(e.Name)) },
+		),
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Panel) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
+		}),
+		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, project.Key]{
+			Name:     "project",
+			Table:    "project",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Panel) []project.Key {
+				if e.Project == nil {
+					return nil
+				}
+				return []project.Key{*e.Project}
+			},
+		}),
+		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, ranger.Key]{
+			Name:     "range",
+			Table:    "range",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Panel) []ranger.Key {
+				if e.Range == nil {
+					return nil
+				}
+				return []ranger.Key{*e.Range}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Panel](
 			"search",
 			func(e *Panel) []string {
@@ -51,7 +103,18 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Panel] {
 	return []gorp.Index[Key, Panel]{
+		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Panel] {
+	return []gorp.Reference[Key, Panel]{
+		i.group,
+		i.project,
+		i.rangeVal,
 	}
 }
 
@@ -60,6 +123,37 @@ func (i indexes) all() []gorp.Index[Key, Panel] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Panel]
+
+// OrderBy walks the panels in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Panel] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Panel] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -115,6 +209,72 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchGroups returns a filter for panels
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for panels whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// panels with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Panel],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Panel] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Change(func(_ gorp.Context, e Panel) Panel {
+			e.Group = v
+			return e
+		})
+}
+
+// MatchProjects returns a filter for panels
+// whose Project matches any of the provided
+// values.
+func MatchProjects(vals ...project.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.project.Filter(vals...)
+	}
+}
+
+// MatchHasProject returns a filter for panels whose
+// Project holds a target when has is true, and holds none when has is false.
+func MatchHasProject(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchRanges returns a filter for panels
+// whose Range matches any of the provided
+// values.
+func MatchRanges(vals ...ranger.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.rangeVal.Filter(vals...)
+	}
+}
+
+// MatchHasRange returns a filter for panels whose
+// Range holds a target when has is true, and holds none when has is false.
+func MatchHasRange(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.rangeVal.FilterHolding(has)
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -142,10 +302,10 @@ func (r Retrieve) Entries(es *[]Panel) Retrieve {
 // Limit sets the maximum number of panels to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the panels to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
@@ -156,17 +316,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of panels matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of panels in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any panels match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any panels in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

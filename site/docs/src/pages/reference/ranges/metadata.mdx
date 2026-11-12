@@ -178,9 +178,9 @@ await myRange.kv.delete(["part_number", "test_configuration"]);
   <Fragment slot="console">
 
 Select labels in the create dialog or on the
-[range overview](/reference/ranges/find#range-overview). To make a new label, type its
-name in the label list and select **New label**. To rename, recolor, or delete labels,
-run the "Edit labels" command from the
+[range overview](/reference/ranges/find#range-overview). To make a new label, select
+**New label** at the bottom of the label list to open the label editor, then add the
+label. To rename, recolor, or delete labels, run the "Edit labels" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 
 <Video id="client/ranges/labels" />
@@ -205,7 +205,14 @@ labels = my_range.retrieve_labels()
 my_range.remove_label(label.key)
 
 # Retrieve every range with the label
-hotfires = client.ranges.retrieve(has_labels=[label.key])
+hotfires = client.ranges.retrieve(labels=[label.key])
+
+# Create a range with the label
+hotfire = client.ranges.create(
+    name="Hotfire 2",
+    time_range=sy.TimeRange(start, end),
+    labels=[label.key],
+)
 ```
 
   </Fragment>
@@ -229,6 +236,13 @@ await myRange.removeLabel(label.key);
 
 // Retrieve every range with the label
 const hotfires = await client.ranges.retrieve({ where: { labels: [label.key] } });
+
+// Create a range with the label
+const hotfire = await client.ranges.create({
+  name: "Hotfire 2",
+  timeRange: new TimeRange(start, end),
+  labels: [label.key],
+});
 ```
 
   </Fragment>

@@ -11,6 +11,7 @@ import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -54,21 +55,26 @@ port, or on the same serial port, share one connection, and their requests take 
 5. For serial, enter the port in **Serial port**, such as `/dev/ttyUSB0` on Linux or
    `COM3` on Windows. Then select the **Baud rate**, **Parity**, and **Stop bits** of
    the device.
-6. In **Connect from**, select the Driver that connects to the server. If only one
-   running Driver has Modbus enabled, the Console selects it for you.
-7. On the **Unit** tab, enter the **Unit ID**. Keep `255` for a TCP server you reach
-   directly. For a unit behind a gateway or on a serial line, enter its unit ID.
-8. In **Byte order**, select the order in which the device sends its bytes. See
+6. Enter the **Unit ID**. Keep `255` for a TCP server you reach directly. For a unit
+   behind a gateway or on a serial line, enter its unit ID.
+7. In **Byte order**, select the order in which the device sends its bytes. See
    [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order).
-9. If the device is slow or limits its requests, change the settings on the **Advanced**
-   tab. See [connection options](#connection-options).
+8. In **Connect from**, select the Driver that connects to the server. If only one
+   running Driver has Modbus enabled, the Console selects it for you.
+9. If the device is slow or limits its requests, change the settings in the **Timing**
+   and **Requests** sections. See [connection options](#connection-options).
 10. Click **Connect**.
 
 The Console asks the Driver to read holding register 0 of the unit before it saves the
-server. Any reply, an error reply included, shows that the unit answers. If the unit
+server. Any reply, an exception from the unit included, shows that the unit answers. A
+gateway exception that says the unit did not respond counts as no answer. If the unit
 does not answer, the dialog shows the error and keeps your entries.
 
 <Video id="device-drivers/modbus/connect-server/modbus-connect" />
+
+A server on a serial port uses the same dialog:
+
+<Video id="hardware/modbus/connect-serial" />
 
   </Fragment>
   <Fragment slot="python">
@@ -160,25 +166,30 @@ register 0. See [device statuses](/reference/hardware/devices#statuses).
 
 ## Connection options
 
-| Console label     | Python field               | Default               | Notes                                                                      |
-| ----------------- | -------------------------- | --------------------- | -------------------------------------------------------------------------- |
-| Transport         | `transport`                | `tcp`                 | `tcp` for Modbus TCP, or `rtu` for Modbus RTU on a serial port.            |
-| Host              | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                 |
-| Port              | `port`                     | `502`                 | TCP only. Python has no default.                                           |
-| Serial port       | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
-| Baud rate         | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                           |
-| Parity            | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
-| Stop bits         | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
-| Connect from      | `rack`                     |                       | The Driver that connects to the server.                                    |
-| Unit ID           | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.      |
-| Byte order        | `swap_bytes`, `swap_words` | Word swap             | See the table below.                                                       |
-| Timeout           | `timeout_ms`               | `1000`                | The time to connect, and to wait for each reply, in milliseconds.          |
-| Retries           | `retries`                  | `1`                   | How many times the Driver sends a request again at once after a fault.     |
-| Request delay     | `delay_ms`                 | `0`                   | The wait between requests on the connection, from 0 to 5000 milliseconds.  |
-| Max registers     | `max_registers`            | `125`                 | The most registers in one read, from 1 to 125.                             |
-| Max gap           | `max_gap`                  | `125`                 | The widest gap between channels that one read spans. `0` reads only yours. |
-| Write codes       | `write_codes`              | `multiple`            | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.  |
-| Mask write (FC22) | `mask_write_supported`     | `false`               | Bit writes in a holding register use function code 22, in one request.     |
+The dialog puts the options in three sections. **Connection** holds the transport, the
+address, the unit ID, the byte order, and **Connect from**. **Timing** holds the
+timeout, the retries, and the request delay. **Requests** holds the other options. The
+**Timeout** and **Request delay** fields take a duration, such as `500ms` or `2s`.
+
+| Console label     | Python field               | Default               | Notes                                                                                |
+| ----------------- | -------------------------- | --------------------- | ------------------------------------------------------------------------------------ |
+| Transport         | `transport`                | `tcp`                 | `tcp` for Modbus TCP, or `rtu` for Modbus RTU on a serial port.                      |
+| Host              | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                           |
+| Port              | `port`                     | `502`                 | TCP only. Python has no default.                                                     |
+| Serial port       | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                          |
+| Baud rate         | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                                     |
+| Parity            | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                                  |
+| Stop bits         | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                                |
+| Connect from      | `rack`                     |                       | The Driver that connects to the server.                                              |
+| Unit ID           | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.                |
+| Byte order        | `swap_bytes`, `swap_words` | Word swap             | See the table below.                                                                 |
+| Timeout           | `timeout_ms`               | `1000`                | The time to connect, and to wait for each reply, from 1 to 60000 milliseconds.       |
+| Retries           | `retries`                  | `1`                   | How many times the Driver sends a request again at once after a fault, from 0 to 10. |
+| Request delay     | `delay_ms`                 | `0`                   | The wait between requests on the connection, from 0 to 5000 milliseconds.            |
+| Max registers     | `max_registers`            | `125`                 | The most registers in one read, from 1 to 125.                                       |
+| Max gap           | `max_gap`                  | `125`                 | The widest gap between channels that one read spans. `0` reads only yours.           |
+| Write codes       | `write_codes`              | `multiple`            | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.            |
+| Mask write (FC22) | `mask_write_supported`     | `false`               | Bit writes in a holding register use function code 22, in one request.               |
 
 **Byte order** sets the order of every register channel of the server. A channel can
 override it. The letters show the bytes of a 32-bit value in the order the device sends
@@ -199,6 +210,27 @@ the three.
 
 <Divider.Divider x />
 
+## Diagnostics
+
+To see how the requests to a server go, right-click the server in the devices toolbar
+and select **Edit connection**. The **Diagnostics** section shows the counts that the
+Driver reports for the unit:
+
+| Count            | Meaning                                                             |
+| ---------------- | ------------------------------------------------------------------- |
+| Requests         | The requests that the Driver sent, retries included.                |
+| Retries          | The requests that the Driver sent again after a timeout or a fault. |
+| Timeouts         | The requests that the unit did not answer in time.                  |
+| Exceptions       | The requests that the unit, or a gateway in front of it, rejected.  |
+| Last response    | The time from the last answered request to its reply.               |
+| Longest response | The longest time from a request to its reply.                       |
+
+The counts start again from zero when the Driver restarts. Many timeouts point to a
+**Timeout** that is too short or a unit that is busy. Many exceptions point to an
+address that the unit does not have.
+
+<Divider.Divider x />
+
 ## Serial devices
 
 All servers on one serial port must use the same line settings. When a task or a check
@@ -216,36 +248,91 @@ means that the user is in the `dialout` group.
 
 ## Troubleshooting
 
-### Connect fails with "Connection refused" or a timeout
+<Problem.List>
+
+<Problem.Item message={"Connection refused"}>
+<Problem.Cause>
+
+The Driver cannot open a connection to the address and the port, or the connection times
+out.
+
+</Problem.Cause>
+<Problem.Fix>
 
 Check the address and the port. Make sure that the server allows Modbus TCP connections
 from the computer that runs the Driver.
 
-### Connect fails with "Connection timed out", but the server is on
+</Problem.Fix>
+</Problem.Item>
 
-The server accepts the connection, but the unit does not answer. Check the **Unit ID**.
-A gateway needs the unit ID of the device behind it. Some servers answer only unit 1 or
-unit 0.
+<Problem.Item message={"Connection timed out"}>
+<Problem.Cause>
 
-### "Gateway target device failed to respond"
+The server accepts the connection, but the unit does not answer.
 
-The gateway is on, but the unit behind it does not answer. Check the unit, its wiring,
-and the **Unit ID**.
+</Problem.Cause>
+<Problem.Fix>
 
-### Connect fails with "No such file or directory"
+Check the **Unit ID**. A gateway needs the unit ID of the device behind it. Some servers
+answer only unit 1 or unit 0.
 
-The serial port does not exist on the computer that runs the Driver. Check the port name
-and that the adapter is plugged in.
+</Problem.Fix>
+</Problem.Item>
 
-### Connect fails with "Permission denied"
+<Problem.Item message={"Gateway target device failed to respond"}>
+<Problem.Cause>
 
-The Driver cannot open the serial port. On Linux, add the user that runs the Driver to
-the `dialout` group.
+The gateway is on, but the unit behind it does not answer.
 
-### A serial device does not answer
+</Problem.Cause>
+<Problem.Fix>
+
+Check the unit, its wiring, and the **Unit ID**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"No such file or directory"}>
+<Problem.Cause>
+
+The serial port does not exist on the computer that runs the Driver.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the port name and that the adapter is plugged in.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Permission denied"}>
+<Problem.Cause>
+
+The Driver cannot open the serial port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+On Linux, add the user that runs the Driver to the `dialout` group.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A serial device does not answer."}>
+<Problem.Cause>
+
+The line settings of the server do not match the device, or the wires are swapped.
+
+</Problem.Cause>
+<Problem.Fix>
 
 Check that the baud rate, parity, and stop bits match the device, and that the device
 uses 8 data bits. On an RS-485 line, check that the A and B wires are not swapped.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 For other problems, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#failed-to-reach-device-or-failed-to-reach-server).

@@ -67,26 +67,48 @@ var _ = Describe("Config", func() {
 			overridden := base.Override(console.Config{})
 			Expect(overridden.FS).To(BeNil())
 		})
+		It("Should override UpdateFS and Insecure with non-nil values", func() {
+			updateFS := fstest.MapFS{}
+			base := console.Config{UpdateFS: testFS, Insecure: new(false)}
+			overridden := base.Override(
+				console.Config{UpdateFS: updateFS, Insecure: new(true)},
+			)
+			Expect(overridden.UpdateFS).To(Equal(updateFS))
+			Expect(*overridden.Insecure).To(BeTrue())
+		})
+		It("Should not override UpdateFS and Insecure with nil", func() {
+			base := console.Config{UpdateFS: testFS, Insecure: new(true)}
+			overridden := base.Override(console.Config{})
+			Expect(overridden.UpdateFS).To(Equal(testFS))
+			Expect(*overridden.Insecure).To(BeTrue())
+		})
 	})
 
 	Describe("Validate", func() {
 		It("Should succeed when FS is nil", func() {
-			cfg := console.Config{}
+			cfg := console.Config{Insecure: new(false)}
 			Expect(cfg.Validate()).To(Succeed())
 		})
 		It("Should succeed when FS is set", func() {
-			cfg := console.Config{FS: testFS}
+			cfg := console.Config{FS: testFS, Insecure: new(false)}
 			Expect(cfg.Validate()).To(Succeed())
+		})
+		It("Should fail when Insecure is nil", func() {
+			Expect(console.Config{}.Validate()).
+				To(MatchError("insecure: must be non-nil"))
 		})
 	})
 })
 
 var _ = Describe("Console", func() {
 	Describe("New", func() {
-		It("Should use the build tag default when no config is provided", func() {
-			cons := MustSucceed(console.New())
+		It("Should use the build tag defaults when no file system is provided", func() {
+			cons := MustSucceed(console.New(console.Config{Insecure: new(false)}))
 			report := cons.Report()
 			Expect(report["console"]).To(Or(Equal("enabled"), Equal("disabled")))
+		})
+		It("Should fail when Insecure is nil", func() {
+			Expect(console.New()).Error().To(MatchError("insecure: must be non-nil"))
 		})
 	})
 
@@ -96,7 +118,9 @@ var _ = Describe("Console", func() {
 			app  *fiber.App
 		)
 		BeforeEach(func() {
-			cons = MustSucceed(console.New(console.Config{FS: testFS}))
+			cons = MustSucceed(
+				console.New(console.Config{FS: testFS, Insecure: new(false)}),
+			)
 			app = fiber.New()
 			// The Core binds its API before the Console.
 			app.Get("/api/v1/thing", func(ctx fiber.Ctx) error {
@@ -111,7 +135,7 @@ var _ = Describe("Console", func() {
 		Describe("BindTo", func() {
 			It("Should serve index.html at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -119,7 +143,7 @@ var _ = Describe("Console", func() {
 
 			It("Should serve static assets", func() {
 				req := httptest.NewRequest(http.MethodGet, "/favicon.svg", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 			})
 
@@ -131,7 +155,7 @@ var _ = Describe("Console", func() {
 					"/pluto/assets/editor.worker-abc123.js",
 					nil,
 				)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring("javascript"))
@@ -141,7 +165,7 @@ var _ = Describe("Console", func() {
 
 			It("Should serve index.html for SPA routes", func() {
 				req := httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -153,7 +177,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should keep re-read files out of the browser cache",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					Expect(
 						res.Header.Get(fiber.HeaderCacheControl),
@@ -167,7 +191,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should let the browser keep hashed assets forever",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					Expect(res.Header.Get(fiber.HeaderCacheControl)).
 						To(Equal("public, max-age=31536000, immutable"))
@@ -182,7 +206,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should answer 404 for a file the build does not emit",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusNotFound))
 				},
 				Entry("a stale bundle chunk", "/assets/index-stale.js"),
@@ -195,7 +219,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should set a Content Security Policy on the app shell",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					csp := res.Header.Get(fiber.HeaderContentSecurityPolicy)
 					Expect(csp).To(ContainSubstring(
@@ -215,7 +239,7 @@ var _ = Describe("Console", func() {
 					"/assets/index-abc123.js",
 					nil,
 				)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderXContentTypeOptions)).
 					To(Equal("nosniff"))
@@ -224,7 +248,7 @@ var _ = Describe("Console", func() {
 
 			It("Should not set security headers on an API route", func() {
 				req := httptest.NewRequest(http.MethodGet, "/api/v1/thing", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				body := MustSucceed(io.ReadAll(res.Body))
 				Expect(string(body)).To(Equal("<p>api</p>"))
@@ -252,7 +276,7 @@ var _ = Describe("Console", func() {
 			app  *fiber.App
 		)
 		BeforeEach(func() {
-			cons = MustSucceed(console.New())
+			cons = MustSucceed(console.New(console.Config{Insecure: new(false)}))
 			app = fiber.New()
 			cons.BindTo(app)
 		})
@@ -263,7 +287,7 @@ var _ = Describe("Console", func() {
 		Describe("BindTo", func() {
 			It("Should serve the fallback page at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -274,6 +298,16 @@ var _ = Describe("Console", func() {
 				Expect(html).To(ContainSubstring("<code>-tags=console</code>"))
 				Expect(res.Header.Get(fiber.HeaderContentSecurityPolicy)).
 					To(ContainSubstring("default-src 'self'"))
+			})
+
+			It("Should answer 404 for the update manifest", func() {
+				req := httptest.NewRequest(
+					http.MethodGet,
+					"/console/update/latest.json",
+					nil,
+				)
+				res := serve(app, req)
+				Expect(res.StatusCode).To(Equal(http.StatusNotFound))
 			})
 		})
 

@@ -103,9 +103,9 @@ type Listener = () => void;
  * and waiting for the next flush; `live` means its create message has been sent. */
 type Phase = "staged" | "queued" | "live";
 
-/** Worker component tracked by the store. Generic over its schema so {@link Store.stage}
- * and the handle it returns keep the per-entry state and callback types without
- * re-asserting at every field access. */
+/** Worker component tracked by the store. Generic over its schema so
+ * {@link Store.stage} and the handle it returns keep the per-entry state and callback
+ * types without re-asserting at every field access. */
 interface Entry<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown> = z.ZodType<
     record.Unknown,
@@ -138,7 +138,9 @@ export interface StageParams<
 > {
   /** Component type, matched against the worker-side registry. */
   type: string;
-  /** Component path in the aether tree; its flattened form is the component's identity. */
+  /**
+   * Component path in the aether tree; its flattened form is the component's identity.
+   */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
   schema: StateSchema;
@@ -173,8 +175,8 @@ export interface Handle<
   /** Latest state, readable in every phase. Owned by the handle rather than the store
    * so it stays stable across a detach/attach cycle. */
   getState: () => z.infer<StateSchema>;
-  /** Subscribes to this component's state changes. Fires on both worker pushes and local
-   * {@link Handle.setState}, and persists across detach-attach cycles. Returns an
+  /** Subscribes to this component's state changes. Fires on both worker pushes and
+   * local {@link Handle.setState}, and persists across detach-attach cycles. Returns an
    * unsubscribe function. */
   subscribe: (listener: Listener) => destructor.Destructor;
   /** Publishes the component to the store and queues its create message. Call from a
@@ -401,11 +403,11 @@ export class Store {
     return this.buildHandle(entry, methodsSchema);
   }
 
-  /** Appends the creates attached since the last flush, shallowest path first: React runs
-   * layout effects children before parents, but the worker rejects a child whose parent
-   * it has never seen, and an ancestor's path is always shorter than its descendant's.
-   * They land at the tail of the batch, so deletes buffered earlier in the commit still
-   * lead and a re-parent tears down before it rebuilds. */
+  /** Appends the creates attached since the last flush, shallowest path first: React
+   * runs layout effects children before parents, but the worker rejects a child whose
+   * parent it has never seen, and an ancestor's path is always shorter than its
+   * descendant's. They land at the tail of the batch, so deletes buffered earlier in
+   * the commit still lead and a re-parent tears down before it rebuilds. */
   private drainCreates(): void {
     if (this.queued.length === 0) return;
     const queued = this.queued;

@@ -21,22 +21,25 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,11 +47,11 @@ import (
 
 var (
 	db         *gorp.DB
-	otg        *ontology.Ontology
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	deviceSvc  *device.Service
 	secretSvc  *secret.Service
+	taskSvc    *task.Service
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	rangerSvc  *ranger.Service
@@ -64,53 +67,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: otg,
-		DB:       db,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
-		HostProvider: testutil.NewStaticHostProvider(1),
-		Status:       statusSvc,
-		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		// No Driver reports for the rack, so a check would overwrite task statuses.
+		HealthCheckInterval: telem.Hour,
 	}))
+	secretSvc = secrettestutil.OpenService(ctx, db)
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Status:   statusSvc,
-		Rack:     rackSvc,
-	}))
-	grantSvc := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: db}))
-	secretSvc = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
-		DB:            db,
-		Ontology:      otg,
-		Group:         groupSvc,
-		Uses:          sift.SecretUses(deviceSvc),
-		Grant:         grantSvc,
-		EncryptionKey: secret.NewEncryptionKey(),
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
+		References: []gorp.Reference[device.Key, device.Device]{
+			sift.APIKeyReference(),
+		},
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           db,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -124,10 +106,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ChannelGraph: channelGraph,
 	}))
 	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB:    db,
+		Group: groupSvc,
+	}))
+	siftSvc := MustOpen(sift.OpenService(ctx, sift.ServiceConfig{DB: db}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:      db,
+		Rack:    rackSvc,
+		Status:  statusSvc,
+		Channel: channelSvc,
+		ImEx:    imex.NewService(),
+		Configs: MustSucceed(taskconfig.NewRegistry(siftSvc.Stores()...)),
 	}))
 })
 
@@ -164,8 +153,21 @@ func createAPIKey(ctx context.Context, value string) secret.Key {
 	s := secret.Secret{Variant: secret.StoredSecret{
 		Base: secret.Base{Name: "sift-" + uuid.New().String()[:8]},
 	}}
-	Expect(secretSvc.NewWriter(nil).Create(ctx, &s, []byte(value))).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
 	return s.Base().Key
+}
+
+// grantToRack lets the embedded rack read the secret with key once.
+func grantToRack(ctx context.Context, key secret.Key) grant.Key {
+	GinkgoHelper()
+	var g grant.Key
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		g, err = secretSvc.Grant(ctx, tx, rackSvc.EmbeddedKey.ResourceID(), key)
+		return err
+	})).To(Succeed())
+	return g
 }
 
 // createDevice creates a Sift device with props on the embedded rack.
@@ -181,8 +183,32 @@ func createDevice(ctx context.Context, props sift.Properties) device.Device {
 		Configured: true,
 		Properties: toJSON(props),
 	}
-	Expect(deviceSvc.NewWriter(nil).Create(ctx, &dev)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+	})).To(Succeed())
 	return dev
+}
+
+// newTask stores and returns a task of typ holding cfg. newTask skips task.Writer,
+// which writes a status of its own, so a spec sees only the statuses the factory
+// writes.
+func newTask(ctx context.Context, typ string, cfg msgpack.EncodedJSON) task.Task {
+	GinkgoHelper()
+	t := task.Task{
+		Key:    uuid.New(),
+		Rack:   rackSvc.EmbeddedKey,
+		Name:   "test-" + typ,
+		Type:   typ,
+		Config: cfg,
+	}
+	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+		To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+		})).To(Succeed())
+	})
+	return t
 }
 
 // taskStatus retrieves the status of t.
@@ -190,9 +216,9 @@ func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
 	var stat task.Status
 	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 
@@ -201,9 +227,9 @@ func deviceStatus(ctx context.Context, dev device.Device) device.Status {
 	GinkgoHelper()
 	var stat device.Status
 	Expect(statusSvc.NewRetrieve[device.StatusDetails]().
-		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
+		Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return stat
 }
 
@@ -215,7 +241,9 @@ func createIndex(ctx context.Context) channel.Channel {
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &idx)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &idx)
+	})).To(Succeed())
 	return idx
 }
 
@@ -227,7 +255,9 @@ func createData(ctx context.Context, idx channel.Channel) channel.Channel {
 		DataType:   telem.Float64T,
 		LocalIndex: idx.LocalKey,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
@@ -255,7 +285,9 @@ func write(
 func createRange(ctx context.Context, tr telem.TimeRange) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "test-" + uuid.New().String()[:8], TimeRange: tr}
-	Expect(rangerSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rangerSvc.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
 	return r
 }
 
@@ -291,6 +323,6 @@ func uploadStatus(ctx context.Context, key status.Key) (sift.UploadStatus, error
 	err := statusSvc.NewRetrieve[sift.UploadDetails]().
 		Where(status.MatchKeys[sift.UploadDetails](key)).
 		Entry(&s).
-		Exec(ctx, nil)
+		Exec(ctx, db)
 	return s, err
 }

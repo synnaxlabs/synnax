@@ -9,6 +9,8 @@
 
 #include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -60,6 +62,41 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
+/// @brief it should reject a limit or a cursor on a retrieve of one rack.
+TEST(RackTests, testRetrieveRackRejectsPage) {
+    const auto client = new_test_client();
+    for (const auto &options:
+         {RetrieveOptions{.limit = 1}, RetrieveOptions{.after = Cursor{}}})
+        for (const auto &err: {
+                 client.racks.retrieve("rack", options).second,
+                 client.racks.retrieve({.name = "rack"}, x::filter::one, options).second
+             }) {
+            ASSERT_MATCHES(err, x::errors::VALIDATION);
+            ASSERT_EQ(
+                err.data,
+                "a query for one record takes no limit or cursor, since a page could "
+                "hide a second match"
+            );
+        }
+}
+
+/// @brief it should page a retrieve of the racks that a filter matches.
+TEST(RackTests, testRetrieveWherePage) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_page_" + std::to_string(gen_rand());
+    for (int i = 0; i < 3; ++i) {
+        auto r = Rack{.name = name};
+        ASSERT_NIL(client.racks.create(r));
+    }
+    const auto where = Where{.name = name};
+    const auto first = ASSERT_NIL_P(client.racks.retrieve(where, {.limit = 2}));
+    ASSERT_EQ(first.size(), 2);
+    const auto rest = ASSERT_NIL_P(
+        client.racks.retrieve(where, {.after = Cursor{.key = first[1].key}})
+    );
+    ASSERT_EQ(rest.size(), 1);
+}
+
 TEST(RackTests, testCreateTaskOnCreatedRack) {
     const auto client = new_test_client();
     auto r = Rack{.name = "test_rack"};
@@ -100,7 +137,6 @@ TEST(RackTests, testCreateRackWithStatusNotIncludedByDefault) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
-            .details = StatusDetails{.rack = 123}
         }
     };
     ASSERT_NIL(client.racks.create(r));
@@ -120,7 +156,6 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
-            .details = StatusDetails{.rack = 123}
         }
     };
     ASSERT_NIL(client.racks.create(r));
@@ -158,23 +193,8 @@ TEST(RackTests, testRetrieveWhere) {
     ASSERT_NIL(client.racks.create(b));
     ASSERT_NIL(client.racks.create(c));
     const auto racks = ASSERT_NIL_P(client.racks.retrieve(
-        RetrieveRequest{
-            .where = Where{
-                .or_ =
-                    std::vector<Where>{
-                        Where{
-                            .integrations =
-                                x::filter::Contains<std::string>{
-                                    .any = std::vector<std::string>{"labjack"},
-                                }
-                        },
-                        Where{.name = x::filter::String{.eq = b.name}},
-                    },
-                .key = x::filter::Set<Key>{
-                    .in = std::vector<Key>{a.key, b.key, c.key, 4123456789},
-                },
-            },
-        }
+        (Where{.integrations = "labjack"} || Where{.name = b.name}) &&
+        Where{.key = {a.key, b.key, c.key, 4123456789}}
     ));
     std::set<Key> keys;
     for (const auto &r: racks)
@@ -182,47 +202,68 @@ TEST(RackTests, testRetrieveWhere) {
     ASSERT_EQ(keys, (std::set<Key>{a.key, b.key}));
 }
 
-/// @brief it should update integrations on upsert.
-TEST(RackTests, testUpdateIntegrationsOnUpsert) {
+/// @brief it should retrieve the one rack that a filter matches.
+TEST(RackTests, testRetrieveOneWhere) {
     const auto client = new_test_client();
-    auto r = Rack{
-        .name = "test_rack_upsert_integrations",
-        .integrations = {"ni"},
-    };
+    auto r = Rack{.name = "test_rack_one_" + std::to_string(gen_rand())};
     ASSERT_NIL(client.racks.create(r));
-    r.integrations = {"ni", "opc", "arc"};
+    const auto r2 = ASSERT_NIL_P(
+        client.racks.retrieve({.name = r.name}, x::filter::one)
+    );
+    ASSERT_EQ(r2.key, r.key);
+}
+
+/// @brief it should name the filter in the error when no rack matches it.
+TEST(RackTests, testRetrieveOneWhereNotFound) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_none_" + std::to_string(gen_rand());
+    const auto [_, err] = client.racks.retrieve({.name = name}, x::filter::one);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "Found no rack where name = \"" + name + "\"");
+}
+
+/// @brief it should return an error when more than one rack matches a filter.
+TEST(RackTests, testRetrieveOneWhereMultipleFound) {
+    const auto client = new_test_client();
+    const auto name = "test_rack_twice_" + std::to_string(gen_rand());
+    for (int i = 0; i < 2; ++i) {
+        auto r = Rack{.name = name};
+        ASSERT_NIL(client.racks.create(r));
+    }
+    ASSERT_OCCURRED_AS_P(
+        client.racks.retrieve({.name = name}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
+/// @brief it should set the integrations and version of a rack with a dispatch, and
+/// keep its name.
+TEST(RackTests, testDispatchSetsIntegrationsAndVersion) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack_dispatch", .integrations = {"ni"}};
     ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
-    ASSERT_EQ(r2.integrations.size(), 3);
-    ASSERT_EQ(r2.integrations[0], "ni");
-    ASSERT_EQ(r2.integrations[1], "opc");
-    ASSERT_EQ(r2.integrations[2], "arc");
+    const std::vector<std::string> integrations = {"ni", "opc", "arc"};
+    ASSERT_NIL(client.racks.dispatch(
+        r.key,
+        {set({.path = {"integrations"}, .value = integrations}),
+         set({.path = {"version"}, .value = "1.2.3"})}
+    ));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(got.integrations, integrations);
+    ASSERT_EQ(got.version, "1.2.3");
+    ASSERT_EQ(got.name, "test_rack_dispatch");
 }
 
-/// @brief it should correctly parse StatusDetails from JSON.
-TEST(StatusDetailsTests, testParseFromJSON) {
-    x::json::json j = {{"rack", 54321}};
-    const x::json::Parser parser(j);
-    const auto details = StatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.rack, 54321);
-}
-
-/// @brief it should correctly serialize StatusDetails to JSON.
-TEST(StatusDetailsTests, testToJSON) {
-    constexpr StatusDetails details{.rack = 98765};
-    const auto j = details.to_json();
-    ASSERT_EQ(j["rack"], 98765);
-}
-
-/// @brief it should round-trip StatusDetails through JSON.
-TEST(StatusDetailsTests, testRoundTrip) {
-    constexpr StatusDetails original{.rack = 11223};
-    const auto j = original.to_json();
-    const x::json::Parser parser(j);
-    const auto recovered = StatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.rack, original.rack);
+/// @brief it should return a not found error when it dispatches to a rack that does not
+/// exist.
+TEST(RackTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    const auto r = ASSERT_NIL_P(client.racks.create("test_rack_dispatch_deleted"));
+    ASSERT_NIL(client.racks.del(r.key));
+    ASSERT_OCCURRED_AS(
+        client.racks.dispatch(r.key, {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
 }
 
 /// @brief it should correctly stream output a rack.

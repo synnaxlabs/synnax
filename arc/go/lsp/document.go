@@ -35,7 +35,7 @@ func extractMetadataFromURI(docURI uri.URI) *documentMetadata {
 	}
 }
 
-type Document struct {
+type document struct {
 	metadata    *documentMetadata
 	Content     string
 	URI         uri.URI
@@ -45,15 +45,15 @@ type Document struct {
 	debouncer   *debounce.Debouncer
 }
 
-func (d *Document) isBlock() bool {
+func (d *document) isBlock() bool {
 	return d.metadata != nil && d.metadata.isFunctionBlock
 }
 
-func (d *Document) displayContent() string {
+func (d *document) displayContent() string {
 	return d.Content
 }
 
-func (d *Document) toDocPosition(pos protocol.Position) protocol.Position {
+func (d *document) toDocPosition(pos protocol.Position) protocol.Position {
 	if !d.isBlock() {
 		return pos
 	}
@@ -63,14 +63,14 @@ func (d *Document) toDocPosition(pos protocol.Position) protocol.Position {
 	return pos
 }
 
-func (d *Document) toDocRange(r protocol.Range) protocol.Range {
+func (d *document) toDocRange(r protocol.Range) protocol.Range {
 	return protocol.Range{
 		Start: d.toDocPosition(r.Start),
 		End:   d.toDocPosition(r.End),
 	}
 }
 
-func (d *Document) toDocLocation(loc *protocol.Location) *protocol.Location {
+func (d *document) toDocLocation(loc *protocol.Location) *protocol.Location {
 	if loc == nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func (d *Document) toDocLocation(loc *protocol.Location) *protocol.Location {
 	}
 }
 
-func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location {
+func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location {
 	if locs == nil {
 		return nil
 	}
@@ -91,15 +91,15 @@ func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location 
 	return result
 }
 
-func (d *Document) getWordAtPosition(pos protocol.Position) string {
+func (d *document) getWordAtPosition(pos protocol.Position) string {
 	return lsp.GetWordAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
+func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
+func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
 	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
 }
 
@@ -122,7 +122,7 @@ func findScopeAt(
 	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
 }
 
-func (d *Document) resolveSymbolAtPosition(
+func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {

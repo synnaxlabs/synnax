@@ -9,12 +9,12 @@
 
 import { pagerduty, type secret, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
-import { createSecret } from "@/feature/secret/testutil";
+import { createSecret } from "@/platform/secret/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
@@ -30,7 +30,9 @@ const secrets: secret.Key[] = [];
 const tasks: task.Key[] = [];
 
 afterEach(async () => {
-  // The Core refuses to delete a secret that a task uses.
+  // Unmount first, or the form would watch its task get deleted. The Core refuses to
+  // delete a secret that a task uses.
+  cleanup();
   for (const key of tasks.splice(0)) await client.tasks.delete(key);
   for (const key of secrets.splice(0)) await client.secrets.delete(key);
 });
@@ -62,13 +64,22 @@ const addAlert = async (): Promise<void> => {
   await waitFor(() => expect(newAlertItem()).toBeTruthy());
 };
 
-const createAlertConfig = (
+// The Core refuses an alert that names a status it does not hold.
+const createAlertConfig = async (
   overrides: Partial<z.infer<PagerDuty.Task.AlertSchemas["config"]>> = {},
-): z.infer<PagerDuty.Task.AlertSchemas["config"]> => ({
-  ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
-  alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
-  ...overrides,
-});
+): Promise<z.infer<PagerDuty.Task.AlertSchemas["config"]>> => {
+  const st = await client.statuses.set({
+    key: uniqueName("status"),
+    name: "pressure",
+    variant: "warning",
+    message: "Pressure high",
+  });
+  return {
+    ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+    alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: st.key }],
+    ...overrides,
+  };
+};
 
 // Creates a draft whose routing key is a new secret.
 const createKeyedDraft = async (
@@ -76,7 +87,7 @@ const createKeyedDraft = async (
 ) => {
   const s = await createSecret(client, secrets);
   const t = await client.tasks.create(
-    { ...ZERO_DRAFT, config: createAlertConfig({ routingKey: s.key }), ...draft },
+    { ...ZERO_DRAFT, config: await createAlertConfig({ routingKey: s.key }), ...draft },
     PagerDuty.Task.ALERT_SCHEMAS,
   );
   tasks.push(t.key);
@@ -131,17 +142,17 @@ describe("PagerDuty Alert form", () => {
     const { secret: s, task: t } = await createKeyedDraft();
     await renderAlert({ taskKey: t.key });
     await findDialogTriggerByText(s.name);
-    await waitFor(() => expect(newAlertItem()).toBeTruthy());
+    await screen.findByRole("option", { name: /pressure/ });
   });
 
   it("should load a config without a routing key", async () => {
     const draft = await client.tasks.create({
       ...ZERO_DRAFT,
-      config: createAlertConfig(),
+      config: await createAlertConfig(),
     });
     await renderAlert({ taskKey: draft.key });
     await findDialogTriggerByText("Select a secret");
-    await waitFor(() => expect(newAlertItem()).toBeTruthy());
+    await screen.findByRole("option", { name: /pressure/ });
   });
 
   it("should name a new routing key secret after the task", async () => {

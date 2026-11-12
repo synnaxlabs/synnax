@@ -12,22 +12,20 @@ from typing import overload
 from pydantic import BaseModel, Field
 
 from freighter import UnaryClient
-from synnax import channel
-from synnax.channel import Key
+from synnax import channel, framer as framer_
 from synnax.control.controller import Controller
-from synnax.framer import Client as FrameClient
 from x.control import Authority, CrudeAuthority, State
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 
 _RETRIEVE_ENDPOINT = "/control/retrieve"
 
 
 class _RetrieveRequest(BaseModel):
-    keys: list[Key] = Field(default_factory=list)
+    keys: list[channel.Key] = Field(default_factory=list)
 
 
 class _RetrieveResponse(BaseModel):
-    states: list[State[Key]] = Field(default_factory=list)
+    states: list[State[channel.Key]] = Field(default_factory=list)
 
 
 class Client:
@@ -35,14 +33,14 @@ class Client:
     acquiring control to run sequences.
     """
 
-    framer: FrameClient
+    framer: framer_.Client
     retriever: channel.Retriever
     client: UnaryClient
 
     def __init__(
         self,
         *,
-        framer: FrameClient,
+        framer: framer_.Client,
         channels: channel.Retriever,
         client: UnaryClient,
     ) -> None:
@@ -51,29 +49,29 @@ class Client:
         self.client = client
 
     @overload
-    def retrieve(self, *, key: Key) -> State[Key] | None: ...
+    def retrieve(self, *, key: channel.Key) -> State[channel.Key] | None: ...
 
     @overload
-    def retrieve(self, *, name: str) -> State[Key] | None: ...
+    def retrieve(self, *, name: str) -> State[channel.Key] | None: ...
 
     @overload
-    def retrieve(self, *, keys: list[Key]) -> list[State[Key]]: ...
+    def retrieve(self, *, keys: list[channel.Key]) -> list[State[channel.Key]]: ...
 
     @overload
-    def retrieve(self, *, names: list[str]) -> list[State[Key]]: ...
+    def retrieve(self, *, names: list[str]) -> list[State[channel.Key]]: ...
 
     @overload
-    def retrieve(self) -> list[State[Key]]: ...
+    def retrieve(self) -> list[State[channel.Key]]: ...
 
     @require_named_params(example_params=("name", "'valve_cmd'"))
     def retrieve(
         self,
         *,
-        key: Key | None = None,
+        key: channel.Key | None = None,
         name: str | None = None,
-        keys: list[Key] | None = None,
+        keys: list[channel.Key] | None = None,
         names: list[str] | None = None,
-    ) -> State[Key] | list[State[Key]] | None:
+    ) -> State[channel.Key] | list[State[channel.Key]] | None:
         """Retrieves the current control state of channels in the cluster.
 
         :param key: Read the state of a single channel by key.
@@ -98,11 +96,12 @@ class Client:
         # An empty key set reads the whole cluster, so it must not reach the Core here.
         return self._exec_retrieve(keys) if len(keys) > 0 else []
 
-    def _exec_retrieve(self, keys: list[Key]) -> list[State[Key]]:
+    def _exec_retrieve(self, keys: list[channel.Key]) -> list[State[channel.Key]]:
         return self.client.send(
             _RETRIEVE_ENDPOINT, _RetrieveRequest(keys=keys), _RetrieveResponse
         ).states
 
+    @deprecate_positional("read", "write", "write_authorities")
     def acquire(
         self,
         name: str,

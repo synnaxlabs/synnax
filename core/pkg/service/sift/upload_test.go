@@ -16,10 +16,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
@@ -53,13 +53,7 @@ var _ = Describe("Upload", func() {
 	BeforeEach(func(ctx SpecContext) {
 		f = MustSucceed(sift.NewFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
-		t = task.Task{
-			Key:    uuid.New(),
-			Rack:   rackSvc.EmbeddedKey,
-			Name:   "Sift Scanner",
-			Type:   sift.ScanTaskType,
-			Config: msgpack.EncodedJSON{"rate": 1},
-		}
+		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		dev = createDevice(ctx, sift.Properties{
@@ -108,15 +102,7 @@ var _ = Describe("Upload", func() {
 			HaveField("ClientKey", HaveValue(Equal(rng.Key.String()))),
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
-		var children []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(ranger.OntologyID(rng.Key)).
-			TraverseTo(ontology.ChildrenTraverser).
-			Entries(&children).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(children).To(ContainElement(
-			HaveField("ID", status.OntologyID(key)),
-		))
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
 	})
 
 	It("Should send a plain time span without a run", func(ctx SpecContext) {
@@ -134,15 +120,7 @@ var _ = Describe("Upload", func() {
 			HaveField("Description", "Sent 2 samples to asset stand."),
 		))
 		Expect(server.Runs()).To(BeEmpty())
-		var parents []ontology.Resource
-		Expect(otg.NewRetrieve().
-			WhereIDs(status.OntologyID(key)).
-			TraverseTo(ontology.ParentsTraverser).
-			Entries(&parents).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(parents).ToNot(ContainElement(
-			HaveField("ID", HaveField("Type", ontology.ResourceTypeRange)),
-		))
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", uuid.Nil()))
 	})
 
 	It("Should run the uploads of one device one at a time", func(ctx SpecContext) {
@@ -164,7 +142,9 @@ var _ = Describe("Upload", func() {
 		server.Pause()
 		key := upload(ctx)
 		statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
-		Expect(statusSvc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Delete(ctx, key)
+		})).To(Succeed())
 		server.Resume()
 		Eventually(func() error {
 			_, err := uploadStatus(ctx, key)

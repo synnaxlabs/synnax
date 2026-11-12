@@ -67,18 +67,18 @@ hand.
 6. **Side effects, data fetching, and queries.** Is each read, write, and effect on the
    right path, and is each effect necessary?
    - Core data goes through Flux. A read in render uses a query from the domain's
-     `queries.ts` (`createRetrieve`, `createList`). A write uses `createUpdate`, and a
-     form uses `createForm`. A `useEffect` that calls the Client and stores the answer
-     in `useState` is a finding. If the domain has no query for the resource, add one to
-     its `queries.ts`. Do not write an ad hoc fetch.
+     `queries.ts` (`createRetrieve`), or `Flux.useList` for a list. A write uses
+     `createUpdate`, and a form uses `createForm`. A `useEffect` that calls the Client
+     and stores the answer in `useState` is a finding. If the domain has no query for
+     the resource, add one to its `queries.ts`. Do not write an ad hoc fetch.
    - Use the correct read. `use` suspends and is the default. `createSelector` gives a
      narrow read that re-renders only on its slice, below a parent that called
      `useEnsure`. `useResult` is only for places where suspense is not permitted or
      where absence is a state to render. A read inside an event handler calls the Client
      directly. It is not a hook.
    - Count the requests. Look for fetches on each mount, a fetch for each item of a list
-     (list items read through `useListItem` or a selector), and a fetch for each
-     keystroke without a debounce.
+     (list items read through `getItem` and `subscribe`, or a selector), and a fetch for
+     each keystroke without a debounce.
    - Each `useEffect` must sync with a system outside React: a subscription, the DOM, or
      a timer. An effect that fetches, derives a value, or tells the parent about a
      change is a finding. Put that work in render, in a Flux query, or in the event

@@ -11,8 +11,6 @@
 
 .lyra-text--editable {
     cursor: pointer;
-    -webkit-user-select: text;
-    user-select: text;
     position: relative;
 
     &:focus {

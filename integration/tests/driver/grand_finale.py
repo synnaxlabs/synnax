@@ -101,7 +101,6 @@ class GrandFinale(SimulatorCase):
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                array_mode=False,
                 channels=OPCUAReadFloat.create_channels(self.client),
             ),
         ]
@@ -228,7 +227,7 @@ class GrandFinale(SimulatorCase):
         self.log("Test 5 - Verify read sample counts")
 
         start_time = sy.TimeStamp.now()
-        sy.sleep(self.TASK_DURATION.seconds * 1.25)
+        sy.sleep(self.TASK_DURATION.seconds * 1.25)  # noqa: TID251 fixed sample window
         stack.close()
         end_time = sy.TimeStamp.now()
 

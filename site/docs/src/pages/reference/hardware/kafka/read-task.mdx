@@ -1,0 +1,337 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Kafka read task"
+description:
+  "Consume a Kafka topic and record values from its JSON records in channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Kafka read task consumes one topic and records values from its JSON records in
+channels. Before you start,
+[connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
+
+<Divider.Divider x />
+
+## Records and fields
+
+A record of the task is one Kafka record key. A field is one value in the JSON value of
+the record, found by a [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901)
+such as `/temperature`, and recorded in one channel.
+
+- **Record key** -> the task reads only records with this key into the fields of the
+  record. An empty key, shown as **Any key**, reads each record that no other record of
+  the task claims, records with no key included.
+- **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
+- **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
+  text labels to numbers.
+
+The Console has no topic browser. Type the topic, the record keys, and the pointers.
+
+<Divider.Divider x />
+
+## Create a Kafka read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the cluster and select **Create read task**. You
+   can also run the "Create Kafka read task" command.
+2. Enter the **Topic**, such as `sensor-readings`.
+3. Click **Add record**, then set **Record key**, or leave it empty for any key.
+4. Click **Add field** on the record, then set **Pointer** and **Data type**.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a channel for each field and an index channel for each record. It
+names them from the cluster name, the record key, and the pointer. To choose a name, set
+**Channel** before you start.
+
+<Video id="hardware/kafka/read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create one index channel for each record first.
+
+```python
+import synnax as sy
+from synnax import kafka
+
+cluster = client.devices.retrieve(name="Plant cluster")
+time = client.channels.create(
+    name="oven_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+temperature = client.channels.create(
+    name="oven_temperature", index=time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = client.tasks.create(
+    name="Oven read",
+    type="kafka_read",
+    rack=cluster.rack,
+    config=kafka.ReadConfig(
+        device=cluster.key,
+        topic="sensor-readings",
+        records=[
+            kafka.ReadRecord(
+                record_key="oven",
+                fields=[
+                    kafka.ReadField(
+                        pointer="/temperature", channel=temperature.key
+                    )
+                ],
+            )
+        ],
+    ),
+)
+task.start()
+```
+
+Pass `rack=cluster.rack`. With no rack, Python picks an embedded rack, which can be the
+rack of the Driver instead of the rack of the Core.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create one index channel for each record first.
+
+```typescript
+import { kafka } from "@synnaxlabs/client";
+
+const [cluster] = await client.devices.retrieve({
+  where: { name: { eq: "Plant cluster" } },
+});
+const time = await client.channels.create({
+  name: "oven_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const temperature = await client.channels.create({
+  name: "oven_temperature",
+  index: time.key,
+  dataType: "float64",
+});
+
+const task = await client.tasks.create({
+  name: "Oven read",
+  rack: cluster.rack,
+  type: "kafka_read",
+  config: kafka.readConfigZ.parse({
+    device: cluster.key,
+    topic: "sensor-readings",
+    records: [
+      {
+        recordKey: "oven",
+        fields: [{ pointer: "/temperature", channel: temperature.key }],
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Timestamps
+
+The **Source** of a record sets the timestamps of its samples:
+
+- **Kafka timestamp** -> the timestamp of the Kafka record, in milliseconds. The
+  default.
+- **Record value** -> a time in the JSON value, at a **Pointer**, in a **Time format**:
+  ISO 8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds. The
+  value goes to the index channel of the record.
+
+Timestamps in an index channel must increase. A topic with more than one partition can
+deliver records out of time order, so the task skips a record that is not after the last
+timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
+timestamps only count milliseconds, so a record with a Kafka timestamp in the same
+millisecond as the last written timestamp goes 1 ns after it.
+
+In code, a record value timestamp is a field whose channel is the index channel, with a
+`time_format`. Put the key of that field in `index` on the record.
+
+<Divider.Divider x />
+
+## Consumer group and start offset
+
+The task reads the topic as a member of a Kafka consumer group. Set **Consumer group**
+to share offsets with other consumers. When it is empty, the group is `kafka-` followed
+by the key of the task.
+
+The task commits the offset of a record after the Core stores its samples. When the task
+starts again, it continues from the committed offset of the group. **Start from** sets
+where a group with no committed offset starts:
+
+| Start from     | Value      | Starts at                                                       |
+| -------------- | ---------- | --------------------------------------------------------------- |
+| Latest         | `latest`   | The end of the topic. The task reads only new records.          |
+| Earliest       | `earliest` | The oldest record that the topic keeps.                         |
+| Committed only | `none`     | Nowhere. The task does not start until the group has an offset. |
+
+Delivery is at least once, so a restart or a rebalance of the group can read a record
+again. After the task starts, and after the group assigns it partitions, it skips
+records with a timestamp at or before the last one in the index channel. On a topic with
+more than one partition, a replayed record that arrives after a newer one follows the
+rules in [timestamps](#timestamps), so it can be written again.
+
+<Divider.Divider x />
+
+## Task options
+
+| Setting                                           | Default | Notes                                                     |
+| ------------------------------------------------- | ------- | --------------------------------------------------------- |
+| Topic <small>`topic`</small>                      |         | One topic for each task.                                  |
+| Consumer group <small>`group`</small>             | Empty   | Empty uses `kafka-<task key>`.                            |
+| Start from <small>`start_offset`</small>          | Latest  | See [start offset](#consumer-group-and-start-offset).     |
+| Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start <small>`auto_start`</small>            | Off     | Starts the task each time the Core starts.                |
+
+TypeScript uses the same fields in camel case, such as `startOffset`.
+
+<Divider.Divider x />
+
+## Record and field reference
+
+A record has these settings:
+
+| Setting                                | Default         | Notes                                                  |
+| -------------------------------------- | --------------- | ------------------------------------------------------ |
+| Record key <small>`record_key`</small> | Any key         | The Kafka key of the records. One record for each key. |
+| Source <small>`index`</small>          | Kafka timestamp | The key of the timestamp field. Empty is Kafka time.   |
+
+A field has these settings:
+
+| Setting                                   | Default   | Notes                                           |
+| ----------------------------------------- | --------- | ----------------------------------------------- |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value. Cannot be empty. |
+| Data type <small>`data_type`</small>      | `float64` | Must match the data type of the channel.        |
+| Time format <small>`time_format`</small>  | None      | Required for a `timestamp` channel.             |
+| Channel <small>`channel`</small>          |           | The channel that records the value.             |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the record to numbers.      |
+
+All fields of a record write to channels on one index channel, and one index channel
+belongs to one record.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Skipped ... of ... records"}>
+<Problem.Cause>
+
+The task read some records that it cannot record. The description gives the reason for
+the last one, with its partition and offset:
+
+- **Record is not JSON** -> the record value is not JSON.
+- **Record has no value at** -> the JSON value has nothing at the pointer of a field.
+- **Value at** -> the value does not fit the data type of the channel.
+- **Record stamped ... is not after the last written** -> a record value timestamp is
+  older than the last one in the index channel.
+
+The warning clears 5 seconds after the last skip.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointers and data types against a record from the topic. Pointers start with
+`/` and are case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Lost connection to cluster"}>
+<Problem.Cause>
+
+The Core cannot reach the cluster while the task runs. The task keeps trying, and the
+status changes to "Reconnected to cluster" when records arrive again. The task then
+continues from its committed offset.
+
+</Problem.Cause>
+</Problem.Item>
+
+<Problem.Item message={"consumer group ... has no committed offset on topic ..."}>
+<Problem.Cause>
+
+**Start from** is **Committed only**, and the consumer group has no committed offset on
+the topic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Start from** to **Latest** or **Earliest**, or set **Consumer group** to a group
+that has read the topic.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"record key ...: claimed by more than one record"}>
+<Problem.Cause>
+
+Two records of the task have the same record key.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each record its own key, or move the fields into one record.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["record key ...: channels must share one index", "record keys ... and ...: channels on one index belong in one record"]}>
+<Problem.Cause>
+
+The channels of a record use more than one index channel, or two records write to
+channels on the same index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each record channels on one index channel of its own.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"field ...: data type ... does not match channel ..."}>
+<Problem.Cause>
+
+The data type of the field differs from the data type of the channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set the data type of the field to the data type of the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to fetch records"}>
+<Problem.Cause>
+
+The cluster refused to send records, for example because the user cannot read the topic.
+The task stops. The description gives the reason.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the topic name and the ACLs of the user, then start the task again.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For problems with the connection, see
+[Connect a Kafka cluster](/reference/hardware/kafka/connect-cluster#troubleshooting).

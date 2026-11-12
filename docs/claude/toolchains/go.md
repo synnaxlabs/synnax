@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
-(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
-server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
-codegen CLI), `/x/go/` (shared utilities).
+`/core/` (server), `/cesium/` (time-series DB), `/gorp/` (typed KV tables),
+`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
+(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
+`/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
@@ -34,12 +34,12 @@ reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint 
 - Package names: lowercase, one word, singular (`channel`, `framer`, `writer`). When the
   natural name collides with a keyword, extend it (`ranger`, not `range`).
 - One file per concern inside a package: `service.go`, `writer.go`, `retrieve.go`,
-  `ontology.go`, `transport.go`. Tests co-located.
+  `resource.go`, `transport.go`. Tests co-located.
 - Exported names are contextual to the package: `channel.Service`, `channel.Key`,
   `channel.Writer` (see the root namespace rule). The core type may share the package
   name: `channel.Channel`.
 - `internal/` hides implementation packages consumers must not import
-  (`cesium/internal`, `aspen/internal`).
+  (`cesium/internal`).
 
 ## General rules
 

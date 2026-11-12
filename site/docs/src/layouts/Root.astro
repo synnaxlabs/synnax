@@ -16,17 +16,16 @@ import Analytics from "@synnaxlabs/site-common/Analytics.astro";
 import { ClientRouter } from "astro:transitions";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
-import { enabled } from "@/flags";
 import { sectionOf } from "@/components/nav/tree";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
+import { rootOf } from "@/util/version";
+import VersionBanner from "@/components/version/Banner.astro";
+import { VERSION } from "@/version";
 const {
-    frontmatter: { title, heading, description, url, image, flag },
+    frontmatter: { title, heading, description, image },
     article,
 } = Astro.props;
-// A page behind a flag that is off does not exist.
-const hidden = flag != null && !enabled(flag);
-if (hidden) Astro.response.status = 404;
 // Query strings (the ?client= switcher) and trailing slashes must not split a page
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
@@ -39,14 +38,15 @@ const pageTitle =
         ? `${cleanTitle} | ${section}`
         : cleanTitle;
 // The home page names the whole site, so its heading is the full title.
-const fullTitle = hidden
-    ? "Page not found | Synnax"
-    : route === "/reference" && heading != null
-      ? heading
-      : pageTitle
-        ? `${pageTitle} | Synnax`
-        : "Synnax";
+const fullTitle =
+    route === "/reference" && heading != null
+        ? heading
+        : pageTitle
+          ? `${pageTitle} | Synnax`
+          : "Synnax";
 
+// Pages no version owns live on the root, so other versions link there.
+const root = rootOf(VERSION);
 const FOOTER_COLUMNS = [
     {
         title: "Documentation",
@@ -60,9 +60,9 @@ const FOOTER_COLUMNS = [
     {
         title: "Resources",
         links: [
-            { label: "Blog", href: "/blog/" },
-            { label: "Releases", href: "/releases/" },
-            { label: "Reliability", href: "/reliability/" },
+            { label: "Blog", href: `${root}/blog/` },
+            { label: "Releases", href: `${root}/releases/` },
+            { label: "Reliability", href: `${root}/reliability/` },
             { label: "GitHub", href: "https://github.com/synnaxlabs/synnax" },
         ],
     },
@@ -71,8 +71,8 @@ const FOOTER_COLUMNS = [
         links: [
             { label: "About", href: "https://www.synnaxlabs.com/company" },
             { label: "Contact", href: "https://synnaxlabs.com/#contact" },
-            { label: "Privacy policy", href: "/privacy-policy" },
-            { label: "Terms of service", href: "/terms-of-service" },
+            { label: "Privacy policy", href: `${root}/privacy-policy` },
+            { label: "Terms of service", href: `${root}/terms-of-service` },
         ],
     },
 ];
@@ -87,32 +87,28 @@ const FOOTER_COLUMNS = [
             image={image || undefined}
             imageAlt={cleanTitle || "Synnax"}
             article={article}
+            unindexed={VERSION != null && VERSION.status !== "latest"}
         />
         <link
             rel="alternate"
             type="application/rss+xml"
             title="Synnax blog"
-            href="/blog/rss.xml"
+            href={`${root}/blog/rss.xml`}
         />
         <ClientRouter />
         <Mark />
-        {!hidden && <slot name="head" />}
+        <slot name="head" />
     </head>
     <body>
-        <Header url={url} transition:persist />
-        {!hidden && <slot name="subheader" />}
+        <Header version={VERSION} transition:persist />
+        <VersionBanner version={VERSION} />
+        <slot name="subheader" />
         <main>
-            {hidden ? (
-                <section class="not-found">
-                    <h1>Page not found</h1>
-                </section>
-            ) : (
-                <slot />
-            )}
+            <slot />
         </main>
         <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
         <Lightbox />
-        <Analytics privacy="/privacy-policy" />
+        <Analytics privacy={`${root}/privacy-policy`} />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";

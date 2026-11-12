@@ -9,12 +9,11 @@
 
 import "@/platform/tree/search.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type Flux, Ontology } from "@synnaxlabs/pluto";
+import { type Flux } from "@synnaxlabs/pluto";
 import { type state } from "@synnaxlabs/x";
 import {
   createContext,
@@ -27,6 +26,8 @@ import {
 
 import { CSS } from "@/platform/css";
 import { Toolbar } from "@/platform/toolbar";
+import { type Results } from "@/platform/tree/store";
+import { type Resource } from "@/platform/tree/types";
 
 /** How a search shows its matches: in one list, or inside their groups. */
 export type SearchLayout = "flat" | "groups";
@@ -35,17 +36,20 @@ export type SearchLayout = "flat" | "groups";
 export interface SearchQuery {
   term: string;
   /** The tree root. A match outside it does not show. */
-  root: ontology.ID;
-  /** The folder types and the types the toolbar searches for. */
-  types: ontology.ResourceType[];
+  root: resource.ID;
   /** The most matches a source returns. */
   limit: number;
+}
+
+/** A match and the node that holds it. */
+export interface Hit extends Resource {
+  parent: resource.ID;
 }
 
 /** The matches one source found, in rank order. */
 export type Matches =
   | { variant: "loading" }
-  | { variant: "success"; ids: ontology.ID[] }
+  | { variant: "success"; resources: Hit[] }
   | { variant: "error"; description?: string };
 
 /**
@@ -59,58 +63,54 @@ export interface UseMatches {
 /** Converts a Flux result into the matches of one source. */
 export const toMatches = <T extends state.State>(
   result: Flux.Result<T[]>,
-  toID: (item: T) => ontology.ID,
+  convert: (item: T) => Hit,
 ): Matches => {
   if (result.variant === "success")
-    return { variant: "success", ids: result.data.map(toID) };
+    return { variant: "success", resources: result.data.map(convert) };
   if (result.variant === "error")
     return { variant: "error", description: result.status.description };
   return { variant: "loading" };
 };
 
-const resourceID = ({ id }: ontology.Resource): ontology.ID => id;
+/** Where the search places its matches. */
+export interface Placement {
+  /** The folders between the matches and the root. */
+  resources: Resource[];
+  /**
+   * The folders from the root down to the parent of each match, keyed by match key. A
+   * match with no path sits outside the root and does not show.
+   */
+  paths: Record<string, resource.ID[][]>;
+}
 
-/** Matches the resources of the query types under the root by name. */
-export const useOntologyMatches: UseMatches = (query) => {
-  const result = Ontology.useResultResources(
-    query == null
-      ? null
-      : {
-          searchTerm: query.term,
-          root: query.root,
-          types: query.types,
-          limit: query.limit,
-        },
-  );
-  return [toMatches(result, resourceID)];
-};
+/** The placement of the matches, or the state of the lookup that finds it. */
+export type PlacementResult =
+  | { variant: "loading" }
+  | { variant: "success"; placement: Placement }
+  | { variant: "error"; description?: string };
+
+/** What a search places. */
+export interface PlacementQuery {
+  matches: Hit[];
+  root: resource.ID;
+}
+
+/** Places the matches under the root. A null query places nothing. */
+export interface UsePlacement {
+  (query: PlacementQuery | null): PlacementResult;
+}
 
 export interface CreateSearchParams {
   /** What the search finds, in the plural, such as "channels". */
   noun: string;
-  /** The types the search finds along with the folders, such as "arc". */
-  types?: ontology.ResourceType[];
-  /** Defaults to {@link useOntologyMatches}. */
-  useMatches?: UseMatches;
-}
-
-/** A fixed set of nodes that takes the place of the children of the root. */
-export interface ResultNodes {
-  nodes: Base.Node<string>[];
-  /** Groups that hold only the matches below them, not every child. */
-  fixed: Set<string>;
-  /** Groups to open on arrival, so the matches inside them show. */
-  expanded: string[];
-  /** The parent of each node at the top of the results. */
-  parents: Map<string, ontology.ID>;
-  /** The keys of every group above each match, over all of its paths. */
-  ancestors: Map<string, Set<string>>;
+  useMatches: UseMatches;
+  usePlacement: UsePlacement;
 }
 
 /** What shows in place of the tree while a search has a term. */
 export type SearchAnswer =
   | { variant: "error"; description?: string }
-  | { variant: "success"; results: ResultNodes; match: Match; more: boolean };
+  | { variant: "success"; results: Results; match: Match; more: boolean };
 
 /** The state of the search of one tree. */
 export interface Search {
@@ -137,7 +137,7 @@ export interface Search {
 
 /** Runs the search of the tree under root. A null root searches nothing. */
 export interface UseSearch {
-  (root: ontology.ID | null): Search;
+  (root: resource.ID | null): Search;
 }
 
 export interface SearchActionProps {
@@ -257,12 +257,12 @@ export const MatchProvider = ({ value, children }: MatchProviderProps) => (
 export const useHighlight = (): string | undefined => use(MatchContext)?.term;
 
 export interface MatchGroupProps {
-  id: ontology.ID;
+  id: resource.ID;
 }
 
 /** Shows the group of a match in the flat layout. Renders nothing elsewhere. */
 export const MatchGroup = ({ id }: MatchGroupProps): ReactElement | null => {
-  const name = use(MatchContext)?.groups.get(ontology.idToString(id));
+  const name = use(MatchContext)?.groups.get(resource.idToString(id));
   if (name == null) return null;
   return (
     <Text.Text

@@ -23,6 +23,8 @@ interface Props {
     imageAlt?: string;
     /** Marks the page as an article for Open Graph. */
     article?: Article;
+    /** Asks search engines to leave the page out of their index. */
+    unindexed?: boolean;
 }
 
 const DEFAULT_IMAGE =
@@ -35,6 +37,7 @@ const {
     image = DEFAULT_IMAGE,
     imageAlt = "Synnax",
     article,
+    unindexed = false,
 } = Astro.props;
 ---
 
@@ -44,6 +47,7 @@ const {
     title={title}
     description={description}
     canonical={canonical}
+    noindex={unindexed}
     openGraph={{
         basic: {
             title,

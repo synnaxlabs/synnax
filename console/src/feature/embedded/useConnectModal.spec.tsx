@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AuthError } from "@synnaxlabs/client";
+import { InvalidCredentialsError } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
@@ -190,7 +190,9 @@ describe("Embedded connect from code dialog", () => {
       expect(statuses().map((s) => s.message)).toContain("Reset API key"),
     );
     expect(await screen.findByText("0 sessions")).toBeTruthy();
-    await expect(script.auth.retrieveSessions()).rejects.toThrow(AuthError);
+    await expect(script.auth.retrieveSessions()).rejects.toThrow(
+      InvalidCredentialsError,
+    );
     await createScriptClient(savedKey(file)).auth.retrieveSessions();
   });
 });

@@ -23,7 +23,7 @@ import { StatusIndicator } from "@/rack/StatusIndicator";
 export interface SelectSingleProps
   extends
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
-    Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
+    Omit<Flux.UseListParams<ListQuery, rack.Rack>, "name">,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.ItemsProps<rack.Key>, "emptyContent">,
     Pick<
@@ -51,18 +51,17 @@ export const SelectSingle = ({
   query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    query: { includeStatus: true, ...query },
+  const { data, getItem, subscribe, status, more, search } = useList({
+    query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<rack.Key, rack.Payload | undefined>
       resourceName="driver"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Rack />}

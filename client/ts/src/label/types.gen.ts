@@ -12,7 +12,20 @@
 import { color, filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of labels. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -38,7 +51,6 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
-  for?: ontology.ID;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -57,9 +69,18 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
-  /** for matches the labels attached to the given resource. */
-  for: ontology.idZ.optional(),
 });
+
+/**
+ * Cursor is a position in an order of labels: the sort value and the key of a label.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the label at the position. */
+  key: keyZ,
+  /** name is the name of the label at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export interface New extends z.input<typeof labelZ> {}
 
 /** RetrieveResponse holds the labels a RetrieveRequest selects. */
@@ -75,9 +96,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the labels that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the labels. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the labels strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most labels to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching labels to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+export const resourceID = resource.createIDFactory<Key>("label");
+export const TYPE_RESOURCE_ID = resourceID("");

@@ -19,7 +19,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -67,13 +67,13 @@ import {
 const defaultClient = createTestClient();
 
 const TASK_FORM_READS = [
-  task.TYPE_ONTOLOGY_ID,
-  device.TYPE_ONTOLOGY_ID,
-  rack.TYPE_ONTOLOGY_ID,
-  channel.TYPE_ONTOLOGY_ID,
-  panel.TYPE_ONTOLOGY_ID,
-  project.TYPE_ONTOLOGY_ID,
-  group.TYPE_ONTOLOGY_ID,
+  task.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
 ];
 
 /**
@@ -83,7 +83,7 @@ const TASK_FORM_READS = [
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
     retrieve: TASK_FORM_READS,
-    update: [task.TYPE_ONTOLOGY_ID],
+    update: [task.TYPE_RESOURCE_ID],
   });
 
 /**
@@ -159,9 +159,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -213,10 +213,10 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
-  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  onTestFinished(client.panels.watch(doc.key).onChange(() => {}));
   await client.panels.retrieve(doc.key);
   act(() => {
     store.dispatch(
@@ -236,7 +236,7 @@ export const awaitTaskResourceTab = async ({
   panelKey,
 }: CreatedPanel): Promise<task.Key> =>
   await waitFor(() => {
-    const cached = client.panels.getCached(panelKey);
+    const cached = client.panels.watch(panelKey).getCached();
     if (!query.isLive(cached)) throw new Error("panel doc not found");
     const doc = cached;
     const tabs: panel.Tab[] = [];
@@ -249,7 +249,7 @@ export const awaitTaskResourceTab = async ({
     };
     visit(doc.root);
     const match = tabs.find(
-      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_RESOURCE_ID.type,
     );
     if (match == null || match.variant !== "resource")
       throw new Error("task resource tab not found");
@@ -433,13 +433,13 @@ export const renderTaskFormTab = async (
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
-    resource: task.ontologyID(taskKey),
+    resource: task.resourceID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   if (as !== client) {
     // The panel scopes resolve against the rendering client's cache, so prime it
     // the same way createSelectedPanel primes the creating client's.
-    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
@@ -573,8 +573,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -588,13 +588,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -614,13 +614,13 @@ export const answerCommand = async (
   cmd: task.Command,
   { data, ...answer }: Omit<CommandAnswer, "type"> = {},
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk.payload,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
       ...answer,
-      details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
+      owner: task.resourceID(tsk.key),
+      details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
-  });
+  );
 };
 
 /**
