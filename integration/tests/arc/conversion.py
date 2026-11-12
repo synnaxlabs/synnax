@@ -413,43 +413,115 @@ flow_trigger -> unit_five() -> unit_fn_ret
 """
 
 # Every line with a comment is an error or a warning that the compiler gives in one
-# pass. UNIT_ERRORS holds the text that the Core must report for them.
+# pass, and [1 fix] or [2 fix] gives its number of quick fixes. UNIT_ERRORS holds the
+# text that the Core must report for them.
 UNIT_ERRORS_SOURCE = """
 import time
 
 // ─────────────── top-level variables ───────────────
 t := 120s
+u := 500ms
 p := 100psi
+twice := t + t
+typed i64 ns := t + t                             // converts
 
-func show(x i64) str {
+func show(x i64 ns) str {
     return f"x={x}"
 }
 
 // ─────────────── flow ───────────────
-time.wait(p) -> "pressure" -> unit_log            // pressure into a timer
-time.interval(1s) -> show(x=t) -> unit_log        // a unit into a parameter with none
+time.wait(t * 2) -> "wait" -> unit_log            // converts
+time.interval(t + u) -> "interval" -> unit_log    // converts
+time.wait(twice * 2) -> "chain" -> unit_log       // converts
+time.wait(p) -> "pressure" -> unit_log            // error, another dimension
+time.interval(1s) -> show(x=t * 2) -> unit_log    // converts
+time.interval(1s) -> label(x=t) -> unit_log       // [2 fix] error, no unit, parameter
 
 // ─────────────── function body ───────────────
+func hold() {d i64 ns} i64 {
+    return d                                      // [2 fix] error, no unit, result
+}
+
+func in_body() i64 {
+    local := 5s
+    return hold(local)                            // converts
+}
+
+func plain(x i64) i64 {
+    return x
+}
+
+func label(x i64) str {
+    return f"x={x}"
+}
+
 func stamp() i64 {
-    return time.now()                             // a unit into a result with none
+    return time.now()                             // [2 fix] error, no unit, result
+}
+
+func to_min(m i64 min) i64 min {
+    return m
+}
+
+func res(x i64 s) i64 min {
+    return x                                      // warning, truncation, result
+}
+
+func bad_result(c i64 psi) i64 s {
+    return c                                      // error, another dimension, result
+}
+
+func body(x i64 s) i64 {
+    local := 5s
+    k := plain(local)                             // [2 fix] error, no unit, parameter
+    a i64 s := 5psi                               // error, dimension, declaration
+    m i64 min := 90s                              // [2 fix] truncation, declaration
+    q i64 Pa := 5psi                              // [2 fix] warning, factor not whole
+    total i64 := 0
+    total += 5ms                                  // [2 fix] error, no unit, compound
+    acc i64 min := 0min
+    acc += x                                      // [2 fix] truncation, compound
+    w := to_min(x)                                // warning, truncation, argument
+    xs := [1s, 2s]
+    ys := [1ms, 2ms]
+    ys = xs                                       // error, series in another unit
+    zs := [1s, 5psi]                              // error, elements of two dimensions
+    ms := [1min]
+    ms[0] = x                                     // warning, truncation, element
+    ls series i64 s := [1500ms]                   // warning, truncation, series literal
+    b i64 bar := 2bar
+    c i64 psi := 5psi
+    e := b + c                                    // warning, truncation, calculation
+    r i64 s := 0s
+    r = c                                         // error, dimension, assignment
+    r += c                                        // error, another dimension, compound
+    return 0
 }
 
 // ─────────────── sequence and stage ───────────────
 sequence main {
     d := 1min
     span := 90s
+    whole := 120s
     n := 5
+    f := 0.5ms
     count := 0
 
     stage write {
-        p -> d                                    // another dimension
-        d = p                                     // another dimension
-        5psi -> d                                 // another dimension
-        2.5 -> n                                  // float into an integer
-        span -> count                             // a unit into a variable with none
-        span -> d                                 // warning, truncation
-        span * 60 -> d                            // warning, truncation
-        90s -> d                                  // warning, truncation
+        whole * 60 -> d                           // [2 fix] warning, truncation
+        span * 60 -> d                            // [2 fix] warning, truncation
+        d = span * 2                              // [2 fix] warning, truncation
+        p -> d                                    // error, another dimension
+        d = p                                     // error, another dimension
+        5psi -> d                                 // error, another dimension
+        2.5 -> n                                  // error, float into an integer
+        whole -> d                                // [2 fix] warning, truncation
+        span -> d                                 // [2 fix] warning, truncation
+        n = span                                  // [2 fix] error, no unit
+        90s -> d                                  // [2 fix] truncation, literal
+        span -> count                             // [2 fix] error, no unit, flow
+        span -> f                                 // error, integer into a float
+        time.wait(span / 2) => next               // converts
     }
 
     stage done {
@@ -462,15 +534,31 @@ start_conversion_cmd => main
 
 # The text that the Core must report for UNIT_ERRORS_SOURCE, in the order of its lines.
 UNIT_ERRORS = [
-    "expected i64 ns, got i64 psi",
-    "parameter 'x' of 'show' has no unit and cannot take a value in s",
-    "hint: declare parameter 'x' of 'show' in s",
+    "incompatible dimensions: cannot write psi to parameter 'duration' of "
+    "'time.wait' (ns)",
+    "parameter 'x' of 'label' has no unit and cannot take a value in s",
+    "hint: change `i64` to `i64 s`",
+    "hint: change `t` to `i64(t)`",
+    "the result of 'hold' has no unit and cannot take a value in ns",
     "the result of 'stamp' has no unit and cannot take a value in ns",
-    "incompatible dimensions: cannot write psi to 'd' (min)",
-    "incompatible dimensions: cannot assign psi to 'd' (min)",
-    "does not match channel n value type",
-    "'count' has no unit and cannot take a value in s",
     "unit conversion from s to min truncates an integer toward zero",
+    "incompatible dimensions: cannot write psi to the result of 'bad_result' (s)",
+    "parameter 'x' of 'plain' has no unit and cannot take a value in s",
+    "incompatible dimensions: cannot write psi to 'a' (s)",
+    "hint: change `m i64 min := 90s` to `m f64 min := 90s`",
+    "unit conversion from psi to Pa truncates an integer toward zero",
+    "'total' has no unit and cannot take a value in ms",
+    "'ys' is a series in ms and cannot take a series in s",
+    "series element 2 has incompatible type",
+    "unit conversion from ms to s truncates an integer toward zero",
+    "unit conversion from bar to psi truncates an integer toward zero",
+    "incompatible dimensions: cannot write psi to 'r' (s)",
+    "incompatible dimensions: cannot write psi to 'd' (min)",
+    "does not match channel n value type",
+    "'n' has no unit and cannot take a value in s",
+    "hint: change `d := 1min` to `d := 60s`",
+    "'count' has no unit and cannot take a value in s",
+    "does not match channel f value type",
 ]
 
 INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [

@@ -420,14 +420,20 @@ func analyzeIdentifier(
 		chanValueType := sym.Type.Unwrap()
 		converts := false
 		if sym.IsValueVariable() {
-			var ok bool
-			if converts, ok = expression.CheckUnits(ctx, expression.Write{
+			write := expression.Write{
 				AST:     ctx.AST,
 				Expr:    prevNode.Expression(),
+				Value:   prevNode.Identifier(),
 				Source:  srcType,
 				Target:  chanValueType,
 				Subject: "'" + name + "'",
-			}); !ok {
+			}
+			// A fix cannot change a declaration in another module.
+			if sym.Root() == ctx.Scope.Root() {
+				write.Declaration = sym.AST
+			}
+			var ok bool
+			if converts, ok = expression.CheckUnits(ctx, write); !ok {
 				return
 			}
 		}

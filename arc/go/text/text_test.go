@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // findNodeByKey finds a node by key and asserts it exists
@@ -129,6 +130,24 @@ func scopeNodeRefs(scope ir.Scope) []string {
 		}
 	}
 	return keys
+}
+
+// applyFix returns source with the edits of fix.
+func applyFix(source string, fix xdiagnostics.Fix) string {
+	offset := func(p protocol.Position) int {
+		lines := strings.SplitAfter(source, "\n")
+		return len(strings.Join(lines[:p.Line], "")) + int(p.Character)
+	}
+	edits := slices.Clone(fix.Edits)
+	slices.SortFunc(edits, func(a, b protocol.TextEdit) int {
+		return offset(b.Range.Start) - offset(a.Range.Start)
+	})
+	applied := source
+	for _, edit := range edits {
+		applied = applied[:offset(edit.Range.Start)] + edit.NewText +
+			applied[offset(edit.Range.End):]
+	}
+	return applied
 }
 
 var _ = Describe("Text", func() {
@@ -495,9 +514,10 @@ var _ = Describe("Text", func() {
 				NewRoot(nil, varResolver...),
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(
-				diagnostics.String(),
-			).To(ContainSubstring("expected i64 ns, got i64 psi"))
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"incompatible dimensions: cannot write psi to parameter 'duration' " +
+					"of 'wait' (ns)",
+			))
 		})
 
 		DescribeTable(
@@ -625,7 +645,7 @@ var _ = Describe("Text", func() {
 				Expect(lo.Filter(
 					*diagnostics,
 					func(d xdiagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.UnitTruncation
+						return d.Code == codes.UnitTruncation.Code
 					},
 				)).To(HaveLen(warnings), diagnostics.String())
 			},
@@ -674,68 +694,195 @@ var _ = Describe("Text", func() {
 			),
 		)
 
-		DescribeTable("Should reject a value with a unit for a name with no unit",
-			func(ctx SpecContext, source, message, hint string) {
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
-					ctx,
-					parsedText,
-					NewRoot(nil, varResolver...),
-				)
+		DescribeTable("Should fix a write that truncates an integer",
+			func(ctx SpecContext, source string, fixed ...string) {
+				analyze := func(source string) xdiagnostics.Diagnostics {
+					_, diagnostics := text.Analyze(
+						ctx,
+						MustSucceed(text.Parse(text.Text{Raw: source})),
+						NewRoot(nil, varResolver...),
+					)
+					return *diagnostics
+				}
+				diagnostics := analyze(source)
 				found := lo.Filter(
-					*diagnostics,
+					diagnostics,
 					func(d xdiagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.UnitMissing
+						return d.Code == codes.UnitTruncation.Code
+					},
+				)
+				Expect(found).To(HaveLen(1), diagnostics.String())
+				Expect(found[0].Notes).To(HaveLen(len(fixed)))
+				Expect(found[0].Fixes).To(HaveLen(len(fixed)))
+				for i, fix := range found[0].Fixes {
+					applied := applyFix(source, fix)
+					Expect(applied).To(Equal(fixed[i]))
+					Expect(analyze(applied)).To(BeEmpty())
+				}
+			},
+			Entry("a declaration",
+				"func f() {\nd i64 min := 90s\n}",
+				"func f() {\nd f64 min := 90s\n}",
+				"func f() {\nd i64 s := 90s\n}"),
+			Entry("a stateful declaration",
+				"func f() {\nd i64 min $= 90s\n}",
+				"func f() {\nd f64 min $= 90s\n}",
+				"func f() {\nd i64 s $= 90s\n}"),
+			Entry("a declaration of another integer type",
+				"func f() {\nd i32 min := 90s\n}",
+				"func f() {\nd f64 min := 90s\n}",
+				"func f() {\nd i32 s := 90s\n}"),
+			Entry("an assignment of a literal",
+				"func f() {\nd i64 min := 0min\nd = 90s\n}",
+				"func f() {\nd f64 min := 0min\nd = 90s\n}",
+				"func f() {\nd i64 s := 0s\nd = 90s\n}"),
+			Entry("an assignment of a variable",
+				"func f(x i64 s) {\nd i64 min := 0min\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 0min\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd i64 s := 0s\nd = x\n}"),
+			Entry("an assignment to a variable with no declared type",
+				"func f(x i64 s) {\nd := 5min\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 5min\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd := 300s\nd = x\n}"),
+			Entry("a compound assignment of a calculation",
+				"func f(x i64 s) {\nd i64 min := 0\nd += x * 2\n}",
+				"func f(x i64 s) {\nd f64 min := 0\nd += f64 s(x * 2)\n}",
+				"func f(x i64 s) {\nd i64 s := 0\nd += x * 2\n}"),
+			Entry("an assignment to a variable declared from a number with no unit",
+				"func f(x i64 s) {\nd i64 min := 5\nd = x\n}",
+				"func f(x i64 s) {\nd f64 min := 5\nd = f64 s(x)\n}",
+				"func f(x i64 s) {\nd i64 s := 300\nd = x\n}"),
+			Entry("an assignment to a variable that is not whole in the other unit",
+				"func f(x i64 Pa) {\nd i64 psi := 5psi\nd = x\n}",
+				"func f(x i64 Pa) {\nd f64 psi := 5psi\nd = f64 Pa(x)\n}"),
+			Entry("a flow of a variable",
+				"sequence main {\nd := 1min\nspan := 90s\nstage s1 {\nspan -> d\n}\n}",
+				"sequence main {\nd f64 min := 1min\nspan := 90s\n"+
+					"stage s1 {\nf64 s(span) -> d\n}\n}",
+				"sequence main {\nd := 60s\nspan := 90s\nstage s1 {\nspan -> d\n}\n}"),
+			Entry("a flow of a calculation",
+				"sequence main {\nd := 1min\nspan := 90s\n"+
+					"stage s1 {\nspan * 60 -> d\n}\n}",
+				"sequence main {\nd f64 min := 1min\nspan := 90s\n"+
+					"stage s1 {\nf64 s(span * 60) -> d\n}\n}",
+				"sequence main {\nd := 60s\nspan := 90s\n"+
+					"stage s1 {\nspan * 60 -> d\n}\n}"),
+			Entry("a flow of a literal",
+				"sequence main {\nd $= 1min\nstage s1 {\n90s -> d\n}\n}",
+				"sequence main {\nd f64 min $= 1min\nstage s1 {\n90s -> d\n}\n}",
+				"sequence main {\nd $= 60s\nstage s1 {\n90s -> d\n}\n}"),
+			Entry("a declaration from a variable",
+				"func f(x i64 s) {\nd i64 min := x\n}"),
+			Entry("an assignment to a variable declared from a variable",
+				"func f(x i64 s, y i64 min) {\nd i64 min := y\nd = x\n}"),
+			Entry("a result of a function",
+				"func f(x i64 s) i64 min {\nreturn x\n}"),
+			Entry("a series declaration",
+				"func f() {\nys series i64 s := [1500ms]\n}"),
+		)
+
+		DescribeTable("Should reject a value with a unit for a name with no unit",
+			func(ctx SpecContext, source, message string, fixed ...string) {
+				analyze := func(source string) xdiagnostics.Diagnostics {
+					_, diagnostics := text.Analyze(
+						ctx,
+						MustSucceed(text.Parse(text.Text{Raw: source})),
+						NewRoot(nil, varResolver...),
+					)
+					return *diagnostics
+				}
+				diagnostics := analyze(source)
+				found := lo.Filter(
+					diagnostics,
+					func(d xdiagnostics.Diagnostic, _ int) bool {
+						return d.Code == codes.UnitMissing.Code
 					},
 				)
 				Expect(found).To(HaveLen(1), diagnostics.String())
 				Expect(found[0].Message).To(Equal(message))
-				Expect(found[0].Notes).To(HaveLen(1))
-				Expect(found[0].Notes[0].Message).To(Equal(hint))
+				Expect(found[0].Fixes).To(HaveLen(len(fixed)))
+				for i, fix := range found[0].Fixes {
+					applied := applyFix(source, fix)
+					Expect(applied).To(Equal(fixed[i]))
+					Expect(analyze(applied)).To(BeEmpty())
+				}
 			},
-			Entry(
-				"an assignment",
-				"import time\nsequence main {\nlast $= 0\nstage s1 {\nlast = time.now()\n}\n}",
+			Entry("an assignment",
+				"import time\nsequence main {\nlast $= 0\n"+
+					"stage s1 {\nlast = time.now()\n}\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: declare 'last' in ns",
-			),
-			Entry("an assignment after a read",
-				"import time\nsequence main {\nlast $= 0\nq := 0\nstage s1 {\n"+
+				"import time\nsequence main {\nlast i64 ns $= 0\n"+
+					"stage s1 {\nlast = time.now()\n}\n}",
+				"import time\nsequence main {\nlast $= 0\n"+
+					"stage s1 {\nlast = i64(time.now())\n}\n}"),
+			Entry(
+				"an assignment after a read",
+				"import time\nsequence main {\nlast $= 0\nq i64 ns := 0\nstage s1 {\n"+
 					"q = last + 5\nlast = time.now()\n}\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: declare 'last' in ns"),
-			Entry("a flow",
+				"import time\nsequence main {\nlast i64 ns $= 0\nq i64 ns := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = time.now()\n}\n}",
+				"import time\nsequence main {\nlast $= 0\nq i64 ns := 0\nstage s1 {\n"+
+					"q = last + 5\nlast = i64(time.now())\n}\n}",
+			),
+			Entry("a flow of a literal",
 				"sequence main {\nlast i64 := 0\nstage s1 {\n5s -> last\n}\n}",
 				"'last' has no unit and cannot take a value in s",
-				"hint: declare 'last' in s"),
-			Entry(
-				"an assignment in a function",
-				"import time\nfunc f() i64 ns {\nlast := 0\nlast = time.now()\nreturn last\n}",
+				"sequence main {\nlast i64 s := 0\nstage s1 {\n5s -> last\n}\n}",
+				"sequence main {\nlast i64 := 0\nstage s1 {\ni64(5s) -> last\n}\n}"),
+			Entry("a flow of a variable",
+				"sequence main {\nlast i64 := 0\nspan := 5s\n"+
+					"stage s1 {\nspan -> last\n}\n}",
+				"'last' has no unit and cannot take a value in s",
+				"sequence main {\nlast i64 s := 0\nspan := 5s\n"+
+					"stage s1 {\nspan -> last\n}\n}",
+				"sequence main {\nlast i64 := 0\nspan := 5s\n"+
+					"stage s1 {\ni64(span) -> last\n}\n}"),
+			Entry("an assignment in a function",
+				"import time\nfunc f() {\nlast := 0\nlast = time.now()\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: declare 'last' in ns",
-			),
+				"import time\nfunc f() {\nlast i64 ns := 0\nlast = time.now()\n}",
+				"import time\nfunc f() {\nlast := 0\nlast = i64(time.now())\n}"),
+			Entry("a compound assignment",
+				"func f() {\ntotal i64 := 0\ntotal += 5ms\n}",
+				"'total' has no unit and cannot take a value in ms",
+				"func f() {\ntotal i64 ms := 0\ntotal += 5ms\n}",
+				"func f() {\ntotal i64 := 0\ntotal += i64(5ms)\n}"),
+			Entry("a result",
+				"func f() {d i64 ns} i64 {\nreturn d\n}",
+				"the result of 'f' has no unit and cannot take a value in ns",
+				"func f() {d i64 ns} i64 ns {\nreturn d\n}",
+				"func f() {d i64 ns} i64 {\nreturn i64(d)\n}"),
 			Entry("a parameter",
-				"import time\nfunc f(start i64) i64 {\nreturn start\n}\n"+
+				"import time\nfunc f(start i64) i64 {\nreturn i64(start)\n}\n"+
 					"func g() i64 {\nreturn f(time.now())\n}",
 				"parameter 'start' of 'f' has no unit and cannot take a value in ns",
-				"hint: declare parameter 'start' of 'f' in ns"),
+				"import time\nfunc f(start i64 ns) i64 {\nreturn i64(start)\n}\n"+
+					"func g() i64 {\nreturn f(time.now())\n}",
+				"import time\nfunc f(start i64) i64 {\nreturn i64(start)\n}\n"+
+					"func g() i64 {\nreturn f(i64(time.now()))\n}"),
 			Entry("a parameter of a flow call",
-				"d := 5s\nfunc f(x i64) i64 {\nreturn x\n}\n"+
+				"d := 5s\nfunc f(x i64) i64 {\nreturn i64(x)\n}\n"+
 					"count_ch -> f(x=d) -> count_ch",
 				"parameter 'x' of 'f' has no unit and cannot take a value in s",
-				"hint: declare parameter 'x' of 'f' in s"),
-			Entry("a result",
-				"func f() i64 {\nreturn 5ms\n}",
-				"the result of 'f' has no unit and cannot take a value in ms",
-				"hint: declare the result of 'f' in ms"),
-			Entry("a compound assignment",
-				"func f() i64 {\ntotal i64 := 0\ntotal += 5ms\nreturn total\n}",
-				"'total' has no unit and cannot take a value in ms",
-				"hint: declare 'total' in ms"),
-			Entry("a series element",
+				"d := 5s\nfunc f(x i64 s) i64 {\nreturn i64(x)\n}\n"+
+					"count_ch -> f(x=d) -> count_ch",
+				"d := 5s\nfunc f(x i64) i64 {\nreturn i64(x)\n}\n"+
+					"count_ch -> f(x=i64(d)) -> count_ch"),
+			Entry("a parameter in braces",
+				"func f() {x i64} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(t)\n}",
+				"parameter 'x' of 'f' has no unit and cannot take a value in s",
+				"func f() {x i64 s} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(t)\n}",
+				"func f() {x i64} i64 {\nreturn i64(x)\n}\n"+
+					"func g(t i64 s) i64 {\nreturn f(i64(t))\n}"),
+			Entry(
+				"a series element",
 				"func f(x i64 ms) i64 {\nys := [1, 2]\nys[0] = x\nreturn ys[0]\n}",
 				"'ys' has no unit and cannot take a value in ms",
-				"hint: declare 'ys' in ms"),
+				"func f(x i64 ms) i64 {\nys := [1, 2]\nys[0] = i64(x)\nreturn ys[0]\n}",
+			),
 		)
 
 		DescribeTable("Should accept a value with a unit where the unit has a place",
@@ -903,7 +1050,7 @@ var _ = Describe("Text", func() {
 				found := lo.Filter(
 					*diagnostics,
 					func(d xdiagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.UnitTruncation
+						return d.Code == codes.UnitTruncation.Code
 					},
 				)
 				if !warns {
@@ -958,7 +1105,7 @@ var _ = Describe("Text", func() {
 			Entry("a flow", `other -> d`,
 				"incompatible dimensions: cannot write psi to 'd' (min)"),
 			Entry("an assignment", `d = other`,
-				"incompatible dimensions: cannot assign psi to 'd' (min)"),
+				"incompatible dimensions: cannot write psi to 'd' (min)"),
 		)
 
 		DescribeTable("Should reject a literal that does not fit the variable",

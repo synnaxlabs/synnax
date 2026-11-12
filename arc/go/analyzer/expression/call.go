@@ -125,6 +125,36 @@ func matchParam[T antlr.ParserRuleContext](
 	return positional[arg.Index], true
 }
 
+// parameterType returns the type node of the parameter name of fnName in this module.
+func parameterType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fnName, name string,
+) antlr.ParserRuleContext {
+	fn, err := ctx.Scope.Resolve(ctx, fnName)
+	if err != nil || fn.Root() != ctx.Scope.Root() {
+		return nil
+	}
+	decl, ok := fn.AST.(parser.IFunctionDeclarationContext)
+	if !ok {
+		return nil
+	}
+	if inputs := decl.InputList(); inputs != nil {
+		for _, input := range inputs.AllInput() {
+			if input.IDENTIFIER().GetText() == name {
+				return input.Type_()
+			}
+		}
+	}
+	if triggers := decl.TriggerList(); triggers != nil {
+		for _, trigger := range triggers.AllTrigger() {
+			if trigger.IDENTIFIER().GetText() == name {
+				return trigger.Type_()
+			}
+		}
+	}
+	return nil
+}
+
 // checkArgType checks arg's type against param, dereferencing a channel argument to
 // its value type unless param is itself channel-typed.
 func checkArgType[T antlr.ParserRuleContext](
@@ -145,12 +175,13 @@ func checkArgType[T antlr.ParserRuleContext](
 	// Lowering warns for a flow variable, which can be a constant.
 	if paramType.Unwrap().Kind != types.KindVariable {
 		converts, ok := CheckUnits(ctx, Write{
-			AST:     arg.AST,
-			Expr:    arg.Expr,
-			Source:  argType,
-			Target:  paramType,
-			Subject: fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
-			Lowered: readsFlowVariable(ctx, arg.Expr),
+			AST:         arg.AST,
+			Expr:        arg.Expr,
+			Source:      argType,
+			Target:      paramType,
+			Subject:     fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
+			Declaration: parameterType(ctx, fnName, param.Name),
+			Lowered:     readsFlowVariable(ctx, arg.Expr),
 		})
 		if !ok {
 			return

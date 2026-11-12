@@ -10,7 +10,9 @@
 package expression
 
 import (
+	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -31,6 +33,10 @@ type Write struct {
 	Source, Target types.Type
 	// Subject names the target in a message.
 	Subject string
+	// Value is a value that is not an expression.
+	Value antlr.ParserRuleContext
+	// Declaration is where the source types the target. It is nil for no fix.
+	Declaration antlr.ParserRuleContext
 	// Lowered is set when lowering gives the truncation warning.
 	Lowered bool
 }
@@ -53,8 +59,20 @@ func CheckUnits[T antlr.ParserRuleContext](
 		return false, false
 	}
 	if from != nil && to == nil && w.Target.IsNumeric() {
-		ctx.Diagnostics.Add(codes.UnitMissing.At(w.AST, w.Subject, from.Name).
-			WithNote("hint: declare " + w.Subject + " in " + from.Name))
+		d := codes.UnitMissing.At(w.AST, w.Subject, from.Name)
+		t := concrete(ctx, w.Target)
+		inUnit := t
+		inUnit.Unit = from
+		if r, ok := retyped(w, inUnit); ok {
+			d = d.WithReplacements(r)
+		} else {
+			d = d.WithNote("hint: declare " + w.Subject + " in " + from.Name)
+		}
+		// A cast with no unit drops the unit of its value.
+		if value := valueOf(w); value != nil {
+			d = d.WithFix(value, t.String()+"("+sourceText(value)+")")
+		}
+		ctx.Diagnostics.Add(d)
 		return false, false
 	}
 	if !types.UnitsConvertible(from, to) {
@@ -75,9 +93,135 @@ func CheckUnits[T antlr.ParserRuleContext](
 		TakeUnit(ctx, w.Expr, to)
 	}
 	if !w.Lowered && truncates(ctx, w, isLiteral) {
-		ctx.Diagnostics.Add(codes.UnitTruncation.At(w.AST, from.Name, to.Name))
+		d := codes.UnitTruncation.At(w.AST, from.Name, to.Name)
+		t := concrete(ctx, w.Target)
+		if decl, ok := redeclarable(w); ok && t.IsInteger() {
+			float := diagnostics.Replacement{Node: decl, Text: redeclared(
+				decl,
+				types.Type{Kind: types.KindF64, Unit: to}.String(),
+				sourceText(decl.Expression()),
+			)}
+			// A value that is not a literal needs a cast that keeps its unit.
+			if isLiteral {
+				d = d.WithReplacements(float)
+			} else if value := valueOf(w); value != nil {
+				d = d.WithReplacements(float, diagnostics.Replacement{
+					Node: value,
+					Text: types.Type{Kind: types.KindF64, Unit: from}.String() +
+						"(" + sourceText(value) + ")",
+				})
+			}
+			if init, ok := converted(decl.Expression(), t, to, from); ok {
+				typ := ""
+				if decl.Type_() != nil {
+					t.Unit = from
+					typ = t.String()
+				}
+				d = d.WithFix(decl, redeclared(decl, typ, init))
+			}
+		}
+		ctx.Diagnostics.Add(d)
 	}
 	return !isLiteral, true
+}
+
+type declaration interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+	Type_() parser.ITypeContext
+	Expression() parser.IExpressionContext
+}
+
+// redeclarable returns the declaration of the target of w when a literal sets it.
+func redeclarable(w Write) (declaration, bool) {
+	decl, ok := w.Declaration.(declaration)
+	return decl, ok && parser.IsLiteral(decl.Expression())
+}
+
+// retyped returns the replacement that gives the target of w the type t.
+func retyped(w Write, t types.Type) (r diagnostics.Replacement, ok bool) {
+	switch decl := w.Declaration.(type) {
+	case parser.ITypeContext:
+		return diagnostics.Replacement{Node: decl, Text: t.String()}, true
+	case declaration:
+		if init := decl.Expression(); parser.IsLiteral(init) {
+			return diagnostics.Replacement{
+				Node: decl,
+				Text: redeclared(decl, t.String(), sourceText(init)),
+			}, true
+		}
+	}
+	return r, false
+}
+
+// concrete returns t with a literal type resolved to i64 or f64.
+func concrete[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	t types.Type,
+) types.Type {
+	t = ctx.Constraints.ApplySubstitutions(t)
+	if t.Kind != types.KindVariable {
+		return t
+	}
+	if c := t.Constraint; c != nil && c.Kind == types.KindIntegerConstant {
+		return types.Type{Kind: types.KindI64}
+	}
+	return types.Type{Kind: types.KindF64}
+}
+
+// valueOf returns the node of the value of w, or nil for a value with no node.
+func valueOf(w Write) antlr.ParserRuleContext {
+	if w.Expr != nil {
+		return w.Expr
+	}
+	return w.Value
+}
+
+// redeclared returns the source of decl with typ and init in place of its own.
+func redeclared(decl declaration, typ, init string) string {
+	var (
+		start = decl.GetStart()
+		input = start.GetInputStream()
+		name  = decl.IDENTIFIER().GetSymbol()
+		rest  = name.GetStop() + 1
+	)
+	if declared := decl.Type_(); declared != nil {
+		rest = declared.GetStop().GetStop() + 1
+	}
+	if typ != "" {
+		typ = " " + typ
+	}
+	return input.GetText(start.GetStart(), name.GetStop()) + typ +
+		input.GetText(rest, decl.Expression().GetStart().GetStart()-1) + init
+}
+
+// converted returns the literal init in the unit to, when the number is whole.
+func converted(
+	init parser.IExpressionContext,
+	t types.Type,
+	from, to *types.Unit,
+) (string, bool) {
+	lit := parser.GetLiteral(init)
+	if lit == nil || lit.NumericLiteral() == nil {
+		return "", false
+	}
+	if lit.NumericLiteral().IDENTIFIER() != nil {
+		t.Unit = to
+		parsed, err := literal.ParseConst(init, t)
+		if err != nil || parsed.Truncated {
+			return "", false
+		}
+		return fmt.Sprintf("%d%s", parsed.Value, to.Name), true
+	}
+	number, err := strconv.ParseFloat(sourceText(init), 64)
+	if err != nil {
+		return "", false
+	}
+	number *= types.UnitFactor(from, to)
+	if !literal.IsExactInteger(number) {
+		return "", false
+	}
+	return strconv.FormatInt(int64(math.Round(number)), 10), true
 }
 
 // truncates reports whether w drops a part of a unit from an integer.

@@ -55,13 +55,12 @@ In the messages below, `<name>` stands for a value that changes.
 </Problem.Item>
 
 <Problem.Item
-  code="ARC2006"
-  severity="error"
-  message={[
-    "'<v>' has no unit and cannot take a value in <unit>",
-    "parameter '<p>' of '<f>' has no unit and cannot take a value in <unit>",
-    "the result of '<f>' has no unit and cannot take a value in <unit>",
-  ]}
+  {...Arc.diagnostic(
+    "ARC2006",
+    ["'<v>'", "<unit>"],
+    ["parameter '<p>' of '<f>'", "<unit>"],
+    ["the result of '<f>'", "<unit>"],
+  )}
 >
   <Problem.Cause>
     A value with a unit goes to a variable, a parameter, or a function result that has
@@ -72,11 +71,7 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  code="ARC2007"
-  severity="warning"
-  message="unit conversion from <unit> to <unit> truncates an integer toward zero"
->
+<Problem.Item {...Arc.diagnostic("ARC2007", ["<unit>", "<unit>"])}>
   <Problem.Cause>
     An integer converts to another unit, such as `s` to `min`, and loses its fraction.
   </Problem.Cause>

@@ -62,7 +62,7 @@ var _ = Describe("CheckUnits", func() {
 			found := testutil.Warnings(diag)
 			Expect(found).To(HaveLen(warnings), diag.String())
 			for _, w := range found {
-				Expect(w.Code).To(Equal(codes.UnitTruncation))
+				Expect(w.Code).To(Equal(codes.UnitTruncation.Code))
 			}
 		},
 		Entry("the same unit", "x", i64(unitS), false, 0),
@@ -72,7 +72,6 @@ var _ = Describe("CheckUnits", func() {
 			"x", expression.WithUnit(types.F64(), unitMin), true, 0),
 		Entry("a literal with no remainder", "120s", i64(unitMin), false, 0),
 		Entry("a literal with a remainder", "90s", i64(unitMin), false, 1),
-		Entry("another dimension", "x", i64(unitPa), false, 0),
 		Entry("a target that is not a number", "x", types.String(), false, 0),
 	)
 
@@ -89,6 +88,8 @@ var _ = Describe("CheckUnits", func() {
 		},
 		Entry("a target with no unit", i64(unitS), types.I64(),
 			"'d' has no unit and cannot take a value in s"),
+		Entry("another dimension", i64(unitS), i64(unitPa),
+			"incompatible dimensions: cannot write s to 'd' (Pa)"),
 		Entry("a series in another unit",
 			types.Series(i64(unitS)), types.Series(i64(unitMS)),
 			"'d' is a series in ms and cannot take a series in s"),

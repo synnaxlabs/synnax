@@ -397,7 +397,7 @@ sequence main {
 		DescribeTable("Should warn when a write of a module variable truncates",
 			func(ctx SpecContext, statement string) {
 				d := analyzeStage(ctx, statement+"\ntrig -> time.wait(1s) -> out8")
-				Expect(d.Code).To(Equal(codes.UnitTruncation))
+				Expect(d.Code).To(Equal(codes.UnitTruncation.Code))
 			},
 			Entry("the variable", `d = m.t`),
 			Entry("an assigned calculation", `d = m.t * 2`),

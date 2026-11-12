@@ -919,6 +919,50 @@ var _ = Describe("Diagnostics", func() {
 			})
 		})
 
+		Describe("WithReplacements", func() {
+			const source = "if x + 1 { }"
+			var (
+				x = &fakeToken{
+					line: 1, column: 3, text: "x", source: source, start: 3, stop: 3,
+				}
+				one = &fakeToken{
+					line: 1, column: 7, text: "1", source: source, start: 7, stop: 7,
+				}
+				atX = protocol.Range{
+					Start: protocol.Position{Character: 3},
+					End:   protocol.Position{Character: 4},
+				}
+				atOne = protocol.Range{
+					Start: protocol.Position{Character: 7},
+					End:   protocol.Position{Character: 8},
+				}
+			)
+
+			It("Should add one fix and one hint for the replacements", func() {
+				d := diagnostics.Warningf(ruleCtxAt(x, one), "numeric").
+					WithReplacements(
+						diagnostics.Replacement{Node: ruleCtxAt(x, x), Text: "y"},
+						diagnostics.Replacement{Node: ruleCtxAt(one, one), Text: "2"},
+					)
+				Expect(d.Fixes).To(Equal([]diagnostics.Fix{{
+					Title: "Change to `y` and `2`",
+					Edits: []protocol.TextEdit{
+						{Range: atX, NewText: "y"},
+						{Range: atOne, NewText: "2"},
+					},
+				}}))
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{{
+					Message:  "hint: change to `y` and `2`",
+					Location: protocol.Location{Range: atX},
+				}}))
+			})
+
+			It("Should panic with no replacements", func() {
+				d := diagnostics.Warningf(ruleCtxAt(x, one), "numeric")
+				Expect(func() { d.WithReplacements() }).To(Panic())
+			})
+		})
+
 		It("Should skip empty note", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Error(errors.New("error"), nil).WithNote(""))
