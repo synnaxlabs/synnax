@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -106,6 +107,21 @@ var _ = Describe("Upload", func() {
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+	})
+
+	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
+		l := label.Label{Name: "hotfire"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := labelSvc.NewWriter(tx).Create(ctx, &l); err != nil {
+				return err
+			}
+			return rangerSvc.NewWriter(tx).AddLabels(ctx, rng.Key, []label.Key{l.Key})
+		})).To(Succeed())
+		key := upload(ctx)
+		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+		Expect(server.Runs()).To(HaveExactElements(
+			HaveField("Tags", ConsistOf("hotfire")),
+		))
 	})
 
 	It("Should count a single sample in the singular", func(ctx SpecContext) {
