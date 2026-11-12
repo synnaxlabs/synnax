@@ -11,6 +11,7 @@ import "@/feature/sift/range/UploadModal.css";
 
 import {
   channel,
+  type device,
   DisconnectedError,
   type ranger,
   type status,
@@ -27,13 +28,14 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Device as PDevice, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
 import { Select as SelectDevice } from "@/feature/sift/device/Select";
+import { MAKE } from "@/feature/sift/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -143,14 +145,14 @@ const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProp
   );
 };
 
-const Upload = ({
-  name,
-  source,
-  close,
-}: Modals.ContentProps<UploadModalParams, void>) => {
+interface UploadFormProps extends Modals.ContentProps<UploadModalParams, void> {
+  device: device.Key;
+}
+
+const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
-    values: { rack: 0, config: { device: "", asset: "", channels: [] } },
+    values: { rack: 0, config: { device, asset: "", channels: [] } },
   });
   const [rejection, setRejection] = useState<status.Status | null>(null);
   return (
@@ -176,7 +178,7 @@ const Upload = ({
               grow
             />
           </Flex.Box>
-          <Form.Field path={path.config.channels} label="Channels">
+          <Form.Field path={path.config.channels} label="Channels" required>
             {({ value, onChange }) => (
               <Channel.SelectMultiple
                 value={value}
@@ -210,6 +212,16 @@ const Upload = ({
       </Modal.Frame>
     </Form.Form>
   );
+};
+
+// Two at most: the modal picks the connection only when it is the only one.
+const DEVICES_QUERY = { where: { make: { eq: MAKE } }, limit: 2 };
+
+const Upload = (props: Modals.ContentProps<UploadModalParams, void>) => {
+  const { variant, data } = PDevice.useResultMultiple(DEVICES_QUERY);
+  if (variant === "loading") return null;
+  const device = data?.length === 1 ? data[0].key : "";
+  return <UploadForm {...props} device={device} />;
 };
 
 const RANGE_HEADER = ["Range", "Upload to Sift"];
