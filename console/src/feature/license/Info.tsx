@@ -188,19 +188,34 @@ export const Info = (): ReactElement => {
           <KeyInput />
         </Flex.Box>
       )}
-      <Flex.Box y gap="small" className={CSS.BE("license-info", "support")}>
+      <Flex.Box y gap="small">
         <Flex.Box y gap="tiny">
           {lic != null && (
             <>
-              <Text.Text level="small" variant="code" color={9}>
+              <Text.Text
+                level="small"
+                variant="code"
+                color={9}
+                className={CSS.BE("license-info", "detail")}
+              >
                 License {lic.jti}
               </Text.Text>
-              <Text.Text level="small" variant="code" color={9}>
+              <Text.Text
+                level="small"
+                variant="code"
+                color={9}
+                className={CSS.BE("license-info", "detail")}
+              >
                 Organization {lic.organization}
               </Text.Text>
             </>
           )}
-          <Text.Text level="small" variant="code" color={9}>
+          <Text.Text
+            level="small"
+            variant="code"
+            color={9}
+            className={CSS.BE("license-info", "detail")}
+          >
             {coreLine == null
               ? `Console ${consoleVersion}`
               : `${coreLine}, Console ${consoleVersion}`}

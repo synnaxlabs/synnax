@@ -105,7 +105,7 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
             align="center"
           >
             <Progress.Progress value={progressPercent} />
-            <Text.Text color={10} overflow="nowrap">
+            <Text.Text color={10} overflow="nowrap" shrink={0}>
               {Math.ceil(download.progress.megabytes)} /{" "}
               {Math.ceil(download.total.megabytes)} MB
             </Text.Text>
