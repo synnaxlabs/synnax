@@ -266,6 +266,33 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(HaveLen(1))
 	})
 
+	It("Should hand the uploads to a scan task configured while the last one stops",
+		func(ctx SpecContext) {
+			server.Pause()
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
+			last := dt
+			stopped := make(chan error, 1)
+			go func() { stopped <- last.Stop(false) }()
+			// Lets the stop start before the next scan task configures.
+			Consistently(stopped, 50*time.Millisecond).ShouldNot(Receive())
+			scan := newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
+			var next driver.Task
+			configured := make(chan error, 1)
+			go func() {
+				var err error
+				next, err = f.ConfigureTask(ctx, scan, driver.NoCommand)
+				configured <- err
+			}()
+			Consistently(configured, 50*time.Millisecond).ShouldNot(Receive())
+			server.Resume()
+			Eventually(stopped).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+			Eventually(configured).Should(Receive(Succeed()))
+			dt = next
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+		})
+
 	It("Should fail an upload that Sift rejects", func(ctx SpecContext) {
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
