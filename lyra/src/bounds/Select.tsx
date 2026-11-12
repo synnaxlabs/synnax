@@ -31,9 +31,12 @@ export interface SelectProps extends Omit<
 
 const toKey = ({ lower, upper }: bounds.Bounds): string => `${lower}:${upper}`;
 
-/** @returns "±10 V" for bounds symmetric about zero, and "0 to 5 V" for others. */
+/**
+ * @returns "±10 V" for bounds symmetric about zero with the lower end first, and "0 to
+ * 5 V" or "10 to -10 V" for others.
+ */
 export const format = ({ lower, upper }: bounds.Bounds, units?: string): string => {
-  const text = lower === -upper ? `±${Math.abs(upper)}` : `${lower} to ${upper}`;
+  const text = lower === -upper && upper > 0 ? `±${upper}` : `${lower} to ${upper}`;
   return primitive.isNonZero(units) ? `${text} ${units}` : text;
 };
 

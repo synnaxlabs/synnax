@@ -34,8 +34,12 @@ describe("Bounds", () => {
       expect(Bounds.format({ lower: 0, upper: 0.2 })).toBe("0 to 0.2");
     });
 
-    it("should show reversed symmetric bounds with a positive number", () => {
-      expect(Bounds.format({ lower: 10, upper: -10 })).toBe("±10");
+    it("should show reversed symmetric bounds as a span", () => {
+      expect(Bounds.format({ lower: 10, upper: -10 })).toBe("10 to -10");
+    });
+
+    it("should show empty bounds at zero as a span", () => {
+      expect(Bounds.format({ lower: 0, upper: 0 })).toBe("0 to 0");
     });
 
     it("should add no space for empty units", () => {
