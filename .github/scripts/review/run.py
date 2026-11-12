@@ -35,6 +35,7 @@ to show."""
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
+_WORD = re.compile(r"\w+")
 # Reviewers write these blocks into the body. A review must not see another review.
 _REVIEWS = re.compile(
     r"<!-- (greptile|sedosaur)_comment -->.*?<!-- /\1_comment -->", re.S
@@ -389,14 +390,21 @@ def _focused(lens: Lens) -> str:
     )
 
 
+def _alike(a: str, b: str) -> bool:
+    """Reports whether two titles share at least a third of their distinct words."""
+    x, y = set(_WORD.findall(a.lower())), set(_WORD.findall(b.lower()))
+    return 3 * len(x & y) >= len(x | y)
+
+
 def _merge(
     reviews: list[Review], *, caps: dict[str, int], open: set[tuple[str, str]]
 ) -> Review:
     """Joins the reviews of parallel passes. A finding joins at most one finding of
     each other pass in the same file: first by title and end line, then by title, then
-    by end line. The review keeps the more severe of joined findings, else the one that
-    continues an open thread. The verdict and summary come from the pass with the
-    lowest capped score."""
+    by end line when the titles share a third of their words. Two findings that end on
+    one line with titles less alike stay apart, since they can be two problems. The
+    review keeps the more severe of joined findings, else the one that continues an open
+    thread. The verdict and summary come from the pass with the lowest capped score."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
@@ -418,7 +426,7 @@ def _merge(
     found = sorted(every, key=lambda t: rank(t[1]))
     found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
     found = join(found, lambda k, f: k.title == f.title)
-    found = join(found, lambda k, f: k.line == f.line)
+    found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
     lead = min(reviews, key=lambda r: _cap(r, caps).score)
     return replace(
         lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
