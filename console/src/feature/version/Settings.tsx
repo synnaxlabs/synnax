@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/version/Settings.css";
+
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
@@ -22,7 +25,9 @@ export const Settings = (): ReactElement => {
     <PlatformSettings.Card title="Console">
       {version != null && (
         <PlatformSettings.Entry label="Version">
-          <Text.Text color={10}>{`v${version}`}</Text.Text>
+          <Text.Text color={10} className={CSS.BE("version-settings", "value")}>
+            {`v${version}`}
+          </Text.Text>
         </PlatformSettings.Entry>
       )}
       {/* Only the main window checks for and installs updates. */}
