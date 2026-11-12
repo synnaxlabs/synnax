@@ -89,10 +89,10 @@ UploadDetails struct {
     device     device.Key      {
         @doc value "is the key of the Sift device the upload sends to."
     }
-    range      ranger.Key      {
+    range      ranger.Key?     {
         @doc value """
-            is the key of the range whose data the upload sends, or zero for an upload
-            of a plain time span.
+            is the key of the range whose data the upload sends. An upload of a plain
+            time span has none.
         """
     }
     time_range telem.TimeRange {

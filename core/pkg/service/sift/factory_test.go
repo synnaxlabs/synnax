@@ -342,7 +342,7 @@ var _ = Describe("Factory", func() {
 		})
 
 		Describe("list_uploads", func() {
-			record := func(ctx SpecContext, rng ranger.Key) string {
+			record := func(ctx SpecContext, rng *ranger.Key) string {
 				GinkgoHelper()
 				s := sift.UploadStatus{
 					Key:     "sift_upload:" + uuid.NewV7().String(),
@@ -362,9 +362,9 @@ var _ = Describe("Factory", func() {
 				"Should list the uploads of a range, newest first",
 				func(ctx SpecContext) {
 					rng, other := uuid.NewV7(), uuid.NewV7()
-					first := record(ctx, rng)
-					record(ctx, other)
-					second := record(ctx, rng)
+					first := record(ctx, &rng)
+					record(ctx, &other)
+					second := record(ctx, &rng)
 					stat := exec(ctx, "list_uploads", map[string]any{"range": rng})
 					Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					Expect(stat.Details.Data).To(
@@ -379,7 +379,7 @@ var _ = Describe("Factory", func() {
 			})
 
 			It("Should reject a command without a range", func(ctx SpecContext) {
-				record(ctx, uuid.Nil())
+				record(ctx, nil)
 				stat := exec(ctx, "list_uploads", map[string]any{})
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("range: required"))
