@@ -58,16 +58,25 @@ codesign --verify --verbose "$BINARY"
 
 # notarytool accepts only a container format.
 zip -j "$WORK/notarize.zip" "$BINARY"
-# The Apple notary service fails or stalls at times, so a submission that fails or
-# takes too long is sent again.
+NOTARY=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD"
+    --team-id "$APPLE_TEAM_ID" --output-format json)
+# An upload to the Apple notary service fails at times, so a failed one is sent again.
 for ATTEMPT in 1 2 3; do
-    echo "Notarization attempt $ATTEMPT of 3"
-    if xcrun notarytool submit "$WORK/notarize.zip" --apple-id "$APPLE_ID" \
-        --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait \
-        --timeout 8m; then
-        exit 0
+    echo "Notarization upload attempt $ATTEMPT of 3"
+    if SUBMISSION=$(xcrun notarytool submit "$WORK/notarize.zip" "${NOTARY[@]}"); then
+        break
+    fi
+    if [ "$ATTEMPT" = 3 ]; then
+        echo "Notarization upload failed after 3 attempts" >&2
+        exit 1
     fi
     sleep 10
 done
-echo "Notarization failed after 3 attempts" >&2
-exit 1
+ID=$(jq -r .id <<< "$SUBMISSION")
+# A second upload would start again at the end of the queue, so one wait covers it.
+RESULT=$(xcrun notarytool wait "$ID" "${NOTARY[@]}" --timeout 20m)
+echo "$RESULT"
+if [ "$(jq -r .status <<< "$RESULT")" != "Accepted" ]; then
+    echo "Notarization of submission $ID did not pass" >&2
+    exit 1
+fi
