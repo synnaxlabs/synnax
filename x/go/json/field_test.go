@@ -43,6 +43,7 @@ var _ = Describe("Field", func() {
 			Entry("number", "number"),
 			Entry("string", "string"),
 			Entry("boolean", "boolean"),
+			Entry("json", "json"),
 		)
 		It("Should reject an unknown type", func() {
 			Expect(xjson.ParseType("object")).Error().To(SatisfyAll(
@@ -480,10 +481,15 @@ var _ = Describe("Field", func() {
 				sample(math.Inf(-1)), "true"),
 			Entry("a string", xjson.Field{DataType: telem.StringT, Type: xjson.String},
 				[]byte("a\"b"), `"a\"b"`),
-			Entry("a JSON object as it is", xjson.Field{DataType: telem.JSONT},
+			Entry("a JSON object as it is",
+				xjson.Field{DataType: telem.JSONT, Type: xjson.JSON},
 				[]byte(`{"a":[1,"b"]}`), `{"a":[1,"b"]}`),
-			Entry("a JSON string as a string", xjson.Field{DataType: telem.JSONT},
+			Entry("a JSON string as it is",
+				xjson.Field{DataType: telem.JSONT, Type: xjson.JSON},
 				[]byte(`"on"`), `"on"`),
+			Entry("a JSON object as a string",
+				xjson.Field{DataType: telem.JSONT, Type: xjson.String},
+				[]byte(`{"a":1}`), `"{\"a\":1}"`),
 			Entry("a UUID", xjson.Field{DataType: telem.UUIDT, Type: xjson.String},
 				id[:], `"`+id.String()+`"`),
 			Entry("bytes as base64",
@@ -543,13 +549,13 @@ var _ = Describe("Field", func() {
 				sample(math.NaN()), "NaN is not a JSON boolean"),
 		)
 
-		DescribeTable("Should reject enum values that convert to the same sample",
+		DescribeTable("Should report enum values that convert to the same sample",
 			func(dt telem.DataType, a, b xjson.Enum, message string) {
-				Expect(xjson.NewEncoder(xjson.Field{
+				Expect(xjson.CheckEnums(xjson.Field{
 					DataType: dt,
 					Type:     xjson.String,
 					Enums:    []xjson.Enum{a, b},
-				})).Error().To(SatisfyAll(
+				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(message)),
 				))
@@ -570,6 +576,20 @@ var _ = Describe("Field", func() {
 				xjson.NewEnum("A", "on"), xjson.NewEnum("B", "on"),
 				`enum labels "A" and "B" have the same string value`),
 		)
+
+		It("Should write the first label of two values that match", func() {
+			e := MustSucceed(xjson.NewEncoder(xjson.Field{
+				DataType: telem.Float32T,
+				Type:     xjson.String,
+				Enums: []xjson.Enum{
+					xjson.NewEnum("A", 0.1),
+					xjson.NewEnum("B", 0.1000000001),
+				},
+			}))
+			Expect(
+				string(MustSucceed(e.Append(nil, sample(float32(0.1))))),
+			).To(Equal(`"A"`))
+		})
 
 		It("Should let two values share a label", func() {
 			e := MustSucceed(xjson.NewEncoder(xjson.Field{
@@ -595,7 +615,18 @@ var _ = Describe("Field", func() {
 			Entry("a string as a number", telem.StringT, xjson.Number),
 			Entry("a UUID as a boolean", telem.UUIDT, xjson.Boolean),
 			Entry("bytes as a number", telem.BytesT, xjson.Number),
+			Entry("JSON as a number", telem.JSONT, xjson.Number),
 		)
+
+		It("Should reject the JSON type for a data type that is not JSON", func() {
+			Expect(xjson.NewEncoder(xjson.Field{
+				DataType: telem.StringT,
+				Type:     xjson.JSON,
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("has no JSON value of its own")),
+			))
+		})
 	})
 
 	It("Should round trip bytes through base64", func() {

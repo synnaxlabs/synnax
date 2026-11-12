@@ -94,10 +94,10 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	channels := make([]kafka.WriteChannel, len(data))
 	byName := make(map[string]int, len(data))
 	for i, ch := range data {
-		channels[i] = kafka.WriteChannel{Variant: kafka.FloatWriteChannel{
-			Key:     strconv.Itoa(i),
-			Channel: ch.Key(),
-		}}
+		base := kafka.BaseWriteChannel{Key: strconv.Itoa(i), Channel: ch.Key()}
+		channels[i] = kafka.WriteChannel{
+			Variant: kafka.FloatWriteChannel{BaseWriteChannel: base},
+		}
 		byName[ch.Name] = i
 	}
 	cfg := kafka.WriteConfig{
