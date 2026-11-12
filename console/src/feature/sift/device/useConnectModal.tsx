@@ -137,7 +137,7 @@ export const Connect = ({
     rack: rackKey,
   });
   return (
-    <Modal.Frame className={CSS.B("sift-connect")}>
+    <PlatformDevice.ConnectFrame className={CSS.B("sift-connect")}>
       <Modal.Header icon={<Icon.Logo.Sift />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
@@ -168,7 +168,7 @@ export const Connect = ({
         onConnect={() => save()}
         onBack={onBack}
       />
-    </Modal.Frame>
+    </PlatformDevice.ConnectFrame>
   );
 };
 
