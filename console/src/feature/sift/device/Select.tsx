@@ -21,6 +21,7 @@ export const Select = () => {
       label="Sift connection"
       make={MAKE}
       icon={NETWORK.icon}
+      locationFormat={NETWORK.location}
       connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );
