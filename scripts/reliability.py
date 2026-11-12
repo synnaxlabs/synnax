@@ -126,9 +126,15 @@ HITL_RUNS = {"tc_hitl", "tc_hitl_perf"}
 SHIPPED_FILES = [
     "integration",
     "vendor",
+    ".bazeliskrc",
+    ".bazelrc",
+    "BUILD.bazel",
     "MODULE.bazel",
     "MODULE.bazel.lock",
+    "package.json",
     "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "pyproject.toml",
     "uv.lock",
 ]
 
