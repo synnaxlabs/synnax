@@ -51,8 +51,43 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
 						for _, v3 := range v2.Fields {
-							if v3.Channel != 0 {
-								targets = append(targets, v3.Channel)
+							switch v4 := v3.Variant.(type) {
+							case FloatReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case IntegerReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case UnsignedReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case StringReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case BooleanReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case TimestampReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case JsonReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case UuidReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
+							case BytesReadField:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
 							}
 						}
 					}
@@ -60,15 +95,59 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				return targets
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
-				for i4 := range e.Entries {
-					switch v5 := e.Entries[i4].Variant.(type) {
+				for i5 := range e.Entries {
+					switch v6 := e.Entries[i5].Variant.(type) {
 					case PlainReadEntry:
-						for i6 := range v5.Fields {
-							if v5.Fields[i6].Channel == t {
-								v5.Fields[i6].Channel = 0
+						for i7 := range v6.Fields {
+							switch v8 := v6.Fields[i7].Variant.(type) {
+							case FloatReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case IntegerReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case UnsignedReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case StringReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case BooleanReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case TimestampReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case JsonReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case UuidReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
+							case BytesReadField:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Fields[i7].Variant = v8
 							}
 						}
-						e.Entries[i4].Variant = v5
+						e.Entries[i5].Variant = v6
 					}
 				}
 			},

@@ -71,11 +71,7 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 entry=lambda echo: mqtt.PlainReadEntry(
                     topic="plant/valve/state",
                     retained_ignored=True,
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="", channel=echo.key, data_type=sy.DataType.JSON
-                        )
-                    ],
+                    fields=[mqtt.JsonReadField(pointer="", channel=echo.key)],
                 ),
             ) as echo,
             self.tsk.run(),

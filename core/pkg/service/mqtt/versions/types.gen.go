@@ -11,152 +11,186 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
-type QoS = v1.QoS
+type QoS = v2.QoS
 
 const (
 	// QoSAtMostOnce is level 0, which delivers a message at most once.
-	QoSAtMostOnce QoS = v1.QoSAtMostOnce
+	QoSAtMostOnce QoS = v2.QoSAtMostOnce
 	// QoSAtLeastOnce is level 1, which delivers a message at least once.
-	QoSAtLeastOnce QoS = v1.QoSAtLeastOnce
+	QoSAtLeastOnce QoS = v2.QoSAtLeastOnce
 	// QoSExactlyOnce is level 2, which delivers a message exactly once.
-	QoSExactlyOnce QoS = v1.QoSExactlyOnce
+	QoSExactlyOnce QoS = v2.QoSExactlyOnce
 )
 
 // SparkplugDataType is the Sparkplug B data type of a tag.
-type SparkplugDataType = v1.SparkplugDataType
+type SparkplugDataType = v2.SparkplugDataType
 
 const (
 	// SparkplugDataTypeInt8 is a signed 8-bit integer.
-	SparkplugDataTypeInt8 SparkplugDataType = v1.SparkplugDataTypeInt8
+	SparkplugDataTypeInt8 SparkplugDataType = v2.SparkplugDataTypeInt8
 	// SparkplugDataTypeInt16 is a signed 16-bit integer.
-	SparkplugDataTypeInt16 SparkplugDataType = v1.SparkplugDataTypeInt16
+	SparkplugDataTypeInt16 SparkplugDataType = v2.SparkplugDataTypeInt16
 	// SparkplugDataTypeInt32 is a signed 32-bit integer.
-	SparkplugDataTypeInt32 SparkplugDataType = v1.SparkplugDataTypeInt32
+	SparkplugDataTypeInt32 SparkplugDataType = v2.SparkplugDataTypeInt32
 	// SparkplugDataTypeInt64 is a signed 64-bit integer.
-	SparkplugDataTypeInt64 SparkplugDataType = v1.SparkplugDataTypeInt64
+	SparkplugDataTypeInt64 SparkplugDataType = v2.SparkplugDataTypeInt64
 	// SparkplugDataTypeUint8 is an unsigned 8-bit integer.
-	SparkplugDataTypeUint8 SparkplugDataType = v1.SparkplugDataTypeUint8
+	SparkplugDataTypeUint8 SparkplugDataType = v2.SparkplugDataTypeUint8
 	// SparkplugDataTypeUint16 is an unsigned 16-bit integer.
-	SparkplugDataTypeUint16 SparkplugDataType = v1.SparkplugDataTypeUint16
+	SparkplugDataTypeUint16 SparkplugDataType = v2.SparkplugDataTypeUint16
 	// SparkplugDataTypeUint32 is an unsigned 32-bit integer.
-	SparkplugDataTypeUint32 SparkplugDataType = v1.SparkplugDataTypeUint32
+	SparkplugDataTypeUint32 SparkplugDataType = v2.SparkplugDataTypeUint32
 	// SparkplugDataTypeUint64 is an unsigned 64-bit integer.
-	SparkplugDataTypeUint64 SparkplugDataType = v1.SparkplugDataTypeUint64
+	SparkplugDataTypeUint64 SparkplugDataType = v2.SparkplugDataTypeUint64
 	// SparkplugDataTypeFloat is a 32-bit floating point number.
-	SparkplugDataTypeFloat SparkplugDataType = v1.SparkplugDataTypeFloat
+	SparkplugDataTypeFloat SparkplugDataType = v2.SparkplugDataTypeFloat
 	// SparkplugDataTypeDouble is a 64-bit floating point number.
-	SparkplugDataTypeDouble SparkplugDataType = v1.SparkplugDataTypeDouble
+	SparkplugDataTypeDouble SparkplugDataType = v2.SparkplugDataTypeDouble
 	// SparkplugDataTypeBoolean is a true or false value.
-	SparkplugDataTypeBoolean SparkplugDataType = v1.SparkplugDataTypeBoolean
+	SparkplugDataTypeBoolean SparkplugDataType = v2.SparkplugDataTypeBoolean
 	// SparkplugDataTypeString is a string.
-	SparkplugDataTypeString SparkplugDataType = v1.SparkplugDataTypeString
+	SparkplugDataTypeString SparkplugDataType = v2.SparkplugDataTypeString
 	// SparkplugDataTypeDateTime is a point in time, as milliseconds since the Unix
 	// epoch.
-	SparkplugDataTypeDateTime SparkplugDataType = v1.SparkplugDataTypeDateTime
+	SparkplugDataTypeDateTime SparkplugDataType = v2.SparkplugDataTypeDateTime
 )
 
-// ReadField is a single value extracted from the JSON payload of a topic.
-type ReadField = v1.ReadField
+// ReadField is a single value extracted from the JSON payload of a topic. The type
+// field is the kind of the value, which matches the data type of the channel.
+type ReadField = v2.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = v2.ReadFieldVariant
+
+// FloatReadField reads a float.
+type FloatReadField = v2.FloatReadField
+
+// IntegerReadField reads a signed integer.
+type IntegerReadField = v2.IntegerReadField
+
+// UnsignedReadField reads an unsigned integer.
+type UnsignedReadField = v2.UnsignedReadField
+
+// StringReadField reads a string.
+type StringReadField = v2.StringReadField
+
+// BooleanReadField reads a boolean.
+type BooleanReadField = v2.BooleanReadField
+
+// TimestampReadField reads a timestamp.
+type TimestampReadField = v2.TimestampReadField
+
+// JsonReadField reads any JSON value.
+type JsonReadField = v2.JsonReadField
+
+// UuidReadField reads a UUID string.
+type UuidReadField = v2.UuidReadField
+
+// BytesReadField reads base64 text.
+type BytesReadField = v2.BytesReadField
 
 // BaseReadEntry carries the fields every read entry shares.
-type BaseReadEntry = v1.BaseReadEntry
+type BaseReadEntry = v2.BaseReadEntry
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
 // topic with a JSON payload or a Sparkplug B tag.
-type ReadEntry = v1.ReadEntry
+type ReadEntry = v2.ReadEntry
 
 // ReadEntryVariant is implemented by every ReadEntry variant.
-type ReadEntryVariant = v1.ReadEntryVariant
+type ReadEntryVariant = v2.ReadEntryVariant
 
 // ReadEntryType is the "type" value that selects a variant of ReadEntry.
-type ReadEntryType = v1.ReadEntryType
+type ReadEntryType = v2.ReadEntryType
 
 const (
 	// PlainReadEntryType reads JSON payloads from one topic.
-	PlainReadEntryType ReadEntryType = v1.PlainReadEntryType
+	PlainReadEntryType ReadEntryType = v2.PlainReadEntryType
 	// SparkplugReadEntryType reads one Sparkplug B tag.
-	SparkplugReadEntryType ReadEntryType = v1.SparkplugReadEntryType
+	SparkplugReadEntryType ReadEntryType = v2.SparkplugReadEntryType
 )
 
 // PlainReadEntry reads JSON payloads from one topic.
-type PlainReadEntry = v1.PlainReadEntry
+type PlainReadEntry = v2.PlainReadEntry
 
 // SparkplugReadEntry reads one Sparkplug B tag.
-type SparkplugReadEntry = v1.SparkplugReadEntry
+type SparkplugReadEntry = v2.SparkplugReadEntry
 
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
 // tags on a broker device and writes their values to Synnax channels.
-type ReadConfig = v1.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // ChannelField is the command channel value placed into the payload of a target.
-type ChannelField = v1.ChannelField
+type ChannelField = v2.ChannelField
 
 // BaseWriteField carries the fields every write payload field shares.
-type BaseWriteField = v1.BaseWriteField
+type BaseWriteField = v2.BaseWriteField
 
 // WriteField is an additional payload field on a plain write target. The type field
 // selects whether the value is fixed or generated per publish.
-type WriteField = v1.WriteField
+type WriteField = v2.WriteField
 
 // WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v1.WriteFieldVariant
+type WriteFieldVariant = v2.WriteFieldVariant
 
 // WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v1.WriteFieldType
+type WriteFieldType = v2.WriteFieldType
 
 const (
 	// StaticWriteFieldType places a fixed value in the payload.
-	StaticWriteFieldType WriteFieldType = v1.StaticWriteFieldType
+	StaticWriteFieldType WriteFieldType = v2.StaticWriteFieldType
 	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
 	// payload.
-	GeneratedWriteFieldType WriteFieldType = v1.GeneratedWriteFieldType
+	GeneratedWriteFieldType WriteFieldType = v2.GeneratedWriteFieldType
 )
 
 // StaticWriteField places a fixed value in the payload.
-type StaticWriteField = v1.StaticWriteField
+type StaticWriteField = v2.StaticWriteField
 
 // GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
-type GeneratedWriteField = v1.GeneratedWriteField
+type GeneratedWriteField = v2.GeneratedWriteField
 
 // BaseWriteTarget carries the fields every write target shares.
-type BaseWriteTarget = v1.BaseWriteTarget
+type BaseWriteTarget = v2.BaseWriteTarget
 
 // WriteTarget is a single destination of an MQTT write task. The type field selects a
 // plain topic with a JSON payload or a Sparkplug B tag command.
-type WriteTarget = v1.WriteTarget
+type WriteTarget = v2.WriteTarget
 
 // WriteTargetVariant is implemented by every WriteTarget variant.
-type WriteTargetVariant = v1.WriteTargetVariant
+type WriteTargetVariant = v2.WriteTargetVariant
 
 // WriteTargetType is the "type" value that selects a variant of WriteTarget.
-type WriteTargetType = v1.WriteTargetType
+type WriteTargetType = v2.WriteTargetType
 
 const (
 	// PlainWriteTargetType publishes a JSON payload to one topic.
-	PlainWriteTargetType WriteTargetType = v1.PlainWriteTargetType
+	PlainWriteTargetType WriteTargetType = v2.PlainWriteTargetType
 	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
-	SparkplugWriteTargetType WriteTargetType = v1.SparkplugWriteTargetType
+	SparkplugWriteTargetType WriteTargetType = v2.SparkplugWriteTargetType
 )
 
 // PlainWriteTarget publishes a JSON payload to one topic.
-type PlainWriteTarget = v1.PlainWriteTarget
+type PlainWriteTarget = v2.PlainWriteTarget
 
 // SparkplugWriteTarget sends a Sparkplug B command for one tag.
-type SparkplugWriteTarget = v1.SparkplugWriteTarget
+type SparkplugWriteTarget = v2.SparkplugWriteTarget
 
 // WriteConfig configures an MQTT write task, which publishes a message whenever a value
 // is written to the command channel of a target.
-type WriteConfig = v1.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an MQTT scan task.
-type ScanConfig = v1.ScanConfig
+type ScanConfig = v2.ScanConfig
 
 // EdgeTag is a single tag published by a Sparkplug B edge node task.
-type EdgeTag = v1.EdgeTag
+type EdgeTag = v2.EdgeTag
 
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
-type EdgeConfig = v1.EdgeConfig
+type EdgeConfig = v2.EdgeConfig
+
+// BaseReadField carries the fields every read field shares.
+type BaseReadField = v2.BaseReadField

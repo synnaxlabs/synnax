@@ -29,7 +29,12 @@ class TestMQTTReadTask:
                         "type": "plain",
                         "topic": "plant/line1",
                         "fields": [
-                            {"key": "f-1", "channel": 12, "pointer": "/temperature"}
+                            {
+                                "type": "float",
+                                "key": "f-1",
+                                "channel": 12,
+                                "pointer": "/temperature",
+                            }
                         ],
                     }
                 ],
@@ -94,8 +99,8 @@ class TestMQTTReadTask:
                 sy.mqtt.PlainReadEntry(
                     topic="plant/a",
                     fields=[
-                        sy.mqtt.ReadField(channel=1, pointer="/a"),
-                        sy.mqtt.ReadField(channel=2, pointer="/b"),
+                        sy.mqtt.FloatReadField(channel=1, pointer="/a"),
+                        sy.mqtt.FloatReadField(channel=2, pointer="/b"),
                     ],
                 ),
                 sy.mqtt.PlainReadEntry(topic="plant/b"),
@@ -106,6 +111,33 @@ class TestMQTTReadTask:
         assert all(e.key for e in entries)
         assert isinstance(entries[0], sy.mqtt.PlainReadEntry)
         assert len({f.key for f in entries[0].fields}) == 2
+
+    def test_read_field_kinds(self) -> None:
+        """Should parse each read field by its kind and keep 64-bit values exact."""
+        entry = sy.mqtt.PlainReadEntry.model_validate(
+            {
+                "topic": "plant/a",
+                "fields": [
+                    {
+                        "type": "integer",
+                        "fill": "-9223372036854775808",
+                        "enum_values": [
+                            {"label": "MAX", "value": "9223372036854775807"}
+                        ],
+                    },
+                    {"type": "timestamp", "time_format": "unix_ms"},
+                    {"type": "json"},
+                ],
+            }
+        )
+        integer, stamp, raw = entry.fields
+        assert isinstance(integer, sy.mqtt.IntegerReadField)
+        assert integer.fill == -(2**63)
+        assert integer.enum_values[0].value == 2**63 - 1
+        assert isinstance(stamp, sy.mqtt.TimestampReadField)
+        assert isinstance(raw, sy.mqtt.JsonReadField)
+        dumped = entry.model_dump(mode="json")["fields"][0]
+        assert dumped["fill"] == "-9223372036854775808"
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT read type."""
@@ -125,7 +157,7 @@ class TestMQTTReadTask:
                 sy.mqtt.PlainReadEntry(
                     topic="plant/line1",
                     qos="at_least_once",
-                    fields=[sy.mqtt.ReadField(channel=1234, pointer="/v")],
+                    fields=[sy.mqtt.FloatReadField(channel=1234, pointer="/v")],
                 )
             ],
         )

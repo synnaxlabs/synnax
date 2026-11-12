@@ -15,6 +15,11 @@ import { DataType, type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { isMissing } from "@/platform/task/ChannelState";
+import {
+  dataTypeOf,
+  type ReadOptions,
+  readOptionsOf,
+} from "@/platform/task/payload/read";
 
 /** Data types that no JSON field can carry. */
 const HIDDEN_DATA_TYPES = [
@@ -39,32 +44,70 @@ export interface DataTypeFieldProps extends Pick<
  */
 export const DataTypeField = ({
   channel,
-  ...rest
-}: DataTypeFieldProps): ReactElement =>
-  channel === 0 ? <Unbound {...rest} /> : <Bound {...rest} channel={channel} />;
-
-const Unbound = ({
   path,
+  ...rest
+}: DataTypeFieldProps): ReactElement => {
+  const unbound = (
+    <Form.Field path={path} label="Data type" padHelpText={false}>
+      {(p) => <Select {...p} {...rest} />}
+    </Form.Field>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
+
+export interface ReadDataTypeFieldProps<F extends ReadOptions> extends Pick<
+  DataTypeFieldProps,
+  "channel" | "hideDataTypes" | "hideVariableDensity"
+> {
+  /** The path of a read field. */
+  path: deep.Target<F>;
+  /** Returns the field for the options of a new data type. */
+  create: (field: F, options: ReadOptions) => F;
+}
+
+/**
+ * Selects the data type of the channel that deploying creates for a read field, and
+ * gives the field the kind of that data type. An existing channel sets the data type,
+ * so the field then shows that of the channel, locked.
+ */
+export const ReadDataTypeField = <F extends ReadOptions>({
+  path,
+  channel,
+  create,
+  ...rest
+}: ReadDataTypeFieldProps<F>): ReactElement => {
+  const { get, set } = Form.useContext();
+  const field = Form.useFieldValue(path);
+  const handleChange = (dataType: string) => {
+    const current = get(path).value;
+    set(path, create(current, readOptionsOf(dataType, current)));
+  };
+  const unbound = (
+    <Input.Item label="Data type" padHelpText={false}>
+      <Select value={dataTypeOf(field)} onChange={handleChange} {...rest} />
+    </Input.Item>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
+
+const Select = ({
   hideDataTypes = HIDDEN_DATA_TYPES,
-  hideVariableDensity,
-}: Omit<DataTypeFieldProps, "channel">): ReactElement => (
-  <Form.Field path={path} label="Data type" padHelpText={false}>
-    {(p) => (
-      <Telem.SelectDataType
-        {...p}
-        hideDataTypes={hideDataTypes}
-        hideVariableDensity={hideVariableDensity}
-        location="bottom"
-      />
-    )}
-  </Form.Field>
+  ...rest
+}: Telem.SelectDataTypeProps): ReactElement => (
+  <Telem.SelectDataType {...rest} hideDataTypes={hideDataTypes} location="bottom" />
 );
 
 const NO_HIDDEN_DATA_TYPES: DataType[] = [];
 
-const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
+interface BoundProps {
+  channel: channel.Key;
+  /** Renders once the channel no longer exists. */
+  unbound: ReactElement;
+}
+
+const Bound = ({ channel, unbound }: BoundProps): ReactElement => {
   const result = Channel.useResultDataType({ key: channel });
-  if (isMissing(result)) return <Unbound {...rest} />;
+  if (isMissing(result)) return unbound;
   return (
     <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
       <Telem.SelectDataType

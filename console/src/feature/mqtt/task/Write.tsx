@@ -213,10 +213,14 @@ const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
 const createTarget = (topic: string, field?: ReadField): PlainWriteTarget => {
   const target = mqtt.plainWriteTargetZ.parse({ type: "plain", topic });
   if (field == null) return target;
-  const { pointer, dataType } = field;
   return {
     ...target,
-    channel: { ...target.channel, pointer, dataType, jsonType: jsonTypeOf(field) },
+    channel: {
+      ...target.channel,
+      pointer: field.pointer,
+      dataType: Task.Payload.dataTypeOf(field),
+      jsonType: jsonTypeOf(field),
+    },
   };
 };
 

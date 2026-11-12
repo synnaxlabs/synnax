@@ -9,14 +9,14 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt } from "@synnaxlabs/client";
+import { channel, mqtt, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType, deep, primitive } from "@synnaxlabs/x";
+import { DataType, deep, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
@@ -37,10 +37,13 @@ import {
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import {
+  createReadField,
   deployReadConfigZ,
+  matchDataType,
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
+  readBaseOf,
   type ReadEntry,
   type ReadField,
   type ReadSchemas,
@@ -70,11 +73,7 @@ const TimestampFields: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => {
   const handleChange = (mode: TimingMode) => {
     const { fields, index } = get(path).value;
     if (mode === "payload" && index === "") {
-      const indexField: ReadField = {
-        ...mqtt.readFieldZ.parse({}),
-        dataType: DataType.TIMESTAMP.toString(),
-        timeFormat: "unix_sec",
-      };
+      const indexField = createReadField({ type: "timestamp", timeFormat: "unix_sec" });
       set(path.fields, [...fields, indexField]);
       set(path.index, indexField.key);
     } else if (mode === "arrival" && index !== "") {
@@ -106,7 +105,7 @@ const TimestampFields: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => {
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
           />
           <Task.Payload.TimeFormatField
-            path={path.fields[index].timeFormat}
+            path={deep.variant(path.fields[index], "type", "timestamp").timeFormat}
             label="Format"
           />
         </>
@@ -196,6 +195,49 @@ interface FieldPaneProps extends Task.Views.FieldProps<ReadField> {
   deviceName: string;
 }
 
+const createFieldOf = (
+  field: ReadField,
+  options: Task.Payload.ReadOptions,
+): ReadField => createReadField(options, readBaseOf(field));
+
+const ReadOptionsSection: FC<{ path: deep.Path<ReadField> }> = ({ path }) => {
+  const type = PForm.useFieldValue(path.type);
+  switch (type) {
+    case "float":
+      return (
+        <Task.Payload.EnumMappingSection
+          path={deep.variant(path, "type", "float").enumValues}
+        />
+      );
+    case "integer":
+    case "unsigned":
+      return (
+        <Task.Payload.TextEnumMappingSection
+          path={deep.variant(path, "type", type).enumValues}
+          valuePlaceholder="Integer (e.g. 1)"
+        />
+      );
+    case "string":
+      return (
+        <Task.Payload.TextEnumMappingSection
+          path={deep.variant(path, "type", "string").enumValues}
+          valuePlaceholder="String (e.g. running)"
+        />
+      );
+    case "timestamp":
+      return (
+        <PForm.Section title="Timestamp">
+          <Task.Payload.TimeFormatField
+            path={deep.variant(path, "type", "timestamp").timeFormat}
+            label="Format"
+          />
+        </PForm.Section>
+      );
+    default:
+      return null;
+  }
+};
+
 const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
   const { channel: fieldChannel, pointer, disabled } = PForm.useFieldValue(path);
   const entry = plainEntry(groupKey);
@@ -211,7 +253,12 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
             padHelpText={false}
             inputProps={POINTER_INPUT_PROPS}
           />
-          <Task.Payload.DataTypeField path={path.dataType} channel={fieldChannel} />
+          <Task.Payload.ReadDataTypeField
+            path={path}
+            channel={fieldChannel}
+            create={createFieldOf}
+            hideDataTypes={NO_HIDDEN_DATA_TYPES}
+          />
           <Task.ChannelNameField
             channel={fieldChannel}
             namePath={path.name}
@@ -221,13 +268,16 @@ const FieldPane: FC<FieldPaneProps> = ({ groupKey, path, deviceName }) => {
             skipped={disabled || entryDisabled}
           />
         </PForm.Section>
-        <Task.Payload.EnumMappingSection path={path.enumValues} />
+        <ReadOptionsSection path={path} />
       </PForm.Sections>
     </Flex.Box>
   );
 };
 
-const createField = (): ReadField => mqtt.readFieldZ.parse({});
+const NO_HIDDEN_DATA_TYPES: DataType[] = [];
+
+const createField = (): ReadField =>
+  createReadField(Task.Payload.readOptionsOf(DataType.FLOAT64.toString()));
 
 const DISCOVER_KIND: Kind<ReadEntry> = {
   title: "Add data",
@@ -300,6 +350,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
               path={plainEntry(key)}
               propertiesKey={plainEntry(key).topic}
               read={device.properties.read}
+              match={matchBoundField}
             />
           ),
       )}
@@ -321,6 +372,30 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
   return { name: "MQTT read task", type: READ_TYPE, config: cfg };
+};
+
+const matchChannel = (field: ReadField, ch: channel.Channel): ReadField =>
+  matchDataType(field, ch.dataType.toString());
+
+const matchBoundField = (
+  field: Pick<ReadField, "key" | "pointer" | "channel">,
+  ch: channel.Channel,
+): ReadField => matchChannel(mqtt.readFieldZ.parse(field), ch);
+
+// A field bound to an existing channel takes the kind of that channel.
+const matchChannels = async (
+  client: Synnax,
+  fields: ReadField[],
+): Promise<ReadField[]> => {
+  const keys = fields
+    .filter((f) => !f.disabled && f.channel !== 0)
+    .map((f) => f.channel);
+  if (keys.length === 0) return fields;
+  const channels = await client.channels.retrieve(unique.unique(keys));
+  return fields.map((f) => {
+    const ch = channels.find(({ key }) => key === f.channel);
+    return ch == null ? f : matchChannel(f, ch);
+  });
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
@@ -352,14 +427,20 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         entry.channel = field.channel;
         continue;
       }
+      const fields = entry.fields.map((f) => ({
+        ...readBaseOf(f),
+        dataType: Task.Payload.dataTypeOf(f),
+      }));
       await Task.configureReadChannels({
         client,
         read: dev.properties.read,
         propertiesKey: entry.topic,
-        fields: entry.fields,
+        fields,
         namePrefix: namePrefix(dev.name, entry.topic),
         indexKey: entry.index,
       });
+      entry.fields.forEach((f, i) => (f.channel = fields[i].channel));
+      entry.fields = await matchChannels(client, entry.fields);
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, SCHEMAS);

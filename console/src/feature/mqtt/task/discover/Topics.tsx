@@ -36,6 +36,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Task } from "@/platform/task";
 
 const prettyPayload = (payload: string): string => {
   try {
@@ -234,7 +235,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
     key: l.pointer,
     name: pointerLabel(l.pointer),
     sample: sampleAt(topic, l.pointer),
-    dataType: l.dataType,
+    dataType: Task.Payload.dataTypeOf(l),
     taken: taken.has(l.pointer),
   }));
   return (

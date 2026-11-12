@@ -25,6 +25,8 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
    * before.
    */
   resolve: (entry: C) => Partial<C> | null;
+  /** Changes an entry that a binding changed to agree with the channels it binds. */
+  match?: (entry: C, channels: channel.Channel[]) => C;
 }
 
 const isPlainObject = (value: unknown): value is object =>
@@ -100,6 +102,7 @@ const bind = <T extends object>(
 export const BindChannels = <C extends record.Keyed<string>>({
   path,
   resolve,
+  match,
 }: BindChannelsProps<C>): null => {
   const { set } = Form.useContext();
   const state = Form.useFieldState(path, { optional: true });
@@ -129,10 +132,11 @@ export const BindChannels = <C extends record.Keyed<string>>({
       }
       const patch = dropMissing(entry, resolved, live);
       next.set(entry.key, patch);
-      return bind(entry, patch, before);
+      const bound = bind(entry, patch, before);
+      return bound === entry || match == null ? bound : match(bound, channels ?? []);
     });
     held.current = next;
     if (bound.some((entry, i) => entry !== entries[i])) set(path, bound);
-  }, [entries, patches, found, path, set]);
+  }, [entries, patches, found, channels, match, path, set]);
   return null;
 };
