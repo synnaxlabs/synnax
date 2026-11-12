@@ -35,7 +35,7 @@ export interface Node {
 const RAN: ranger.Order = { field: "time_range_start", descending: false };
 
 /** How many children of a range each read adds. */
-export const CHILD_PAGE_SIZE = 50;
+const CHILD_PAGE_SIZE = 50;
 
 /** The children of a range, in the order they ran unless an order is given. */
 export const childrenQuery = (key: ranger.Key, order: ranger.Order = RAN) => ({

@@ -37,10 +37,12 @@ import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
-export const [HighlightContext, useHighlight] = context.create<string | undefined>({
+const [HighlightContext, useHighlight] = context.create<string | undefined>({
   defaultValue: undefined,
   displayName: "Range.HighlightContext",
 });
+
+export { HighlightContext };
 
 export const useOpen = (): ((key: ranger.Key) => void) => {
   const openTab = Panel.useOpenTab();
@@ -115,21 +117,26 @@ const Field = ({ className, children }: FieldProps): ReactElement => (
   </span>
 );
 
+interface RangeProps {
+  range: ranger.Range;
+  /** Shows the value with no way to change it. */
+  preview: boolean;
+}
+
 /** The color of a range. A range with no color shows its swatch on hover only. */
-const Swatch = ({ range }: { range: ranger.Range }): ReactElement => {
-  const canEdit = Access.useUpdateGranted(ranger.resourceID(range.key));
+const Swatch = ({ range, preview }: RangeProps): ReactElement => {
   const { update } = Ranger.useSetColor();
   const { colors } = Theming.use();
   return (
     <Field className={CSS.BE("range-item", "swatch")}>
-      {(canEdit || range.color != null) && (
+      {(!preview || range.color != null) && (
         <Color.Swatch
           variant="shadow"
           size="tiny"
           value={range.color}
           fallback={colors.gray.l8}
           reveal={range.color == null}
-          onChange={canEdit ? (color) => update({ key: range.key, color }) : undefined}
+          onChange={preview ? undefined : (color) => update({ key: range.key, color })}
           onlyChangeOnBlur
           tooltip="Color"
         />
@@ -145,11 +152,9 @@ const RIGHT_EDGE: position.LocationPreference = {
 };
 
 /** The labels of a range. Clicking them opens the label picker. */
-const Labels = ({ range }: { range: ranger.Range }): ReactElement | null => {
-  const id = ranger.resourceID(range.key);
-  const canEdit = Access.useUpdateGranted(id);
+const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
   const { update } = PLabel.useEditFor();
-  if (!canEdit)
+  if (preview)
     return range.labels.length === 0 ? null : (
       <Tag.Tags variant="text" className={CSS.BE("range-item", "labels")}>
         <PLabel.Tags keys={range.labels} size="tiny" />
@@ -157,7 +162,7 @@ const Labels = ({ range }: { range: ranger.Range }): ReactElement | null => {
     );
   const handleChange = (next: label.Key[]): void =>
     update({
-      id,
+      id: ranger.resourceID(range.key),
       added: next.filter((key) => !range.labels.includes(key)),
       removed: range.labels.filter((key) => !next.includes(key)),
     });
@@ -174,8 +179,7 @@ const Labels = ({ range }: { range: ranger.Range }): ReactElement | null => {
   );
 };
 
-export interface LeadProps {
-  range: ranger.Range;
+export interface LeadProps extends RangeProps {
   depth?: number;
   expanded?: boolean;
   /** Expands the range. Without it, the range shows no caret and no space for one. */
@@ -191,8 +195,8 @@ export const Lead = ({
   expanded = false,
   onExpand,
   showPath = false,
+  preview,
 }: LeadProps): ReactElement => {
-  const canEdit = Access.useUpdateGranted(ranger.resourceID(range.key));
   const { update: rename } = Ranger.useRename();
   const highlight = useHighlight();
   return (
@@ -204,7 +208,7 @@ export const Lead = ({
       {onExpand != null && (
         <Caret range={range} expanded={expanded} onExpand={onExpand} />
       )}
-      <Swatch range={range} />
+      <Swatch range={range} preview={preview} />
       <Flex.Box x align="center" gap="medium" className={CSS.BE("range-item", "name")}>
         <Text.MaybeEditable
           id={List.itemNameID(range.key)}
@@ -212,7 +216,7 @@ export const Lead = ({
           overflow="fade"
           allowDoubleClick={false}
           highlight={highlight}
-          onChange={canEdit ? (name) => rename({ key: range.key, name }) : undefined}
+          onChange={preview ? undefined : (name) => rename({ key: range.key, name })}
         />
         {showPath && range.parent != null && <Path parent={range.parent} />}
       </Flex.Box>
@@ -280,16 +284,11 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
   );
 };
 
-export interface ItemProps extends List.ItemProps<ranger.Key> {
-  depth?: number;
-  expanded?: boolean;
-  onExpand?: (key: ranger.Key, expanded: boolean) => void;
-  /** Shows the name of the parent after the name, for a range out of its tree. */
-  showPath?: boolean;
-}
+interface ItemProps
+  extends List.ItemProps<ranger.Key>, Omit<LeadProps, "range" | "preview"> {}
 
 /** A range as a row: its lead, labels, time, and favorite button. */
-export const Item = ({
+const Item = ({
   depth,
   expanded,
   onExpand,
@@ -299,11 +298,13 @@ export const Item = ({
 }: ItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
+  const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
   const open = useOpen();
   if (range == null) return null;
   return (
     <Select.Item<ranger.Key>
       {...rest}
+      role="listitem"
       className={CSS.cls(CSS.B("range-item"), className)}
       aria-label={range.name}
       checkable
@@ -315,8 +316,9 @@ export const Item = ({
         expanded={expanded}
         onExpand={onExpand}
         showPath={showPath}
+        preview={preview}
       />
-      <Labels range={range} />
+      <Labels range={range} preview={preview} />
       <When range={range} />
       <Range.FavoriteButton
         range={range}
@@ -331,18 +333,10 @@ export const Item = ({
 /** An item in a tree, at its depth, with a caret that opens its children. */
 export const TreeItem = (props: List.ItemProps<ranger.Key>): ReactElement => {
   const { depth, expanded, onExpand } = useNode(props.itemKey);
-  return (
-    <Item
-      {...props}
-      role="listitem"
-      depth={depth}
-      expanded={expanded}
-      onExpand={onExpand}
-    />
-  );
+  return <Item {...props} depth={depth} expanded={expanded} onExpand={onExpand} />;
 };
 
 /** An item out of its tree, with the name of its parent. */
 export const FlatItem = (props: List.ItemProps<ranger.Key>): ReactElement => (
-  <Item {...props} role="listitem" showPath />
+  <Item {...props} showPath />
 );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,6 +19,7 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access } from "@synnaxlabs/pluto";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -271,6 +272,7 @@ export const Lane = ({
   const { itemKey } = rest;
   const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const { depth, expanded, onExpand } = useNode(itemKey);
+  const preview = !Access.useUpdateGranted(ranger.resourceID(itemKey));
   const open = useOpen();
   if (range == null) return null;
   return (
@@ -283,7 +285,13 @@ export const Lane = ({
       aria-label={range.name}
     >
       <Flex.Box x align="center" className={CSS.BE("range-timeline", "label")}>
-        <Lead range={range} depth={depth} expanded={expanded} onExpand={onExpand} />
+        <Lead
+          range={range}
+          depth={depth}
+          expanded={expanded}
+          onExpand={onExpand}
+          preview={preview}
+        />
       </Flex.Box>
       <div className={CSS.BE("range-timeline", "track")}>
         <Bar range={range} />
