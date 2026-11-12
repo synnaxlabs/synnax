@@ -34,7 +34,6 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
-import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { MAKE } from "@/feature/sift/device/types";
 import {
   SCAN_SCHEMAS,
@@ -87,10 +86,10 @@ const encodeTimeRange = (tr: CrudeTimeRange) => {
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
-  onRejected: (reply: status.Status) => void;
+  onRejection: (rejection: status.Status | null) => void;
 }
 
-const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProps) => {
+const UploadButton = ({ name, source, onUploaded, onRejection }: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useAsyncErrorHandler();
   const addStatus = Status.useAdder();
@@ -98,6 +97,7 @@ const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProp
   const [pending, setPending] = useState(false);
   const handleClick = async (): Promise<void> => {
     if (!validate()) return;
+    onRejection(null);
     setPending(true);
     await handleError(
       async () => {
@@ -120,7 +120,7 @@ const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProp
           args: { device, channels, asset, ...data },
         });
         // The reply of the scan task notifies a rejection on its own.
-        if (res.variant === "error") return onRejected(res);
+        if (res.variant === "error") return onRejection(res);
         addStatus({
           variant: "success",
           name,
@@ -171,8 +171,7 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
             )}
           </Flex.Box>
           <Flex.Box x gap="large">
-            <SelectDevice />
-            <Asset.Field
+            <Asset.Destination
               path={path.config.asset}
               devicePath={path.config.device}
               grow
@@ -205,7 +204,7 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
               name={name}
               source={source}
               onUploaded={close}
-              onRejected={setRejection}
+              onRejection={setRejection}
             />
           </Nav.Bar.End>
         </Modal.Footer>

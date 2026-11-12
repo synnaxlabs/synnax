@@ -8,18 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import {
+  access,
   type channel,
   DataType,
-  type device,
+  device,
   type task,
   TimeRange,
   TimeStamp,
+  user,
 } from "@synnaxlabs/client";
-import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  newIndexedPair,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
@@ -86,6 +92,33 @@ const fillAndUpload = async (
 };
 
 describe("Sift.Range.useUploadModal", () => {
+  // The dialog picks the only Sift device on its own, so two keep the pick empty.
+  beforeAll(async () => {
+    await createSiftDevice(client);
+    await createSiftDevice(client);
+  });
+
+  it("should pick the device when it is the only one the user can see", async () => {
+    const dev = await createSiftDevice(client);
+    const rng = await createRange();
+    const restricted = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [
+        device.resourceID(dev.key),
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    });
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      { client: restricted },
+    );
+    expect(await findDialogTriggerByText(dev.name)).toBeTruthy();
+  });
+
   it("should require a device, an asset, and channels", async () => {
     const rng = await createRange();
     await renderModalOpener(
@@ -148,6 +181,44 @@ describe("Sift.Range.useUploadModal", () => {
     fireEvent.click(await screen.findByText(second.name));
     await listedSecond;
     await waitFor(() => expect(screen.queryByText("stand")).toBeNull());
+  });
+
+  it("should leave the asset empty when the assets of a new device fail to list", async () => {
+    const { rack, scan } = await createScanTask();
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    let statuses: Status.NotificationSpec[] = [];
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      {
+        client,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      },
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(first.name);
+    await listedFirst;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      variant: "error",
+      message: "Sift is unreachable",
+    });
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: second.name },
+    });
+    fireEvent.click(await screen.findByText(second.name));
+    await listedSecond;
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to list Sift assets"),
+    );
+    expect(screen.queryByText("stand")).toBeNull();
   });
 
   it("should name a new asset only through New asset", async () => {
@@ -276,5 +347,13 @@ describe("Sift.Range.useUploadModal", () => {
     expect(await screen.findByText("range has no data")).toBeTruthy();
     expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
     expect(statuses).toEqual([]);
+    // A retry that fails for another cause clears the earlier reason.
+    await client.tasks.delete(scan.key);
+    clickUpload();
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain("Failed to upload to Sift"),
+    );
+    expect(screen.queryByText("range has no data")).toBeNull();
+    expect(screen.getByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
   });
 });
