@@ -20,11 +20,13 @@ import (
 )
 
 // MigrateChannelField lifts a v1 channel field to v2 by its stored shape, without its
-// Synnax channel. A timestamp data type, or a time format on a number or a string with
-// no entries, makes a timestamp field in its time format, ISO 8601 when it has none,
-// with a timestamp data type. A boolean JSON type makes a boolean field, and a string
-// with no entries a string field. A number, or a string with entries, makes a float
-// field that keeps the entries. v1 encoded by the data type of the channel, so the
+// Synnax channel. A timestamp data type makes a timestamp field in its time format, ISO
+// 8601 when it has none. v1 encoded a timestamp channel in its time format whatever
+// the shape, so a field with a channel, a time format, and no entries also becomes a
+// timestamp field, and its data type names the kind its JSON type writes, for the
+// caller to fall back to when the channel does not hold timestamps. Otherwise, a
+// boolean JSON type makes a boolean field, a string with no entries a string field,
+// and a number, or a string with entries, a float field that keeps the entries. The
 // caller reconciles the field against its channel, or against its data type when it
 // has none.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
@@ -38,13 +40,17 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 	}
 	var c xpayload.Channel
 	switch {
-	case dt == telem.TimestampT || (old.TimeFormat != nil &&
-		old.JSONType != payload.JSONTypeBoolean && len(old.EnumValues) == 0):
-		dt = telem.TimestampT
+	case dt == telem.TimestampT:
 		c = xpayload.Channel{
 			Kind:       xpayload.KindTimestamp,
 			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
 		}
+	case old.TimeFormat != nil && old.Channel != 0 && len(old.EnumValues) == 0:
+		dt = fallbackDataTypes[old.JSONType]
+		if old.JSONType == payload.JSONTypeNumber {
+			dt = old.DataType
+		}
+		c = xpayload.Channel{Kind: xpayload.KindTimestamp, TimeFormat: *old.TimeFormat}
 	case old.JSONType == payload.JSONTypeBoolean:
 		c = xpayload.Channel{Kind: xpayload.KindBoolean}
 	case old.JSONType == payload.JSONTypeString && len(old.EnumValues) == 0:
@@ -64,6 +70,12 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 		}
 	}
 	return channelField(base, c), nil
+}
+
+// fallbackDataTypes holds the data type whose kind writes each v1 JSON type.
+var fallbackDataTypes = map[payload.JSONType]telem.DataType{
+	payload.JSONTypeString:  telem.StringT,
+	payload.JSONTypeBoolean: telem.BooleanT,
 }
 
 // channelField returns the channel field of base with the kind and the options of c.
