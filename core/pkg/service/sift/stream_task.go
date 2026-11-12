@@ -361,8 +361,13 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			r.rejected.Remove(rng.Key)
 		}
 		end := rng.TimeRange.End
-		if end > sent || r.rejected.Contains(rng.Key) ||
-			(r.synced && end <= since && !changed.Contains(rng.Key)) {
+		// Sift has every sample before since, also when sent falls behind it after a
+		// restart or a catch-up. So a range that ends by since does not wait for sent.
+		ready := end <= sent
+		if end <= since {
+			ready = !r.synced || changed.Contains(rng.Key)
+		}
+		if !ready || r.rejected.Contains(rng.Key) {
 			continue
 		}
 		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)

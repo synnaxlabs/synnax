@@ -271,6 +271,45 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should update a run that ends after the saved positions after a restart",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				now := telem.Now()
+				send(ctx, 1)
+				rng := createRange(ctx, telem.TimeRange{
+					Start: now,
+					End:   now.Add(100 * telem.Millisecond),
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{l.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveLen(1))
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">=", rng.TimeRange.End),
+				))
+				Expect(dt.Stop(false)).To(Succeed())
+				Expect(progressOf(ctx)).To(HaveField(
+					"Details.Positions",
+					HaveExactElements(HaveField(
+						"Time",
+						BeNumerically("<", rng.TimeRange.End),
+					)),
+				))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			})
+
 		It("Should make a run of a range that ended while the task was stopped",
 			func(ctx SpecContext) {
 				start(ctx, streamConfig(l.Key))
