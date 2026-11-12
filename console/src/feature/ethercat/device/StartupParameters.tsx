@@ -13,7 +13,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
@@ -167,8 +166,7 @@ const describeImport = ({
   const notes: string[] = [];
   if (modeCommands.length > 0)
     notes.push(
-      `Left out ${ethercat.formatAddress(modeCommands[0])}, which holds the mode of ` +
-        "the device. Synnax sets the mode.",
+      `Left out the mode of the device at ${ethercat.formatAddress(modeCommands[0])}.`,
     );
   if (unwritableCount > 0)
     notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
@@ -276,10 +274,6 @@ export const StartupParameters = (): ReactElement => {
         {IMPORT_TITLE}
       </Button.Button>
       {result != null && <Status.Summary status={result} level="small" />}
-      <Text.Text level="small" color={9}>
-        The Driver writes these CoE values to the device each time the network starts,
-        before the device exchanges data.
-      </Text.Text>
     </>
   );
 };

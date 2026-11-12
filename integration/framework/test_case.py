@@ -45,7 +45,7 @@ from framework.writer import Writer
 from x import validate_and_sanitize_name
 
 
-class Skip(BaseException):
+class _Skip(BaseException):
     """Raised by TestCase.skip. It is not an Exception, so a test's own `except
     Exception` cannot swallow it."""
 
@@ -328,7 +328,7 @@ class TestCase(ABC):
 
         :param reason: Why the test cannot run here. The summary shows it.
         """
-        raise Skip(reason)
+        raise _Skip(reason)
 
     @abstractmethod
     def run(self) -> None:
@@ -684,7 +684,7 @@ class TestCase(ABC):
 
             # PASSED set in _check_expectation()
 
-        except Skip as e:
+        except _Skip as e:
             self.skip_reason = str(e)
             self.STATUS = STATUS.SKIPPED
         except Exception as e:

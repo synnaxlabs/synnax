@@ -16,7 +16,7 @@ from playwright.sync_api import Locator, expect
 from console.page import PageType
 from console.task_page import TaskPage
 
-SERVER_FIELD_LABEL = "OPC UA server"
+_SERVER_FIELD_LABEL = "OPC UA server"
 _BROWSER_SELECTOR = ".console-opc-browser"
 _BROWSER_LOADING_SELECTOR = ".console-opc-browser__loading-icon"
 _BROWSER_FILTER_PLACEHOLDER = "Filter, or enter a node ID"
@@ -41,7 +41,7 @@ class OPCUATask(TaskPage):
         :param name: Name of the server device.
         """
         # The option's accessible name is the device name joined to its endpoint.
-        self.select_device(SERVER_FIELD_LABEL, name=name)
+        self.select_device(_SERVER_FIELD_LABEL, name=name)
         browser = self._browser()
         browser.wait_for(state="visible", timeout=10000)
         browser.locator(_BROWSER_LOADING_SELECTOR).wait_for(

@@ -25,6 +25,7 @@ import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { batch } from "@/batch";
+import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -44,6 +45,7 @@ import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { schematic } from "@/schematic";
+import { secret } from "@/secret";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
@@ -136,6 +138,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
+  certificate: changes(
+    certificate.ACTION_CHANNEL_NAME,
+    certificate.DELETE_CHANNEL_NAME,
+  ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
@@ -164,6 +170,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     schematic.symbol.ACTION_CHANNEL_NAME,
     schematic.symbol.DELETE_CHANNEL_NAME,
   ),
+  secret: changes(secret.ACTION_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
   status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
   table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
   task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
@@ -198,6 +205,8 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly secrets: secret.Client;
+  readonly certificates: certificate.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -377,6 +386,8 @@ export default class Synnax extends framer.Client {
       batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
+    this.secrets = new secret.Client({ unary, cache });
+    this.certificates = new certificate.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,

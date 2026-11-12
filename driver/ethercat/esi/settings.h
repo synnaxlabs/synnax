@@ -23,19 +23,21 @@
 namespace driver::ethercat::esi {
 /// @brief returns the settings that the catalog describes for a revision of a product:
 /// the card-wide settings under "device", and under "channels" the settings of each
-/// input with the entries that read it in every PDO layout. Each setting of an input
-/// holds the value of the card in "value". An entry whose format only one program reads
-/// names it in "only_read_by". When the catalog describes the card's mode, "mode" holds
-/// the address of the object that holds it ("index" and "sub_index"), the value that
-/// the card holds, whether other software sets up the card ("shared"), the sync mode
-/// that the value needs as a dc::Choice among op_modes ("op_mode"), and the startup
-/// parameters that make the card standalone ("switch"). Reads the values, option lists,
-/// limits, and mode from the card through read. Returns nullopt when the catalog
-/// describes no settings for the revision. Leaves out each setting whose object the
-/// card does not have, or whose table counts no options or more than it can hold, each
-/// setting and rule that depends on one, and the mode when the card does not have its
-/// object. Returns nullopt on any other failed read, such as a read that gets no
-/// answer.
+/// input with the entries that read it in every PDO layout. Each setting holds the
+/// value of the card in "value". An entry whose format only one program reads names it
+/// in "only_read_by". When the catalog describes the card's mode, "mode" holds the
+/// address of the object that holds it ("index" and "sub_index"), the value that the
+/// card holds, whether other software sets up the card ("shared"), that software in
+/// "shared_with" when Synnax still reads the card's data or in "only_read_by" when it
+/// does not, the EtherCAT bus of the card that Synnax is on ("bus", 1 or 2) when the
+/// card has two, the sync mode that the value needs as a dc::Choice among op_modes
+/// ("op_mode"), and the startup parameters that make the card standalone ("switch").
+/// Reads the values, option lists, limits, and mode from the card through read. Returns
+/// nullopt when the catalog describes no settings for the revision. Leaves out each
+/// setting whose object the card does not have, or whose table counts no options or
+/// more than it can hold, each setting and rule that depends on one, and the mode when
+/// the card does not have its object. Returns nullopt on any other failed read, such as
+/// a read that gets no answer.
 /// @returns the error of that read, or else the first error.
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     uint32_t vendor_id,

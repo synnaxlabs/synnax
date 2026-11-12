@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <array>
+#include <bit>
 #include <cmath>
 #include <memory>
 #include <set>
@@ -23,6 +25,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slaves.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/transform/transform.h"
@@ -135,17 +138,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             ch.ch = synnax_channels[i];
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
-            if (!ch.scaled()) continue;
+            if (!ch.scaled() && !ch.calibration) continue;
             if (!ch.ch.data_type.matches(FLOAT_TYPES)) {
                 cfg.field_err(
                     "channels",
                     "channel " + ch.ch.name + " is " + ch.ch.data_type.name() +
-                        ", but a scaled channel must be float32 or float64. Pick a "
-                        "float channel."
+                        ", but a " + (ch.scaled() ? "scaled" : "calibrated") +
+                        " channel must be float32 or float64. Pick a float channel."
                 );
                 continue;
             }
-            this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
+            if (ch.scaled()) this->scales.add(ch.ch.key, ch.ch.data_type, ch.scale);
         }
     }
 
@@ -185,8 +188,43 @@ class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
     std::unique_ptr<engine::Engine::Reader> reader;
+    /// @brief the calibration of each calibrated channel, from the gain and offset that
+    /// its slave held at start().
+    transform::Scale calibrations;
     /// @brief the bus cycle time of each sample in the latest read.
     x::telem::Series times;
+
+    /// @brief reads the gain and offset of each calibrated channel from its slave on
+    /// the running bus.
+    x::errors::Error calibrate() {
+        for (const auto &ch: this->cfg.channels) {
+            if (!ch->calibration) continue;
+            const auto &c = *ch->calibration;
+            std::array<float, 2> values{};
+            const std::array sub_indexes{c.gain_sub_index, c.offset_sub_index};
+            for (size_t i = 0; i < values.size(); i++) {
+                auto [bits, err] = this->engine->read(
+                    ch->entry.slave_position,
+                    c.index,
+                    sub_indexes[i]
+                );
+                if (err) {
+                    err.data = errors::sentence(
+                        "Failed to read the calibration of channel " + ch->ch.name +
+                        ": " + err.data
+                    );
+                    return err;
+                }
+                values[i] = std::bit_cast<float>(bits);
+            }
+            const auto [slope, offset] = c.line(values[0], values[1]);
+            this->calibrations.add(
+                ch->ch.key,
+                transform::UnaryLinearScale(slope, offset, ch->ch.data_type)
+            );
+        }
+        return x::errors::NIL;
+    }
 
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
@@ -212,6 +250,11 @@ public:
         );
         if (err) return err;
         this->reader = std::move(rdr);
+        this->calibrations = transform::Scale();
+        if (auto calibration_err = this->calibrate()) {
+            this->reader.reset();
+            return calibration_err;
+        }
         return x::errors::NIL;
     }
 
@@ -238,6 +281,7 @@ public:
             fr.clear();
             return res;
         }
+        if (res.error = this->calibrations.transform(fr); res.error) return res;
         if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {

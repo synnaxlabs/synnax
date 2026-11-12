@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -70,7 +69,7 @@ type FactoryConfig struct {
 	Ranger *ranger.Service
 	// Now returns the wall clock each task's runtime stamps its cycles from.
 	//
-	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
+	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
@@ -78,7 +77,7 @@ type FactoryConfig struct {
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		Now: telem.Now,
 	}
 )
 

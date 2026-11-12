@@ -63,8 +63,9 @@ func WriteConfig() error {
 	return os.WriteFile(ConfigPath(), data, 0o640)
 }
 
-// resolvePaths makes the data, log, and certificate paths in viper absolute against the
-// working directory, because a service starts in another directory.
+// resolvePaths makes the data, log, certificate, and secrets key paths in viper
+// absolute against the working directory, because a service starts in another
+// directory. It leaves an empty path empty.
 func resolvePaths() error {
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -74,8 +75,9 @@ func resolvePaths() error {
 		cmdstart.FlagData,
 		cmdinst.FlagLogFilePath,
 		cert.FlagCertsDir,
+		cmdstart.FlagSecretsKeyFile,
 	} {
-		if p := viper.GetString(key); !filepath.IsAbs(p) {
+		if p := viper.GetString(key); p != "" && !filepath.IsAbs(p) {
 			viper.Set(key, filepath.Join(workDir, p))
 		}
 	}

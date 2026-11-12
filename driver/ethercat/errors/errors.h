@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cctype>
 #include <cstdint>
 #include <string>
 
@@ -25,6 +26,9 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 /// @brief error returned when a network interface has no EtherCAT slaves.
 const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found");
+/// @brief error returned when no slave answers because a filter on the adapter blocks
+/// the replies. The user can remove the filter.
+const x::errors::Error REPLIES_BLOCKED = NO_SLAVES_FOUND.sub("replies_blocked");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when the Driver lacks permission to open the network
@@ -34,6 +38,8 @@ const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denie
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
 const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
+/// @brief error returned when the process image does not hold a PDO entry.
+const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
@@ -66,4 +72,13 @@ const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 
 /// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
 std::string sdo_abort_reason(uint32_t code);
+
+/// @brief returns error text as a sentence: the first letter in upper case and a period
+/// at the end.
+inline std::string sentence(std::string text) {
+    if (text.empty()) return text;
+    text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+    if (!text.ends_with('.')) text += '.';
+    return text;
+}
 }
