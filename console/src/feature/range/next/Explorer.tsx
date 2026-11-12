@@ -258,6 +258,7 @@ const Internal = (): ReactElement => {
     matches: capped ? root.getItem(root.data.slice(0, MATCH_LIMIT)) : null,
     scope: `${root.searchTerm}\n${binary.JSON_CODEC.encodeString(where ?? null)}`,
     order: ORDERS[sort],
+    getItem: root.getItem,
   });
   const [expanded, toggle] = useExpanded();
   const tree = useTree(
@@ -280,7 +281,7 @@ const Internal = (): ReactElement => {
         className={CSS.BE("range-explorer", "message")}
         variant="error"
         message="Failed to search ranges"
-        description={search.error.message}
+        description={search.error}
       />
     );
   const footer = capped && root.data.length > MATCH_LIMIT && (
