@@ -260,7 +260,7 @@ func analyze(c *analysisCtx) {
 	}
 
 	for _, fd := range c.ast.AllFileDomain() {
-		de := collectFileDomain(fd)
+		de := collectFileDomain(c, fd)
 		if existing, ok := c.fileDomains[de.Name]; ok {
 			c.fileDomains[de.Name] = de.Merge(existing)
 		} else {
@@ -351,13 +351,14 @@ func analyze(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateActionExtends(c, typ)
+		validateActionAliases(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
 	desugarPartialOverrides(c)
-	finalizeActionExtends(c)
+	finalizeActions(c)
 	checkOptionalDefaultInvariant(c)
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
@@ -823,7 +824,7 @@ func collectStructDecl(
 		for _, f := range body.AllFieldDef() {
 			decl.form.Fields = append(
 				decl.form.Fields,
-				collectField(f, decl.form.TypeParams),
+				collectField(c, f, decl.form.TypeParams),
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -839,7 +840,7 @@ func collectStructDecl(
 			)
 		}
 		for _, d := range body.AllDomain() {
-			addDomain(decl.domains, collectDomain(d))
+			addDomain(decl.domains, collectDomain(c, d))
 		}
 	}
 	return copyStruct(c, def, decl, below)
@@ -880,6 +881,24 @@ func collectAction(
 		Domains: make(map[string]resolution.Domain),
 		AST:     def,
 	}
+	if tr := def.TypeRef(); tr != nil {
+		if !plainTypeRef(tr) {
+			c.report(diagnostics.Errorf(
+				def,
+				"action %s: the alias target must be a plain struct reference, got %q",
+				action.Name,
+				tr.GetText(),
+			))
+			return action
+		}
+		action.Alias = collectTypeRef(tr, nil)
+		if body := def.AliasBody(); body != nil {
+			for _, d := range body.AllDomain() {
+				addDomain(action.Domains, collectDomain(c, d))
+			}
+		}
+		return action
+	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
@@ -892,7 +911,7 @@ func collectAction(
 		return action
 	}
 	for _, f := range body.AllFieldDef() {
-		field := collectField(f, typeParams)
+		field := collectField(c, f, typeParams)
 		if !field.HasType() {
 			d := diagnostics.Errorf(
 				f,
@@ -905,12 +924,7 @@ func collectAction(
 		action.Fields = append(action.Fields, field)
 	}
 	for _, d := range body.AllDomain() {
-		de := collectDomain(d)
-		if existing, ok := action.Domains[de.Name]; ok {
-			action.Domains[de.Name] = de.Merge(existing)
-		} else {
-			action.Domains[de.Name] = de
-		}
+		addDomain(action.Domains, collectDomain(c, d))
 	}
 	return action
 }
@@ -933,7 +947,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 			var arraySize *int64
 			if intLit := arrMod.INT_LIT(); intLit != nil {
-				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+				size := parseInt(c, arrMod, intLit.GetText())
 				arraySize = &size
 			}
 			target = resolution.TypeRef{
@@ -948,7 +962,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	maps.Copy(domains, c.fileDomains)
 	if body := def.AliasBody(); body != nil {
 		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
+			de := collectDomain(c, d)
 			if existing, ok := domains[de.Name]; ok {
 				domains[de.Name] = de.Merge(existing)
 			} else {
@@ -1057,7 +1071,7 @@ func collectMapTypeRef(
 	return ref
 }
 
-func collectField(
+func collectField(c *analysisCtx,
 	def parser.IFieldDefContext,
 	typeParams []resolution.TypeParam,
 ) resolution.Field {
@@ -1080,7 +1094,7 @@ func collectField(
 			if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 				isArray = true
 				if intLit := arrMod.INT_LIT(); intLit != nil {
-					size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+					size := parseInt(c, arrMod, intLit.GetText())
 					arraySize = &size
 				}
 			}
@@ -1104,17 +1118,12 @@ func collectField(
 	}
 
 	if fd := def.FieldDefault(); fd != nil {
-		dv := collectFieldDefault(fd)
+		dv := collectFieldDefault(c, fd)
 		field.Default = &dv
 	}
 
 	for _, inl := range def.AllInlineDomain() {
-		de := collectInlineDomain(inl)
-		if existing, ok := field.Domains[de.Name]; ok {
-			field.Domains[de.Name] = de.Merge(existing)
-		} else {
-			field.Domains[de.Name] = de
-		}
+		addFieldDomain(c, &field, collectInlineDomain(c, inl))
 	}
 	for _, om := range def.AllDomainOmit() {
 		field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
@@ -1122,12 +1131,7 @@ func collectField(
 
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
-			de := collectDomain(d)
-			if existing, ok := field.Domains[de.Name]; ok {
-				field.Domains[de.Name] = de.Merge(existing)
-			} else {
-				field.Domains[de.Name] = de
-			}
+			addFieldDomain(c, &field, collectDomain(c, d))
 		}
 		for _, om := range fb.AllDomainOmit() {
 			field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
@@ -1136,31 +1140,54 @@ func collectField(
 	return field
 }
 
-func collectFileDomain(fd parser.IFileDomainContext) resolution.Domain {
+// addFieldDomain adds d to the domains of field, merging it over a domain of the same
+// name. It reports an expression that the field declares twice, since only one can win.
+func addFieldDomain(c *analysisCtx, field *resolution.Field, d resolution.Domain) {
+	existing := field.Domains[d.Name]
+	declared := set.New[string]()
+	for _, expr := range slices.Concat(existing.Expressions, d.Expressions) {
+		if declared.Contains(expr.Name) {
+			c.report(diagnostics.Errorf(
+				d.AST,
+				"field %s declares @%s %s twice",
+				field.Name,
+				d.Name,
+				expr.Name,
+			))
+		}
+		declared.Add(expr.Name)
+	}
+	field.Domains[d.Name] = d.Merge(existing)
+}
+
+func collectFileDomain(c *analysisCtx, fd parser.IFileDomainContext) resolution.Domain {
 	entry := resolution.Domain{AST: fd, Name: fd.IDENT().GetText()}
 	if content := fd.DomainContent(); content != nil {
-		collectDomainContent(&entry, content)
+		collectDomainContent(c, &entry, content)
 	}
 	return entry
 }
 
-func collectDomain(def parser.IDomainContext) resolution.Domain {
+func collectDomain(c *analysisCtx, def parser.IDomainContext) resolution.Domain {
 	entry := resolution.Domain{AST: def, Name: def.IDENT().GetText()}
 	if content := def.DomainContent(); content != nil {
-		collectDomainContent(&entry, content)
+		collectDomainContent(c, &entry, content)
 	}
 	return entry
 }
 
-func collectInlineDomain(def parser.IInlineDomainContext) resolution.Domain {
+func collectInlineDomain(
+	c *analysisCtx,
+	def parser.IInlineDomainContext,
+) resolution.Domain {
 	entry := resolution.Domain{AST: def, Name: def.IDENT().GetText()}
 	if content := def.DomainContent(); content != nil {
-		collectDomainContent(&entry, content)
+		collectDomainContent(c, &entry, content)
 	}
 	return entry
 }
 
-func collectDomainContent(
+func collectDomainContent(c *analysisCtx,
 	entry *resolution.Domain,
 	content parser.IDomainContentContext,
 ) {
@@ -1168,7 +1195,7 @@ func collectDomainContent(
 		for _, e := range block.AllExpression() {
 			expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
 			for _, v := range e.AllExpressionValue() {
-				expr.Values = append(expr.Values, collectValue(v))
+				expr.Values = append(expr.Values, collectValue(c, v))
 			}
 			entry.Expressions = append(entry.Expressions, expr)
 		}
@@ -1177,60 +1204,75 @@ func collectDomainContent(
 	if e := content.Expression(); e != nil {
 		expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
 		for _, v := range e.AllExpressionValue() {
-			expr.Values = append(expr.Values, collectValue(v))
+			expr.Values = append(expr.Values, collectValue(c, v))
 		}
 		entry.Expressions = append(entry.Expressions, expr)
 	}
 }
 
-func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionValue {
+func collectFieldDefault(
+	c *analysisCtx,
+	fd parser.IFieldDefaultContext,
+) resolution.ExpressionValue {
 	if ev := fd.ExpressionValue(); ev != nil {
-		return collectValue(ev)
+		return collectValue(c, ev)
 	}
 	if arr := fd.ArrayDefault(); arr != nil {
-		return collectArrayDefault(arr)
+		return collectArrayDefault(c, arr)
 	}
 	if st := fd.StructDefault(); st != nil {
-		return collectStructDefault(st)
+		return collectStructDefault(c, st)
 	}
 	return resolution.ExpressionValue{}
 }
 
 // collectDefaultValue collects a default value in a nested position (an array element
 // or a struct field), recursing into arrays and structs.
-func collectDefaultValue(dv parser.IDefaultValueContext) resolution.ExpressionValue {
+func collectDefaultValue(
+	c *analysisCtx,
+	dv parser.IDefaultValueContext,
+) resolution.ExpressionValue {
 	if ev := dv.ExpressionValue(); ev != nil {
-		return collectValue(ev)
+		return collectValue(c, ev)
 	}
 	if arr := dv.ArrayDefault(); arr != nil {
-		return collectArrayDefault(arr)
+		return collectArrayDefault(c, arr)
 	}
 	if st := dv.StructDefault(); st != nil {
-		return collectStructDefault(st)
+		return collectStructDefault(c, st)
 	}
 	return resolution.ExpressionValue{}
 }
 
-func collectArrayDefault(arr parser.IArrayDefaultContext) resolution.ExpressionValue {
+func collectArrayDefault(
+	c *analysisCtx,
+	arr parser.IArrayDefaultContext,
+) resolution.ExpressionValue {
 	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
 	for _, el := range arr.AllDefaultValue() {
-		out.Elements = append(out.Elements, collectDefaultValue(el))
+		out.Elements = append(out.Elements, collectDefaultValue(c, el))
 	}
 	return out
 }
 
-func collectStructDefault(st parser.IStructDefaultContext) resolution.ExpressionValue {
+func collectStructDefault(
+	c *analysisCtx,
+	st parser.IStructDefaultContext,
+) resolution.ExpressionValue {
 	out := resolution.ExpressionValue{Kind: resolution.ValueKindStruct}
 	for _, f := range st.AllStructFieldDefault() {
 		out.Fields = append(out.Fields, resolution.StructFieldValue{
 			Name:  f.IDENT().GetText(),
-			Value: collectDefaultValue(f.DefaultValue()),
+			Value: collectDefaultValue(c, f.DefaultValue()),
 		})
 	}
 	return out
 }
 
-func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
+func collectValue(
+	c *analysisCtx,
+	v parser.IExpressionValueContext,
+) resolution.ExpressionValue {
 	if ts := v.TRIPLE_STRING_LIT(); ts != nil {
 		t := ts.GetText()
 		content := t[3 : len(t)-3]
@@ -1252,11 +1294,11 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 		}
 	}
 	if i := v.INT_LIT(); i != nil {
-		n, _ := strconv.ParseInt(i.GetText(), 10, 64)
+		n := parseInt(c, v, i.GetText())
 		return resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: n}
 	}
 	if f := v.FLOAT_LIT(); f != nil {
-		n, _ := strconv.ParseFloat(f.GetText(), 64)
+		n := parseFloat(c, v, f.GetText())
 		return resolution.ExpressionValue{
 			Kind:       resolution.ValueKindFloat,
 			FloatValue: n,
@@ -1282,6 +1324,26 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 		}
 	}
 	return resolution.ExpressionValue{Kind: resolution.ValueKindIdent}
+}
+
+// parseInt parses an integer literal of node and reports one that does not fit in an
+// int64.
+func parseInt(c *analysisCtx, node antlr.ParserRuleContext, lit string) int64 {
+	n, err := strconv.ParseInt(lit, 10, 64)
+	if err != nil {
+		c.report(diagnostics.Errorf(node, "integer %s does not fit in an int64", lit))
+	}
+	return n
+}
+
+// parseFloat parses a float literal of node and reports one that does not fit in a
+// float64.
+func parseFloat(c *analysisCtx, node antlr.ParserRuleContext, lit string) float64 {
+	n, err := strconv.ParseFloat(lit, 64)
+	if err != nil {
+		c.report(diagnostics.Errorf(node, "number %s does not fit in a float64", lit))
+	}
+	return n
 }
 
 func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
@@ -1373,7 +1435,7 @@ func collectUnionDecl(
 	}
 	if body := def.UnionBody(); body != nil {
 		for _, d := range body.AllDomain() {
-			addDomain(decl.domains, collectDomain(d))
+			addDomain(decl.domains, collectDomain(c, d))
 		}
 		for _, v := range body.AllUnionVariant() {
 			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
@@ -1398,7 +1460,7 @@ func collectVariantDecl(
 		}
 		if body := v.UnionVariantBody(); body != nil {
 			for _, d := range body.AllDomain() {
-				de := collectDomain(d)
+				de := collectDomain(c, d)
 				variant.Domains[de.Name] = de
 			}
 		}
@@ -1433,7 +1495,7 @@ func collectInlineVariantDecl(
 	}
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			form.Fields = append(form.Fields, collectField(f, nil))
+			form.Fields = append(form.Fields, collectField(c, f, nil))
 		}
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
@@ -1448,7 +1510,7 @@ func collectInlineVariantDecl(
 			c.report(d)
 		}
 		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
+			de := collectDomain(c, d)
 			decl.variant.Domains[de.Name] = de
 		}
 	}
@@ -1572,8 +1634,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 				Domains: make(map[string]resolution.Domain),
 			}
 			if i := v.INT_LIT(); i != nil {
-				n, _ := strconv.ParseInt(i.GetText(), 10, 64)
-				ev.Value = n
+				ev.Value = parseInt(c, v, i.GetText())
 			} else if s := v.STRING_LIT(); s != nil {
 				t := s.GetText()
 				unquoted, err := strconv.Unquote(t)
@@ -1584,14 +1645,14 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			}
 			if body := v.EnumValueBody(); body != nil {
 				for _, d := range body.AllDomain() {
-					de := collectDomain(d)
+					de := collectDomain(c, d)
 					ev.Domains[de.Name] = de
 				}
 			}
 			form.Values = append(form.Values, ev)
 		}
 		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
+			de := collectDomain(c, d)
 			if existing, ok := domains[de.Name]; ok {
 				domains[de.Name] = de.Merge(existing)
 			} else {
@@ -1628,7 +1689,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 			var arraySize *int64
 			if intLit := arrMod.INT_LIT(); intLit != nil {
-				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+				size := parseInt(c, arrMod, intLit.GetText())
 				arraySize = &size
 			}
 			base = resolution.TypeRef{
@@ -1644,7 +1705,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 
 	if body := def.TypeDefBody(); body != nil {
 		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
+			de := collectDomain(c, d)
 			if existing, ok := domains[de.Name]; ok {
 				domains[de.Name] = de.Merge(existing)
 			} else {
@@ -1675,6 +1736,10 @@ func resolveActionRefs(
 		}
 		for j := range actions[i].Extends {
 			resolveTypeRef(c, typ, &actions[i].Extends[j])
+		}
+		if actions[i].IsAlias() {
+			// No current type, so a type parameter name does not resolve.
+			resolveTypeRef(c, nil, &actions[i].Alias)
 		}
 	}
 }
@@ -2045,10 +2110,60 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeActionExtends flattens each action's extends clause, prepending the inherited
-// struct fields to the action's own fields. After this pass Action.Fields holds the
-// unified list, so code generators consume it unchanged.
-func finalizeActionExtends(c *analysisCtx) {
+// validateActionAliases checks that every action alias names a struct with no type
+// parameters, and that no two actions of typ alias the same struct, which a C++
+// std::variant cannot hold twice.
+func validateActionAliases(c *analysisCtx, typ resolution.Type) {
+	aliased := make(map[string]string)
+	for _, action := range typ.Actions() {
+		if !action.IsAlias() {
+			continue
+		}
+		target, _, ok := resolution.Dealias(action.Alias, c.table)
+		form, isStruct := target.Form.(resolution.StructForm)
+		if !ok || !isStruct {
+			c.report(diagnostics.Errorf(
+				nil,
+				"action %s of %s must alias a struct, got %s",
+				action.Name,
+				typ.Name,
+				action.Alias.Name,
+			))
+			continue
+		}
+		if len(form.TypeParams) > 0 {
+			c.report(diagnostics.Errorf(
+				nil,
+				"action %s of %s cannot alias generic struct %s, because an alias "+
+					"takes no type arguments",
+				action.Name,
+				typ.Name,
+				target.QualifiedName,
+			))
+			continue
+		}
+		key := target.QualifiedName
+		if first, dup := aliased[key]; dup {
+			c.report(diagnostics.Errorf(
+				nil,
+				"actions %s and %s of %s both alias %s; give each action its own "+
+					"struct",
+				first,
+				action.Name,
+				typ.Name,
+				key,
+			))
+			continue
+		}
+		aliased[key] = action.Name
+	}
+}
+
+// finalizeActions flattens each action's extends clause, prepending the inherited
+// struct fields to the action's own fields, and gives each action alias without a doc
+// the doc of its struct. After this pass code generators consume Action.Fields and
+// Domains unchanged.
+func finalizeActions(c *analysisCtx) {
 	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
 			continue
@@ -2056,7 +2171,15 @@ func finalizeActionExtends(c *analysisCtx) {
 		// The slice shares its array with the table, so each update lands in place.
 		actions := typ.Actions()
 		for ai := range actions {
-			if len(actions[ai].Extends) > 0 {
+			if actions[ai].IsAlias() {
+				if _, own := actions[ai].Domains["doc"]; own {
+					continue
+				}
+				target, _, _ := resolution.Dealias(actions[ai].Alias, c.table)
+				if d, ok := target.Domains["doc"]; ok {
+					actions[ai].Domains["doc"] = d
+				}
+			} else if len(actions[ai].Extends) > 0 {
 				actions[ai].Fields = unifyActionFields(c, actions[ai])
 			}
 		}

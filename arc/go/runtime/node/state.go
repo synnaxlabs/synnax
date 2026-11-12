@@ -118,7 +118,10 @@ func (s *ProgramState) Node(key string) *State {
 				Source: syntheticSource,
 				Target: ir.Handle{Node: key, Param: p.Name},
 			}
-			data := telem.NewSeriesFromAny(p.Value, p.Type.ToTelem())
+			data := telem.NewSeriesFromAny(
+				types.DecodeValue(p.Value, p.Type),
+				p.Type.ToTelem(),
+			)
 			time := telem.NewSeriesV[telem.TimeStamp](0)
 			alignedData[i] = data
 			alignedTime[i] = time
@@ -441,8 +444,8 @@ func (s *State) NumericInput[T telem.NumericSample](name string) T {
 	if ref := s.RefInput(i); ref.Len() > 0 {
 		return ref.ValueAt[T](-1)
 	}
-	if v := s.params[i].Value; v != nil {
-		return telem.CastNumeric[T](v)
+	if p := s.params[i]; p.Value != nil {
+		return telem.CastNumeric[T](types.DecodeValue(p.Value, p.Type))
 	}
 	return 0
 }

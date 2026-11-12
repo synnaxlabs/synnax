@@ -35,6 +35,7 @@ export const Select = () => {
       label="OPC UA server"
       make={MAKE}
       icon={NETWORK.icon}
+      locationFormat={NETWORK.location}
       connect={connect}
     />
   );

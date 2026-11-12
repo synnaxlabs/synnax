@@ -13,8 +13,6 @@ import {
   DataType,
   lineplot,
   NotFoundError,
-  ontology,
-  project,
   schematic,
   status,
   type Synnax,
@@ -24,8 +22,8 @@ import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
-// Fixed keys make each new sample overwrite the last one, even after a rename, so only
-// one copy of the Arc programs drives the sample channels.
+// Fixed keys let each new sample replace the last one, even after a rename, so only one
+// copy of the Arc programs drives the sample channels.
 export const KEYS = {
   project: "adacd22e-b3a6-4b20-a587-136795288889",
   schematic: "07ba9c3b-d84e-4e85-934d-e2c750355791",
@@ -178,7 +176,6 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   const racks = await client.racks.retrieve({
     integrations: "arc",
     embedded: true,
-    hostIsNode: true,
   });
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
@@ -211,24 +208,18 @@ export interface Programs {
  */
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
-  await client.projects.create({ key: KEYS.project, name: NAME });
-  await client.schematics.create(KEYS.project, createSchematic(ch));
-  await client.lineplots.create(KEYS.project, createLinePlot(ch));
-  // Overwriting an existing schematic or line plot does not link it to the project, and
-  // the user can have moved either one. Both go back under the project alone. The link
-  // comes first, so a failed reset cannot leave a view with no parent.
-  const projectID = project.ontologyID(KEYS.project);
-  const ids = [
-    schematic.ontologyID(KEYS.schematic),
-    lineplot.ontologyID(KEYS.linePlot),
-  ];
-  await client.ontology.addChildren(projectID, ...ids);
-  for (const id of ids) {
-    const parents = await client.ontology.parents.retrieve({ ids: id });
-    for (const { id: parent } of parents)
-      if (!ontology.idsEqual(parent, projectID))
-        await client.ontology.removeChildren(parent, id);
-  }
+  // A reset keeps the project, so the visualizations that the user added to it stay.
+  if (await exists(client)) await client.projects.rename(KEYS.project, NAME);
+  else await client.projects.create({ key: KEYS.project, name: NAME });
+  // Deleting an Arc deletes its task, which stops the old program.
+  await Promise.all([
+    client.arcs.delete([KEYS.simulator, KEYS.sequence]),
+    client.panels.delete(KEYS.panel),
+    client.schematics.delete(KEYS.schematic),
+    client.lineplots.delete(KEYS.linePlot),
+  ]);
+  await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
+  await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
   await client.arcs.create([
     {
       key: KEYS.simulator,
@@ -248,7 +239,7 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
   await client.panels.create({
     key: KEYS.panel,
     name: NAME,
-    parent: project.ontologyID(KEYS.project),
+    project: KEYS.project,
     root: {
       variant: "split",
       direction: "x",
@@ -260,19 +251,19 @@ export const create = async (client: Synnax, programs: Programs): Promise<void> 
         first: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", resource: schematic.ontologyID(KEYS.schematic) },
+            { variant: "resource", resource: schematic.resourceID(KEYS.schematic) },
           ],
         },
         last: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
+          tabs: [{ variant: "resource", resource: lineplot.resourceID(KEYS.linePlot) }],
         },
       },
       last: {
         variant: "leaf",
         tabs: [
-          { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
-          { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
+          { variant: "resource", resource: arc.resourceID(KEYS.sequence) },
+          { variant: "resource", resource: arc.resourceID(KEYS.simulator) },
         ],
       },
     },

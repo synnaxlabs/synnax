@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <random>
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <limits>
+#include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "wasmtime.hh"
@@ -20,20 +27,10 @@
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/strings/strings.h"
 
 namespace arc::runtime::wasm {
-
-namespace {
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
-// printed so that a failing run can be replayed.
-std::mt19937 gen_rand = random_generator("Module Tests");
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
-
-std::string random_name(const std::string &prefix) {
-    std::uniform_int_distribution<> dis(10000, 99999);
-    return prefix + "_" + std::to_string(dis(gen_rand));
-}
-}
 
 /// @brief Module::open returns error for empty WASM bytes.
 TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
@@ -58,9 +55,11 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
 /// @brief Module::open succeeds with valid compiled module.
 TEST(ModuleOpenTest, SucceedsWithValidModule) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -76,12 +75,104 @@ func double() {val f32} f32 {
     ASSERT_NE(module, nullptr);
 }
 
+#if defined(__linux__)
+namespace {
+/// @brief returns the address range of each of the process's memory mappings.
+std::vector<std::pair<std::uintptr_t, std::uintptr_t>> mappings() {
+    std::ifstream maps("/proc/self/maps");
+    std::vector<std::pair<std::uintptr_t, std::uintptr_t>> ranges;
+    std::string line;
+    while (std::getline(maps, line)) {
+        std::uintptr_t start = 0;
+        std::uintptr_t end = 0;
+        char dash = 0;
+        std::istringstream(line) >> std::hex >> start >> dash >> end;
+        ranges.emplace_back(start, end);
+    }
+    return ranges;
+}
+}
+
+/// @brief it should set aside no large address range for a module, since a Driver that
+/// locks its memory counts every reserved byte against RLIMIT_MEMLOCK.
+TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    constexpr std::uintptr_t LARGE = std::uintptr_t{256} * 1024 * 1024;
+    const auto before = mappings();
+    const auto module = ASSERT_NIL_P(Module::open({.program = mod}));
+    for (const auto &now: mappings()) {
+        // ASan's allocator carves its reservations, so old mappings can shrink.
+        const auto is_new = std::ranges::none_of(before, [&now](const auto &earlier) {
+            return earlier.first <= now.first && now.second <= earlier.second;
+        });
+        if (is_new) { EXPECT_LT(now.second - now.first, LARGE); }
+    }
+}
+#endif
+
+namespace {
+/// @brief captures the store and memory that Module::open hands to host modules.
+class MemoryCapture final : public stl::Module {
+public:
+    wasmtime::Store *store = nullptr;
+    wasmtime::Memory *memory = nullptr;
+
+    void set_wasm_context(wasmtime::Store *store, wasmtime::Memory *memory) override {
+        this->store = store;
+        this->memory = memory;
+    }
+};
+}
+
+/// @brief it should keep a module's memory contents when the memory grows past its
+/// reservation and moves.
+TEST(ModuleOpenTest, GrowsMemoryPastReservation) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    const auto mod = testutil::compile_text(
+        client,
+        "func double() {val f32} f32 {\n    return val * 2\n}\n" + ch.name +
+            " -> double()"
+    );
+    const auto capture = std::make_shared<MemoryCapture>();
+    const auto module = ASSERT_NIL_P(
+        Module::open({.program = mod, .modules = {capture}})
+    );
+    auto &store = *capture->store;
+    const auto &memory = *capture->memory;
+    const auto *base = memory.data(store).data();
+    memory.data(store)[100] = 42;
+    ASSERT_TRUE(memory.grow(store, 2 * MEMORY_RESERVATION / memory.page_size(store)));
+    const auto data = memory.data(store);
+    ASSERT_NE(data.data(), base);
+    ASSERT_GT(data.size(), 2 * MEMORY_RESERVATION);
+    ASSERT_EQ(data[100], 42);
+    data[data.size() - 1] = 7;
+    ASSERT_EQ(memory.data(store)[data.size() - 1], 7);
+}
+
 /// @brief Module::func returns NOT_FOUND for non-existent export.
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -100,9 +191,11 @@ func double() {val f32} f32 {
 /// @brief Module::func returns valid function for existing export.
 TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -119,9 +212,11 @@ func double() {val f32} f32 {
 /// @brief Function::call executes and returns results.
 TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
-    );
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("input"),
+        x::telem::FLOAT32_T,
+        true
+    ));
 
     const std::string source = R"(
 func double() {val f32} f32 {
@@ -140,6 +235,57 @@ func double() {val f32} f32 {
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
+}
+
+/// @brief it should decode a float input value stored as text.
+TEST(FunctionCallTest, DecodesFloatInputStoredAsText) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(
+        client,
+        "func add(limit f64) {val f64} f64 {\n    return val + limit\n}\n"
+    );
+    auto module = ASSERT_NIL_P(Module::open({.program = program}));
+    arc::types::Param limit;
+    limit.name = "limit";
+    limit.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    limit.value = "-Infinity";
+    arc::types::Param val;
+    val.name = "val";
+    val.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    auto func = ASSERT_NIL_P(module->func("add", {limit, val}));
+    std::vector<x::telem::SampleValue> params = {0.0, 1.5};
+    std::vector<Module::Function::Result> results;
+    ASSERT_NIL(func.call(params, results));
+    ASSERT_EQ(results.size(), 1);
+    EXPECT_EQ(
+        std::get<double>(results[0].value),
+        -std::numeric_limits<double>::infinity()
+    );
+}
+
+/// @brief it should keep a string input value that reads like a float as text.
+TEST(FunctionCallTest, KeepsStringInputThatReadsLikeAFloat) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(
+        client,
+        "func label(tag str) {val f64} str {\n    return tag\n}\n"
+    );
+    const auto strings = std::make_shared<stl::strings::State>();
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .strings = strings}));
+    arc::types::Param tag;
+    tag.name = "tag";
+    tag.type = arc::types::Type{.kind = arc::types::Kind::String};
+    tag.value = "NaN";
+    arc::types::Param val;
+    val.name = "val";
+    val.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    auto func = ASSERT_NIL_P(module->func("label", {tag, val}));
+    std::vector<x::telem::SampleValue> params = {static_cast<int32_t>(0), 1.5};
+    std::vector<Module::Function::Result> results;
+    ASSERT_NIL(func.call(params, results));
+    ASSERT_EQ(results.size(), 1);
+    const auto handle = static_cast<uint32_t>(std::get<int32_t>(results[0].value));
+    EXPECT_EQ(strings->get(handle), "NaN");
 }
 
 /// @brief sample_to_wasm converts integer types correctly.

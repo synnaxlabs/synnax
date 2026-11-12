@@ -13,13 +13,13 @@ import {
   deep,
   destructor,
   errors,
-  type record,
+  record,
   scheduler,
   state,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import type z from "zod";
+import z from "zod";
 
 import {
   AccessDeniedError,
@@ -71,7 +71,18 @@ export interface BatchSubscriber<
  */
 export type HydrateMode = "set" | "if-absent";
 
-/** A point in a table's write history, taken with {@link Table.stamp}. */
+/**
+ * Something composed from the records of a table, such as an answer or a list, that
+ * keeps the records it needs from {@link Table.trim}.
+ */
+export interface Holder<Key extends record.Key> {
+  /** Returns the keys whose records the holder needs. */
+  held: () => Iterable<Key>;
+  /** Discards anything composed from the dropped records. */
+  drop?: (keys: ReadonlySet<Key>) => void;
+}
+
+/** A point in a table's write history, handed to a fetch by {@link Table.track}. */
 export type Stamp = number;
 
 /** Options for {@link Table.ingest}. */
@@ -91,6 +102,9 @@ export type Keyed<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
 > = Value & record.Keyed<Key>;
+
+/** Parses the key of a record and ignores its other fields. */
+export const keyedZ = z.object({ key: record.keyZ });
 
 /** Construction arguments for a {@link Table}. */
 export interface TableParams<
@@ -213,9 +227,22 @@ export class Table<
   private writeSeq = 0;
   private resetSeq = 0;
   private changes = 0;
-  // Holds a stamp only for present and tombstoned entries: applyDelete drops the stamp
-  // of any other key, so the map never outgrows them.
+  // Holds a stamp for present and tombstoned entries, so a fetch from before a write
+  // never restores the older record.
   private readonly writeStamps = new Map<Key, Stamp>();
+  // The write stamps of the keys that trim dropped. A trim forgets each one once no
+  // fetch in flight predates it.
+  private readonly dropped = new Map<Key, Stamp>();
+  // The stamps of the fetches in flight, oldest first, since the write sequence only
+  // grows.
+  private readonly inFlight: Stamp[] = [];
+  private readonly holders = new Set<Holder<Key>>();
+  // The last read or write of each entry, which orders the entries that trim drops.
+  private readonly touches = new Map<Key, number>();
+  private touchSeq = 0;
+  // The touch sequence when the last trim ran. A trim keeps every entry touched since,
+  // since a fetch in flight may not yet hold the records it just wrote.
+  private trimmedAt = 0;
 
   constructor({
     onError,
@@ -275,13 +302,72 @@ export class Table<
 
   private applySet(key: Key, value: Value): void {
     this.entries.set(key, value);
+    this.touches.set(key, ++this.touchSeq);
     for (const index of this.indexes) index.set(key, value);
   }
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     this.writeStamps.delete(key);
+    this.touches.delete(key);
     for (const index of this.indexes) index.delete(key);
+  }
+
+  /** Returns the keys whose records a holder or a keyed subscriber needs. */
+  held(): Set<Key> {
+    const held = new Set<Key>(this.keyedSubscribers.keys());
+    this.holders.forEach((holder) => {
+      for (const key of holder.held()) held.add(key);
+    });
+    return held;
+  }
+
+  /**
+   * Keeps the records the holder needs from {@link trim}.
+   * @returns A destructor that releases them.
+   */
+  hold(holder: Holder<Key>): destructor.Destructor {
+    this.holders.add(holder);
+    return () => this.holders.delete(holder);
+  }
+
+  /** The number of live entries. */
+  get size(): number {
+    return this.entries.size;
+  }
+
+  /**
+   * Drops the least recently read or written entries until at most size remain. Skips
+   * every entry that a holder or a keyed subscriber needs, and every entry read or
+   * written since the last trim. Tells each holder what dropped. Drops silently: no
+   * event, no tombstone, and no new version, since no subscriber holds a dropped
+   * entry. A read of a dropped key fetches it again.
+   * @returns the dropped keys.
+   */
+  trim(size: number): Key[] {
+    const over = this.entries.size - size;
+    const since = this.trimmedAt;
+    this.trimmedAt = this.touchSeq;
+    const oldest = this.inFlight.at(0) ?? Infinity;
+    this.dropped.forEach((stamp, key) => {
+      if (stamp <= oldest) this.dropped.delete(key);
+    });
+    if (over <= 0) return [];
+    const held = this.held();
+    const touchOf = (key: Key): number => this.touches.get(key) ?? 0;
+    const dropped = Array.from(this.entries.keys())
+      .filter((key) => !held.has(key) && touchOf(key) <= since)
+      .sort((a, b) => touchOf(a) - touchOf(b))
+      .slice(0, over);
+    if (dropped.length === 0) return dropped;
+    dropped.forEach((key) => {
+      const stamp = this.writeStamps.get(key) ?? this.dropped.get(key);
+      this.applyDelete(key);
+      if (stamp != null && stamp > oldest) this.dropped.set(key, stamp);
+    });
+    const set = new Set(dropped);
+    this.holders.forEach((holder) => holder.drop?.(set));
+    return dropped;
   }
 
   /**
@@ -388,16 +474,25 @@ export class Table<
   }
 
   private writtenSince(key: Key, since: Stamp): boolean {
-    return this.resetSeq > since || (this.writeStamps.get(key) ?? 0) > since;
+    const stamp = this.writeStamps.get(key) ?? this.dropped.get(key) ?? 0;
+    return this.resetSeq > since || stamp > since;
   }
 
   /**
-   * Marks the current point in the table's write history. A fetch takes one before it
-   * starts and hands it to {@link ingest}, so its older records undo neither a write
-   * nor a reset that lands while it is in flight.
+   * Runs a fetch that writes into the table. Hands it a stamp of the current point in
+   * the write history to pass to {@link ingest}, so its older records undo neither a
+   * write nor a reset that lands while it is in flight. Holds the stamp until the fetch
+   * settles.
+   * @returns what the fetch returns.
    */
-  stamp(): Stamp {
-    return this.writeSeq;
+  async track<T>(fetch: (since: Stamp) => Promise<T>): Promise<T> {
+    const since = this.writeSeq;
+    this.inFlight.push(since);
+    try {
+      return await fetch(since);
+    } finally {
+      this.inFlight.splice(this.inFlight.indexOf(since), 1);
+    }
   }
 
   /**
@@ -422,7 +517,7 @@ export class Table<
 
   /**
    * Writes fetched records into the table under its declared hydrate mode, or the given
-   * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
+   * one: "set" overwrites entries, "if-absent" leaves existing entries as they are. A
    * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
    * predate the delete or the write, and only a {@link set} revives a deleted record.
    * On a revivable table, a key deleted before the given stamp also revives, unless its
@@ -446,20 +541,28 @@ export class Table<
     if (typeof keyOrValues !== "object") {
       const key = keyOrValues as Key;
       const { mode = this.hydrateMode, since } = options ?? {};
+      let rollback = destructor.NOOP;
       if (
-        !this.ingestible(key, since) ||
-        (mode === "if-absent" && this.entries.has(key))
+        this.ingestible(key, since) &&
+        (mode !== "if-absent" || !this.entries.has(key))
       )
-        return destructor.NOOP;
-      return this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+        rollback = this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+      this.touch(key);
+      return rollback;
     }
     const { mode = this.hydrateMode, since }: IngestOptions =
       (valueOrOptions as IngestOptions | undefined) ?? {};
-    const arr = array
-      .toArray(keyOrValues)
-      .filter(({ key }) => this.ingestible(key, since));
-    if (mode === "if-absent") return this.setIfAbsent(arr);
-    return this.setMany(arr);
+    const values = array.toArray(keyOrValues);
+    const arr = values.filter(({ key }) => this.ingestible(key, since));
+    const rollback = mode === "if-absent" ? this.setIfAbsent(arr) : this.setMany(arr);
+    values.forEach(({ key }) => this.touch(key));
+    return rollback;
+  }
+
+  // A fetch reads each record it ingests, so a trim keeps the record until the fetch
+  // composes its answer, even when the record left the entry as it was.
+  private touch(key: Key): void {
+    if (this.entries.has(key)) this.touches.set(key, ++this.touchSeq);
   }
 
   private ingestible(key: Key, since?: Stamp): boolean {
@@ -487,11 +590,19 @@ export class Table<
     if (keys === undefined) return Array.from(this.entries.values());
     if (typeof keys === "function")
       return Array.from(this.entries.values()).filter(keys);
-    if (Array.isArray(keys))
-      return keys
-        .map((key) => this.entries.get(key))
-        .filter((e): e is Value => e != null);
-    return this.entries.get(keys);
+    if (Array.isArray(keys)) {
+      const values: Value[] = [];
+      for (const key of keys) {
+        const value = this.entries.get(key);
+        if (value == null) continue;
+        this.touches.set(key, ++this.touchSeq);
+        values.push(value);
+      }
+      return values;
+    }
+    const value = this.entries.get(keys);
+    if (value != null) this.touches.set(keys, ++this.touchSeq);
+    return value;
   }
 
   has(key: Key): boolean {
@@ -531,28 +642,30 @@ export class Table<
    * serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
-    if (this.fetchBatcher != null) {
+    const { fetchBatcher } = this;
+    if (fetchBatcher != null) {
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
         if (this.closed) throw closedError();
-        const since = this.stamp();
-        const fetched = await this.fetchBatcher.enqueue(misses);
-        if (opts.refresh === true) {
-          // A refresh is authoritative for its keys: cached entries the fetch omitted
-          // vanished from the cluster and are tombstoned.
-          const present = new Set<Key>(fetched.map(({ key }) => key));
-          const vanished = misses.filter(
-            (key) =>
-              !present.has(key) &&
-              this.entries.has(key) &&
-              !this.writtenSince(key, since),
-          );
-          this.batch(() => {
-            if (vanished.length > 0) this.remove(vanished, "confirmed");
-            if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
-          });
-        } else if (fetched.length > 0) this.ingest(fetched, { since });
+        await this.track(async (since) => {
+          const fetched = await fetchBatcher.enqueue(misses);
+          if (opts.refresh === true) {
+            // A refresh is authoritative for its keys: cached entries the fetch omitted
+            // vanished from the cluster and are tombstoned.
+            const present = new Set<Key>(fetched.map(({ key }) => key));
+            const vanished = misses.filter(
+              (key) =>
+                !present.has(key) &&
+                this.entries.has(key) &&
+                !this.writtenSince(key, since),
+            );
+            this.batch(() => {
+              if (vanished.length > 0) this.remove(vanished, "confirmed");
+              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
+            });
+          } else if (fetched.length > 0) this.ingest(fetched, { since });
+        });
       }
     }
     const seen = new Set<Key>();
@@ -560,7 +673,7 @@ export class Table<
     for (const key of keys) {
       if (seen.has(key)) continue;
       seen.add(key);
-      const entry = this.entries.get(key);
+      const entry = this.get(key);
       if (entry != null) results.push(entry);
     }
     return results;
@@ -673,12 +786,18 @@ export class Table<
     this.fetchBatcher?.close(closedError());
   }
 
-  private refetch(keys: Key[]): void {
+  /**
+   * Fetches the keys again in the background and overwrites their entries. Reports a
+   * failure other than a lost connection or a vanished record to the table's error
+   * sink.
+   */
+  refetch(keys: Key[]): void {
     if (this.fetchBatcher == null || keys.length === 0) return;
     this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
-      // The reconcile after the next reconnect fetches them.
-      if (isConnectionError(exc)) return;
-      this.onError(new Error("failed to fetch restored entries", { cause: exc }));
+      // The reconcile after the next reconnect fetches them, and a delete tombstones a
+      // vanished one.
+      if (isConnectionError(exc) || NotFoundError.matches(exc)) return;
+      this.onError(new Error("failed to refetch entries", { cause: exc }));
     });
   }
 
@@ -692,25 +811,26 @@ export class Table<
     if (fetchEntries == null) return;
     const keys = this.keys();
     if (keys.length === 0) return;
-    const since = this.stamp();
-    const values = await fetchSurvivors(async (keys: Key[]) => {
-      if (this.closed) throw closedError();
-      try {
-        const fetched = await fetchEntries(keys);
+    await this.track(async (since) => {
+      const values = await fetchSurvivors(async (keys: Key[]) => {
         if (this.closed) throw closedError();
-        return fetched;
-      } catch (exc) {
-        throw this.closed ? closedError(exc) : errors.fromUnknown(exc);
-      }
-    }, keys);
-    const present = new Set<Key>(values.map(({ key }) => key));
-    const missing = keys.filter((k) => !present.has(k));
-    // A missing key deleted here during the fetch gets no delete from the Core.
-    missing.forEach((k) => this.pendingDeletes.delete(k));
-    const vanished = missing.filter((k) => !this.writtenSince(k, since));
-    this.batch(() => {
-      if (vanished.length > 0) this.remove(vanished, "confirmed");
-      if (values.length > 0) this.ingest(values, { mode: "set", since });
+        try {
+          const fetched = await fetchEntries(keys);
+          if (this.closed) throw closedError();
+          return fetched;
+        } catch (exc) {
+          throw this.closed ? closedError(exc) : errors.fromUnknown(exc);
+        }
+      }, keys);
+      const present = new Set<Key>(values.map(({ key }) => key));
+      const missing = keys.filter((k) => !present.has(k));
+      // A missing key deleted here during the fetch gets no delete from the Core.
+      missing.forEach((k) => this.pendingDeletes.delete(k));
+      const vanished = missing.filter((k) => !this.writtenSince(k, since));
+      this.batch(() => {
+        if (vanished.length > 0) this.remove(vanished, "confirmed");
+        if (values.length > 0) this.ingest(values, { mode: "set", since });
+      });
     });
   }
 
@@ -727,6 +847,8 @@ export class Table<
     this.tombstones.clear();
     this.pendingDeletes.clear();
     this.writeStamps.clear();
+    this.dropped.clear();
+    this.touches.clear();
     for (const index of this.indexes) index.reset();
   }
 
@@ -838,7 +960,8 @@ export interface ListenerSpec<
  * Declares that the channel broadcasts records to mirror into the table. By default the
  * parsed record keys itself (`changed.key`) and is stored as-is; `key` derives the
  * entry key, `value` transforms the record and may merge with the previous entry
- * (return null/undefined to skip the write).
+ * (return null/undefined to skip the write). Without `key`, a record that fails the
+ * schema is fetched again by its key.
  */
 export const createSetListener = <
   Z extends z.ZodType,
@@ -867,6 +990,14 @@ export const createSetListener = <
           ),
         );
       },
+      // A derived key can read fields that an invalid record lacks.
+      onInvalid:
+        opts.key != null
+          ? undefined
+          : (raw) => {
+              const keyed = keyedZ.safeParse(raw);
+              if (keyed.success) table.refetch([keyed.data.key as Key]);
+            },
     }),
   };
 };
@@ -912,10 +1043,11 @@ export const createFetchListener = <
   bind: (table): Listener<Z> => ({
     channel,
     schema,
-    onChange: async (changed) => {
-      const held = changed.flatMap((c) => array.toArray(c)).filter((k) => table.has(k));
-      if (held.length > 0) await table.retrieve(held, { refresh: true });
-    },
+    // A refetch in the background keeps later frames off the network round trip.
+    onChange: (changed) =>
+      table.refetch(
+        changed.flatMap((c) => array.toArray(c)).filter((k) => table.has(k)),
+      ),
   }),
 });
 

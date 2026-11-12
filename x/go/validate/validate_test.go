@@ -10,7 +10,9 @@
 package validate_test
 
 import (
+	"math"
 	"runtime"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,6 +134,34 @@ var _ = Describe("Validate", func() {
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
+		It("Should mark the Ternary error as a validation error", func() {
+			v.Ternary("field", true, "wrong")
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		It("Should mark the Ternaryf error as a validation error", func() {
+			v.Ternaryf("field", true, "wrong: %d", 1)
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		DescribeTable("Should decode a failure with its exact text", func(
+			ctx SpecContext,
+			err error,
+		) {
+			decoded := errors.Decode(ctx, errors.Encode(ctx, err, false))
+			Expect(decoded).To(MatchError(validate.ErrValidation))
+			Expect(decoded.Error()).To(Equal(err.Error()))
+		},
+			Entry("a Ternary failure", func() error {
+				v := validate.New("test")
+				v.Ternary("field", true, "100% wrong")
+				return v.Error()
+			}()),
+			Entry("a wrapped validation error", validate.ErrRequired),
+		)
+
 		It("Should keep an earlier failure through a passing check", func() {
 			v.Ternary("first", true, "failed")
 			Expect(v.Ternary("second", false, "passed")).To(BeTrue())
@@ -239,6 +269,31 @@ var _ = Describe("Validate", func() {
 			})
 		})
 
+		Describe("NaN", func() {
+			nan := math.NaN()
+			DescribeTable("Should reject NaN in every numeric comparison",
+				func(check func() bool) {
+					Expect(check()).To(BeTrue())
+					Expect(v.Error()).To(MatchError(ContainSubstring("field: must")))
+				},
+				Entry("Positive", func() bool {
+					return v.Positive("field", nan)
+				}),
+				Entry("InBounds", func() bool {
+					return v.InBounds("field", nan, 0, 1)
+				}),
+				Entry("GreaterThan", func() bool {
+					return v.GreaterThan("field", nan, 0)
+				}),
+				Entry("GreaterThanEq", func() bool {
+					return v.GreaterThanEq("field", nan, 0)
+				}),
+				Entry("LessThanEq", func() bool {
+					return v.LessThanEq("field", nan, 0)
+				}),
+			)
+		})
+
 		Describe("Collection Validations", func() {
 			Describe("NotEmptySlice", func() {
 				It("Should validate non-empty slices", func() {
@@ -314,6 +369,28 @@ var _ = Describe("Validate", func() {
 					Entry("a family emoji, which is five code points", "👨‍👩‍👧"),
 				)
 			})
+		})
+
+		Describe("NonZero", func() {
+			DescribeTable("Should accept a non-zero value", func(check func() bool) {
+				Expect(check()).To(BeFalse())
+				Expect(v.Error()).NotTo(HaveOccurred())
+			},
+				Entry("number", func() bool { return v.NonZero("field", 42) }),
+				Entry("string", func() bool { return v.NonZero("field", "a") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.New()) }),
+			)
+
+			DescribeTable("Should catch a zero value", func(check func() bool) {
+				Expect(check()).To(BeTrue())
+				Expect(
+					v.Error(),
+				).To(MatchError(ContainSubstring("field: must be non-zero")))
+			},
+				Entry("number", func() bool { return v.NonZero("field", 0) }),
+				Entry("string", func() bool { return v.NonZero("field", "") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.Nil()) }),
+			)
 		})
 
 		Describe("Zeroable", func() {

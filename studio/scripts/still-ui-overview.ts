@@ -12,9 +12,11 @@ import { type Locator } from "playwright";
 import { capture, fixtures } from "@/index";
 
 import { startColdflow } from "./common/coldflow";
+import { openProject } from "./common/desktop";
 
 export const viewport = { width: 1440, height: 900 };
 
+export const desktop = true;
 export const driver = true;
 
 /** The Console toolbar behind each toolbar step of the tour, by step key. */
@@ -61,7 +63,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         message,
       })),
     );
-    await capture.login(session, world.project);
+    await openProject(session, world.project);
 
     await favorite(session, "Open range explorer", [
       "Coldflow 9",
@@ -99,6 +101,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const paletteButton = page.locator(".console-palette button").first();
     const componentItem = page.locator("button.console-main-nav__item").last();
     const help = page.locator(".console-docs__open-button").first();
+    const code = page.locator("button:has(svg.lyra-icon--code)").first();
     // Each still records every part it shows, so the tour can jump to any of them. The
     // palette covers the parts, so its still records only the palette and its button.
     const parts = (): Record<string, Locator | Locator[]> => ({
@@ -117,12 +120,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       component: componentItem,
       panels: page.locator(".console-panel-selector").first(),
       help,
+      code,
     });
-    // In the empty top bar left of help, so nothing on screen shows its hover state.
+    // In the empty top bar left of its buttons, so nothing shows its hover state.
     const rest = async (): Promise<void> => {
-      const box = await help.boundingBox();
-      if (box == null) throw new Error("the help button is not on screen");
-      await session.moveTo({ x: box.x - 30, y: box.y + box.height / 2 });
+      const [helpBox, codeBox] = [await help.boundingBox(), await code.boundingBox()];
+      if (helpBox == null || codeBox == null)
+        throw new Error("the top bar buttons are not on screen");
+      await session.moveTo({
+        x: Math.min(helpBox.x, codeBox.x) - 30,
+        y: helpBox.y + helpBox.height / 2,
+      });
       await session.settle(1200);
     };
 

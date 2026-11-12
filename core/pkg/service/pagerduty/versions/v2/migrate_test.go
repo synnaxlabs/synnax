@@ -35,20 +35,23 @@ type created struct {
 var _ = Describe("Migrate", func() {
 	var (
 		made   []created
+		keys   []secret.Key
 		create v2.CreateSecret
 	)
 	BeforeEach(func() {
-		made = nil
+		made, keys = nil, nil
 		create = func(
 			_ context.Context,
 			tx gorp.Tx,
+			key secret.Key,
 			name string,
 			value []byte,
-		) (secret.Key, error) {
+		) error {
 			GinkgoHelper()
 			Expect(tx).ToNot(BeNil())
 			made = append(made, created{name: name, value: string(value)})
-			return uuid.New(), nil
+			keys = append(keys, key)
+			return nil
 		}
 	})
 
@@ -74,38 +77,39 @@ var _ = Describe("Migrate", func() {
 	})
 
 	Describe("ResolveTaskConfig", func() {
-		It("Should move a plain routing key into a secret named after the task",
+		It("Should point the routing key at a secret that its write creates",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
 				cfg := v2.TaskConfig{PlainRoutingKey: new("plain")}
-				Expect(v2.ResolveTaskConfig(ctx, db, create, "Pump", &cfg)).
-					To(Succeed())
+				write := v2.ResolveTaskConfig(create, "Pump", &cfg)
+				Expect(made).To(BeEmpty())
+				Expect(cfg.RoutingKey).ToNot(BeNil())
+				Expect(cfg.PlainRoutingKey).To(BeNil())
+				Expect(write(ctx, db)).To(Succeed())
 				Expect(
 					made,
 				).To(Equal([]created{{name: "Pump routing key", value: "plain"}}))
-				Expect(cfg.RoutingKey).ToNot(BeNil())
-				Expect(cfg.PlainRoutingKey).To(BeNil())
+				Expect(keys).To(Equal([]secret.Key{*cfg.RoutingKey}))
 			},
 		)
 
-		It("Should keep a config without a plain routing key", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
+		It("Should return no write for a config without a plain routing key", func() {
 			key := uuid.New()
 			cfg := v2.TaskConfig{RoutingKey: &key}
-			Expect(v2.ResolveTaskConfig(ctx, db, create, "Pump", &cfg)).To(Succeed())
-			Expect(made).To(BeEmpty())
+			Expect(v2.ResolveTaskConfig(create, "Pump", &cfg)).To(BeNil())
 			Expect(cfg.RoutingKey).To(HaveValue(Equal(key)))
 		})
 
-		It("Should return the error of the secret create", func(ctx SpecContext) {
+		It("Should return the error of the secret create from its write", func(
+			ctx SpecContext,
+		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			fail := func(context.Context, gorp.Tx, string, []byte) (secret.Key, error) {
-				return uuid.Nil(), errors.New("create failed")
+			fail := func(context.Context, gorp.Tx, secret.Key, string, []byte) error {
+				return errors.New("create failed")
 			}
 			cfg := v2.TaskConfig{PlainRoutingKey: new("plain")}
-			Expect(v2.ResolveTaskConfig(ctx, db, fail, "Pump", &cfg)).
+			Expect(v2.ResolveTaskConfig(fail, "Pump", &cfg)(ctx, db)).
 				To(MatchError("create failed"))
-			Expect(cfg.PlainRoutingKey).To(HaveValue(Equal("plain")))
 		})
 	})
 
@@ -180,8 +184,14 @@ var _ = Describe("Migrate", func() {
 		It("Should fail with the config key when a secret create fails",
 			func(ctx SpecContext) {
 				key := store(ctx, "Pump", "0123456789abcdef0123456789abcdef", false)
-				create = func(context.Context, gorp.Tx, string, []byte) (secret.Key, error) {
-					return uuid.Nil(), errors.New("create failed")
+				create = func(
+					context.Context,
+					gorp.Tx,
+					secret.Key,
+					string,
+					[]byte,
+				) error {
+					return errors.New("create failed")
 				}
 				Expect(open(ctx)).Error().To(MatchError(ContainSubstring(
 					fmt.Sprintf("config %s: create failed", key),

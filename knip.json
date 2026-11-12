@@ -14,7 +14,8 @@
     },
     "client/ts": {
       "entry": ["src/index.ts!", "src/testutil/index.ts"],
-      "project": ["src/**/*.ts!"]
+      "project": ["src/**/*.ts!"],
+      "ignoreIssues": { "src/**/where.gen.ts": ["exports"] }
     },
     "drift": {
       "entry": ["src/index.ts!", "src/react/index.ts!", "src/tauri/index.ts!"],
@@ -42,7 +43,7 @@
       "entry": ["src/flags.ts!"],
       "project": ["src/**/*.{ts,tsx}!"],
       "ignoreIssues": {
-        "src/app/nav/drawer/Bottom.tsx": ["exports"],
+        "src/app/nav/{bar,drawer}/{Bottom,Left,Top}.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
         "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
         "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
@@ -56,7 +57,7 @@
         "videos.ts!",
         "scripts/*.ts!",
         "films/*.ts!",
-        "src/cli/{batch,clean,film,gallery,produce,upload}.ts!",
+        "src/cli/{batch,clean,film,gallery,mail,produce,upload}.ts!",
         "src/remotion/entry.ts!"
       ],
       "project": ["{src,scripts,films}/**/*.{ts,tsx}!"],

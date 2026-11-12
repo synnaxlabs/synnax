@@ -15,7 +15,7 @@ import { useCreateStream } from "@/feature/sift/task/Stream";
 import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
 
 const CreateStreamCommand = Command.create({
   key: "sift_create_stream_task",

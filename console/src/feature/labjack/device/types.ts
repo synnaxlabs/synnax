@@ -16,7 +16,7 @@ import { Device } from "@/platform/device";
 export const MAKE = "LabJack";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
-export const INTEGRATION = "labjack";
+export const INTEGRATION_KEY = "labjack";
 export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";
@@ -51,9 +51,6 @@ export interface AIPort extends BasePort {
 }
 
 export const AIN_PORT_REGEX = /^AIN\d+$/;
-
-/** The negative channel of an analog input that reads against ground. */
-export const GROUND_CHANNEL = 199;
 
 /**
  * The negative channel that a T7 analog input reads against for a differential reading,

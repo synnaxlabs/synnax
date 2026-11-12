@@ -438,14 +438,17 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
-      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
+      // Series upload as static draws or sub data, and the stroke and bridge buffers as
+      // dynamic draws. A growing series first sizes its buffer with a static draw.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter(
-            (c) =>
-              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
-          )
-          .map((c) => Array.from(c.args[1] as Float32Array));
+          .flatMap((c) => {
+            if (c.op === "bufferSubData") return [c.args[2]];
+            const sized = typeof c.args[1] === "number";
+            const isStatic = c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW;
+            return c.op === "bufferData" && isStatic && !sized ? [c.args[1]] : [];
+          })
+          .map((data) => Array.from(data as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -493,7 +496,7 @@ describe("line", () => {
         ]);
       });
 
-      it("should follow a growing buffer and not reduce complete groups again", () => {
+      it("should upload only the groups that a growing buffer adds", () => {
         const createGrowing = () =>
           Series.alloc({
             capacity: N,
@@ -511,16 +514,31 @@ describe("line", () => {
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
         expect(m.strips()).toEqual([[0, N / 32]]);
-        // A complete group reduced again would draw the change.
+        const before = uploads(m).length;
+        // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
         write(x, indexes(N / 2, N / 2 + 10));
         const tail = indexes(N / 2, N / 2 + 9).map(wave);
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
-        const drawn = uploads(m).at(-1);
-        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
-        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        expect(m.strips().slice(-2)).toEqual([
+          [0, N / 32],
+          [0, 3],
+        ]);
+        const top = N / 2 + tail.indexOf(Math.max(...tail));
+        const [xs, ys] = uploads(m).slice(before);
+        // The tail starts at the last complete point.
+        expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
+        expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
+        write(x, indexes(N / 2 + 10, N / 2 + 32));
+        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        const grown = uploads(m).length;
+        m.line.render(showing(0, N - 1));
+        expect(
+          uploads(m)
+            .slice(grown)
+            .map((u) => u.length),
+        ).toEqual([2, 2]);
       });
 
       it("should release its reduced series when deleted", () => {
@@ -558,6 +576,62 @@ describe("line", () => {
         const [xs, ys] = uploads(m).slice(-2);
         expect(xs.slice(0, 2)).toEqual([15, 47]);
         expect(new Set(ys)).toEqual(new Set([0]));
+      });
+    });
+
+    describe("view", () => {
+      const N = 100_000;
+      const RANGE = { start: 0, end: 100 };
+      const ramp = () =>
+        series(
+          Array.from({ length: N }, (_, i) => i),
+          0n,
+          RANGE,
+        );
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      const mountSorted = (sorted: boolean) => {
+        const m = mount([ramp()], [ramp()]);
+        m.xSource.sorted = sorted;
+        return m;
+      };
+      // The sample each draw's x attribute starts at.
+      const firstSamples = (m: ReturnType<typeof mount>): number[] =>
+        m.calls
+          .filter((c) => c.op === "vertexAttribPointer" && c.args[1] === 1)
+          .filter((_, i) => i % 2 === 0)
+          .map((c) => Number(c.args[5]) / 4);
+
+      it("should draw only the samples in view of an ascending x", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, 1024]]);
+        expect(firstSamples(m)).toEqual([49_152]);
+      });
+
+      it("should draw more samples as the view widens", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(50_000, 50_700));
+        expect(m.strips().at(-1)).toEqual([0, 2048]);
+      });
+
+      it("should move the samples it draws as the view pans", () => {
+        const m = mountSorted(true);
+        m.line.render(showing(50_000, 50_100));
+        m.line.render(showing(60_000, 60_100));
+        expect(m.strips().at(-1)).toEqual([0, 1024]);
+        expect(firstSamples(m).at(-1)).toBe(59_392);
+      });
+
+      it("should draw every sample of an x not known to ascend", () => {
+        const m = mountSorted(false);
+        m.line.render(showing(50_000, 50_100));
+        expect(m.strips()).toEqual([[0, N]]);
       });
     });
 
@@ -610,6 +684,104 @@ describe("line", () => {
         });
         const m = mount([X1], [y]);
         expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
+      });
+    });
+
+    describe("findDrawnByXValue", () => {
+      const X = series(
+        Array.from({ length: 30 }, (_, i) => i),
+        0n,
+        { start: 0, end: 100 },
+      );
+      const Y = series(
+        Array.from({ length: 30 }, (_, i) => i * 10),
+        0n,
+        { start: 0, end: 100 },
+      );
+
+      // Renders the line across props, then finds the drawn point nearest target.
+      const find = (m: ReturnType<typeof mount>, target: number, props = PROPS) => {
+        m.line.render(props);
+        return m.line.findDrawnByXValue(props, target).value;
+      };
+
+      // 4000 samples in [0, 4), then 10 in [100, 1000] that reduce as one group.
+      const mountBursty = () => {
+        const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
+        const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
+        const x = series([...dense, ...sparse], 0n, { start: 0, end: 100 });
+        const y = series([...dense.map(() => 0), 0, 5, 10, 5, 3, 2, 1, -10, 0, 1], 0n, {
+          start: 0,
+          end: 100,
+        });
+        return mount([x], [y]);
+      };
+      const BURSTY_PROPS: LineProps = {
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(0, 1000).scale(0, 1),
+        ),
+      };
+
+      it("should return no point before the line draws", () => {
+        expect(mount([X], [Y]).line.findDrawnByXValue(PROPS, 3).value.x).toBeNaN();
+      });
+
+      it("should return the sample nearest the target", () => {
+        const m = mount([X], [Y]);
+        expect(find(m, 3)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.4)).toEqual({ x: 3, y: 30 });
+        expect(find(m, 3.6)).toEqual({ x: 4, y: 40 });
+      });
+
+      it("should return the nearest sample across domains and past either end", () => {
+        const m = mount([X1, X2], [Y1, Y2]);
+        expect(find(m, 3)).toEqual({ x: 2, y: 30 });
+        expect(find(m, 4)).toEqual({ x: 5, y: 40 });
+        expect(find(m, -1)).toEqual({ x: 0, y: 10 });
+        expect(find(m, 10)).toEqual({ x: 6, y: 50 });
+      });
+
+      it("should skip an x sample that is NaN", () => {
+        const x = series([0, 1, NaN], 0n, { start: 0, end: 100 });
+        expect(find(mount([x, X2], [Y1, Y2]), 1.9)).toEqual({ x: 1, y: 20 });
+      });
+
+      it("should return the drawn point nearest a sample that reduction drops", () => {
+        expect(find(mountBursty(), 500, BURSTY_PROPS)).toEqual({ x: 300, y: 10 });
+      });
+
+      it("should return the y bounds of every point the line drew", () => {
+        const m = mountBursty();
+        m.line.render(BURSTY_PROPS);
+        const { bounds } = m.line.findDrawnByXValue(BURSTY_PROPS, 2);
+        expect(bounds).toEqual({ lower: -10, upper: 10 });
+      });
+
+      it("should leave samples the line cut out of view out of the y bounds", () => {
+        // A spike of 1000 at sample 4500 lies past the samples that [0, 100] draws.
+        const length = 5000;
+        const x = series(
+          Array.from({ length }, (_, i) => i),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const y = series(
+          Array.from({ length }, (_, i) => (i === 4500 ? 1000 : i % 2)),
+          0n,
+          { start: 0, end: 100 },
+        );
+        const m = mount([x], [y]);
+        m.xSource.sorted = true;
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(0, 100).scale(0, 1),
+          ),
+        };
+        m.line.render(props);
+        const { bounds } = m.line.findDrawnByXValue(props, 50);
+        expect(bounds).toEqual({ lower: 0, upper: 1 });
       });
     });
   });

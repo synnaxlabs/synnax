@@ -12,52 +12,23 @@ import "@/platform/version/Info.css";
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Logo } from "@synnaxlabs/lyra/logo";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Size, sleep, TimeSpan } from "@synnaxlabs/x";
+import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import { type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
-import { isDevBuild } from "@/platform/version/build";
-import { useInstallMiddleware } from "@/platform/version/Install";
+import { type Available } from "@/platform/version/check";
+import { useCheck, useInstall } from "@/platform/version/Updater";
 import { Session } from "@/session";
-
-type UpdateCheck =
-  | { variant: "loading" }
-  | { variant: "error"; status: status.Status }
-  | { variant: "success"; update: Update | null };
-
-const checkForUpdate = async (): Promise<Update | null> => {
-  if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
-  await sleep.sleep(TimeSpan.milliseconds(500));
-  return await check();
-};
-
-const useUpdateCheck = (): UpdateCheck => {
-  const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
-  useAsyncEffect(async (signal) => {
-    let next: UpdateCheck;
-    try {
-      next = { variant: "success", update: await checkForUpdate() };
-    } catch (error) {
-      next = {
-        variant: "error",
-        status: status.fromException(error, "Failed to check for updates"),
-      };
-    }
-    if (!signal.aborted) setResult(next);
-  }, []);
-  return result;
-};
 
 interface Download {
   variant: "idle" | "loading" | "error";
@@ -80,12 +51,12 @@ interface UseDownloadReturn {
 const useDownload = (): UseDownloadReturn => {
   const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
   const addStatus = Status.useAdder();
-  const installMiddleware = useInstallMiddleware();
+  const install = useInstall();
   const start = (update: Update): void =>
     void (async () => {
       setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
       try {
-        await update.download((prog) => {
+        await install(update, (prog) => {
           switch (prog.event) {
             case "Started":
               setDownload((p) => ({
@@ -104,7 +75,6 @@ const useDownload = (): UseDownloadReturn => {
               break;
           }
         });
-        await installMiddleware(async () => await update.install());
         if (Session.Runtime.ENGINE === "tauri") await relaunch();
       } catch (error) {
         const st = status.fromException(error, "Failed to update Console");
@@ -117,8 +87,37 @@ const useDownload = (): UseDownloadReturn => {
 
 const Info = () => {
   const version = Session.Version.use();
-  const available = useUpdateCheck();
+  const check = useCheck();
   const { download, start } = useDownload();
+  const confirm = Modals.useConfirm();
+  const confirmed = async (found: Available): Promise<boolean> => {
+    switch (found.variant) {
+      case "upgrade":
+        return true;
+      case "downgrade":
+        return (
+          (await confirm({
+            message: `Downgrade Console ${found.update.currentVersion} to ${found.update.version}`,
+            description: "Downgrade only to match a Core that runs an older version.",
+            confirm: { label: "Downgrade", variant: "warning" },
+            title: "Downgrade Console",
+          })) === true
+        );
+      case "breaking":
+        return (
+          (await confirm({
+            message: `Console ${found.update.version} cannot work with Core ${found.coreVersion}`,
+            description:
+              "The Console cannot open the workspace of this Core until you update the Core to the same minor version.",
+            confirm: { label: "Update", variant: "warning" },
+            title: "Update Console",
+          })) === true
+        );
+    }
+  };
+  const startAfterConfirm = async (found: Available): Promise<void> => {
+    if (await confirmed(found)) start(found.update);
+  };
   const total = download.total.valueOf();
   const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
 
@@ -127,9 +126,7 @@ const Info = () => {
       Checking for updates
     </Status.Summary>
   );
-  if (available.variant === "error")
-    updateContent = <Status.Summary level="h4" status={available.status} />;
-  else if (download.variant === "error" && download.status != null)
+  if (download.variant === "error" && download.status != null)
     updateContent = <Status.Summary level="h4" status={download.status} />;
   else if (download.variant === "loading")
     if (progressPercent === 100)
@@ -158,15 +155,17 @@ const Info = () => {
           </Flex.Box>
         </Flex.Box>
       );
-  else if (available.variant === "success")
-    if (available.update != null) {
-      const { update } = available;
+  else if (check.variant === "error" || check.variant === "blocked")
+    updateContent = <Status.Summary level="h4" status={check.status} />;
+  else if (check.variant === "success")
+    if (check.available != null) {
+      const found = check.available;
       updateContent = (
         <>
           <Status.Summary level="h4" variant="success">
-            Version {update.version} available
+            Version {found.update.version} available
           </Status.Summary>
-          <Button.Button variant="filled" onClick={() => start(update)}>
+          <Button.Button variant="filled" onClick={() => void startAfterConfirm(found)}>
             Update and restart
           </Button.Button>
         </>

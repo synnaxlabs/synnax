@@ -9,7 +9,7 @@
 
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {
@@ -37,5 +37,39 @@ describe("createTestClient", () => {
     await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
     expect(failures).toBe(1);
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("holdRequests", () => {
+  it("should send a held request only once released", async () => {
+    const client = createTestClient();
+    await client.connect();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    onTestFinished(() => fetchSpy.mockRestore());
+    const { release } = holdRequests(client, "/channel/retrieve");
+    const retrieving = client.channels.retrieve(["no-such-channel"]);
+    const reachedCore = () =>
+      fetchSpy.mock.calls.some(
+        ([input]) => typeof input === "string" && input.includes("channel/retrieve"),
+      );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reachedCore()).toBe(false);
+    release();
+    await expect(retrieving).resolves.toEqual([]);
+    expect(reachedCore()).toBe(true);
+  });
+});
+
+describe("rejectRequests", () => {
+  it("should reject only the requests that match", async () => {
+    const client = createTestClient();
+    const spy = rejectRequests(
+      client,
+      (target) => target === "/range/retrieve",
+      new Error("boom"),
+    );
+    onTestFinished(() => spy.mockRestore());
+    await expect(client.ranges.retrieve({ searchTerm: "rng" })).rejects.toThrow("boom");
+    await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
   });
 });

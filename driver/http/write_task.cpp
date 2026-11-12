@@ -164,6 +164,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             continue;
         }
         const auto &ch = it->second;
+        cfg.cmd_names[ch.key] = ch.name;
 
         // Timestamp channels encode by time_format, not json_type.
         if (ch.data_type == x::telem::TIMESTAMP_T) continue;
@@ -208,7 +209,7 @@ WriteTaskSink::WriteTaskSink(
                 !fmt_err)
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
-            state.enum_values.emplace(x::json::json(entry.value), entry.label);
+            state.enum_values.emplace_back(entry.value, entry.label);
         for (const auto &field: ep.fields)
             if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
                     &field
@@ -271,6 +272,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     };
 
     std::vector<PendingRequest> pending;
+    std::vector<std::string> skipped;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
@@ -289,12 +291,17 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 ep.json_type,
                 enum_ptr
             );
-            if (conv_err)
-                return {
-                    conv_err.type,
-                    "failed to convert value for endpoint " +
-                        this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
-                };
+            if (conv_err) {
+                const auto reason = conv_err.data.empty()
+                                      ? "the value has no JSON form for the field"
+                                      : conv_err.data;
+                skipped.push_back(
+                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
+                    ". Did not send " + to_string(ep.method) + " " +
+                    base_requests[ep_idx].url + ". Write a finite number."
+                );
+                continue;
+            }
             json_val = std::move(val);
         }
 
@@ -307,8 +314,6 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             .series = series.shallow_copy(),
         });
     }
-
-    if (pending.empty()) return x::errors::NIL;
 
     std::vector<std::string> error_msgs;
     std::string first_error_type;
@@ -373,6 +378,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             ": timed out"
         );
     }
+
+    if (!skipped.empty())
+        this->warn({
+            .message = "Skipped invalid command",
+            .description = x::strings::join(skipped, " "),
+        });
 
     if (error_msgs.empty()) return x::errors::NIL;
     return {first_error_type, x::strings::join(error_msgs, "; ")};
