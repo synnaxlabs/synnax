@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { type label, NotFoundError, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Explorer } from "@/feature/range/next/Explorer";
 import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
+  openContextMenu,
   renderSuspended,
   uniqueName,
   uniqueToken,
@@ -47,6 +49,18 @@ const createRange = async (
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
     ...extra,
   });
+};
+
+/**
+ * Creates a range with no start. It sorts above every other range, so the spec deletes
+ * it once it finishes.
+ */
+const createPlanned = async (name: string): Promise<ranger.Range> => {
+  const rng = await createRange(name, {
+    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+  });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
 };
 
 /** Creates a label, one range with it, and one range without it. */
@@ -285,17 +299,95 @@ describe("range/next/Explorer", () => {
     });
   });
 
+  describe("context menu", () => {
+    /** Opens the menu of the named range once the explorer shows it. */
+    const openMenu = async (name: string): Promise<void> => {
+      await findItem(name);
+      await openContextMenu(name);
+    };
+
+    it("should start a planned range now with no end", async () => {
+      const planned = await createPlanned(uniqueRangeName("planned"));
+      await renderExplorer();
+      await openMenu(planned.name);
+      fireEvent.click(await screen.findByText("Start"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(planned.key);
+        expect(timeRange.start.before(TimeStamp.now())).toBe(true);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(true);
+      });
+    });
+
+    it("should stop a running range", async () => {
+      const running = await createRange(uniqueRangeName("running"), {
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await openMenu(running.name);
+      fireEvent.click(await screen.findByText("Stop"));
+      await waitFor(async () => {
+        const { timeRange } = await client.ranges.retrieve(running.key);
+        expect(timeRange.end.equals(TimeStamp.MAX)).toBe(false);
+      });
+    });
+
+    it("should offer Unpin once a range is pinned", async () => {
+      const rng = await createRange(uniqueRangeName("pinned"));
+      await renderExplorer();
+      await openMenu(rng.name);
+      expect(screen.queryByText("Unpin")).toBeNull();
+      fireEvent.click(await screen.findByText("Pin"));
+      await openMenu(rng.name);
+      fireEvent.click(await screen.findByText("Unpin"));
+      await openMenu(rng.name);
+      await screen.findByText("Pin");
+      expect(screen.queryByText("Unpin")).toBeNull();
+    });
+
+    it("should open the create modal under the range on Start child range", async () => {
+      const parent = await createRange(uniqueRangeName("parent"));
+      await renderExplorer();
+      await openMenu(parent.name);
+      fireEvent.click(await screen.findByText("Start child range"));
+      await screen.findByLabelText("Range name");
+      // The parent select of the modal names the range.
+      await waitFor(() => expect(screen.getAllByText(parent.name)).toHaveLength(2));
+    });
+
+    it("should delete a range after the confirm", async () => {
+      const rng = await createRange(uniqueRangeName("deleted"));
+      await renderExplorer();
+      await openMenu(rng.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(() => expect(screen.queryByText(rng.name)).toBeNull());
+      await expect(client.ranges.retrieve(rng.key)).rejects.toThrow(NotFoundError);
+    });
+  });
+
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
-      await createRange(uniqueRangeName("planned"), {
-        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
-      });
+      await createPlanned(uniqueRangeName("planned"));
       const running = await createRange(uniqueRangeName("running"));
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
       await findItem(running.name);
       // A window that reached the unset start would mark years on its axis.
       expect(screen.queryAllByText(/^\d{4}$/)).toEqual([]);
+    });
+
+    it("should offer Fit all once a zoom or Now moves the window", async () => {
+      const rng = await createRange(uniqueRangeName("running"));
+      await renderExplorer();
+      fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
+      await findItem(rng.name);
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(screen.getByRole("button", { name: "Fit all" }));
+      expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Now" }));
+      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
     });
   });
 

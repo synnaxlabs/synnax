@@ -19,9 +19,10 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Overview } from "@/feature/range/next/overview/Overview";
 import { Modals } from "@/platform/modals";
@@ -126,6 +127,53 @@ const createChildAt = async (
   });
 
 describe("range/next/overview", () => {
+  describe("header", () => {
+    it("should show the ranges above as crumbs and open one on click", async () => {
+      const top = await createTestRange(client);
+      const parent = await createChild(top);
+      const rng = await createChild(parent);
+      const { store } = await renderOverview(rng.key);
+      await screen.findByRole("button", { name: parent.name });
+      const crumbs = screen
+        .getAllByRole("button")
+        .filter((el) => [top.name, parent.name].includes(el.textContent ?? ""));
+      expect(crumbs.map((el) => el.textContent)).toEqual([top.name, parent.name]);
+      fireEvent.click(screen.getByRole("button", { name: parent.name }));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) => t.variant === "resource" && t.resource.key === parent.key,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(ranger.resourceID(parent.key));
+    });
+
+    it("should copy Python and TypeScript code that retrieves the range", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Copy Python code" }));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `rng = client.ranges.retrieve(key="${rng.key}")`,
+        ),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Copy TypeScript code" }));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `const rng = await client.ranges.retrieve("${rng.key}");`,
+        ),
+      );
+    });
+
+    it("should open the CSV download for the range", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Download as CSV" }));
+      await screen.findByText(`Download data for ${rng.name} as CSV`);
+    });
+  });
+
   describe("child ranges", () => {
     it("should show the children of a range that has not started on a timeline", async () => {
       const now = TimeStamp.now();
@@ -133,6 +181,8 @@ describe("range/next/overview", () => {
         name: uniqueRangeName("planned"),
         timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
       });
+      // A range that has not started sorts above every other in the explorer.
+      onTestFinished(async () => await client.ranges.delete(parent.key));
       const child = await createChildAt(parent, now);
       await renderOverview(parent.key, createTestClient());
       await screen.findByRole("listitem", { name: child.name });

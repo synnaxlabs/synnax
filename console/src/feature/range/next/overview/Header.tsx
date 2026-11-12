@@ -159,6 +159,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
             <Button.Copy
               text={() => `rng = client.ranges.retrieve(key="${rangeKey}")`}
               tooltip="Copy Python code"
+              aria-label="Copy Python code"
               tooltipLocation="bottom"
               variant="text"
               textColor={9}
@@ -168,6 +169,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
             <Button.Copy
               text={() => `const rng = await client.ranges.retrieve("${rangeKey}");`}
               tooltip="Copy TypeScript code"
+              aria-label="Copy TypeScript code"
               tooltipLocation="bottom"
               variant="text"
               textColor={9}
@@ -176,6 +178,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
             </Button.Copy>
             <Button.Button
               tooltip="Download as CSV"
+              aria-label="Download as CSV"
               tooltipLocation="bottom"
               variant="text"
               textColor={9}

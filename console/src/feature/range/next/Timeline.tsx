@@ -456,6 +456,7 @@ const Frame = ({
                 size="small"
                 textColor={9}
                 tooltip="Zoom out"
+                aria-label="Zoom out"
                 tooltipLocation="bottom"
                 onClick={() => zoomBy(ZOOM_STEP)}
               >
@@ -466,6 +467,7 @@ const Frame = ({
                 size="small"
                 textColor={9}
                 tooltip="Zoom in"
+                aria-label="Zoom in"
                 tooltipLocation="bottom"
                 onClick={() => zoomBy(1 / ZOOM_STEP)}
               >
