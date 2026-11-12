@@ -19,7 +19,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, type ReactNode } from "react";
 
 import { ContextMenu } from "@/feature/range/tree/ContextMenu";
-import { FlatItem, HighlightContext, Item } from "@/feature/range/tree/Item";
+import {
+  CaretlessContext,
+  FlatItem,
+  HighlightContext,
+  Item,
+} from "@/feature/range/tree/Item";
 import { Timeline } from "@/feature/range/tree/Timeline";
 import { type Node, NodeProvider } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
@@ -94,6 +99,8 @@ export interface LayoutProps {
   highlight?: string;
   /** Shows after the last range. */
   footer?: ReactNode;
+  /** Drops the caret and its space from every range, for ranges with no children. */
+  caretless?: boolean;
 }
 
 /**
@@ -111,6 +118,7 @@ export const Layout = ({
   emptyContent,
   highlight,
   footer,
+  caretless = false,
 }: LayoutProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const content =
@@ -139,9 +147,11 @@ export const Layout = ({
   return (
     <NodeProvider nodes={nodes} expanded={expanded} onExpand={onExpand} more={more}>
       <HighlightContext value={highlight}>
-        <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-          {content}
-        </Menu.ContextMenu>
+        <CaretlessContext value={caretless}>
+          <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+            {content}
+          </Menu.ContextMenu>
+        </CaretlessContext>
       </HighlightContext>
     </NodeProvider>
   );

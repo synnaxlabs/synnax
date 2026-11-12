@@ -41,7 +41,12 @@ const [HighlightContext, useHighlight] = context.create<string | undefined>({
   displayName: "Tree.HighlightContext",
 });
 
-export { HighlightContext };
+const [CaretlessContext, useCaretless] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Tree.CaretlessContext",
+});
+
+export { CaretlessContext, HighlightContext };
 
 /** Starts a planned range now, with no end until it stops. */
 export const useStart = (): ((range: ranger.Range) => void) => {
@@ -206,13 +211,14 @@ export const Lead = ({
 }: LeadProps): ReactElement => {
   const { update: rename } = Ranger.useRename();
   const highlight = useHighlight();
+  const caretless = useCaretless();
   return (
     <>
       <span
         className={CSS.BE("range-item", "indent")}
         style={{ "--console-range-depth": depth } as CSSProperties}
       />
-      {onExpand != null && (
+      {onExpand != null && !caretless && (
         <Caret range={range} expanded={expanded} onExpand={onExpand} />
       )}
       <Swatch range={range} preview={preview} />

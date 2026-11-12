@@ -49,6 +49,8 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
     query: Tree.childrenQuery(range.key, childOrder(layout)),
     pageSize: 100,
   });
+  // The list renders again on each change to a child, so this read stays current.
+  const caretless = list.getItem(list.data).every((child) => !child.hasChildren);
   const [expanded, toggle] = Tree.useExpanded();
   const [selected, setSelected] = useState<ranger.Key[]>([]);
   const tree = Tree.use({ roots: list.data, expanded });
@@ -88,6 +90,7 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
           onExpand={toggle}
           more={tree.more}
           bounds={range.timeRange}
+          caretless={caretless}
         />
       </Select.Frame>
     </Section>

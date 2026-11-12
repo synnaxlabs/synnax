@@ -220,6 +220,33 @@ describe("range/overview", () => {
     });
   });
 
+  describe("children", () => {
+    const caret = (child: ranger.Range): Element | null =>
+      screen
+        .getByRole("listitem", { name: child.name })
+        .querySelector(".console-range-item__caret");
+
+    it("should drop the caret space when no child range has children", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      const child = await createChild(rng);
+      await screen.findByRole("listitem", { name: child.name });
+      expect(caret(child)).toBeNull();
+    });
+
+    it("should bring the caret space back once a child range gets a child", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      const parent = await createChild(rng);
+      const leaf = await createChild(rng);
+      await screen.findByRole("listitem", { name: leaf.name });
+      expect(caret(leaf)).toBeNull();
+      await createChild(parent);
+      await waitFor(() => expect(caret(leaf)).not.toBeNull());
+      expect(caret(parent)).not.toBeNull();
+    });
+  });
+
   describe("tab", () => {
     it("should show the tombstone in place of the overview once the range is deleted", async () => {
       const rng = await createTestRange(client);
