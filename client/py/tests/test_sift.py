@@ -85,6 +85,49 @@ class TestSiftUpload:
                 time_range=sy.TimeRange(start, start + sy.TimeSpan.SECOND),
             )
 
+    def test_range(
+        self,
+        client: sy.Synnax,
+        sift_device: sy.Device,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+    ) -> None:
+        """Should upload a range, and name the status after it."""
+        _, data = indexed_pair
+        end = sy.TimeStamp.now() - sy.TimeSpan.SECOND
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeRange(end - sy.TimeSpan.SECOND, end),
+        )
+        key = sy.sift.upload(
+            client.tasks,
+            sift_device,
+            asset="Stand 1",
+            channels=[data.key],
+            range_key=rng.key,
+        )
+        stat = client.statuses.retrieve(key=key)
+        assert stat.name == rng.name
+        assert sy.sift.UploadDetails.model_validate(stat.details).range == rng.key
+        client.statuses.delete(key)
+
+    def test_device_without_scan_task(self, client: sy.Synnax) -> None:
+        """Should raise when the rack of the device runs no Sift scan task."""
+        rack = client.racks.create(name=random_name())
+        api_key = client.secrets.set(name="Sift API key", value="key").key
+        dev = client.devices.create(
+            sy.sift.Device(
+                uri="localhost:1", api_key=api_key, rack=rack.key, name=random_name()
+            )
+        )
+        with pytest.raises(sy.NotFoundError):
+            sy.sift.upload(
+                client.tasks,
+                dev,
+                asset="Stand 1",
+                channels=[1],
+                time_range=sy.TimeRange(sy.TimeStamp(0), sy.TimeStamp(1)),
+            )
+
     def test_returns_status_key(
         self,
         client: sy.Synnax,
