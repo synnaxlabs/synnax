@@ -201,6 +201,21 @@ var _ = Describe("Server Diagnostics", func() {
 		)
 
 		It(
+			"Should include error code for an extra function argument",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func add() {x i64} i64 { return x }\nfunc test() { z := add(1, 2) }",
+				)
+
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3003"))
+			},
+		)
+
+		It(
 			"Should include error code for function argument type mismatch",
 			func(ctx SpecContext) {
 				OpenArcDocument(
