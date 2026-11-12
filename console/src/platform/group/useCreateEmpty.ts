@@ -7,48 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
+import { placement } from "@/platform/group/placement";
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {
-  parent: ontology.ID;
-  root: ontology.ID;
+  /** The node to create the group under. */
+  parent: resource.ID;
+  root: resource.ID;
   state: Tree.TreeState;
 }
 
+const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
+  if (data.key == null) throw new Error("a group drafted in a tree needs a key");
+  const [name, renamed] = await Text.asyncEdit(
+    List.itemNameID(resource.idToString(group.resourceID(data.key))),
+  );
+  if (!renamed || name === "") return false;
+  return { ...data, name };
+};
+
+/**
+ * Returns a function that shows a draft group under the parent and creates the group
+ * once the user names it.
+ */
 export const useCreateEmpty = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setResource, expand },
+  state: { addDraft, expand },
 }: UseCreateEmptyProps): (() => void) => {
-  const { update } = Group.useCreate({
-    beforeUpdate: async ({
-      data,
-      rollbacks,
-    }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-      const newID = group.ontologyID(uuid.create());
-      const newIDString = ontology.idToString(newID);
-      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-      const node: PTree.Node<string> = { key: newIDString, children: [] };
-      setResource(res);
-      const destination = ontology.idsEqual(data.parent, root)
-        ? null
-        : ontology.idToString(data.parent);
-      if (destination != null) expand(destination);
-      setNodes([...PTree.setNode({ tree, destination, additions: node })]);
-      rollbacks.push(() =>
-        setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
-      );
-      const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
-      if (!renamed || name === "") return false;
-      return { ...data, key: newID.key, name };
-    },
-  });
-  return () => update({ key: uuid.create(), name: "", parent });
+  const { updateAsync } = Group.useCreate({ beforeUpdate });
+  return () => {
+    const id = group.resourceID(uuid.create());
+    const key = resource.idToString(id);
+    const parentKey = resource.idToString(parent);
+    if (!resource.idsEqual(parent, root)) expand(parentKey);
+    const done = addDraft({ resource: { key, id, name: "" }, parent: parentKey });
+    void (async () => {
+      await updateAsync({ key: id.key, name: "", ...placement(parent, root) });
+      done();
+    })();
+  };
 };

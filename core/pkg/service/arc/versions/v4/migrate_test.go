@@ -15,11 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -30,6 +30,25 @@ const (
 )
 
 var _ = Describe("MigrateArc", func() {
+	It("Should lex a stored Arc with the dashed names of its Core", func(
+		ctx SpecContext,
+	) {
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(
+				"func my-fn{n i32}() {\n    if n > 0 {\n" +
+					"        for i := range(n, i64(100)) {}\n    }\n}",
+			)},
+		}
+		cfg := parser.Config{AllowDashedNames: true}
+		got := textOf(migrateFromV3(ctx, seed, cfg).Base()).Materialize().Raw
+		Expect(got).To(Equal(
+			"func my-fn(n i32){} {\n    if n > 0 {\n" +
+				"        for i := range(i64(n), i64(100)) {}\n    }\n}",
+		))
+	})
+
 	It("Should rewrite the text of a stored Arc into a fresh document", func(
 		ctx SpecContext,
 	) {
@@ -58,6 +77,51 @@ var _ = Describe("MigrateArc", func() {
 		src := textOf(got)
 		Expect(src.Materialize().Raw).To(Equal(newText))
 		Expect(src.Raw).To(BeEmpty())
+	})
+
+	It("Should cast the mixed range() arguments of a stored 0.60 program", func(
+		ctx SpecContext,
+	) {
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Name: "ranges",
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(
+				"func f{n i32} () {\n    for i := range(n, i64(100)) {}\n}",
+			)},
+		}
+		got := textOf(migrateFromV3(ctx, seed).Base()).Materialize().Raw
+		Expect(got).To(Equal(
+			"func f(n i32) {} {\n    for i := range(i64(n), i64(100)) {}\n}",
+		))
+		diag := analyze(ctx, got)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+	})
+
+	It("Should keep a stored program that does not parse", func(ctx SpecContext) {
+		const broken = "func f() {\n    for i := range(n, i64(100)) {}\n"
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(broken)},
+		}
+		got := textOf(migrateFromV3(ctx, seed).Base()).Materialize().Raw
+		Expect(got).To(Equal(v4.SwapBrackets(broken)))
+	})
+
+	It("Should cast the mixed range() arguments of an imported program", func(
+		ctx SpecContext,
+	) {
+		got := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
+			Name: "imported",
+			Mode: v3.ModeText,
+			Text: text.Text{
+				Raw: "func f{n i32} () {\n    for i := range(n, i64(1)) {}\n}",
+			},
+		})).Base()
+		Expect(textOf(got).Materialize().Raw).To(Equal(
+			"func f(n i32) {} {\n    for i := range(i64(n), i64(1)) {}\n}",
+		))
 	})
 
 	It("Should lift a v3 Arc as an automation", func(ctx SpecContext) {
@@ -122,9 +186,9 @@ func textOf(b v4.Base) text.Text {
 	return src.Text
 }
 
-// migrateFromV3 runs the v4 migration over a gorp-seeded v3 Arc and returns the
-// migrated current Arc.
-func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
+// migrateFromV3 runs the v4 migration with cfgs over a gorp-seeded v3 Arc and returns
+// the migrated current Arc.
+func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Arc]{DB: db}))
@@ -132,7 +196,7 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: []gorp.Migration{v4.Migration},
+		Migrations: []gorp.Migration{v4.NewMigration(parser.ConfigOf(cfgs...))},
 	})).To(Succeed())
 	var got v4.Arc
 	Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
@@ -142,24 +206,12 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 }
 
 var _ = Describe("NewRootMigration", func() {
-	It("Should parent every Arc without a directory under the root", func(
-		ctx SpecContext,
-	) {
+	It("Should put every Arc in no directory into the root", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		owner := otg.Own(ontology.Ownership{
-			Children: []ontology.ResourceType{
-				ontology.ResourceTypeArc,
-				ontology.ResourceTypeArcDirectory,
-			},
-			Parents: []ontology.ResourceType{ontology.ResourceTypeArcDirectory},
-		})
-		root := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "root"}
-		sub := ontology.ID{Type: ontology.ResourceTypeArcDirectory, Key: "sub"}
+		root, sub := uuid.New(), uuid.New()
 		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
 			DB: db,
 		}))
-		tx := db.OpenTx()
 		orphan := v4.Arc{Variant: v4.AutomationArc{
 			Base: v4.Base{
 				Key:    uuid.New(),
@@ -169,55 +221,30 @@ var _ = Describe("NewRootMigration", func() {
 		}}
 		placed := v4.Arc{Variant: v4.ModuleArc{
 			Base: v4.Base{
-				Key:    uuid.New(),
-				Name:   "placed",
-				Source: v4.Source{Variant: v4.TextSource{}},
+				Key:       uuid.New(),
+				Name:      "placed",
+				Source:    v4.Source{Variant: v4.TextSource{}},
+				Directory: &sub,
 			},
 		}}
-		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, tx)).To(Succeed())
-		Expect(table.NewCreate().Entry(&placed).Exec(ctx, tx)).To(Succeed())
-		w := owner.NewWriter(tx)
-		Expect(w.DefineResources(
-			ctx, root, sub, orphan.OntologyID(), placed.OntologyID(),
-		)).To(Succeed())
-		Expect(w.DefineRelationships(
-			ctx, root, ontology.RelationshipTypeParentOf, sub,
-		)).To(Succeed())
-		Expect(w.DefineRelationships(
-			ctx, sub, ontology.RelationshipTypeParentOf, placed.OntologyID(),
-		)).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
-		Expect(tx.Close()).To(Succeed())
+		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, db)).To(Succeed())
+		Expect(table.NewCreate().Entry(&placed).Exec(ctx, db)).To(Succeed())
 		Expect(table.Close()).To(Succeed())
-
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Arc",
-			Migrations: []gorp.Migration{
-				v4.NewRootMigration(v4.MigrationConfig{
-					Ontology: otg,
-					Owner:    owner,
-					Root:     root,
-				}),
-			},
+			DB:         db,
+			Namespace:  "Arc",
+			Migrations: []gorp.Migration{v4.NewRootMigration(root)},
 		})).To(Succeed())
-
-		parentsOf := func(id ontology.ID) []ontology.ID {
+		directoryOf := func(key v4.Key) *uuid.UUID {
 			GinkgoHelper()
-			var parents []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(id).
-				TraverseTo(ontology.ParentsTraverser).
-				ExcludeFieldData(true).
-				Entries(&parents).
-				Exec(ctx, nil)).To(Succeed())
-			ids := make([]ontology.ID, 0, len(parents))
-			for _, p := range parents {
-				ids = append(ids, p.ID)
-			}
-			return ids
+			var a v4.Arc
+			Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
+				Where(gorp.MatchKeys[v4.Key, v4.Arc](key)).
+				Entry(&a).
+				Exec(ctx, db)).To(Succeed())
+			return a.Base().Directory
 		}
-		Expect(parentsOf(orphan.OntologyID())).To(ConsistOf(root))
-		Expect(parentsOf(placed.OntologyID())).To(ConsistOf(sub))
+		Expect(directoryOf(orphan.Base().Key)).To(HaveValue(Equal(root)))
+		Expect(directoryOf(placed.Base().Key)).To(HaveValue(Equal(sub)))
 	})
 })

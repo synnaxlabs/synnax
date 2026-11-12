@@ -18,48 +18,30 @@ namespace synnax::device {
 Client::Client(
     std::unique_ptr<CreateClient> device_create_client,
     std::unique_ptr<RetrieveClient> device_retrieve_client,
-    std::unique_ptr<DeleteClient> device_delete_client
+    std::unique_ptr<DeleteClient> device_delete_client,
+    std::unique_ptr<DispatchClient> device_dispatch_client
 ):
     device_create_client(std::move(device_create_client)),
     device_retrieve_client(std::move(device_retrieve_client)),
-    device_delete_client(std::move(device_delete_client)) {}
-
-std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) const {
-    return this->retrieve(key, RetrieveOptions{});
-}
+    device_delete_client(std::move(device_delete_client)),
+    device_dispatch_client(std::move(device_dispatch_client)) {}
 
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-            .include_parent = options.include_parent,
-        },
-        "key " + key
-    );
-}
-
-std::pair<std::vector<Device>, x::errors::Error>
-Client::retrieve(const std::vector<std::string> &keys) const {
-    if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
-    return this->retrieve(keys, RetrieveOptions{});
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve({
-        .where = Where{.key = x::filter::Set<Key>{.in = keys}},
-        .include_status = options.include_status,
-        .include_parent = options.include_parent,
-    });
+    if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
+    return this->retrieve(Where{.key = keys}, options);
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
-Client::retrieve(const RetrieveRequest &req) const {
-    auto [pb_req, pb_err] = req.to_proto();
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Device>(), pb_err};
     grpc::device::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
@@ -70,11 +52,18 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.devices), x::errors::NIL};
 }
 
-std::pair<Device, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [devices, err] = this->retrieve(req);
+std::pair<Device, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    if (options.limit.has_value() || options.after.has_value())
+        return {Device{}, errors::paged_one_error()};
+    auto [devices, err] = this->retrieve(where, options);
     if (err) return {Device{}, err};
-    if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
+    if (const auto
+            one_err = errors::check_one("device", where.to_json(), devices.size()))
+        return {Device{}, one_err};
     return {std::move(devices[0]), x::errors::NIL};
 }
 
@@ -100,6 +89,15 @@ x::errors::Error Client::create(const std::vector<Device> &devs) const {
     }
     auto [res, err] = device_create_client->send("/device/create", req);
     return err;
+}
+
+x::errors::Error
+Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
+    grpc::device::DispatchRequest req;
+    req.set_key(key);
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->device_dispatch_client->send("/device/dispatch", req).second;
 }
 
 x::errors::Error Client::del(const std::string &key) const {

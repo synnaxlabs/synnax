@@ -9,6 +9,7 @@
 
 import { user } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
@@ -38,11 +39,13 @@ describe("Credential queries", () => {
   };
 
   it("should create a key, list it, and delete it", async () => {
+    const { key: role } = await createEmptyRole(client);
     const u = await client.users.create({
       username: `credential-${id.create()}`,
       password: "p",
+      role,
     });
-    const subject = user.ontologyID(u.key);
+    const subject = user.resourceID(u.key);
     const create = renderHook(() => Credential.useCreateKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });

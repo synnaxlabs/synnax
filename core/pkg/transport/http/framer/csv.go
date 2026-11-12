@@ -23,37 +23,36 @@ import (
 // csvFlushSize is the number of bytes the encoder accumulates before writing them out.
 const csvFlushSize = 64 << 10
 
-// CSVEncoder encodes a read as CSV. Channels are grouped by the index channel that
-// timestamps them. Each group contributes its index column, then one column per data
-// channel, headed by the channel's name. Rows are ordered by timestamp, and a group's
-// cells are empty at a timestamp it has no sample for. A data channel's cell holds its
-// sample at the alignment of the row's index sample, and is empty when the channel has
-// no sample there. An empty variable-length sample is written as "", so it differs from
-// a missing one. A latest or earliest read holds only the newest or oldest rows of each
-// index. A read of a channel whose index it does not include, or a read under a limit
-// reduction, fails before the first byte. A read that fails after the first byte
-// truncates the body.
-var CSVEncoder csvEncoder
+// NewCSVEncoder returns an encoder that writes a read as CSV. Channels are grouped by
+// the index channel that timestamps them. Each group contributes its index column, then
+// one column per data channel, headed by the channel's name. Rows are ordered by
+// timestamp, and a group's cells are empty at a timestamp it has no sample for. A data
+// channel's cell holds its sample at the alignment of the row's index sample, and is
+// empty when the channel has no sample there. An empty variable-length sample is
+// written as "", so it differs from a missing one. A latest or earliest read holds only
+// the newest or oldest rows of each index. A read of a channel whose index it does not
+// include, or a read under a limit reduction, fails before the first byte. A read that
+// fails after the first byte truncates the body. ctx bounds the iterators the encoder
+// opens.
+func NewCSVEncoder(ctx context.Context) xhttp.Encoder { return csvEncoder{ctx: ctx} }
 
-type csvEncoder struct{}
-
-var _ xhttp.Encoder = csvEncoder{}
+type csvEncoder struct{ ctx context.Context }
 
 // ContentType implements http.Encoder.
 func (csvEncoder) ContentType() string { return "text/csv" }
 
 // Encode implements encoding.Encoder. It holds the whole read in memory, so prefer
 // EncodeStream.
-func (e csvEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e csvEncoder) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := e.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 // EncodeStream implements encoding.Encoder. value must be a ReadResponse.
-func (csvEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e csvEncoder) EncodeStream(w io.Writer, value any) error {
 	res, err := readResponse(value)
 	if err != nil {
 		return err
@@ -63,7 +62,7 @@ func (csvEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) erro
 		return err
 	}
 	columns := csvColumns(groups)
-	if err = openColumns(ctx, res, columns); err != nil {
+	if err = openColumns(e.ctx, res, columns); err != nil {
 		return err
 	}
 	buf := make([]byte, 0, csvFlushSize)

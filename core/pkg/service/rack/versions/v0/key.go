@@ -13,15 +13,15 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Node returns the node that the rack is leased to.
 func (k Key) Node() node.Key { return node.Key(k >> 16) }
 
-// OntologyID returns the unique ontology identifier for the rack.
-func (k Key) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
+// ResourceID returns the unique resource identifier for the rack.
+func (k Key) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeRack, Key: k.String()}
 }
 
 // IsZero returns true if the key is unset.

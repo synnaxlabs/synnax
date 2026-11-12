@@ -16,6 +16,29 @@ config_setting(
 )
 
 cc_library(
+    name = "slaves",
+    hdrs = ["slaves.h"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/common",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/slave",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+    ],
+)
+
+cc_test(
+    name = "slaves_test",
+    srcs = ["slaves_test.cpp"],
+    deps = [
+        ":slaves",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "ethercat",
     srcs = [
         "factory.cpp",
@@ -29,6 +52,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":slaves",
         "//client/cpp:synnax",
         "//client/cpp/ethercat",
         "//client/cpp/task",
@@ -40,9 +64,9 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/soem",
         "//driver/ethercat/telem",
-        "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
+        "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/json",
@@ -69,26 +93,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ethercat",
+        "//driver/ethercat/coe",
         "//driver/ethercat/testutil",
         "//driver/pipeline/testutil",
-        "//x/cpp/testutil",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "ethercat_hardware_test",
-    srcs = ["hardware_test.cpp"],
-    tags = [
-        "manual",
-        "requires-hardware",
-        "requires-root",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//driver/ethercat",
-        "//driver/ethercat/soem",
-        "//x/cpp/telem",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

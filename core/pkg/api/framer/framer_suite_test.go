@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -23,12 +24,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -49,14 +49,14 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 const rootUsername = "api-framer-suite-root"
 
 var (
-	apiSvc        *apiframer.Service
-	framerSvc     *svcframer.Service
-	channelWriter channel.Writer
-	channelSvc    *channel.Service
-	rbacSvc       *rbac.Service
-	userSvc       *user.Service
-	secretSvc     *secret.Service
-	root          user.User
+	apiSvc     *apiframer.Service
+	framerSvc  *svcframer.Service
+	channelSvc *channel.Service
+	rbacSvc    *rbac.Service
+	userSvc    *user.Service
+	svc        *service.Layer
+	db         *gorp.DB
+	root       user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
 )
@@ -68,14 +68,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := testutil.NewCluster(ctx, 0).Provision(
-		ctx,
-		distribution.LayerConfig{Storage: store},
-	)
+	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 	}))
-	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+	db = node.DB
+	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      store,
@@ -86,59 +84,49 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		SecretsKey: secret.NewEncryptionKey(),
 	}))
 	framerSvc = svc.Framer
-	channelWriter = svc.Channel.NewWriter(nil)
 	channelSvc = svc.Channel
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
-	secretSvc = svc.Secret
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
+		DB:      db,
 		Framer:  svc.Framer,
 		Channel: svc.Channel,
 		RBAC:    svc.RBAC,
+		Records: svc.Signals.Records(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).
 		Entry(&root).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 })
 
 // rootCtx returns a context with the suite's root user installed as the request
 // subject. The root user holds the Owner role, so every access check passes.
 func rootCtx(ctx SpecContext) freighter.Context {
-	return subjectCtx(ctx, root.OntologyID())
+	return subjectCtx(ctx, root.ResourceID())
 }
 
 // subjectCtx returns a context with the given subject installed, so auth.GetSubject
 // resolves it.
-func subjectCtx(ctx SpecContext, subject ontology.ID) freighter.Context {
+func subjectCtx(ctx SpecContext, subject resource.ID) freighter.Context {
 	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fCtx.Set("Subject", subject)
 	return fCtx
 }
 
-// createUserGranted creates a user holding a fresh role that permits the given action
-// on the given objects, and nothing else. Writes commit directly, since the enforcers
-// read committed state with no transaction.
+// createUserGranted creates a user that may take the action on the objects.
 func createUserGranted(
 	ctx SpecContext,
 	action access.Action,
-	objects ...ontology.ID,
+	objects ...resource.ID,
 ) user.User {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+	u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
-	roleWriter := rbacSvc.Role.NewWriter(nil, true)
-	r := &role.Role{Name: "api-framer-" + uuid.New().String()}
-	Expect(roleWriter.Create(ctx, r)).To(Succeed())
-	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	p := &policy.Policy{
-		Name:    "api-framer-" + uuid.New().String(),
-		Objects: objects,
-		Actions: []access.Action{action},
-	}
-	Expect(policyWriter.Create(ctx, p)).To(Succeed())
-	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	actions := []access.Action{action}
+	MustSucceed(
+		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, u.Key, actions, objects...),
+	)
 	return u
 }

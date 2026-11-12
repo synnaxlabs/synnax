@@ -25,11 +25,6 @@ import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-// A routing key is the key of a secret. No spec here deploys a task, so neither key
-// names a secret that exists.
-const ROUTING_KEY = uuid.create();
-const OTHER_ROUTING_KEY = uuid.create();
-
 const alertZ = z.object({ key: z.string(), status: z.string() });
 
 const schema = z.object({
@@ -50,8 +45,8 @@ const { useEnsure } = Flux.createRetrieve<{ key: task.Key }, task.Task>({
   name: "Task",
   retrieve: async ({ client, query: { key } }) => await client.tasks.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
-    client.tasks.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.tasks.getCached(key),
+    client.tasks.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.tasks.watch(key).getCached(),
 });
 
 const createForm = <S extends z.ZodType<Values>>(formSchema: S) =>
@@ -79,11 +74,28 @@ const useEntryForm = createForm(
 const client = createTestClient();
 const formClient = createTestClient();
 
+// A routing key is the key of a secret, which must exist when a config names it.
+const createRoutingKey = async (): Promise<string> =>
+  (await client.secrets.set({ name: "Routing key", source: "stored", value: "rk" }))
+    .key;
+const ROUTING_KEY = await createRoutingKey();
+const OTHER_ROUTING_KEY = await createRoutingKey();
+
 const fetchStored = async (key: task.Key): Promise<task.Task> =>
   await createTestClient().tasks.retrieve(key);
 
 const countDispatches = (send: ReturnType<typeof spyOnSend>): number =>
   send.mock.calls.filter(([target]) => target === "/task/dispatch").length;
+
+const dispatchedActions = (send: ReturnType<typeof spyOnSend>): unknown[] =>
+  send.mock.calls
+    .filter(([target]) => target === "/task/dispatch")
+    .map(([, req]) => (req as { actions: unknown[] }).actions);
+
+const setRoutingKey = (value: string) => ({
+  type: "set",
+  set: expect.objectContaining({ path: ["config", "routing_key"], value }),
+});
 
 describe("createDocumentForm", () => {
   let testRack: rack.Rack;
@@ -91,6 +103,15 @@ describe("createDocumentForm", () => {
 
   beforeAll(async () => {
     testRack = await client.racks.create({ name: "document-form" });
+    // The Core refuses an alert config that names a status it does not hold.
+    await client.statuses.set(
+      ["st-a", "st-b", "st-c", "st-0", "st-1"].map((key) => ({
+        key,
+        name: key,
+        variant: "info" as const,
+        message: key,
+      })),
+    );
   });
 
   beforeEach(async () => {
@@ -150,6 +171,7 @@ describe("createDocumentForm", () => {
       result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
     });
     await waitFor(() => expect(countDispatches(send)).toBe(1));
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     await formClient.tasks.settled(t.key);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
@@ -261,7 +283,7 @@ describe("createDocumentForm", () => {
     });
     act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
     await act(async () => expect(await result.current.flush()).toBe(true));
-    expect(countDispatches(send)).toBe(1);
+    expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
     });
@@ -517,21 +539,46 @@ describe("createDocumentForm", () => {
   );
 
   it("should guard a write inside a union on the value that picks its option", async () => {
+    // A Modbus write channel is a union on its type.
     const unionSchema = z.object({
       name: z.string(),
-      config: z.discriminatedUnion("routingKey", [
-        z.object({ routingKey: z.literal(ROUTING_KEY), alerts: alertZ.array() }),
-        z.object({ routingKey: z.literal(OTHER_ROUTING_KEY), alerts: alertZ.array() }),
-      ]),
+      config: z.object({
+        channels: z
+          .discriminatedUnion("type", [
+            z.object({ type: z.literal("coil"), key: z.string(), address: z.number() }),
+            z.object({
+              type: z.literal("holding_register"),
+              key: z.string(),
+              address: z.number(),
+            }),
+          ])
+          .array(),
+      }),
     });
-    const useUnionForm = createForm(unionSchema);
-    const t = await createTask();
+    type UnionValues = z.infer<typeof unionSchema>;
+    const unionPath = deep.path<UnionValues>();
+    const useUnionForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof unionSchema
+    >({
+      name: "Task",
+      schema: unionSchema,
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { name, config } }) => ({ name, config }) as UnionValues,
+    });
+    const t = await testRack.createTask({
+      name: `document-${id.create()}`,
+      type: "modbus_write",
+      config: { channels: [{ type: "coil", key: "a", address: 1 }] },
+    });
     const { result } = await renderHookSuspended(
       () => useUnionForm({ query: { key: t.key } }),
       { wrapper },
     );
     const send = spyOnSend(formClient);
-    act(() => result.current.form.set(path.config.alerts.a.status, "st-b"));
+    act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
     await act(async () => expect(await result.current.flush()).toBe(true));
     const [, req] =
       send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
@@ -540,14 +587,14 @@ describe("createDocumentForm", () => {
         {
           type: "set",
           set: {
-            path: ["config", "alerts", "a", "status"],
-            guards: [{ path: ["config", "routing_key"], value: ROUTING_KEY }],
+            path: ["config", "channels", "a", "address"],
+            guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
           },
         },
       ],
     });
     expect((await fetchStored(t.key)).config).toMatchObject({
-      alerts: [{ key: "a", status: "st-b" }],
+      channels: [{ key: "a", address: 2 }],
     });
   });
 
@@ -636,7 +683,7 @@ describe("createDocumentForm", () => {
     act(() => result.current.form.set(path.config.routingKey, ""));
     unmount();
     await formClient.tasks.settled(t.key);
-    const cached = formClient.tasks.getCached(t.key) as task.Task;
+    const cached = formClient.tasks.watch(t.key).getCached() as task.Task;
     expect(cached.config).toMatchObject({ routingKey: ROUTING_KEY });
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: ROUTING_KEY,
@@ -645,8 +692,8 @@ describe("createDocumentForm", () => {
 
   it("should edit the new document when the key changes", async () => {
     const first = await createTask();
-    const secondKey = uuid.create();
-    const editedKey = uuid.create();
+    const secondKey = await createRoutingKey();
+    const editedKey = await createRoutingKey();
     const second = await createTask(secondKey);
     await formClient.tasks.retrieve(second.key);
     const { result, rerender } = await renderForm(first.key);
@@ -724,7 +771,7 @@ describe("createDocumentForm", () => {
         );
       });
       await waitFor(() => {
-        const cached = formClient.tasks.getCached(t.key) as task.Task;
+        const cached = formClient.tasks.watch(t.key).getCached() as task.Task;
         expect((cached.config as Values["config"]).alerts).toEqual([]);
       });
       expect(result.current.form.value()).toMatchObject({ key: "a", status: "st-a" });

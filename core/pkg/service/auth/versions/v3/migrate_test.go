@@ -40,7 +40,7 @@ var _ = Describe("v2 -> v3 Session migration", func() {
 			Set(ctx, kept, orphan)).To(Succeed())
 		version := func(
 			_ context.Context,
-			_ gorp.Tx,
+			_ gorp.Snapshot,
 			key uuid.UUID,
 		) (telem.TimeStamp, error) {
 			if key == credential {

@@ -12,9 +12,13 @@
 package pb
 
 import (
+	"uuid"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -23,18 +27,23 @@ import (
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(r rack.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Rack: uint32(r.Rack),
+		Running: r.Running,
 	}
 	return pb, nil
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func StatusDetailsFromPB(pb *StatusDetails) (rack.StatusDetails, error) {
 	var r rack.StatusDetails
 	if pb == nil {
 		return r, nil
 	}
-	r.Rack = rack.Key(pb.Rack)
+	defaults.Prefill(&r)
+	r.Running = pb.Running
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -79,15 +88,26 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 			return nil, err
 		}
 	}
+	if r.Version != nil {
+		pb.Version = r.Version
+	}
+	if r.Group != nil {
+		v := r.Group.String()
+		pb.Group = &v
+	}
 	return pb, nil
 }
 
 // RackFromPB converts Rack to Rack.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RackFromPB(pb *Rack) (rack.Rack, error) {
 	var r rack.Rack
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
 	r.Embedded = pb.Embedded
@@ -99,6 +119,17 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 		}
 		r.Status = &val
 	}
+	if pb.Version != nil {
+		r.Version = pb.Version
+	}
+	if pb.Group != nil {
+		v, err := uuid.Parse(*pb.Group)
+		if err != nil {
+			return rack.Rack{}, err
+		}
+		r.Group = &v
+	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -282,8 +313,11 @@ func WhereToPB(r rack.Where) (*Where, error) {
 			return nil, err
 		}
 	}
-	if r.HostIsNode != nil {
-		pb.HostIsNode = r.HostIsNode
+	if r.Groups != nil {
+		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	if r.Grouped != nil {
+		pb.Grouped = r.Grouped
 	}
 	return pb, nil
 }
@@ -343,8 +377,25 @@ func WhereFromPB(pb *Where) (rack.Where, error) {
 		}
 		r.Integrations = &val
 	}
-	if pb.HostIsNode != nil {
-		r.HostIsNode = pb.HostIsNode
+	if pb.Groups != nil {
+		vals, err := func() ([]group.Key, error) {
+			result := make([]group.Key, len(pb.Groups.Values))
+			for i, s := range pb.Groups.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = group.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Groups = xpb.ListValues(vals)
+	}
+	if pb.Grouped != nil {
+		r.Grouped = pb.Grouped
 	}
 	return r, nil
 }

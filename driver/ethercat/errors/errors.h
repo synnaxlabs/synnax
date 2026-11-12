@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <cctype>
+#include <cstdint>
+#include <string>
+
 #include "driver/errors/errors.h"
 
 namespace driver::ethercat::errors {
@@ -22,6 +26,9 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 /// @brief error returned when a network interface has no EtherCAT slaves.
 const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found");
+/// @brief error returned when no slave answers because a filter on the adapter blocks
+/// the replies. The user can remove the filter.
+const x::errors::Error REPLIES_BLOCKED = NO_SLAVES_FOUND.sub("replies_blocked");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when the Driver lacks permission to open the network
@@ -31,18 +38,17 @@ const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denie
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
 const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
-/// @brief error returned when domain creation or registration fails.
-const x::errors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
+/// @brief error returned when the process image does not hold a PDO entry.
+const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
+/// @brief error returned when a slave rejects a startup parameter.
+const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
+/// @brief error returned when two open tasks set one object of a slave to different
+/// values.
+const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
-/// @brief error returned when a slave enters an unexpected state.
-const x::errors::Error SLAVE_STATE_ERROR = BASE_ERROR.sub("slave_state");
-/// @brief error returned when a slave is not found at the expected position.
-const x::errors::Error SLAVE_NOT_FOUND = BASE_ERROR.sub("slave_not_found");
-/// @brief error returned when a slave is disconnected.
-const x::errors::Error SLAVE_DISCONNECTED = BASE_ERROR.sub("slave_disconnected");
 /// @brief error returned when the working counter does not match expected value.
 const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
 /// @brief error returned when the cycle time cannot be maintained.
@@ -63,4 +69,16 @@ const x::errors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 const x::errors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
 /// @brief error returned when bus topology doesn't match configured devices.
 const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
+
+/// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
+std::string sdo_abort_reason(uint32_t code);
+
+/// @brief returns error text as a sentence: the first letter in upper case and a period
+/// at the end.
+inline std::string sentence(std::string text) {
+    if (text.empty()) return text;
+    text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+    if (!text.ends_with('.')) text += '.';
+    return text;
+}
 }

@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable
 from typing import Literal, Protocol, TypeVar
 
+from x.params import deprecate_positional
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 
 T = TypeVar("T")
@@ -64,6 +65,7 @@ def _sleep_until(clock: Clock, deadline: int, *, precise: bool) -> None:
         pass
 
 
+@deprecate_positional("precise")
 def sleep(
     dur: CrudeTimeSpan,
     *,
@@ -130,6 +132,7 @@ class Loop:
     _last: int
     _deadline: int
 
+    @deprecate_positional("precise")
     def __init__(
         self,
         interval: CrudeTimeSpan,
@@ -196,6 +199,7 @@ class Loop:
         return True
 
 
+@deprecate_positional("timeout", "interval")
 def poll(
     func: Callable[[], T | None],
     *,

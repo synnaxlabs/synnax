@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,7 +24,7 @@ import {
   stampFile,
   THEMES,
 } from "@/cli/common";
-import { entryHash } from "@/cli/hash";
+import { entryHash, versionOf } from "@/cli/hash";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
 import { type Entry, stillsDir, videoName } from "@/manifest";
 import { type Timeline } from "@/timeline";
@@ -37,7 +36,8 @@ pair into the consolidated out/videos/ directory. A stills entry skips the rende
 its stills land in out/stills/<id>/, and their regions at the entry's regions path.
 Entries whose script, the modules it imports from scripts/, and options are
 unchanged since their last successful production are skipped.
-  --exact           treat [filter] as a full id instead of a substring
+  --exact           treat [filter] as a comma-separated list of full ids instead of
+                    a substring
   --draft           fast review renders: higher crf + fast encoder preset
   --force           re-produce even when unchanged
   --keep-frames     keep captured frames after a successful render (default:
@@ -68,13 +68,6 @@ interface ProduceEntryOptions {
   coreBin?: string;
   port?: number;
 }
-
-/** versionOf hashes named files, so their CDN keys change with their content. */
-const versionOf = (files: Record<string, Buffer>): string => {
-  const hash = createHash("sha256");
-  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]);
-  return hash.digest("hex").slice(0, 12);
-};
 
 const produceEntry = async ({
   entry,

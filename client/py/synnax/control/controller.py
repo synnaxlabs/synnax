@@ -16,12 +16,12 @@ from typing import Any, Protocol, TypeAlias, cast, overload, override
 
 import numpy as np
 
-from synnax import channel as channel_
-from synnax import framer
+from synnax import channel as channel_, framer
 from synnax.exceptions import UnexpectedError, ValidationError
 from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep
 from x.control import CrudeAuthority
+from x.params import deprecate_positional
 from x.thread import AsyncThread
 
 Condition: TypeAlias = (
@@ -261,6 +261,7 @@ class Controller:
         authority: CrudeAuthority,
     ) -> None: ...
 
+    @deprecate_positional("authority")
     def set_authority(
         self,
         value: (
@@ -293,6 +294,7 @@ class Controller:
         else:
             self._writer.set_authority(value)
 
+    @deprecate_positional("timeout")
     def wait_until(
         self,
         cond: Condition,
@@ -330,6 +332,7 @@ class Controller:
         """
         return self._internal_wait_until(cond, timeout)
 
+    @deprecate_positional("timeout")
     def wait_while(
         self,
         cond: Condition,
@@ -367,6 +370,7 @@ class Controller:
             raise processor.exc
         return ok
 
+    @deprecate_positional("precise")
     def sleep(self, dur: CrudeTimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
@@ -379,6 +383,7 @@ class Controller:
         """
         sleep(dur, precise=precise)
 
+    @deprecate_positional("timeout")
     def wait_until_defined(
         self,
         channels: channel_.Params,
@@ -404,6 +409,7 @@ class Controller:
             lambda c: all(v.key in c.state for v in res), timeout=timeout
         )
 
+    @deprecate_positional("duration", "percentage")
     def remains_true_for(
         self,
         cond: Condition,

@@ -16,41 +16,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// env is a secret service on its own in-memory DB, with uses and a clock that each spec
+// env is a secret service on its own in-memory DB, with a clock that each spec
 // controls.
 type env struct {
 	db     *gorp.DB
-	otg    *ontology.Ontology
 	grants *grant.Service
 	svc    *secret.Service
-	uses   []secret.Use
 	now    telem.TimeStamp
-}
-
-func (e *env) find(
-	_ context.Context,
-	_ gorp.Tx,
-	keys []secret.Key,
-) ([]secret.Use, error) {
-	wanted := set.New(keys...)
-	var found []secret.Use
-	for _, u := range e.uses {
-		if wanted.Contains(u.Secret) {
-			found = append(found, u)
-		}
-	}
-	return found, nil
 }
 
 func openService(
@@ -59,14 +41,8 @@ func openService(
 	key secret.EncryptionKey,
 ) (*secret.Service, error) {
 	GinkgoHelper()
-	g := MustOpen(
-		group.OpenService(ctx, group.ServiceConfig{DB: e.db, Ontology: e.otg}),
-	)
 	return secret.OpenService(ctx, secret.ServiceConfig{
 		DB:            e.db,
-		Ontology:      e.otg,
-		Group:         g,
-		Uses:          e.find,
 		Grant:         e.grants,
 		Now:           func() telem.TimeStamp { return e.now },
 		EncryptionKey: key,
@@ -79,9 +55,30 @@ func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
-	e.otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: e.db}))
 	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	return e
+}
+
+// device stands in for a record that uses a secret as its password.
+type device struct {
+	Key      string     `json:"key"      msgpack:"key"`
+	Password secret.Key `json:"password" msgpack:"password"`
+}
+
+func (d device) GorpKey() string { return d.Key }
+
+func (d device) EncodeOrc(w *orc.Writer) error {
+	w.String(d.Key)
+	w.Write(d.Password[:])
+	return nil
+}
+
+func (d *device) DecodeOrc(r *orc.Reader) (err error) {
+	if d.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(d.Password[:])
+	return err
 }
 
 func newEnv(ctx SpecContext) *env {
@@ -94,8 +91,15 @@ func newEnv(ctx SpecContext) *env {
 func (e *env) createStored(ctx SpecContext, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
-	Expect(e.svc.NewWriter(nil).Create(ctx, &s, []byte(value))).To(Succeed())
+	Expect(e.write(ctx, func(w secret.Writer) error {
+		return w.Set(ctx, &s, []byte(value))
+	})).To(Succeed())
 	return s
+}
+
+// write runs fn with a writer on a new transaction.
+func (e *env) write(ctx context.Context, fn func(secret.Writer) error) error {
+	return e.db.WithTx(ctx, func(tx gorp.Tx) error { return fn(e.svc.NewWriter(tx)) })
 }
 
 func (e *env) retrieve(ctx SpecContext, key secret.Key) secret.Secret {
@@ -104,7 +108,7 @@ func (e *env) retrieve(ctx SpecContext, key secret.Key) secret.Secret {
 	Expect(e.svc.NewRetrieve().
 		Where(secret.MatchKeys(key)).
 		Entry(&s).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, e.db)).To(Succeed())
 	return s
 }
 
@@ -118,9 +122,9 @@ var _ = Describe("Service", func() {
 				s := e.createStored(ctx, "Password", "hunter2")
 				Expect(e.svc.Close()).To(Succeed())
 				e.svc = MustOpen(openService(ctx, e, key))
-				rk := rack.Key(1).OntologyID()
-				g := MustSucceed(e.svc.Grant(ctx, nil, rk, s.Base().Key))
-				Expect(e.svc.Resolve(ctx, nil, rk, g, s.Base().Key)).To(Equal(
+				rk := rack.Key(1).ResourceID()
+				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, s.Base().Key))
+				Expect(e.svc.Resolve(ctx, rk, g, s.Base().Key)).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("hunter2")},
 				))
 			},
@@ -163,7 +167,7 @@ var _ = Describe("Service", func() {
 				g.Expect(e.svc.NewRetrieve().
 					Search("routing").
 					Entries(&found).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, e.db)).To(Succeed())
 				g.Expect(found).To(HaveLen(1))
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Routing key"))
@@ -171,41 +175,104 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Uses", func() {
-		It("Should return the uses of the secrets with the given keys",
+		It("Should return no uses for a secret that nothing references",
 			func(ctx SpecContext) {
 				e := newEnv(ctx)
-				key := uuid.New()
-				use := secret.Use{
-					Secret:   key,
-					Resource: ontology.ID{Type: ontology.ResourceTypeCertificate},
-				}
-				e.uses = []secret.Use{use, {Secret: uuid.New()}}
-				Expect(e.svc.Uses(ctx, nil, key)).To(Equal([]secret.Use{use}))
+				s := e.createStored(ctx, "Password", "hunter2")
+				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).To(BeEmpty())
+			},
+		)
+		It("Should return each record that references the secret",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				s := e.createStored(ctx, "Password", "hunter2")
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, device]{
+					DB:   e.db,
+					Name: "device",
+					References: []gorp.Reference[string, device]{
+						gorp.NewKeyReference(
+							gorp.KeyReferenceConfig[string, device, secret.Key]{
+								Name:     "password",
+								Table:    "secret",
+								OnDelete: gorp.Restrict,
+								Kind:     gorp.Use,
+								Targets: func(d *device) []secret.Key {
+									return []secret.Key{d.Password}
+								},
+							},
+						),
+					},
+				}))
+				Expect(gorp.NewCreate[string, device]().
+					Entry(&device{Key: "d1", Password: s.Base().Key}).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).
+					To(Equal([]resource.ID{{Type: "device", Key: "d1"}}))
 			},
 		)
 	})
 
-	Describe("Ontology", func() {
-		It("Should define a resource for each secret", func(ctx SpecContext) {
+	Describe("Changes", func() {
+		It(
+			"Should return the create, rename, and delete that a commit makes",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				renamed := e.createStored(ctx, "Before", "a")
+				deleted := e.createStored(ctx, "Deleted", "b")
+				var changes []gorp.EntryChange[secret.Key, secret.Secret]
+				DeferCleanup(
+					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+						for ch := range e.svc.Changes(ctx, c) {
+							changes = append(changes, ch)
+						}
+					}),
+				)
+				created := secret.Secret{
+					Variant: secret.StoredSecret{Base: secret.Base{Name: "Created"}},
+				}
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					if err := w.Set(ctx, &created, []byte("c")); err != nil {
+						return err
+					}
+					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {
+						return err
+					}
+					return w.Delete(ctx, deleted.Base().Key)
+				})).To(Succeed())
+				kinds := make(map[secret.Key]gorp.ChangeKind, len(changes))
+				names := make(map[secret.Key]string, len(changes))
+				for _, ch := range changes {
+					kinds[ch.Key], names[ch.Key] = ch.Kind, ch.Value.Base().Name
+				}
+				Expect(kinds).To(Equal(map[secret.Key]gorp.ChangeKind{
+					created.Base().Key: gorp.ChangeCreate,
+					renamed.Base().Key: gorp.ChangeUpdate,
+					deleted.Base().Key: gorp.ChangeDelete,
+				}))
+				Expect(names[created.Base().Key]).To(Equal("Created"))
+				Expect(names[renamed.Base().Key]).To(Equal("After"))
+			},
+		)
+	})
+
+	Describe("Resources", func() {
+		It("Should name each secret by its name", func(ctx SpecContext) {
 			e := newEnv(ctx)
 			s := e.createStored(ctx, "Password", "hunter2")
-			var res ontology.Resource
-			Expect(e.otg.NewRetrieve().
-				WhereIDs(s.OntologyID()).
-				Entry(&res).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal("Password"))
-			Expect(e.svc.Type()).To(Equal(ontology.ResourceTypeSecret))
+			Expect(
+				e.svc.Resources().Retrieve(ctx, e.db, []resource.ID{s.ResourceID()}),
+			).
+				To(Equal([]resource.Resource{{ID: s.ResourceID(), Name: "Password"}}))
 		})
-		It("Should convert between keys and ontology IDs", func() {
+		It("Should convert between keys and resource IDs", func() {
 			s := secret.Secret{Variant: secret.FileSecret{Base: secret.Base{
 				Key: uuid.New(),
 			}}}
-			Expect(secret.OntologyID(s.Base().Key)).To(Equal(s.OntologyID()))
-			Expect(secret.OntologyIDs([]secret.Key{s.Base().Key})).
-				To(Equal([]ontology.ID{s.OntologyID()}))
-			Expect(secret.OntologyIDsFromSecrets([]secret.Secret{s})).
-				To(Equal([]ontology.ID{s.OntologyID()}))
+			Expect(secret.ResourceID(s.Base().Key)).To(Equal(s.ResourceID()))
+			Expect(secret.ResourceIDs([]secret.Key{s.Base().Key})).
+				To(Equal([]resource.ID{s.ResourceID()}))
+			Expect(secret.ResourceIDsFromSecrets([]secret.Secret{s})).
+				To(Equal([]resource.ID{s.ResourceID()}))
 		})
 	})
 })

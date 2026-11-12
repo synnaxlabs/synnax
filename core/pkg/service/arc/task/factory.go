@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -28,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -41,7 +41,7 @@ type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -57,7 +57,9 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an automation with its compiled Program by key.
+	// GetProgram retrieves an automation with its compiled Program by key. A configure
+	// calls it again, as channel.RetryChanged does, when it returns
+	// channel.ErrLookupsChanged.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -67,7 +69,7 @@ type FactoryConfig struct {
 	Ranger *ranger.Service
 	// Now returns the wall clock each task's runtime stamps its cycles from.
 	//
-	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
+	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
@@ -75,7 +77,7 @@ type FactoryConfig struct {
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		Now: telem.Now,
 	}
 )
 
@@ -138,7 +140,9 @@ func (f *factory) ConfigureTask(
 		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
-	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
+	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
+		return f.cfg.GetProgram(ctx, cfg.ArcKey)
+	})
 	if err != nil {
 		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err
@@ -151,9 +155,10 @@ func (f *factory) ConfigureTask(
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false.
+	// command, and a "configured" status would answer it first with running false. An
+	// auto-start that fails must answer it too, since no start follows.
 	if cfg.AutoStart {
-		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
+		if err := errors.Combine(arcTask.start(ctx, cmdKey)); err != nil {
 			return nil, err
 		}
 	}

@@ -8,35 +8,42 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type group } from "@/group";
-import { type ontology } from "@/ontology";
+import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
+import { ranger } from "@/ranger";
 import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/schematic/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -47,12 +54,18 @@ const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
   snapshot: z.boolean(),
+  /** Makes the copy belong to the range instead of the original's project. */
+  range: ranger.keyZ.optional(),
 });
+
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
@@ -61,7 +74,6 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export type CopyParams = z.input<typeof copyReqZ>;
 
 const createReqZ = z.object({
-  project: project.keyZ,
   dispatchKey: z.string(),
   schematics: schematicZ.array(),
 });
@@ -73,7 +85,6 @@ const emptyResZ = z.object({});
 export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
-  ontology: ontology.Client;
   cache: query.Cache;
   groupStore: query.Table<group.Key, group.Group>;
 }
@@ -86,6 +97,13 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
+  /**
+   * Builds requests that move schematics between groups. A move into a group of another
+   * project also moves the schematic into that project.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move schematics out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -100,8 +118,10 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(
         cfg.unary,
@@ -118,30 +138,38 @@ export class Client extends query.Retriever<
       name: "schematic",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (schematic, req) => matches(schematic, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (schematic, req) => matches(LINES, schematic, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/schematic/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/schematic/dispatch",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
   async create(
-    project: project.Key,
     schematic: New,
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic>;
   async create(
-    project: project.Key,
     schematics: New[],
     opts?: query.WriteOptions<Schematic[]>,
   ): Promise<Schematic[]>;
   async create(
-    project: project.Key,
     schematics: New | New[],
     opts: query.WriteOptions<Schematic[]> = {},
   ): Promise<Schematic | Schematic[]> {
@@ -158,7 +186,7 @@ export class Client extends query.Retriever<
           async (dispatchKey) =>
             await this.cfg.unary.send(
               "/schematic/create",
-              { project, dispatchKey, schematics: optimistic },
+              { dispatchKey, schematics: optimistic },
               createReqZ,
               createResZ,
             ),
@@ -168,29 +196,8 @@ export class Client extends query.Retriever<
     return isMany ? res.schematics : res.schematics[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      query.partialUpdate(this.store, key, { name });
-      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
-      return () => {
-        query.partialUpdate(this.store, key, { name: prev });
-        resource();
-      };
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [renameAction({ name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**
@@ -247,10 +254,7 @@ export class Client extends query.Retriever<
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,

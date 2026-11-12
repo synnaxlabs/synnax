@@ -12,13 +12,10 @@ package secret
 import (
 	"context"
 	"crypto/cipher"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -35,27 +32,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds a resource for each secret.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group holds the "Secrets" group, the default parent of every secret.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Signals publishes changes to secrets.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
-	// Channel finds the channels that Signals publishes changes on.
-	//
-	// [REQUIRED] when Signals is set.
-	Channel *channel.Service
-	// Uses finds the resources that use a secret.
-	//
-	// [REQUIRED]
-	Uses Finder
-	// Grant stores the grants that let a rack read secrets that nothing on it uses.
+	// Grant stores the grants that let a rack read secrets.
 	//
 	// [REQUIRED]
 	Grant *grant.Service
@@ -65,7 +46,7 @@ type ServiceConfig struct {
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
 	// EncryptionKey protects the value of every stored secret. It encrypts the random
-	// data key that encrypts each value.
+	// data key that encrypts each value. Every Core in a cluster must use the same key.
 	//
 	// [REQUIRED]
 	EncryptionKey EncryptionKey
@@ -81,11 +62,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Uses = override.Nil(c.Uses, other.Uses)
 	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.EncryptionKey = override.If(
@@ -100,16 +77,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("secret.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
-	v.NotNil("uses", c.Uses)
 	v.NotNil("grant", c.Grant)
 	v.NotNil("now", c.Now)
-	v.Ternary(
-		"channel",
-		c.Signals != nil && c.Channel == nil,
-		"required when signals is set",
-	)
 	v.Ternary("encryption_key", c.EncryptionKey == EncryptionKey{}, "required")
 	return v.Error()
 }
@@ -117,14 +86,12 @@ func (c ServiceConfig) Validate() error {
 // Service stores secrets, encrypts their values, and gives each value only to a rack
 // that may read it.
 type Service struct {
-	aead             cipher.AEAD
-	group            group.Group
-	table            *gorp.Table[Key, Secret]
-	indexes          indexes
-	closer           xio.MultiCloser
-	cfg              ServiceConfig
-	setChannelKey    channel.Key
-	deleteChannelKey channel.Key
+	aead    cipher.AEAD
+	table   *gorp.Table[Key, Secret]
+	state   *actions.State[Key, Action]
+	indexes indexes
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
 }
 
 // OpenService opens a Service with the given configuration. It returns an error when
@@ -135,100 +102,67 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
+	s.state = actions.NewState[Key, Action](s.cfg.DB)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.aead, err = openCipher(ctx, s.cfg.DB, s.cfg.EncryptionKey); !ok(err, nil) {
 		return nil, err
 	}
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Secrets",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Secret]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = s.cfg.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+	if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Secret]{
+		Changes:  s.table.Changes,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.setChannelKey, err = s.retrieveChannelKey(
-		ctx,
-		"sy_secret_set",
-	); !ok(err, nil) {
-		return nil, err
-	}
-	if s.deleteChannelKey, err = s.retrieveChannelKey(
-		ctx,
-		"sy_secret_delete",
-	); !ok(err, nil) {
+	if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_secret_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Service) retrieveChannelKey(
-	ctx context.Context,
-	name string,
-) (channel.Key, error) {
-	var ch channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchNames(name)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
-		return 0, err
-	}
-	return ch.Key(), nil
-}
-
-// SetChannelKey returns the key of the channel that publishes each secret that is
-// created or changed. Its samples carry the names and paths of secrets, so only
-// subjects that can retrieve a secret may receive them. The key is zero when the
-// Service has no Signals.
-func (s *Service) SetChannelKey() channel.Key { return s.setChannelKey }
-
-// DeleteChannelKey returns the key of the channel that publishes the key of each
-// deleted secret. Only subjects that can retrieve a secret may receive its samples. The
-// key is zero when the Service has no Signals.
-func (s *Service) DeleteChannelKey() channel.Key { return s.deleteChannelKey }
-
 // Close releases the resources of the Service. Close is not safe to call concurrently
 // with any other method of the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a Writer that creates, renames, and deletes secrets. If tx is nil,
-// the Writer writes directly to the DB.
+// Changes returns the changes that the commit c made to secrets.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Secret] {
+	return s.table.Changes(ctx, c)
+}
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
+// NewWriter opens a Writer that creates, changes, and deletes secrets in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
-		table:     s.table,
-		aead:      s.aead,
-		uses:      s.cfg.Uses,
-		now:       s.cfg.Now,
+		tx:         tx,
+		table:      s.table,
+		aead:       s.aead,
+		now:        s.cfg.Now,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // NewRetrieve opens a query that retrieves secrets. The query never returns a value in
 // plain text.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }

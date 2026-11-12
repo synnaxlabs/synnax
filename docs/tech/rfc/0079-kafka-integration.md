@@ -206,10 +206,10 @@ written through one `framer.Writer` for the task.
 A Cesium index is strictly increasing, so a group's timestamps must be too. The task
 sorts each batch by timestamp before writing, and a record stamped at or before the
 group's last written timestamp is an error status and is skipped. Kafka timestamps count
-only milliseconds, so a record stamped by Kafka at or before the last written timestamp
-moves to one nanosecond past it instead. A topic with several partitions interleaves
-their timestamps across batches, so a group reads from a topic whose records arrive in
-order, or accepts those errors.
+only milliseconds, so a record stamped by Kafka in the millisecond of the last written
+timestamp moves to one nanosecond past it instead. A topic with several partitions
+interleaves their timestamps across batches, so a group reads from a topic whose records
+arrive in order, or accepts those errors.
 
 Delivery is at least once. The writer opens with `Sync` and `AlwaysAutoPersist`, so a
 write acknowledgment means the samples are on disk. The consumer commits only marked

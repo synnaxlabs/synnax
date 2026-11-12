@@ -68,6 +68,11 @@ describe("createShortIdentifiers", () => {
     expect(strings.createShortIdentifiers("Alice Bob")).toEqual(
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
+
+  it("should leave out identifiers with characters other than letters, digits, and underscores", () =>
+    expect(
+      strings.createShortIdentifiers("IOLITE GATE LATCH v2.00 BUS1"),
+    ).not.toContainEqual(expect.stringMatching(/[^\w]/)));
 });
 
 describe("trimPrefix", () => {

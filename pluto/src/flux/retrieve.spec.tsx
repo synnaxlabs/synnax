@@ -9,7 +9,7 @@
 
 import {
   DisconnectedError,
-  type label,
+  label,
   NotFoundError,
   query,
   UnexpectedError,
@@ -1870,8 +1870,8 @@ describe("useResult", () => {
       name: "Labels",
       retrieve,
       onChange: ({ client, query }, handler) =>
-        client.labels.onChange(query.keys, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query.keys),
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
@@ -1895,15 +1895,18 @@ describe("useResult", () => {
       name: "Labels",
       retrieve: async ({ client, query }) => await client.labels.retrieve(query.keys),
       onChange: ({ client, query }, handler) =>
-        client.labels.onChange(query.keys, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query.keys),
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
     });
     expect(result.current.variant).toEqual("success");
     const renamed = `live-a-renamed-${id.create()}`;
-    await client.labels.create({ ...first, name: renamed });
+    await client.labels.dispatch(
+      first.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     await waitFor(
       () =>
         expect(result.current.data?.map(({ name }) => name)).toEqual([

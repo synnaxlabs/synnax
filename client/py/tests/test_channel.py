@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pytest
 
@@ -135,6 +138,57 @@ class TestChannel:
         assert channel.is_index is True
         assert channel.index == channel.key
 
+    def test_create_retrieve_if_name_exists(self, client: sy.Synnax) -> None:
+        """Should return the existing channel and create no duplicate"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        again = client.channels.create(
+            name=name,
+            virtual=True,
+            data_type=sy.DataType.FLOAT32,
+            retrieve_if_name_exists=True,
+        )
+        assert again.key == ch.key
+        assert [c.key for c in client.channels.retrieve([name])] == [ch.key]
+
+    def test_create_retrieve_if_name_exists_concurrent(self, client: sy.Synnax) -> None:
+        """Should create one channel when creates of the same name run at once"""
+        name = channel_name()
+
+        def create(_: int) -> sy.Channel:
+            return client.channels.create(
+                name=name,
+                virtual=True,
+                data_type=sy.DataType.FLOAT32,
+                retrieve_if_name_exists=True,
+            )
+
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            keys = {ch.key for ch in pool.map(create, range(10))}
+        assert len(keys) == 1
+        assert {c.key for c in client.channels.retrieve([name])} == keys
+
+    def test_create_retrieve_if_name_exists_keeps_order(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should return the channels in the order they were passed"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        new_name = channel_name()
+        created = client.channels.create(
+            [
+                sy.Channel(name=new_name, virtual=True, data_type=sy.DataType.FLOAT32),
+                sy.Channel(name=name, virtual=True, data_type=sy.DataType.FLOAT32),
+            ],
+            retrieve_if_name_exists=True,
+        )
+        assert [c.name for c in created] == [new_name, name]
+        assert created[1].key == ch.key
+
     def test_create_bool(self, client: sy.Synnax) -> None:
         """Should create a channel with a BOOLEAN data type"""
         idx = client.channels.create(
@@ -196,6 +250,30 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
 
+    def test_set_expression(self, client: sy.Synnax) -> None:
+        """Should set the expression of a calculated channel and infer its new data
+        type."""
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.INT64,
+            expression="return 1 + 1",
+        )
+        client.channels.set_expression(ch.key, "return 1.5 * 2.0")
+        res = client.channels.retrieve(ch.key)
+        assert res.expression == "return 1.5 * 2.0"
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_set_expression_not_calculated(self, client: sy.Synnax) -> None:
+        """Should refuse an expression for a channel that is not calculated."""
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(
+            sy.ValidationError, match="only a calculated channel can change"
+        ):
+            client.channels.set_expression(ch.key, "return 1")
+        assert client.channels.retrieve(ch.key).expression == ""
+
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax) -> None:
         """Should create a channel with a leaseholder"""
@@ -234,7 +312,7 @@ class TestChannel:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
+        with pytest.raises(sy.NotFoundError, match="Found no channel where key = 1234"):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
@@ -284,59 +362,17 @@ class TestChannel:
         result_channel = client.channels.retrieve(str(ch1.key))
         assert result_channel.name == ch1.name
 
-    def test_retrieve_single_multiple_found(
-        self,
-        client: sy.Synnax,
-    ) -> None:
-        """Should raise a MultipleFoundError when retrieving a single channel with
-        multiple matches"""
-        with pytest.raises(sy.MultipleFoundError):
-            prefix = channel_name()
-            client.channels.create(
-                name=f"{prefix}1",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
-            client.channels.create(
-                name=f"{prefix}2",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
-            client.channels.retrieve(f"{prefix}.*")
-
-    def test_retrieve_by_regex(self, client: sy.Synnax) -> None:
-        """Should retrieve channels test1 and test2 using a regex"""
+    def test_retrieve_names_exactly(self, client: sy.Synnax) -> None:
+        """Should match each name in a list exactly and never as a pattern"""
         prefix = channel_name()
-        client.channels.create(
+        a, _ = client.channels.create(
             [
-                sy.Channel(
-                    name=f"{prefix}1",
-                    virtual=True,
-                    data_type=sy.DataType.FLOAT64,
-                ),
-                sy.Channel(
-                    name=f"{prefix}2",
-                    virtual=True,
-                    data_type=sy.DataType.FLOAT64,
-                ),
+                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float32"),
             ]
         )
-        res_channels = client.channels.retrieve([f"^{prefix}.*"])
-        assert len(res_channels) >= 2
-
-    def test_retrieve_by_name_and_regex(self, client: sy.Synnax) -> None:
-        """Should retrieve the channels that a literal name or a regex selects"""
-        prefix = channel_name()
-        literal, a, b, _ = client.channels.create(
-            [
-                sy.Channel(name=f"{prefix}_literal", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_p_a", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_p_b", virtual=True, data_type="float32"),
-                sy.Channel(name=f"{prefix}_other", virtual=True, data_type="float32"),
-            ]
-        )
-        res = client.channels.retrieve([literal.name, f"{prefix}_p_.*"])
-        assert sorted(ch.key for ch in res) == sorted([literal.key, a.key, b.key])
+        res = client.channels.retrieve([a.name, f"{prefix}_.*"])
+        assert [ch.key for ch in res] == [a.key]
 
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should retrieve the channels that a where selects"""
@@ -370,7 +406,7 @@ class TestChannel:
         res = client.channels.retrieve(
             [a.name, b.name, c.name],
             where=sy.channel.Where(
-                not_=sy.channel.Where(key=filter.Set[int](eq=c.key))
+                not_=sy.channel.Where(key=filter.Set[sy.channel.Key](eq=c.key))
             ),
             data_types=["float32"],
         )
@@ -417,6 +453,42 @@ class TestChannel:
         results = client.channels.retrieve(names)
         assert len(results) == 0
 
+    def test_delete_refused_by_task_config(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should refuse deleting a channel that a task config names"""
+        rack = client.racks.create(name=channel_name())
+        device = client.devices.create(
+            sy.Device(
+                key=channel_name(),
+                name="plc",
+                rack=rack.key,
+                location="127.0.0.1:502",
+                make="modbus",
+                model="modbus",
+            )
+        )
+        task = client.tasks.create(
+            name="read",
+            type="modbus_read",
+            config={
+                "device": device.key,
+                "channels": [
+                    {"type": "coil", "key": "coil", "channel": virtual_channel.key}
+                ],
+            },
+        )
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                f"cannot delete channel {virtual_channel.name} because task "
+                f"{task.name} uses it"
+            ),
+        ):
+            client.channels.delete(virtual_channel.key)
+        client.tasks.delete(task.key)
+        client.channels.delete(virtual_channel.key)
+
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax) -> None:
         """Should be able to delete, recreate, and then query a channel with the same
         name."""
@@ -445,9 +517,7 @@ class TestChannel:
         assert ch2.key != ch.key
         ch2_retrieved = client.channels.retrieve(name)
         assert ch2.key == ch2_retrieved.key
-        all_channels = client.channels.retrieve([".*"])
-        keys = [channel.key for channel in all_channels]
-        assert ch2.key in keys
+        assert [c.key for c in client.channels.retrieve([name])] == [ch2.key]
 
     def test_single_rename(self, client: sy.Synnax) -> None:
         """Should rename a single channel"""
@@ -487,6 +557,34 @@ class TestChannel:
         for name in new_names:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+    def test_multiple_rename_missing_key(self, client: sy.Synnax) -> None:
+        """Should rename no channel when one key of the batch does not exist"""
+        kept, removed = client.channels.create(
+            [
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        client.channels.delete(removed.key)
+        with pytest.raises(
+            sy.NotFoundError,
+            match=re.escape(
+                f"requests.1: Channels with keys [{removed.key}] not found"
+            ),
+        ):
+            client.channels.rename(
+                [kept.key, removed.key], [channel_name(), channel_name()]
+            )
+        assert client.channels.retrieve(kept.key).name == kept.name
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -659,12 +757,6 @@ class TestChannel:
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
 
-    def test_retrieve_group(self, client: sy.Synnax) -> None:
-        """Should retrieve the group that holds every channel by default"""
-        g = client.channels.retrieve_group()
-        assert g.name == "Channels"
-        assert client.channels.retrieve_group().key == g.key
-
 
 @pytest.mark.channel
 class TestChannelRetrieveFilters:
@@ -694,7 +786,7 @@ class TestChannelRetrieveFilters:
         return [ch.name for ch in channels]
 
     @staticmethod
-    def keys(channels: list[sy.Channel]) -> set[int]:
+    def keys(channels: list[sy.Channel]) -> set[sy.channel.Key]:
         return {ch.key for ch in channels}
 
     def test_search_term(
@@ -796,18 +888,15 @@ class TestChannelRetrieveFilters:
         assert self.keys(res) == {idx.key, data.key}
         assert client.channels.retrieve(names, node_key=idx.leaseholder + 1) == []
 
-    def test_limit_offset(
+    def test_limit(
         self,
         client: sy.Synnax,
         create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
-        """Should page through the matching channels"""
-        names = self.names(create_channels)
-        first = client.channels.retrieve(names, limit=2)
-        rest = client.channels.retrieve(names, limit=2, offset=2)
+        """Should return at most the limit of the matching channels"""
+        first = client.channels.retrieve(self.names(create_channels), limit=2)
         assert len(first) == 2
-        assert len(rest) == 1
-        assert self.keys(first) | self.keys(rest) == self.keys(list(create_channels))
+        assert self.keys(first) <= self.keys(list(create_channels))
 
     def test_fields(
         self,
@@ -871,7 +960,7 @@ class TestChannelRetrieveFilters:
     ) -> None:
         """Should reject a single key beside a limit, since a page could hide a
         match"""
-        with pytest.raises(sy.ValidationError, match="limit or offset"):
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
             client.channels.retrieve(create_channels[0].key, limit=1)  # type: ignore[call-overload]
 
     def test_none_field(self, client: sy.Synnax) -> None:
@@ -948,10 +1037,10 @@ class TestChannelRetrieveFilters:
         virt = create_channels[2]
         client.statuses.set(
             sy.Status(
-                key=str(virt.ontology_id),
                 name=virt.name,
                 variant=sy.status.VARIANT_SUCCESS,
                 message="ok",
+                owner=virt.resource_id,
             )
         )
         res = client.channels.retrieve(virt.key, include_status=True)
@@ -990,15 +1079,15 @@ class TestChannelRetriever:
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
 
-    def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
-        """Should raise MultipleFoundError when a pattern matches two channels."""
+    def test_retrieve_one_pattern(self, client: sy.Synnax) -> None:
+        """Should read a pattern as an exact name and find no channel."""
         prefix = channel_name()
         for suffix in ("a", "b"):
             client.channels.create(
                 data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
             )
         with pytest.raises(
-            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
         ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")
 
@@ -1025,3 +1114,30 @@ class TestChannelWriteRead:
             start + (len(d) - 1) * sy.TimeSpan.SECOND + sy.TimeSpan.NANOSECOND
         )
         assert np.array_equal(data, d)
+
+
+@pytest.mark.channel
+class TestChannelGroup:
+    def test_create_in_group(self, client: sy.Synnax) -> None:
+        """Should create a channel in a group and retrieve it by that group."""
+        g = client.groups.create(channel_name(), scope="channel")
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            group=g.key,
+        )
+        assert ch.group == g.key
+        assert [c.key for c in client.channels.retrieve(groups=[g.key])] == [ch.key]
+
+    def test_set_group(self, client: sy.Synnax) -> None:
+        """Should move a channel into a group and back out of it."""
+        g = client.groups.create(channel_name(), scope="channel")
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        assert ch.group is None
+        client.channels.set_group(ch.key, g.key)
+        assert client.channels.retrieve(ch.key).group == g.key
+        client.channels.set_group(ch.key)
+        assert client.channels.retrieve(ch.key).group is None

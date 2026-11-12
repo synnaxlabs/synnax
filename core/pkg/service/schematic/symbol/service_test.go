@@ -17,31 +17,26 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should create a service and its permanent group", func(ctx SpecContext) {
+		It("Should create a service", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
-			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
+				DB: testDB,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
-				Group:    testGroup,
-				ImEx:     imex.NewService(),
+				DB:    testDB,
+				Group: testGroup,
+				ImEx:  imex.NewService(),
 			}))
 			Expect(testSvc).ToNot(BeNil())
-			Expect(testSvc.Group()).ToNot(BeNil())
-			Expect(testSvc.Group().Name).To(Equal("Schematic Symbols"))
 		})
 
 		DescribeTable("Should fail with invalid configuration",
@@ -50,22 +45,19 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring(missing + ": must be non-nil")))
 			},
 			Entry("no db", symbol.ServiceConfig{DB: nil}, "db"),
-			Entry("no group", symbol.ServiceConfig{Ontology: otg}, "group"),
+			Entry("no group", symbol.ServiceConfig{DB: &gorp.DB{}}, "group"),
 		)
 
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
-			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
+				DB: testDB,
 			}))
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
-				Ontology: testOtg,
-				Group:    testGroup,
-				ImEx:     imex.NewService(),
+				Group: testGroup,
+				ImEx:  imex.NewService(),
 			}
 			cfg2 := symbol.ServiceConfig{DB: testDB}
 			Expect(MustOpen(symbol.OpenService(ctx, cfg1, cfg2))).ToNot(BeNil())
@@ -74,12 +66,8 @@ var _ = Describe("Service", func() {
 
 	Describe("NewWriter", func() {
 		It("Should create a writer with transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
 			writer := svc.NewWriter(tx)
-			Expect(writer).ToNot(BeNil())
-		})
-
-		It("Should create a writer without transaction", func(ctx SpecContext) {
-			writer := svc.NewWriter(nil)
 			Expect(writer).ToNot(BeNil())
 		})
 	})
@@ -94,19 +82,14 @@ var _ = Describe("Service", func() {
 	Describe("Close", func() {
 		It("Should close the service cleanly", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
-			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
-				DB: testDB,
-			}))
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
+				DB: testDB,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
-				Group:    testGroup,
-				ImEx:     imex.NewService(),
+				DB:    testDB,
+				Group: testGroup,
+				ImEx:  imex.NewService(),
 			}))
 
 			Expect(testSvc.Close()).To(Succeed())
@@ -123,14 +106,16 @@ var _ = Describe("Service", func() {
 			go func() {
 				defer GinkgoRecover()
 				for range 10 {
-					sym := symbol.Symbol{
+					sym := defaults.Fill(symbol.Symbol{
 						Name: "concurrent-write",
 						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
-					}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID()),
-					).To(Succeed())
-					Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
+					})
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &sym)
+					})).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, sym.Key)
+					})).To(Succeed())
 				}
 				done <- true
 			}()
@@ -140,7 +125,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
+					).To(Succeed())
 				}
 				done <- true
 			}()
@@ -150,7 +137,9 @@ var _ = Describe("Service", func() {
 				defer GinkgoRecover()
 				for range 10 {
 					var symbols []symbol.Symbol
-					_ = svc.NewRetrieve().Entries(&symbols).Exec(ctx, nil)
+					Expect(
+						svc.NewRetrieve().Entries(&symbols).Exec(ctx, db),
+					).To(Succeed())
 				}
 				done <- true
 			}()

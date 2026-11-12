@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, query, rack, type Synnax, task } from "@synnaxlabs/client";
+import { query, rack, type ranger, type Synnax, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "task";
 const PLURAL_RESOURCE_NAME = "tasks";
@@ -66,12 +67,15 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
       parse == null
-        ? client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>)
-        : client.tasks.onChange(query, (cached) => handler(parse(client, cached))),
+        ? client.tasks.watch(query).onChange(handler as query.ChangeHandler<task.Task>)
+        : client.tasks
+            .watch(query)
+            .onChange((cached) => handler(parse(client, cached))),
     getCached: ({ client, query }) =>
       parse == null
-        ? (client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined)
-        : parse(client, client.tasks.getCached(query)),
+        ? (client.tasks.watch(query).getCached() as
+            query.Cached<task.Task<S>> | undefined)
+        : parse(client, client.tasks.watch(query).getCached()),
   });
 };
 
@@ -84,22 +88,34 @@ export interface KeyParams {
 
 export const useName = createSelector(({ name }) => name);
 
+export const useRange = createSelector(({ range }) => range);
+
 export type ListQuery = task.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({
-    ...BASE_QUERY,
-    ...query,
-    where: { internal: { eq: false }, ...query.where },
-  }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
-});
+/**
+ * Lists tasks with their statuses, also for a task outside the list. The list leaves
+ * out internal tasks unless the query sets `where.internal`.
+ */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, task.Task>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<task.Key, task.Task> =>
+  Flux.useList((client) => client.tasks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query:
+      query === null
+        ? null
+        : {
+            ...BASE_QUERY,
+            ...query,
+            where: { internal: { eq: false }, ...query?.where },
+          },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   ListQuery,
@@ -107,9 +123,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.tasks.watch(query)),
 });
 
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
@@ -188,21 +202,22 @@ export interface SnapshotPair extends Pick<task.Payload, "key" | "name"> {}
 
 export interface SnapshotParams {
   tasks: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  /** The range the snapshots sit in. */
+  range: ranger.Key;
 }
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { tasks: taskPairs, parentID } = data;
-    const tasks = await Promise.all(
+    const { tasks, range } = data;
+    await Promise.all(
       array
-        .toArray(taskPairs)
-        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
+        .toArray(tasks)
+        .map(({ key, name }) =>
+          client.tasks.copy(key, `${name} (Snapshot)`, true, range),
+        ),
     );
-    const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
-    await client.ontology.addChildren(parentID, ...otgIDs);
     return data;
   },
 });
@@ -212,11 +227,9 @@ export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.tasks.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.tasks.rename(key, name);
     return data;
   },
 });

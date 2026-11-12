@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import project as project_
+from synnax import group as group_, project as project_, ranger
 from synnax.table.types_gen import (
     Key,
     RetrieveRequest,
@@ -27,7 +27,6 @@ from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project_.Key
     tables: list[Table]
 
 
@@ -39,19 +38,20 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenamePayload(BaseModel):
-    name: str
+class _SetPayload(BaseModel):
+    path: list[str]
+    value: Any
 
 
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: _SetPayload
 
 
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_RenameAction]
+    actions: list[_SetAction]
 
 
 class Client:
@@ -63,34 +63,38 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, project: project_.Key, *, name: str) -> Table: ...
+    def create(self, *, name: str, project: project_.Key) -> Table: ...
 
     @overload
-    def create(self, project: project_.Key, tables: Table) -> Table: ...
+    def create(self, tables: Table) -> Table: ...
 
     @overload
-    def create(self, project: project_.Key, tables: list[Table]) -> list[Table]: ...
+    def create(self, tables: list[Table]) -> list[Table]: ...
 
     def create(
         self,
-        project: project_.Key,
         tables: Table | list[Table] | None = None,
         *,
         name: str = "",
+        project: project_.Key | None = None,
     ) -> Table | list[Table]:
-        """Create one or more tables in a project.
+        """Create one or more tables.
 
-        :param project: The key of the project that owns the tables.
-        :param tables: A single table or a list of them. When omitted, an empty table
-            is created from the ``name`` keyword argument.
+        :param tables: A single table or a list of them. Each one belongs to exactly one
+            of a project and a range. When omitted, a table is created from the ``name``
+            and ``project`` keyword arguments.
         :param name: The name of the table to create when ``tables`` is omitted.
+        :param project: The key of the project that owns the table when ``tables`` is
+            omitted.
         :returns: The created table, or a list of created tables when ``tables`` is a
             list.
+        :raises ValidationError: If a table does not belong to exactly one of a project
+            and a range.
         """
         is_single = not isinstance(tables, list)
         if tables is None:
-            tables = [Table(name=name)]
-        req = _CreateRequest(project=project, tables=normalize(tables))
+            tables = Table(name=name, project=project)
+        req = _CreateRequest(tables=normalize(tables))
         res = self._client.send("/table/create", req, _CreateResponse)
         return res.tables[0] if is_single else res.tables
 
@@ -99,6 +103,10 @@ class Client:
         self,
         *,
         key: Key,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -111,6 +119,10 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -124,6 +136,10 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
+        projects: project_.Key | list[project_.Key] = ...,
+        ranges: ranger.Key | list[ranger.Key] = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -151,6 +167,11 @@ class Client:
         :param not_: Keeps tables that do not match the filter.
         :param where: A filter tree that the tables must also match.
         :param keys: Keeps tables with one of these keys.
+        :param projects: Keeps the tables owned by any of these projects.
+        :param ranges: Keeps the tables owned by any of these ranges.
+        :param groups: Keeps tables in any of these groups.
+        :param grouped: Keeps only tables in a group when True, and only tables in no
+            group when False.
         :param one: Returns one table for any filter.
         :returns: One table for a plain ``key`` or when ``one`` is set, otherwise a list
             of tables. The list leaves out keys that do not exist.
@@ -158,13 +179,13 @@ class Client:
         :raises MultipleFoundError: If one table is wanted and more than one matches.
         :raises ValidationError: If a filter field is None.
         """
-        single = returns_one(fields, one, None, 0)
+        single = returns_one(fields, one)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields)
         )
         res = self._client.send("/table/retrieve", req, RetrieveResponse)
-        return sole("Table", fields, res.tables) if single else res.tables
+        return sole("table", req, res.tables) if single else res.tables
 
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.
@@ -172,7 +193,7 @@ class Client:
         :param key: The key of the table to rename.
         :param name: The new name for the table.
         """
-        action = _RenameAction(rename=_RenamePayload(name=name))
+        action = _SetAction(set=_SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/table/dispatch", req, Empty)
 

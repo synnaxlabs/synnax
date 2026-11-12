@@ -33,6 +33,160 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OrderField is a field that arcs can be sorted by.
+type OrderField int32
+
+const (
+	OrderField_ORDER_FIELD_NAME OrderField = 0
+)
+
+// Enum value maps for OrderField.
+var (
+	OrderField_name = map[int32]string{
+		0: "ORDER_FIELD_NAME",
+	}
+	OrderField_value = map[string]int32{
+		"ORDER_FIELD_NAME": 0,
+	}
+)
+
+func (x OrderField) Enum() *OrderField {
+	p := new(OrderField)
+	*p = x
+	return p
+}
+
+func (x OrderField) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OrderField) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_api_arc_pb_arc_proto_enumTypes[0].Descriptor()
+}
+
+func (OrderField) Type() protoreflect.EnumType {
+	return &file_core_pkg_api_arc_pb_arc_proto_enumTypes[0]
+}
+
+func (x OrderField) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OrderField.Descriptor instead.
+func (OrderField) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{0}
+}
+
+// Cursor is a position in an order of arcs: the sort value and the key of a arc.
+type Cursor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the key of the arc at the position.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is the name of the arc at the position, when the order sorts by it.
+	Name          *string `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Cursor) Reset() {
+	*x = Cursor{}
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Cursor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Cursor) ProtoMessage() {}
+
+func (x *Cursor) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Cursor.ProtoReflect.Descriptor instead.
+func (*Cursor) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Cursor) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Cursor) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+// Order is a sort of arcs.
+type Order struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `protobuf:"varint,1,opt,name=field,proto3,enum=api.arc.pb.OrderField" json:"field,omitempty"`
+	// descending sorts from the greatest value to the least.
+	Descending    bool `protobuf:"varint,2,opt,name=descending,proto3" json:"descending,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Order) Reset() {
+	*x = Order{}
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Order) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Order) ProtoMessage() {}
+
+func (x *Order) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Order.ProtoReflect.Descriptor instead.
+func (*Order) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Order) GetField() OrderField {
+	if x != nil {
+		return x.Field
+	}
+	return OrderField_ORDER_FIELD_NAME
+}
+
+func (x *Order) GetDescending() bool {
+	if x != nil {
+		return x.Descending
+	}
+	return false
+}
+
 // RetrieveRequest is a request to retrieve arcs.
 type RetrieveRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -40,19 +194,25 @@ type RetrieveRequest struct {
 	Where *pb.Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the arcs that match the term, closest match first.
 	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
+	// order sorts the arcs. An absent order sorts them by key.
+	Order *Order `protobuf:"bytes,3,opt,name=order,proto3,oneof" json:"order,omitempty"`
+	// after starts the arcs strictly past this position in their order.
+	After *Cursor `protobuf:"bytes,4,opt,name=after,proto3,oneof" json:"after,omitempty"`
 	// limit is the most arcs to return.
-	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching arcs to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_program includes the program of each record.
-	IncludeProgram bool `protobuf:"varint,5,opt,name=include_program,json=includeProgram,proto3" json:"include_program,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	IncludeProgram bool `protobuf:"varint,6,opt,name=include_program,json=includeProgram,proto3" json:"include_program,omitempty"`
+	// include_changes includes the changes of each record.
+	IncludeChanges bool `protobuf:"varint,7,opt,name=include_changes,json=includeChanges,proto3" json:"include_changes,omitempty"`
+	// include_status includes the status of each record.
+	IncludeStatus bool `protobuf:"varint,8,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveRequest) Reset() {
 	*x = RetrieveRequest{}
-	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[0]
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -64,7 +224,7 @@ func (x *RetrieveRequest) String() string {
 func (*RetrieveRequest) ProtoMessage() {}
 
 func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[0]
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -77,7 +237,7 @@ func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
 func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RetrieveRequest) GetWhere() *pb.Where {
@@ -94,6 +254,20 @@ func (x *RetrieveRequest) GetSearchTerm() string {
 	return ""
 }
 
+func (x *RetrieveRequest) GetOrder() *Order {
+	if x != nil {
+		return x.Order
+	}
+	return nil
+}
+
+func (x *RetrieveRequest) GetAfter() *Cursor {
+	if x != nil {
+		return x.After
+	}
+	return nil
+}
+
 func (x *RetrieveRequest) GetLimit() uint32 {
 	if x != nil && x.Limit != nil {
 		return *x.Limit
@@ -101,16 +275,23 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 	return 0
 }
 
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
 func (x *RetrieveRequest) GetIncludeProgram() bool {
 	if x != nil {
 		return x.IncludeProgram
+	}
+	return false
+}
+
+func (x *RetrieveRequest) GetIncludeChanges() bool {
+	if x != nil {
+		return x.IncludeChanges
+	}
+	return false
+}
+
+func (x *RetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
@@ -126,7 +307,7 @@ type RetrieveResponse struct {
 
 func (x *RetrieveResponse) Reset() {
 	*x = RetrieveResponse{}
-	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +319,7 @@ func (x *RetrieveResponse) String() string {
 func (*RetrieveResponse) ProtoMessage() {}
 
 func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_api_arc_pb_arc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +332,7 @@ func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
 func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RetrieveResponse) GetArcs() []*pb.Arc {
@@ -166,18 +347,35 @@ var File_core_pkg_api_arc_pb_arc_proto protoreflect.FileDescriptor
 const file_core_pkg_api_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
 	"\x1dcore/pkg/api/arc/pb/arc.proto\x12\n" +
-	"api.arc.pb\x1a!core/pkg/service/arc/pb/arc.proto\"\xd4\x01\n" +
+	"api.arc.pb\x1a!core/pkg/service/arc/pb/arc.proto\"<\n" +
+	"\x06Cursor\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
+	"\x05_name\"U\n" +
+	"\x05Order\x12,\n" +
+	"\x05field\x18\x01 \x01(\x0e2\x16.api.arc.pb.OrderFieldR\x05field\x12\x1e\n" +
+	"\n" +
+	"descending\x18\x02 \x01(\bR\n" +
+	"descending\"\xfd\x02\n" +
 	"\x0fRetrieveRequest\x120\n" +
 	"\x05where\x18\x01 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12'\n" +
-	"\x0finclude_program\x18\x05 \x01(\bR\x0eincludeProgramB\b\n" +
+	"searchTerm\x12,\n" +
+	"\x05order\x18\x03 \x01(\v2\x11.api.arc.pb.OrderH\x01R\x05order\x88\x01\x01\x12-\n" +
+	"\x05after\x18\x04 \x01(\v2\x12.api.arc.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12'\n" +
+	"\x0finclude_program\x18\x06 \x01(\bR\x0eincludeProgram\x12'\n" +
+	"\x0finclude_changes\x18\a \x01(\bR\x0eincludeChanges\x12%\n" +
+	"\x0einclude_status\x18\b \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
+	"\x06_orderB\b\n" +
+	"\x06_afterB\b\n" +
 	"\x06_limit\";\n" +
 	"\x10RetrieveResponse\x12'\n" +
-	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcsB\x91\x01\n" +
+	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs*\"\n" +
+	"\n" +
+	"OrderField\x12\x14\n" +
+	"\x10ORDER_FIELD_NAME\x10\x00B\x91\x01\n" +
 	"\x0ecom.api.arc.pbB\bArcProtoP\x01Z+github.com/synnaxlabs/synnax/pkg/api/arc/pb\xa2\x02\x03AAP\xaa\x02\n" +
 	"Api.Arc.Pb\xca\x02\n" +
 	"Api\\Arc\\Pb\xe2\x02\x16Api\\Arc\\Pb\\GPBMetadata\xea\x02\fApi::Arc::Pbb\x06proto3"
@@ -194,21 +392,28 @@ func file_core_pkg_api_arc_pb_arc_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_arc_pb_arc_proto_rawDescData
 }
 
-var file_core_pkg_api_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_api_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_api_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_api_arc_pb_arc_proto_goTypes = []any{
-	(*RetrieveRequest)(nil),  // 0: api.arc.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 1: api.arc.pb.RetrieveResponse
-	(*pb.Where)(nil),         // 2: service.arc.pb.Where
-	(*pb.Arc)(nil),           // 3: service.arc.pb.Arc
+	(OrderField)(0),          // 0: api.arc.pb.OrderField
+	(*Cursor)(nil),           // 1: api.arc.pb.Cursor
+	(*Order)(nil),            // 2: api.arc.pb.Order
+	(*RetrieveRequest)(nil),  // 3: api.arc.pb.RetrieveRequest
+	(*RetrieveResponse)(nil), // 4: api.arc.pb.RetrieveResponse
+	(*pb.Where)(nil),         // 5: service.arc.pb.Where
+	(*pb.Arc)(nil),           // 6: service.arc.pb.Arc
 }
 var file_core_pkg_api_arc_pb_arc_proto_depIdxs = []int32{
-	2, // 0: api.arc.pb.RetrieveRequest.where:type_name -> service.arc.pb.Where
-	3, // 1: api.arc.pb.RetrieveResponse.arcs:type_name -> service.arc.pb.Arc
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 0: api.arc.pb.Order.field:type_name -> api.arc.pb.OrderField
+	5, // 1: api.arc.pb.RetrieveRequest.where:type_name -> service.arc.pb.Where
+	2, // 2: api.arc.pb.RetrieveRequest.order:type_name -> api.arc.pb.Order
+	1, // 3: api.arc.pb.RetrieveRequest.after:type_name -> api.arc.pb.Cursor
+	6, // 4: api.arc.pb.RetrieveResponse.arcs:type_name -> service.arc.pb.Arc
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_arc_pb_arc_proto_init() }
@@ -217,18 +422,20 @@ func file_core_pkg_api_arc_pb_arc_proto_init() {
 		return
 	}
 	file_core_pkg_api_arc_pb_arc_proto_msgTypes[0].OneofWrappers = []any{}
+	file_core_pkg_api_arc_pb_arc_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_arc_pb_arc_proto_rawDesc), len(file_core_pkg_api_arc_pb_arc_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_api_arc_pb_arc_proto_goTypes,
 		DependencyIndexes: file_core_pkg_api_arc_pb_arc_proto_depIdxs,
+		EnumInfos:         file_core_pkg_api_arc_pb_arc_proto_enumTypes,
 		MessageInfos:      file_core_pkg_api_arc_pb_arc_proto_msgTypes,
 	}.Build()
 	File_core_pkg_api_arc_pb_arc_proto = out.File
