@@ -77,8 +77,8 @@ runner_gh_global_set and runner_gh_log as above.
 Both write commands at authority 254 for the instant of a write, so the Console
 (255) always wins.
 
-Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit),
-runner_controller_log (every line logged here).
+Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit and
+while the last 3 polls all failed), runner_controller_log (every line logged here).
 
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
@@ -139,6 +139,7 @@ EC2_INDEX = "ec2_time"
 HEARTBEAT = "runner_controller_heartbeat"
 LOG = "runner_controller_log"
 WEBHOOK_PORT = 9091
+FAILED_POLLS = 3
 
 # A runtime switch: what a command channel enables, its heartbeat, its log name.
 Toggle = tuple[Scaler | Gate, Heartbeat, str]
@@ -322,6 +323,20 @@ class Controller:
         self.reset()
 
 
+class Health:
+    """Whether the polls work: false once FAILED_POLLS fail in a row, until one
+    succeeds."""
+
+    def __init__(self) -> None:
+        self.failures = 0
+
+    def record(self, *, failed: bool) -> None:
+        self.failures = self.failures + 1 if failed else 0
+
+    def healthy(self) -> bool:
+        return self.failures < FAILED_POLLS
+
+
 def wait_for_cmds(
     commands: Subscription, *, remaining: sy.TimeSpan, toggles: dict[str, Toggle]
 ) -> None:
@@ -403,7 +418,10 @@ def main() -> None:
     client = connect(args, store=store)
     channels = Channels(client=client, enabled=args.create_channels)
     log = Log(client=client, channels=channels, channel=LOG)
-    alive = Heartbeat(client=client, channels=channels, name=HEARTBEAT)
+    health = Health()
+    alive = Heartbeat(
+        client=client, channels=channels, name=HEARTBEAT, value=health.healthy
+    )
     channels.virtual(SCALER_CMD, data_type=sy.DataType.BOOLEAN)
     channels.data(
         index=channels.index(f"{GATE_CMD}_time"),
@@ -482,6 +500,9 @@ def main() -> None:
             except Exception as e:
                 log.error("poll", e)
                 controller.reset()
+                health.record(failed=True)
+            else:
+                health.record(failed=False)
             wait_for_cmds(
                 controller.commands,
                 remaining=args.interval - timer.elapsed(),
