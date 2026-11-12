@@ -11,8 +11,8 @@ from playwright.sync_api import Locator
 
 from console.base import ResourceClient
 
-FAVORITE_ACTIONS = ("Add to favorites", "Favorite", "Pin")
-UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite", "Unpin")
+FAVORITE_ACTIONS = ("Pin",)
+UNFAVORITE_ACTIONS = ("Unpin",)
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
 _NAME_INPUT_PLACEHOLDER = "Range name"
 _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
