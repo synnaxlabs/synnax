@@ -2421,7 +2421,7 @@ Mode enum {
 		).To(ContainSubstring("mode, err := migrateNodeMode(ctx, old.Mode)"))
 	})
 
-	It("Should fail when a field of an inline variant moves to a new shape", func() {
+	It("Should require a hand-written step for a field of an inline variant", func() {
 		const shape = `
 Shape union on type {
 	circle {
@@ -2431,7 +2431,7 @@ Shape union on type {
 	@go marshal
 }
 `
-		Expect(generateMove(
+		Expect(MustSucceed(generateMove(
 			types,
 			types+shape+`
 Node struct {
@@ -2457,7 +2457,9 @@ Node struct {
 	shape Shape
 }
 `,
-		)).Error().To(MatchError(ContainSubstring("variant field format")))
+		))).To(ContainSubstring(
+			"format, err := migrateCircleShapeFormat(ctx, variant.Format)",
+		))
 	})
 })
 

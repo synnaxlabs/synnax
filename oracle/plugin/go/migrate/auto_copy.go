@@ -528,7 +528,7 @@ func (c *collector) structFuncFromForms(
 				c.addMovedField(&fn, oldField.Type, newField.Type, recv+"."+name, name,
 					oldField.Optional)
 			} else {
-				c.addHandField(&fn, goName, *newField, recv+"."+name, name)
+				c.addHandField(&fn, goName, recv+"."+name, name)
 			}
 			continue
 		}
@@ -571,13 +571,13 @@ func (c *collector) unionFunc(
 		if !ok || nv.Inline != ov.Inline {
 			continue
 		}
+		variantName := casing.VariantTypeName(goName, ov.Name)
 		vf := c.structFuncFromForms(
-			"", "", "", "variant",
+			variantName, "", "", "variant",
 			variantForm(oldUF, ov, c.oldTable),
 			variantForm(newUF, nv, c.newTable),
 		)
 		fn.UsesCtx = fn.UsesCtx || vf.UsesCtx
-		variantName := casing.VariantTypeName(goName, ov.Name)
 		fn.Cases = append(fn.Cases, unionCase{
 			OldType:   oldPrefix + variantName,
 			NewType:   newPrefix + variantName,
@@ -847,22 +847,9 @@ func (fn *funcData) varName(goName string) string {
 }
 
 // addHandField reads a field whose type moved to another resource with a new shape
-// through a hand-written step, migrate<Type><Field>, that the build requires. A field
-// of an anonymous variant has no name to give the step, so it fails generation.
-func (c *collector) addHandField(
-	fn *funcData,
-	owner string,
-	newField resolution.Field,
-	accessor, goName string,
-) {
-	if owner == "" {
-		c.errs = append(c.errs, errors.Newf(
-			"variant field %s moves to another resource with a new shape, which "+
-				"no migration step can carry",
-			newField.Name,
-		))
-		return
-	}
+// through a hand-written step, migrate<Type><Field>, that the build requires. The type
+// of a variant field is the variant's Go type.
+func (c *collector) addHandField(fn *funcData, owner, accessor, goName string) {
 	varName := fn.varName(goName)
 	fn.UsesCtx = true
 	fn.Preamble = append(fn.Preamble, step{
