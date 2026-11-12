@@ -156,8 +156,14 @@ const Upload = ({
               <Text.Text color={9}>{new TimeRange(source).toPrettyString()}</Text.Text>
             )}
           </Flex.Box>
-          <SelectDevice />
-          <Asset.Field path={path.config.asset} devicePath={path.config.device} />
+          <Flex.Box x gap="large">
+            <SelectDevice />
+            <Asset.Field
+              path={path.config.asset}
+              devicePath={path.config.device}
+              grow
+            />
+          </Flex.Box>
           <Form.Field path={path.config.channels} label="Channels">
             {({ value, onChange }) => (
               <Channel.SelectMultiple
