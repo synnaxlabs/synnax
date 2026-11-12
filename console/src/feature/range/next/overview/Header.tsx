@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ranger } from "@synnaxlabs/client";
+import { type label, lineplot, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -81,10 +81,10 @@ const Labels = ({ rangeKey, preview }: RangeKeyProps & { preview: boolean }) => 
 
 interface SwatchProps {
   range: ranger.Range;
-  canEdit: boolean;
+  preview: boolean;
 }
 
-const Swatch = ({ range, canEdit }: SwatchProps): ReactElement => {
+const Swatch = ({ range, preview }: SwatchProps): ReactElement => {
   const { update } = Ranger.useSetColor();
   const { colors } = Theming.use();
   return (
@@ -92,7 +92,7 @@ const Swatch = ({ range, canEdit }: SwatchProps): ReactElement => {
       variant="shadow"
       value={range.color}
       fallback={colors.gray.l8}
-      onChange={canEdit ? (color) => update({ key: range.key, color }) : undefined}
+      onChange={preview ? undefined : (color) => update({ key: range.key, color })}
       onlyChangeOnBlur
       tooltip="Color"
       className={CSS.BE("range-overview", "color")}
@@ -100,9 +100,14 @@ const Swatch = ({ range, canEdit }: SwatchProps): ReactElement => {
   );
 };
 
-export const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
-  const range = Ranger.use({ key: rangeKey });
+export interface HeaderProps {
+  range: ranger.Range;
+}
+
+export const Header = ({ range }: HeaderProps): ReactElement => {
+  const rangeKey = range.key;
   const canEdit = Access.useUpdateGranted(ranger.resourceID(rangeKey));
+  const canPlot = Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID);
   const parent = Ranger.useResultParent({ key: rangeKey }).data;
   const { form } = Ranger.useForm({
     query: { key: rangeKey },
@@ -139,18 +144,25 @@ export const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
             gap="small"
             className={CSS.BE("range-overview", "actions")}
           >
-            <Button.Button variant="outlined" gap="small" onClick={() => plot([range])}>
-              <Icon.LinePlot />
-              Plot
-            </Button.Button>
-            <Divider.Divider y />
+            {canPlot && (
+              <>
+                <Button.Button
+                  variant="outlined"
+                  gap="small"
+                  onClick={() => plot([range])}
+                >
+                  <Icon.LinePlot />
+                  Plot
+                </Button.Button>
+                <Divider.Divider y />
+              </>
+            )}
             <Button.Copy
               text={() => `rng = client.ranges.retrieve(key="${rangeKey}")`}
               tooltip="Copy Python code"
               tooltipLocation="bottom"
               variant="text"
               textColor={9}
-              successMessage={{ message: "Copied Python code to clipboard", name }}
             >
               <Icon.Python />
             </Button.Copy>
@@ -160,7 +172,6 @@ export const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
               tooltipLocation="bottom"
               variant="text"
               textColor={9}
-              successMessage={{ message: "Copied TypeScript code to clipboard", name }}
             >
               <Icon.TypeScript />
             </Button.Copy>
@@ -202,7 +213,7 @@ export const Header = ({ rangeKey }: RangeKeyProps): ReactElement => {
           )}
         </Form.Field>
         <Flex.Box x align="center" gap="small">
-          <Swatch range={range} canEdit={canEdit} />
+          <Swatch range={range} preview={!canEdit} />
           <Labels rangeKey={rangeKey} preview={!canEdit} />
         </Flex.Box>
       </Flex.Box>

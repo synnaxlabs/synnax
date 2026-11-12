@@ -61,7 +61,6 @@ const Pair = ({ rangeKey, pair }: PairProps): ReactElement => {
             size="small"
             textColor={9}
             tooltip="Copy value"
-            successMessage="Copied value to clipboard"
           />
           <RemoveButton onClick={() => remove({ rangeKey, key: pair.key })} />
         </>
@@ -128,25 +127,25 @@ const byKey = (a: ranger.kv.Pair, b: ranger.kv.Pair) => a.key.localeCompare(b.ke
 interface MetaDataProps extends RangeKeyProps {
   pairs: ranger.kv.Pair[];
   adding: boolean;
-  onAdd: (adding: boolean) => void;
+  onAddingChange: (adding: boolean) => void;
 }
 
 export const MetaData = ({
   rangeKey,
   pairs,
   adding,
-  onAdd,
+  onAddingChange,
 }: MetaDataProps): ReactElement => (
   <Section
     title="Metadata"
     icon={<Icon.Details />}
-    actions={<AddButton tooltip="Add metadata" onClick={() => onAdd(true)} />}
+    actions={<AddButton tooltip="Add metadata" onClick={() => onAddingChange(true)} />}
   >
     <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
       {pairs.toSorted(byKey).map((pair) => (
         <Pair key={pair.key} rangeKey={rangeKey} pair={pair} />
       ))}
-      {adding && <PairDraft rangeKey={rangeKey} onDone={() => onAdd(false)} />}
+      {adding && <PairDraft rangeKey={rangeKey} onDone={() => onAddingChange(false)} />}
     </Flex.Box>
   </Section>
 );

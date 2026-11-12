@@ -169,7 +169,7 @@ const AliasDraft = ({ rangeKey, onDone }: DraftProps): ReactElement => {
 
 interface AliasesProps extends RangeKeyProps, AliasList {
   adding: boolean;
-  onAdd: (adding: boolean) => void;
+  onAddingChange: (adding: boolean) => void;
 }
 
 export const Aliases = ({
@@ -177,12 +177,12 @@ export const Aliases = ({
   aliases,
   inherited,
   adding,
-  onAdd,
+  onAddingChange,
 }: AliasesProps): ReactElement => (
   <Section
     title="Channel aliases"
     icon={<Icon.Channel />}
-    actions={<AddButton tooltip="Add alias" onClick={() => onAdd(true)} />}
+    actions={<AddButton tooltip="Add alias" onClick={() => onAddingChange(true)} />}
   >
     <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
       {Object.entries(aliases)
@@ -196,7 +196,9 @@ export const Aliases = ({
             inherited={inherited.has(Number(key))}
           />
         ))}
-      {adding && <AliasDraft rangeKey={rangeKey} onDone={() => onAdd(false)} />}
+      {adding && (
+        <AliasDraft rangeKey={rangeKey} onDone={() => onAddingChange(false)} />
+      )}
     </Flex.Box>
   </Section>
 );

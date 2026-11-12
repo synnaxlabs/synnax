@@ -63,9 +63,7 @@ export const Overview: Panel.Content = () => {
   return (
     <div key={key} className={CSS.BE("range-overview", "scroll")}>
       <Flex.Box y empty className={CSS.B("range-overview")}>
-        <Flex.Box y empty className={CSS.BE("range-overview", "top")}>
-          <Header rangeKey={key} />
-        </Flex.Box>
+        <Header range={range} />
         {hasChildren && (
           <Children
             range={range}
@@ -83,7 +81,7 @@ export const Overview: Panel.Content = () => {
             rangeKey={key}
             pairs={pairs}
             adding={adding === "metadata"}
-            onAdd={setAddingTo("metadata")}
+            onAddingChange={setAddingTo("metadata")}
           />
         ) : (
           <AddLine onClick={() => setAdding("metadata")}>Metadata</AddLine>
@@ -94,7 +92,7 @@ export const Overview: Panel.Content = () => {
               rangeKey={key}
               {...aliasList}
               adding={adding === "alias"}
-              onAdd={setAddingTo("alias")}
+              onAddingChange={setAddingTo("alias")}
             />
           ) : (
             <AddLine onClick={() => setAdding("alias")}>Channel alias</AddLine>

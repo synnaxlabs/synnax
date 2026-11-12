@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Section as PSection } from "@/platform/section";
+import { Section as PlatformSection } from "@/platform/section";
 
 interface SectionProps {
   title: string;
@@ -37,7 +37,7 @@ export const Section = ({
 }: SectionProps): ReactElement => {
   const [open, setOpen] = useState(true);
   return (
-    <PSection.Section
+    <PlatformSection.Section
       y
       empty
       className={CSS.cls(
@@ -45,7 +45,7 @@ export const Section = ({
         className,
       )}
     >
-      <PSection.Header level="small" bordered={open}>
+      <PlatformSection.Header level="small" bordered={open}>
         <Button.Button
           variant="text"
           size="small"
@@ -70,9 +70,9 @@ export const Section = ({
             {actions}
           </Flex.Box>
         )}
-      </PSection.Header>
+      </PlatformSection.Header>
       {open && children}
-    </PSection.Section>
+    </PlatformSection.Section>
   );
 };
 

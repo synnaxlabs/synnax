@@ -268,10 +268,6 @@
     }
 }
 
-.console-range-overview__top {
-    gap: 2.5rem;
-}
-
 /* The add lines of empty sections sit together, as one short list. */
 .console-range-overview__add {
     width: fit-content;
@@ -320,7 +316,7 @@
 
 /* Puts the chip, not the box around it, on the content edge. */
 .console-range-overview__color {
-    margin-left: -0.65rem;
+    margin-left: round(-0.65rem, 1px);
 }
 
 .console-range-overview__caret {
