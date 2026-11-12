@@ -17,7 +17,10 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
-import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import {
+  DeviceRangeFields,
+  type DeviceRangeFieldsProps,
+} from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
 import { ANALOG_OUTPUT } from "@/feature/ni/task/ports";
 import {
@@ -60,12 +63,19 @@ const SelectWaveType = (props: SelectWaveTypeProps) => (
 
 type Variant<K extends AOChannelType> = Extract<AOChannel, { type: K }>;
 
+const AORangeFields = (props: Omit<DeviceRangeFieldsProps, "device">) => {
+  const device = useFromConfig();
+  return <DeviceRangeFields device={device} {...props} />;
+};
+
 interface FormProps<K extends AOChannelType = AOChannelType> {
   path: deep.Path<Variant<K>>;
 }
 
 const CHANNEL_FORMS: { [K in AOChannelType]: FC<FormProps<K>> } = {
-  [AO_CURRENT_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
+  [AO_CURRENT_CHAN_TYPE]: ({ path }) => (
+    <AORangeFields path={path} list="aoCurrentRanges" units="A" />
+  ),
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
     <>
       <Form.Field path={path.waveType} label="Wave">
@@ -88,7 +98,9 @@ const CHANNEL_FORMS: { [K in AOChannelType]: FC<FormProps<K>> } = {
       />
     </>
   ),
-  [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
+  [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => (
+    <AORangeFields path={path} list="aoVoltageRanges" units="V" />
+  ),
 };
 
 const HZ_END_CONTENT_INPUT_PROPS = { endContent: "Hz" } as const;

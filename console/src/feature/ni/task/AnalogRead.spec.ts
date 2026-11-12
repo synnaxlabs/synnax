@@ -564,6 +564,47 @@ describe("AnalogRead ports", () => {
     expect(screen.queryByText(/samples at most|may not sample/)).toBeNull();
   });
 
+  it("should set the minimum and maximum from a range of the device", async () => {
+    const hardware = createHardware();
+    hardware.aiVoltageRanges = [
+      { lower: -10, upper: 10 },
+      { lower: -5, upper: 5 },
+    ];
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, minVal: -10, maxVal: 10 }),
+      ],
+    });
+    await selectFromDropdown("±10 V", "±5 V");
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Minimum value" })).toHaveProperty(
+        "value",
+        "-5",
+      ),
+    );
+    expect(screen.getByRole("textbox", { name: "Maximum value" })).toHaveProperty(
+      "value",
+      "5",
+    );
+  });
+
+  it("should offer no range of the device to a channel with a custom scale", async () => {
+    const hardware = createHardware();
+    hardware.aiVoltageRanges = [{ lower: -10, upper: 10 }];
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key, minVal: -10, maxVal: 10 }),
+      ],
+    });
+    await findDialogTriggerByText("±10 V");
+    await selectFromDropdown("None", "Linear");
+    await waitFor(() => expect(screen.queryByText("±10 V")).toBeNull());
+  });
+
   it("should deploy channels on free ports of the device", async () => {
     const dev = await createDevice();
     const { container, draft } = await renderWith([

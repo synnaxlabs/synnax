@@ -105,6 +105,33 @@ describe("AnalogWrite", () => {
     expect(screen.getByRole("textbox", { name: "Maximum value" })).toBeTruthy();
   });
 
+  it("should set the minimum and maximum from a range of the device", async () => {
+    const hardware = createHardware();
+    hardware.aoVoltageRanges = [
+      { lower: -10, upper: 10 },
+      { lower: 0, upper: 5 },
+    ];
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogWrite(
+      createConfig(
+        [createChannel("ao_voltage", 0, { minVal: -10, maxVal: 10 })],
+        dev.key,
+      ),
+    );
+    fireEvent.click(await findChannelListItem("cmd_ao_voltage_0"));
+    await selectFromDropdown("±10 V", "0 to 5 V");
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Minimum value" })).toHaveProperty(
+        "value",
+        "0",
+      ),
+    );
+    expect(screen.getByRole("textbox", { name: "Maximum value" })).toHaveProperty(
+      "value",
+      "5",
+    );
+  });
+
   it("should switch the function generator wave type when a wave button is clicked", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
     fireEvent.click(await findChannelListItem("0"));
