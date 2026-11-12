@@ -266,6 +266,20 @@ var _ = Describe("Channel fields", func() {
 			Expect(f).ToNot(HaveKey("json_type"))
 		})
 
+		It("Should import a version 1 timestamp field in its time format", func(
+			ctx SpecContext,
+		) {
+			old := map[string]any{
+				"channel":     create(ctx, telem.TimestampT),
+				"json_type":   "number",
+				"data_type":   "float64",
+				"time_format": "unix_ms",
+			}
+			f := firstField(MustSucceed(svc.Write.Normalize(ctx, db, 1, config(old))))
+			Expect(f).To(HaveKeyWithValue("type", "timestamp"))
+			Expect(f).To(HaveKeyWithValue("time_format", "unix_ms"))
+		})
+
 		It("Should give a field with no channel the kind of its data type", func(
 			ctx SpecContext,
 		) {

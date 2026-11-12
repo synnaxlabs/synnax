@@ -20,11 +20,13 @@ import (
 )
 
 // MigrateChannelField lifts a v1 channel field to v2 by its stored shape, without its
-// Synnax channel. A timestamp data type makes a timestamp field in its time format, ISO
-// 8601 when it has none. A boolean JSON type makes a boolean field, and a string with
-// no entries a string field. A number, or a string with entries, makes a float field
-// that keeps the entries. v1 encoded by the data type of the channel, so the caller
-// reconciles the field against its channel, or against its data type when it has none.
+// Synnax channel. A timestamp data type, or a number with a time format and no entries,
+// the default shape of a v1 timestamp field, makes a timestamp field in its time
+// format, ISO 8601 when it has none. A boolean JSON type makes a boolean field, and a
+// string with no entries a string field. A number, or a string with entries, makes a
+// float field that keeps the entries. v1 encoded by the data type of the channel, so
+// the caller reconciles the field against its channel, or against its data type when
+// it has none.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
 	dt := old.DataType
@@ -36,7 +38,8 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 	}
 	var c xpayload.Channel
 	switch {
-	case dt == telem.TimestampT:
+	case dt == telem.TimestampT || (old.TimeFormat != nil &&
+		old.JSONType == payload.JSONTypeNumber && len(old.EnumValues) == 0):
 		c = xpayload.Channel{
 			Kind:       xpayload.KindTimestamp,
 			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
