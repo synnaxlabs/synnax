@@ -363,7 +363,7 @@ class TestHardwareSuites:
 class TestShippedChanges:
     """Shipped files that differ between two commits."""
 
-    def test_should_list_shipped_code_and_integration_tests_only(
+    def test_should_list_every_change_outside_unshipped_folders(
         self, tmp_path: Path
     ) -> None:
         git(tmp_path, "init", "-q", "-b", "main")
@@ -386,32 +386,25 @@ class TestShippedChanges:
             )
             return git(tmp_path, "rev-parse", "HEAD")
 
-        base = commit(
-            {
-                "core/a.go": "a",
-                "site/docs/a.md": "a",
-                "studio/a.ts": "a",
-                "vendor/open62541/a.c": "a",
-                "uv.lock": "a",
-                ".bazelrc": "a",
-            }
-        )
-        docs = commit({"site/docs/a.md": "b", "studio/a.ts": "b"})
-        assert shipped_changes(tmp_path, base=base, head=docs) == []
-        code = commit(
-            {
-                "core/a.go": "b",
-                "integration/tests/a.py": "b",
-                "vendor/open62541/a.c": "b",
-                "uv.lock": "b",
-                ".bazelrc": "b",
-            }
-        )
-        assert shipped_changes(tmp_path, base=base, head=code) == [
-            ".bazelrc",
+        files = [
+            ".python-version",
             "core/a.go",
             "integration/tests/a.py",
-            "uv.lock",
+            "scripts/a.py",
+            "site/docs/a.md",
+            "studio/a.ts",
+            "vendor/open62541/a.c",
+        ]
+        base = commit(dict.fromkeys(files, "a"))
+        docs = commit(
+            dict.fromkeys(["scripts/a.py", "site/docs/a.md", "studio/a.ts"], "b")
+        )
+        assert shipped_changes(tmp_path, base=base, head=docs) == []
+        code = commit(dict.fromkeys(files, "c"))
+        assert shipped_changes(tmp_path, base=base, head=code) == [
+            ".python-version",
+            "core/a.go",
+            "integration/tests/a.py",
             "vendor/open62541/a.c",
         ]
 
