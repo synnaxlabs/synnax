@@ -461,6 +461,26 @@ var _ = Describe("Server", func() {
 				To(WithTransform(status.Code, Equal(codes.Unavailable)))
 			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 		})
+
+		It("Should return the errors FailRunUpdates sets, in order",
+			func(ctx SpecContext) {
+				created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+				update := func() (*runsv2.UpdateRunResponse, error) {
+					return runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+						Run: &runsv2.Run{RunId: created.Run.RunId, Name: "renamed"},
+						UpdateMask: &fieldmaskpb.FieldMask{
+							Paths: []string{"name"},
+						},
+					})
+				}
+				server.FailRunUpdates(status.Error(codes.Unavailable, "down"))
+				Expect(update()).Error().
+					To(WithTransform(status.Code, Equal(codes.Unavailable)))
+				MustSucceed(update())
+				Expect(server.Runs()).To(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			})
 	})
 
 	Describe("APIKey", func() {
