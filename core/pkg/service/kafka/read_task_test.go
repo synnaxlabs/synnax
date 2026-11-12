@@ -626,6 +626,10 @@ var _ = Describe("Read task", func() {
 				}
 				return w.Close()
 			}).WithTimeout(15 * time.Second).Should(Succeed())
+			// A failed write releases the channels before the task reports the failure,
+			// and a start acknowledges a consumer that has not reported one.
+			Eventually(func() bool { return taskStatus(ctx, t).Details.Running }).
+				WithTimeout(15 * time.Second).Should(BeFalse())
 			dropRecords(ctx, topic)
 			start(ctx, dt, t)
 		},
