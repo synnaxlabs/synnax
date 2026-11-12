@@ -21,6 +21,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -79,6 +80,21 @@ describe("Sift stream form", () => {
       asset: "Test stand 1",
       channels: [data.key],
     });
+  });
+
+  it("should show the asset of a snapshot without New asset", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "Test stand 1" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const snap = await client.tasks.copy(t.key, uniqueName("snap"), true);
+    await renderTaskFormTab(Sift.Task.Stream, { client, taskKey: snap.key });
+    expect(await screen.findByText("Test stand 1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
   });
 
   it("should show the progress of the stream once the Core writes it", async () => {
