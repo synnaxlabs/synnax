@@ -64,8 +64,15 @@ const toDocuments = (owned: Owned[], type: resource.Type): Document[] =>
     snapshot: snapshot === true,
   }));
 
-/** @returns every document that the range owns, by kind and then by name. */
-export const useDocuments = (rangeKey: ranger.Key): Document[] => {
+interface Documents {
+  /** The documents read so far, by kind and then by name. */
+  documents: Document[];
+  /** Reads the next page of each kind, or null once every document is read. */
+  more: (() => void) | null;
+}
+
+/** @returns the documents that the range owns. */
+export const useDocuments = (rangeKey: ranger.Key): Documents => {
   const params = { query: { where: { ranges: [rangeKey] } }, eager: true };
   const plots = Flux.useList((c) => c.lineplots, { name: "line plots", ...params });
   const schematics = Flux.useList((c) => c.schematics, {
@@ -75,13 +82,19 @@ export const useDocuments = (rangeKey: ranger.Key): Document[] => {
   const tables = Flux.useList((c) => c.tables, { name: "tables", ...params });
   const logs = Flux.useList((c) => c.logs, { name: "logs", ...params });
   const tasks = Flux.useList((c) => c.tasks, { name: "tasks", ...params });
-  return [
+  const lists = [plots, schematics, tables, logs, tasks];
+  const documents = [
     toDocuments(plots.getItem(plots.data), lineplot.TYPE_RESOURCE_ID.type),
     toDocuments(schematics.getItem(schematics.data), schematic.TYPE_RESOURCE_ID.type),
     toDocuments(tables.getItem(tables.data), table.TYPE_RESOURCE_ID.type),
     toDocuments(logs.getItem(logs.data), log.TYPE_RESOURCE_ID.type),
     toDocuments(tasks.getItem(tasks.data), task.TYPE_RESOURCE_ID.type),
   ].flatMap((docs) => docs.toSorted((a, b) => a.name.localeCompare(b.name)));
+  const partial = lists.some(({ answered, complete }) => answered && !complete);
+  return {
+    documents,
+    more: partial ? () => lists.forEach((list) => list.more()) : null,
+  };
 };
 
 interface DocumentMenuProps {
@@ -119,7 +132,7 @@ const DocumentMenu = ({ entry: { id, name } }: DocumentMenuProps): ReactElement 
   );
 };
 
-export const Documents = ({ documents }: { documents: Document[] }): ReactElement => {
+export const Documents = ({ documents, more }: Documents): ReactElement => {
   const openTab = Panel.useOpenTab();
   const menuProps = Menu.useContextMenu();
   const menu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
@@ -183,6 +196,17 @@ export const Documents = ({ documents }: { documents: Document[] }): ReactElemen
               </Button.Button>
             );
           })}
+          {more != null && (
+            <Button.Button
+              variant="text"
+              size="small"
+              textColor={9}
+              className={CSS.BE("range-overview", "add")}
+              onClick={more}
+            >
+              Show more
+            </Button.Button>
+          )}
         </Flex.Box>
       </Menu.ContextMenu>
     </Section>

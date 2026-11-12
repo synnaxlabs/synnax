@@ -86,20 +86,33 @@ const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
   });
 };
 
-/** Creates a schematic snapshot that the range owns. */
-const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> => {
+/** Creates the count of schematic snapshots that the range owns. */
+const createDocuments = async (
+  rng: ranger.Range,
+  count: number,
+): Promise<schematic.Schematic[]> => {
   const proj = await client.projects.create({ name: uniqueName("proj") });
   const sch = await client.schematics.create({
     project: proj.key,
     name: uniqueName("sch"),
   });
-  return await client.schematics.copy({
-    key: sch.key,
-    name: uniqueName("snap"),
-    snapshot: true,
-    range: rng.key,
-  });
+  return await Promise.all(
+    Array.from(
+      { length: count },
+      async () =>
+        await client.schematics.copy({
+          key: sch.key,
+          name: uniqueName("snap"),
+          snapshot: true,
+          range: rng.key,
+        }),
+    ),
+  );
 };
+
+/** Creates a schematic snapshot that the range owns. */
+const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =>
+  (await createDocuments(rng, 1))[0];
 
 /** Creates a range under the parent that starts at the start and runs one second. */
 const createChildAt = async (
@@ -238,6 +251,15 @@ describe("range/next/overview", () => {
       );
       if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
       expect(tab.resource).toEqual(schematic.resourceID(doc.key));
+    });
+
+    it("should read the documents past the first page on Show more", async () => {
+      const rng = await createTestRange(client);
+      const docs = await createDocuments(rng, 51);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Show more" }));
+      await waitFor(() => docs.forEach(({ name }) => screen.getByText(name)));
+      expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
     });
 
     it("should delete a document after the confirm", async () => {

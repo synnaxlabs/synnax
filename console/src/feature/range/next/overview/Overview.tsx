@@ -73,7 +73,7 @@ export const Overview: Panel.Content = () => {
           ) : (
             <AddLine onClick={() => setAdding("alias")}>Channel alias</AddLine>
           ))}
-        {documents.length > 0 && <Documents documents={documents} />}
+        {documents.documents.length > 0 && <Documents {...documents} />}
       </Flex.Box>
     </div>
   );
