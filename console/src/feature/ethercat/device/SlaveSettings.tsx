@@ -72,10 +72,10 @@ export const SlaveSettings = (): ReactElement | null => {
       ))}
       <Text.Text level="small" color={9}>
         {reader == null
-          ? "The Driver writes each set value as a startup parameter. A field not set " +
-            "keeps the value on the device."
-          : `${caseconv.capitalize(reader)} sets these values. Synnax does not change ` +
-            "them."}
+          ? "The Driver writes each set value as a startup parameter. A field not " +
+            "set keeps the value on the device."
+          : `${caseconv.capitalize(reader)} sets these values. Synnax does not ` +
+            "change them."}
       </Text.Text>
     </Form.Section>
   );

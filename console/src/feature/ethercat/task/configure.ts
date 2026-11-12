@@ -222,10 +222,10 @@ export const fillStartupParameters = (
       if (ch == null) continue;
       const filledInput = fill(input.settings, prior);
       const [problem] = check(input, filledInput);
-      if (problem != null)
-        throw new Error(
-          `Entry ${ethercat.formatAddress(ch)} on module ${slave.name}: ${problem.message}`,
-        );
+      if (problem != null) {
+        const entry = `Entry ${ethercat.formatAddress(ch)} on module ${slave.name}`;
+        throw new Error(`${entry}: ${problem.message}`);
+      }
       parameters.push(...filledInput);
     }
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
