@@ -155,8 +155,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
 
   /**
    * Creates the given ICDs. The Core gives keys to messages and fields that have none.
-   * @throws {ValidationError} if an ICD with the same key exists, or if an ICD or one of
-   * its messages has a bad shape.
+   * @throws {ValidationError} if an ICD with the same key exists, or if an ICD or one
+   * of its messages has a bad shape.
    */
   async create(icd: New, opts?: query.WriteOptions<ICD[]>): Promise<ICD>;
   async create(icds: New[], opts?: query.WriteOptions<ICD[]>): Promise<ICD[]>;
