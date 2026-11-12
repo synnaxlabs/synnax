@@ -356,6 +356,7 @@ sequence unit_main {
     gauge i64 bar := 0bar
     volts := 0.0V
     live := 1min
+    calc := 1min
     src_s := 120s
     src_min := 2min
     src_short := 90s
@@ -374,6 +375,7 @@ sequence unit_main {
         src_kpa -> pressure
         src_psi -> gauge
         src_mv -> volts
+        src_s * 2 -> calc
         unit_live_in -> src_live
         src_live -> live
         lit -> unit_lit
@@ -387,6 +389,7 @@ sequence unit_main {
         gauge -> unit_gauge
         volts -> unit_volts
         live -> unit_live
+        calc -> unit_calc
         flow_trigger -> unit_to_ms(x=src_live) -> unit_fn_live
         1 -> unit_ready
     }
@@ -394,68 +397,59 @@ sequence unit_main {
 start_conversion_cmd => unit_main
 // A variable converts to the unit of a function input.
 unit_bar := 1.0bar
-func unit_to_psi(x f64 psi) f64 {
+func unit_to_psi(x f64 psi) f64 psi {
     return x
 }
 flow_trigger -> unit_to_psi(x=unit_bar) -> unit_fn_psi
 // So does a variable that is assigned again, in the stage above.
-func unit_to_ms(x i64 ms) i64 {
+func unit_to_ms(x i64 ms) i64 ms {
     return x
 }
+// A function gives its result as the number in its unit.
+func unit_five() i64 ms {
+    return 5ms
+}
+flow_trigger -> unit_five() -> unit_fn_ret
 """
 
 # Every line with a comment is an error or a warning that the compiler gives in one
-# pass, and [1 fix] or [2 fix] gives its number of quick fixes. UNIT_ERRORS holds the
-# text that the Core must report for them.
+# pass. UNIT_ERRORS holds the text that the Core must report for them.
 UNIT_ERRORS_SOURCE = """
 import time
 
 // ─────────────── top-level variables ───────────────
 t := 120s
-u := 500ms
 p := 100psi
-twice := t + t
-typed i64 ns := t + t                             // [2 fix] typed variable
 
-func show(x i64 ns) str {
+func show(x i64) str {
     return f"x={x}"
 }
 
 // ─────────────── flow ───────────────
-time.wait(t * 2) -> "wait" -> unit_log            // [1 fix] calculation
-time.interval(t + u) -> "interval" -> unit_log    // [2 fix] two variables
-time.wait(twice * 2) -> "chain" -> unit_log       // [1 fix] calculated variable
 time.wait(p) -> "pressure" -> unit_log            // pressure into a timer
-time.interval(1s) -> show(x=t * 2) -> unit_log    // [1 fix] into a function
+time.interval(1s) -> show(x=t) -> unit_log        // a unit into a parameter with none
 
 // ─────────────── function body ───────────────
-func hold() {d i64 ns} i64 {
-    return d
-}
-
-func in_body() i64 {
-    local := 5s
-    return hold(local)                            // another unit into a function
+func stamp() i64 {
+    return time.now()                             // a unit into a result with none
 }
 
 // ─────────────── sequence and stage ───────────────
 sequence main {
     d := 1min
     span := 90s
-    whole := 120s
     n := 5
+    count := 0
 
     stage write {
-        whole * 60 -> d                           // [2 fix] into a variable
-        span * 60 -> d                            // [1 fix] 90 s is not a whole min
-        d = span * 2                              // [1 fix] 90 s is not a whole min
         p -> d                                    // another dimension
         d = p                                     // another dimension
         5psi -> d                                 // another dimension
         2.5 -> n                                  // float into an integer
-        whole -> d                                // [2 fix] warning, truncation
-        span -> d                                 // [1 fix] warning, truncation
-        time.wait(span / 2) => next               // [1 fix] in a stage
+        span -> count                             // a unit into a variable with none
+        span -> d                                 // warning, truncation
+        span * 60 -> d                            // warning, truncation
+        90s -> d                                  // warning, truncation
     }
 
     stage done {
@@ -468,40 +462,16 @@ start_conversion_cmd => main
 
 # The text that the Core must report for UNIT_ERRORS_SOURCE, in the order of its lines.
 UNIT_ERRORS = [
-    "'typed' is in ns and cannot take a calculation with 't', which is in s",
-    "'time.wait' cannot take a calculation with 't', which is in s",
-    "'time.interval' cannot take a calculation with 't', which is in s, and 'u', "
-    "which is in ms",
-    "'time.wait' cannot take a calculation with 'twice', which is in s",
     "expected i64 ns, got i64 psi",
-    "'show' cannot take a calculation with 't', which is in s",
-    "type mismatch in argument 'd' of 'hold': expected i64 ns, got i64 s",
-    "'d' is in min and cannot take a calculation with 'span', which is in s",
+    "parameter 'x' of 'show' has no unit and cannot take a value in s",
+    "hint: declare parameter 'x' of 'show' in s",
+    "the result of 'stamp' has no unit and cannot take a value in ns",
     "incompatible dimensions: cannot write psi to 'd' (min)",
     "incompatible dimensions: cannot assign psi to 'd' (min)",
     "does not match channel n value type",
+    "'count' has no unit and cannot take a value in s",
     "unit conversion from s to min truncates an integer toward zero",
-    "'time.wait' cannot take a calculation with 'span', which is in s",
-    "hint: change `t := 120s` to `t i64 ns := 120s`",
-    "hint: change `u := 500ms` to `u i64 ns := 500ms`",
-    "hint: change `span := 90s` to `span i64 ns := 90s`",
-    "hint: change `d := 1min` to `d i64 s := 1min`",
-    "'d' is in min and cannot take a calculation with 'whole', which is in s",
-    "hint: change `whole := 120s` to `whole i64 min := 120s`",
-    "hint: change `typed i64 ns := t + t` to `typed i64 s := t + t`",
 ]
-
-# The compiler reports a literal that does not divide in a later pass, so it has its
-# own Arc.
-UNIT_FRACTION_SOURCE = """
-sequence main {
-    d := 1min
-    stage write {
-        20ms -> d
-    }
-}
-start_conversion_cmd => main
-"""
 
 INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_i32", sy.DataType.INT32),
@@ -1001,6 +971,8 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("unit_ready", sy.DataType.UINT8),
     ("unit_fn_psi", sy.DataType.FLOAT64),
     ("unit_fn_live", sy.DataType.INT64),
+    ("unit_calc", sy.DataType.INT64),
+    ("unit_fn_ret", sy.DataType.INT64),
     ("unit_log", sy.DataType.STRING),
     # Narrow integer types, widened to i64 in Arc
     *(
@@ -1189,12 +1161,14 @@ class Conversion(ArcCase):
         self.wait_for_eq("unit_gauge", 6)
         self.wait_for_near("unit_volts", 2.5, tolerance=1e-9)
         self.wait_for_eq("unit_live", 1)
+        self.wait_for_eq("unit_calc", 4)
         self.log("Writing 180 s to the source variable")
         self.writer.write("unit_live_in", 180)
         self.wait_for_eq("unit_live", 3)
         self.writer.write("flow_trigger", 1)
         self.wait_for_near("unit_fn_psi", 14.5038, tolerance=1e-3)
         self.wait_for_eq("unit_fn_live", 180_000)
+        self.wait_for_eq("unit_fn_ret", 5)
 
     def _test_unit_errors(self) -> None:
         self.log("=== Unit conversion errors ===")
@@ -1203,9 +1177,4 @@ class Conversion(ArcCase):
             name_prefix="UnitErrors",
             substr=UNIT_ERRORS[0],
             expect=UNIT_ERRORS[1:],
-        )
-        self._assert_configure_error(
-            UNIT_FRACTION_SOURCE,
-            name_prefix="UnitFraction",
-            substr="value has fractional part",
         )

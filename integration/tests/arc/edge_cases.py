@@ -331,7 +331,7 @@ len(edge_len_input) -> edge_len_out
 
 # Qualified module member used without an `import (…)` block.
 ARC_IMPORT_MISSING = """
-func get_now() i64 {
+func get_now() i64 ns {
     return time.now()
 }
 start_edge_case_cmd -> get_now()
@@ -358,7 +358,7 @@ start_edge_case_cmd -> passthrough()
 # Same module listed twice in one block.
 ARC_IMPORT_DUPLICATE = """
 import ( time time )
-func get_now() i64 {
+func get_now() i64 ns {
     return time.now()
 }
 start_edge_case_cmd -> get_now()
