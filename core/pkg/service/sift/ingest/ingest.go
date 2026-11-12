@@ -92,6 +92,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 10 s.
 	CheckpointInterval telem.TimeSpan
+	// ConfirmTimeout is how long the engine waits for Sift to confirm what it sent. A
+	// stopped engine also waits at most this long for a stream that Sift stops reading.
+	//
+	// [OPTIONAL] - Defaults to 30 s.
+	ConfirmTimeout telem.TimeSpan
 	// Retry sets the wait between attempts after a temporary failure.
 	//
 	// [OPTIONAL] - Defaults to 1 s, doubling to at most 30 s.
@@ -111,6 +116,7 @@ var _ config.Config[Config] = Config{}
 // DefaultConfig is the default configuration for an Engine.
 var DefaultConfig = Config{
 	CheckpointInterval: 10 * telem.Second,
+	ConfirmTimeout:     30 * telem.Second,
 	Retry: breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
@@ -134,6 +140,7 @@ func (c Config) Override(other Config) Config {
 		c.CheckpointInterval,
 		other.CheckpointInterval,
 	)
+	c.ConfirmTimeout = override.Numeric(c.ConfirmTimeout, other.ConfirmTimeout)
 	c.Retry = c.Retry.Override(other.Retry)
 	c.OnCheckpoint = override.Nil(c.OnCheckpoint, other.OnCheckpoint)
 	c.OnRetry = override.Nil(c.OnRetry, other.OnRetry)
@@ -150,6 +157,7 @@ func (c Config) Validate() error {
 	v.NotEmptyString("asset", c.Asset)
 	v.NotEmptySlice("keys", c.Keys)
 	v.Positive("checkpoint_interval", c.CheckpointInterval)
+	v.Positive("confirm_timeout", c.ConfirmTimeout)
 	v.NotNil("on_checkpoint", c.OnCheckpoint)
 	v.NotNil("on_retry", c.OnRetry)
 	return errors.Join(v.Error(), c.Retry.Validate())
@@ -273,6 +281,7 @@ func (e *Engine) Upload(ctx context.Context, tr telem.TimeRange, from Positions)
 			if err := e.read(
 				ctx,
 				f,
+				f.channels,
 				telem.TimeRange{Start: a.sent[key], End: tr.End},
 				func(fr framer.Frame) error {
 					if err := a.send(ctx, f, fr); err != nil {
@@ -337,10 +346,10 @@ func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
 			}
 		case fr, ok := <-l.frames:
 			if !ok {
-				return l.err()
+				return a.fallBehind(ctx, l.err())
 			}
 			for _, f := range e.flows {
-				if err = a.send(ctx, f, fr); err != nil {
+				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
 				}
 			}
@@ -369,6 +378,7 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
 		if err := e.read(
 			ctx,
 			f,
+			f.channels,
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
 				if err := a.send(ctx, f, fr); err != nil {
@@ -384,11 +394,12 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
 }
 
 // read calls fn with the stored samples of f in tr, one chunk of the index at a time.
-// Each frame holds every data sample in the time span of its chunk, so a data sample
-// always arrives with its index sample.
+// Each frame holds every sample of channels in the time span of its chunk, so a data
+// sample always arrives with its index sample.
 func (e *Engine) read(
 	ctx context.Context,
 	f flow,
+	channels []channel.Channel,
 	tr telem.TimeRange,
 	fn func(framer.Frame) error,
 ) (err error) {
@@ -401,7 +412,7 @@ func (e *Engine) read(
 	}
 	defer func() { err = errors.Combine(err, idx.Close()) }()
 	data, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.KeysFromChannels(f.channels),
+		Keys:   channel.KeysFromChannels(channels),
 		Bounds: tr,
 	})
 	if err != nil {
@@ -452,11 +463,18 @@ func (e *Engine) retry(
 		id, err := e.ingestionConfig(ctx)
 		if err == nil {
 			a := &attempt{
-				engine:    e,
-				sender:    sender{client: e.ingest},
+				engine: e,
+				sender: sender{
+					client:  e.ingest,
+					timeout: e.cfg.ConfirmTimeout.Duration(),
+				},
 				configID:  id,
 				confirmed: confirmed,
 				sent:      maps.Clone(confirmed),
+				start:     maps.Clone(confirmed),
+				ends:      make(map[channel.Key]telem.Alignment),
+				values:    make(map[channel.Key]telem.TimeStamp),
+				unindexed: make(map[channel.Key]set.Set[channel.Key]),
 				last:      time.Now(),
 			}
 			confirms := e.confirms
@@ -572,6 +590,8 @@ type attempt struct {
 	configID  string
 	confirmed Positions
 	sent      Positions
+	// start holds the positions the attempt started from.
+	start Positions
 	// pending counts the values sent since the last checkpoint.
 	pending int64
 	last    time.Time
@@ -584,11 +604,30 @@ type attempt struct {
 	idle telem.TimeStamp
 	// reported is the Through of the last checkpoint.
 	reported telem.TimeStamp
+	// ends holds, for each index, the alignment after the last live sample.
+	ends map[channel.Key]telem.Alignment
+	// values holds, for each data channel, the time after the last value sent.
+	values map[channel.Key]telem.TimeStamp
+	// unindexed holds the data channels of each index that arrived live without it.
+	unindexed map[channel.Key]set.Set[channel.Key]
 }
 
 func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
-	key := f.index.Key()
-	next, n, err := encode(a.configID, f, fr, a.sent[key], func(
+	next, err := a.encode(ctx, f, fr, a.sent[f.index.Key()])
+	a.sent[f.index.Key()] = next
+	return err
+}
+
+// encode sends the samples of f in fr at or after from, and returns the timestamp after
+// the last one it read.
+func (a *attempt) encode(
+	ctx context.Context,
+	f flow,
+	fr framer.Frame,
+	from telem.TimeStamp,
+) (telem.TimeStamp, error) {
+	last := make([]telem.TimeStamp, len(f.channels))
+	next, n, err := encode(a.configID, f, fr, from, last, func(
 		req *ingestv1.IngestWithConfigDataStreamRequest,
 	) error {
 		// The stream outlives ctx, so a cancelled ctx stops nothing on its own.
@@ -597,10 +636,23 @@ func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
 		}
 		return a.sender.send(ctx, req)
 	})
-	a.sent[key] = next
+	for i, ts := range last {
+		if ts > a.value(f, f.channels[i]) {
+			a.values[f.channels[i].Key()] = ts
+		}
+	}
 	a.pending += n
 	a.failed = err != nil && !errors.Is(err, ctx.Err())
-	return err
+	return next, err
+}
+
+// value returns the time after the last value of ch sent, or the start of the attempt
+// when it sent none.
+func (a *attempt) value(f flow, ch channel.Channel) telem.TimeStamp {
+	if v, ok := a.values[ch.Key()]; ok {
+		return v
+	}
+	return a.start[f.index.Key()]
 }
 
 // stop confirms what the attempt sent after ctx is cancelled, so the next run starts
@@ -627,6 +679,9 @@ func (a *attempt) maybeCheckpoint(ctx context.Context) error {
 // always is set, it reports nothing when nothing changed.
 func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	a.last = time.Now()
+	if err := a.sendUnindexed(ctx); err != nil {
+		return err
+	}
 	if err := a.sender.confirm(); err != nil {
 		a.failed = true
 		return err
@@ -646,6 +701,96 @@ func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	a.pending = 0
 	a.reported = through
 	return a.engine.cfg.OnCheckpoint(ctx, cp)
+}
+
+// fallBehind confirms what the attempt sent before it returns err. When err is
+// errBehind, every sample sent precedes the first one lost, so the next attempt reads
+// from storage without sending any value twice.
+func (a *attempt) fallBehind(ctx context.Context, err error) error {
+	if !errors.Is(err, errBehind) {
+		return err
+	}
+	return errors.Combine(a.checkpoint(ctx, false), err)
+}
+
+// sendLive sends the samples of f in a live frame. When the frame does not continue the
+// last live samples of f, as after a frame the relay dropped or a write the streamer
+// missed while it opened, sendLive first sends the stored samples between them.
+func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
+	key := f.index.Key()
+	series := fr.Get(key).Series
+	if len(series) == 0 {
+		a.markUnindexed(f, fr)
+		return nil
+	}
+	var gap telem.TimeStamp
+	for _, s := range series {
+		end, ok := a.ends[key]
+		sameDomain := ok && s.Alignment.DomainIndex() == end.DomainIndex()
+		if !sameDomain || s.Alignment.SampleIndex() > end.SampleIndex() {
+			gap = max(gap, s.ValueAt[telem.TimeStamp](0))
+		}
+		if next := s.Alignment.AddSamples(uint32(s.Len())); !sameDomain || next > end {
+			a.ends[key] = next
+		}
+	}
+	if gap > a.sent[key] {
+		if err := a.engine.read(
+			ctx,
+			f,
+			f.channels,
+			telem.TimeRange{Start: a.sent[key], End: gap},
+			func(stored framer.Frame) error { return a.send(ctx, f, stored) },
+		); err != nil {
+			return err
+		}
+	}
+	return a.send(ctx, f, fr)
+}
+
+// markUnindexed records the data channels of f in a live frame without the index of f.
+// Their timestamps are only in storage.
+func (a *attempt) markUnindexed(f flow, fr framer.Frame) {
+	for _, ch := range f.channels {
+		if len(fr.Get(ch.Key()).Series) == 0 {
+			continue
+		}
+		if a.unindexed[f.index.Key()] == nil {
+			a.unindexed[f.index.Key()] = set.New[channel.Key]()
+		}
+		a.unindexed[f.index.Key()].Add(ch.Key())
+	}
+}
+
+// sendUnindexed sends the stored values of each channel that arrived without its index,
+// from its last value sent to the index position. It sends no other channel, so Sift
+// gets no value twice.
+func (a *attempt) sendUnindexed(ctx context.Context) error {
+	for _, f := range a.engine.flows {
+		keys := a.unindexed[f.index.Key()]
+		for _, ch := range f.channels {
+			if !keys.Contains(ch.Key()) {
+				continue
+			}
+			tr := telem.TimeRange{Start: a.value(f, ch), End: a.sent[f.index.Key()]}
+			if tr.Start >= tr.End {
+				continue
+			}
+			if err := a.engine.read(
+				ctx,
+				f,
+				[]channel.Channel{ch},
+				tr,
+				func(fr framer.Frame) error {
+					_, err := a.encode(ctx, f, fr, tr.Start)
+					return err
+				},
+			); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (a *attempt) through() telem.TimeStamp {
