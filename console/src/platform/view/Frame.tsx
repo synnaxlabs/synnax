@@ -90,7 +90,9 @@ export const Frame = ({
     setSelected(key);
     setSearchTerm("");
   };
-  const hasUpdatePermission = Access.useUpdateGranted(view.resourceID(selected));
+  const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
+  // A static view saves nothing, so everyone may change it.
+  const updatable = staticViewKeys.includes(selected) || updateGranted;
   const [editable, setEditable] = useState(false);
   const getInitialView = () => {
     const view = getItem(selected);
@@ -105,7 +107,7 @@ export const Frame = ({
   const contextValue: ContextValue = {
     resourceType,
     selected,
-    editable: (alwaysEditable || editable) && hasUpdatePermission,
+    editable: (alwaysEditable || editable) && updatable,
     staticViews: staticViewKeys,
     select,
     getInitialView,
@@ -119,10 +121,7 @@ export const Frame = ({
       <Context value={contextValue}>
         <Selector
           icon={icon}
-          showEditButton={
-            !alwaysEditable &&
-            (staticViewKeys.includes(selected) ? true : hasUpdatePermission)
-          }
+          showEditButton={!alwaysEditable && updatable}
           editable={alwaysEditable || editable}
           onEditableClick={() => setEditable((prev) => !prev)}
           resourceType={resourceType}

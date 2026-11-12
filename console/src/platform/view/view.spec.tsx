@@ -322,14 +322,22 @@ describe("View permissions", () => {
       retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
     });
 
-  it("should leave the view read-only for a subject who cannot update views", async () => {
-    await renderHarness(await createSubject({}));
-    await enableEditing();
-    await screen.findByText("All ranges");
-    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+  it("should let a subject who cannot update views search and filter a static view", async () => {
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    await screen.findByPlaceholderText("Search ranges...");
+    expect(queryIconButton(document.body, "filter")).toBeTruthy();
     expect(
-      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      queryIconButton(getBySelector(document.body, ".console-view__views"), "add"),
     ).toBeNull();
+  });
+
+  it("should leave a saved view read-only for a subject who cannot update views", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({}), { searchInViews: true });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+    expect(queryIconButton(document.body, "filter")).toBeNull();
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
