@@ -92,7 +92,10 @@ func (s scanner) Exec(
 		}
 		key, err := queueUpload(ctx, s.cfg, s.rack, args)
 		if err != nil {
-			return nil, err
+			return nil, driver.Failure{
+				Message:     "Failed to upload to Sift",
+				Description: err.Error(),
+			}
 		}
 		return msgpack.NewEncodedJSON(uploadResult{Status: key})
 	default:
