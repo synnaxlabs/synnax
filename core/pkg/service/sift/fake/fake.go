@@ -308,7 +308,8 @@ func (s *Server) ListAssets(
 	start := 0
 	if req.PageToken != "" {
 		var err error
-		if start, err = strconv.Atoi(req.PageToken); err != nil {
+		start, err = strconv.Atoi(req.PageToken)
+		if err != nil || start < 0 || start > len(names) {
 			return nil, status.Errorf(
 				codes.InvalidArgument,
 				"bad page token %q",

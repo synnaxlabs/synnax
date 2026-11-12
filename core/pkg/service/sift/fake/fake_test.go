@@ -329,13 +329,19 @@ var _ = Describe("Server", func() {
 			Expect(second.NextPageToken).To(BeEmpty())
 		})
 
-		It("Should reject a page token it did not make", func(ctx SpecContext) {
-			open(fake.Config{})
-			Expect(assets.ListAssets(
-				ctx,
-				&assetsv1.ListAssetsRequest{PageToken: "x"},
-			)).Error().To(MatchError(ContainSubstring("bad page token")))
-		})
+		DescribeTable("Should reject a page it cannot list",
+			func(ctx SpecContext, req *assetsv1.ListAssetsRequest, msg string) {
+				open(fake.Config{Assets: []string{"pad"}})
+				Expect(assets.ListAssets(ctx, req)).Error().
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("a token it did not make",
+				&assetsv1.ListAssetsRequest{PageToken: "x"}, "bad page token"),
+			Entry("a negative token",
+				&assetsv1.ListAssetsRequest{PageToken: "-1"}, "bad page token"),
+			Entry("a token past the last asset",
+				&assetsv1.ListAssetsRequest{PageToken: "2"}, "bad page token"),
+		)
 	})
 
 	Describe("APIKey", func() {
