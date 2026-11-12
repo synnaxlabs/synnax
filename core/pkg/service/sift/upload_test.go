@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 )
@@ -103,10 +104,15 @@ var _ = Describe("Upload", func() {
 		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
 		Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
 			HaveField("Name", rng.Name),
-			HaveField("ClientKey", HaveValue(Equal(rng.Key.String()))),
+			HaveField(
+				"ClientKey",
+				HaveValue(Equal(xuuid.NewV5(rng.Key, "stand").String())),
+			),
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+		Expect(
+			uploadStatus(ctx, key),
+		).To(HaveField("Details.Range", HaveValue(Equal(rng.Key))))
 	})
 
 	It("Should send a plain time span without a run", func(ctx SpecContext) {
@@ -124,7 +130,7 @@ var _ = Describe("Upload", func() {
 			HaveField("Description", "Sent 2 samples to asset stand."),
 		))
 		Expect(server.Runs()).To(BeEmpty())
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", uuid.Nil()))
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", BeNil()))
 	})
 
 	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
