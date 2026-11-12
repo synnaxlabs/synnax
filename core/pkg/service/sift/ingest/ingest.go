@@ -114,7 +114,9 @@ type Config struct {
 	//
 	// [REQUIRED]
 	OnCheckpoint func(ctx context.Context, cp Checkpoint) error
-	// OnRetry runs after a temporary failure, before the engine waits to try again.
+	// OnRetry runs after a temporary failure, before the engine waits to try again. It
+	// must be safe to call concurrently with itself and OnCheckpoint, since SetRun can
+	// retry while Upload or Stream runs.
 	//
 	// [OPTIONAL]
 	OnRetry func(ctx context.Context, err error)
