@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 )
@@ -196,7 +197,10 @@ var _ = Describe("Stream task", func() {
 				rng := endedRange(ctx, l.Key)
 				Eventually(server.Runs).Should(HaveExactElements(SatisfyAll(
 					HaveField("Name", rng.Name),
-					HaveField("ClientKey", HaveValue(Equal(rng.Key.String()))),
+					HaveField(
+						"ClientKey",
+						HaveValue(Equal(xuuid.NewV5(rng.Key, "stand").String())),
+					),
 					HaveField("Tags", ConsistOf("hotfire")),
 				)))
 			})

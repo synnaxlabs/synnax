@@ -47,9 +47,9 @@ type uploadArgs struct {
 	Device device.Key `json:"device"`
 	// Range is the key of the range whose data to send. An upload of a range makes a
 	// Sift run of it.
-	Range ranger.Key `json:"range"`
+	Range *ranger.Key `json:"range"`
 	// TimeRange is the span of data to send when there is no range.
-	TimeRange telem.TimeRange `json:"time_range"`
+	TimeRange *telem.TimeRange `json:"time_range"`
 	// Channels are the channels to send.
 	Channels []channel.Key `json:"channels"`
 	// Asset is the name of the Sift asset that receives the data.
@@ -59,7 +59,7 @@ type uploadArgs struct {
 func (a uploadArgs) validate() error {
 	v := validate.New("sift.upload")
 	v.NotEmptyString("device", a.Device)
-	hasRange, hasSpan := a.Range != uuid.Nil(), a.TimeRange != telem.TimeRange{}
+	hasRange, hasSpan := a.Range != nil, a.TimeRange != nil
 	v.Ternary("range", !hasRange && !hasSpan, "a range or a time range is required")
 	v.Ternary("time_range", hasRange && hasSpan, "cannot be set with a range")
 	v.NotEmptySlice("channels", a.Channels)
@@ -100,11 +100,15 @@ func queueUpload(
 		return "", err
 	}
 	// An upload of a plain time span takes the name of its asset.
-	name, subject, tr := args.Asset, "time range", args.TimeRange
-	if args.Range != uuid.Nil() {
+	name, subject := args.Asset, "time range"
+	var tr telem.TimeRange
+	if args.TimeRange != nil {
+		tr = *args.TimeRange
+	}
+	if args.Range != nil {
 		var rng ranger.Range
 		if err := cfg.Ranger.NewRetrieve().
-			Where(ranger.MatchKeys(args.Range)).
+			Where(ranger.MatchKeys(*args.Range)).
 			Entry(&rng).
 			Exec(ctx, cfg.DB); err != nil {
 			return "", err
@@ -396,12 +400,12 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 		return err
 	}
 	// A plain time span makes no run.
-	if d.Range == uuid.Nil() {
+	if d.Range == nil {
 		return nil
 	}
 	var rng ranger.Range
 	err = u.cfg.Ranger.NewRetrieve().
-		Where(ranger.MatchKeys(d.Range)).
+		Where(ranger.MatchKeys(*d.Range)).
 		Entry(&rng).
 		Exec(ctx, u.cfg.DB)
 	// A range deleted during the upload has no run to make.
@@ -524,7 +528,7 @@ func rangeUploads(
 	}
 	keys := []status.Key{}
 	for _, s := range slices.Backward(uploads) {
-		if s.Details.Range == rng {
+		if s.Details.Range != nil && *s.Details.Range == rng {
 			keys = append(keys, s.Key)
 		}
 	}
