@@ -104,13 +104,13 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+	return parseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
 }
 
-// ParseNumericSigned parses numLit's magnitude and applies negate before the range
+// parseNumericSigned parses numLit's magnitude and applies negate before the range
 // check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
 // sign.
-func ParseNumericSigned(
+func parseNumericSigned(
 	numLit parser.INumericLiteralContext,
 	negate bool,
 	targetType types.Type,
@@ -519,7 +519,7 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return ParseNumericSigned(numLit, true, targetType)
+				return parseNumericSigned(numLit, true, targetType)
 			}
 		}
 	}

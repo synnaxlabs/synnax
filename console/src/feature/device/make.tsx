@@ -9,106 +9,63 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ComponentType } from "react";
-import { z } from "zod";
+import { type ReactElement } from "react";
 
 import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
-import { EtherCAT } from "@/feature/ethercat";
-import { HTTP } from "@/feature/http";
-import { Kafka } from "@/feature/kafka";
-import { LabJack } from "@/feature/labjack";
-import { Modbus } from "@/feature/modbus";
-import { MQTT } from "@/feature/mqtt";
-import { NI } from "@/feature/ni";
-import { OPCUA } from "@/feature/opcua";
-import { FLAGS } from "@/flags";
-import { type Device as PlatformDevice } from "@/platform/device";
+import { useEditConnectionModal } from "@/feature/device/Connect";
+import {
+  HARDWARE,
+  type Integration,
+  INTEGRATIONS,
+} from "@/feature/device/integrations";
 import { type Tree } from "@/platform/tree";
 
-export const makeZ = z.enum([
-  EtherCAT.Device.MAKE,
-  HTTP.Device.MAKE,
-  Kafka.Device.MAKE,
-  LabJack.Device.MAKE,
-  Modbus.Device.MAKE,
-  MQTT.Device.MAKE,
-  NI.Device.MAKE,
-  OPCUA.Device.MAKE,
-]);
-export type Make = z.infer<typeof makeZ>;
-
-// A build with the MQTT flag off handles an MQTT device as a device of an unknown make.
-export const getMake = (make: unknown): Make | null => {
-  const parsed = makeZ.safeParse(make).data ?? null;
-  return parsed === MQTT.Device.MAKE && !FLAGS.mqtt ? null : parsed;
-};
-
-const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
-  [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
-  [HTTP.Device.MAKE]: <Icon.Logo.HTTP />,
-  [Kafka.Device.MAKE]: <Icon.Logo.Kafka />,
-  [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
-  [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
-  [MQTT.Device.MAKE]: <Icon.Logo.MQTT />,
-  [NI.Device.MAKE]: <Icon.Logo.NI />,
-  [OPCUA.Device.MAKE]: <Icon.Logo.OPCUA />,
-};
-
-export const getIcon = (make: Make | null) =>
-  make ? MAKE_ICONS[make] : <Icon.Device />;
+const BY_MAKE = new Map(INTEGRATIONS.map((i) => [i.make, i]));
 
 /**
- * useConfigureModal returns an opener that launches the configure/connect modal for a
- * device of the given make. Every integration's modal hook is called unconditionally so
- * the returned opener can dispatch to any make at call time without violating the rules
- * of hooks.
+ * Returns the integration that connects devices of the given make, or null when no
+ * integration in this build does.
  */
-export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
+export const getIntegration = (make: unknown): Integration | null =>
+  typeof make === "string" ? (BY_MAKE.get(make) ?? null) : null;
+
+const DEVICE_ICON = <Icon.Device />;
+
+export const getIcon = (integration: Integration | null): Icon.ReactElement =>
+  integration?.icon ?? DEVICE_ICON;
+
+/** Whether the integration's devices are hardware that the Driver finds. */
+export const isHardware = ({ key }: Integration): boolean =>
+  HARDWARE.some((h) => h.key === key);
+
+/**
+ * Returns an opener for the form that sets up a device: the configure form of a
+ * hardware integration, or the connect form of a network one.
+ */
+export const useConfigureModal = (): ((
+  integration: Integration,
+  deviceKey: device.Key,
+) => void) => {
   const configure = useConfigureHardwareModal();
-  const http = HTTP.Device.useConnectModal();
-  const kafka = Kafka.Device.useConnectModal();
-  const modbus = Modbus.Device.useConnectModal();
-  const mqtt = MQTT.Device.useConnectModal();
-  const opcua = OPCUA.Device.useConnectModal();
-  return (make, deviceKey) => {
-    const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-      [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
-        configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
-      [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
-      [Kafka.Device.MAKE]: ({ deviceKey }) => void kafka({ deviceKey }),
-      [LabJack.Device.MAKE]: ({ deviceKey }) =>
-        configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
-      [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
-      [MQTT.Device.MAKE]: ({ deviceKey }) => void mqtt({ deviceKey }),
-      [NI.Device.MAKE]: ({ deviceKey }) =>
-        configure({ deviceKey, integration: NI.Device.INTEGRATION }),
-      [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
-    };
-    openers[make]({ deviceKey });
+  const connect = useEditConnectionModal();
+  return (integration, deviceKey) => {
+    if (isHardware(integration)) configure({ deviceKey, integration: integration.key });
+    else connect(integration.key, deviceKey);
   };
 };
 
-const CONTEXT_MENU_ITEMS: Record<
-  Make,
-  ComponentType<PlatformDevice.ContextMenuItemsProps>
-> = {
-  [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
-  [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
-  [Kafka.Device.MAKE]: Kafka.Device.ContextMenuItems,
-  [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
-  [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
-  [MQTT.Device.MAKE]: MQTT.Device.ContextMenuItems,
-  [NI.Device.MAKE]: NI.Device.ContextMenuItems,
-  [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
-};
-
 export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
-  make: Make;
+  integration: Integration;
 }
 
 /** The context menu items of a device's integration, wired to its configure form. */
-export const ContextMenuItems = ({ make, ...rest }: ContextMenuItemsProps) => {
+export const ContextMenuItems = ({
+  integration,
+  ...rest
+}: ContextMenuItemsProps): ReactElement => {
   const configure = useConfigureModal();
-  const Items = CONTEXT_MENU_ITEMS[make];
-  return <Items {...rest} onConfigure={(deviceKey) => configure(make, deviceKey)} />;
+  const { ContextMenuItems: Items } = integration;
+  return (
+    <Items {...rest} onConfigure={(deviceKey) => configure(integration, deviceKey)} />
+  );
 };

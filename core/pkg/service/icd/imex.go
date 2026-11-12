@@ -26,21 +26,23 @@ func (s *Service) Type() resource.Type { return resource.TypeICD }
 // Match reports false: ICDs have no Console-era file shape to recognize.
 func (*Service) Match(map[string]any) bool { return false }
 
-// Import decodes env into a new ICD and persists it on tx. The key on the wire is
+// Decode decodes env into a new ICD that its Write persists. The key on the wire is
 // discarded so every import mints a new resource; message and field keys are kept, so
-// references to them survive. opts is ignored: an ICD has no parent and no group.
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-	_ imex.ImportOptions,
-) (resource.ID, error) {
+// references to them survive. The Write ignores opts: an ICD has no parent and no
+// group.
+func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	ic, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, &ic); err != nil {
-		return resource.ID{}, err
-	}
-	return ResourceID(ic.Key), nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		_ imex.ImportOptions,
+	) (resource.ID, error) {
+		if err := s.NewWriter(tx).Create(ctx, &ic); err != nil {
+			return resource.ID{}, err
+		}
+		return ResourceID(ic.Key), nil
+	}, nil
 }

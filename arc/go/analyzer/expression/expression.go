@@ -13,6 +13,8 @@ package expression
 
 import (
 	"math"
+	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -347,7 +349,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 // one of the operands the compiler runs, the first two of a chain. Such a comparison
 // always has the same result. The error names the constant as the code wrote it, and
 // the module's is_nan when the module has one.
-func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+func checkNaNComparison[T, O antlr.ParserRuleContext](
 	ctx context.Context[T],
 	operands []O,
 	op string,
@@ -355,30 +357,27 @@ func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 	if len(operands) < 2 {
 		return
 	}
-	for _, operand := range operands[:2] {
+	for i, operand := range operands[:2] {
 		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
 			continue
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
 		head, _ := parser.QualifiedNameParts(qid)
-		check := "is_nan from the math module"
+		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
-				check = head + ".is_nan"
+				check, imported = head+".is_nan", true
 			}
 		}
 		if op == "!=" {
 			check = "not " + check
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"%s with %s is always %t, use %s instead",
-			op,
-			qid.GetText(),
-			op == "!=",
-			check,
-		).WithCode(codes.NaNComparison))
+		d := codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check)
+		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
+			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
+		}
+		ctx.Diagnostics.Add(d)
 		return
 	}
 }
@@ -497,13 +496,47 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	}
 }
 
+// AnalyzeIndex analyzes a series index or slice bound and reports an error if its type
+// is not an integer. A literal index takes the type i32.
+func AnalyzeIndex[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) {
+	exprCtx := ctx.Child(expr)
+	Analyze(exprCtx)
+	t := types.InferFromExpression(exprCtx).UnwrapChan()
+	if !t.IsValid() {
+		return
+	}
+	if !resolveConstraint(t).IsInteger() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			expr,
+			"series index must be an integer type, got %s",
+			t,
+		))
+		return
+	}
+	if t.Kind != basetypes.KindVariable || !parser.IsLiteral(expr) {
+		return
+	}
+	// The series host functions take an i32, so a literal index needs no conversion.
+	if err := ctx.Constraints.AddEquality(
+		t,
+		basetypes.I32(),
+		expr,
+		"series index",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+	}
+}
+
 func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		analyzePrimary(ctx.Child(primary))
 	}
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			Analyze(ctx.Child(expr))
+			AnalyzeIndex(ctx, expr)
 		}
 	}
 
@@ -520,12 +553,17 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if len(funcCalls) == 0 {
 		return
 	}
+	if call, callee := nonFunctionCall(ctx.AST); call != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			call,
+			"cannot call non-function %s",
+			callee,
+		))
+		return
+	}
 	primary := ctx.AST.PrimaryExpression()
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	if funcName == "" {
-		return
-	}
 	scope, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
@@ -548,6 +586,28 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)
+}
+
+// nonFunctionCall returns the first call in postfix whose callee is not a name, and the
+// callee's source text. Only a name can refer to a function. It returns nil when every
+// call is valid.
+func nonFunctionCall(
+	postfix parser.IPostfixExpressionContext,
+) (parser.IFunctionCallSuffixContext, string) {
+	named := parser.PrimaryName(postfix.PrimaryExpression()) != ""
+	var callee strings.Builder
+	for i, child := range postfix.GetChildren() {
+		rule, ok := child.(antlr.ParserRuleContext)
+		if !ok {
+			continue
+		}
+		if call, isCall := rule.(parser.IFunctionCallSuffixContext); isCall &&
+			(i != 1 || !named) {
+			return call, callee.String()
+		}
+		callee.WriteString(rule.GetText())
+	}
+	return nil, ""
 }
 
 // AnalyzeCallSite checks a call to callee and records the call edge. fnType may be a
@@ -819,4 +879,52 @@ func isValidCast(source, target basetypes.Type) bool {
 	}
 	return (source.IsNumeric() || source.Kind == basetypes.KindBool) &&
 		target.IsNumeric()
+}
+
+// TruthyCondition returns the warning for a non-boolean condition of type t, and false
+// for a bool. expr is nil when the condition is not an expression.
+func TruthyCondition(
+	condition antlr.ParserRuleContext,
+	expr parser.IExpressionContext,
+	t basetypes.Type,
+) (d diagnostics.Diagnostic, ok bool) {
+	zero := "0"
+	if t.Unwrap().Kind == basetypes.KindString {
+		zero = `""`
+	} else if !t.IsNumeric() {
+		return d, false
+	}
+	fix, known := literalTruth(expr)
+	if !known {
+		fix = sourceText(condition) + " != " + zero
+	}
+	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+}
+
+// sourceText returns the source code of node.
+func sourceText(node antlr.ParserRuleContext) string {
+	start, stop := node.GetStart(), node.GetStop()
+	return start.GetInputStream().GetText(start.GetStart(), stop.GetStop())
+}
+
+// literalTruth returns the bool that the literal expr always is, when it is known.
+func literalTruth(expr parser.IExpressionContext) (truth string, ok bool) {
+	if expr == nil || !parser.IsLiteral(expr) {
+		return "", false
+	}
+	lit := parser.GetLiteral(expr)
+	if number := lit.NumericLiteral(); number != nil {
+		digits := number.INTEGER_LITERAL()
+		if digits == nil {
+			digits = number.FLOAT_LITERAL()
+		}
+		// A literal that is too large to parse has no known value.
+		value, err := strconv.ParseFloat(digits.GetText(), 64)
+		return strconv.FormatBool(value != 0), err == nil
+	}
+	if str := parser.StringTerminal(lit); str != nil {
+		body, flags, ok := literal.StripQuotes(str.GetText())
+		return strconv.FormatBool(body != ""), ok && !flags.Format
+	}
+	return "", false
 }

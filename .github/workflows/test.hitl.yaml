@@ -14,16 +14,56 @@
 name: Test - HITL
 
 on:
+  # The hardware is free for CI from 06:00 to 14:00 UTC. A run takes about 40 minutes,
+  # and the last attempt leaves four hours. An attempt does nothing once a run on main
+  # passed its tests that day.
   schedule:
-    - cron: "0 6 * * *" # 6am UTC, after the nightly build frees the bots
+    - cron: "0 6 * * *" # after the nightly build frees the bots
+    - cron: "0 8 * * *"
+    - cron: "0 10 * * *" # the last attempt; the notify job names it
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One run at a time holds the hardware. A whole run waits so its gate sees the last run.
+concurrency:
+  group: hitl
+  cancel-in-progress: false
+
 jobs:
+  gate:
+    name: Check for a passed run
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      # A skipped attempt also ends in success, so only a passed test job counts.
+      - name: Check for a passed run
+        id: check
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          skip=false
+          ids=$(gh run list --workflow test.hitl.yaml --branch main \
+            --status success --created ">=$(date -u +%F)" --json databaseId \
+            --jq '.[].databaseId')
+          for id in $ids; do
+            passed=$(gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs" \
+              --jq '.jobs[] | select(.name == "Test (synnax-server-1)" and
+                .conclusion == "success")')
+            if [ -n "$passed" ]; then skip=true; fi
+          done
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     permissions:
       actions: read
       contents: write
@@ -46,10 +86,8 @@ jobs:
     needs: build
     runs-on: [self-hosted, hitl]
     timeout-minutes: 90
-    # One run at a time holds the hardware.
-    concurrency:
-      group: hitl
-      cancel-in-progress: false
+    outputs:
+      holders: ${{ steps.hardware.outputs.holders }}
     # gh run download reads the build artifacts.
     permissions:
       actions: read
@@ -70,17 +108,31 @@ jobs:
 
       # The run needs the hardware to itself. A Core without a Driver holds none.
       - name: Check that the hardware is free
+        id: hardware
         shell: powershell
         run: |
-          $holders = Get-Process |
+          $procs = Get-CimInstance Win32_Process |
             Where-Object {
-              $_.ProcessName -match '^(synnax-driver|driver-[0-9a-f]{16}|DEWEsoft)'
-            } |
-            ForEach-Object { "$($_.ProcessName) (PID $($_.Id))" }
-          if ($holders) {
+              $_.Name -match '^(synnax-driver|driver-[0-9a-f]{16}|DEWEsoft)'
+            }
+          if ($procs) {
+            # GetOwner needs an administrator to read other users' processes. quser
+            # does not, so the owner is the user of the process's session.
+            $users = @{}
+            cmd /c "quser 2>nul" | ForEach-Object {
+              if ($_ -match '^\s*>?(\S+)\s+(?:\S+\s+)?(\d+)\s+(Active|Disc)') {
+                $users[[int]$Matches[2]] = $Matches[1]
+              }
+            }
+            $list = ($procs | ForEach-Object {
+              $user = $users[[int]$_.SessionId]
+              if (-not $user) { $user = "session $($_.SessionId)" }
+              "$($_.Name) (PID $($_.ProcessId), $user)"
+            }) -join ", "
+            # Out-File in Windows PowerShell writes a BOM that breaks the output.
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "holders=$list`n")
             Write-Output ("::error title=Hardware in use::These programs use the " +
-              "station's hardware: " + ($holders -join ", ") + ". Close them, then " +
-              "run the workflow again.")
+              "station's hardware: $list. Close them, then run the workflow again.")
             exit 1
           }
 
@@ -155,21 +207,28 @@ jobs:
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
 
+  # A run that finds the hardware in use posts only on the last attempt of the day.
   notify:
     name: Notify Slack
-    needs: [build, test]
-    if: failure() && github.event_name == 'schedule'
+    needs: [gate, build, test]
+    if: >-
+      failure() && github.event_name == 'schedule' && (needs.test.outputs.holders == ''
+      || github.event.schedule == '0 10 * * *')
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - name: Post the failure to Slack
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          HOLDERS: ${{ needs.test.outputs.holders }}
           RUN_URL:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
         run: |
-          curl --fail --silent --show-error \
-            --header "Content-Type: application/json" \
-            --data "{\"text\": \"HITL tests failed: $RUN_URL\"}" \
-            "$SLACK_WEBHOOK_URL"
+          text="HITL tests failed: $RUN_URL"
+          if [ -n "$HOLDERS" ]; then
+            text="HITL tests did not run. The hardware is in use by: $HOLDERS. $RUN_URL"
+          fi
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

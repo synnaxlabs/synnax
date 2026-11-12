@@ -9,6 +9,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -166,14 +167,19 @@ timestamp from the start of the batch and the sample rate. A software timed task
 device clock, so the Driver gives the samples timestamps from the computer clock when it
 reads them:
 
-- **Hardware timed** -> NI analog read, and LabJack read with no thermocouple channels.
-- **Software timed** -> NI digital read, NI counter read, LabJack read with thermocouple
-  channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, and every write task.
+- **Hardware timed** -> NI analog read, and LabJack read, except a LabJack T7 task with
+  thermocouple channels.
+- **Software timed** -> NI digital read, NI counter read, LabJack T7 read with
+  thermocouple channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, MQTT read,
+  Kafka read, and every write task.
 
 An HTTP read task can also take its timestamps from the server response. See
 [endpoints and fields](/reference/hardware/http/read-task#endpoints-and-fields). An
 EtherCAT read task can take its timestamps from the distributed clock of its modules.
-See [PDO channels](/reference/hardware/ethercat/read-task#pdo-channels).
+See [PDO channels](/reference/hardware/ethercat/read-task#pdo-channels). The
+[MQTT read task](/reference/hardware/mqtt/read-task) and the
+[Kafka read task](/reference/hardware/kafka/read-task) can take their timestamps from
+the message.
 
 A hardware timed task that samples at 100 Hz and streams at 10 Hz gives these
 timestamps:
@@ -196,15 +202,60 @@ correction is on by default. To turn it off on a standalone Driver, see the
 
 <Divider.Divider x />
 
+## Channels
+
+The task tab lists the channels of the task. A new task starts with one channel. To add
+another, click **Add channel**. Select a channel to change its settings.
+
+Each channel has a check box. Clear it to disable the channel. The task keeps the
+settings of a disabled channel, but does not read or write it. A task needs at least one
+enabled channel. If you disable all of them, **Start** shows "At least one enabled
+channel is required".
+
+An icon next to the name of a channel shows when its Synnax channel does not exist:
+
+| State             | Meaning                                                                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New channel       | The channel does not exist yet. Starting the task creates it. Starting the task does not create a disabled channel.                                                              |
+| Channel not found | The channel was deleted. Starting the task creates a new channel with the same name. In a task where you select an existing channel, such as a Kafka write task, select another. |
+
+### Ports
+
+NI and LabJack tasks show the ports of their devices as a grid:
+
+- **NI analog read, NI analog write, NI counter read, and LabJack read** -> select
+  **Ports** above the channel list to see the channels by port. Select **List** to go
+  back.
+- **NI digital read, NI digital write, and LabJack write** -> a map of the lines or
+  ports shows above the channel list.
+
+Click a used port to select its channel. Click a free port to add a channel on it, or
+right-click the free port and select **Add channel**. A port that two enabled channels
+use shows a conflict. A port that only disabled channels use shows faded.
+
+In the settings of a channel, **Port** shows the same grid. Click a port to move the
+channel to it.
+
+In the **Ports** view of an NI analog read or counter read task, **Add device** adds
+another configured device of the same Driver. To remove a device and its channels,
+right-click the device and select **Remove device**.
+
+<Video id="hardware/ni/ports-view" />
+
+<Divider.Divider x />
+
 ## Data saving
 
 With **Data saving** off, a task sends live values to plots and other readers, but the
 Core does not store them. Turn data saving off to try a setup without storing its data.
-Read tasks and the NI, LabJack, EtherCAT, and Modbus write tasks have **Data saving**.
+On a write task, data saving applies to the state channels. Read tasks and the NI,
+LabJack, and EtherCAT write tasks use **Data saving**. The Modbus and OPC UA write tasks
+show the toggle, but they have no state channels, so it has no effect.
 
-To change data saving for a task, use the switch in its tab, or right-click the task in
-the tasks toolbar and select **Enable data saving** or **Disable data saving**. The menu
-item restarts a running task, so the change applies at once.
+To change data saving for a task, use the **Data saving** toggle at the bottom of the
+task tab. You can also click the data saving button of the task in the tasks toolbar, or
+right-click the task and select **Enable data saving** or **Disable data saving**. The
+toolbar restarts a running task, so the change applies at once.
 
 <Divider.Divider x />
 
@@ -222,13 +273,19 @@ Edits to a running task do not apply until you
 [redeploy it](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
 With **Auto start** on, the task starts each time the Driver starts.
 
-| Status                                      | Meaning                                                |
-| ------------------------------------------- | ------------------------------------------------------ |
-| Task not deployed                           | The task is a draft. It has never started.             |
-| Sending start command, Sending stop command | The Console sent the command and waits for the Driver. |
-| Started task, Task running                  | The task is running.                                   |
-| Stopped task                                | The task stopped.                                      |
-| Task status unknown                         | The Core has no status for the task.                   |
+More than one user can edit a task at the same time. Each user sees the edits of the
+others in the open task tab. If another user changes the task after you last saw it, the
+Driver refuses your start with "Config changed". Review the task, then start it again.
+
+| Status                                      | Meaning                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Task not deployed                           | The task is a draft. It has never started.                                                             |
+| Sending start command, Sending stop command | The Console sent the command and waits for the Driver.                                                 |
+| Started task, Task running                  | The task is running.                                                                                   |
+| Stopped task                                | The task stopped.                                                                                      |
+| Config changed                              | Another user changed the task after you saw it. The Driver did not start it.                           |
+| Task is not running                         | The Driver got a command, such as a tare, for a task that it does not run. Start the task, then retry. |
+| Task status unknown, No status              | The Core has no status for the task.                                                                   |
 
 The status shows at the bottom of the task tab. Click it to see the details and to copy
 them with **Copy diagnostics**. For device and Driver statuses, see
@@ -248,15 +305,17 @@ Each task page lists the options that its task has.
 | Data saving       | `data_saving_disabled` | `dataSavingDisabled` | On (field `false`)                    |
 | Auto start        | `auto_start`           | `autoStart`          | Off                                   |
 
-The LabJack write task has no **Auto start** switch in the Console.
+**Data saving** and **Auto start** are toggles at the bottom of the task tab, next to
+the status.
 
 <Divider.Divider x />
 
 ## Tasks toolbar
 
 To open the tasks toolbar, click <Icon.Task /> in the left bar or press **T**. Each task
-shows its status, name, and type, and a button to start or stop it. To create a task,
-click <Icon.Add /> (**Create task**). Double-click a task to open it in a tab.
+shows its status, name, and type, a button to start or stop it, and a data saving button
+for a task that has data saving. To create a task, click <Icon.Add /> (**Create task**).
+Double-click a task to open it in a tab.
 
 Right-click a task to open its menu:
 
@@ -323,8 +382,9 @@ const copy = await client.tasks.copy(task.key, "Tank sensors copy", false);
 await client.tasks.delete(copy.key);
 ```
 
-`list()` with no argument returns the tasks on every Driver. To list the tasks of one
-Driver, pass its rack key.
+The `where` filter with `internal: { eq: false }` returns the tasks on every Driver. To
+list the tasks of one Driver, add its rack key:
+`where: { rack: { eq: key }, internal: { eq: false } }`.
 
   </Fragment>
 </Client.Tabs>

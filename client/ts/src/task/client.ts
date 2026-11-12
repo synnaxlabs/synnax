@@ -19,7 +19,6 @@ import {
   primitive,
   type record,
   strings,
-  sync,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -30,6 +29,7 @@ import { query } from "@/query";
 import {
   type Key as RackKey,
   resourceID as rackResourceID,
+  statusDetailsZ as rackStatusDetailsZ,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { ranger } from "@/ranger";
@@ -41,6 +41,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/task/actions.gen";
 import {
   type Command,
@@ -101,11 +102,20 @@ export const drifted = (task: DriftedParams): boolean => {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-// The rack monitor marks a rack whose Driver is alive with one of these.
-const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+// A rack is healthy while its Driver runs and reports no error.
+const isRackHealthy = (stat: status.Status): boolean =>
+  rackStatusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
+  stat.variant !== "error";
 
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
+
+/**
+ * How long an acknowledged command waits for its final status. The Driver fails an
+ * operation that takes longer than 60 s, so this limit ends only a wait whose command
+ * was lost, for example to a Driver restart.
+ */
+const FINAL_STATUS_TIMEOUT = TimeSpan.minutes(2);
 
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
@@ -140,7 +150,10 @@ export interface ExecuteCommandsParams {
 
 /** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
-  /** How long to wait for the status before giving up. */
+  /**
+   * How long to wait for the Driver to acknowledge the command. Once it does, the wait
+   * for the final status lasts two minutes or the timeout, whichever is longer.
+   */
   timeout?: CrudeTimeSpan;
 }
 
@@ -370,7 +383,6 @@ const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const copyReqZ = z.object({
   key: keyZ,
   name: z.string(),
@@ -427,6 +439,7 @@ export class Client extends query.Retriever<
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
@@ -476,7 +489,16 @@ export class Client extends query.Retriever<
       if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
-      this.commandDeadlines.delete(task);
+      if (event.value.variant !== "loading") {
+        this.commandDeadlines.delete(task);
+        return;
+      }
+      // A loading reply acknowledges the command, and a down rack still stands in
+      // until the final reply or until the command is taken as lost.
+      pending.timer = setTimeout(
+        () => this.commandDeadlines.delete(task),
+        FINAL_STATUS_TIMEOUT.milliseconds,
+      );
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",
@@ -582,19 +604,8 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, name }),
-      ),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**
@@ -707,7 +718,7 @@ export class Client extends query.Retriever<
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
     const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
-    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    if (stat == null || isRackHealthy(stat)) return undefined;
     return stat;
   }
 
@@ -760,6 +771,7 @@ export class Client extends query.Retriever<
       const answered =
         held != null &&
         held !== pending.optimistic &&
+        held.variant !== "loading" &&
         status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
       pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
@@ -1062,45 +1074,64 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
-  const collect = async (): Promise<Status<StatusData>[]> => {
+  const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
+    ? parsedTimeout
+    : FINAL_STATUS_TIMEOUT;
+  const collect = async (
+    acknowledge: (cmd: string) => void,
+  ): Promise<Status<StatusData>[]> => {
     let states: Status<StatusData>[] = [];
     while (true) {
       const frame = await streamer.read();
-      // A frame can hold statuses for other tasks and racks, which have a different
-      // shape and fail to parse.
+      // A frame can hold statuses for other tasks and racks. Rack details parse as task
+      // details, so the owner tells a rack status apart.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
         const decoded = binary.JSON_CODEC.decodeString(str);
-        const res = statusZ(statusDataZ).safeParse(decoded);
-        if (!res.success) {
+        const rackRes = rackStatusZ.safeParse(decoded);
+        if (
+          rackRes.success &&
+          rackRes.data.owner != null &&
+          rackOwners.has(resource.idToString(rackRes.data.owner))
+        ) {
           // A down Driver never replies, so its rack's problem ends the wait.
-          const rackRes = rackStatusZ.safeParse(decoded);
-          if (
-            rackRes.success &&
-            rackRes.data.owner != null &&
-            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
-            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
-          )
-            throw status.toError(rackRes.data);
+          if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
           continue;
         }
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) continue;
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
+        // Any reply acknowledges its command. A loading reply is not the final one.
+        acknowledge(state.details.cmd);
+        if (state.variant === "loading") continue;
         states = [...states.filter((s) => s.key !== state.key), state];
         if (states.length === cmdKeys.length) return states;
       }
     }
   };
   try {
-    return await sync.withTimeout(
-      collect(),
-      parsedTimeout,
-      async () =>
-        await formatTimeoutError(
-          taskName,
-          parsedTimeout,
-          commands.map((c) => c.task),
-        ),
-    );
+    return await new Promise<Status<StatusData>[]>((resolve, reject) => {
+      const timeOutAfter = (span: TimeSpan): ReturnType<typeof setTimeout> =>
+        setTimeout(() => {
+          formatTimeoutError(
+            taskName,
+            span,
+            commands.map((c) => c.task),
+          ).then(reject, reject);
+        }, span.milliseconds);
+      let timer = timeOutAfter(parsedTimeout);
+      const acknowledged = new Set<string>();
+      const acknowledge = (cmd: string): void => {
+        if (acknowledged.has(cmd)) return;
+        acknowledged.add(cmd);
+        if (acknowledged.size < cmdKeys.length) return;
+        clearTimeout(timer);
+        timer = timeOutAfter(finalTimeout);
+      };
+      collect(acknowledge)
+        .then(resolve, reject)
+        .finally(() => clearTimeout(timer));
+    });
   } finally {
     streamer.close();
   }

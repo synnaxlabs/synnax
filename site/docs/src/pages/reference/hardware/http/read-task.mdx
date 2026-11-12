@@ -30,6 +30,9 @@ and recorded in one channel.
 - **Strings** -> converted with the **Enum mapping**, else read as a number. A string
   channel records the text.
 
+A field cannot record into a channel with the `uuid`, `json`, or `bytes` data type. The
+task fails to start with an error that names the channel.
+
 The **Source** of an endpoint sets its timestamps:
 
 - **Poll time** -> the time halfway through the request.
@@ -158,24 +161,30 @@ to the Core at once.
 Each setting shows its Console label, then its Python field. An endpoint has these
 settings:
 
-| Setting                                        | Default | Notes                                                           |
-| ---------------------------------------------- | ------- | --------------------------------------------------------------- |
-| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.        |
-| Path <small>`path`</small>                     |         | Added to the base address of the server.                        |
-| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                 |
-| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                      |
-| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`. |
+| Setting                                        | Default | Notes                                                                     |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------------------- |
+| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.                  |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.                                  |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                           |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                                |
+| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`.           |
+| Source <small>`index`</small>                  | Empty   | The key of the field that gives the timestamps. Empty uses the poll time. |
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                           |
-| ----------------------------------------- | --------- | ----------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                  |
-| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel. |
-| Channel <small>`channel`</small>          |           | The channel that records the value.             |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
-| Optional <small>`optional`</small>        | Off       | A missing value is normal for this field.       |
-| Fill value <small>`fill_value`</small>    | None      | Written when an optional value is missing.      |
+| Setting                                   | Default   | Notes                                                                                                                      |
+| ----------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                                                                                             |
+| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.                                                                            |
+| Channel <small>`channel`</small>          |           | The channel that records the value.                                                                                        |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.                                                                               |
+| Optional <small>`optional`</small>        | Off       | A missing value is normal for this field.                                                                                  |
+| Fill value <small>`fill_value`</small>    | None      | Written when an optional value is missing.                                                                                 |
+| Format <small>`time_format`</small>       | None      | The encoding of a time value: `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, or `unix_ns`. Required for a timestamp channel. |
+
+For **Source** set to **Response value** in code, add a field that records into the
+index channel, with the **Pointer** and the `time_format` of the time in the response.
+Then set `index` of the endpoint to the `key` of that field.
 
 Turn on **Optional** for a value that can be missing as a normal state of the device,
 such as a sensor that is off. A value is missing when its pointer is absent, or when it
@@ -218,6 +227,22 @@ The response has no value at the pointer.
 
 Check the pointer against a response from the server. Pointers start with `/` and are
 case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read some data"}>
+<Problem.Cause>
+
+Some fields of a response were missing or invalid. The description lists each problem.
+The task keeps running. See [task options](#task-options) for how an invalid field
+affects the other fields on its index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointer and the data type of each field in the description against a response
+from the server.
 
 </Problem.Fix>
 </Problem.Item>

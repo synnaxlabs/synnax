@@ -66,7 +66,10 @@ The Console cannot change the color or the parent of a range.
 
   <Fragment slot="python">
 
-Call `client.ranges.create` with the `key` of the range:
+Call `client.ranges.set_time_range` to change the start and end, or
+`client.ranges.set_end` to change only the end. Call `client.ranges.set_color` and
+`client.ranges.set_parent` to change the color and the parent. Pass `None` to clear the
+color or to make the range top-level:
 
 ```python
 from datetime import datetime
@@ -74,36 +77,43 @@ from datetime import datetime
 import synnax as sy
 
 my_range = client.ranges.retrieve(name="My Range")
-client.ranges.create(
-    key=my_range.key,
-    name="My Updated Range",
-    time_range=sy.TimeRange(
+client.ranges.set_time_range(
+    my_range.key,
+    sy.TimeRange(
         start=sy.TimeStamp(datetime(2023, 2, 12, 13, 0)),
         end=sy.TimeStamp(datetime(2023, 2, 12, 15, 0)),
     ),
-    color="#00FF00",
 )
+client.ranges.set_color(my_range.key, "#00FF00")
+client.ranges.set_parent(my_range.key, None)
 ```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Call `client.ranges.create` with the `key` of the range:
+Call `client.ranges.dispatch` with a `ranger.set` action for each field to change. You
+can change `timeRange`, `color`, and `parent`. Set `color` to `null` to clear it.
+
+`dispatch` applies only to a range that the client holds in its cache. It returns
+`false` and sends nothing when the range is not in the cache, so retrieve the range
+first:
 
 ```typescript
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 
 const myRange = await client.ranges.retrieve("My Range");
-await client.ranges.create({
-  key: myRange.key,
-  name: "My Updated Range",
-  timeRange: new TimeRange(
-    new TimeStamp("2023-02-12 13:00:00"),
-    new TimeStamp("2023-02-12 15:00:00"),
-  ),
-  color: "#00FF00",
-});
+const sent = await client.ranges.dispatch(myRange.key, [
+  ranger.set({
+    path: ["timeRange"],
+    value: new TimeRange(
+      new TimeStamp("2023-02-12 13:00:00"),
+      new TimeStamp("2023-02-12 15:00:00"),
+    ),
+  }),
+  ranger.set({ path: ["color"], value: "#00FF00" }),
+]);
+if (!sent) throw new Error("My Range is not in the client cache");
 ```
 
   </Fragment>
@@ -140,19 +150,18 @@ See [create ranges in Arc](/reference/ranges/arc).
 </Client.Tabs>
 
 <Note.Note variant="warning">
-  An update from Python or TypeScript replaces the name, the time range, and the color.
-  Leave out the color and the range loses it. Labels are only added, and the parent
-  stays when you leave it out. If no range has the key, Synnax creates a new range with
-  that key.
+  Do not call `create` with the key of a range to change it. The create fails because a
+  range already has the key.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Delete a range
 
-Deleting a range also deletes its child ranges. It does not delete the data of the
-channels in the range, and it does not delete its
-[snapshots](/reference/ranges/snapshots).
+Deleting a range also deletes its child ranges, its
+[snapshots](/reference/ranges/snapshots), its [metadata](/reference/ranges/metadata),
+its [aliases](/reference/ranges/aliases), and the schematics, line plots, logs, tables,
+and panels that it owns. It does not delete the data of the channels in the range.
 
 <Client.Tabs>
 
@@ -161,7 +170,7 @@ channels in the range, and it does not delete its
 Right-click the range in the ranges toolbar or the range explorer and select **Delete**,
 then confirm.
 
-<Image id="client/ranges/delete" />
+<Image id="client/ranges/delete/2d71fc2b921b/window" extension="webp" />
 
   </Fragment>
 

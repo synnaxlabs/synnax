@@ -100,16 +100,33 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     clearScissor();
   }
 
-  findByXValue(
-    {
-      xDataToDecimalScale,
-      xBounds,
-      plot,
-      viewport,
-      hold,
-    }: Omit<YAxisProps, "canvases">,
+  findByXValue(props: Omit<YAxisProps, "canvases">, target: number): line.FindResult[] {
+    const p = this.lineProps(props);
+    return this.lines.map((el) => ({
+      ...el.findByXValue(p, target),
+      units: this.state.label,
+    }));
+  }
+
+  /** @returns the point each line drew at its last render whose x is nearest target. */
+  findDrawnByXValue(
+    props: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
+    const p = this.lineProps(props);
+    return this.lines.map((el) => ({
+      ...el.findDrawnByXValue(p, target),
+      units: this.state.label,
+    }));
+  }
+
+  private lineProps({
+    xDataToDecimalScale,
+    xBounds,
+    plot,
+    viewport,
+    hold,
+  }: Omit<YAxisProps, "canvases">): line.LineProps {
     const [yDataToDecimalScale, , error] = this.dataToDecimalScale(
       hold,
       () => this.dataBounds(xBounds),
@@ -117,11 +134,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     );
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    const props: line.LineProps = { region: plot, dataToDecimalScale };
-    return this.lines.map((el) => ({
-      ...el.findByXValue(props, target),
-      units: this.state.label,
-    }));
+    return { region: plot, dataToDecimalScale };
   }
 
   get loading(): boolean {

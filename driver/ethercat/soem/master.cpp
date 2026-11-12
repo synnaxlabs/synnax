@@ -24,6 +24,7 @@
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/sii.h"
@@ -80,13 +81,25 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
+/// @brief returns what the user can do about a slave that refuses a state with the AL
+/// status code, or an empty view for no advice.
+std::string_view refusal_advice(const uint16_t code) {
+    switch (code) {
+        case 0x001D: // Invalid output configuration
+        case 0x001E: // Invalid input configuration
+            return slave::MODE_RESTART_ADVICE;
+        case 0x0030: // Invalid DC SYNC configuration
+            return slave::DC_SYNC_ADVICE;
+        default:
+            return {};
+    }
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
-/// AL status code for "Invalid DC SYNC configuration".
-constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -110,20 +123,32 @@ uint32_t pop_sdo_abort(
     return code;
 }
 
-std::string no_slaves_message(API &api, const std::string &iface) {
-    const auto found = "no EtherCAT slaves found on " + iface + ". ";
+/// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
+/// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
+x::errors::Error
+no_slaves_error(API &api, const std::string &iface, const std::string &name) {
+    const auto found = "No EtherCAT slaves found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
-        return found + "Check the cable and the power of the first device.";
-    return found + std::format(
-                       "The DewesoftX \"EthercatDAQ Filter\" is on adapter \"{0}\". "
-                       "After DewesoftX starts, the filter blocks EtherCAT replies, "
-                       "also after DewesoftX closes. Clear it in the properties of "
-                       "\"{0}\" (Settings > Network & internet > Advanced network "
-                       "settings > More network adapter options, then right-click the "
-                       "adapter > Properties).",
-                       api.adapter_name(iface.c_str()).value_or(iface)
-                   );
+        return x::errors::Error(
+            errors::NO_SLAVES_FOUND,
+            found + "Check the cable and the power of the first device."
+        );
+    return x::errors::Error(
+        errors::REPLIES_BLOCKED,
+        found + std::format(
+                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
+                    "EtherCAT replies. Clear it in the properties of \"{}\" "
+                    "(Settings > Network & internet > Advanced network settings > "
+                    "More network adapter options, then right-click the adapter > "
+                    "Properties).",
+                    name
+                )
+    );
 }
+}
+
+std::string Master::name() const {
+    return this->api->adapter_name(this->iface_name.c_str()).value_or(this->iface_name);
 }
 
 Master::Master(std::unique_ptr<API> api, std::string interface_name, Config cfg):
@@ -147,7 +172,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
                 {},
                 x::errors::Error(
                     errors::MASTER_INIT_ERROR,
-                    "cannot open " + this->iface_name +
+                    "Cannot open " + this->name() +
                         " for raw Ethernet access. Run the Driver as root (or with "
                         "CAP_NET_RAW on Linux), and install Npcap on Windows."
                 )
@@ -155,13 +180,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
         }
         if (this->api->config_init() <= 0) {
             this->api->close();
-            return {
-                {},
-                x::errors::Error(
-                    errors::NO_SLAVES_FOUND,
-                    no_slaves_message(*this->api, this->iface_name)
-                )
-            };
+            return {{}, no_slaves_error(*this->api, this->iface_name, this->name())};
         }
         // config_init requests PRE-OP without waiting for it, and SOEM sends no mailbox
         // request to a slave whose last read state is below PRE-OP.
@@ -183,11 +202,10 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
-bool Master::write_startup_parameters(
+x::errors::Error Master::write_parameters(
     const uint16_t pos,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    std::string failure;
     for (const auto &param: parameters) {
         const auto data = param.bytes();
         if (this->api->SDOwrite(
@@ -200,17 +218,27 @@ bool Master::write_startup_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
-        failure = "rejected startup parameter " + param.to_string() + ": " +
-                  errors::sdo_abort_reason(
-                      pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-                  );
-        break;
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "rejected startup parameter " + param.to_string() + ": " +
+                errors::sdo_abort_reason(
+                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
+                )
+        );
     }
-    if (failure.empty())
-        this->session.value().startup_failures.erase(pos);
+    return x::errors::NIL;
+}
+
+bool Master::write_startup_parameters(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    const auto err = this->write_parameters(pos, parameters);
+    if (err)
+        this->session.value().startup_failures[pos] = err.data;
     else
-        this->session.value().startup_failures[pos] = failure;
-    return failure.empty();
+        this->session.value().startup_failures.erase(pos);
+    return !err;
 }
 
 master::Activation Master::activate(
@@ -421,6 +449,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 }
 
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+    std::lock_guard lock(this->mailbox_mu);
     this->api->readstate();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
@@ -451,6 +480,28 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (breaker.running()) this->recover(i, breaker);
     }
     return health;
+}
+
+x::errors::Error Master::write(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::lock_guard lock(this->mailbox_mu);
+    if (const auto err = this->write_parameters(pos, parameters))
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                err.data + "."
+        );
+    if (this->session)
+        this->session->plan.slaves[pos].add_startup_parameters(parameters);
+    return x::errors::NIL;
+}
+
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
+    std::lock_guard lock(this->mailbox_mu);
+    return this->read_sdo(pos, index, sub_index);
 }
 
 void Master::update_lost(const uint16_t pos) {
@@ -500,8 +551,28 @@ void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->context.slavecount);
 
-    for (int i = 1; i <= this->api->context.slavecount; ++i)
-        this->slave_list.push_back(this->discover_slave(i));
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        auto slave = this->discover_slave(i);
+        this->read_settings(slave);
+        this->slave_list.push_back(std::move(slave));
+    }
+}
+
+void Master::read_settings(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    const auto pos = props.position;
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    auto [settings, err] = esi::read_settings(
+        props.vendor_id,
+        props.product_code,
+        props.revision,
+        props.op_modes,
+        [this, pos](const uint16_t index, const uint8_t sub_index) {
+            return this->read_sdo(pos, index, sub_index);
+        }
+    );
+    slave.status.settings_error = err.data;
+    props.settings = std::move(settings);
 }
 
 slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
@@ -553,8 +624,8 @@ master::Image Master::image() {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "slave {} ({}) maps {} input and {} output bits, but its discovered "
-                    "PDO entries hold {} and {}",
+                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
                     mapped_input_bits,
@@ -897,7 +968,7 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
         const auto &props = slave.properties;
         const auto config = this->config(props.position);
         if (!config.enabled) continue;
-        const auto &choice = config.op_mode;
+        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
         const auto [mode, select_err] = dc::select(props.op_modes, choice);
         if (select_err)
             return {
@@ -1209,7 +1280,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
-                .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
+                .advice = refusal_advice(code),
             };
         msg += ": " + text;
     }

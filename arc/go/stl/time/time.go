@@ -282,16 +282,16 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		if err := validateSpan(cfg.Node.Inputs, periodInputParam); err != nil {
 			return nil, err
 		}
-		return &Interval{State: cfg.State}, nil
+		return &interval{State: cfg.State}, nil
 
 	case waitSymbolName:
 		if err := validateSpan(cfg.Node.Inputs, durationInputParam); err != nil {
 			return nil, err
 		}
-		return &Wait{State: cfg.State, startTime: -1}, nil
+		return &wait{State: cfg.State, startTime: -1}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State}, nil
+		return &now{State: cfg.State}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -357,8 +357,8 @@ func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) 
 
 func (g *spanGuard) reset() { g.reported = false }
 
-// Interval is a node that fires repeatedly at a specified period.
-type Interval struct {
+// interval is a node that fires repeatedly at a specified period.
+type interval struct {
 	*node.State
 	// lastFired is the elapsed time of the last scheduled fire. It is valid only when
 	// started is true.
@@ -367,9 +367,7 @@ type Interval struct {
 	guard     spanGuard
 }
 
-func (i *Interval) Init(_ node.Context) {}
-
-func (i *Interval) Next(ctx node.Context) {
+func (i *interval) Next(ctx node.Context) {
 	period := liveSpan(i.State, periodInputParam)
 	// A non-positive period would keep the deadline permanently in the past,
 	// spinning the scheduler loop. Park without a deadline until the node runs
@@ -405,23 +403,21 @@ func (i *Interval) Next(ctx node.Context) {
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
-func (i *Interval) Reset(ctx node.Context) {
+func (i *interval) Reset(ctx node.Context) {
 	i.State.Reset(ctx)
 	i.started = false
 	i.guard.reset()
 }
 
-// Wait is a one-shot timer that fires once after a specified duration.
-type Wait struct {
+// wait is a one-shot timer that fires once after a specified duration.
+type wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
 	guard     spanGuard
 }
 
-func (w *Wait) Init(_ node.Context) {}
-
-func (w *Wait) Next(ctx node.Context) {
+func (w *wait) Next(ctx node.Context) {
 	if w.fired {
 		return
 	}
@@ -452,21 +448,19 @@ func (w *Wait) Next(ctx node.Context) {
 	w.Emit(ctx, 0)
 }
 
-func (w *Wait) Reset(ctx node.Context) {
+func (w *wait) Reset(ctx node.Context) {
 	w.State.Reset(ctx)
 	w.startTime = -1
 	w.fired = false
 	w.guard.reset()
 }
 
-// Now outputs the current wall-clock timestamp when triggered.
-type Now struct {
+// now outputs the current wall-clock timestamp when triggered.
+type now struct {
 	*node.State
 }
 
-func (n *Now) Init(_ node.Context) {}
-
-func (n *Now) Next(ctx node.Context) {
+func (n *now) Next(ctx node.Context) {
 	ts := ctx.Now
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
@@ -477,4 +471,4 @@ func (n *Now) Next(ctx node.Context) {
 	n.Emit(ctx, 0)
 }
 
-func (n *Now) Reset(ctx node.Context) { n.State.Reset(ctx) }
+func (n *now) Reset(ctx node.Context) { n.State.Reset(ctx) }

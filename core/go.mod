@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/synnax
 
-go 1.27.3
+go 1.27.4
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
@@ -12,6 +12,7 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cespare/xxhash/v2 v2.3.0

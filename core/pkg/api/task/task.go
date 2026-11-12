@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"time"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -19,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -49,21 +47,16 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Framer sends stop commands to the running tasks of a delete.
+	// Stopper stops the running tasks of a delete.
 	//
 	// [REQUIRED]
-	Framer *framer.Service
-	// StopTimeout caps how long one delete request waits for its running tasks to
-	// stop. Keep it under the 5 second default read timeout of the Python client.
-	//
-	// [OPTIONAL] - Defaults to 4 seconds.
-	StopTimeout time.Duration
+	Stopper *task.Stopper
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for the task API service.
-	DefaultServiceConfig = ServiceConfig{StopTimeout: 4 * time.Second}
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -72,8 +65,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
@@ -84,18 +76,16 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("framer", c.Framer)
-	v.Positive("stop_timeout", c.StopTimeout)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
 type Service struct {
-	db          *gorp.DB
-	access      *rbac.Service
-	task        *task.Service
-	status      *status.Service
-	framer      *framer.Service
-	stopTimeout time.Duration
+	db      *gorp.DB
+	access  *rbac.Service
+	task    *task.Service
+	status  *status.Service
+	stopper *task.Stopper
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -104,12 +94,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:          cfg.DB,
-		task:        cfg.Task,
-		status:      cfg.Status,
-		access:      cfg.RBAC,
-		framer:      cfg.Framer,
-		stopTimeout: cfg.StopTimeout,
+		db:      cfg.DB,
+		task:    cfg.Task,
+		status:  cfg.Status,
+		access:  cfg.RBAC,
+		stopper: cfg.Stopper,
 	}, nil
 }
 
@@ -130,7 +119,8 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. An existing snapshot keeps its range.
+// Create creates the tasks. It returns an error wrapping validate.ErrValidation when a
+// task with the key of one exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -220,36 +210,14 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// RenameRequest names the task to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the task to rename.
-	Key task.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the task and its status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	_, err := s.task.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	)
-	return struct{}{}, err
-}
-
 type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
 // PrepareDelete stops the running tasks in req and waits for them to stop, for at most
-// StopTimeout in total. A task that does not stop in time can hold its channels open
-// until its Driver removes it. PrepareDelete returns access.ErrDenied, and stops
-// nothing, when the subject cannot delete a task in req.
+// the timeout of the Stopper in total. A task that does not stop in time can hold its
+// channels open until its Driver removes it. PrepareDelete returns access.ErrDenied,
+// and stops nothing, when the subject cannot delete a task in req.
 func (s *Service) PrepareDelete(
 	ctx context.Context,
 	req DeleteRequest,
@@ -263,7 +231,7 @@ func (s *Service) PrepareDelete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.stopRunning(ctx, req.Keys)
+	return struct{}{}, s.stopper.Stop(ctx, req.Keys)
 }
 
 // Delete deletes the tasks in req. Run PrepareDelete first to stop them.

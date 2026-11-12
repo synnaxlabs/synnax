@@ -313,6 +313,69 @@ func (x *CopyResponse) GetTask() *pb.Task {
 	return nil
 }
 
+// DispatchRequest applies actions to one task.
+type DispatchRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Key         string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	DispatchKey string                 `protobuf:"bytes,2,opt,name=dispatch_key,json=dispatchKey,proto3" json:"dispatch_key,omitempty"`
+	// actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+	// route takes, such as {"type": "set", "set": {...}}.
+	Actions       [][]byte `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DispatchRequest) Reset() {
+	*x = DispatchRequest{}
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DispatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DispatchRequest) ProtoMessage() {}
+
+func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_task_task_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DispatchRequest.ProtoReflect.Descriptor instead.
+func (*DispatchRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DispatchRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetDispatchKey() string {
+	if x != nil {
+		return x.DispatchKey
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetActions() [][]byte {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_task_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
@@ -331,7 +394,11 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\"9\n" +
 	"\fCopyResponse\x12)\n" +
-	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task2P\n" +
+	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task\"`\n" +
+	"\x0fDispatchRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12!\n" +
+	"\fdispatch_key\x18\x02 \x01(\tR\vdispatchKey\x12\x18\n" +
+	"\aactions\x18\x03 \x03(\fR\aactions2P\n" +
 	"\x11TaskCreateService\x12;\n" +
 	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2X\n" +
 	"\x13TaskRetrieveService\x12A\n" +
@@ -339,7 +406,9 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\x11TaskDeleteService\x128\n" +
 	"\x04Exec\x12\x18.grpc.task.DeleteRequest\x1a\x16.google.protobuf.Empty2J\n" +
 	"\x0fTaskCopyService\x127\n" +
-	"\x04Exec\x12\x16.grpc.task.CopyRequest\x1a\x17.grpc.task.CopyResponseB\x95\x01\n" +
+	"\x04Exec\x12\x16.grpc.task.CopyRequest\x1a\x17.grpc.task.CopyResponse2Q\n" +
+	"\x13TaskDispatchService\x12:\n" +
+	"\x04Exec\x12\x1a.grpc.task.DispatchRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.taskB\tTaskProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/task\xa2\x02\x03GTX\xaa\x02\tGrpc.Task\xca\x02\tGrpc\\Task\xe2\x02\x15Grpc\\Task\\GPBMetadata\xea\x02\n" +
 	"Grpc::Taskb\x06proto3"
 
@@ -355,7 +424,7 @@ func file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_core_pkg_transport_grpc_task_task_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.task.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.task.CreateResponse
@@ -363,29 +432,32 @@ var file_core_pkg_transport_grpc_task_task_proto_goTypes = []any{
 	(*DeleteRequest)(nil),        // 3: grpc.task.DeleteRequest
 	(*CopyRequest)(nil),          // 4: grpc.task.CopyRequest
 	(*CopyResponse)(nil),         // 5: grpc.task.CopyResponse
-	(*pb.Task)(nil),              // 6: service.task.pb.Task
-	(*pb1.RetrieveRequest)(nil),  // 7: api.task.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 8: api.task.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
+	(*DispatchRequest)(nil),      // 6: grpc.task.DispatchRequest
+	(*pb.Task)(nil),              // 7: service.task.pb.Task
+	(*pb1.RetrieveRequest)(nil),  // 8: api.task.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 9: api.task.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 10: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_task_task_proto_depIdxs = []int32{
-	6, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
-	6, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
-	7, // 2: grpc.task.RetrieveRequest.request:type_name -> api.task.pb.RetrieveRequest
-	6, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
-	0, // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
-	2, // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
-	3, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
-	4, // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
-	1, // 8: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
-	8, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> api.task.pb.RetrieveResponse
-	9, // 10: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
-	5, // 11: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	7,  // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
+	7,  // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
+	8,  // 2: grpc.task.RetrieveRequest.request:type_name -> api.task.pb.RetrieveRequest
+	7,  // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
+	0,  // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
+	2,  // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
+	3,  // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
+	4,  // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
+	6,  // 8: grpc.task.TaskDispatchService.Exec:input_type -> grpc.task.DispatchRequest
+	1,  // 9: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
+	9,  // 10: grpc.task.TaskRetrieveService.Exec:output_type -> api.task.pb.RetrieveResponse
+	10, // 11: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
+	5,  // 12: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
+	10, // 13: grpc.task.TaskDispatchService.Exec:output_type -> google.protobuf.Empty
+	9,  // [9:14] is the sub-list for method output_type
+	4,  // [4:9] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_task_task_proto_init() }
@@ -399,9 +471,9 @@ func file_core_pkg_transport_grpc_task_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_task_task_proto_rawDesc), len(file_core_pkg_transport_grpc_task_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
-			NumServices:   4,
+			NumServices:   5,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_task_task_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_task_task_proto_depIdxs,

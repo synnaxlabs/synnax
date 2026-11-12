@@ -23,7 +23,7 @@ var _ = Describe("Typed series literals", func() {
 		GinkgoHelper()
 		h := newRuntimeHarness(ctx, `
 		func pick() series f32 {
-			s series f32 := [1.5]
+			s series f32 := [1.5, 2.5]
 			return s
 		}
 		func head(s series f32) f32 {
@@ -80,6 +80,19 @@ var _ = Describe("Typed series literals", func() {
 		),
 		Entry("from a func", "y := pick()\nreturn y[0]", float32(1.5)),
 		Entry("into a func", "return head([1.5])", float32(1.5)),
+		Entry("indexed after a call", "return pick()[1]", float32(2.5)),
+		Entry("declared from a call index", "y := pick()[1]\nreturn y", float32(2.5)),
+		Entry("sliced after a call", "return pick()[1:][0]", float32(2.5)),
+		Entry(
+			"declared from a call slice",
+			"y := pick()[1:]\nreturn y[0]",
+			float32(2.5),
+		),
+		Entry(
+			"indexed after a call in arithmetic",
+			"return pick()[1] + v",
+			float32(4.5),
+		),
 		Entry(
 			"untyped then a series",
 			"y := []\ny = pick()\nreturn y[0]",

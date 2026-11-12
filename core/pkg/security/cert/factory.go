@@ -10,6 +10,7 @@
 package cert
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/tls"
@@ -178,8 +179,8 @@ func (f *Factory) CreateCAPairIfMissing() error {
 }
 
 // CreateAll creates everything a Core needs to serve securely: the CA pair if it does
-// not exist, and the node pair if it is missing or does not cover every host in Hosts.
-// Callers that do not own the files on disk must not use it.
+// not exist, and the node pair if CreateNodePairIfStale finds it stale. Callers that do
+// not own the files on disk must not use it.
 func (f *Factory) CreateAll() error {
 	if err := f.CreateCAPairIfMissing(); err != nil {
 		return err
@@ -188,9 +189,9 @@ func (f *Factory) CreateAll() error {
 }
 
 // CreateNodePairIfStale creates the node certificate and its private key if they do not
-// exist, and replaces them when the existing certificate does not cover every host in
-// Hosts. A covering certificate is left untouched. Callers that do not own the files on
-// disk must not use it.
+// exist, and replaces them when the existing certificate is not a leaf the CA signed or
+// does not cover every host in Hosts. Any other certificate is left untouched. Callers
+// that do not own the files on disk must not use it.
 func (f *Factory) CreateNodePairIfStale() error {
 	exists, err := f.cfg.FS.Exists(f.cfg.NodeCertPath)
 	if err != nil {
@@ -203,6 +204,30 @@ func (f *Factory) CreateNodePairIfStale() error {
 	if err != nil {
 		return err
 	}
+	cas, err := f.Loader.LoadCAs()
+	if err != nil {
+		return err
+	}
+	if err = checkIssuedBy(c, cas); err != nil {
+		f.cfg.L.Warn(
+			"replacing node certificate and key: they do not chain to the CA",
+			zap.Error(err),
+			zap.String("cert", f.cfg.AbsoluteNodeCertPath()),
+			zap.String("key", f.cfg.AbsoluteNodeKeyPath()),
+		)
+		if rErr := f.replaceNodePair(); rErr != nil {
+			return errors.Wrapf(
+				rErr,
+				"node certificate %s does not chain to the CA (%v), and replacing it "+
+					"failed. Restore the CA key at %s, or replace the node certificate "+
+					"and key by hand",
+				f.cfg.AbsoluteNodeCertPath(),
+				err,
+				f.cfg.AbsoluteCAKeyPath(),
+			)
+		}
+		return nil
+	}
 	uncovered := f.uncoveredHosts(c)
 	if len(uncovered) == 0 {
 		return nil
@@ -213,17 +238,38 @@ func (f *Factory) CreateNodePairIfStale() error {
 		zap.String("cert", f.cfg.AbsoluteNodeCertPath()),
 		zap.String("key", f.cfg.AbsoluteNodeKeyPath()),
 	)
+	return f.replaceNodePair()
+}
+
+// checkIssuedBy returns an error unless one of cas signed c and c is not self-issued.
+// OpenSSL reads a leaf whose subject matches its issuer as self-signed and rejects it,
+// even when a trusted CA signed it.
+func checkIssuedBy(c *x509.Certificate, cas []*x509.Certificate) error {
+	if bytes.Equal(c.RawSubject, c.RawIssuer) {
+		return errors.Newf("certificate subject %s matches its issuer", c.Subject)
+	}
+	for _, ca := range cas {
+		if c.CheckSignatureFrom(ca) == nil {
+			return nil
+		}
+	}
+	return errors.New("no CA certificate signed the certificate")
+}
+
+// replaceNodePair writes a new node pair beside the current one, then renames it over
+// the current one.
+func (f *Factory) replaceNodePair() error {
 	certPath, keyPath := f.cfg.NodeCertPath+nextSuffix, f.cfg.NodeKeyPath+nextSuffix
-	if err = f.cfg.FS.Remove(certPath); err != nil {
+	if err := f.cfg.FS.Remove(certPath); err != nil {
 		return err
 	}
-	if err = f.cfg.FS.Remove(keyPath); err != nil {
+	if err := f.cfg.FS.Remove(keyPath); err != nil {
 		return err
 	}
-	if err = f.writeNodePair(certPath, keyPath); err != nil {
+	if err := f.writeNodePair(certPath, keyPath); err != nil {
 		return err
 	}
-	if err = f.cfg.FS.Rename(keyPath, f.cfg.NodeKeyPath); err != nil {
+	if err := f.cfg.FS.Rename(keyPath, f.cfg.NodeKeyPath); err != nil {
 		return err
 	}
 	return f.cfg.FS.Rename(certPath, f.cfg.NodeCertPath)

@@ -33,6 +33,13 @@ describe("pdoEntryZ", () => {
   });
 });
 
+describe("formatHex", () => {
+  it("should pad the value to the digits and keep longer values whole", () => {
+    expect(ethercat.formatHex(0xfc, 4)).toBe("0x00FC");
+    expect(ethercat.formatHex(0x1000001, 4)).toBe("0x1000001");
+  });
+});
+
 describe("formatAddress", () => {
   it("should format the index and subindex as padded uppercase hex", () => {
     expect(ethercat.formatAddress({ index: 0x1a0, subIndex: 0x1b })).toBe("0x01A0:1B");

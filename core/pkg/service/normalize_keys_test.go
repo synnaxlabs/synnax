@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	policyversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 	roleversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
@@ -49,7 +50,7 @@ var _ = DescribeTable("Pre-v0.54 key normalization",
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},
 	Entry("alias", aliasversions.Migrations),
-	Entry("arc", arcversions.NewMigrations(uuid.Nil())),
+	Entry("arc", arcversions.NewMigrations(uuid.Nil(), parser.Config{})),
 	Entry("auth", authversions.Migrations),
 	Entry("channel", channelversions.Migrations),
 	Entry("device", deviceversions.NewMigrations(deviceversions.MigrationsConfig{})),

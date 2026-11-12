@@ -16,7 +16,7 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useCheckForUpdates } from "@/platform/version/Updater";
+import { useCheck } from "@/platform/version/Updater";
 import { useInfoModal } from "@/platform/version/useInfoModal";
 
 /**
@@ -25,8 +25,8 @@ import { useInfoModal } from "@/platform/version/useInfoModal";
  */
 export const Badge = (): ReactElement | null => {
   const openInfo = useInfoModal();
-  const updateAvailable = useCheckForUpdates();
-  if (!updateAvailable) return null;
+  const check = useCheck();
+  if (check.variant !== "success" || check.available == null) return null;
   return (
     <Tooltip.Dialog location={location.BOTTOM_LEFT}>
       A new version of the Console is ready to install

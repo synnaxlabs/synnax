@@ -60,7 +60,9 @@ func ApplyRetrieve(r RetrieveRequest, q serviceicd.Retrieve) (serviceicd.Retriev
 		q = q.Limit(int(*r.Limit))
 	}
 	return q, nil
-} // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
+}
+
+// UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // at any depth, so a client that sends a field the Core removed fails.
 func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain RetrieveRequest

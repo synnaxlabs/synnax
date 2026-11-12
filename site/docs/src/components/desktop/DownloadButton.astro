@@ -17,7 +17,7 @@ export interface Props {
 }
 
 const { location } = Astro.props;
-const version = await Astro.locals.releases.latest("desktop");
+const version = await Astro.locals.releases.documented("desktop");
 ---
 
 <Buttons

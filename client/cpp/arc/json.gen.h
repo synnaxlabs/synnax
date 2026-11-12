@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -43,6 +44,22 @@ inline x::json::json Base::to_json() const {
     j["name"] = this->name;
     j["source"] = ::synnax::arc::to_json(this->source);
     if (this->directory.has_value()) j["directory"] = this->directory->to_json();
+    return j;
+}
+
+inline Change Change::parse(x::json::Parser parser) {
+    return Change{
+        .type = parser.field<std::string>("type"),
+        .path = parser.field<std::string>("path", ""),
+        .kind = parser.field<std::string>("kind"),
+    };
+}
+
+inline x::json::json Change::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    j["path"] = this->path;
+    j["kind"] = this->kind;
     return j;
 }
 
@@ -111,6 +128,8 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .include_program = parser.field<bool>("include_program", false),
+        .include_changes = parser.field<bool>("include_changes", false),
+        .include_status = parser.field<bool>("include_status", false),
     };
 }
 
@@ -122,6 +141,8 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["include_program"] = this->include_program;
+    j["include_changes"] = this->include_changes;
+    j["include_status"] = this->include_status;
     return j;
 }
 
@@ -181,6 +202,7 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
     AutomationArc result;
     static_cast<Base &>(result) = Base::parse(parser);
     result.program = parser.field<std::optional<::arc::program::Program>>("program");
+    result.changes = parser.field<std::optional<std::vector<Change>>>("changes");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -189,6 +211,7 @@ inline x::json::json AutomationArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     if (this->program.has_value()) j["program"] = this->program->to_json();
+    if (this->changes.has_value()) j["changes"] = x::json::to_array(*this->changes);
     j["type"] = this->type;
     return j;
 }
@@ -196,6 +219,7 @@ inline x::json::json AutomationArc::to_json() const {
 inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
     ModuleArc result;
     static_cast<Base &>(result) = Base::parse(parser);
+    result.status = parser.field<std::optional<Status>>("status");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -203,6 +227,7 @@ inline ModuleArc ModuleArc::parse(x::json::Parser parser) {
 inline x::json::json ModuleArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     j["type"] = this->type;
     return j;
 }

@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax"
-version = "0.60.0"
+version = "0.0.0"
 readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
@@ -128,6 +128,7 @@ markers = [
     "arc: mark test as an arc test",
     "auth: mark test as an auth test",
     "license: mark test as a license test",
+    "certificate: mark test as a certificate test",
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
     "color: mark test as a color test",
@@ -163,6 +164,7 @@ markers = [
     "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "schematic: mark test as a schematic test",
+    "secret: mark test as a secret test",
     "series: mark test as a series test",
     "signals: mark test as a signals test",
     "status: mark test as a status test",
@@ -181,7 +183,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["*/types_gen.py"]
+omit = ["*/actions_gen.py", "*/types_gen.py"]
 
 [build-system]
 requires = ["hatchling"]

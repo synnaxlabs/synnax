@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -52,7 +53,7 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
-			lp := lineplot.LinePlot{Project: &proj.Key, Name: "exported"}
+			lp := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "exported"})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &lp)
 			})).To(Succeed())
@@ -281,12 +282,12 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve plot content through export then import",
 			func(ctx SpecContext) {
-				original := lineplot.LinePlot{
+				original := defaults.Fill(lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "round-trip",
 					Channels: lineplot.Channels{Y1: []channel.Key{ch4, ch5}},
 					Ranges:   []ranger.Ref{recentRef},
-				}
+				})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &original)
 				})).To(Succeed())

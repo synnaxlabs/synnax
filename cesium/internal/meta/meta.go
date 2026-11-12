@@ -79,7 +79,7 @@ func Read(
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
+	if err = codec.DecodeStream(metaF, &ch); err != nil {
 		err = errors.Wrapf(
 			err, "error decoding meta in folder for channel %s", s.Name(),
 		)
@@ -100,7 +100,7 @@ func Create(
 	if err := ch.Validate(); err != nil {
 		return err
 	}
-	data, err := codec.Encode(ctx, ch)
+	data, err := codec.Encode(ch)
 	if err != nil {
 		return err
 	}

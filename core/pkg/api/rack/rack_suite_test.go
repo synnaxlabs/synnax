@@ -43,11 +43,9 @@ var (
 	svc       *service.Layer
 	apiSvc    *apirack.Service
 	statusAPI *apistatus.Service
-	// create, rename, setGroup, del, and retrieve run their routes as the API layer
-	// binds them.
+	// create, dispatch, del, and retrieve run their routes as the API layer binds
+	// them.
 	create   freighter.UnaryHandler[apirack.CreateRequest, apirack.CreateResponse]
-	rename   freighter.UnaryHandler[apirack.RenameRequest, struct{}]
-	setGroup freighter.UnaryHandler[apirack.SetGroupRequest, struct{}]
 	dispatch freighter.UnaryHandler[apirack.DispatchRequest, struct{}]
 	del      freighter.UnaryHandler[apirack.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
@@ -76,9 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	rename = bind.Write(binder, apiSvc.Rename)
 	del = bind.Write(binder, apiSvc.Delete)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })

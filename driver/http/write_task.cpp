@@ -209,7 +209,7 @@ WriteTaskSink::WriteTaskSink(
                 !fmt_err)
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
-            state.enum_values.emplace(x::json::json(entry.value), entry.label);
+            state.enum_values.emplace_back(entry.value, entry.label);
         for (const auto &field: ep.fields)
             if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
                     &field
@@ -295,13 +295,10 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 const auto reason = conv_err.data.empty()
                                       ? "the value has no JSON form for the field"
                                       : conv_err.data;
-                const auto *remedy = ep.json_type == x::json::Type::String
-                                       ? "Write a value of the enum."
-                                       : "Write a finite number.";
                 skipped.push_back(
                     "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
                     ". Did not send " + to_string(ep.method) + " " +
-                    base_requests[ep_idx].url + ". " + remedy
+                    base_requests[ep_idx].url + ". Write a finite number."
                 );
                 continue;
             }

@@ -3,7 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "Connect to a Core"
 description:
   "Connect and authenticate a Python or TypeScript client with a Synnax Core: connect to
-  Synnax Desktop, log in with arguments or sy login, use TLS, and close the client."
+  Synnax Desktop, log in with arguments, an API key, or sy login, use TLS, and close the
+  client."
 clients: ["python", "typescript"]
 ---
 
@@ -11,11 +12,13 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Field } from "@/components/field";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Create a client to connect your code to a Synnax Core. The client logs in with the
-username and password of a [user](/reference/enterprise/users) on the Core.
+Create a client to connect your code to a Synnax Core. The client logs in with an API
+key, or with the username and password of a [user](/reference/enterprise/users) on the
+Core.
 
 <Divider.Divider x />
 
@@ -32,19 +35,26 @@ import synnax as sy
 client = sy.Synnax()
 ```
 
+When you also saved a login with [`sy login`](#log-in-once-with-sy-login), `sy.Synnax()`
+uses that login, not Synnax Desktop.
+
 To get the code for each client, click the code button in the top bar of Synnax Desktop,
 or run the **Connect from code** command. The dialog shows the install command that
 matches the version of Synnax Desktop, and code that you can copy. The **TypeScript**
 tab gives code with the address and the API key filled in. Other clients, such as C++
 and LabVIEW, can use the host, the port, and the API key from that code.
 
+<Video id="client/connect/desktop" />
+
 When you close Synnax Desktop, its Core stops, and the connected scripts lose their
 connection. The API key stays the same the next time you open it. The port also stays
 the same, unless another program uses it.
 
-To stop every script that uses the key, click **Reset key** in the dialog. Python
-scripts that call `sy.Synnax()` use the new key the next time they start. Code that
-holds the old key needs the new one. **Erase all data** also deletes the key.
+To stop every script that uses the key, click **Reset key** in the dialog. Open
+streamers and writers stop with a
+[session ended](/reference/client/troubleshooting#session-ended) error. Python scripts
+that call `sy.Synnax()` use the new key the next time they start. Code that holds the
+old key needs the new one. **Erase all data** also deletes the key.
 
 <Divider.Divider x />
 
@@ -99,9 +109,64 @@ The clients read no environment variables by themselves.
 
 <Divider.Divider x />
 
+## Connect with an API key
+
+An API key lets a script log in with no password. The client gets the permissions of the
+user that owns the key. To get a key:
+
+- **Synnax Desktop** -> the TypeScript code in the **Connect from code** dialog holds a
+  key. See [Connect to Synnax Desktop](#connect-to-synnax-desktop).
+- **A Core in Synnax Enterprise** -> in the Console, right-click a user in the users
+  toolbar and select **Manage credentials**. Enter a key name, then click **Create
+  key**. Copy the key at once: the Core does not show it again. See
+  [Users](/reference/enterprise/users).
+- **`sy login`** -> the command makes a key for you and saves it. See
+  [Log in once with sy login](#log-in-once-with-sy-login).
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax(
+    host="core.example.com",
+    port=9090,
+    api_key="syk_...",
+)
+```
+
+An API key needs a host. With an API key and no host, the client raises
+`sy.ValidationError`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  apiKey: "syk_...",
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Give an API key or a username and password, not both. The client rejects a call that
+gives both. When someone deletes or resets the key, the client fails with an
+[invalid credentials](/reference/client/troubleshooting#invalid-credentials) error.
+
+<Divider.Divider x />
+
 ## Log in once with sy login
 
-The `sy login` command saves your credentials, so Python scripts can connect with no
+The `sy login` command saves an API key, so Python scripts can connect with no
 arguments. It is part of the Python client. Run it in a terminal:
 
 ```bash
@@ -123,8 +188,9 @@ When you answer `y` to the secure prompt, the command also asks for the "CA cert
 path". Enter the path to the `ca.crt` file of the Core. Leave it empty when the Core has
 a certificate from a public authority.
 
-The command connects to the Core, then prints "Connection successful!". In your scripts,
-create the client with no arguments:
+The command connects to the Core and prints "Connection successful!". Then it makes an
+API key named "Python CLI on" and the name of your computer, saves the key, and prints
+"Saved an API key". In your scripts, create the client with no arguments:
 
 ```python
 import synnax as sy
@@ -132,15 +198,17 @@ import synnax as sy
 client = sy.Synnax()
 ```
 
-The command stores the host, port, username, TLS setting, and CA certificate path in
-`~/.synnax/config.json`. It stores the password in the keychain of your operating
-system, under the name `synnax`. When the login fails, the command saves nothing. Run
-`sy login` again to change the values.
+The command saves the host, port, TLS setting, and CA certificate path in
+`~/.synnax/config.json`. It saves the API key in the keychain of your operating system,
+under the name `synnax.api_key`. It does not save your username or password, and it
+deletes a password that an older version saved. In the Console, the key shows in
+**Manage credentials** for your user. When the login fails, the command saves nothing.
+Run `sy login` again to change the values.
 
 With no saved login, `sy.Synnax()` connects to
 [Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
-`sy.ValidationError`. When you give no host, the client ignores the other arguments and
-uses the saved login.
+`sy.ValidationError`. When you give no host and no API key, the client ignores the other
+arguments and uses the saved login.
 
 <Divider.Divider x />
 
@@ -222,7 +290,8 @@ Close the client when your code is done with it:
 client.close()
 ```
 
-When the script exits, the client closes by itself.
+`close` also logs out. When the script exits without `close`, the client stops, but its
+session stays open on the Core until it times out.
 
   </Fragment>
 
@@ -250,11 +319,16 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="host" id="python-host" type="str">
   The hostname or IP address of the Core. With no host, the client uses the values that
-  `sy login` saved.
+  `sy login` saved, or Synnax Desktop.
 </Field.Item>
 
 <Field.Item name="port" id="python-port" type="int">
   The port of the Core.
+</Field.Item>
+
+<Field.Item name="api_key" id="python-api-key" type="str">
+  The API key to log in with. Needs a host. See [Connect with an API
+  key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="python-username" type="str">
@@ -275,16 +349,32 @@ A Node.js script does not exit until you close the client.
   CA certificates of the computer.
 </Field.Item>
 
-<Field.Item name="open_timeout" id="python-open-timeout" type="TimeSpan" default="5 s">
-  How long to wait to open a connection.
+<Field.Item
+  name="open_timeout"
+  id="python-open-timeout"
+  type="TimeSpan | float"
+  default="5 s"
+>
+  How long to wait to open a connection. A number is seconds.
 </Field.Item>
 
-<Field.Item name="read_timeout" id="python-read-timeout" type="TimeSpan" default="5 s">
-  How long to wait for a response.
+<Field.Item
+  name="read_timeout"
+  id="python-read-timeout"
+  type="TimeSpan | float"
+  default="5 s"
+>
+  How long to wait for a response. A number is seconds.
 </Field.Item>
 
-<Field.Item name="keep_alive" id="python-keep-alive" type="TimeSpan" default="30 s">
-  How often an async streamer checks its connection to the Core.
+<Field.Item
+  name="keep_alive"
+  id="python-keep-alive"
+  type="TimeSpan | float"
+  default="30 s"
+>
+  How often the client pings the Core on each stream connection, such as the connection
+  of a streamer or a writer. A number is seconds.
 </Field.Item>
 
 <Field.Item name="max_retries" id="python-max-retries" type="int" default="3">
@@ -315,6 +405,10 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="port" id="typescript-port" type="number | string">
   The port of the Core.
+</Field.Item>
+
+<Field.Item name="apiKey" id="typescript-api-key" type="string">
+  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="typescript-username" type="string">

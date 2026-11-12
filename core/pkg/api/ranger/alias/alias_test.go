@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createRange(ctx SpecContext) ranger.Range {
@@ -116,6 +117,52 @@ var _ = Describe("Set", func() {
 			Expect(retrieveAlias(ctx, r, ch)).To(Equal("alias"))
 		},
 	)
+	It("Should refuse a request that gives one alias to two channels", func(
+		ctx SpecContext,
+	) {
+		other := createChannel(ctx)
+		grant(
+			ctx,
+			u,
+			access.ActionCreate,
+			aliasID(),
+			alias.ResourceID(r.Key, other.Key()),
+		)
+		grant(ctx, u, access.ActionUpdate, rangeID())
+		Expect(set(AuthedCtx(ctx, u), apialias.SetRequest{
+			Range:   r.Key,
+			Aliases: map[channel.Key]string{ch.Key(): "x", other.Key(): "x"},
+		})).Error().To(MatchError(validate.ErrValidation))
+		Expect(retrieveAlias(ctx, r, ch)).Error().To(MatchError(query.ErrNotFound))
+		Expect(retrieveAlias(ctx, r, other)).Error().To(MatchError(query.ErrNotFound))
+	})
+	Context("Alias held by another channel", func() {
+		var other channel.Channel
+		BeforeEach(func(ctx SpecContext) {
+			other = createChannel(ctx)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Alias.NewWriter(tx).Set(ctx, r.Key, other.Key(), "x")
+			})).To(Succeed())
+			grant(ctx, u, access.ActionCreate, aliasID())
+			grant(ctx, u, access.ActionUpdate, rangeID())
+		})
+		otherID := func() resource.ID { return alias.ResourceID(r.Key, other.Key()) }
+		It("Should refuse the move without delete on the old alias", func(
+			ctx SpecContext,
+		) {
+			Expect(setAs(ctx, "x")).Error().
+				To(denied(u, access.ActionDelete, otherID()))
+			Expect(retrieveAlias(ctx, r, other)).To(Equal("x"))
+			Expect(retrieveAlias(ctx, r, ch)).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should move the alias with delete on the old alias", func(ctx SpecContext) {
+			grant(ctx, u, access.ActionDelete, otherID())
+			MustSucceed(setAs(ctx, "x"))
+			Expect(retrieveAlias(ctx, r, ch)).To(Equal("x"))
+			Expect(retrieveAlias(ctx, r, other)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
 	It("Should refuse to change an alias without update on it", func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
@@ -256,6 +303,43 @@ var _ = Describe("Read", func() {
 			}))
 		},
 	)
+	Context("Alias that two channels hold", func() {
+		BeforeEach(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Alias.NewWriter(tx).Apply(
+					ctx,
+					alias.Alias{Range: r.Key, Channel: blocked.Key()}.GorpKey(),
+					alias.NewSetAction(
+						alias.SetPayload{Path: []string{"alias"}, Value: "allowed"},
+					),
+				)
+			})).To(Succeed())
+		})
+		resolveAllowed := func(ctx SpecContext) (apialias.ResolveResponse, error) {
+			return resolve(AuthedCtx(ctx, u), apialias.ResolveRequest{
+				Range:   r.Key,
+				Aliases: []string{"allowed"},
+			})
+		}
+		It("Should refuse to resolve it when the subject can retrieve both", func(
+			ctx SpecContext,
+		) {
+			grant(
+				ctx,
+				u,
+				access.ActionRetrieve,
+				alias.ResourceID(r.Key, blocked.Key()),
+			)
+			Expect(resolveAllowed(ctx)).Error().To(MatchError(alias.ErrAmbiguous))
+		})
+		It("Should leave it out when the subject can retrieve only one", func(
+			ctx SpecContext,
+		) {
+			Expect(resolveAllowed(ctx)).To(Equal(apialias.ResolveResponse{
+				Aliases: map[string]channel.Key{},
+			}))
+		})
+	})
 	It("Should list only the aliases the subject can retrieve", func(ctx SpecContext) {
 		Expect(list(AuthedCtx(ctx, u), apialias.ListRequest{Range: r.Key})).
 			To(Equal(apialias.ListResponse{

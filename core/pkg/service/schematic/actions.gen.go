@@ -89,37 +89,19 @@ type SetConfigPayload struct {
 
 // SetPayload replaces the value at a path in the schematic's name or element configs.
 // No-op when no node or edge has the config's key.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the
 // schematic's element configs. No-op when no node or edge has the config's key.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type RemovePayload patch.Remove
 
 // InsertPayload adds an entry to a list in the schematic's element configs. No-op when
 // no node or edge has the config's key.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type InsertPayload patch.Insert
 
 // MovePayload moves an entry in a list in the schematic's element configs. No-op when
 // no node or edge has the config's key.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type MovePayload patch.Move
 
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.

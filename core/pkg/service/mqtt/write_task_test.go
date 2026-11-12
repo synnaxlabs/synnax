@@ -203,6 +203,20 @@ var _ = Describe("Write task", func() {
 			})
 		})
 
+		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Uint8T)
+			target := plainTarget("plant/valve4/set", ch, "/state", "string")
+			target["channel"].(map[string]any)["enum_values"] = []any{
+				map[string]any{"label": "closed", "value": 0},
+				map[string]any{"label": "open", "value": 1},
+			}
+			start(ctx, writeConfig(dev, target))
+			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
+				g.Expect(payloads("plant/valve4/set")).
+					To(ContainElement(`{"state":"5"}`))
+			})
+		})
+
 		It("Should add static and generated fields to each payload",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)

@@ -227,5 +227,35 @@ describe("queries", () => {
         expect(result.current.form.get(path.actions).value).toContain("delete");
       });
     });
+
+    it("should save edits to an existing policy", async () => {
+      const policy = await client.access.policies.create({
+        role: owner.key,
+        name: "editedPolicy",
+        objects: [{ type: "channel", key: "edited" }],
+        actions: ["create"],
+      });
+      const { result } = await renderHookSuspended(
+        () => Policy.useForm({ query: { key: policy.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.name, "renamedPolicy");
+        result.current.form.set(path.actions, ["create", "delete"]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.form.value().key).toEqual(policy.key);
+      await waitFor(async () => {
+        const stored = await client.access.policies.retrieve(policy.key);
+        expect(stored).toMatchObject({
+          name: "renamedPolicy",
+          objects: [{ type: "channel", key: "edited" }],
+          actions: ["create", "delete"],
+        });
+      });
+    });
   });
 });

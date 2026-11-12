@@ -269,6 +269,11 @@ var (
 			Detail: protocol.NewOptional("Minimum numeric value"),
 		},
 		{
+			Label:  "gt",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Exclusive minimum numeric value"),
+		},
+		{
 			Label:  "max",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Maximum numeric value"),

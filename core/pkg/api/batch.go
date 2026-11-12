@@ -15,55 +15,72 @@ import "github.com/synnaxlabs/synnax/pkg/api/batch"
 // API root, and a batch request names one as its endpoint.
 const (
 	PathGroupCreate             = "/group/create"
-	PathGroupRename             = "/group/rename"
 	PathGroupDelete             = "/group/delete"
-	PathGroupSetParent          = "/group/set-parent"
-	PathChannelSetGroup         = "/channel/set-group"
-	PathDeviceSetGroup          = "/device/set-group"
-	PathRackSetGroup            = "/rack/set-group"
-	PathProjectSetGroup         = "/project/set-group"
-	PathSchematicSetGroup       = "/schematic/set-group"
-	PathSchematicSymbolSetGroup = "/schematic/symbol/set-group"
-	PathLinePlotSetGroup        = "/lineplot/set-group"
-	PathLogSetGroup             = "/log/set-group"
-	PathTableSetGroup           = "/table/set-group"
-	PathPanelSetGroup           = "/panel/set-group"
-	PathSchematicSetProject     = "/schematic/set-project"
-	PathLinePlotSetProject      = "/lineplot/set-project"
-	PathLogSetProject           = "/log/set-project"
-	PathTableSetProject         = "/table/set-project"
-	PathPanelSetProject         = "/panel/set-project"
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
+	PathArcDirectoryCreate      = "/arc/directory/create"
+	PathUserDispatch            = "/user/dispatch"
+	PathChannelDispatch         = "/channel/dispatch"
+	PathGroupDispatch           = "/group/dispatch"
+	PathRangeDispatch           = "/range/dispatch"
+	PathRangeKVDispatch         = "/range/kv/dispatch"
+	PathRangeAliasDispatch      = "/range/alias/dispatch"
+	PathProjectDispatch         = "/project/dispatch"
+	PathSchematicDispatch       = "/schematic/dispatch"
+	PathSchematicSymbolDispatch = "/schematic/symbol/dispatch"
+	PathLinePlotDispatch        = "/lineplot/dispatch"
+	PathPanelDispatch           = "/panel/dispatch"
+	PathLogDispatch             = "/log/dispatch"
+	PathTableDispatch           = "/table/dispatch"
+	PathLabelDispatch           = "/label/dispatch"
+	PathRackDispatch            = "/rack/dispatch"
+	PathTaskDispatch            = "/task/dispatch"
+	PathDeviceDispatch          = "/device/dispatch"
+	PathPolicyDispatch          = "/access/policy/dispatch"
+	PathRoleDispatch            = "/access/role/dispatch"
+	PathArcDispatch             = "/arc/dispatch"
+	PathArcDirectoryDispatch    = "/arc/directory/dispatch"
+	PathViewDispatch            = "/view/dispatch"
+	PathSecretDispatch          = "/secret/dispatch"
+	PathCertificateDispatch     = "/certificate/dispatch"
 )
 
 // batchRoutes returns the handler of each endpoint a batch accepts. Every handler does
-// all of its work in the transaction it receives. Channel create and delete stay out:
-// they write Cesium, outside the transaction.
+// all of its work in the transaction it receives, and runs the same checks it runs on
+// its own route. Channel create and delete stay out: they write Cesium, outside the
+// transaction.
 func (l *Layer) batchRoutes() batch.Routes {
 	return batch.Routes{
 		PathGroupCreate:             batch.Route(l.Group.Create),
-		PathGroupRename:             batch.Route(l.Group.Rename),
 		PathGroupDelete:             batch.Route(l.Group.Delete),
-		PathGroupSetParent:          batch.Route(l.Group.SetParent),
-		PathChannelSetGroup:         batch.Route(l.Channel.SetGroup),
-		PathDeviceSetGroup:          batch.Route(l.Device.SetGroup),
-		PathRackSetGroup:            batch.Route(l.Rack.SetGroup),
-		PathProjectSetGroup:         batch.Route(l.Project.SetGroup),
-		PathSchematicSetGroup:       batch.Route(l.Schematic.SetGroup),
-		PathSchematicSymbolSetGroup: batch.Route(l.Symbol.SetGroup),
-		PathLinePlotSetGroup:        batch.Route(l.LinePlot.SetGroup),
-		PathLogSetGroup:             batch.Route(l.Log.SetGroup),
-		PathTableSetGroup:           batch.Route(l.Table.SetGroup),
-		PathPanelSetGroup:           batch.Route(l.Panel.SetGroup),
-		PathSchematicSetProject:     batch.Route(l.Schematic.SetProject),
-		PathLinePlotSetProject:      batch.Route(l.LinePlot.SetProject),
-		PathLogSetProject:           batch.Route(l.Log.SetProject),
-		PathTableSetProject:         batch.Route(l.Table.SetProject),
-		PathPanelSetProject:         batch.Route(l.Panel.SetProject),
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),
+		PathArcDirectoryCreate:      batch.Route(l.Arc.CreateDirectory),
+		PathUserDispatch:            batch.Route(l.User.Dispatch),
+		PathChannelDispatch:         batch.Route(l.Channel.Dispatch),
+		PathGroupDispatch:           batch.Route(l.Group.Dispatch),
+		PathRangeDispatch:           batch.Route(l.Range.Dispatch),
+		PathRangeKVDispatch:         batch.Route(l.KV.Dispatch),
+		PathRangeAliasDispatch:      batch.Route(l.Alias.Dispatch),
+		PathProjectDispatch:         batch.Route(l.Project.Dispatch),
+		PathSchematicDispatch:       batch.Route(l.Schematic.Dispatch),
+		PathSchematicSymbolDispatch: batch.Route(l.Symbol.Dispatch),
+		PathLinePlotDispatch:        batch.Route(l.LinePlot.Dispatch),
+		PathPanelDispatch:           batch.Route(l.Panel.Dispatch),
+		PathLogDispatch:             batch.Route(l.Log.Dispatch),
+		PathTableDispatch:           batch.Route(l.Table.Dispatch),
+		PathLabelDispatch:           batch.Route(l.Label.Dispatch),
+		PathRackDispatch:            batch.Route(l.Rack.Dispatch),
+		PathTaskDispatch:            batch.Route(l.Task.Dispatch),
+		PathDeviceDispatch:          batch.Route(l.Device.Dispatch),
+		PathPolicyDispatch:          batch.Route(l.Policy.Dispatch),
+		PathRoleDispatch:            batch.Route(l.Role.Dispatch),
+		PathArcDispatch:             batch.Route(l.Arc.Dispatch),
+		PathArcDirectoryDispatch:    batch.Route(l.Arc.DispatchDirectory),
+		PathViewDispatch:            batch.Route(l.View.Dispatch),
+		PathSecretDispatch:          batch.Route(l.Secret.Dispatch),
+		PathCertificateDispatch:     batch.Route(l.Certificate.Dispatch),
 	}
 }

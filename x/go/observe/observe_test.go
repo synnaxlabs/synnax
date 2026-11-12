@@ -11,6 +11,7 @@ package observe_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,34 @@ var _ = Describe("Observer", func() {
 		obs.Notify(ctx, 5)
 		Expect(called).To(BeFalse())
 	})
+
+	It(
+		"Should block a Disconnect until a running handler returns",
+		func(ctx SpecContext) {
+			obs := observe.New[int]()
+			started := make(chan struct{})
+			release := make(chan struct{})
+			disconnect := obs.OnChange(func(context.Context, int) {
+				close(started)
+				<-release
+			})
+			notified := make(chan struct{})
+			go func() {
+				obs.Notify(ctx, 1)
+				close(notified)
+			}()
+			Eventually(started).Should(BeClosed())
+			disconnected := make(chan struct{})
+			go func() {
+				disconnect()
+				close(disconnected)
+			}()
+			Consistently(disconnected, 50*time.Millisecond).ShouldNot(BeClosed())
+			close(release)
+			Eventually(disconnected).Should(BeClosed())
+			Eventually(notified).Should(BeClosed())
+		},
+	)
 })
 
 var _ = Describe("Translator", func() {
@@ -110,5 +139,30 @@ var _ = Describe("Noop", func() {
 			called = true
 		})
 		Expect(called).To(BeFalse())
+	})
+})
+
+var _ = Describe("Merge", func() {
+	It("Should notify on a change to any observable", func(ctx SpecContext) {
+		a, b := observe.New[int](), observe.New[int]()
+		var results []int
+		observe.Merge[int](a, b).OnChange(func(ctx context.Context, v int) {
+			results = append(results, v)
+		})
+		a.Notify(ctx, 1)
+		b.Notify(ctx, 2)
+		Expect(results).To(Equal([]int{1, 2}))
+	})
+
+	It("Should disconnect from every observable", func(ctx SpecContext) {
+		a, b := observe.New[int](), observe.New[int]()
+		calls := 0
+		disconnect := observe.Merge[int](a, b).OnChange(func(context.Context, int) {
+			calls++
+		})
+		disconnect()
+		a.Notify(ctx, 1)
+		b.Notify(ctx, 2)
+		Expect(calls).To(BeZero())
 	})
 })

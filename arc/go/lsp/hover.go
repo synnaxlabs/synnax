@@ -46,7 +46,8 @@ func intTypeDoc(name, desc, rng string) string {
 func (s *Server) Hover(
 	ctx context.Context,
 	params *protocol.HoverParams,
-) (*protocol.Hover, error) {
+) (result *protocol.Hover, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	d, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		s.cfg.L.Debug(

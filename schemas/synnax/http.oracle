@@ -198,8 +198,9 @@ ReadConfig struct extends task.PersistConfig {
         @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
-        @doc value "is the polling rate applied to all endpoints, in Hertz."
-        @ts type   "number"
+        @doc value   "is the polling rate applied to all endpoints, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."

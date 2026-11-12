@@ -39,3 +39,48 @@ export const listReleaseNotes = (dir: string = RELEASE_NOTES_DIR): Notes[] =>
       if (version == null) throw new Error(`${f} passes no version to its release`);
       return { name: f.replace(/\.mdx$/, ""), anchor: releaseAnchor(version) };
     });
+
+export interface Release {
+  version: string;
+  /** When the release shipped. A release without a date has not shipped. */
+  date?: string;
+  desktopVersion?: string;
+  /** The TypeScript client's version, or null if none shipped. Defaults to version. */
+  npmVersion?: string | null;
+}
+
+export interface Links {
+  github: string;
+  python: string;
+  typescript?: string;
+  desktop?: string;
+}
+
+/**
+ * Returns the links from a release to its Git tags and packages, or null if the release
+ * has not shipped, since its tags and packages do not exist yet.
+ */
+export const releaseLinks = ({
+  version,
+  date,
+  desktopVersion,
+  npmVersion = version,
+}: Release): Links | null => {
+  if (date == null) return null;
+  const [major, minor] = version.split(".").map(Number);
+  // From v0.59, each product has its own tag, and the Core's tag names the release.
+  const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}`;
+  const majorMinor = version.split(".").slice(0, 2).join(".");
+  return {
+    github: `https://github.com/synnaxlabs/synnax/tree/${tag}`,
+    python: `https://pypi.org/project/synnax/${majorMinor}/`,
+    typescript:
+      npmVersion == null
+        ? undefined
+        : `https://npmjs.com/package/@synnaxlabs/client/v/${npmVersion}`,
+    desktop:
+      desktopVersion == null
+        ? undefined
+        : `https://github.com/synnaxlabs/synnax/releases/tag/desktop/v${desktopVersion}`,
+  };
+};

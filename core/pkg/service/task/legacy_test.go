@@ -128,6 +128,10 @@ var legacyVariantDiscarded = map[string]set.Set[string]{
 	"ai_voltage_with_excit": set.New("units"),
 	"ao_current":            set.New("units"),
 	"ao_voltage":            set.New("units"),
+	// A function generator runs with the task and has no Synnax channels.
+	"ao_func_gen": set.New(
+		"cmd_channel", "state_channel", "cmd_channel_name", "state_channel_name",
+	),
 	// An EtherCAT entry channel reads its bit length from the slave's discovered
 	// entry.
 	"manual": set.New("bit_length"),
@@ -360,9 +364,9 @@ func rekeyed(raw []byte, keys map[float64]float64) []byte {
 	return MustSucceed(json.Marshal(v))
 }
 
-// createFixtureTargets creates the channels, devices, and statuses that the stored
-// fixtures in testdata/legacy/expected reference, so an import keeps every key. It
-// returns the key of the channel created for each channel key in the fixtures.
+// createFixtureTargets creates the channels, devices, and statuses that the fixtures in
+// testdata reference, so an import keeps every key. It returns the key of the channel
+// created for each channel key in the fixtures.
 func createFixtureTargets(
 	ctx context.Context,
 	db *gorp.DB,
@@ -382,7 +386,7 @@ func createFixtureTargets(
 			for k, f := range v {
 				switch key := f.(type) {
 				case float64:
-					if channelFields.Contains(k) && key != 0 {
+					if isChannelField(k) && key != 0 {
 						fixtureChannels.Add(key)
 					}
 				case string:
@@ -401,9 +405,14 @@ func createFixtureTargets(
 			}
 		}
 	}
-	paths := MustSucceed(
-		filepath.Glob(filepath.Join("testdata", "legacy", "expected", "*.json")),
-	)
+	var paths []string
+	for _, pattern := range []string{
+		filepath.Join("testdata", "legacy", "*.json"),
+		filepath.Join("testdata", "legacy", "expected", "*.json"),
+		filepath.Join("testdata", "released", "*", "*.json"),
+	} {
+		paths = append(paths, MustSucceed(filepath.Glob(pattern))...)
+	}
 	for _, path := range paths {
 		var stored any
 		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
@@ -513,7 +522,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			})).Stores()...,
 		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB: db,
+			DB:      db,
+			Channel: channelSvc,
 		})).Stores()...)
 		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,

@@ -14,6 +14,8 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
@@ -26,14 +28,16 @@ const minCellDim = 32
 // baseRow and baseCol are the entries an action gives the opposing axis when it
 // bootstraps that axis on an empty table. Both take their size from the schema.
 func baseRow(key string) Row {
-	r := Row{Key: key}
-	r.ApplyDefaults()
+	var r Row
+	r.SetDefaults()
+	r.Key = key
 	return r
 }
 
 func baseCol(key string) Column {
-	c := Column{Key: key}
-	c.ApplyDefaults()
+	var c Column
+	c.SetDefaults()
+	c.Key = key
 	return c
 }
 
@@ -323,41 +327,46 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle applies the set to the table's name or cells.
+// Handle applies the set to the table's name, group, project, or cells.
 func (p SetPayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Set(p))
 }
 
-// Handle applies the remove to the table's name or cells.
+// Handle applies the remove to the table's name, group, project, or cells.
 func (p RemovePayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Remove(p))
 }
 
-// Handle applies the insert to the table's name or cells.
+// Handle applies the insert to the table's name, group, project, or cells.
 func (p InsertPayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Insert(p))
 }
 
-// Handle applies the move to the table's name or cells.
+// Handle applies the move to the table's name, group, project, or cells.
 func (p MovePayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Move(p))
 }
 
 // document is the part of a table, outside its cells, that path actions edit.
 type document struct {
-	Name string `json:"name"`
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
 }
 
-// edit applies a path action to the table's name or to the cell config that its path
-// names. A cell config that names no variant or fails its schema is rejected, as is a
-// path to another field, such as the group.
+// edit applies a path action to the table's name, group, or project, or to the cell
+// config that its path names. A cell config that names no variant or fails its schema
+// is rejected, as is a path to another field.
 func edit(state Table, a patch.Action) (Table, error) {
 	if patch.Field(a) != "cells" {
-		d, err := patch.Edit(document{Name: state.Name}, a.Apply)
+		d, err := patch.Edit(
+			document{Name: state.Name, Group: state.Group, Project: state.Project},
+			a.Apply,
+		)
 		if err != nil {
 			return Table{}, err
 		}
-		state.Name = d.Name
+		state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 		return state, nil
 	}
 	cells, err := patch.EditMap(state.Cells, []string{"cells"}, a, checkCell)
@@ -367,6 +376,10 @@ func edit(state Table, a patch.Action) (Table, error) {
 	state.Cells = cells
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 func checkCell(key string, cfg CellConfig) error {
 	if cfg.Variant == nil {

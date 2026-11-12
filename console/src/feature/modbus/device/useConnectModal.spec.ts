@@ -199,6 +199,33 @@ describe("Modbus.Device.useConnectModal", () => {
     await waitFor(() => expect(unitId().value).toBe("247"));
   });
 
+  it.each(["fe80::1", "[fe80::1]"])(
+    "should bracket the IPv6 host %s once in the location of a new server",
+    async (host) => {
+      const rack = await createRunningRack(client, "modbus");
+      const scan = await rack.createTask({
+        name: uniqueName("modbus_scan"),
+        type: Modbus.Task.SCAN_TYPE,
+        config: {},
+      });
+      const { result } = await renderModalOpener(
+        Modbus.Device.useConnectModal,
+        [{ rack: rack.key }],
+        { client },
+      );
+      fireEvent.change(screen.getByPlaceholderText("localhost"), {
+        target: { value: host },
+      });
+      const { answered } = await answerNextCommand(client, scan);
+      pressSaveTrigger();
+      await answered;
+      const key = await result();
+      if (key == null) throw new Error("the modal closed without a device");
+      const dev = await client.devices.retrieve({ key });
+      expect(dev.location).toBe("[fe80::1]:502");
+    },
+  );
+
   it("should save a serial device with the line settings entered", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({

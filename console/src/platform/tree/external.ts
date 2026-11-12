@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/tree/children";
-export { type ContextMenus, useItems } from "@/platform/tree/context";
+export { type ContextMenus } from "@/platform/tree/context";
 export * from "@/platform/tree/CopyContextMenuItem";
 export * from "@/platform/tree/CopyPropertiesContextMenuItem";
 export { createSearch } from "@/platform/tree/createSearch";
 export * from "@/platform/tree/createUseDelete";
+export * from "@/platform/tree/createUsePlacement";
 export * from "@/platform/tree/createUseRename";
 export * from "@/platform/tree/item";
 export * from "@/platform/tree/Provider";

@@ -20,6 +20,8 @@ export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick">
   onClick: () => void;
 }
 
+const DEFAULT_TOOLTIP = "Configuration changed since deploy. Redeploy to apply.";
+
 /**
  * Deploys the saved configuration to the running task. Stays mounted so its reveal and
  * collapse can animate; hidden it occupies no space and cannot be focused or clicked.
@@ -27,6 +29,7 @@ export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick">
 export const RedeployButton = ({
   visible,
   onClick,
+  tooltip = DEFAULT_TOOLTIP,
   ...props
 }: RedeployButtonProps): ReactElement => (
   <div
@@ -41,7 +44,7 @@ export const RedeployButton = ({
         onClick={onClick}
         size="medium"
         tabIndex={visible ? undefined : -1}
-        tooltip="Configuration changed since deploy. Redeploy to apply."
+        tooltip={tooltip}
         variant="filled"
         {...props}
       >

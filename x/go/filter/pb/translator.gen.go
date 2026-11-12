@@ -12,6 +12,7 @@
 package pb
 
 import (
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	xpb "github.com/synnaxlabs/x/pb"
 )
@@ -40,11 +41,15 @@ func StringToPB(r filter.String) (*String, error) {
 }
 
 // StringFromPB converts String to String.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func StringFromPB(pb *String) (filter.String, error) {
 	var r filter.String
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.CaseInsensitive = pb.CaseInsensitive
 	if pb.Eq != nil {
 		r.Eq = pb.Eq
@@ -61,6 +66,7 @@ func StringFromPB(pb *String) (filter.String, error) {
 	if pb.Regex != nil {
 		r.Regex = pb.Regex
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

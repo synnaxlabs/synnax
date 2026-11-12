@@ -34,31 +34,33 @@ func (*Service) Match(body map[string]any) bool {
 	return hasLayout && hasCells
 }
 
-// Import decodes env into a Table created under opts.Parent, which must be a project. A
-// group must be in the parent project. The key on the wire is discarded so every import
-// mints a new resource. An unknown envelope version is a path-scoped validation error.
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-	opts imex.ImportOptions,
-) (resource.ID, error) {
-	proj, err := project.KeyFromResourceID(opts.Parent)
-	if err != nil {
-		return resource.ID{}, validate.PathedError(err, "parent")
-	}
-	if err = project.ValidateGroup(
-		ctx, tx, proj, opts.Group, resource.TypeTable,
-	); err != nil {
-		return resource.ID{}, err
-	}
+// Decode decodes env into a Table that its Write creates under opts.Parent, which must
+// be a project. A group must be in the parent project. The key on the wire is discarded
+// so every import mints a new resource. An unknown envelope version is a path-scoped
+// validation error.
+func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	t, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	t.Group, t.Project, t.Range = opts.Group, &proj, nil
-	if err = s.NewWriter(tx).Create(ctx, &t); err != nil {
-		return resource.ID{}, err
-	}
-	return ResourceID(t.Key), nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		proj, err := project.KeyFromResourceID(opts.Parent)
+		if err != nil {
+			return resource.ID{}, validate.PathedError(err, "parent")
+		}
+		if err = project.ValidateGroup(
+			ctx, tx, proj, opts.Group, resource.TypeTable,
+		); err != nil {
+			return resource.ID{}, err
+		}
+		t.Group, t.Project, t.Range = opts.Group, &proj, nil
+		if err = s.NewWriter(tx).Create(ctx, &t); err != nil {
+			return resource.ID{}, err
+		}
+		return ResourceID(t.Key), nil
+	}, nil
 }

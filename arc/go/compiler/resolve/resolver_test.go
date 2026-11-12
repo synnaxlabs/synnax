@@ -55,6 +55,33 @@ func monoMathAbs() *symbol.Symbol {
 }
 
 var _ = Describe("Resolver", func() {
+	Describe("References", func() {
+		It("should report a recorded call to a local function", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			Expect(r.References("helper")).To(BeFalse())
+			r.EmitLocalCall(
+				w,
+				wID,
+				"helper",
+				types.Function(types.FunctionProperties{}),
+			)
+			Expect(r.References("helper")).To(BeTrue())
+			Expect(r.References("other")).To(BeFalse())
+		})
+
+		It("should not report an import with the same name", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			r.EmitImportCall(
+				w, wID, "series", "len", types.Function(types.FunctionProperties{}),
+			)
+			Expect(r.References("len")).To(BeFalse())
+		})
+	})
+
 	Describe("Finalize", func() {
 		It(
 			"Should assign an import index for a host-import reference",

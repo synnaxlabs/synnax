@@ -95,6 +95,11 @@ type Router struct {
 
 var _ BindableTransport = (*Router)(nil)
 
+// Context returns a context that the router cancels after the app it is bound to shuts
+// down and its in-flight requests drain. Work that outlives a request, such as a
+// streamed response body, can run under it.
+func (r *Router) Context() context.Context { return r.streamCtx }
+
 // BindTo binds the router and all of its routes to the given fiber app.
 func (r *Router) BindTo(app *fiber.App) {
 	app.Hooks().OnPostShutdown(func(error) error {
@@ -172,7 +177,6 @@ func (r *Router) NewUnaryServer[RQ, RS freighter.Payload](
 		unaryServerOptions: newUnaryServerOptions(opts),
 		path:               path,
 		Instrumentation:    r.cfg.Instrumentation,
-		serverCtx:          r.streamCtx,
 	}
 	r.register(path, http.MethodPost, us, us.fiberHandler)
 	return us

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -67,33 +68,41 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-func decodeDetails[D any](details any) error {
+func decodeDetails[D any](details any) (D, error) {
+	var decoded D
 	b, err := json.Marshal(details)
 	if err != nil {
-		return errors.Wrap(validate.ErrValidation, err.Error())
+		return decoded, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	var decoded D
 	if err = json.Unmarshal(b, &decoded); err != nil {
-		return errors.Wrap(validate.ErrValidation, err.Error())
+		var zero D
+		return zero, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	return nil
+	return decoded, nil
 }
 
-func validateDetails(s status.Status[any]) error {
-	// A status whose details its owner cannot decode fails every read of that status.
+// resolveDetails returns an error if the owner of s cannot decode its details, since
+// such a status fails every read. A rack status takes its decoded details, so a status
+// sent without them reads as not running in every client.
+func resolveDetails(s *status.Status[any]) error {
 	if s.Owner == nil {
 		return nil
 	}
+	var err error
 	switch s.Owner.Type {
 	case resource.TypeDevice:
-		return decodeDetails[device.StatusDetails](s.Details)
+		_, err = decodeDetails[device.StatusDetails](s.Details)
 	case resource.TypeTask:
-		return decodeDetails[task.StatusDetails](s.Details)
-	case resource.TypeRack, resource.TypeChannel:
-		return decodeDetails[struct{}](s.Details)
-	default:
-		return nil
+		_, err = decodeDetails[task.StatusDetails](s.Details)
+	case resource.TypeRack:
+		var details rack.StatusDetails
+		if details, err = decodeDetails[rack.StatusDetails](s.Details); err == nil {
+			s.Details = details
+		}
+	case resource.TypeChannel:
+		_, err = decodeDetails[struct{}](s.Details)
 	}
+	return err
 }
 
 // SetRequest is a request to set (create or update) statuses in the cluster.
@@ -123,7 +132,7 @@ func (s *Service) Set(
 		if err := w.Resolve(ctx, st); err != nil {
 			return SetResponse{}, err
 		}
-		if err := validateDetails(*st); err != nil {
+		if err := resolveDetails(st); err != nil {
 			return SetResponse{}, validate.PathedError(
 				err, "statuses", strconv.Itoa(i), "details",
 			)

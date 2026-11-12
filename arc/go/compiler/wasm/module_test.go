@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("WASM Module", func() {
@@ -283,6 +284,15 @@ var _ = Describe("WASM Module", func() {
 			bytes := mod.Generate()
 			// Memory section ID is 0x05 - verify it's present
 			Expect(bytes).To(ContainElement(byte(0x05)))
+		})
+
+		It("Should cap memory at MaxMemoryPages", func(ctx SpecContext) {
+			mod := wasm.NewModule()
+			mod.EnableMemory()
+			mod.AddExport("memory", wasm.ExportKindMemory, 0)
+			mem := Compile(ctx, mod).ExportedMemories()["memory"]
+			Expect(mem.Min()).To(Equal(uint32(1)))
+			Expect(MustBeOk(mem.Max())).To(Equal(uint32(wasm.MaxMemoryPages)))
 		})
 
 		It("Should generate valid module without memory", func() {

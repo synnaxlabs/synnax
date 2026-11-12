@@ -218,7 +218,7 @@ var _ = Describe("Go Query Plugin", func() {
 					resp := MustGenerate(ctx, source, "view", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
 				},
-				Entry("filter", "@filter", "slices.Contains(vals, e.Base().Name)"),
+				Entry("filter", "@filter", "want.Contains(e.Base().Name)"),
 				Entry("index", "@index lookup", "return e.Base().Name"),
 				Entry("search", "@search", "[]string{e.Base().Name}"),
 			)
@@ -252,7 +252,7 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func MatchTypes(vals ...Type) Filter",
-					"slices.Contains(vals, e.Type())",
+					"want.Contains(e.Type())",
 				)
 			})
 
@@ -577,7 +577,7 @@ var _ = Describe("Go Query Plugin", func() {
 					).
 					ToNotContain(
 						"MatchInternals(",
-						"slices.Contains(vals",
+						"want.Contains(",
 						"func (r Retrieve) MatchInternal(",
 					)
 			})
@@ -633,6 +633,34 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
+			It(
+				"Should pluralize an uncountable name apart in prose and identifiers",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/series"
+
+					Series struct {
+						key uuid {
+							@key
+						}
+						metadata string {
+							@filter
+						}
+						@resource type "series"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "series", loader, p)
+
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"func MatchMetadataList(vals ...string) Filter",
+							"// Limit sets the maximum number of series to return.",
+						).
+						ToNotContain("seriesList")
+				},
+			)
+
 			It("Should generate a slice filter", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
@@ -654,7 +682,8 @@ var _ = Describe("Go Query Plugin", func() {
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
-						"slices.Contains(vals, e.Username)",
+						"want := set.New(vals...)",
+						"want.Contains(e.Username)",
 					).
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
@@ -722,7 +751,7 @@ var _ = Describe("Go Query Plugin", func() {
 						ToContain(
 							"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 							"func MatchRacks(vals ...rack.Key) Filter",
-							"slices.Contains(vals, e.Rack)",
+							"want.Contains(e.Rack)",
 						).
 						ToNotContain("func (r Retrieve) MatchRacks(")
 				},
@@ -1193,7 +1222,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should import slices for variadic filters", func(ctx SpecContext) {
+			It("Should import set for variadic filters", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -1211,10 +1240,13 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("\"slices\"")
+					ToContain(`"github.com/synnaxlabs/synnax/x/go/set"`).
+					ToNotContain("\"slices\"")
 			})
 
-			It("Should not import slices for bool-only filters", func(ctx SpecContext) {
+			It("Should not import slices or set for bool-only filters", func(
+				ctx SpecContext,
+			) {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1232,7 +1264,10 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
-					ToNotContain("\"slices\"")
+					ToNotContain(
+						"\"slices\"",
+						`"github.com/synnaxlabs/synnax/x/go/set"`,
+					)
 			})
 
 			It(
@@ -1349,7 +1384,7 @@ var _ = Describe("Go Query Plugin", func() {
 							"ByUsername",
 							"OrderByUsername",
 							"gorp.NewSortedIndex",
-							"slices.Contains(vals",
+							"want.Contains(",
 						)
 				},
 			)
@@ -1479,10 +1514,11 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							`"slices"`,
+							`"github.com/synnaxlabs/synnax/x/go/set"`,
 							"keys[i] = compare.TextKey(string(v))",
+							"want := set.New(vals...)",
 							"r.indexes.name.Filter(keys...),",
-							"return slices.Contains(vals, e.Name), nil",
+							"return want.Contains(e.Name), nil",
 						)
 				},
 			)

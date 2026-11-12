@@ -13,3 +13,7 @@ export const ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
 export const url = (id: string, extension: string, theme?: string): string =>
   `${ROOT}/${id}${theme != null ? `-${theme}` : ""}.${extension}`;
+
+/** Builds the URL of a version of a video. An unthemed video takes no theme. */
+export const video = (id: string, version: string, theme?: string): string =>
+  `${ROOT}/${id}/${version}${theme != null ? `-${theme}` : ""}.mp4`;

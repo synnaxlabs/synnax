@@ -202,14 +202,22 @@ export const useData = <
   };
 };
 
-/** @returns a ref for the scroll container that fetches once when it first mounts. */
-const useFetchMoreRefCallback = (onFetchMore?: () => void) => {
+/**
+ * @returns a ref for the scroll container that fetches when it first mounts, and again
+ * on each new mount while the list is empty, so reopening a failed list retries it.
+ */
+const useFetchMoreRefCallback = (
+  onFetchMore: (() => void) | undefined,
+  empty: boolean,
+) => {
   const onFetchMoreRef = useSyncedRef(onFetchMore);
-  const initialFetchCalledRef = useRef(false);
+  // A frame that opts out of memoization passes the same container on every render.
+  const containerRef = useRef<HTMLDivElement | null>(null);
   return (el: HTMLDivElement | null) => {
-    if (el == null || initialFetchCalledRef.current) return;
-    initialFetchCalledRef.current = true;
-    onFetchMoreRef.current?.();
+    if (el == null || el === containerRef.current) return;
+    const first = containerRef.current == null;
+    containerRef.current = el;
+    if (first || empty) onFetchMoreRef.current?.();
   };
 };
 
@@ -334,7 +342,7 @@ const VirtualFrame = <
       mutation.disconnect();
     };
   }, []);
-  const fetchMoreRef = useFetchMoreRefCallback(onFetchMore);
+  const fetchMoreRef = useFetchMoreRefCallback(onFetchMore, data.length === 0);
   const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
@@ -481,7 +489,7 @@ const StaticFrame = <
   };
   const elements = useElements(NO_PIN);
 
-  const initialFetchCallback = useFetchMoreRefCallback(onFetchMore);
+  const initialFetchCallback = useFetchMoreRefCallback(onFetchMore, data.length === 0);
   const { containerRef: intersectionContainerRef, sentinelRef } =
     useIntersectionFetchMore(onFetchMore, data.length);
   const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);

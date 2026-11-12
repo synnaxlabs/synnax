@@ -33,6 +33,16 @@ export interface Params<S, A extends Action> {
   store: Store<S, A>;
 }
 
+/** Dependencies the host hands to a reconcile. */
+export interface ReconcileParams<S, A extends Action> extends Params<S, A> {
+  /**
+   * Whether the pass ended because the client changed, the Core reset, or the client
+   * closed. The store may then hold another Core's state, so a reconcile checks it
+   * before it dispatches after an await.
+   */
+  ended: () => boolean;
+}
+
 /**
  * Lifecycle callbacks keeping session state consistent with the Core. The host runs
  * reconcile at client-ready and on every epoch bump, and mounts listen once per client,
@@ -43,7 +53,7 @@ export interface Callbacks<S, A extends Action> {
    * Idempotent boundary repair. Pulls state at call time. Absent only for a
    * synchronizer holding no session state to repair.
    */
-  reconcile?: (params: Params<S, A>) => void | Promise<void>;
+  reconcile?: (params: ReconcileParams<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
   listen?: (params: Params<S, A>) => destructor.Destructor;
 }

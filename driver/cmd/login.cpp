@@ -34,22 +34,13 @@ int login(x::args::Parser &args) {
     config.username = x::cli::prompt("Username");
     config.password = x::cli::prompt("Password", std::nullopt, true);
 
-    rack::Config cfg{.connection = config};
-    if (const auto err = cfg.enroll()) {
-        LOG(ERROR) << "failed to create a rack and its API key: " << err;
+    const auto [cfg, err] = rack::Config::login(args, config);
+    if (err) {
+        LOG(ERROR) << "failed to enroll the rack: " << err;
         return 1;
     }
-    LOG(INFO) << x::log::GREEN() << "created rack " << cfg.rack.name << " ("
-              << cfg.rack.key << ") and its API key" << x::log::RESET();
-    if (const auto err = rack::Config::clear_persisted_state(args)) {
-        LOG(ERROR) << "failed to clear the saved state: " << err;
-        return 1;
-    }
-    if (const auto err = rack::Config::save_conn_params(args, cfg.connection)) {
-        LOG(ERROR) << "failed to save the API key: " << err;
-        return 1;
-    }
-    LOG(INFO) << x::log::GREEN() << "API key saved successfully!" << x::log::RESET();
+    LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name << " ("
+              << cfg.rack.key << ") and saved its API key" << x::log::RESET();
     LOG(INFO) << "start driver: " << x::log::BLUE() << "synnax-driver start -s"
               << x::log::RESET();
     return 0;

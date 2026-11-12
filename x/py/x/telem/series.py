@@ -37,6 +37,7 @@ from pydantic_core import core_schema
 from typing_extensions import TypeIs, TypeVar
 
 from x.interop import ArrayOperators
+from x.params import deprecate_positional
 from x.telem.telem import (
     Alignment,
     Bounds,
@@ -309,6 +310,7 @@ class Series(ArrayOperators, Generic[T]):
             self._len_cache = sum(1 for _ in _variable_spans(self.data))
         return self._len_cache
 
+    @deprecate_positional("data_type", "time_range", "alignment", "alignment_multiple")
     def __init__(
         self: Series[SampleValue],
         data: CrudeSeries | MultiSeries,
@@ -467,6 +469,7 @@ class Series(ArrayOperators, Generic[T]):
         self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray: ...
 
+    @deprecate_positional("copy")
     def to_numpy(
         self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
@@ -668,6 +671,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
         # copy is implicitly handled since we're creating a new array
         return pre_alloc
 
+    @deprecate_positional("copy")
     def to_numpy(
         self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:

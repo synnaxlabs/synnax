@@ -146,11 +146,10 @@ For child ranges, aborts, and limits, see [create ranges in Arc](/reference/rang
 
   <Fragment slot="console">
 
-Set the **Parent range** in the create dialog. You can also right-click a range in the
-ranges toolbar or the range explorer and select **Create child range**, or click
-
-<Icon.Add /> in the child ranges section of the [range
-overview](/reference/ranges/find#range-overview).
+Set the **Parent range** in the create dialog. You can also click <Icon.Add /> in the
+child ranges section of the [range overview](/reference/ranges/find#range-overview), or
+right-click a range in the ranges toolbar or the range explorer and select **Create
+child range**.
 
 <Video id="client/ranges/create-child" />
 
@@ -181,13 +180,13 @@ client.ranges.create(
 const childRange = await client.ranges.create({
   name: "My Child Range",
   timeRange: new TimeRange(start, end),
-  parent: parentRange,
+  parent: parentRange.key,
 });
 
 // Or create many children in one call
 await client.ranges.create([
-  { name: "Child A", timeRange: trA, parent: parentRange },
-  { name: "Child B", timeRange: trB, parent: parentRange },
+  { name: "Child A", timeRange: trA, parent: parentRange.key },
+  { name: "Child B", timeRange: trB, parent: parentRange.key },
 ]);
 ```
 

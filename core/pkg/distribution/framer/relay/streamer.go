@@ -12,6 +12,7 @@ package relay
 import (
 	"context"
 	"slices"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -33,7 +34,9 @@ type streamer struct {
 	addr          address.Address
 	sendOpenAck   bool
 	excludeGroups []uint32
-	keys          set.Set[channel.Key]
+	// keys holds the streamer's channels. The relay's delta reads it to skip frames
+	// before they reach the streamer's buffer.
+	keys atomic.Pointer[set.Set[channel.Key]]
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
@@ -82,14 +85,35 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &streamer{
+	s := &streamer{
 		sendOpenAck:   *cfg.SendOpenAck,
 		excludeGroups: cfg.ExcludeGroups,
-		keys:          set.New(cfg.Keys...),
 		addr:          address.Rand(),
 		demands:       r.demands,
 		relay:         r,
-	}, nil
+	}
+	s.setKeys(cfg.Keys)
+	return s, nil
+}
+
+func (s *streamer) setKeys(keys channel.Keys) {
+	k := set.New(keys...)
+	s.keys.Store(&k)
+}
+
+// accepts reports whether r holds any of the streamer's channels and comes from a
+// group the streamer does not exclude.
+func (s *streamer) accepts(r Response) bool {
+	if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
+		return false
+	}
+	keys := *s.keys.Load()
+	for k := range r.Frame.Keys() {
+		if keys.Contains(k) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
@@ -111,10 +135,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
-		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Slice(), ack: ack}
+		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := s.relay.connectToDelta()
+		responses, disconnect := s.relay.connectToDelta(s.accepts)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -173,7 +197,9 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				req.Keys = lo.Uniq(req.Keys)
-				s.keys = set.New(req.Keys...)
+				// The keys must change before the demand, so the delta accepts frames
+				// for an added channel as soon as the relay taps it.
+				s.setKeys(req.Keys)
 				d := demand{addr: s.addr, keys: req.Keys}
 				if req.AckRequested {
 					d.ack = make(chan struct{})
@@ -186,11 +212,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				); err != nil {
 					return err
 				}
-			case r := <-responses.Outlet():
-				if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
-					continue
-				}
-				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
+			case r := <-responses:
+				// A frame buffered before a key update can hold channels the streamer
+				// no longer wants.
+				if filtered := r.Frame.KeepKeys(*s.keys.Load()); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
 					if err := signal.SendUnderContext(
 						ctx,

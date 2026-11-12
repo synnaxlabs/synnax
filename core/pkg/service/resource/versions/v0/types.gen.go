@@ -74,6 +74,10 @@ const (
 	TypeNiDevice       Type = "ni_device"
 	TypeOpcuaServer    Type = "opcua_server"
 	TypeArcDirectory   Type = "arc_directory"
+	// TypeSecret identifies a secret.
+	TypeSecret Type = "secret"
+	// TypeCertificate identifies a certificate.
+	TypeCertificate Type = "certificate"
 	// TypeICD identifies an interface control document.
 	TypeICD Type = "icd"
 )
@@ -82,7 +86,7 @@ const (
 // values.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeICD:
+	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret, TypeCertificate, TypeICD:
 		return true
 	default:
 		return false

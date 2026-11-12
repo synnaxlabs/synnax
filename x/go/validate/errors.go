@@ -134,7 +134,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 			Err:  errors.Decode(ctx, errDecodedPath.Error),
 		}, true
 	}
-	return errors.Wrapf(ErrValidation, p.Data), true
+	return ruleError{errors.New(p.Data)}, true
 }
 
 func init() { errors.Register(encode, decode) }

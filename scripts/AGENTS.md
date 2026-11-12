@@ -74,16 +74,13 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 
 ## Versioning and release
 
-- `check_versions.sh` — verifies every npm and PyPI package manifest and the C++
-  client's `VERSION` file share one minor, and that the minor is the Core's latest
-  stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
-- `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
-  Release tooling; don't run ad hoc against a dirty tree.
 - `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page
-  data from a CI run and uploads it to DigitalOcean Spaces. Redeploy the docs to publish
-  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`.
-  `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
-  hand and passed; `--manual-note <text>` says why, on the page.
+  data from a CI run and uploads it to DigitalOcean Spaces, under the release's train.
+  Redeploy the docs to publish it. Needs `gh` auth, `DO_SPACES_KEY`, and
+  `DO_SPACES_SECRET`. `--hitl <run-url>` adds the tests of a `Test - HITL` run of the
+  same code, which ran on real hardware. `--manual-pass <skip reason>` notes that the
+  tests skipped for that reason were run by hand and passed; `--manual-note <text>` says
+  why, on the page.
 
 ## Bazel
 

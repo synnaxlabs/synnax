@@ -402,6 +402,43 @@ var _ = Describe("Unified fields through aliases", func() {
 			Equal([]string{"label", "hidden", "on"}),
 		)
 	})
+	It("Should fill in the type arguments of a generic base and variant", func() {
+		param := resolution.TypeRef{TypeParam: &resolution.TypeParam{Name: "T"}}
+		generic := func(name, fieldName string) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form: resolution.StructForm{
+					TypeParams: []resolution.TypeParam{{Name: "T"}},
+					Fields: []resolution.Field{
+						{Name: fieldName, Type: param},
+					},
+				},
+			})).To(Succeed())
+		}
+		generic("Head", "head")
+		generic("Body", "body")
+		union := resolution.Type{
+			Name:          "Node",
+			QualifiedName: "t.Node",
+			Namespace:     "t",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Extends: []resolution.TypeRef{{
+					Name: "t.Head", TypeArgs: []resolution.TypeRef{ref("uint8")},
+				}},
+			},
+		}
+		variant := resolution.UnionVariant{Name: "valve", Type: resolution.TypeRef{
+			Name: "t.Body", TypeArgs: []resolution.TypeRef{ref("string")},
+		}}
+		fields := resolution.UnifiedVariantFields(union, variant, table)
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Type).To(Equal(ref("uint8")))
+		Expect(fields[1].Type).To(Equal(ref("string")))
+	})
 })
 
 var _ = Describe("InheritedFields", func() {
@@ -506,6 +543,23 @@ var _ = Describe("TypeArgMap", func() {
 		),
 		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
 	)
+
+	It("Should give a missing argument its parameter's default", func() {
+		params := []resolution.TypeParam{
+			{Name: "K"},
+			{Name: "V", Default: &resolution.TypeRef{
+				Name: "Pair", TypeArgs: []resolution.TypeRef{{
+					TypeParam: &resolution.TypeParam{Name: "K"},
+				}},
+			}},
+		}
+		Expect(resolution.TypeArgMap(
+			params, []resolution.TypeRef{{Name: "string"}},
+		)).To(Equal(map[string]resolution.TypeRef{
+			"K": {Name: "string"},
+			"V": {Name: "Pair", TypeArgs: []resolution.TypeRef{{Name: "string"}}},
+		}))
+	})
 })
 
 var _ = Describe("MergeOverrideField", func() {
@@ -597,4 +651,25 @@ var _ = Describe("Type.Actions", func() {
 	It("Should return no actions for any other form", func() {
 		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
 	})
+})
+
+var _ = Describe("Action.IsAlias", func() {
+	DescribeTable(
+		"Should report whether the action uses an existing struct as its payload",
+		func(action resolution.Action, alias bool) {
+			Expect(action.IsAlias()).To(Equal(alias))
+		},
+		Entry("an alias of a struct", resolution.Action{
+			Name:  "Set",
+			Alias: resolution.TypeRef{Name: "patch.Set"},
+		}, true),
+		Entry("an action with its own payload", resolution.Action{
+			Name: "SetUsername",
+			Fields: []resolution.Field{{
+				Name: "username",
+				Type: resolution.TypeRef{Name: "string"},
+			}},
+		}, false),
+		Entry("an action with no payload", resolution.Action{Name: "Clear"}, false),
+	)
 })

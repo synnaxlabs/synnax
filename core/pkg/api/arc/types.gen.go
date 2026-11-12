@@ -73,6 +73,10 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeProgram includes the program of each record.
 	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
+	// IncludeChanges includes the changes of each record.
+	IncludeChanges bool `json:"include_changes" msgpack:"include_changes"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

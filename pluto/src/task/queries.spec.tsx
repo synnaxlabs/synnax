@@ -751,15 +751,16 @@ describe("queries", () => {
       expect(result.current.form.get(path.status).touched).toBe(false);
     });
 
-    it("should show a task that another client writes whole", async () => {
+    it("should show a name and config that another client sets", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
+      const remote = createTestClient();
+      await remote.tasks.retrieve(t.key);
       await act(async () => {
-        await createTestClient().tasks.create({
-          ...t.payload,
-          name: "written",
-          config: { routingKey: "remote" },
-        });
+        await remote.tasks.dispatch(t.key, [
+          task.set({ path: ["name"], value: "written" }),
+          task.set({ path: ["config"], value: { routingKey: "remote" } }),
+        ]);
       });
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toEqual("written");
@@ -768,7 +769,7 @@ describe("queries", () => {
       expect(result.current.form.get(path.name).touched).toBe(false);
     });
 
-    it("should keep a local edit over a whole write from another client", async () => {
+    it("should keep a local edit over a rename from another client", async () => {
       const t = await createTask();
       const { result } = await renderForm(t.key);
       // The edit sends once its coalesce window ends, which can come before the remote
@@ -776,7 +777,7 @@ describe("queries", () => {
       const { release } = holdRequests(client, "/task/dispatch");
       act(() => result.current.form.set(path.config.routingKey, "local"));
       await act(async () => {
-        await createTestClient().tasks.create({ ...t.payload, name: "renamed" });
+        await createTestClient().tasks.rename(t.key, "renamed");
       });
       await waitFor(() =>
         expect(result.current.form.get(path.name).value).toEqual("renamed"),

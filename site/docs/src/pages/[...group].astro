@@ -13,17 +13,11 @@
 // other route.
 
 import { FIRST_PAGES } from "@/pages/_nav";
-import { PRERENDERED_PAGES } from "@/util/pages";
-import { normalizeRoute } from "@/util/route";
 
 export const getStaticPaths = () =>
     [...FIRST_PAGES.keys()].map((route) => ({ params: { group: route.slice(1) } }));
 
 const page = FIRST_PAGES.get(`/${Astro.params.group}`);
 if (page == null) throw new Error(`no first page for /${Astro.params.group}`);
-// A prerendered route cannot rewrite to a flagged page, which renders per request.
-const prerendered = PRERENDERED_PAGES.some(
-    ({ route }) => route === normalizeRoute(page),
-);
-return prerendered ? Astro.rewrite(page) : Astro.redirect(page);
+return Astro.rewrite(page);
 ---

@@ -14,11 +14,13 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for an ICD.
@@ -224,6 +226,11 @@ func (b *BaseField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BaseField) SetDefaults() {
+	b.Scale = 1
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BaseField) Validate() error {
@@ -266,6 +273,32 @@ func (b *BinaryField) ApplyDefaults() {
 	b.BaseField.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BinaryField) SetDefaults() {
+	b.BaseField.SetDefaults()
+	b.BitLength = 8
+	b.ByteOrder = ByteOrderLittleEndian
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (b *BinaryField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain BinaryField
+	if reflect.ValueOf(*b).IsZero() {
+		b.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(b))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (b *BinaryField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain BinaryField
+	if reflect.ValueOf(*b).IsZero() {
+		b.SetDefaults()
+	}
+	return dec.Decode((*plain)(b))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BinaryField) Validate() error {
@@ -301,6 +334,11 @@ type DelimitedTextField struct {
 
 func (DelimitedTextField) isTextFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DelimitedTextField) SetDefaults() {
+	d.BaseField.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DelimitedTextField) ApplyDefaults() {
 	d.BaseField.ApplyDefaults()
@@ -322,6 +360,11 @@ type TaggedTextField struct {
 }
 
 func (TaggedTextField) isTextFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TaggedTextField) SetDefaults() {
+	t.BaseField.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TaggedTextField) ApplyDefaults() {
@@ -386,6 +429,7 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type TextFieldType `json:"encoding"`
 			DelimitedTextField
 		}
+		v.DelimitedTextField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -395,6 +439,7 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type TextFieldType `json:"encoding"`
 			TaggedTextField
 		}
+		v.TaggedTextField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -484,6 +529,11 @@ func (j *JSONBaseField) ApplyDefaults() {
 	j.BaseField.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (j *JSONBaseField) SetDefaults() {
+	j.BaseField.SetDefaults()
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (j JSONBaseField) Validate() error {
@@ -518,6 +568,11 @@ type NumberJSONField struct {
 
 func (NumberJSONField) isJSONFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (n *NumberJSONField) SetDefaults() {
+	n.JSONBaseField.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NumberJSONField) ApplyDefaults() {
 	n.JSONBaseField.ApplyDefaults()
@@ -538,6 +593,11 @@ type StringJSONField struct {
 
 func (StringJSONField) isJSONFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StringJSONField) SetDefaults() {
+	s.JSONBaseField.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StringJSONField) ApplyDefaults() {
 	s.JSONBaseField.ApplyDefaults()
@@ -557,6 +617,11 @@ type BooleanJSONField struct {
 }
 
 func (BooleanJSONField) isJSONFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BooleanJSONField) SetDefaults() {
+	b.JSONBaseField.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BooleanJSONField) ApplyDefaults() {
@@ -579,6 +644,11 @@ type TimestampJSONField struct {
 }
 
 func (TimestampJSONField) isJSONFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TimestampJSONField) SetDefaults() {
+	t.JSONBaseField.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TimestampJSONField) ApplyDefaults() {
@@ -654,6 +724,7 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type JSONFieldType `json:"type"`
 			NumberJSONField
 		}
+		v.NumberJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -663,6 +734,7 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type JSONFieldType `json:"type"`
 			StringJSONField
 		}
+		v.StringJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -672,6 +744,7 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type JSONFieldType `json:"type"`
 			BooleanJSONField
 		}
+		v.BooleanJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -681,6 +754,7 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type JSONFieldType `json:"type"`
 			TimestampJSONField
 		}
+		v.TimestampJSONField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -840,6 +914,11 @@ type TextPayload struct {
 
 func (TextPayload) isPayloadVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextPayload) SetDefaults() {
+	t.Delimiter = ","
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextPayload) ApplyDefaults() {
 	if t.Delimiter == "" {
@@ -950,6 +1029,7 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type PayloadType `json:"format"`
 			TextPayload
 		}
+		v.TextPayload.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}

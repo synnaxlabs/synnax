@@ -74,6 +74,10 @@ const (
 	TypeNiDevice       Type = v0.TypeNiDevice
 	TypeOpcuaServer    Type = v0.TypeOpcuaServer
 	TypeArcDirectory   Type = v0.TypeArcDirectory
+	// TypeSecret identifies a secret.
+	TypeSecret Type = v0.TypeSecret
+	// TypeCertificate identifies a certificate.
+	TypeCertificate Type = v0.TypeCertificate
 	// TypeICD identifies an interface control document.
 	TypeICD Type = v0.TypeICD
 )

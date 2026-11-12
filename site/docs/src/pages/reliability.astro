@@ -18,6 +18,8 @@ import Subsystems from "@/components/reliability/Subsystems.astro";
 import Wall from "@/components/reliability/Wall.astro";
 import Root from "@/layouts/Root.astro";
 import {
+    hardware,
+    hardwareTotals,
     id,
     ordered,
     products,
@@ -36,11 +38,14 @@ const list = new Intl.ListFormat("en-US").format(systems);
 const minutes = Math.round(
     (Date.parse(run.ended_at) - Date.parse(run.started_at)) / 60000,
 );
-const date = new Date(run.started_at).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-});
+const day = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+const date = day(run.started_at);
+const hardwareCount = Object.values(hardwareTotals).reduce((a, b) => a + b, 0);
 const REPO = "https://github.com/synnaxlabs/synnax";
 
 interface StatProps {
@@ -220,6 +225,34 @@ const skipped = Object.entries(
                         </Text.Text>
                     </Flex.Box>
                 ))}
+                {hardware != null && (
+                    <Flex.Box y gap="tiny" className="reliability-note">
+                        <Text.Text level="small" x gap="small" align="center">
+                            {hardwareTotals.passed === hardwareCount && (
+                                <Icon.Check className="reliability-hand" />
+                            )}
+                            <strong>
+                                {`${fmt(hardwareTotals.passed)} of ${fmt(hardwareCount)} tests passed on real hardware.`}
+                            </strong>
+                        </Text.Text>
+                        <Text.Text
+                            level="small"
+                            color={8}
+                            className="reliability-note-detail"
+                        >
+                            <span>
+                                They used NI CompactDAQ and CompactRIO devices and an
+                                EtherCAT network on our test station. They ran{" "}
+                                {day(hardware.started_at)} in run{" "}
+                                <a href={hardware.url}>#{hardware.id}</a> on commit{" "}
+                                <a href={`${REPO}/commit/${hardware.sha}`}>
+                                    <code>{hardware.sha.slice(0, 7)}</code>
+                                </a>
+                                , which has the same product code as v{run.version}.
+                            </span>
+                        </Text.Text>
+                    </Flex.Box>
+                )}
                 <Text.Text level="small" color={8} className="reliability-prose">
                     <span>
                         Tested {date} in CI run <a href={run.url}>#{run.id}</a>

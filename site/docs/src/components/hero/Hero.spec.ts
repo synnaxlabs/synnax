@@ -148,7 +148,7 @@ describe("Hero.Hero", () => {
       expect(classes(root)).toEqual(["docs-hero", "framed", "soft", "media"]);
     });
 
-    it("should show a video that Studio did not capture", async () => {
+    it("should show a docs video", async () => {
       const root = await render({
         video: "releases/0-57-0/panels",
         layout: "framed",

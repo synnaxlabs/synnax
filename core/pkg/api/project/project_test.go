@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -182,6 +183,38 @@ var _ = Describe("Import", func() {
 		Expect(importBundle(importCtx(ctx, u), files)).Error().
 			To(MatchError(ContainSubstring("bundle holds no manifest.json")))
 	})
+	It("Should decode the bundle before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := zip.Files{"Metrics.json": []byte("{}")}
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(MatchError(validate.ErrValidation)))
+	})
+	It("Should migrate each member before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := newBundle("Too new")
+		files["Metrics.json"] = []byte(
+			`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+		)
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		)))
+	})
 })
 
 var _ = Describe("Create", func() {
@@ -202,30 +235,6 @@ var _ = Describe("Create", func() {
 			Projects: []project.Project{{Name: "Granted"}},
 		}))
 		Expect(retrieveProject(ctx, res.Projects[0].Key).Name).To(Equal("Granted"))
-	})
-})
-
-var _ = Describe("Rename", func() {
-	It("Should refuse the rename without update on the project", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		p := createProject(ctx, "Rename denied")
-		Expect(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
-		})).Error().To(denied(u, access.ActionUpdate, p.ResourceID()))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Rename denied"))
-	})
-	It("Should rename the project with update on it", func(ctx SpecContext) {
-		u := createUser(ctx)
-		p := createProject(ctx, "Rename granted")
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-		MustSucceed(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
-		}))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Renamed"))
 	})
 })
 
@@ -385,43 +394,6 @@ func retrieveProject(ctx SpecContext, key project.Key) project.Project {
 		Exec(ctx, db)).To(Succeed())
 	return p
 }
-
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the project with update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
-			grantOn(
-				ctx,
-				u.ResourceID(),
-				access.ActionUpdate,
-				p.ResourceID(),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
-		},
-	)
-})
 
 var _ = Describe("Create in a group", func() {
 	projectType := resource.ID{Type: resource.TypeProject}

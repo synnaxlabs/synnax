@@ -25,6 +25,7 @@ run the "Connect device" command. Then select the integration and follow its set
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | [OPC UA](/reference/hardware/opc-ua/connect-server), [Modbus](/reference/hardware/modbus/connect-server), [HTTP](/reference/hardware/http/connect-server)         | Enter the address or serial port of the server. Select a Driver in **Connect from**.                     |
 | [NI](/reference/hardware/ni/configure-device), [LabJack](/reference/hardware/labjack/configure-device), [EtherCAT](/reference/hardware/ethercat/configure-device) | The Driver finds the hardware. Click **Configure**, then enter a name and an [identifier](#identifiers). |
+| [MQTT](/reference/hardware/mqtt/connect-broker), [Kafka](/reference/hardware/kafka/connect-cluster)                                                               | Enter the address of the broker, or the brokers of the cluster. The tasks run inside the Core.           |
 
 <Video id="hardware/devices/connect-picker" />
 
@@ -66,11 +67,11 @@ chassis. Each device shows its vendor logo, its name, its location, and a status
 
 <Video id="hardware/devices/toolbar" />
 
-| Driver                 | What it is                                                     |
-| ---------------------- | -------------------------------------------------------------- |
-| Node 1 Embedded Driver | The Driver in Synnax Desktop or in a Synnax Core               |
-| Node 1                 | Runs Arc automations and PagerDuty alert tasks inside the Core |
-| The name of a computer | A standalone Driver on that computer                           |
+| Driver                 | What it is                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node 1 Embedded Driver | The Driver in Synnax Desktop or in a Synnax Core                                                                                                                              |
+| Node 1                 | Runs Arc automations, PagerDuty alert tasks, and [MQTT](/reference/hardware/mqtt/connect-broker) and [Kafka](/reference/hardware/kafka/connect-cluster) tasks inside the Core |
+| The name of a computer | A standalone Driver on that computer                                                                                                                                          |
 
 <Divider.Divider x />
 
@@ -105,17 +106,28 @@ Right-click a device in the devices toolbar to open its menu.
 | Item                                | What it does                                                                                   |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Rename                              | Changes the device name.                                                                       |
+| Group selection                     | Puts the selected devices in a new group.                                                      |
 | Configure                           | Names a new NI, LabJack, or EtherCAT device and sets its identifier.                           |
 | Change identifier                   | Changes the identifier of a configured NI, LabJack, or EtherCAT device.                        |
 | Edit connection                     | Changes the address and settings of a Modbus, OPC UA, or HTTP server.                          |
 | Disable, Enable                     | Turns an [EtherCAT module](/reference/hardware/ethercat/configure-device) off or on for tasks. |
 | Create read task, Create write task | Creates a task for the device. NI devices have one item for each NI task type.                 |
+| Copy link                           | Copies a link to the device. Not in Synnax Desktop.                                            |
 | Copy properties                     | Copies the device properties to the clipboard as JSON.                                         |
 | Delete                              | Removes the device. The Driver adds found hardware back as a new device at its next scan.      |
 
 Creating a task for a device that is not configured opens **Configure** first.
 
-Right-click a Driver to open its menu. **Connect device** opens the connect dialog for
-that Driver. **Create Arc automation** creates an
-[Arc automation](/reference/control/arc) on that Driver. **Toggle NI device scanner**
-turns the search for NI hardware off or on.
+Right-click a Driver to open its menu:
+
+| Item                           | What it does                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Rename                         | Changes the Driver name.                                                                                                       |
+| Group selection                | Puts the selected Drivers in a new group.                                                                                      |
+| Connect device                 | Opens the connect dialog for the Driver.                                                                                       |
+| Create Arc automation          | Creates an [Arc automation](/reference/control/arc) on the Driver.                                                             |
+| Toggle NI device scanner       | Turns the search for NI hardware off or on.                                                                                    |
+| Show OPC UA Driver certificate | Shows the certificate that the Driver gives to [OPC UA servers](/reference/hardware/opc-ua/connect-server#client-certificate). |
+| Manage credentials             | Lists the API keys of the Driver. You can create and delete keys.                                                              |
+| Copy properties                | Copies the Driver properties to the clipboard as JSON.                                                                         |
+| Delete                         | Removes the Driver.                                                                                                            |

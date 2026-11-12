@@ -94,6 +94,12 @@ Type enum {
     ni_device        = "ni_device"
     opcua_server     = "opcua_server"
     arc_directory    = "arc_directory"
+    secret           = "secret" {
+        @doc value "identifies a secret."
+    }
+    certificate      = "certificate" {
+        @doc value "identifies a certificate."
+    }
     icd              = "icd" {
         @doc value "identifies an interface control document."
     }

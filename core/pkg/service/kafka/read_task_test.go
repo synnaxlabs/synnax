@@ -239,6 +239,43 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should skip a later poll's record stamped by Kafka before the last stamp",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+			partitioned := newKafkaClient(
+				kgo.RecordPartitioner(kgo.ManualPartitioner()),
+			)
+			produce := func(partition int32, ms int64, value float64) {
+				GinkgoHelper()
+				Expect(partitioned.ProduceSync(ctx, &kgo.Record{
+					Topic:     topic,
+					Partition: partition,
+					Value:     MustSucceed(json.Marshal(map[string]any{"v": value})),
+					Timestamp: time.UnixMilli(ms),
+				}).FirstErr()).To(Succeed())
+			}
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			})
+			start(ctx, dt, t)
+			produce(0, 10_000, 1)
+			expectStored(ctx, data.Key(), 1)
+			produce(1, 9_000, 2)
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring("is not after the last written"))
+			produce(1, 10_000, 3)
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 3}))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS, 10*telem.SecondTS + 1}))
+		},
+	)
+
 	It("Should silently skip the replay of records stamped by Kafka",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
@@ -1537,10 +1574,6 @@ var _ = Describe("Read task", func() {
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
-		Entry("an enum value beyond the channel's range",
-			telem.Int8T, http.TimeFormatUnixNs,
-			[]http.EnumEntry{{Label: "BIG", Value: 200}},
-			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
 		Entry("an integer timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixMs, nil,
 			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
@@ -1586,6 +1619,28 @@ var _ = Describe("Read task", func() {
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
 			}, "pointer"),
+		Entry("an enum value beyond the channel's range",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.Int8T)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.Int8T,
+					EnumValues: []http.EnumEntry{{Label: "BIG", Value: 200}},
+				}}
+			}, `enum label "BIG": 200 is out of range for int8`),
+		Entry("an enum value on a string channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.StringT)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.StringT,
+					EnumValues: []http.EnumEntry{{Label: "ON", Value: 1}},
+				}}
+			}, `enum label "ON": a float64 value does not convert to string`),
 		Entry("a pointer without a leading slash",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

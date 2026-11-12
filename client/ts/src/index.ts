@@ -15,6 +15,7 @@ export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
 export { batch } from "@/batch";
+export { certificate } from "@/certificate";
 export { channel } from "@/channel";
 export { Channel } from "@/channel/client";
 export { isCalculated } from "@/channel/payload";
@@ -34,12 +35,15 @@ export {
   ControlError,
   DisconnectedError,
   ExpiredLicenseError,
+  ExpiredTokenError,
+  InvalidCredentialsError,
   InvalidLicenseError,
   InvalidTokenError,
   isConnectionError,
   LicenseError,
   LicenseFingerprintError,
   LicenseLimitError,
+  MissingCredentialsError,
   MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
@@ -78,6 +82,7 @@ export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { resource } from "@/resource";
 export { schematic } from "@/schematic";
+export { secret } from "@/secret";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";

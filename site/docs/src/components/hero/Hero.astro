@@ -81,9 +81,9 @@ interface StillProps extends BaseProps {
 }
 
 /**
- * Where a picture or video that Studio did not capture sits on the gradient. `framed`
- * shows all of it, with the gradient on every side. `bleed` runs it off the right and
- * bottom edges, for media whose subject is at its top left.
+ * Where an image or a video, not a hero still, sits on the gradient. `framed` shows all
+ * of it, with the gradient on every side. `bleed` runs it off the right and bottom
+ * edges, for media whose subject is at its top left.
  */
 type MediaLayout = "framed" | "bleed";
 
@@ -96,7 +96,7 @@ interface ImageMediaProps extends BaseProps {
 }
 
 interface VideoMediaProps extends BaseProps {
-    /** A docs video id, for a video that Studio did not capture. */
+    /** A docs video id. A new video must be an entry in `studio/videos.ts`. */
     video: string;
     themed?: boolean;
     layout: MediaLayout;

@@ -30,6 +30,7 @@ var (
 	apiLayer *api.Layer
 	svc      *service.Layer
 	db       *gorp.DB
+	node     testutil.Node
 	// exec runs a batch as the API layer binds it.
 	exec freighter.UnaryHandler[batch.ExecRequest, batch.ExecResponse]
 )
@@ -41,7 +42,7 @@ func TestAPI(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{

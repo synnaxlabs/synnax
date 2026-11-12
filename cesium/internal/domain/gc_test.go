@@ -11,6 +11,8 @@ package domain_test
 
 import (
 	"math"
+	"os"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1214,4 +1216,20 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 		})
 	}
+	It("Should collect a DB with the maximum file key", func(ctx SpecContext) {
+		memFS := fs.NewMem()
+		createCounter(memFS, math.MaxUint16)
+		for key := 1; key <= math.MaxUint16; key++ {
+			f := MustSucceed(memFS.Open(
+				strconv.Itoa(key)+".domain",
+				os.O_CREATE|os.O_RDWR,
+			))
+			Expect(f.Close()).To(Succeed())
+		}
+		db := MustOpen(domain.Open(domain.Config{
+			FS:              memFS,
+			Instrumentation: PanicLogger(),
+		}))
+		Expect(db.GarbageCollect(ctx)).To(Succeed())
+	})
 })

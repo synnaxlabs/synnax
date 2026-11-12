@@ -19,6 +19,7 @@ import {
   memory as analytics,
   type Session,
 } from "@/server/analytics";
+import { type Audience, type Contact, memory as audience } from "@/server/audience";
 import {
   type Activation,
   activation,
@@ -45,12 +46,13 @@ export const WEBHOOK_SECRET = `whsec_${Buffer.from("secret").toString("base64")}
 
 const { privateKey, publicKey } = generateKeyPairSync("ml-dsa-44");
 
-/** Harness is a portal on an in-memory store, directory, and mailer. */
+/** Harness is a portal on an in-memory store, directory, mailer, and audience. */
 export interface Harness {
   portal: Portal;
   store: Memory;
   directory: Directory & Records;
   mail: Mailer & { sent: Message[] };
+  audience: Audience & { contacts: Map<string, Contact> };
   slack: Slack & { posted: Note[] };
   analytics: Analytics & { recorded: Session[]; captured: Capture[] };
   /** signIn makes later sessions resolve as the user, or as nobody for null. */
@@ -61,6 +63,7 @@ export interface Harness {
 export const createHarness = (store: Memory): Harness => {
   const dir = directory();
   const mail = mailer();
+  const list = audience();
   const notes = slack();
   const sessions = analytics();
   let userID: string | null = null;
@@ -68,6 +71,7 @@ export const createHarness = (store: Memory): Harness => {
     store,
     directory: dir,
     mail,
+    audience: list,
     slack: notes,
     analytics: sessions,
     signIn: (id) => {
@@ -77,6 +81,7 @@ export const createHarness = (store: Memory): Harness => {
       store,
       signer: local(privateKey, "test"),
       mail,
+      audience: list,
       slack: notes,
       analytics: sessions,
       directory: dir,

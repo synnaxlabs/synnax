@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/ranger/actions.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "client/cpp/ranger/proto.gen.h"
@@ -34,9 +35,9 @@ using RetrieveClient = freighter::
 using CreateClient = freighter::
     UnaryClient<grpc::ranger::CreateRequest, grpc::ranger::CreateResponse>;
 
-/// @brief type alias for the transport used to set the end bound of a range.
-using SetEndClient = freighter::
-    UnaryClient<grpc::ranger::SetEndRequest, google::protobuf::Empty>;
+/// @brief type alias for the transport used to dispatch actions to a range.
+using DispatchClient = freighter::
+    UnaryClient<grpc::ranger::DispatchRequest, google::protobuf::Empty>;
 
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class Client {
@@ -44,12 +45,12 @@ public:
     Client(
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
-        std::unique_ptr<SetEndClient> set_end_client,
+        std::unique_ptr<DispatchClient> dispatch_client,
         ranger::kv::Client kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
-        set_end_client(std::move(set_end_client)),
+        dispatch_client(std::move(dispatch_client)),
         kv(std::move(kv_client)) {}
 
     /// @brief retrieves the range with the given key.
@@ -111,6 +112,16 @@ public:
     [[nodiscard]] std::pair<Range, x::errors::Error>
     create(const std::string &name, x::telem::TimeRange time_range) const;
 
+    /// @brief applies the actions to the range with the given key in order, as one
+    /// atomic edit.
+    /// @param key the key of the range.
+    /// @param actions the actions to apply. A set on the time range may hold its
+    /// timestamps as integers.
+    /// @returns an error that matches NOT_FOUND when no range has the key, or
+    /// VALIDATION when the range cannot hold an action.
+    [[nodiscard]] x::errors::Error
+    dispatch(const Key &key, const std::vector<Action> &actions) const;
+
     /// @brief sets the end bound of the range with the given key in a single request,
     /// preserving all other fields.
     [[nodiscard]] x::errors::Error
@@ -121,8 +132,8 @@ private:
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
     std::unique_ptr<CreateClient> create_client;
-    /// @brief set-end transport.
-    std::unique_ptr<SetEndClient> set_end_client;
+    /// @brief range dispatch transport.
+    std::unique_ptr<DispatchClient> dispatch_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
 };

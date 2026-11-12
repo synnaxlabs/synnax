@@ -143,38 +143,19 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It(
-			"Should keep the stored project when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				other := project.Project{Name: "ignored"}
-				Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-				first := panel.Panel{Name: "first", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := panel.Panel{
-					Key:     first.Key,
-					Name:    "second",
-					Project: &other.Key,
-				}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(
-					retrieve(ctx, tx, first.Key).Project,
-				).To(HaveValue(Equal(proj.Key)))
-			},
-		)
-
-		It(
-			"Should update an existing panel when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				key := uuid.New()
-				first := panel.Panel{Key: key, Name: "first", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := panel.Panel{Key: key, Name: "second", Project: &proj.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				Expect(retrieve(ctx, tx, key).Name).To(Equal("second"))
-			},
-		)
+		It("Should refuse a panel whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			other := project.Project{Name: "ignored"}
+			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			stored := panel.Panel{Name: "first", Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := panel.Panel{Key: stored.Key, Name: "second", Project: &other.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("panel %s already exists", stored.Key)),
+			))
+			Expect(retrieve(ctx, tx, stored.Key)).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
@@ -259,14 +240,15 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
-	Describe("SetProject", func() {
-		It("Should move the panels into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the panel into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			other := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 			p := panel.Panel{Name: "moved", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, other.Key, p.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, setProject(other.Key))).
+				To(BeEmpty())
 			Expect(retrieve(ctx, tx, p.Key).Project).To(HaveValue(Equal(other.Key)))
 		})
 
@@ -274,8 +256,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			p := panel.Panel{Name: "stuck", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), p.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 

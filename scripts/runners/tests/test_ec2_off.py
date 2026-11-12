@@ -21,7 +21,7 @@ class Runners(GitHub):
     """Answers the runner lookup with one runner in the given busy state."""
 
     def __init__(self, busy: bool) -> None:
-        super().__init__("token")
+        super().__init__("1", "")
         self.busy_flag = busy
 
     def get(self, path: str) -> dict:

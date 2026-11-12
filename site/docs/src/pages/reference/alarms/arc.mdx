@@ -38,8 +38,9 @@ tank_pressure > 600.0 => status.set(
 )
 ```
 
-This sets the status each time a batch of samples is above the limit, which can send
-many notifications. To send one notification for each change, use the next pattern.
+This sets the status again on each batch of samples above the limit. The notification
+keeps coming back, and a PagerDuty task sends an event on each set. To set the status
+once for each change, use the next pattern.
 
 <Divider.Divider x />
 
@@ -71,8 +72,10 @@ to **Success**.
 
 <Note.Note variant="info">
   Always set a `variant`. When `key_or_name` names no status, Arc creates one with a new
-  key. If a PagerDuty alert task watches the status, create the status first and use its
-  key.
+  key and with `key_or_name` as its name. If a PagerDuty alert task watches the status,
+  create the status first and use its key. Each set clears the description. When more
+  than one status has the name, Arc sets the first one, and the automation shows the
+  warning "Found duplicate status names".
 </Note.Note>
 
 <Divider.Divider x />

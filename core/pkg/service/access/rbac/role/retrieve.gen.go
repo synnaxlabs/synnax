@@ -13,10 +13,10 @@ package role
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Role table for references. Pass it as
@@ -166,10 +166,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}

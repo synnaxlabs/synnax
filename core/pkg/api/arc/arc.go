@@ -66,11 +66,18 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// RenameChannel is the bound channel rename route. The LSP renames channels
+	// DispatchChannel is the bound channel dispatch route. The LSP renames channels
 	// through it, so an editor rename is checked as any other rename is.
 	//
 	// [REQUIRED]
-	RenameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	DispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -86,7 +93,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.RenameChannel = override.Nil(c.RenameChannel, other.RenameChannel)
+	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
@@ -97,16 +105,21 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("rename_channel", c.RenameChannel)
+	v.NotNil("dispatch_channel", c.DispatchChannel)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
 type Service struct {
-	db            *gorp.DB
-	internal      *arc.Service
-	status        *status.Service
-	rbac          *rbac.Service
-	renameChannel freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
+	db              *gorp.DB
+	internal        *arc.Service
+	status          *status.Service
+	rbac            *rbac.Service
+	dispatchChannel freighter.UnaryHandler[
+		apichannel.DispatchRequest,
+		apichannel.DispatchResponse,
+	]
+	stopper *task.Stopper
 	alamos.Instrumentation
 }
 
@@ -121,7 +134,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal:        cfg.Arc,
 		status:          cfg.Status,
 		rbac:            cfg.RBAC,
-		renameChannel:   cfg.RenameChannel,
+		dispatchChannel: cfg.DispatchChannel,
+		stopper:         cfg.Stopper,
 	}, nil
 }
 
@@ -157,10 +171,37 @@ type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
+// PrepareDelete stops the running tasks of the Arcs in req and waits for them to stop,
+// for at most the timeout of the Stopper in total. PrepareDelete returns
+// access.ErrDenied, and stops nothing, when the subject cannot delete an Arc in req or
+// one of its tasks.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
+	var taskKeys []task.Key
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if taskKeys, err = s.internal.TaskKeys(ctx, snap, req.Keys...); err != nil {
+			return err
+		}
+		return s.rbac.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: append(arc.ResourceIDs(req.Keys), task.ResourceIDs(taskKeys)...),
+		})
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.stopper.Stop(ctx, taskKeys)
+}
+
+// Delete deletes the Arcs in req and their tasks. Run PrepareDelete first to stop the
+// tasks.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
+	_ struct{},
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
@@ -199,16 +240,34 @@ type (
 	}
 )
 
-// UpdateTask creates, moves, or changes the arc's task. A zero rack unbinds the arc,
-// deleting its task; unbinding a running arc is rejected.
+// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction, as
+// channel.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
+// when the arc to compile does not exist.
+func (s *Service) PrepareUpdateTask(
+	ctx context.Context,
+	req UpdateTaskRequest,
+) (arc.Build, error) {
+	if req.Rack != nil && *req.Rack == 0 {
+		return arc.Build{}, nil
+	}
+	return channel.RetryChanged(ctx, func() (arc.Build, error) {
+		return s.internal.Build(ctx, req.Key)
+	})
+}
+
+// UpdateTask creates, moves, or changes the arc's task with the compile from
+// PrepareUpdateTask. A zero rack unbinds the arc, deleting its task; unbinding a
+// running arc is rejected.
 func (s *Service) UpdateTask(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateTaskRequest,
+	b arc.Build,
 ) (UpdateTaskResponse, error) {
 	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
 		Rack:        req.Rack,
 		Performance: req.Performance,
+		Build:       b,
 	})
 	if err != nil {
 		return UpdateTaskResponse{}, err
@@ -247,6 +306,16 @@ func (s *Service) Retrieve(
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
 	}
+	if req.IncludeStatus {
+		if err = s.includeStatus(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
+	if req.IncludeChanges {
+		if err = s.includeChanges(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
 }
 
@@ -270,12 +339,63 @@ func (s *Service) Compiled(
 	}
 }
 
+// includeChanges attaches to each automation what changed since its task was
+// deployed. An automation that was never deployed and a module get none.
+func (s *Service) includeChanges(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	records, err := s.internal.RetrieveDrift(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i, a := range arcs {
+		automation, ok := a.Variant.(arc.AutomationArc)
+		if !ok {
+			continue
+		}
+		if rec, ok := records[automation.Key]; ok {
+			automation.Changes = arc.Changes(rec)
+		}
+		arcs[i].Variant = automation
+	}
+	return nil
+}
+
+// includeStatus attaches each module's compile status. An automation has none.
+func (s *Service) includeStatus(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	ids := make([]resource.ID, len(arcs))
+	for i, a := range arcs {
+		ids[i] = a.ResourceID()
+	}
+	statuses, err := s.status.Join[struct{}](ctx, snap, ids)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		if module, ok := arcs[i].Variant.(arc.ModuleArc); ok {
+			module.Status = st
+			arcs[i].Variant = module
+		}
+	}
+	return nil
+}
+
 // LSPMessage represents a single JSON-RPC message for the LSP
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP serves the Arc language server over stream. The server treats the channels and
 // modules that the subject of the stream cannot retrieve as unknown names, and renames
-// channels through the channel rename route as the subject.
+// channels through the channel dispatch route as the subject.
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
@@ -296,9 +416,11 @@ func (s *Service) LSP(
 			// metadata.
 			req := md
 			req.Context = ctx
-			_, err := s.renameChannel(req, apichannel.RenameRequest{
-				Keys:  channel.Keys{key},
-				Names: []string{name},
+			_, err := s.dispatchChannel(req, apichannel.DispatchRequest{
+				Key: key,
+				Actions: []channel.Action{
+					channel.NewRenameAction(channel.RenamePayload{Name: name}),
+				},
 			})
 			return err
 		},
@@ -325,30 +447,33 @@ func materialize(a Arc) Arc {
 	return a
 }
 
-// compile compiles the source of an automation into its program and leaves a module as
-// is. Returns an error if parsing, analysis, or compilation fails.
+// compile compiles the source of an automation into its program, as
+// channel.RetryChanged does, and leaves a module as is. Returns an error if parsing,
+// analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := channel.CompileConsistent(ctx, s.db, func(
-		snap gorp.Snapshot,
-		lookups *channel.Lookups,
-	) (arclang.Program, error) {
-		root := s.internal.NewRoot(snap, lookups)
-		switch src := automation.Source.Variant.(type) {
-		case arc.TextSource:
-			return s.compileText(ctx, src.Text, root)
-		case arc.GraphSource:
-			return arclang.CompileGraph(
-				ctx,
-				src.Graph,
-				root,
-				arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-			)
-		}
-		return arclang.Program{}, nil
+	prog, err := channel.RetryChanged(ctx, func() (arclang.Program, error) {
+		return channel.CompileConsistent(ctx, s.db, func(
+			snap gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (arclang.Program, error) {
+			root := s.internal.NewRoot(snap, lookups)
+			switch src := automation.Source.Variant.(type) {
+			case arc.TextSource:
+				return s.compileText(ctx, src.Text, root)
+			case arc.GraphSource:
+				return arclang.CompileGraph(
+					ctx,
+					src.Graph,
+					root,
+					arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+				)
+			}
+			return arclang.Program{}, nil
+		})
 	})
 	if err != nil {
 		return err

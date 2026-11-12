@@ -11,16 +11,14 @@ package lineplot
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -37,30 +35,14 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot must belong to exactly one of a project and a range. An existing line plot keeps
-// its group, project, and range. A new line plot in a group belongs to the project that
-// holds the group.
+// plot must belong to exactly one of a project and a range. A line plot in a group
+// belongs to the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
-	var (
-		exists bool
-		err    error
-	)
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
-	} else {
-		var stored LinePlot
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			lp.Group, lp.Project, lp.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && lp.Group != nil {
+	if lp.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, lp.Group, resource.TypeLineplot)
 		if err != nil {
 			return err
@@ -70,14 +52,13 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
-	lp.ApplyDefaults()
 	if err := lp.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(lp.Project, lp.Range); err != nil {
+	if err := project.ValidateOwner(lp.Project, lp.Range); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -86,33 +67,6 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 		NewCreateAction(CreatePayload{LinePlot: *lp}),
 	)
 	return nil
-}
-
-// SetGroup moves the line plots with keys into g, or out of their group when g is nil.
-// A line plot in a group belongs to the project that holds the group.
-func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	p, err := project.GroupProject(ctx, w.tx, g, resource.TypeLineplot)
-	if err != nil {
-		return err
-	}
-	if err = setGroup(w.table, g, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(g, keys)
-	if p == nil {
-		return nil
-	}
-	return w.setProject(ctx, *p, keys...)
-}
-
-// SetProject moves the line plots with keys out of their group and into the project p.
-// It returns a validation error when a line plot belongs to a range.
-func (w Writer) SetProject(ctx context.Context, p project.Key, keys ...Key) error {
-	if err := setGroup(w.table, nil, keys...).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.attachGroup(nil, keys)
-	return w.setProject(ctx, p, keys...)
 }
 
 // setProject moves the line plots with keys that are not in the project p into p, and
@@ -144,20 +98,8 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 	return nil
 }
 
-// attachGroup attaches a set of the group of each line plot with keys, or a remove of
-// the group when g is nil.
-func (w Writer) attachGroup(g *group.Key, keys []Key) {
-	for _, k := range keys {
-		a := NewRemoveAction(RemovePayload{Key: "group"})
-		if g != nil {
-			a = NewSetAction(SetPayload{Path: []string{"group"}, Value: *g})
-		}
-		w.dispatcher.Attach(w.tx, k, a)
-	}
-}
-
-// CreateMany creates the given line plots. If line plots with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given line plots. It returns an error wrapping
+// validate.ErrValidation when a line plot with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {
 	for i := range *plots {
 		if err := w.Create(ctx, &(*plots)[i]); err != nil {
@@ -174,22 +116,38 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 // Apply applies a sequence of actions to the line plot with the given key and attaches
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. Returns a validation error, and stores nothing, if the actions leave the line plot
-// invalid.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// w. A move into a group also moves the line plot into the project that holds the
+// group, and a move into another project moves it out of its group. Apply attaches the
+// actions of each such move after acts and returns them. It returns a validation error,
+// and stores nothing, if the actions leave the line plot invalid.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-			reduced, err := Reduce(p, acts...)
+		ChangeErr(func(_ gorp.Context, prev LinePlot) (LinePlot, error) {
+			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return LinePlot{}, err
 			}
-			if err = reduced.Validate(); err != nil {
+			var placed project.Placement
+			if placed, added, err = project.Place(
+				ctx,
+				w.tx,
+				resource.TypeLineplot,
+				project.Placement{Group: prev.Group, Project: prev.Project},
+				project.Placement{Group: next.Group, Project: next.Project},
+				newSetAction,
+				newRemoveAction,
+			); err != nil {
 				return LinePlot{}, err
 			}
-			return reduced, nil
+			next.Group, next.Project = placed.Group, placed.Project
+			if err = next.Validate(); err != nil {
+				return LinePlot{}, err
+			}
+			return next, project.ValidateOwner(next.Project, next.Range)
 		}).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
 }

@@ -44,9 +44,7 @@ func (r Reader) GetMany(
 func (r Reader) List(ctx context.Context, rng ranger.Key) ([]Pair, error) {
 	var res []Pair
 	err := r.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, kv *Pair) (bool, error) {
-			return kv.Range == rng, nil
-		})).
+		WherePrefix([]byte(Pair{Range: rng}.GorpKey())).
 		Entries(&res).
 		Exec(ctx, r.snap)
 	return res, err

@@ -34,10 +34,7 @@ const (
 	pollInterval = 250 * time.Millisecond
 )
 
-// fromFile replaces the installed Core with the Core binary at file. With a Core
-// service, it stops the service, replaces the binary, starts the service, and waits up
-// to timeout for the new Core to commit or undo the update. When the new Core undoes
-// the update, fromFile puts the old binary back and starts the service again.
+// fromFile replaces the installed Core with the Core binary at file, as apply does.
 func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Duration) (
 	err error,
 ) {
@@ -45,26 +42,47 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 	if err != nil {
 		return err
 	}
-	binary := inst.Binary
-	staged := binary + stagedSuffix
+	staged := inst.Binary + stagedSuffix
+	defer func() { err = errors.Combine(err, removeStaged(staged)) }()
 	if err = copyBinary(file, staged); err != nil {
 		return err
 	}
-	defer func() {
-		if rmErr := os.Remove(staged); !errors.Is(rmErr, os.ErrNotExist) {
-			err = errors.Combine(err, rmErr)
-		}
-	}()
 	to, err := binaryVersion(ctx, staged)
 	if err != nil {
 		return errors.Wrapf(err, "%s is not a Core binary for this computer", file)
 	}
-	from, err := binaryVersion(ctx, binary)
-	if err != nil {
+	cur, ok, err := check(ctx, w, inst, installed, to)
+	if !ok || err != nil {
 		return err
 	}
+	return cur.apply(ctx, w, staged, to, timeout)
+}
+
+// current is the installed Core that an update replaces.
+type current struct {
+	binary  string
+	version string
+	// backups holds the backups of the data of the Core service, or is nil when no
+	// service runs the Core.
+	backups *storage.Backups
+}
+
+// check returns the installed Core when it can update to Core to. It returns false,
+// after it prints why, when Core to is already installed.
+func check(
+	ctx context.Context,
+	w io.Writer,
+	inst service.Installation,
+	installed bool,
+	to string,
+) (current, bool, error) {
+	from, err := binaryVersion(ctx, inst.Binary)
+	if err != nil {
+		return current{}, false, err
+	}
+	cur := current{binary: inst.Binary, version: from}
 	if version.Compare(to, from) < 0 {
-		return errors.Newf(
+		return current{}, false, errors.Newf(
 			"Core %s is older than the installed Core %s. To go back, run `synnax "+
 				"update undo`.",
 			to,
@@ -73,66 +91,96 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 	}
 	if !installed {
 		if to == from {
-			return printLines(
+			return current{}, false, printLines(
 				w,
-				fmt.Sprintf("Core %s is already installed at %s.", to, binary),
+				fmt.Sprintf("Core %s is already installed at %s.", to, inst.Binary),
 			)
 		}
-		if err = replace(binary, staged); err != nil {
-			return err
-		}
-		return printLines(
-			w,
-			fmt.Sprintf("Replaced Core %s with Core %s at %s.", from, to, binary),
-			"Start the Core. It backs up the data, updates it, and undoes the "+
-				"update if it fails.",
+		return cur, true, nil
+	}
+	if cur.backups, err = storage.NewBackups(
+		storage.BackupsConfig{Dirname: inst.Data},
+	); err != nil {
+		return current{}, false, errors.Wrapf(
+			err,
+			"failed to open the data of the Core service",
 		)
 	}
-	backups, err := storage.NewBackups(storage.BackupsConfig{Dirname: inst.Data})
+	state, err := cur.backups.UpdateState(to)
 	if err != nil {
-		return errors.Wrapf(err, "failed to open the data of the Core service")
-	}
-	state, err := backups.UpdateState(to)
-	if err != nil {
-		return err
+		return current{}, false, err
 	}
 	switch {
 	case state == storage.UpdateUndone:
-		return errors.Newf(
+		return current{}, false, errors.Newf(
 			"The update to Core %s failed before. Fix the cause, run `synnax update "+
 				"retry`, then update again.",
 			to,
 		)
 	// The pending update still needs the old binary that a replace would overwrite.
 	case state == storage.UpdatePending:
-		return errors.New(
+		return current{}, false, errors.New(
 			"An update of the data did not finish. Wait for the Core service to " +
 				"finish it, and start the service if it stopped.",
 		)
 	case to == from:
-		return printLines(w, fmt.Sprintf("Core %s is already installed.", to))
+		return current{}, false, printLines(
+			w,
+			fmt.Sprintf("Core %s is already installed.", to),
+		)
 	}
-	if err = printLines(w, "Stopping the Core service."); err != nil {
+	return cur, true, nil
+}
+
+// apply replaces the installed Core with the Core binary at staged, which is Core to.
+// With a Core service, it stops the service, replaces the binary, starts the service,
+// and waits up to timeout for the new Core to commit or undo the update. When the new
+// Core undoes the update, apply puts the old binary back and starts the service again.
+func (c current) apply(
+	ctx context.Context,
+	w io.Writer,
+	staged, to string,
+	timeout time.Duration,
+) error {
+	replaced := fmt.Sprintf(
+		"Replaced Core %s with Core %s at %s.",
+		c.version,
+		to,
+		c.binary,
+	)
+	if c.backups == nil {
+		if err := replace(c.binary, staged); err != nil {
+			return err
+		}
+		return printLines(
+			w,
+			replaced,
+			"Start the Core. It backs up the data, updates it, and undoes the "+
+				"update if it fails.",
+		)
+	}
+	if err := printLines(w, "Stopping the Core service."); err != nil {
 		return err
 	}
-	if err = service.Stop(); err != nil {
+	if err := service.Stop(); err != nil {
 		return err
 	}
-	if err = replace(binary, staged); err != nil {
+	if err := replace(c.binary, staged); err != nil {
 		return errors.Combine(err, service.Start())
 	}
-	if err = printLines(
+	if err := printLines(
 		w,
-		fmt.Sprintf("Replaced Core %s with Core %s at %s.", from, to, binary),
+		replaced,
 		fmt.Sprintf("Starting the Core service. Waiting for Core %s to update the "+
 			"data.", to),
 	); err != nil {
 		return err
 	}
-	if err = service.Start(); err != nil {
+	if err := service.Start(); err != nil {
 		return err
 	}
-	if state, err = waitForUpdate(ctx, backups, to, timeout); err != nil {
+	state, err := waitForUpdate(ctx, c.backups, to, timeout)
+	if err != nil {
 		return err
 	}
 	switch state {
@@ -143,14 +191,14 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 			"Core %s failed to update the data and put it back. Starting Core %s "+
 				"again.",
 			to,
-			from,
+			c.version,
 		)); err != nil {
 			return err
 		}
 		if err = service.Stop(); err != nil {
 			return err
 		}
-		if err = os.Rename(binary+oldSuffix, binary); err != nil {
+		if err = os.Rename(c.binary+oldSuffix, c.binary); err != nil {
 			return err
 		}
 		if err = service.Start(); err != nil {
@@ -161,15 +209,25 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 				"Core log, fix it, and run `synnax update retry` before you update "+
 				"again.",
 			to,
-			from,
+			c.version,
 		)
 	default:
 		return errors.Newf(
-			"Core %s did not finish the update within %s. Check the Core log.",
+			"Core %s did not finish the update within %s. Check the Core log. If the "+
+				"Core undoes the update, run `synnax update undo` to put back Core %s.",
 			to,
 			timeout,
+			c.version,
 		)
 	}
+}
+
+// removeStaged removes the staged binary, if it exists.
+func removeStaged(staged string) error {
+	if err := os.Remove(staged); !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 // installation returns the Core service on this host, and reports whether there is one.
@@ -268,16 +326,10 @@ func waitForUpdate(
 // putBackOld swaps binary with the binary that an update replaced, when that binary is
 // Core version want. It reports whether it swapped them.
 func putBackOld(ctx context.Context, binary, want string) (bool, error) {
-	old := binary + oldSuffix
-	if _, err := os.Stat(old); errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	} else if err != nil {
+	if v, err := oldVersion(ctx, binary); err != nil || v != want {
 		return false, err
 	}
-	if v, err := binaryVersion(ctx, old); err != nil || v != want {
-		return false, err
-	}
-	swap := binary + ".swap"
+	old, swap := binary+oldSuffix, binary+".swap"
 	if err := os.Rename(binary, swap); err != nil {
 		return false, err
 	}
@@ -285,6 +337,18 @@ func putBackOld(ctx context.Context, binary, want string) (bool, error) {
 		return false, errors.Combine(err, os.Rename(swap, binary))
 	}
 	return true, os.Rename(swap, old)
+}
+
+// oldVersion returns the Core version of the binary that an update replaced, or an
+// empty string when there is none.
+func oldVersion(ctx context.Context, binary string) (string, error) {
+	old := binary + oldSuffix
+	if _, err := os.Stat(old); errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+	return binaryVersion(ctx, old)
 }
 
 func printLines(w io.Writer, lines ...string) error {

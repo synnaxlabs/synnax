@@ -104,6 +104,22 @@ describe("releases", () => {
     });
   });
 
+  describe("highest on a train", () => {
+    const releases = [
+      ...RELEASES,
+      release("console/v0.59.3"),
+      release("console/v0.60.1"),
+    ];
+
+    it("should keep to the train", () => {
+      expect(highest(releases, "console", "stable", "0.59")).toEqual("0.59.3");
+    });
+
+    it("should return null for a train with no release", () => {
+      expect(highest(releases, "console", "stable", "0.57")).toBeNull();
+    });
+  });
+
   describe("Releases", () => {
     const respond = (body: unknown, status = 200, next?: string): Response =>
       new Response(JSON.stringify(body), {
@@ -163,6 +179,52 @@ describe("releases", () => {
       const fetch = vi.fn().mockResolvedValueOnce(respond([release("core/v0.59.0")]));
       expect(await new Releases({ fetch }).latest("core")).toEqual("0.59.0");
       expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep documented lookups to the train", async () => {
+      const listing = [
+        release("core/v0.59.3"),
+        release("core/v0.60.1"),
+        release("desktop/v1.0.4"),
+      ];
+      const releases = new Releases({
+        fetch: vi.fn(async () => respond(listing)),
+        train: "0.59",
+      });
+      expect(await releases.documented("core")).toEqual("0.59.3");
+      expect(await releases.documented("desktop")).toEqual("1.0.4");
+      expect(await releases.latest("core")).toEqual("0.60.1");
+      expect(await releases.onTrain("core", "0.60")).toEqual("0.60.1");
+      expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
+    });
+
+    it("should list each train with a stable release once, newest first", async () => {
+      const listing = [
+        release("core/v0.59.3"),
+        release("core/v0.60.1"),
+        release("core/v0.59.0"),
+        release("core/v0.61.0-rc.1", true),
+        release("core/v0.60.0"),
+        release("console/v0.62.0"),
+      ];
+      const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
+      expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
+    });
+
+    it("should take the newest release without a train", async () => {
+      const listing = [release("core/v0.59.3"), release("core/v0.60.1")];
+      const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
+      expect(await releases.documented("core")).toEqual("0.60.1");
+    });
+
+    it("should throw when the train has no documented release", async () => {
+      const releases = new Releases({
+        fetch: vi.fn(async () => respond([release("core/v0.60.1")])),
+        train: "0.59",
+      });
+      await expect(releases.documented("core")).rejects.toThrow(
+        "GitHub lists no stable core release on train 0.59",
+      );
     });
 
     it("should throw when the product has no release", async () => {

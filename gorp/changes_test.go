@@ -10,8 +10,6 @@
 package gorp_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -46,11 +44,11 @@ var errUndecodable = errors.New("undecodable")
 // migration missed.
 type deviceRefusingCodec struct{ encoding.Codec }
 
-func (c deviceRefusingCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (c deviceRefusingCodec) Decode(data []byte, value any) error {
 	if _, ok := value.(*refDevice); ok {
 		return errUndecodable
 	}
-	return c.Codec.Decode(ctx, data, value)
+	return c.Codec.Decode(data, value)
 }
 
 var _ = Describe("Changes", func() {
@@ -61,7 +59,7 @@ var _ = Describe("Changes", func() {
 		encode  = func(data string) []byte {
 			GinkgoHelper()
 			return MustSucceed(
-				msgpack.Codec.Encode(context.Background(), entry{ID: 1, Data: data}),
+				msgpack.Codec.Encode(entry{ID: 1, Data: data}),
 			)
 		}
 		create = func(data string) write {
@@ -445,7 +443,7 @@ var _ = Describe("Changes", func() {
 					Record:  gorp.NewTarget("device", "d"),
 					Kind:    gorp.ChangeUpdate,
 					Derived: true,
-					Value:   MustSucceed(msgpack.Codec.Encode(ctx, detached)),
+					Value:   MustSucceed(msgpack.Codec.Encode(detached)),
 					Removed: []gorp.Link{labelLink("l1")},
 					Links:   []gorp.Link{rackLink(1), labelLink("l2")},
 				},

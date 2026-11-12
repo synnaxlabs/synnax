@@ -75,7 +75,8 @@ type CreateResponse struct {
 	Views []View `json:"views" msgpack:"views"`
 }
 
-// Create creates the views, and overwrites each one whose key exists.
+// Create creates the views. It returns an error wrapping validate.ErrValidation when a
+// view with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -130,23 +131,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-// RenameRequest names the view to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the view to rename.
-	Key view.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the view. It returns query.ErrNotFound when no view has the key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {
