@@ -10,6 +10,7 @@
 import json
 import urllib.parse
 from email.message import Message
+from http.client import RemoteDisconnected
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -365,7 +366,8 @@ class TestMain:
             Transient("server error (502)"),
             HTTPError("https://api.github.com", 404, "Not Found", Message(), None),
             ConnectionResetError("reset"),
-            KeyError("head"),
+            RemoteDisconnected("closed"),
+            json.JSONDecodeError("cut", "", 0),
         ],
     )
     def test_should_change_nothing_when_the_api_fails(

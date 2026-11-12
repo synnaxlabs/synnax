@@ -22,7 +22,7 @@ that sits behind another group. The proof is a successful pull_request run of th
 workflow file on that head, from a branch of this repository, when no other pull
 request has that head. A job whose definition reads the event is not the same
 job in the two runs, so it runs. A job that still runs goes in the ci list, and each
-filter becomes false. No proof, or a GitHub API failure, changes nothing.
+filter becomes false. No proof, or a failed request to GitHub, changes nothing.
 
 Reads TOUCHED, the JSON outputs of the path filter, and CI_JOBS, the output of
 changed_jobs.py. Reads GH_TOKEN, GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, and
@@ -34,11 +34,12 @@ import os
 import re
 import sys
 import urllib.parse
+from http.client import HTTPException
 from pathlib import Path
 from typing import Any
 
 from changed_jobs import FILTER_REF, WORKFLOW, load
-from wait_for_turn import API, Http, Request
+from wait_for_turn import API, Http, Request, Transient
 
 EVENT_REF = re.compile(r"github\.event")
 GROUP_REF = re.compile(r"/pr-(\d+)-[0-9a-f]{40}$")
@@ -192,8 +193,8 @@ def main(request: Request | None = None) -> None:
             )
         except Unproven as e:
             print(f"Every job runs: {e}.", file=sys.stderr)
-        # The skip only saves runner time, so no failure of the lookup fails the gate.
-        except Exception as e:
+        # A response that the network cut is not valid JSON.
+        except (Transient, OSError, HTTPException, json.JSONDecodeError) as e:
             print(
                 f"::warning::Every job runs: the lookup failed: {e!r}", file=sys.stderr
             )
