@@ -70,6 +70,9 @@ const CHANNEL_QUERY: Channel.ListQuery = {
   where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
 };
 
+// The query keeps calculated channels, which the Core does not store.
+const isStored = (ch: channel.Channel): boolean => !ch.isCalculated;
+
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
 };
@@ -87,12 +90,14 @@ interface UploadButtonProps extends UploadModalParams {
 
 const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProps) => {
   const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
+  const handleError = Status.useAsyncErrorHandler();
   const addStatus = Status.useAdder();
   const { get, validate } = Form.useContext();
-  const handleClick = () => {
+  const [pending, setPending] = useState(false);
+  const handleClick = async (): Promise<void> => {
     if (!validate()) return;
-    handleError(
+    setPending(true);
+    await handleError(
       async () => {
         if (client == null) throw new DisconnectedError();
         const { device, asset, channels } = get(path.config).value;
@@ -123,11 +128,13 @@ const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProp
       },
       { message: "Failed to upload to Sift", name },
     );
+    setPending(false);
   };
   return (
     <Button.Button
       variant="filled"
-      onClick={handleClick}
+      onClick={() => void handleClick()}
+      status={pending ? "loading" : undefined}
       trigger={Triggers.SAVE}
       triggerIndicator
     >
@@ -175,6 +182,7 @@ const Upload = ({
                 value={value}
                 onChange={onChange}
                 query={CHANNEL_QUERY}
+                filter={isStored}
                 triggerProps={CHANNEL_TRIGGER_PROPS}
                 full="x"
               />

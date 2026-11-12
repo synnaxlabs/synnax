@@ -9,6 +9,7 @@
 
 import {
   type channel,
+  DataType,
   type device,
   type task,
   TimeRange,
@@ -126,7 +127,7 @@ describe("Sift.Range.useUploadModal", () => {
     const rng = await createRange();
     await renderModalOpener(
       Sift.Range.useUploadModal,
-      [{ rangeKey: rng.key, rangeName: rng.name }],
+      [{ name: rng.name, source: rng.key }],
       { client },
     );
     const { answered: listedFirst } = await answerNextCommand(client, scan, {
@@ -195,6 +196,62 @@ describe("Sift.Range.useUploadModal", () => {
       channels: [data.key],
       asset: "stand",
     });
+  });
+
+  it("should not list calculated channels, which the Core does not store", async () => {
+    const [, data] = await newIndexedPair(client);
+    const calc = await client.channels.create({
+      name: uniqueName("sift_calc"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+      expression: `return ${data.name} * 2`,
+    });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      { client },
+    );
+    fireEvent.click(await screen.findByText("Select channels to upload"));
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: data.name } });
+    expect(await screen.findByText(data.name)).toBeTruthy();
+    fireEvent.change(search, { target: { value: calc.name } });
+    await waitFor(() => expect(screen.queryByText(data.name)).toBeNull());
+    expect(screen.queryByText(calc.name)).toBeNull();
+  });
+
+  it("should disable Upload while the scan task queues the upload", async () => {
+    const { rack, scan } = await createScanTask();
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const [, data] = await newIndexedPair(client);
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      { client },
+    );
+    const { answered: listed } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(dev.name);
+    await listed;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    fireEvent.click(screen.getByText("Select channels to upload"));
+    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
+      target: { value: data.name },
+    });
+    fireEvent.click(await screen.findByText(data.name));
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.UPLOAD_COMMAND_TYPE,
+    });
+    clickUpload();
+    expect(
+      screen.getByRole("button", { name: /Upload/ }).getAttribute("aria-disabled"),
+    ).toBe("true");
+    await answered;
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("should stay open and show why the scan task rejected an upload", async () => {
