@@ -51,7 +51,7 @@ type Positions map[channel.Key]telem.TimeStamp
 // channel was sent.
 type ChannelPositions map[channel.Key]telem.TimeStamp
 
-// Checkpoint reports what Sift confirmed.
+// Checkpoint reports what Sift confirmed, and the channels a restart must still send.
 type Checkpoint struct {
 	// Positions holds, for each index, the time before which Sift confirmed every
 	// sample.
@@ -109,7 +109,8 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 1 s, doubling to at most 30 s.
 	Retry breaker.Config
-	// OnCheckpoint runs after each time Sift confirms what the engine sent.
+	// OnCheckpoint runs each time Sift confirms what the engine sent. It also runs with
+	// Samples 0 when a channel joins Behind, so that a restart still sends its values.
 	//
 	// [REQUIRED]
 	OnCheckpoint func(ctx context.Context, cp Checkpoint) error
@@ -260,8 +261,8 @@ func (e *Engine) Indexes() channel.Keys {
 // ctx is cancelled first, Upload waits for Sift to confirm what it sent and returns
 // ctx.Err().
 func (e *Engine) Upload(ctx context.Context, tr telem.TimeRange, from Positions) error {
-	confirmed := e.positions(from, tr.Start)
-	return e.retry(ctx, func(ctx context.Context, a *attempt) error {
+	p := e.newProgress(e.positions(from, tr.Start), nil)
+	return e.retry(ctx, p, func(ctx context.Context, a *attempt) error {
 		for _, f := range e.flows {
 			key := f.index.Key()
 			if a.sent[key] >= tr.End {
@@ -284,49 +285,59 @@ func (e *Engine) Upload(ctx context.Context, tr telem.TimeRange, from Positions)
 			a.sent[key] = tr.End
 		}
 		return a.checkpoint(ctx, true)
-	}, confirmed, nil)
+	})
 }
 
 // Stream sends the stored samples from the positions in from, then each sample as it
 // is written, until ctx is cancelled. An index with no position starts at the current
-// time. Stream first sends the stored values of each channel in behind, from its
+// time. Stream also sends the stored values of each channel in behind, from its
 // position to the position of its index. Stream retries temporary failures from the
 // last confirmed positions. When ctx is cancelled it waits for Sift to confirm what it
-// sent and returns nil, or the error of that confirm.
+// sent and returns nil, or the error of that confirm or of OnCheckpoint.
 func (e *Engine) Stream(
 	ctx context.Context,
 	from Positions,
 	behind ChannelPositions,
 ) error {
-	err := e.retry(ctx, e.stream, e.positions(from, telem.Now()), behind)
+	p := e.newProgress(e.positions(from, telem.Now()), behind)
+	err := e.retry(ctx, p, e.stream)
 	if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-		return nil
+		err = nil
 	}
-	return err
+	// An attempt that failed, or a stop between attempts, leaves marks unreported.
+	return errors.Combine(err, e.report(context.WithoutCancel(ctx), p))
 }
 
 // stream catches up from storage until a pass is short, then sends live samples.
 func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
-	// A channel that an earlier attempt marked has values before the positions, which
-	// catching up would pass.
-	if err = a.sendUnindexed(ctx); err != nil {
+	// The streamer opens first, so that it marks a channel written without its index
+	// while the attempt catches up.
+	l, err := e.openLive(ctx)
+	if err != nil {
 		return err
 	}
+	var frames <-chan framer.Frame
+	defer func() {
+		err = errors.Combine(err, l.close())
+		// The next attempt catches up past the values of these channels.
+		if frames != nil {
+			for fr := range frames {
+				a.mark(e.flows, fr)
+			}
+		}
+		l.take(a.progress)
+	}()
 	for {
 		start := time.Now()
-		if err = e.catchUp(ctx, a); err != nil {
+		if err = e.catchUp(ctx, a, l); err != nil {
 			return err
 		}
 		if time.Since(start) < handoffWindow {
 			break
 		}
 	}
-	l, err := e.openLive(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Combine(err, l.close()) }()
-	if err = e.catchUp(ctx, a); err != nil {
+	frames = l.forward(a.progress)
+	if err = e.catchUp(ctx, a, l); err != nil {
 		return err
 	}
 	a.live = true
@@ -337,25 +348,25 @@ func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if len(l.frames) == 0 {
+			if len(frames) == 0 {
 				a.idle = telem.Now()
 			}
 			if err = a.checkpoint(ctx, false); err != nil {
 				return err
 			}
-		case fr, ok := <-l.frames:
+		case fr, ok := <-frames:
 			if !ok {
 				return a.fallBehind(ctx, l.err())
 			}
+			// Marking every flow first keeps the marks of a frame that fails to send.
+			a.mark(e.flows, fr)
 			for _, f := range e.flows {
 				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
 				}
 			}
-			if a.marked {
-				if err = a.report(ctx); err != nil {
-					return err
-				}
+			if err = e.report(ctx, a.progress); err != nil {
+				return err
 			}
 			if err = a.maybeCheckpoint(ctx); err != nil {
 				return err
@@ -377,7 +388,7 @@ func (e *Engine) positions(from Positions, start telem.TimeStamp) Positions {
 }
 
 // catchUp sends the stored samples of every flow from its sent position.
-func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
+func (e *Engine) catchUp(ctx context.Context, a *attempt, l *live) error {
 	for _, f := range e.flows {
 		if err := e.read(
 			ctx,
@@ -385,6 +396,14 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
 			f.channels,
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
+				l.take(a.progress)
+				// A later value of a marked channel would move the attempt past its
+				// earlier ones.
+				if a.carriesMarked(f, fr) {
+					if err := a.sendMarked(ctx, f); err != nil {
+						return err
+					}
+				}
 				if err := a.send(ctx, f, fr); err != nil {
 					return err
 				}
@@ -452,29 +471,16 @@ func timeRange(series []telem.Series) telem.TimeRange {
 }
 
 // retry runs attempts until one succeeds, ctx is cancelled, or one fails with an error
-// that retrying cannot fix. Each attempt starts from confirmed, which attempts update
-// as Sift confirms what they send. The channels in behind start marked.
+// that retrying cannot fix. Each attempt starts from p, which attempts update as Sift
+// confirms what they send.
 func (e *Engine) retry(
 	ctx context.Context,
+	p *progress,
 	run func(context.Context, *attempt) error,
-	confirmed Positions,
-	behind ChannelPositions,
 ) error {
 	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
 	if err != nil {
 		return err
-	}
-	values := make(map[channel.Key]telem.TimeStamp)
-	unindexed := make(map[channel.Key]set.Set[channel.Key])
-	for _, f := range e.flows {
-		index := f.index.Key()
-		for _, ch := range f.channels {
-			values[ch.Key()] = confirmed[index]
-			if pos, ok := behind[ch.Key()]; ok {
-				values[ch.Key()] = pos
-				mark(unindexed, index, ch.Key())
-			}
-		}
 	}
 	for {
 		id, err := e.ingestionConfig(ctx)
@@ -486,14 +492,12 @@ func (e *Engine) retry(
 					ctx:     ctx,
 					timeout: e.cfg.ConfirmTimeout.Duration(),
 				},
-				configID:        id,
-				confirmed:       confirmed,
-				sent:            maps.Clone(confirmed),
-				confirmedValues: values,
-				values:          maps.Clone(values),
-				unindexed:       unindexed,
-				ends:            make(map[channel.Key]telem.Alignment),
-				last:            time.Now(),
+				progress: p,
+				configID: id,
+				sent:     maps.Clone(p.confirmed),
+				values:   maps.Clone(p.confirmedValues),
+				ends:     make(map[channel.Key]telem.Alignment),
+				last:     time.Now(),
 			}
 			confirms := e.confirms
 			err = run(ctx, a)
@@ -601,13 +605,132 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 	return e.configID, nil
 }
 
+// progress is what Sift confirmed and which channels arrived without their index.
+// Attempts share it.
+type progress struct {
+	confirmed Positions
+	// confirmedValues holds, for each data channel, the time after the last value Sift
+	// confirmed.
+	confirmedValues map[channel.Key]telem.TimeStamp
+	unindexed       marks
+	// reported is the Through of the last checkpoint.
+	reported telem.TimeStamp
+	// unreported is set once a channel is marked, until OnCheckpoint reports it.
+	unreported bool
+}
+
+// newProgress starts from confirmed, with the channels in behind marked at their
+// positions.
+func (e *Engine) newProgress(confirmed Positions, behind ChannelPositions) *progress {
+	p := &progress{
+		confirmed:       confirmed,
+		confirmedValues: make(map[channel.Key]telem.TimeStamp),
+		unindexed:       make(marks),
+	}
+	for _, f := range e.flows {
+		index := f.index.Key()
+		for _, ch := range f.channels {
+			p.confirmedValues[ch.Key()] = confirmed[index]
+			if pos, ok := behind[ch.Key()]; ok {
+				p.confirmedValues[ch.Key()] = pos
+				p.unindexed.mark(index, ch.Key())
+			}
+		}
+	}
+	return p
+}
+
+// mark marks the channels that fr holds without their index.
+func (p *progress) mark(flows []flow, fr framer.Frame) {
+	if p.unindexed.markUnindexed(flows, fr) {
+		p.unreported = true
+	}
+}
+
+// merge marks the channels in m.
+func (p *progress) merge(m marks) {
+	for index, keys := range m {
+		for key := range keys {
+			if p.unindexed.mark(index, key) {
+				p.unreported = true
+			}
+		}
+	}
+}
+
+// behind returns the confirmed value position of each marked channel.
+func (p *progress) behind() ChannelPositions {
+	var b ChannelPositions
+	for _, keys := range p.unindexed {
+		for key := range keys {
+			if b == nil {
+				b = make(ChannelPositions)
+			}
+			b[key] = p.confirmedValues[key]
+		}
+	}
+	return b
+}
+
+// report reports the confirmed positions with the marked channels once a channel was
+// marked since the last report, so that a restart still sends the values of a channel
+// that Sift never confirms.
+func (e *Engine) report(ctx context.Context, p *progress) error {
+	if !p.unreported {
+		return nil
+	}
+	if err := e.cfg.OnCheckpoint(ctx, Checkpoint{
+		Positions: maps.Clone(p.confirmed),
+		// The earliest position is the Through of a run that reported nothing.
+		Through: max(p.reported, slices.Min(slices.Collect(maps.Values(p.confirmed)))),
+		Behind:  p.behind(),
+	}); err != nil {
+		return err
+	}
+	p.unreported = false
+	return nil
+}
+
+// marks holds, for each index, the data channels that arrived live without it.
+type marks map[channel.Key]set.Set[channel.Key]
+
+// mark marks ch for index, and reports whether it was not marked.
+func (m marks) mark(index, ch channel.Key) bool {
+	if m[index] == nil {
+		m[index] = set.New[channel.Key]()
+	}
+	if m[index].Contains(ch) {
+		return false
+	}
+	m[index].Add(ch)
+	return true
+}
+
+// markUnindexed marks the channels of each flow that fr holds without the index of the
+// flow, and reports whether it marked a new channel. Their timestamps are only in
+// storage.
+func (m marks) markUnindexed(flows []flow, fr framer.Frame) bool {
+	added := false
+	for _, f := range flows {
+		if len(fr.Get(f.index.Key()).Series) > 0 {
+			continue
+		}
+		for _, ch := range f.channels {
+			if len(fr.Get(ch.Key()).Series) > 0 && m.mark(f.index.Key(), ch.Key()) {
+				added = true
+			}
+		}
+	}
+	return added
+}
+
 // attempt is one try at sending, from the positions Sift last confirmed.
 type attempt struct {
-	engine    *Engine
-	sender    sender
-	configID  string
-	confirmed Positions
-	sent      Positions
+	*progress
+	engine   *Engine
+	sender   sender
+	configID string
+	sent     Positions
 	// pending counts the values sent since the last checkpoint.
 	pending int64
 	last    time.Time
@@ -618,20 +741,10 @@ type attempt struct {
 	live bool
 	// idle is the last time a live attempt had sent every sample it received.
 	idle telem.TimeStamp
-	// reported is the Through of the last checkpoint.
-	reported telem.TimeStamp
-	// marked is set once markUnindexed marks a channel, until report reports it.
-	marked bool
 	// ends holds, for each index, the alignment after the last live sample.
 	ends map[channel.Key]telem.Alignment
 	// values holds, for each data channel, the time after the last value sent.
 	values map[channel.Key]telem.TimeStamp
-	// confirmedValues holds the entries of values that Sift confirmed. Attempts share
-	// it, as they share confirmed.
-	confirmedValues map[channel.Key]telem.TimeStamp
-	// unindexed holds the data channels of each index that arrived live without it.
-	// Attempts share it, so that a retry still sends their values.
-	unindexed map[channel.Key]set.Set[channel.Key]
 }
 
 func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
@@ -706,7 +819,7 @@ func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	through := a.through()
 	if !always && a.pending == 0 && maps.Equal(a.sent, a.confirmed) &&
 		through == a.reported {
-		return nil
+		return a.engine.report(ctx, a.progress)
 	}
 	maps.Copy(a.confirmed, a.sent)
 	a.engine.confirms++
@@ -718,7 +831,11 @@ func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	}
 	a.pending = 0
 	a.reported = through
-	return a.engine.cfg.OnCheckpoint(ctx, cp)
+	if err := a.engine.cfg.OnCheckpoint(ctx, cp); err != nil {
+		return err
+	}
+	a.unreported = false
+	return nil
 }
 
 // fallBehind confirms what the attempt sent before it returns err. When err is
@@ -738,7 +855,6 @@ func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
 	key := f.index.Key()
 	series := fr.Get(key).Series
 	if len(series) == 0 {
-		a.markUnindexed(f, fr)
 		return nil
 	}
 	var gap telem.TimeStamp
@@ -781,55 +897,6 @@ func (a *attempt) carriesMarked(f flow, fr framer.Frame) bool {
 		}
 	}
 	return false
-}
-
-// markUnindexed records the data channels of f in a live frame without the index of f.
-// Their timestamps are only in storage.
-func (a *attempt) markUnindexed(f flow, fr framer.Frame) {
-	for _, ch := range f.channels {
-		if len(fr.Get(ch.Key()).Series) > 0 &&
-			mark(a.unindexed, f.index.Key(), ch.Key()) {
-			a.marked = true
-		}
-	}
-}
-
-// mark adds ch to the marked channels of index, and reports whether it was not there.
-func mark(unindexed map[channel.Key]set.Set[channel.Key], index, ch channel.Key) bool {
-	if unindexed[index] == nil {
-		unindexed[index] = set.New[channel.Key]()
-	}
-	if unindexed[index].Contains(ch) {
-		return false
-	}
-	unindexed[index].Add(ch)
-	return true
-}
-
-// report reports the confirmed positions with the marked channels, so that a restart
-// still sends the values of a channel that Sift never confirms.
-func (a *attempt) report(ctx context.Context) error {
-	a.marked = false
-	return a.engine.cfg.OnCheckpoint(ctx, Checkpoint{
-		Positions: maps.Clone(a.confirmed),
-		// The earliest position is the Through of an attempt that reported nothing.
-		Through: max(a.reported, slices.Min(slices.Collect(maps.Values(a.confirmed)))),
-		Behind:  a.behind(),
-	})
-}
-
-// behind returns the confirmed value position of each marked channel.
-func (a *attempt) behind() ChannelPositions {
-	var b ChannelPositions
-	for _, keys := range a.unindexed {
-		for key := range keys {
-			if b == nil {
-				b = make(ChannelPositions)
-			}
-			b[key] = a.confirmedValues[key]
-		}
-	}
-	return b
 }
 
 // sendUnindexed sends the stored values of the marked channels of every flow.
@@ -913,19 +980,27 @@ func (a *attempt) through() telem.TimeStamp {
 }
 
 // live holds the frames a streamer receives until the engine sends them. It never
-// blocks the streamer: once the engine falls behind, it closes frames and drops the
-// rest.
+// blocks the streamer. Until forward, and once the engine falls behind, it drops each
+// frame and keeps the marks of its channels that arrived without their index.
 type live struct {
-	frames   <-chan framer.Frame
+	flows    []flow
 	shutdown func() error
 	once     sync.Once
 	closeErr error
-	// behind is written before frames closes.
+	mu       sync.Mutex
+	// frames is nil while live drops frames.
+	frames chan framer.Frame
+	// behind is set when frames closes because the engine fell behind.
 	behind bool
+	// closed is set once the streamer closes.
+	closed  bool
+	dropped marks
 }
 
-// err returns why frames closed. close returns the cause of an unexpected close.
+// err returns why the channel that forward returned closed.
 func (l *live) err() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if l.behind {
 		return errBehind
 	}
@@ -935,6 +1010,56 @@ func (l *live) err() error {
 func (l *live) close() error {
 	l.once.Do(func() { l.closeErr = l.shutdown() })
 	return l.closeErr
+}
+
+// forward moves the marks of the dropped frames to p, then sends each frame to the
+// returned channel.
+func (l *live) forward(p *progress) <-chan framer.Frame {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	p.merge(l.dropped)
+	clear(l.dropped)
+	frames := make(chan framer.Frame, liveBuffer)
+	if l.closed {
+		close(frames)
+	} else {
+		l.frames = frames
+	}
+	return frames
+}
+
+// take moves the marks of the dropped frames to p.
+func (l *live) take(p *progress) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	p.merge(l.dropped)
+	clear(l.dropped)
+}
+
+func (l *live) receive(fr framer.Frame) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.frames != nil {
+		select {
+		case l.frames <- fr:
+			return
+		default:
+			l.behind = true
+			close(l.frames)
+			l.frames = nil
+		}
+	}
+	l.dropped.markUnindexed(l.flows, fr)
+}
+
+func (l *live) end() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.closed = true
+	if l.frames != nil {
+		close(l.frames)
+		l.frames = nil
+	}
 }
 
 func (e *Engine) openLive(ctx context.Context) (*live, error) {
@@ -960,9 +1085,9 @@ func (e *Engine) openLive(ctx context.Context) (*live, error) {
 		confluence.RecoverWithErrOnPanic(),
 	)
 	shutdown := signal.NewGracefulShutdown(sCtx, cancel)
-	frames := make(chan framer.Frame, liveBuffer)
 	l := &live{
-		frames: frames,
+		flows:   e.flows,
+		dropped: make(marks),
 		shutdown: func() error {
 			requests.Close()
 			return shutdown.Close()
@@ -981,22 +1106,10 @@ func (e *Engine) openLive(ctx context.Context) (*live, error) {
 		}
 	}
 	sCtx.Go(func(context.Context) error {
-		open := true
 		for res := range responses.Outlet() {
-			if !open {
-				continue
-			}
-			select {
-			case frames <- res.Frame:
-			default:
-				l.behind = true
-				close(frames)
-				open = false
-			}
+			l.receive(res.Frame)
 		}
-		if open {
-			close(frames)
-		}
+		l.end()
 		return nil
 	}, signal.RecoverWithErrOnPanic())
 	return l, nil
