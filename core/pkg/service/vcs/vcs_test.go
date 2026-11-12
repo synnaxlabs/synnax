@@ -69,6 +69,11 @@ import (
 
 var ada = vcs.Author{Name: "Ada", Email: "ada@synnax.local"}
 
+var (
+	lowKey  = uuid.MustParse("00000000-0000-4000-8000-000000000001")
+	highKey = uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff")
+)
+
 // allow lets a commit or snapshot send every resource.
 func allow(context.Context, []resource.ID) error { return nil }
 
@@ -823,6 +828,22 @@ var _ = Describe("VCS", func() {
 		})
 	})
 
+	createEngine := func(ctx SpecContext, key uuid.UUID) {
+		GinkgoHelper()
+		s := schematic.Schematic{Key: key, Name: "Engine", Project: &proj.Key}
+		tx(ctx, func(tx gorp.Tx) error {
+			return layer.Schematic.NewWriter(tx).Create(ctx, &s)
+		})
+	}
+
+	createRig := func(ctx SpecContext, key uuid.UUID) {
+		GinkgoHelper()
+		p := project.Project{Key: key, Name: "Rig"}
+		tx(ctx, func(tx gorp.Tx) error {
+			return layer.Project.NewWriter(tx).Create(ctx, &p)
+		})
+	}
+
 	Describe("Pull", func() {
 		It(
 			"Should apply incoming commits and resolve a conflict",
@@ -1017,32 +1038,36 @@ var _ = Describe("VCS", func() {
 		)
 
 		DescribeTable(
-			"Should move a waiting resource to a numbered name when an incoming one "+
-				"takes its file",
-			func(ctx SpecContext, create func(SpecContext) string, file, moved string) {
+			"Should number two resources with one name as an export does",
+			func(
+				ctx SpecContext,
+				create func(SpecContext, uuid.UUID),
+				mine, theirs uuid.UUID,
+				file, numbered string,
+			) {
 				connect(ctx, remoteURL)
 				away := remoteDir + ".away"
 				Expect(os.Rename(remoteDir, away)).To(Succeed())
-				key := create(ctx)
+				create(ctx, mine)
 				commit(ctx, "Add mine")
 				Expect(os.Rename(away, remoteDir)).To(Succeed())
-				var mine []byte
+				var mineFile string
 				for _, f := range working(ctx) {
 					if f.Path == file {
-						mine = []byte(f.Content)
+						mineFile = f.Content
 					}
 				}
-				Expect(mine).ToNot(BeEmpty())
-				theirs := bytes.Replace(
-					mine,
-					[]byte(key),
-					[]byte(uuid.New().String()),
+				Expect(mineFile).ToNot(BeEmpty())
+				theirsFile := strings.Replace(
+					mineFile,
+					mine.String(),
+					theirs.String(),
 					1,
 				)
 				pushElsewhere(func(dir string, wt *git.Worktree) {
 					p := filepath.Join(dir, file)
 					Expect(os.MkdirAll(filepath.Dir(p), 0o755)).To(Succeed())
-					Expect(os.WriteFile(p, theirs, 0o644)).To(Succeed())
+					Expect(os.WriteFile(p, []byte(theirsFile), 0o644)).To(Succeed())
 					MustSucceed(wt.Add(file))
 				})
 				MustSucceed(svc.Fetch(ctx))
@@ -1053,7 +1078,9 @@ var _ = Describe("VCS", func() {
 					svc.DefaultWrite,
 					allow,
 				))
-				Expect(MustSucceed(svc.Status(ctx)).Waiting).To(BeZero())
+				st := MustSucceed(svc.Status(ctx))
+				Expect(st.Waiting).To(BeZero())
+				Expect(st.Changes).To(BeEmpty())
 				remote := MustSucceed(git.PlainOpen(remoteDir))
 				ref := MustSucceed(
 					remote.Reference(plumbing.NewBranchReferenceName("main"), true),
@@ -1062,26 +1089,42 @@ var _ = Describe("VCS", func() {
 				read := func(p string) string {
 					return MustSucceed(MustSucceed(tree.File(p)).Contents())
 				}
-				Expect(read(file)).To(Equal(string(theirs)))
-				Expect(read(moved)).To(Equal(string(mine)))
+				first, second := mineFile, theirsFile
+				if theirs.String() < mine.String() {
+					first, second = theirsFile, mineFile
+				}
+				Expect(read(file)).To(Equal(first))
+				Expect(read(numbered)).To(Equal(second))
 			},
 			Entry(
-				"a schematic",
-				func(ctx SpecContext) string {
-					return createSchematic(ctx, "Engine").Key.String()
-				},
+				"a waiting schematic with the lower key",
+				createEngine,
+				lowKey,
+				highKey,
 				"projects/Test Stand/Engine.schematic.json",
 				"projects/Test Stand/Engine (1).schematic.json",
 			),
 			Entry(
-				"a project, with its folder",
-				func(ctx SpecContext) string {
-					p := project.Project{Name: "Rig"}
-					tx(ctx, func(tx gorp.Tx) error {
-						return layer.Project.NewWriter(tx).Create(ctx, &p)
-					})
-					return p.Key.String()
-				},
+				"a waiting schematic with the higher key",
+				createEngine,
+				highKey,
+				lowKey,
+				"projects/Test Stand/Engine.schematic.json",
+				"projects/Test Stand/Engine (1).schematic.json",
+			),
+			Entry(
+				"a waiting project with the lower key",
+				createRig,
+				lowKey,
+				highKey,
+				"projects/Rig/_project.json",
+				"projects/Rig (1)/_project.json",
+			),
+			Entry(
+				"a waiting project with the higher key",
+				createRig,
+				highKey,
+				lowKey,
 				"projects/Rig/_project.json",
 				"projects/Rig (1)/_project.json",
 			),

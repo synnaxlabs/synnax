@@ -12,6 +12,7 @@ package vcs
 import (
 	"cmp"
 	"context"
+	"math"
 	"path"
 	"slices"
 	"strings"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -246,8 +246,8 @@ func (s *Service) resolvePull(p *planned) error {
 
 // replay commits the changes of each commit from base to head that waits for a push
 // onto onto, oldest first, and returns the new tip. It leaves out the resources in skip
-// and every commit that changes nothing. A waiting resource that would take the file of
-// an incoming one moves to a numbered name.
+// and every commit that changes nothing. It names the files as an export does, so two
+// resources with one name get their numbered names in the same order.
 func (s *Service) replay(
 	head, onto plumbing.Hash,
 	skip set.Set[resource.ID],
@@ -258,7 +258,6 @@ func (s *Service) replay(
 	}
 	slices.Reverse(waiting)
 	tip := onto
-	m := moves{}
 	for _, c := range waiting {
 		changes, err := s.repo.changesOf(c.Hash)
 		if err != nil {
@@ -282,11 +281,7 @@ func (s *Service) replay(
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
-		fs, err := patch(
-			tipTree,
-			relocate(tipTree, commitTree, selected, m),
-			selected,
-		)
+		fs, err := relayout(tipTree, commitTree, selected)
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
@@ -304,102 +299,108 @@ func (s *Service) replay(
 	return tip, nil
 }
 
-// moves maps the paths of waiting commits to the free paths that replay gave them. A
-// key that ends in a slash moves a folder and the files in it.
-type moves map[string]string
-
-// to returns the path that p moved to, or p.
-func (m moves) to(p string) string {
-	if to, ok := m[p]; ok {
-		return to
-	}
-	from := ""
-	for k := range m {
-		if strings.HasSuffix(k, "/") && strings.HasPrefix(p, k) && len(k) > len(from) {
-			from = k
-		}
-	}
-	if from == "" {
-		return p
-	}
-	return m[from] + strings.TrimPrefix(p, from)
-}
-
-// relocate returns the selected resources of work at their paths in m. It first adds a
-// move to m for each one that would take a file of a resource that base keeps.
-func relocate(base, work *tree, selected []resource.ID, m moves) *tree {
+// relayout returns the resources of base that are not selected and the selected
+// resources of work, at the paths that an export of them gives, with the generated
+// files of work. A file keeps its path when no folder in its tree holds it.
+func relayout(base, work *tree, selected []resource.ID) (files, error) {
 	chosen := set.New(selected...)
-	occupied := set.New[string]()
+	type placed struct {
+		src *tree
+		it  *item
+	}
+	var all []placed
 	for id, it := range base.items {
 		if !chosen.Contains(id) {
-			for _, p := range it.paths {
-				occupied.Add(filename.Fold(p))
+			all = append(all, placed{src: base, it: it})
+		}
+	}
+	for _, id := range selected {
+		if it, ok := work.items[id]; ok {
+			all = append(all, placed{src: work, it: it})
+		}
+	}
+	// A folder joins the layout before the folders and files in it.
+	depth := func(p placed) int {
+		if _, ok := recordDir(p.it.main()); ok {
+			return strings.Count(p.it.main(), "/")
+		}
+		return math.MaxInt
+	}
+	slices.SortFunc(all, func(a, b placed) int {
+		return cmp.Or(
+			cmp.Compare(depth(a), depth(b)),
+			cmp.Compare(a.it.main(), b.it.main()),
+		)
+	})
+	l := newLayout()
+	roots := map[string]*node{}
+	for _, r := range []string{
+		channelsRoot, tasksRoot, arcRoot, symbolsRoot, groupsRoot, projectsRoot,
+	} {
+		roots[r] = &node{name: r, claimed: r, folder: true}
+	}
+	folderIDs := map[*tree]map[string]resource.ID{base: {}, work: {}}
+	for t, ids := range folderIDs {
+		for id, it := range t.items {
+			if dir, ok := recordDir(it.main()); ok {
+				ids[dir] = id
 			}
 		}
 	}
-	var items []*item
-	for _, id := range selected {
-		if it, ok := work.items[id]; ok {
-			items = append(items, it)
+	folders := map[resource.ID]*node{}
+	parentOf := func(t *tree, dir string) (*node, bool) {
+		if r, ok := roots[dir]; ok {
+			return r, true
+		}
+		n, ok := folders[folderIDs[t][dir]]
+		return n, ok
+	}
+	out := files{}
+	records := map[*node]placed{}
+	for _, p := range all {
+		main := p.it.main()
+		if dir, ok := recordDir(main); ok {
+			if parent, ok := parentOf(p.src, path.Dir(dir)); ok {
+				n := l.folder(parent, p.it.name, p.it.id.Key, path.Base(main))
+				folders[p.it.id] = n
+				records[n] = p
+				continue
+			}
+		} else if parent, ok := parentOf(p.src, path.Dir(main)); ok {
+			fs := files{}
+			for _, f := range p.it.paths {
+				fs[extOf(p.it.id, f)] = p.src.raw[f]
+			}
+			l.file(parent, p.it.id, p.it.name, extOf(p.it.id, main), fs)
+			continue
+		}
+		for _, f := range p.it.paths {
+			out[f] = p.src.raw[f]
 		}
 	}
-	// A folder moves before the files in it.
-	slices.SortFunc(items, func(a, b *item) int {
-		_, aFolder := folderOf(a.main())
-		_, bFolder := folderOf(b.main())
-		if aFolder != bFolder {
-			return lo.Ternary(aFolder, -1, 1)
+	for _, r := range roots {
+		if err := l.resolve(r); err != nil {
+			return nil, err
 		}
-		return cmp.Or(
-			cmp.Compare(strings.Count(a.main(), "/"), strings.Count(b.main(), "/")),
-			cmp.Compare(a.main(), b.main()),
-		)
-	})
-	out := newTree()
-	out.raw[readmePath] = work.raw[readmePath]
-	out.raw[manifestPath] = work.raw[manifestPath]
-	for _, it := range items {
-		if slices.ContainsFunc(it.paths, func(p string) bool {
-			return occupied.Contains(filename.Fold(m.to(p)))
-		}) {
-			m.move(it, occupied)
-		}
-		fs := files{}
-		for _, p := range it.paths {
-			to := m.to(p)
-			fs[to] = work.raw[p]
-			occupied.Add(filename.Fold(to))
-		}
-		out.add(it.id, it.name, fs)
 	}
-	return out
+	for n, p := range records {
+		out[path.Join(n.path(), n.record)] = p.src.raw[p.it.main()]
+	}
+	for _, n := range l.nodes {
+		dir := n.parent.path()
+		stem := strings.TrimSuffix(n.claimed, n.ext)
+		for ext, b := range n.files {
+			out[path.Join(dir, stem+ext)] = b
+		}
+	}
+	out[readmePath] = work.raw[readmePath]
+	out[manifestPath] = work.raw[manifestPath]
+	return out, nil
 }
 
-// move adds a move to m that gives it a numbered name that no path of occupied holds.
-// A project, group, or Arc directory moves with its folder.
-func (m moves) move(it *item, occupied set.Set[string]) {
-	main := m.to(it.main())
-	if dir, ok := folderOf(main); ok {
-		parent, name := path.Split(dir)
-		claimed := claim(entries(occupied, parent), name, "", []string{""})
-		m[path.Dir(it.main())+"/"] = parent + claimed + "/"
-		return
-	}
-	parent, name := path.Split(main)
-	ext := extOf(it.id, main)
-	exts := make([]string, len(it.paths))
-	for i, p := range it.paths {
-		exts[i] = extOf(it.id, p)
-	}
-	stem := strings.TrimSuffix(claim(entries(occupied, parent), name, ext, exts), ext)
-	for _, p := range it.paths {
-		m[p] = parent + stem + extOf(it.id, p)
-	}
-}
-
-// folderOf returns the folder of the resource whose own file sits at p, when the
-// resource is a folder.
-func folderOf(p string) (string, bool) {
+// recordDir returns the folder of a project, group, or Arc directory whose own file
+// sits at p.
+func recordDir(p string) (string, bool) {
 	switch path.Base(p) {
 	case projectFile, groupFile, directoryFile:
 		return path.Dir(p), true
@@ -414,20 +415,6 @@ func extOf(id resource.ID, p string) string {
 		return "." + string(id.Type) + jsonExt
 	}
 	return path.Ext(p)
-}
-
-// entries returns the folded names of the entries of the folder dir, which ends in a
-// slash, that the folded paths of occupied hold.
-func entries(occupied set.Set[string], dir string) set.Set[string] {
-	prefix := filename.Fold(dir)
-	out := set.New[string]()
-	for p := range occupied {
-		if rest, ok := strings.CutPrefix(p, prefix); ok {
-			first, _, _ := strings.Cut(rest, "/")
-			out.Add(first)
-		}
-	}
-	return out
 }
 
 func (s *Service) resolveRestore(p *planned) error {
