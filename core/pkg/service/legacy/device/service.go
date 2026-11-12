@@ -50,6 +50,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Rack *rack.Service
+	// References are the references that devices of one make hold in their properties.
+	//
+	// [OPTIONAL]
+	References []gorp.Reference[Key, Device]
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -64,6 +68,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.References = override.Slice(c.References, other.References)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -108,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:         cfg.DB,
 		Name:       tableName,
 		Indexes:    s.indexes.all(),
-		References: s.indexes.references(),
+		References: append(s.indexes.references(), cfg.References...),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -70,9 +69,10 @@ func (p Properties) validate() error {
 func connect(
 	ctx context.Context,
 	secrets *secret.Service,
+	snap gorp.Snapshot,
 	props Properties,
 ) (*grpc.ClientConn, error) {
-	values, err := secrets.Reveal(ctx, nil, props.APIKey)
+	values, err := secrets.Reveal(ctx, snap, props.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -125,37 +125,27 @@ func isLocal(uri string) bool {
 	return host == "localhost" || net.ParseIP(host).IsLoopback()
 }
 
-// SecretUses returns a secret.Finder that reports each Sift device that uses one of
-// the secrets.
-func SecretUses(devices *device.Service) secret.Finder {
-	return func(ctx context.Context, tx gorp.Tx, keys []secret.Key) ([]secret.Use, error) {
-		var devs []device.Device
-		if err := devices.NewRetrieve().
-			Where(device.MatchMakes(Make)).
-			Entries(&devs).
-			Exec(ctx, tx); err != nil {
-			return nil, err
-		}
-		wanted := set.New(keys...)
-		var uses []secret.Use
-		for _, dev := range devs {
-			var props Properties
-			if err := dev.Properties.Unmarshal(&props); err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"parsing properties of device %s",
-					dev.Name,
-				)
-			}
-			if !wanted.Contains(props.APIKey) {
-				continue
-			}
-			uses = append(uses, secret.Use{
-				Resource: device.OntologyID(dev.Key),
-				Name:     dev.Name,
-				Secret:   props.APIKey,
-			})
-		}
-		return uses, nil
-	}
+// APIKeyReference returns the reference from each Sift device to the secret that holds
+// its API key. Registered on the device table, it lists the device as a use of the
+// secret and stops the secret from being deleted while the device exists.
+func APIKeyReference() gorp.Reference[device.Key, device.Device] {
+	return gorp.NewKeyReference(
+		gorp.KeyReferenceConfig[device.Key, device.Device, secret.Key]{
+			Name:     "properties.api_key",
+			Table:    "secret",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(dev *device.Device) []secret.Key {
+				if dev.Make != Make {
+					return nil
+				}
+				var props Properties
+				if err := dev.Properties.Unmarshal(&props); err != nil ||
+					props.APIKey == uuid.Nil() {
+					return nil
+				}
+				return []secret.Key{props.APIKey}
+			},
+		},
+	)
 }
