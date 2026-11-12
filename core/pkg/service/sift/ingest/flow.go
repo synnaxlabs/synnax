@@ -118,6 +118,13 @@ func buildFlows(channels, indexes []channel.Channel) ([]flow, error) {
 }
 
 func validateChannel(ch channel.Channel) error {
+	if ch.IsCalculated() {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %s is calculated, and Sift can only take stored channels",
+			ch.Name,
+		)
+	}
 	if ch.Virtual {
 		return errors.Wrapf(
 			validate.ErrValidation,
