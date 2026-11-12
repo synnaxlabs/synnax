@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -56,6 +57,28 @@ func newStore(ctx SpecContext) *env {
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
 	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	return e
+}
+
+// device stands in for a record that uses a secret as its password.
+type device struct {
+	Key      string     `json:"key"      msgpack:"key"`
+	Password secret.Key `json:"password" msgpack:"password"`
+}
+
+func (d device) GorpKey() string { return d.Key }
+
+func (d device) EncodeOrc(w *orc.Writer) error {
+	w.String(d.Key)
+	w.Write(d.Password[:])
+	return nil
+}
+
+func (d *device) DecodeOrc(r *orc.Reader) (err error) {
+	if d.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(d.Password[:])
+	return err
 }
 
 func newEnv(ctx SpecContext) *env {
@@ -149,6 +172,44 @@ var _ = Describe("Service", func() {
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Routing key"))
 		})
+	})
+
+	Describe("Uses", func() {
+		It("Should return no uses for a secret that nothing references",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				s := e.createStored(ctx, "Password", "hunter2")
+				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).To(BeEmpty())
+			},
+		)
+		It("Should return each record that references the secret",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				s := e.createStored(ctx, "Password", "hunter2")
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, device]{
+					DB:   e.db,
+					Name: "device",
+					References: []gorp.Reference[string, device]{
+						gorp.NewKeyReference(
+							gorp.KeyReferenceConfig[string, device, secret.Key]{
+								Name:     "password",
+								Table:    "secret",
+								OnDelete: gorp.Restrict,
+								Kind:     gorp.Use,
+								Targets: func(d *device) []secret.Key {
+									return []secret.Key{d.Password}
+								},
+							},
+						),
+					},
+				}))
+				Expect(gorp.NewCreate[string, device]().
+					Entry(&device{Key: "d1", Password: s.Base().Key}).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).
+					To(Equal([]resource.ID{{Type: "device", Key: "d1"}}))
+			},
+		)
 	})
 
 	Describe("Changes", func() {

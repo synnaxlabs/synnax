@@ -33,6 +33,7 @@ export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/tab";
 export * from "@/feature/task/Toolbar";
+export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
 export * from "@/platform/task/external";
 

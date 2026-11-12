@@ -12,9 +12,8 @@ import { capture, fixtures } from "@/index";
 import { createKey, openCredentials } from "./common/credentials";
 
 /**
- * Docs `reference/enterprise/users` (Manage credentials): right-click a user in the
- * users toolbar and select Manage credentials, create an API key, then set a new
- * password.
+ * Docs `reference/enterprise/users` (Manage sign-in): right-click a user in the users
+ * toolbar and select Manage sign-in, create an API key, then set a new password.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([

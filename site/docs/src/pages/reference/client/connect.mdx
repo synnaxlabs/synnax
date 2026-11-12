@@ -117,8 +117,8 @@ user that owns the key. To get a key:
 - **Synnax Desktop** -> the TypeScript code in the **Connect from code** dialog holds a
   key. See [Connect to Synnax Desktop](#connect-to-synnax-desktop).
 - **A Core in Synnax Enterprise** -> in the Console, right-click a user in the users
-  toolbar and select **Manage credentials**. Enter a key name, then click **Create
-  key**. Copy the key at once: the Core does not show it again. See
+  toolbar and select **Manage sign-in**. Enter a key name, then click **Create key**.
+  Copy the key at once: the Core does not show it again. See
   [Users](/reference/enterprise/users).
 - **`sy login`** -> the command makes a key for you and saves it. See
   [Log in once with sy login](#log-in-once-with-sy-login).
@@ -202,8 +202,8 @@ The command saves the host, port, TLS setting, and CA certificate path in
 `~/.synnax/config.json`. It saves the API key in the keychain of your operating system,
 under the name `synnax.api_key`. It does not save your username or password, and it
 deletes a password that an older version saved. In the Console, the key shows in
-**Manage credentials** for your user. When the login fails, the command saves nothing.
-Run `sy login` again to change the values.
+**Manage sign-in** for your user. When the login fails, the command saves nothing. Run
+`sy login` again to change the values.
 
 With no saved login, `sy.Synnax()` connects to
 [Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
