@@ -18,7 +18,6 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
-import { enableEditing } from "@/platform/view/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const path = deep.path<z.infer<typeof schema>>();
@@ -49,9 +48,6 @@ const Fixture = ({ variant }: FixtureProps): ReactElement => {
 };
 Fixture.displayName = "Fixture";
 
-const removeButton = (): HTMLElement | null =>
-  screen.queryByRole("button", { name: "Remove Variants filter" });
-
 const renderFixture = async (variant?: status.Where["variant"]): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
   render(<Fixture variant={variant} />, { wrapper });
@@ -71,17 +67,8 @@ describe("Status.Filter.Chips", () => {
     expect(screen.getByText("is")).toBeTruthy();
   });
 
-  it("should withhold the remove button until the view is editable", async () => {
-    await renderFixture({ in: ["error"] });
-    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
-    expect(removeButton()).toBeNull();
-    await enableEditing();
-    await waitFor(() => expect(removeButton()).not.toBeNull());
-  });
-
   it("should drop the variant line when the chip is removed", async () => {
     await renderFixture({ in: ["error", "success"] });
-    await enableEditing();
     fireEvent.click(
       await screen.findByRole("button", { name: "Remove Variants filter" }),
     );

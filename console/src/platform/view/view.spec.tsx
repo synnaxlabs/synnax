@@ -21,7 +21,6 @@ import { describe, expect, it } from "vitest";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
-import { enableEditing } from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -53,22 +52,14 @@ const Inner = (): ReactElement => {
         <View.FilterMenu>
           <Menu.Item itemKey="only">Filter Option</Menu.Item>
         </View.FilterMenu>
-        <View.Search />
       </View.Toolbar>
       <View.Items<ranger.Key>>{item}</View.Items>
     </View.Form>
   );
 };
 
-interface HarnessProps extends Pick<View.FrameProps, "searchInViews"> {}
-
-const Harness = ({ searchInViews }: HarnessProps): ReactElement => (
-  <View.Frame
-    resourceType="range"
-    icon="Range"
-    alwaysEditable={searchInViews}
-    searchInViews={searchInViews}
-  >
+const Harness = (): ReactElement => (
+  <View.Frame resourceType="range" icon="Range">
     <Inner />
   </View.Frame>
 );
@@ -87,14 +78,11 @@ const createView = async () =>
     type: "range",
   });
 
-const renderHarness = async (
-  as: Client = client,
-  props: HarnessProps = {},
-): Promise<void> => {
+const renderHarness = async (as: Client = client): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   render(
     <>
-      <Harness {...props} />
+      <Harness />
       <Modals.Stack />
     </>,
     { wrapper },
@@ -103,13 +91,14 @@ const renderHarness = async (
 
 /** Opens the create view modal. @returns its name input. */
 const openCreateModal = async (): Promise<HTMLInputElement> => {
-  await enableEditing();
-  const add = await waitFor(() =>
-    getIconButton(getBySelector(document.body, ".console-controls"), "add"),
-  );
+  const add = await waitFor(() => getIconButton(getViews(), "add"));
   fireEvent.click(add);
   return await screen.findByPlaceholderText<HTMLInputElement>("View name");
 };
+
+/** @returns the views bar of the frame. */
+const getViews = (): HTMLElement =>
+  getBySelector(document.body, ".console-view__views");
 
 /** @returns the Create button of the create view modal. */
 const getCreateButton = (): HTMLElement => {
@@ -130,20 +119,6 @@ const tabIcon = (name: string): SVGElement => {
 };
 
 describe("View", () => {
-  it("hides the search input until the view is made editable", async () => {
-    await renderHarness();
-    await waitFor(() => expect(screen.getByText("All ranges")).toBeTruthy());
-    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
-  });
-
-  it("renders the search input once editing is enabled", async () => {
-    await renderHarness();
-    await enableEditing();
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy(),
-    );
-  });
-
   it("filters the listed items down to those matching the search term", async () => {
     const start = TimeStamp.now();
     const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
@@ -156,10 +131,8 @@ describe("View", () => {
       timeRange,
     });
     await renderHarness();
-    await enableEditing();
-    const input = await waitFor(() =>
-      screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
-    );
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
     fireEvent.change(input, { target: { value: alpha.name } });
     await waitFor(() => {
       expect(screen.getByText(String(alpha.key))).toBeTruthy();
@@ -169,10 +142,8 @@ describe("View", () => {
 
   it("shows the empty state when the search matches no ranges", async () => {
     await renderHarness();
-    await enableEditing();
-    const input = await waitFor(() =>
-      screen.getByPlaceholderText<HTMLInputElement>("Search ranges..."),
-    );
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
     // Core search fuzzy-matches per token: dictionary-ish words ("no", "range") hit
     // real ranges, so the term must be pure gibberish.
     fireEvent.change(input, { target: { value: uniqueName("zzqjxvwq") } });
@@ -283,18 +254,16 @@ describe("View", () => {
     expect(screen.queryByText("Change icon")).toBeNull();
   });
 
-  it("leads the views with the search when the search sits in the views", async () => {
-    await renderHarness(client, { searchInViews: true });
+  it("leads the views with the search and ends them with the create button", async () => {
+    await renderHarness();
     const input = await screen.findByPlaceholderText("Search ranges...");
     expect(input.closest(".console-view__search")).not.toBeNull();
-    expect(screen.queryByLabelText("Enable editing")).toBeNull();
-    const views = getBySelector(document.body, ".console-view__views");
-    await waitFor(() => expect(queryIconButton(views, "add")).toBeTruthy());
+    await waitFor(() => expect(queryIconButton(getViews(), "add")).toBeTruthy());
   });
 
   it("clears the search term of the views bar when another view opens", async () => {
     const saved = await createView();
-    await renderHarness(client, { searchInViews: true });
+    await renderHarness();
     const input =
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
     fireEvent.change(input, { target: { value: "alpha" } });
@@ -308,7 +277,6 @@ describe("View", () => {
 
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
     await renderHarness();
-    await enableEditing();
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
     await waitFor(() => expect(screen.getByText("Filter Option")).toBeTruthy());
@@ -324,21 +292,15 @@ describe("View permissions", () => {
 
   it("should leave the view read-only for a subject who cannot update views", async () => {
     await renderHarness(await createSubject({}));
-    await enableEditing();
     await screen.findByText("All ranges");
     expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
-    expect(
-      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
-    ).toBeNull();
+    expect(queryIconButton(getViews(), "add")).toBeNull();
   });
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
     await renderHarness(await createSubject({ update: [view.TYPE_RESOURCE_ID] }));
-    await enableEditing();
     await screen.findByPlaceholderText("Search ranges...");
-    expect(
-      queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
-    ).toBeNull();
+    expect(queryIconButton(getViews(), "add")).toBeNull();
   });
 
   it("should withhold rename from a subject who cannot update views", async () => {
@@ -359,12 +321,7 @@ describe("View permissions", () => {
         create: [view.TYPE_RESOURCE_ID],
       }),
     );
-    await enableEditing();
-    await waitFor(() =>
-      expect(
-        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
-      ).toBeTruthy(),
-    );
+    await waitFor(() => expect(queryIconButton(getViews(), "add")).toBeTruthy());
   });
 
   describe("context menu", () => {
@@ -384,14 +341,9 @@ describe("View permissions", () => {
           create: [view.TYPE_RESOURCE_ID],
         }),
       );
-      await enableEditing();
       // The create button appearing proves the grant queries have answered, so the
       // missing delete item is the gate rather than a check still in flight.
-      await waitFor(() =>
-        expect(
-          queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
-        ).toBeTruthy(),
-      );
+      await waitFor(() => expect(queryIconButton(getViews(), "add")).toBeTruthy());
       await openContextMenu(name);
       expect(await screen.findByText("Rename")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();

@@ -30,8 +30,6 @@ export interface ContextValue {
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
-  /** True when the search leads the views bar, over a filter bar. */
-  searchInViews: boolean;
   /** The term the lists of every view are searched by. */
   searchTerm: string;
   setSearchTerm: (term: string) => void;

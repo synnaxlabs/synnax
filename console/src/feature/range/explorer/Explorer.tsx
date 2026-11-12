@@ -218,7 +218,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="range" icon="Range" alwaysEditable searchInViews>
+  <View.Frame resourceType="range" icon="Range">
     <Internal />
   </View.Frame>
 );

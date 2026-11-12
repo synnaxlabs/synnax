@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Modals } from "@/platform/modals";
-import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
+import { findToolbarIconButton } from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -48,7 +48,6 @@ describe("status explorer", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
     expect(await screen.findByText(s.name)).toBeTruthy();
@@ -66,7 +65,6 @@ describe("status explorer", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
     fireEvent.contextMenu(await screen.findByText(s.name));
@@ -102,14 +100,13 @@ describe("status explorer permissions", () => {
       </>,
       { wrapper },
     );
-    await enableEditing();
   };
 
   it("should withhold the create button from a subject who cannot create statuses", async () => {
     await renderExplorer(await createEditor());
     await waitFor(() =>
       expect(
-        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+        queryIconButton(getBySelector(document.body, ".console-view__views"), "add"),
       ).toBeTruthy(),
     );
     expect(

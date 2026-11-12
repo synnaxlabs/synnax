@@ -18,14 +18,14 @@ import { useContext } from "@/platform/view/context";
 export interface FilterMenuProps extends PropsWithChildren {}
 
 export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
-  const { editable, searchInViews } = useContext("View.FilterMenu");
+  const { editable } = useContext("View.FilterMenu");
   if (!editable) return null;
   return (
     <Dialog.Frame>
       <Dialog.Trigger
         hideCaret
         variant="text"
-        size={searchInViews ? "medium" : "small"}
+        size="medium"
         textColor={9}
         gap="small"
         tooltip="Filter"

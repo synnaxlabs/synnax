@@ -15,8 +15,8 @@ import { type ReactElement } from "react";
 import { useContext } from "@/platform/view/context";
 
 /** The search field of a frame, which holds the term. */
-export const SearchInput = (): ReactElement | null => {
-  const { editable, resourceType, searchInViews, searchTerm, setSearchTerm } =
+export const Search = (): ReactElement | null => {
+  const { editable, resourceType, searchTerm, setSearchTerm } =
     useContext("View.Search");
   if (!editable) return null;
   return (
@@ -26,7 +26,7 @@ export const SearchInput = (): ReactElement | null => {
       color={9}
       startContent={startContent}
       variant="text"
-      grow={searchInViews}
+      grow
       value={searchTerm}
       onChange={setSearchTerm}
       placeholder={`Search ${plural(resourceType)}...`}
@@ -35,12 +35,3 @@ export const SearchInput = (): ReactElement | null => {
 };
 
 const startContent = <Icon.Search color={9} />;
-
-/**
- * Searches the resources of the view, in place. It renders nothing when the frame leads
- * the views bar with the search.
- */
-export const Search = (): ReactElement | null => {
-  const { searchInViews } = useContext("View.Search");
-  return searchInViews ? null : <SearchInput />;
-};

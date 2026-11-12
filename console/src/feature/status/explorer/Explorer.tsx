@@ -10,6 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Flux } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
@@ -41,19 +42,21 @@ const Internal = () => {
   return (
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
-        <View.FilterMenu>
-          <Label.Filter.MenuItem />
-          <Status.Filter.MenuItem />
-        </View.FilterMenu>
-        <View.Search />
-        <Label.Filter.Chips />
-        <Status.Filter.Chips />
+        <Flex.Box x align="center" gap="small" grow wrap>
+          <View.FilterMenu>
+            <Label.Filter.MenuItem />
+            <Status.Filter.MenuItem />
+          </View.FilterMenu>
+          <Label.Filter.Chips />
+          <Status.Filter.Chips />
+        </Flex.Box>
         {hasCreatePermission && (
           <Button.Button
-            onClick={handleCreate}
-            tooltipLocation={location.BOTTOM_LEFT}
+            variant="outlined"
+            size="medium"
             tooltip="Create status"
-            variant="filled"
+            tooltipLocation={location.BOTTOM_LEFT}
+            onClick={handleCreate}
           >
             <Icon.Add />
           </Button.Button>

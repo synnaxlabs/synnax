@@ -17,20 +17,15 @@ import { useContext } from "@/platform/view/context";
 export interface ToolbarProps extends Flex.BoxProps {}
 
 export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => {
-  const { editable, searchInViews } = useContext("View.Toolbar");
+  const { editable } = useContext("View.Toolbar");
   if (!editable) return <Divider.Divider x />;
   return (
     <Flex.Box
       x
-      bordered={!searchInViews}
       background={1}
       justify="between"
       align="center"
-      className={CSS.cls(
-        CSS.BE("view", "toolbar"),
-        searchInViews && CSS.BEM("view", "toolbar", "island"),
-        className,
-      )}
+      className={CSS.cls(CSS.BE("view", "toolbar"), className)}
       {...rest}
     />
   );

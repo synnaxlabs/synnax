@@ -18,7 +18,6 @@ import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
-import { enableEditing } from "@/platform/view/testutil";
 import {
   awaitGranted,
   createConsoleWrapper,
@@ -49,9 +48,6 @@ const Fixture = ({ labels }: { labels?: label.Key[] }): ReactElement => {
   );
 };
 Fixture.displayName = "Fixture";
-
-const removeButton = (): HTMLElement | null =>
-  screen.queryByRole("button", { name: "Remove Labels filter" });
 
 const createLabels = async (count: number): Promise<label.Label[]> =>
   await Promise.all(
@@ -97,19 +93,9 @@ describe("Label.Filter.Chips", () => {
     await waitFor(() => expect(screen.getByText("3 labels")).toBeTruthy());
   });
 
-  it("should withhold the remove button until the view is editable", async () => {
-    const [only] = await createLabels(1);
-    await renderFixture([only.key]);
-    await waitFor(() => expect(screen.getByText(only.name)).toBeTruthy());
-    expect(removeButton()).toBeNull();
-    await enableEditing();
-    await waitFor(() => expect(removeButton()).not.toBeNull());
-  });
-
   it("should drop the labels line when the chip is removed", async () => {
     const [first, second] = await createLabels(2);
     await renderFixture([first.key, second.key]);
-    await enableEditing();
     fireEvent.click(
       await screen.findByRole("button", { name: "Remove Labels filter" }),
     );
