@@ -9,7 +9,7 @@
 
 import "@/feature/range/next/Filter.css";
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -194,7 +194,7 @@ const StagePicker = ({
           className={pickerClass(className)}
         >
           <Select.List>
-            {Ranger.STAGES.map((stage) => {
+            {ranger.STAGES.map((stage) => {
               const StageIcon = Ranger.STAGE_ICONS[stage];
               return (
                 <Select.Item<ranger.Stage> key={stage} itemKey={stage}>

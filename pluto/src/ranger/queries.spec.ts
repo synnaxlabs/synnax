@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -70,7 +70,7 @@ describe("queries", () => {
         now.sub(TimeSpan.HOUR),
       );
       const expected = { to_do: toDo, in_progress: inProgress, completed };
-      for (const stage of Ranger.STAGES) {
+      for (const stage of ranger.STAGES) {
         const where = { and: [{ labels: [lbl.key] }, Ranger.stageWhere(stage, now)] };
         const { result } = renderHook(
           () => Flux.useList((c) => c.ranges, { name: "ranges", query: { where } }),
