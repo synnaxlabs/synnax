@@ -122,28 +122,10 @@ func (s *Service) enforceOn(
 	})
 }
 
-// enforceRetrieve checks that the subject can retrieve each resource of ids, or of
-// every uncommitted change when ids is empty. A commit or snapshot sends their files
-// to the remote.
-func (s *Service) enforceRetrieve(ctx context.Context, ids []string) error {
-	if len(ids) == 0 {
-		st, err := s.cfg.VCS.Status(ctx)
-		if err != nil {
-			return err
-		}
-		for _, c := range st.Changes {
-			ids = append(ids, c.Resource)
-		}
-	}
-	objects := make([]resource.ID, 0, len(ids))
-	for _, r := range ids {
-		id, err := resource.ParseID(r)
-		if err != nil {
-			return err
-		}
-		objects = append(objects, id)
-	}
-	return s.enforceOn(ctx, access.ActionRetrieve, objects)
+// retrieve checks that the subject can retrieve each resource of ids. A commit or
+// snapshot sends their files to the remote.
+func (s *Service) retrieve(ctx context.Context, ids []resource.ID) error {
+	return s.enforceOn(ctx, access.ActionRetrieve, ids)
 }
 
 // write runs apply in a transaction that checks access on each change, as bind.Write
@@ -341,9 +323,6 @@ func (s *Service) Commit(
 	if err := s.enforce(ctx, access.ActionUpdate); err != nil {
 		return CommitResponse{}, err
 	}
-	if err := s.enforceRetrieve(ctx, req.Resources); err != nil {
-		return CommitResponse{}, err
-	}
 	author, err := s.author(ctx)
 	if err != nil {
 		return CommitResponse{}, err
@@ -353,7 +332,7 @@ func (s *Service) Commit(
 		Resources:   req.Resources,
 		PullRequest: req.PullRequest,
 		Author:      author,
-	})
+	}, s.retrieve)
 	if err != nil {
 		return CommitResponse{}, err
 	}
@@ -409,7 +388,11 @@ func (s *Service) Files(ctx context.Context, req FilesRequest) (FilesResponse, e
 	if err := s.enforce(ctx, access.ActionRetrieve); err != nil {
 		return FilesResponse{}, err
 	}
-	if err := s.enforceRetrieve(ctx, []string{req.Resource}); err != nil {
+	id, err := resource.ParseID(req.Resource)
+	if err != nil {
+		return FilesResponse{}, err
+	}
+	if err = s.retrieve(ctx, []resource.ID{id}); err != nil {
 		return FilesResponse{}, err
 	}
 	fs, err := s.cfg.VCS.Files(ctx, req.Rev, req.Resource)
@@ -479,14 +462,11 @@ func (s *Service) Snapshot(
 	if err := s.enforce(ctx, access.ActionCreate); err != nil {
 		return SnapshotResponse{}, err
 	}
-	if err := s.enforceRetrieve(ctx, nil); err != nil {
-		return SnapshotResponse{}, err
-	}
 	author, err := s.author(ctx)
 	if err != nil {
 		return SnapshotResponse{}, err
 	}
-	snap, err := s.cfg.VCS.Snapshot(ctx, req.Range, author)
+	snap, err := s.cfg.VCS.Snapshot(ctx, req.Range, author, s.retrieve)
 	return SnapshotResponse{Snapshot: snap}, err
 }
 

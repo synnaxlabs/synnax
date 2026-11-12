@@ -418,8 +418,9 @@ func (r *repo) setRemote(url string) error {
 	return err
 }
 
-// fetch updates the remote branches and range tags. An empty remote is no error.
-func (r *repo) fetch(ctx context.Context, rm remote) error {
+// fetch updates the remote branches and range tags. With pruneTags, it also deletes
+// each range tag that the remote no longer has. An empty remote is no error.
+func (r *repo) fetch(ctx context.Context, rm remote, pruneTags bool) error {
 	if err := r.fetchRefs(
 		ctx,
 		rm,
@@ -428,13 +429,28 @@ func (r *repo) fetch(ctx context.Context, rm remote) error {
 	); err != nil {
 		return err
 	}
-	// A prune would delete each snapshot tag that still waits for its push.
 	return r.fetchRefs(
 		ctx,
 		rm,
-		false,
+		pruneTags,
 		"+refs/tags/"+tagPrefix+"*:refs/tags/"+tagPrefix+"*",
 	)
+}
+
+// rangeTags returns the names of the range tags.
+func (r *repo) rangeTags() ([]string, error) {
+	refs, err := r.git.Tags()
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if name := ref.Name().Short(); strings.HasPrefix(name, tagPrefix) {
+			names = append(names, name)
+		}
+		return nil
+	})
+	return names, err
 }
 
 func (r *repo) fetchRefs(
@@ -475,16 +491,20 @@ func (r *repo) push(ctx context.Context, rm remote, name string) error {
 	return r.setRef(remoteRef(name), h)
 }
 
-// pushTags sends every range tag to the remote.
-func (r *repo) pushTags(ctx context.Context, rm remote) error {
+// pushTags sends the tags with names to the remote.
+func (r *repo) pushTags(ctx context.Context, rm remote, names []string) error {
+	// With no refspecs, go-git pushes the branches instead.
+	if len(names) == 0 {
+		return nil
+	}
+	specs := make([]gitconfig.RefSpec, len(names))
+	for i, name := range names {
+		specs[i] = gitconfig.RefSpec("refs/tags/" + name + ":refs/tags/" + name)
+	}
 	err := r.git.PushContext(ctx, &git.PushOptions{
 		RemoteName: remoteName,
-		RefSpecs: []gitconfig.RefSpec{
-			gitconfig.RefSpec(
-				"refs/tags/" + tagPrefix + "*:refs/tags/" + tagPrefix + "*",
-			),
-		},
-		Auth: rm.auth(),
+		RefSpecs:   specs,
+		Auth:       rm.auth(),
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return explain(err)

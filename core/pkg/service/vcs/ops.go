@@ -71,11 +71,23 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 	if req.Token != "" {
 		conn.Token = req.Token
 	}
+	if conn.RemoteURL != s.conn.RemoteURL {
+		// A new remote lacks the snapshots of the Core.
+		tags, err := s.repo.rangeTags()
+		if err != nil {
+			return Status{}, err
+		}
+		conn.WaitingTags = tags
+		if conn.RemoteURL == "" {
+			conn.WaitingTags = nil
+		}
+	}
 	if err := s.repo.setRemote(conn.RemoteURL); err != nil {
 		return Status{}, err
 	}
 	if conn.RemoteURL != "" {
-		if err := s.repo.fetch(ctx, conn.remote()); err != nil {
+		pruneTags := len(conn.WaitingTags) == 0
+		if err := s.repo.fetch(ctx, conn.remote(), pruneTags); err != nil {
 			return Status{}, errors.Combine(err, s.repo.setRemote(s.conn.RemoteURL))
 		}
 		s.fetchedAt = telem.Now()
@@ -88,6 +100,9 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 	if err := s.startTracking(ctx, req.Author); err != nil {
 		s.cache(nil)
 		return Status{}, err
+	}
+	if len(s.conn.WaitingTags) > 0 {
+		s.pushTags(ctx)
 	}
 	return s.recompute(ctx)
 }
@@ -186,6 +201,7 @@ type CommitRequest struct {
 func (s *Service) Commit(
 	ctx context.Context,
 	req CommitRequest,
+	check Check,
 ) (Commit, string, error) {
 	if strings.TrimSpace(req.Message) == "" {
 		return Commit{}, "", errors.Wrap(validate.ErrValidation, "message: required")
@@ -205,6 +221,9 @@ func (s *Service) Commit(
 	}
 	selected, err := selectChanges(work.diff(headTree), req.Resources)
 	if err != nil {
+		return Commit{}, "", err
+	}
+	if err = check(ctx, selected); err != nil {
 		return Commit{}, "", err
 	}
 	parent, base := head, headTree
@@ -779,6 +798,7 @@ func (s *Service) Snapshot(
 	ctx context.Context,
 	rangeKey string,
 	author Author,
+	check Check,
 ) (Snapshot, error) {
 	if rangeKey == "" || strings.Contains(rangeKey, "/") {
 		return Snapshot{}, errors.Wrap(validate.ErrValidation, "range: required")
@@ -796,7 +816,19 @@ func (s *Service) Snapshot(
 	if err != nil {
 		return Snapshot{}, err
 	}
-	uncommitted := len(work.diff(headTree))
+	changes := work.diff(headTree)
+	ids := make([]resource.ID, 0, len(changes))
+	for _, c := range changes {
+		id, err := resource.ParseID(c.Resource)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		ids = append(ids, id)
+	}
+	if err = check(ctx, ids); err != nil {
+		return Snapshot{}, err
+	}
+	uncommitted := len(changes)
 	target := head
 	if uncommitted > 0 || head.IsZero() {
 		if target, err = s.repo.commit(
@@ -818,7 +850,12 @@ func (s *Service) Snapshot(
 		return Snapshot{}, err
 	}
 	if s.conn.RemoteURL != "" {
-		s.tagsWaiting = true
+		conn := s.conn
+		conn.WaitingTags = append(slices.Clone(conn.WaitingTags), name)
+		if err = writeConnection(s.dir, conn); err != nil {
+			return Snapshot{}, err
+		}
+		s.conn = conn
 		s.pushTags(ctx)
 		s.refresh(ctx)
 	}

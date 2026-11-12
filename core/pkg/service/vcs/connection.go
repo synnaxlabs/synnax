@@ -32,6 +32,8 @@ type connection struct {
 	RemoteURL     string       `json:"remote_url"`
 	Token         string       `json:"token"`
 	Reviews       []openReview `json:"reviews"`
+	// WaitingTags are the snapshot tags that wait for a push.
+	WaitingTags []string `json:"waiting_tags"`
 }
 
 func (c connection) remote() remote { return remote{url: c.RemoteURL, token: c.Token} }

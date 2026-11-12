@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -209,6 +210,10 @@ func (c Config) Validate() error {
 // checks access on what the transaction changed.
 type Write func(ctx context.Context, apply func(context.Context, gorp.Tx) error) error
 
+// Check returns an error when the caller may not send the resources of ids to the
+// remote. The API passes a Check that enforces retrieve on each resource.
+type Check func(ctx context.Context, ids []resource.ID) error
+
 // Service keeps the configuration of the Core in a Git repository. It is safe for
 // concurrent use: it runs one operation at a time.
 type Service struct {
@@ -216,14 +221,12 @@ type Service struct {
 	dir string
 	// temp is true when the Service made dir and removes it on Close.
 	temp bool
-	// mu guards repo, conn, fetchedAt, lastErr, and tagsWaiting.
+	// mu guards repo, conn, fetchedAt, and lastErr.
 	mu        sync.Mutex
 	repo      *repo
 	conn      connection
 	fetchedAt telem.TimeStamp
 	lastErr   string
-	// tagsWaiting is true while a snapshot tag waits for a push.
-	tagsWaiting bool
 	// statusMu guards status, so Status does not wait for a running fetch.
 	statusMu sync.RWMutex
 	status   *Status
@@ -355,14 +358,18 @@ func (s *Service) requireEnabled() error {
 // fetch fetches the remote, then pushes the commits and snapshot tags that an earlier
 // push left waiting. It records the outcome in the status.
 func (s *Service) fetch(ctx context.Context) {
-	if err := s.repo.fetch(ctx, s.conn.remote()); err != nil {
+	if len(s.conn.WaitingTags) > 0 {
+		s.pushTags(ctx)
+	}
+	// A prune would delete each snapshot tag that still waits for its push.
+	pruneTags := len(s.conn.WaitingTags) == 0
+	if err := s.repo.fetch(ctx, s.conn.remote(), pruneTags); err != nil {
 		s.fail("fetch", err)
 		return
 	}
 	s.fetchedAt = telem.Now()
-	s.lastErr = ""
-	if s.tagsWaiting {
-		s.pushTags(ctx)
+	if pruneTags {
+		s.lastErr = ""
 	}
 	head, _, err := s.repo.ref(branchRef(s.conn.Configuration))
 	if err != nil {
@@ -385,13 +392,20 @@ func (s *Service) fetch(ctx context.Context) {
 	}
 }
 
-// pushTags pushes the snapshot tags and records a failure in the status.
+// pushTags pushes the snapshot tags that wait for a push and records a failure in the
+// status.
 func (s *Service) pushTags(ctx context.Context) {
-	if err := s.repo.pushTags(ctx, s.conn.remote()); err != nil {
+	if err := s.repo.pushTags(ctx, s.conn.remote(), s.conn.WaitingTags); err != nil {
 		s.fail("push", err)
 		return
 	}
-	s.tagsWaiting = false
+	conn := s.conn
+	conn.WaitingTags = nil
+	if err := writeConnection(s.dir, conn); err != nil {
+		s.fail("push", err)
+		return
+	}
+	s.conn = conn
 }
 
 // push pushes the tracked configuration and records a failure in the status. A failed

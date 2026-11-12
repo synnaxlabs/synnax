@@ -11,6 +11,7 @@ package vcs_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
@@ -36,12 +37,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -49,11 +53,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/vcs"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -61,6 +67,9 @@ import (
 )
 
 var ada = vcs.Author{Name: "Ada", Email: "ada@synnax.local"}
+
+// allow lets a commit or snapshot send every resource.
+func allow(context.Context, []resource.ID) error { return nil }
 
 var _ = Describe("VCS", func() {
 	var (
@@ -162,7 +171,7 @@ var _ = Describe("VCS", func() {
 			Message:   message,
 			Resources: resources,
 			Author:    ada,
-		}))
+		}, allow))
 		Expect(url).To(BeEmpty())
 		return c
 	}
@@ -172,20 +181,17 @@ var _ = Describe("VCS", func() {
 		return MustSucceed(svc.Files(ctx, vcs.RevWorking, ""))
 	}
 
-	// pushFromElsewhere commits a rename of the file at from to to on the remote, the
-	// way another Core would.
-	pushFromElsewhere := func(from, to string, edit func([]byte) []byte) {
+	// pushElsewhere commits the edit of a clone of the remote and pushes it, the way
+	// another Core would.
+	pushElsewhere := func(edit func(dir string, wt *git.Worktree)) {
 		GinkgoHelper()
 		dir := GinkgoT().TempDir()
 		r := MustSucceed(git.PlainClone(dir, false, &git.CloneOptions{
 			URL:           remoteURL,
 			ReferenceName: plumbing.NewBranchReferenceName("main"),
 		}))
-		b := MustSucceed(os.ReadFile(filepath.Join(dir, from)))
 		wt := MustSucceed(r.Worktree())
-		MustSucceed(wt.Remove(from))
-		Expect(os.WriteFile(filepath.Join(dir, to), edit(b), 0o644)).To(Succeed())
-		MustSucceed(wt.Add(to))
+		edit(dir, wt)
 		MustSucceed(wt.Commit("Edit from another Core", &git.CommitOptions{
 			Author: &object.Signature{
 				Name:  "Bob",
@@ -194,6 +200,17 @@ var _ = Describe("VCS", func() {
 			},
 		}))
 		Expect(r.Push(&git.PushOptions{})).To(Succeed())
+	}
+
+	// pushFromElsewhere pushes a rename of the file at from to to with the edit.
+	pushFromElsewhere := func(from, to string, edit func([]byte) []byte) {
+		GinkgoHelper()
+		pushElsewhere(func(dir string, wt *git.Worktree) {
+			b := MustSucceed(os.ReadFile(filepath.Join(dir, from)))
+			MustSucceed(wt.Remove(from))
+			Expect(os.WriteFile(filepath.Join(dir, to), edit(b), 0o644)).To(Succeed())
+			MustSucceed(wt.Add(to))
+		})
 	}
 
 	BeforeEach(func(ctx SpecContext) {
@@ -247,7 +264,7 @@ var _ = Describe("VCS", func() {
 		It("Should name the project that holds each change", func(ctx SpecContext) {
 			connect(ctx, "")
 			s := createSchematic(ctx, "Valves")
-			other := project.Project{Name: "Test Stand"}
+			other := project.Project{Name: "Rig 2"}
 			tx(ctx, func(tx gorp.Tx) error {
 				return layer.Project.NewWriter(tx).Create(ctx, &other)
 			})
@@ -406,6 +423,33 @@ var _ = Describe("VCS", func() {
 			Expect(ref.Hash().String()).To(Equal(c.Hash))
 		})
 
+		It("Should check each resource that it sends", func(ctx SpecContext) {
+			connect(ctx, "")
+			s := createSchematic(ctx, "Valves")
+			errDenied := errors.New("denied")
+			var checked []resource.ID
+			refuse := func(_ context.Context, ids []resource.ID) error {
+				checked = ids
+				return errDenied
+			}
+			Expect(svc.Commit(
+				ctx,
+				vcs.CommitRequest{Message: "Add the valves", Author: ada},
+				refuse,
+			)).Error().To(MatchError(errDenied))
+			Expect(checked).To(ConsistOf(s.ResourceID()))
+			checked = nil
+			rng := uuid.New().String()
+			Expect(
+				svc.Snapshot(ctx, rng, ada, refuse),
+			).Error().
+				To(MatchError(errDenied))
+			Expect(checked).To(ConsistOf(s.ResourceID()))
+			Expect(MustSucceed(svc.Snapshots(ctx, rng))).To(BeEmpty())
+			Expect(MustSucceed(svc.Status(ctx)).Head.Message).
+				To(Equal("Start version control"))
+		})
+
 		It("Should reject a resource with no change", func(ctx SpecContext) {
 			s := createSchematic(ctx, "A")
 			connect(ctx, "")
@@ -413,7 +457,7 @@ var _ = Describe("VCS", func() {
 				Message:   "Nothing",
 				Resources: []string{s.ResourceID().String()},
 				Author:    ada,
-			})).Error().To(MatchError(ContainSubstring("has no change")))
+			}, allow)).Error().To(MatchError(ContainSubstring("has no change")))
 		})
 
 		It("Should list commits newest first, by resource", func(ctx SpecContext) {
@@ -473,7 +517,7 @@ var _ = Describe("VCS", func() {
 					Message:     "Add the valves",
 					PullRequest: true,
 					Author:      ada,
-				}))
+				}, allow))
 				Expect(url).To(Equal("https://github.com/x/remote/pull/7"))
 				Expect(path).To(HaveSuffix("/remote/pulls"))
 				Expect(auth).To(Equal("Bearer secret"))
@@ -700,6 +744,134 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		It("Should push a waiting snapshot tag after a restart", func(ctx SpecContext) {
+			connect(ctx, remoteURL)
+			away := remoteDir + ".away"
+			Expect(os.Rename(remoteDir, away)).To(Succeed())
+			snap := MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada, allow))
+			Expect(os.Rename(away, remoteDir)).To(Succeed())
+			restarted := openService(ctx, dataDir)
+			Expect(MustSucceed(restarted.Fetch(ctx)).Error).To(BeEmpty())
+			remote := MustSucceed(git.PlainOpen(remoteDir))
+			MustSucceed(remote.Reference(plumbing.NewTagReferenceName(snap.Tag), true))
+		})
+
+		It(
+			"Should put the live configuration back when the repository cannot follow",
+			func(ctx SpecContext) {
+				s := createSchematic(ctx, "Valves")
+				connect(ctx, remoteURL)
+				pushFromElsewhere(
+					"projects/Test Stand/Valves.schematic.json",
+					"projects/Test Stand/Remote.schematic.json",
+					func(b []byte) []byte {
+						return bytes.Replace(
+							b,
+							[]byte(`"Valves"`),
+							[]byte(`"Remote"`),
+							1,
+						)
+					},
+				)
+				MustSucceed(svc.Fetch(ctx))
+				heads := filepath.Join(dataDir, "vcs", "repo", "refs", "heads")
+				Expect(os.Chmod(filepath.Join(heads, "main"), 0o444)).To(Succeed())
+				Expect(os.Chmod(heads, 0o555)).To(Succeed())
+				DeferCleanup(func() {
+					Expect(os.Chmod(heads, 0o755)).To(Succeed())
+					Expect(os.Chmod(filepath.Join(heads, "main"), 0o644)).To(Succeed())
+				})
+				Expect(svc.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetPull},
+					nil,
+					svc.DefaultWrite,
+				)).Error().To(MatchError(os.ErrPermission))
+				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
+			},
+		)
+
+		It(
+			"Should start a stopped task again when the write fails",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "Driver"}
+				t := task.Task{
+					Name:   "Alerts",
+					Type:   pagerduty.AlertTaskType,
+					Config: msgpack.EncodedJSON{"routing_key": "rk"},
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					if err := layer.Rack.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return layer.Task.NewWriter(tx).Create(ctx, &t)
+				})
+				running := task.Status{
+					Owner:   new(t.ResourceID()),
+					Variant: status.VariantSuccess,
+					Message: "Running",
+					Time:    telem.Now(),
+					Details: task.StatusDetails{Running: true},
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Status.NewWriter(tx).Set(ctx, &running)
+				})
+				connect(ctx, remoteURL)
+				pushElsewhere(func(_ string, wt *git.Worktree) {
+					MustSucceed(wt.Remove("tasks/Alerts.json"))
+				})
+				MustSucceed(svc.Fetch(ctx))
+				streamer := MustSucceed(
+					layer.Framer.NewStreamer(ctx, framer.StreamerConfig{
+						Keys:        channel.Keys{layer.Task.CommandChannelKey()},
+						SendOpenAck: true,
+					}),
+				)
+				requests, responses := confluence.Attach(streamer, 4)
+				sCtx, cancel := signal.Isolated()
+				closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+				DeferCleanup(func() {
+					requests.Close()
+					confluence.Drain(responses)
+					Expect(closeStreamer.Close()).To(Succeed())
+				})
+				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Eventually(responses.Outlet()).Should(Receive())
+				stopper := MustSucceed(task.NewStopper(task.StopperConfig{
+					DB:      db,
+					Task:    layer.Task,
+					Status:  layer.Status,
+					Framer:  layer.Framer,
+					Timeout: 50 * time.Millisecond,
+				}))
+				quick := openService(ctx, dataDir, vcs.Config{TaskStopper: stopper})
+				errWrite := errors.New("write failed")
+				failing := func(context.Context, func(context.Context, gorp.Tx) error) error {
+					return errWrite
+				}
+				Expect(
+					quick.Apply(ctx, vcs.Target{Kind: vcs.TargetPull}, nil, failing),
+				).
+					Error().
+					To(MatchError(errWrite))
+				var sent []string
+				Eventually(func(g Gomega) {
+					var res framer.StreamerResponse
+					g.Expect(responses.Outlet()).To(Receive(&res))
+					cmds := MustSucceed(
+						res.Frame.SeriesAt(0).DecodeJSON[task.Command](),
+					)
+					for _, c := range cmds {
+						g.Expect(c.Task).To(Equal(t.Key))
+						sent = append(sent, c.Type)
+					}
+					g.Expect(sent).To(ContainElement("start"))
+				}).Should(Succeed())
+				Expect(sent).To(Equal([]string{"stop", "start"}))
+			},
+		)
+
 		It(
 			"Should push a waiting commit and snapshot tag on the next fetch",
 			func(ctx SpecContext) {
@@ -708,7 +880,7 @@ var _ = Describe("VCS", func() {
 				Expect(os.Rename(remoteDir, away)).To(Succeed())
 				createSchematic(ctx, "Valves")
 				c := commit(ctx, "Add valves")
-				snap := MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada))
+				snap := MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada, allow))
 				st := MustSucceed(svc.Status(ctx))
 				Expect(st.Waiting).To(Equal(1))
 				Expect(st.Error).ToNot(BeEmpty())
@@ -952,6 +1124,28 @@ var _ = Describe("VCS", func() {
 			Entry("a trailing dot", "v1."),
 		)
 
+		It(
+			"Should refuse a load whose configuration moved after the plan",
+			func(ctx SpecContext) {
+				s := createSchematic(ctx, "Valves")
+				connect(ctx, "")
+				MustSucceed(svc.Clone(ctx, "stand-2"))
+				main := vcs.Target{Kind: vcs.TargetLoad, Configuration: "main"}
+				plan := MustSucceed(svc.Plan(ctx, main))
+				MustSucceed(svc.Apply(ctx, main, nil, svc.DefaultWrite))
+				renameSchematic(ctx, s.Key, "Main valves")
+				commit(ctx, "Rename on main")
+				MustSucceed(svc.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetLoad, Configuration: "stand-2"},
+					nil,
+					svc.DefaultWrite,
+				))
+				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite)).
+					Error().To(MatchError(vcs.ErrMoved))
+			},
+		)
+
 		It("Should reject a clone onto a taken name", func(ctx SpecContext) {
 			connect(ctx, "")
 			Expect(
@@ -962,17 +1156,29 @@ var _ = Describe("VCS", func() {
 	})
 
 	Describe("Snapshot", func() {
+		It("Should drop a snapshot tag that the remote deleted", func(ctx SpecContext) {
+			connect(ctx, remoteURL)
+			rng := uuid.New().String()
+			deleted := MustSucceed(svc.Snapshot(ctx, rng, ada, allow))
+			remote := MustSucceed(git.PlainOpen(remoteDir))
+			Expect(remote.DeleteTag(deleted.Tag)).To(Succeed())
+			MustSucceed(svc.Fetch(ctx))
+			Expect(MustSucceed(svc.Snapshots(ctx, rng))).To(BeEmpty())
+			MustSucceed(svc.Snapshot(ctx, uuid.New().String(), ada, allow))
+			Expect(remote.Tag(deleted.Tag)).Error().To(MatchError(git.ErrTagNotFound))
+		})
+
 		It("Should tag the live configuration for a range", func(ctx SpecContext) {
 			createSchematic(ctx, "Valves")
 			head := connect(ctx, remoteURL).Head
 			rng := uuid.New().String()
-			clean := MustSucceed(svc.Snapshot(ctx, rng, ada))
+			clean := MustSucceed(svc.Snapshot(ctx, rng, ada, allow))
 			Expect(clean.Commit.Hash).To(Equal(head.Hash))
 			Expect(clean.Uncommitted).To(BeZero())
 			Expect(clean.Tag).To(HavePrefix("range/" + rng + "/"))
 			createSchematic(ctx, "Pumps")
 			time.Sleep(2 * time.Millisecond)
-			dirty := MustSucceed(svc.Snapshot(ctx, rng, ada))
+			dirty := MustSucceed(svc.Snapshot(ctx, rng, ada, allow))
 			Expect(dirty.Commit.Hash).ToNot(Equal(head.Hash))
 			Expect(dirty.Uncommitted).To(Equal(1))
 			snaps := MustSucceed(svc.Snapshots(ctx, rng))
@@ -991,7 +1197,7 @@ var _ = Describe("VCS", func() {
 		It("Should skip range tags that no Core made", func(ctx SpecContext) {
 			head := connect(ctx, "").Head
 			rng := uuid.New().String()
-			snap := MustSucceed(svc.Snapshot(ctx, rng, ada))
+			snap := MustSucceed(svc.Snapshot(ctx, rng, ada, allow))
 			r := MustSucceed(git.PlainOpen(filepath.Join(dataDir, "vcs", "repo")))
 			hash := plumbing.NewHash(head.Hash)
 			MustSucceed(r.CreateTag("range/"+rng+"/1", hash, nil))

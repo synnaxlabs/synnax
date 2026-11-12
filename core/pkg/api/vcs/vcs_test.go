@@ -199,23 +199,6 @@ var _ = Describe("Access", func() {
 		)
 	})
 
-	Describe("Commit of named resources", func() {
-		It("Should check retrieve on each named resource", func(ctx SpecContext) {
-			u := shared.createUser(ctx)
-			shared.grant(ctx, u, access.ActionUpdate, vcs.ResourceID)
-			res := schematic.ResourceID(uuid.New())
-			req := apivcs.CommitRequest{
-				Message:   "Commit",
-				Resources: []string{res.String()},
-			}
-			Expect(shared.api.Commit(AuthedCtx(ctx, u), req)).Error().
-				To(denied(u, access.ActionRetrieve, res))
-			shared.grant(ctx, u, access.ActionRetrieve, res)
-			Expect(shared.api.Commit(AuthedCtx(ctx, u), req)).Error().
-				To(MatchError(vcs.ErrNotStarted))
-		})
-	})
-
 	Describe("Uncommitted changes", func() {
 		var (
 			e   env
@@ -254,6 +237,35 @@ var _ = Describe("Access", func() {
 				e.grant(ctx, u, access.ActionRetrieve, sch.ResourceID())
 				res := MustSucceed(e.api.Commit(AuthedCtx(ctx, u), req))
 				Expect(res.Commit.Message).To(Equal("Add the valves"))
+			},
+		)
+
+		It("Should check retrieve on each named resource", func(ctx SpecContext) {
+			u := e.createUser(ctx)
+			e.grant(ctx, u, access.ActionUpdate, vcs.ResourceID)
+			req := apivcs.CommitRequest{
+				Message:   "Add the valves",
+				Resources: []string{sch.ResourceID().String()},
+			}
+			Expect(e.api.Commit(AuthedCtx(ctx, u), req)).Error().
+				To(denied(u, access.ActionRetrieve, sch.ResourceID()))
+			e.grant(ctx, u, access.ActionRetrieve, sch.ResourceID())
+			MustSucceed(e.api.Commit(AuthedCtx(ctx, u), req))
+		})
+
+		It(
+			"Should check a change that the status does not show yet",
+			func(ctx SpecContext) {
+				u := e.createUser(ctx)
+				e.grant(ctx, u, access.ActionUpdate, vcs.ResourceID)
+				e.grant(ctx, u, access.ActionRetrieve, sch.ResourceID())
+				fresh := schematic.Schematic{Name: "Pumps", Project: sch.Project}
+				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+					return e.layer.Schematic.NewWriter(tx).Create(ctx, &fresh)
+				})).To(Succeed())
+				req := apivcs.CommitRequest{Message: "Add the pumps"}
+				Expect(e.api.Commit(AuthedCtx(ctx, u), req)).Error().
+					To(denied(u, access.ActionRetrieve, fresh.ResourceID()))
 			},
 		)
 
