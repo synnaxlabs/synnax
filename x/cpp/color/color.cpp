@@ -135,7 +135,7 @@ std::pair<Color, x::errors::Error> from_css(const std::string &input) {
     };
 }
 
-Color Color::parse(x::json::Parser parser) {
+Color Color::parse(const x::json::Parser &parser) {
     const auto j = parser.get_json();
     if (!j.is_string()) {
         parser.field_err("", "color must be a hex string: " + j.dump());

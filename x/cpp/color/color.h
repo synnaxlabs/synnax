@@ -34,7 +34,7 @@ struct Color {
 
     /// @brief parses a color from a 6 or 8 digit hex string ("#ff0000" or
     /// "#ff000080"). The alpha of a 6 digit string is 255.
-    static Color parse(x::json::Parser parser);
+    static Color parse(const x::json::Parser &parser);
 
     /// @brief serializes the color to its "#rrggbbaa" JSON string.
     [[nodiscard]] x::json::json to_json() const;
