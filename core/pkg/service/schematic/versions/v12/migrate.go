@@ -109,7 +109,10 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 	r := orc.NewReader(nil)
 	r.ResetBytes(w.Bytes())
 	var node v11.NodeConfig
-	return node, node.DecodeOrc(r)
+	if err := node.DecodeOrc(r); err != nil {
+		return v11.NodeConfig{}, err
+	}
+	return node, nil
 }
 
 // MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
