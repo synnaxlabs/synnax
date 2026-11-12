@@ -39,7 +39,7 @@ never in plain text.
 3. Under **API key**, select the secret that holds the key. To add one, select **New
    secret** and paste the key.
 4. Leave **Connect from** set to the Core.
-5. Click **Save**. The Console tests the connection before it saves it.
+5. Click **Connect**. The Console tests the connection before it saves it.
 
   </Fragment>
   <Fragment slot="python">
@@ -64,7 +64,8 @@ sift = client.devices.create(
   </Fragment>
 </Client.Tabs>
 
-A URI on `localhost` or `127.0.0.1` connects without TLS. Every other URI uses TLS.
+A URI on `localhost` or a loopback address, such as `127.0.0.1`, connects without TLS.
+Every other URI uses TLS.
 
 <Divider.Divider x />
 
@@ -75,7 +76,7 @@ A URI on `localhost` or `127.0.0.1` connects without TLS. Every other URI uses T
 
 Open the upload dialog from one of these places:
 
-- **A range** -> right-click the range in the range toolbar or in a range list, and
+- **A range** -> right-click the range in the ranges toolbar or in a range list, and
   select <Icon.Logo.Sift /> **Upload to Sift**.
 - **The range overview** -> click <Icon.Add /> in the **Sift uploads** section.
 - **A line plot selection** ->
@@ -140,7 +141,7 @@ An upload of a range that has not ended sends the data up to the current time.
   <Fragment slot="console">
 
 1. Run the "Create Sift stream task" command from the command palette, or right-click
-   the Sift connection in the device toolbar and select **Create stream task**.
+   the Sift connection in the devices toolbar and select **Create stream task**.
 2. Select the **Sift connection** and the **Asset**.
 3. Under **Data**, select the **Channels** to send.
 4. Optional: under **Runs**, select **Labels**. A range with one of these labels becomes
