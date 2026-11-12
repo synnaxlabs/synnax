@@ -17,6 +17,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -136,12 +137,15 @@ const Upload = ({
           <Text.Text level="h3" weight={450}>
             Upload {rangeName} to Sift
           </Text.Text>
-          <SelectDevice />
-          <Form.TextField
-            path={path.config.asset}
-            label="Asset"
-            inputProps={ASSET_INPUT_PROPS}
-          />
+          <Flex.Box x gap="large">
+            <SelectDevice />
+            <Form.TextField
+              path={path.config.asset}
+              label="Asset"
+              inputProps={ASSET_INPUT_PROPS}
+              grow
+            />
+          </Flex.Box>
           <Form.Field path={path.config.channels} label="Channels">
             {({ value, onChange }) => (
               <Channel.SelectMultiple
