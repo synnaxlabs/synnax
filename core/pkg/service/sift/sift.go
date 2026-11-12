@@ -56,7 +56,10 @@ func decodeProperties(dev device.Device) (Properties, error) {
 			dev.Name,
 		)
 	}
-	return props, props.validate()
+	if err := props.validate(); err != nil {
+		return Properties{}, err
+	}
+	return props, nil
 }
 
 func (p Properties) validate() error {
