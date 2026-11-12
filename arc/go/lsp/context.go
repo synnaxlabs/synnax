@@ -27,12 +27,12 @@ const (
 	ContextStatementStart
 	ContextInputParamName
 	ContextInputParamValue
-	ContextAuthorityEntry
-	// ContextImportPath marks positions where the cursor sits in the
+	contextAuthorityEntry
+	// contextImportPath marks positions where the cursor sits in the
 	// module-name slot of an `import` statement. Only module names should
 	// be suggested there — not channels, functions, or other unrelated
 	// symbols.
-	ContextImportPath
+	contextImportPath
 	// ContextNone marks positions where the editor should not surface any
 	// completions, such as the same line as the opening brace of a func,
 	// sequence, or stage body. Completions resume once the cursor moves to
@@ -82,7 +82,7 @@ func findInputParen(tokens []antlr.Token) *inputParenResult {
 		return nil
 	}
 	// A call inside a func body takes positional arguments.
-	if detectNesting(tokens[:parenIndex]) == NestingFunction {
+	if detectNesting(tokens[:parenIndex]) == nestingFunction {
 		return nil
 	}
 	return &inputParenResult{
@@ -107,7 +107,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	}
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
 	if isAuthorityEntryContext(tokensBeforeCursor) {
-		return ContextAuthorityEntry
+		return contextAuthorityEntry
 	}
 	if inputCtx := detectInputContext(tokensBeforeCursor); inputCtx != ContextUnknown {
 		return inputCtx
@@ -119,7 +119,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 		return ContextNone
 	}
 	if isImportPathContext(tokensBeforeCursor) {
-		return ContextImportPath
+		return contextImportPath
 	}
 	if isTypeAnnotationContext(tokensBeforeCursor, visibleTokens(tokens), lastToken) {
 		return ContextTypeAnnotation
@@ -671,30 +671,30 @@ func detectInputContext(tokens []antlr.Token) CompletionContext {
 	return ContextUnknown
 }
 
-// NestingKind represents the kind of nesting context the cursor is in.
-type NestingKind int
+// nestingKind represents the kind of nesting context the cursor is in.
+type nestingKind int
 
 const (
-	NestingTopLevel     NestingKind = iota
-	NestingFunction                 // inside func body, if block, etc.
-	NestingSequenceBody             // inside sequence body (only stage declarations)
-	NestingStageBody                // inside stage body (flow statements)
+	nestingTopLevel     nestingKind = iota
+	nestingFunction                 // inside func body, if block, etc.
+	nestingSequenceBody             // inside sequence body (only stage declarations)
+	nestingStageBody                // inside stage body (flow statements)
 )
 
 // detectNesting walks the tokens before the cursor and determines the
 // innermost nesting context. It tracks SEQUENCE/STAGE/FUNC keywords
 // followed by brace patterns, and any other braces (if blocks, etc.)
 // are treated as function-level nesting.
-func detectNesting(tokens []antlr.Token) NestingKind {
-	type frame struct{ kind NestingKind }
+func detectNesting(tokens []antlr.Token) nestingKind {
+	type frame struct{ kind nestingKind }
 	var stack []frame
 	for i := 0; i < len(tokens); i++ {
 		tt := tokens[i].GetTokenType()
 		switch tt {
 		case parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE:
-			kind := NestingSequenceBody
+			kind := nestingSequenceBody
 			if tt == parser.ArcLexerSTAGE {
-				kind = NestingStageBody
+				kind = nestingStageBody
 			}
 			if i+2 < len(tokens) &&
 				tokens[i+1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
@@ -708,9 +708,9 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 			}
 		case parser.ArcLexerLBRACE:
 			// A routing table's entries are flow statements of the enclosing body.
-			kind := NestingFunction
+			kind := nestingFunction
 			if i > 0 && isArrow(tokens[i-1]) {
-				kind = NestingTopLevel
+				kind = nestingTopLevel
 				if len(stack) > 0 {
 					kind = stack[len(stack)-1].kind
 				}
@@ -723,7 +723,7 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 		}
 	}
 	if len(stack) == 0 {
-		return NestingTopLevel
+		return nestingTopLevel
 	}
 	return stack[len(stack)-1].kind
 }

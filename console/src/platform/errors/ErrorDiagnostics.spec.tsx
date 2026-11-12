@@ -63,7 +63,10 @@ describe("ErrorDiagnostics", () => {
   });
 
   const renderBoundary = async (store: TestStore, child: ReactElement) =>
-    await renderWithConsole(<Errors.Boundary>{child}</Errors.Boundary>, { store });
+    await renderWithConsole(
+      <Errors.SuspenseBoundary>{child}</Errors.SuspenseBoundary>,
+      { store },
+    );
 
   it("appends the connected Core to any error", async () => {
     const store = await createTestStore();
@@ -100,9 +103,9 @@ describe("ErrorDiagnostics", () => {
     // Prime the query cache the way the mosaic's retrieve does.
     await client.panels.retrieve(doc.key);
     render(
-      <Errors.Boundary panelKey={doc.key}>
+      <Errors.SuspenseBoundary panelKey={doc.key}>
         <Throw error={retrieveNotFoundError()} />
-      </Errors.Boundary>,
+      </Errors.SuspenseBoundary>,
       { wrapper },
     );
     const expected = [
@@ -123,9 +126,9 @@ describe("ErrorDiagnostics", () => {
     await client.panels.create({ ...doc, project: await createPanelProject(client) });
     await client.panels.retrieve(doc.key);
     render(
-      <Errors.Boundary panelKey={doc.key}>
+      <Errors.SuspenseBoundary panelKey={doc.key}>
         <Throw error={new Error("boom")} />
-      </Errors.Boundary>,
+      </Errors.SuspenseBoundary>,
       { wrapper },
     );
     expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem" (${doc.key})`);
@@ -171,9 +174,9 @@ describe("ErrorDiagnostics", () => {
   it("omits the name when the crashed panel isn't cached", async () => {
     const store = await createTestStore();
     await renderWithConsole(
-      <Errors.Boundary panelKey="uncached-key">
+      <Errors.SuspenseBoundary panelKey="uncached-key">
         <Throw error={new Error("boom")} />
-      </Errors.Boundary>,
+      </Errors.SuspenseBoundary>,
       { store },
     );
     expect(messageText()).toBe("boom\nCore: none\n(uncached-key)");

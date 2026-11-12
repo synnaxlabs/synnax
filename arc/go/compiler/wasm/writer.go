@@ -31,9 +31,6 @@ func NewWriter() *Writer {
 // WriteOpcode writes a single WASM opcode
 func (e *Writer) WriteOpcode(op Opcode) { e.buf.WriteByte(byte(op)) }
 
-// WriteBytes writes raw bytes
-func (e *Writer) WriteBytes(data []byte) { e.buf.Write(data) }
-
 // WriteI32Const writes an i32.const instruction
 func (e *Writer) WriteI32Const(val int32) {
 	e.WriteOpcode(OpI32Const)
@@ -74,24 +71,6 @@ func (e *Writer) WriteLocalSet(idx int) {
 func (e *Writer) WriteLocalTee(idx int) {
 	e.WriteOpcode(OpLocalTee)
 	e.WriteLEB128Unsigned(uint64(idx))
-}
-
-// WriteGlobalGet writes a global.get instruction
-func (e *Writer) WriteGlobalGet(idx int) {
-	e.WriteOpcode(OpGlobalGet)
-	e.WriteLEB128Unsigned(uint64(idx))
-}
-
-// WriteGlobalSet writes a global.set instruction
-func (e *Writer) WriteGlobalSet(idx int) {
-	e.WriteOpcode(OpGlobalSet)
-	e.WriteLEB128Unsigned(uint64(idx))
-}
-
-// WriteCall writes a call instruction
-func (e *Writer) WriteCall(funcIdx uint32) {
-	e.WriteOpcode(OpCall)
-	e.WriteLEB128Unsigned(uint64(funcIdx))
 }
 
 // WriteReturn writes a return instruction

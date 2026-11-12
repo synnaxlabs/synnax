@@ -161,12 +161,12 @@ func (s MapTargetedSender[M]) Close() error {
 // receives a batch of values, resolves their target addresses through a
 // BatchSwitchFunc, and sends them on their merry way.
 type BatchSwitchSender[I, O freighter.Payload] struct {
-	Senders TargetedSender[O]
+	Senders targetedSender[O]
 	Switch  confluence.BatchSwitchFunc[I, O]
 	confluence.UnarySink[I]
 }
 
-type TargetedSender[M freighter.Payload] interface {
+type targetedSender[M freighter.Payload] interface {
 	Send(ctx context.Context, target address.Address, msg M) error
 	Close() error
 }
@@ -206,71 +206,6 @@ o:
 				}
 			}
 		}
-	}
-	return err
-}
-
-// MultiTransformSender wraps a slice of freighter.StreamSender(s) to provide a
-// confluence compatible interface for sending transformed messages over a network
-// freighter. MultiTransformSender transforms each input message and sends a copy to
-// each sender.
-type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
-	confluence.UnarySink[I]
-	Transform confluence.TransformFunc[I, M]
-	Senders   []freighter.StreamSenderCloser[M]
-}
-
-// Flow implements the Flow interface.
-func (m *MultiTransformSender[I, M]) Flow(
-	ctx signal.Context,
-	opts ...confluence.Option,
-) {
-	ctx.Go(m.send, confluence.NewOptions(opts).Signal...)
-}
-
-func (m *MultiTransformSender[I, M]) send(ctx context.Context) (err error) {
-	defer func() {
-		err = errors.Combine(m.closeSenders(), err)
-	}()
-o:
-	for {
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-			break o
-		case res, ok := <-m.In.Outlet():
-			if !ok {
-				break o
-			}
-			// Transform the input message
-			tRes, ok, tErr := m.Transform(ctx, res)
-			if tErr != nil {
-				err = tErr
-				break o
-			}
-			if !ok {
-				continue
-			}
-			// Send the transformed message to all senders
-			for _, sender := range m.Senders {
-				if sErr := sender.Send(tRes); sErr != nil {
-					if errors.Is(sErr, freighter.ErrStreamClosed) {
-						err = context.Canceled
-					} else {
-						err = sErr
-					}
-					break o
-				}
-			}
-		}
-	}
-	return err
-}
-
-func (m *MultiTransformSender[I, M]) closeSenders() error {
-	var err error
-	for _, s := range m.Senders {
-		err = errors.Join(err, s.CloseSend())
 	}
 	return err
 }
