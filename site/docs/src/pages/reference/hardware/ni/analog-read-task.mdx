@@ -960,6 +960,20 @@ Click a port in the **Port** grid of the channel.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={["Must be between ... and ...", "Must be one of ..."]}>
+<Problem.Cause>
+
+The device does not take the value of the field. When the task starts, the Driver checks
+the task with DAQmx and shows each error on its field.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the field to a value in the message, then start the task again.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"ai3 does not take ... channels"}>
 <Problem.Cause>
 

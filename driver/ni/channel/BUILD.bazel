@@ -27,7 +27,6 @@ cc_library(
         "//driver/ni/daqmx",
         "//x/cpp/json",
         "//x/cpp/strings",
-        "@abseil-cpp//absl/log",
     ],
 )
 

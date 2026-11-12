@@ -2096,7 +2096,15 @@ struct Input {
             [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
-        return at_channel(err, this->path, this->cfg_path);
+        return at_channel(err, *this);
+    }
+
+    /// @brief returns true when the channel config has the field, such as "min_val".
+    [[nodiscard]] bool has(const std::string &field) const {
+        return visit_leaf(
+            [&](const auto &cfg) { return has_field(cfg, field); },
+            this->channel
+        );
     }
 };
 
@@ -2135,7 +2143,15 @@ struct Output {
             [&](const auto &v) { return channel::apply(v, ctx, dmx, task_handle); },
             this->channel
         );
-        return at_channel(err, this->path, this->cfg_path);
+        return at_channel(err, *this);
+    }
+
+    /// @brief returns true when the channel config has the field, such as "min_val".
+    [[nodiscard]] bool has(const std::string &field) const {
+        return visit_leaf(
+            [&](const auto &cfg) { return has_field(cfg, field); },
+            this->channel
+        );
     }
 };
 
