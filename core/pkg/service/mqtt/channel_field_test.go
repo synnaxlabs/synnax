@@ -266,6 +266,18 @@ var _ = Describe("Channel fields", func() {
 			Expect(f).ToNot(HaveKey("json_type"))
 		})
 
+		It("Should give a field with no channel the kind of its data type", func(
+			ctx SpecContext,
+		) {
+			f := field("float", 0)
+			f["data_type"] = "int16"
+			f = firstField(MustSucceed(
+				svc.Write.Normalize(ctx, db, svc.Write.Version(), config(f)),
+			))
+			Expect(f).To(HaveKeyWithValue("type", "integer"))
+			Expect(f).To(HaveKeyWithValue("data_type", "int16"))
+		})
+
 		It("Should keep the kind of a channel that does not exist", func(
 			ctx SpecContext,
 		) {
