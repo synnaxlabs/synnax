@@ -18,9 +18,9 @@ from console.layout import LayoutClient
 class ViewsClient(ResourceClient):
     """Views client for the saved-search strip at the top of an explorer.
 
-    Views are saved searches scoped to one resource type. The strip holds a static
-    "All <resources>" view plus every saved view, after the search and before the
-    create button. The filters sit in the bar under the strip.
+    Views are saved searches scoped to one resource type. The strip holds a static "All
+    <resources>" view plus every saved view, after the search and before the create
+    button. The filters sit in the bar under the strip.
     """
 
     search_placeholder: str
