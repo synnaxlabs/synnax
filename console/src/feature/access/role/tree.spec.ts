@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError, resource } from "@synnaxlabs/client";
+import { access, NotFoundError, resource, type Synnax } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { Tree } from "@synnaxlabs/lyra/tree";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { User as PUser } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
 import { User } from "@/feature/user";
+import { Tree } from "@/platform/tree";
 import {
   createResource,
   expandTreeRow,
@@ -33,6 +34,10 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 const RoleItem = Access.Role.TREE_ITEMS.role;
+
+const listRoles = (c: Synnax): Tree.Source[] => [
+  Tree.createSource(c.access.roles, {}, Tree.toResource("role")),
+];
 
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
@@ -139,7 +144,7 @@ describe("role tree item", () => {
   });
 
   describe("drop", () => {
-    const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
+    const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
     const destination = roleResource({ key: "r1", name: "role" });
     const root = access.role.TYPE_RESOURCE_ID;
     const canDrop = (items: Haul.Item[]): boolean =>
@@ -149,14 +154,14 @@ describe("role tree item", () => {
         root,
         destination,
         ancestors: [root],
-        moved: Tree.filterHaulItems(items).map(({ key }) => ({
+        moved: PTree.filterHaulItems(items).map(({ key }) => ({
           id: resource.parseID(key),
           ancestors: [resource.parseID("role:r0"), root],
         })),
       });
     // A tree drag carries a tree item for each resource and the resource's own items.
     const dragUser = (rootUser: boolean): Haul.Item[] => [
-      Tree.createHaulItem("user:u1"),
+      PTree.createHaulItem("user:u1"),
       PUser.createHaulItem({ key: "u1", name: "", rootUser, role: "r0" }),
     ];
 
@@ -169,7 +174,7 @@ describe("role tree item", () => {
     });
 
     it("should refuse a resource that is not a user", () => {
-      const items = [Tree.createHaulItem("channel:1")];
+      const items = [PTree.createHaulItem("channel:1")];
       expect(canDrop(items)).toBe(false);
       expect(canDrop([...dragUser(false), ...items])).toBe(false);
     });
@@ -185,7 +190,7 @@ describe("role tree item", () => {
       await renderLiveTree({
         client,
         root: access.role.TYPE_RESOURCE_ID,
-        listRoot: Access.Role.listTreeRoot,
+        listRoot: listRoles,
         items: { ...Access.Role.TREE_ITEMS, ...User.TREE_ITEMS },
       });
       await findTreeRow(from.name);
@@ -203,7 +208,7 @@ describe("role tree item", () => {
     await renderLiveTree({
       client,
       root: access.role.TYPE_RESOURCE_ID,
-      listRoot: Access.Role.listTreeRoot,
+      listRoot: listRoles,
       items: Access.Role.TREE_ITEMS,
     });
     const cases: [string, string][] = [

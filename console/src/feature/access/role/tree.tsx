@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type Synnax, user } from "@synnaxlabs/client";
+import { access, user } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, User } from "@synnaxlabs/pluto";
 
@@ -59,11 +59,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     </ContextMenu.Menu>
   );
 };
-
-/** Lists the top level of the role tree: every role. */
-export const listTreeRoot = (client: Synnax): Tree.Source[] => [
-  Tree.createSource(client.access.roles, {}, Tree.toResource("role")),
-];
 
 const TreeItem = Tree.createItem({
   icon: Access.Role.icon,
