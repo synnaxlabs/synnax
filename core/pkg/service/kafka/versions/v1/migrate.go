@@ -11,7 +11,9 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -20,7 +22,9 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/x/errors"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -45,21 +49,26 @@ func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, erro
 }
 
 // MigrateReadField lifts a v0 read field to the v1 variant of the kind of its stored
-// data type. A numeric kind keeps each entry that is whole and in range of the kind, a
-// boolean entry becomes value != 0, a string field drops its entries, and a timestamp
-// field with no time format reads iso8601.
+// data type, or to float64 when the data type is unknown. A numeric kind keeps each
+// entry that is whole where the kind needs it and fits the data type, a boolean entry
+// becomes value != 0, a string field drops its entries, and a timestamp field with no
+// time format reads iso8601.
 func MigrateReadField(_ context.Context, old v0.ReadField) (ReadField, error) {
-	fld, _, err := migrateReadField(old)
-	return fld, err
+	fld, _ := migrateReadField(old)
+	return fld, nil
 }
 
-// migrateReadField also returns the labels of the entries that the field drops.
-func migrateReadField(old v0.ReadField) (ReadField, []string, error) {
-	kind, ok := payload.KindOf(old.DataType)
+// migrateReadField also returns each change that the lift makes beyond the shape.
+func migrateReadField(old v0.ReadField) (ReadField, []string) {
+	var changes []string
+	dt := old.DataType
+	kind, ok := payload.KindOf(dt)
 	if !ok {
-		return ReadField{}, nil, errors.Newf(
-			"read field %q has unknown data type %q", old.Key, old.DataType,
+		changes = append(
+			changes,
+			fmt.Sprintf("unknown data type %q became float64", dt),
 		)
+		dt, kind = telem.Float64T, payload.KindFloat
 	}
 	base := BaseReadField{
 		Key:      old.Key,
@@ -68,51 +77,65 @@ func migrateReadField(old v0.ReadField) (ReadField, []string, error) {
 		Channel:  old.Channel,
 		Pointer:  old.Pointer,
 	}
-	dt := new(old.DataType)
-	var dropped []string
+	keep := func(e payload.EnumEntry, fits bool) bool {
+		if !fits {
+			changes = append(changes, "dropped entry "+strconv.Quote(e.Label))
+		}
+		return fits
+	}
 	switch kind {
 	case payload.KindFloat:
 		v := FloatReadField{
-			BaseReadField: base, DataType: dt,
+			BaseReadField: base, DataType: new(dt),
 			EnumValues: make([]payload.FloatEntry, 0, len(old.EnumValues)),
 		}
 		for _, e := range old.EnumValues {
-			v.EnumValues = append(
-				v.EnumValues,
-				payload.FloatEntry{Label: e.Label, Value: payload.Float(e.Value)},
-			)
+			_, err := xjson.Convert(e.Value, dt)
+			if keep(e, err == nil) {
+				v.EnumValues = append(
+					v.EnumValues,
+					payload.FloatEntry{Label: e.Label, Value: payload.Float(e.Value)},
+				)
+			}
 		}
-		return ReadField{Variant: v}, nil, nil
+		return ReadField{Variant: v}, changes
 	case payload.KindInteger:
 		v := IntegerReadField{
-			BaseReadField: base, DataType: dt,
+			BaseReadField: base, DataType: new(dt),
 			EnumValues: make([]payload.IntegerEntry, 0, len(old.EnumValues)),
 		}
 		for _, e := range old.EnumValues {
-			if !whole(e.Value) || e.Value < math.MinInt64 || e.Value >= math.MaxInt64 {
-				dropped = append(dropped, e.Label)
-				continue
+			fits := whole(e.Value) && e.Value >= math.MinInt64 &&
+				e.Value < math.MaxInt64
+			if fits {
+				_, err := xjson.Convert(int64(e.Value), dt)
+				fits = err == nil
 			}
-			v.EnumValues = append(v.EnumValues, payload.IntegerEntry{
-				Label: e.Label, Value: payload.Integer(int64(e.Value)),
-			})
+			if keep(e, fits) {
+				v.EnumValues = append(v.EnumValues, payload.IntegerEntry{
+					Label: e.Label, Value: payload.Integer(int64(e.Value)),
+				})
+			}
 		}
-		return ReadField{Variant: v}, dropped, nil
+		return ReadField{Variant: v}, changes
 	case payload.KindUnsigned:
 		v := UnsignedReadField{
-			BaseReadField: base, DataType: dt,
+			BaseReadField: base, DataType: new(dt),
 			EnumValues: make([]payload.UnsignedEntry, 0, len(old.EnumValues)),
 		}
 		for _, e := range old.EnumValues {
-			if !whole(e.Value) || e.Value < 0 || e.Value >= math.MaxUint64 {
-				dropped = append(dropped, e.Label)
-				continue
+			fits := whole(e.Value) && e.Value >= 0 && e.Value < math.MaxUint64
+			if fits {
+				_, err := xjson.Convert(uint64(e.Value), dt)
+				fits = err == nil
 			}
-			v.EnumValues = append(v.EnumValues, payload.UnsignedEntry{
-				Label: e.Label, Value: payload.Unsigned(uint64(e.Value)),
-			})
+			if keep(e, fits) {
+				v.EnumValues = append(v.EnumValues, payload.UnsignedEntry{
+					Label: e.Label, Value: payload.Unsigned(uint64(e.Value)),
+				})
+			}
 		}
-		return ReadField{Variant: v}, dropped, nil
+		return ReadField{Variant: v}, changes
 	case payload.KindBoolean:
 		v := BooleanReadField{
 			BaseReadField: base,
@@ -124,15 +147,15 @@ func migrateReadField(old v0.ReadField) (ReadField, []string, error) {
 				payload.BooleanEntry{Label: e.Label, Value: e.Value != 0},
 			)
 		}
-		return ReadField{Variant: v}, nil, nil
+		return ReadField{Variant: v}, changes
 	case payload.KindString:
 		for _, e := range old.EnumValues {
-			dropped = append(dropped, e.Label)
+			keep(e, false)
 		}
 		return ReadField{Variant: StringReadField{
 			BaseReadField: base,
 			EnumValues:    []payload.StringEntry{},
-		}}, dropped, nil
+		}}, changes
 	case payload.KindTimestamp:
 		format := payload.TimeFormatISO8601
 		if old.TimeFormat != nil {
@@ -141,19 +164,19 @@ func migrateReadField(old v0.ReadField) (ReadField, []string, error) {
 		return ReadField{Variant: TimestampReadField{
 			BaseReadField: base,
 			TimeFormat:    format,
-		}}, nil, nil
+		}}, changes
 	case payload.KindJSON:
-		return ReadField{Variant: JsonReadField{BaseReadField: base}}, nil, nil
+		return ReadField{Variant: JsonReadField{BaseReadField: base}}, changes
 	case payload.KindUUID:
-		return ReadField{Variant: UuidReadField{BaseReadField: base}}, nil, nil
+		return ReadField{Variant: UuidReadField{BaseReadField: base}}, changes
 	}
-	return ReadField{Variant: BytesReadField{BaseReadField: base}}, nil, nil
+	return ReadField{Variant: BytesReadField{BaseReadField: base}}, changes
 }
 
 func whole(v float64) bool { return v == math.Trunc(v) }
 
 // NewReadMigration returns the migration that lifts stored read configs to v1, logs
-// each entry a field drops, and then runs reconcile on each config.
+// each change the lift makes, and then runs reconcile on each config.
 func NewReadMigration(
 	reconcile func(context.Context, gorp.Tx, *ReadConfig) error,
 ) gorp.Migration {
@@ -172,9 +195,7 @@ func NewReadMigration(
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
-				if err = logDropped(ins, old); err != nil {
-					return errors.Wrapf(err, "config %s", old.GorpKey())
-				}
+				logChanges(ins, old)
 				if err = reconcile(ctx, tx, &cfg); err != nil {
 					return errors.Wrapf(err, "config %s", old.GorpKey())
 				}
@@ -185,23 +206,18 @@ func NewReadMigration(
 	)
 }
 
-func logDropped(ins alamos.Instrumentation, old v0.ReadConfig) error {
+func logChanges(ins alamos.Instrumentation, old v0.ReadConfig) {
 	for _, rec := range old.Records {
 		for _, fld := range rec.Fields {
-			_, dropped, err := migrateReadField(fld)
-			if err != nil {
-				return err
-			}
-			if len(dropped) > 0 {
+			if _, changes := migrateReadField(fld); len(changes) > 0 {
 				ins.L.Warn(
-					"dropped Kafka read field entries that its kind cannot hold",
+					"changed a Kafka read field while lifting it to v1",
 					zap.Stringer("config", old.Key),
 					zap.String("field", fld.Key),
 					zap.String("data_type", string(fld.DataType)),
-					zap.Strings("labels", dropped),
+					zap.Strings("changes", changes),
 				)
 			}
 		}
 	}
-	return nil
 }
