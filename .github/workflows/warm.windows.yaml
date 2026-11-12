@@ -11,8 +11,7 @@
 # queue runs cannot save caches, so main saves the caches they restore. A full
 # repository cache deletes the entries read longest ago, so each hour a check looks for
 # them and starts a bot only to save one that is gone. Only a release reads the
-# trusted-signing-cli entries, one for the bots and one for the hosted runners, so the
-# same check keeps them.
+# trusted-signing-cli entry, so the same check keeps it, and a hosted runner saves it.
 name: Warm - Windows
 
 on:
@@ -50,7 +49,7 @@ jobs:
       contents: read
     outputs:
       missing: ${{ steps.check.outputs.missing }}
-      hosted_missing: ${{ steps.check.outputs.hosted_missing }}
+      signing_cli_missing: ${{ steps.check.outputs.signing_cli_missing }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -78,29 +77,24 @@ jobs:
             .github/scripts/go_toolchain_cache.sh core/go.mod | sed -n 's/^key=//p')
           version=$(yq .inputs.version.default \
             .github/actions/setup-trusted-signing-cli/action.yaml)
-          count() {
-            .github/scripts/gh_api.sh \
-              "repos/$GH_REPO/actions/caches?ref=refs/heads/main&key=$1" \
-              --jq "[.actions_caches[] | select(.key == \"$1\")] | length"
-          }
+          signing_cli_key=trusted-signing-cli-Windows-X64-$version
           missing=false
-          for key in "$PNPM_KEY" "$go_key" \
-            "trusted-signing-cli-self-hosted-Windows-X64-$version"; do
-            found=$(count "$key")
+          signing_cli_missing=false
+          for key in "$PNPM_KEY" "$go_key" "$signing_cli_key"; do
+            found=$(.github/scripts/gh_api.sh \
+              "repos/$GH_REPO/actions/caches?ref=refs/heads/main&key=$key" \
+              --jq "[.actions_caches[] | select(.key == \"$key\")] | length")
             if [ "$found" = 0 ]; then
               echo "$key is missing"
-              missing=true
+              if [ "$key" = "$signing_cli_key" ]; then
+                signing_cli_missing=true
+              else
+                missing=true
+              fi
             fi
           done
-          hosted_missing=false
-          key=trusted-signing-cli-github-hosted-Windows-X64-$version
-          found=$(count "$key")
-          if [ "$found" = 0 ]; then
-            echo "$key is missing"
-            hosted_missing=true
-          fi
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
-          echo "hosted_missing=$hosted_missing" >> "$GITHUB_OUTPUT"
+          echo "signing_cli_missing=$signing_cli_missing" >> "$GITHUB_OUTPUT"
 
   warm:
     name: Warm
@@ -150,17 +144,14 @@ jobs:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
 
-      - name: Set up trusted-signing-cli
-        uses: ./.github/actions/setup-trusted-signing-cli
-
-  warm-hosted:
-    name: Warm the hosted runner
+  warm-signing-cli:
+    name: Warm trusted-signing-cli
     needs: check
     if:
       ${{ !cancelled() && (needs.check.result == 'skipped' ||
-      needs.check.outputs.hosted_missing == 'true') }}
+      needs.check.outputs.signing_cli_missing == 'true') }}
     concurrency:
-      group: warm-windows-hosted
+      group: warm-windows-signing-cli
       cancel-in-progress: false
     runs-on: windows-latest
     timeout-minutes: 30
