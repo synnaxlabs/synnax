@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const apiKey = "sift-api-key"
@@ -101,6 +102,24 @@ var _ = Describe("Factory", func() {
 			}
 			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 				To(MatchError(ContainSubstring("rate")))
+		})
+
+		It("Should run one scan task for each rack", func(ctx SpecContext) {
+			cfg := msgpack.EncodedJSON{"rate": 50}
+			first := newTask(ctx, sift.ScanTaskType, cfg)
+			second := newTask(ctx, sift.ScanTaskType, cfg)
+			dt := MustSucceed(f.ConfigureTask(ctx, first, driver.NoCommand))
+			Expect(f.ConfigureTask(ctx, second, driver.NoCommand)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the rack already has a Sift scan task")),
+			))
+			By("Reconfiguring the scan task that runs")
+			Expect(dt.Stop(false)).To(Succeed())
+			dt = MustSucceed(f.ConfigureTask(ctx, first, driver.NoCommand))
+			Expect(dt.Stop(false)).To(Succeed())
+			By("Running the other scan task once the first stops")
+			dt = MustSucceed(f.ConfigureTask(ctx, second, driver.NoCommand))
+			Expect(dt.Stop(false)).To(Succeed())
 		})
 	})
 
