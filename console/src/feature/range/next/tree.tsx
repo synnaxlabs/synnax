@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -32,13 +32,8 @@ export interface Node {
   tail?: ranger.Key;
 }
 
-const RAN: ranger.Order = { field: "time_range_start", descending: false };
-
-/** How many children of a range each read adds. */
-const CHILD_PAGE_SIZE = 50;
-
-/** The children of a range, in the order they ran unless an order is given. */
-export const childrenQuery = (key: ranger.Key, order: ranger.Order = RAN) => ({
+/** The children of a range, in the order given. */
+export const childrenQuery = (key: ranger.Key, order: ranger.Order) => ({
   where: { parents: [key] },
   order,
 });
@@ -70,35 +65,15 @@ export const useTree = ({
   order,
   fixed,
 }: UseTreeParams): UseTreeReturn => {
-  const client = Synnax.use();
-  const read = client == null ? [] : expanded.filter((key) => fixed?.has(key) !== true);
-  const listOf = (key: ranger.Key) => {
-    if (client == null) throw new Error("useTree reads children with no client");
-    return client.ranges.watch({
-      ...childrenQuery(key, order),
-      limit: CHILD_PAGE_SIZE,
-    });
-  };
-  const windows = Store.useItems({
-    keys: read,
-    subscribe: (listener, key) => listOf(key).onChange(listener),
-    getItem: (keys) => keys.map((key) => listOf(key).getCached()),
+  const { children: read, more } = Ranger.useChildren({
+    parents: expanded.filter((key) => fixed?.has(key) !== true),
+    order,
   });
-  useEffect(() => {
-    read.forEach((key) => {
-      listOf(key).retrieve().catch(console.error);
-    });
-  }, [client, read, order]);
   const children = new Map<ranger.Key, ranger.Key[]>(fixed);
   const incomplete = new Set<ranger.Key>();
-  read.forEach((key, i) => {
-    const window = windows[i];
-    if (window == null) return;
-    children.set(
-      key,
-      window.records.map((r) => r.key),
-    );
-    if (window.end != null) incomplete.add(key);
+  read.forEach(({ keys, complete }, key) => {
+    children.set(key, keys);
+    if (!complete) incomplete.add(key);
   });
   const open = new Set(expanded);
   const seen = new Set<ranger.Key>();
@@ -113,12 +88,7 @@ export const useTree = ({
     keys.forEach((child) => visit(child, depth + 1, child === last ? key : undefined));
   };
   roots.forEach((key) => visit(key, 0));
-  return {
-    nodes,
-    more: (key) => {
-      listOf(key).more(CHILD_PAGE_SIZE).catch(console.error);
-    },
-  };
+  return { nodes, more };
 };
 
 /** @returns the expanded keys and a toggle for one key. */
