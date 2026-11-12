@@ -58,12 +58,13 @@ const RUNTIMES: [key: string, note: string][] = [
 
 const ARC_AROUND = ["programs", "tools", "e2e"];
 
-// Flat lists read largest first, with end-to-end tests last.
+// Flat lists read largest first, with end-to-end and hardware tests last.
+const LAST = ["e2e", "hardware"];
 const flat = Object.entries(product.subsystems)
-    .filter(([key]) => key !== "e2e")
+    .filter(([key]) => !LAST.includes(key))
     .sort((a, b) => b[1].count - a[1].count)
     .map(([key]) => key)
-    .concat(product.subsystems.e2e != null ? ["e2e"] : []);
+    .concat(LAST.filter((key) => product.subsystems[key] != null));
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const max = Math.max(...Object.values(product.subsystems).map((s) => s.count));
