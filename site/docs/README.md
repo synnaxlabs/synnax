@@ -15,6 +15,10 @@ pnpm lint                                # eslint
 pnpm check-site:build && pnpm check-site # static build + link and media crawler
 ```
 
+`pnpm check-site` fails on a broken internal link. A broken external link is a warning,
+because the cause can be the host. With `--strict`, which the nightly run and the CI of
+a release set, a broken external link fails too.
+
 ## Release lookups
 
 Download links and the version in the header read the per-product GitHub releases

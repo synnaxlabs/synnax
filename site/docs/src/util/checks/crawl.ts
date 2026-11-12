@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 
-import { type Page } from "@/util/checks/check";
+import { type Page, type Source } from "@/util/checks/check";
 
 export const PAGES_DIR = "./src/pages";
 const CONCURRENCY = 4;
@@ -44,19 +44,25 @@ const routeSource = (route: string): string | null => {
 const URL_CHAR = /[\w\-.~/#?&=%]/;
 
 /**
- * Points a failure at its source: "route:line" when needle appears in the page's
- * source file, the bare route otherwise (e.g. links emitted by a layout component).
+ * Finds the line of the page's source file that holds needle. Returns null when the
+ * source does not hold it, such as a link emitted by a layout component.
  */
-export const locate = (route: string, needle: string): string => {
+export const locateSource = (route: string, needle: string): Source | null => {
   const file = routeSource(route);
-  if (file == null) return route;
+  if (file == null) return null;
   const text = fs.readFileSync(file, "utf8");
   for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + 1)) {
     if (URL_CHAR.test(text[at - 1] ?? "")) continue;
     if (URL_CHAR.test(text[at + needle.length] ?? "")) continue;
-    return `${route}:${text.slice(0, at).split("\n").length}`;
+    return { file, line: text.slice(0, at).split("\n").length };
   }
-  return route;
+  return null;
+};
+
+/** Points a failure at its source: "route:line" when known, else the bare route. */
+export const locate = (route: string, needle: string): string => {
+  const source = locateSource(route, needle);
+  return source == null ? route : `${route}:${source.line}`;
 };
 
 /** Returns true if Astro routes the page file: its name has no leading underscore. */
