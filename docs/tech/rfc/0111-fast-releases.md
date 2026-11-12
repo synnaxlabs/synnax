@@ -32,8 +32,8 @@ UTC. Six release runs did the work:
   (`generate_os_matrix.sh:27-31`). The Bazel remote cache has a private address, and the
   macOS step passes no cache flags (`build.synnax.yaml:427-435`). Bazel took 87 minutes
   for the Driver release and 110 minutes for Synnax Desktop. The Linux bot took 19.
-- **Repeat builds**: Synnax Desktop builds the Driver and the Core from source
-  (`release.desktop.yaml:150-155`), minutes after the same commit released both.
+- **Repeat builds**: Synnax Desktop builds the Driver from source
+  (`release.desktop.yaml:150-155`), minutes after a release built the same code.
 - **Serial job graph**: The packages wait for `publish-console`, `publish-driver`, and
   `publish-core` (`release.yaml:410`), and the Core waits for both publishes
   (`release.yaml:616`). Only the Core has a real input from the other products.
@@ -45,8 +45,8 @@ UTC. Six release runs did the work:
 1. **CI gates the publish, never the build**: A build starts at dispatch. Nothing
    becomes public until the commit has a green full CI run.
 2. **One green run per commit**: A commit that passed the full CI does not run it again.
-3. **Build once**: Each binary is built one time per run. Every consumer takes that
-   artifact.
+3. **Build once**: A run builds each distinct binary one time. Every consumer takes that
+   artifact. The Core of Desktop is a distinct binary: it embeds no Console.
 4. **A job needs only what it reads**: A `needs` edge exists for an artifact or a
    verdict, never for order alone.
 5. **Publish last, together**: All builds pass before any product, package, or image
@@ -76,6 +76,9 @@ the Driver releases it, or with build flags of its own:
 - **Core**: Built from source at `HEAD`, as today. The released Core is 250 MB to 308
   MB, since it embeds the Console and its installers, and the Desktop installer is 45 MB
   to 70 MB. The Go build takes 3 to 4 minutes on a bot.
+- **Version stamp**: The Core and clients inside Desktop carry the Core version of the
+  run. A run that releases no Core takes the newest stable Core tag reachable from
+  `HEAD`, as today (`release.desktop.yaml:104-116`).
 
 ### 3.1 Job graph
 
