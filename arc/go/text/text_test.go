@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 // findNodeByKey finds a node by key and asserts it exists
@@ -681,37 +680,37 @@ var _ = Describe("Text", func() {
 				"an assignment",
 				"import time\nsequence main {\nlast $= 0\nstage s1 {\nlast = time.now()\n}\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: change `last $= 0` to `last i64 ns $= 0`",
+				"hint: declare 'last' in ns",
 			),
 			Entry("an assignment after a read",
 				"import time\nsequence main {\nlast $= 0\nq := 0\nstage s1 {\n"+
 					"q = last + 5\nlast = time.now()\n}\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: change `last $= 0` to `last i64 ns $= 0`"),
+				"hint: declare 'last' in ns"),
 			Entry("a flow",
 				"sequence main {\nlast i64 := 0\nstage s1 {\n5s -> last\n}\n}",
 				"'last' has no unit and cannot take a value in s",
-				"hint: change `last i64 := 0` to `last i64 s := 0`"),
+				"hint: declare 'last' in s"),
 			Entry(
 				"an assignment in a function",
 				"import time\nfunc f() i64 ns {\nlast := 0\nlast = time.now()\nreturn last\n}",
 				"'last' has no unit and cannot take a value in ns",
-				"hint: change `last := 0` to `last i64 ns := 0`",
+				"hint: declare 'last' in ns",
 			),
 			Entry("a parameter",
 				"import time\nfunc f(start i64) i64 {\nreturn start\n}\n"+
 					"func g() i64 {\nreturn f(time.now())\n}",
 				"parameter 'start' of 'f' has no unit and cannot take a value in ns",
-				"hint: declare `start i64 ns`"),
+				"hint: declare parameter 'start' of 'f' in ns"),
 			Entry("a parameter of a flow call",
 				"d := 5s\nfunc f(x i64) i64 {\nreturn x\n}\n"+
 					"count_ch -> f(x=d) -> count_ch",
 				"parameter 'x' of 'f' has no unit and cannot take a value in s",
-				"hint: declare `x i64 s`"),
+				"hint: declare parameter 'x' of 'f' in s"),
 			Entry("a result",
 				"func f() i64 {\nreturn 5ms\n}",
 				"the result of 'f' has no unit and cannot take a value in ms",
-				"hint: declare the result as `i64 ms`"),
+				"hint: declare the result of 'f' in ms"),
 		)
 
 		DescribeTable("Should accept a value with a unit where the unit has a place",
@@ -822,10 +821,6 @@ var _ = Describe("Text", func() {
 					return
 				}
 				Expect(found).To(HaveLen(1), diagnostics.String())
-				Expect(found[0].Notes).To(HaveLen(1))
-				Expect(found[0].Notes[0].Message).To(Equal(
-					"hint: change `d i64 s := 120s` to `d i64 min := 120s`",
-				))
 			},
 			Entry("a write before the call", "min",
 				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", true),
@@ -835,43 +830,6 @@ var _ = Describe("Text", func() {
 				"d = 100s\ncount_ch -> hold(x=d) -> count_ch", false),
 			Entry("a variable that is set one time", "min",
 				"count_ch -> hold(x=d) -> count_ch", false),
-		)
-
-		DescribeTable("Should give the hints for a write that truncates an integer",
-			func(ctx SpecContext, declarations, write string, hints ...string) {
-				source := "sequence main {\n" + declarations + "\nstage s1 {\n" + write +
-					"\n}\n}"
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
-					ctx,
-					parsedText,
-					NewRoot(nil, varResolver...),
-				)
-				found := lo.Filter(
-					*diagnostics,
-					func(d xdiagnostics.Diagnostic, _ int) bool {
-						return d.Code == codes.UnitTruncation
-					},
-				)
-				Expect(found).To(HaveLen(1), diagnostics.String())
-				Expect(lo.Map(
-					found[0].Notes,
-					func(n protocol.DiagnosticRelatedInformation, _ int) string {
-						return n.Message
-					},
-				)).To(Equal(hints))
-			},
-			Entry("a source that divides",
-				"d := 1min\nother := 120s", `other -> d`,
-				"hint: change `d := 1min` to `d i64 s := 1min`",
-				"hint: change `other := 120s` to `other i64 min := 120s`"),
-			Entry("a source that does not divide",
-				"d := 1min\nother := 90s", `d = other`,
-				"hint: change `d := 1min` to `d i64 s := 1min`"),
-			Entry("a stateful sink",
-				"d $= 1min\nother := 120s", `other -> d`,
-				"hint: change `d $= 1min` to `d i64 s $= 1min`",
-				"hint: change `other := 120s` to `other i64 min := 120s`"),
 		)
 
 		DescribeTable("Should not convert a write that needs no conversion",

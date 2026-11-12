@@ -47,8 +47,7 @@ func UnitFactor(from, to *Unit) float64 {
 	return factor
 }
 
-// CommonUnit returns the unit that a value in a and a value in b meet in, which is the
-// smaller one. A value with no unit takes the unit of the other.
+// CommonUnit returns the smaller of a and b, or the one that is not nil.
 func CommonUnit(a, b *Unit) *Unit {
 	if a == nil {
 		return b
@@ -59,8 +58,7 @@ func CommonUnit(a, b *Unit) *Unit {
 	return b
 }
 
-// ProductUnit returns the unit of a product or quotient of a value in a and a value in
-// b. Two values with a unit give a number with no unit.
+// ProductUnit returns the unit of a product or quotient, which is nil for two units.
 func ProductUnit(a, b *Unit) *Unit {
 	if a == nil {
 		return b

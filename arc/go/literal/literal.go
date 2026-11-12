@@ -27,8 +27,7 @@ type ParsedValue struct {
 	Value any
 	// Type is the Arc type of the value
 	Type types.Type
-	// Truncated is set when a conversion to a larger unit dropped a part of an
-	// integer.
+	// Truncated is set when the unit conversion dropped a part of an integer.
 	Truncated bool
 }
 
@@ -186,8 +185,7 @@ func parseNumericWithUnit(
 		targetType = types.Type{Kind: kind, Unit: targetType.Unit}
 	}
 
-	// A target in a unit takes the literal in that unit. Any other target takes the
-	// number as written.
+	// A target with no unit takes the number as written.
 	value, valueUnit := numericValue, unit
 	truncated := false
 	if targetType.Unit != nil {

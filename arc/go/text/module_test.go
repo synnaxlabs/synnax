@@ -385,7 +385,6 @@ sequence main {
 	})
 
 	Describe("A module variable of another unit", func() {
-		const sinkHint = "hint: change `d := 1min` to `d i64 s := 1min`"
 		analyzeStage := func(ctx context.Context, statement string) diagnostics.Diagnostic {
 			GinkgoHelper()
 			sources["m"] = `export t := 120s`
@@ -395,12 +394,10 @@ sequence main {
 			return (*diag)[0]
 		}
 
-		DescribeTable("Should give no hint for the module when a write truncates",
+		DescribeTable("Should warn when a write of a module variable truncates",
 			func(ctx SpecContext, statement string) {
 				d := analyzeStage(ctx, statement+"\ntrig -> time.wait(1s) -> out8")
 				Expect(d.Code).To(Equal(codes.UnitTruncation))
-				Expect(d.Notes).To(HaveLen(1))
-				Expect(d.Notes[0].Message).To(Equal(sinkHint))
 			},
 			Entry("the variable", `d = m.t`),
 			Entry("an assigned calculation", `d = m.t * 2`),

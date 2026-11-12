@@ -72,10 +72,8 @@ func literalOnly[N antlr.ParserRuleContext](
 	return true
 }
 
-// compileOperand compiles operand and makes it meet the value on the stack, of type
-// left, in one unit. Two units of one dimension meet in the smaller one, and a value
-// with no unit takes the unit of the other. It returns the type of the operand and the
-// unit of both values.
+// compileOperand compiles operand in the unit that it and the value on the stack, of
+// type left, meet in. It returns the type of the operand and that unit.
 func compileOperand[N, O antlr.ParserRuleContext](
 	ctx context.Context[N],
 	left types.Type,

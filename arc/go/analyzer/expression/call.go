@@ -141,27 +141,25 @@ func checkArgType[T antlr.ParserRuleContext](
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}
-	paramType := param.Type
-	if t := paramType.Unwrap(); t.Kind != types.KindVariable && ReportMissingUnit(
-		ctx, arg.AST, argType, paramType,
-		fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName), nil,
-		fmt.Sprintf(
-			"hint: declare `%s %s`",
-			param.Name, withUnit(paramType, argType.Unwrap().Unit),
-		),
-	) {
-		return
-	}
-	// A value in another unit converts on the way to the parameter. Lowering warns
-	// for a flow variable, because it knows if the variable is a constant.
-	if types.UnitsConvertible(argType.Unit, paramType.Unit) {
-		if !readsFlowVariable(ctx, arg.Expr) {
-			WarnValueTruncation(ctx, arg.AST, arg.Expr, argType, paramType, nil)
+	paramType, check := param.Type, atypes.Check
+	// Lowering warns for a flow variable, which can be a constant.
+	if paramType.Unwrap().Kind != types.KindVariable {
+		converts, ok := CheckUnits(ctx, Write{
+			AST:     arg.AST,
+			Expr:    arg.Expr,
+			Source:  argType,
+			Target:  paramType,
+			Subject: fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
+			Lowered: readsFlowVariable(ctx, arg.Expr),
+		})
+		if !ok {
+			return
 		}
-		TakeUnit(ctx, arg.Expr, paramType.Unit)
-		argType.Unit, paramType.Unit = nil, nil
+		if converts {
+			check = atypes.CheckConverted
+		}
 	}
-	if err := atypes.Check(ctx.Constraints, paramType, argType, arg.AST,
+	if err := check(ctx.Constraints, paramType, argType, arg.AST,
 		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
 		d := codes.FuncArgType.Wrap(err, arg.AST)
 		if cast, ok := atypes.CastOf(err); ok {
@@ -171,10 +169,10 @@ func checkArgType[T antlr.ParserRuleContext](
 	}
 }
 
-// withUnit returns t with unit on its value type.
-func withUnit(t types.Type, unit *types.Unit) types.Type {
+// WithUnit returns t with unit on its value type.
+func WithUnit(t types.Type, unit *types.Unit) types.Type {
 	if (t.Kind == types.KindChan || t.Kind == types.KindSeries) && t.Elem != nil {
-		elem := withUnit(*t.Elem, unit)
+		elem := WithUnit(*t.Elem, unit)
 		t.Elem = &elem
 		return t
 	}
@@ -182,8 +180,7 @@ func withUnit(t types.Type, unit *types.Unit) types.Type {
 	return t
 }
 
-// readsFlowVariable reports whether expr is the lone name of a variable outside a
-// function body.
+// readsFlowVariable reports whether expr names a variable outside a function body.
 func readsFlowVariable[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
@@ -199,8 +196,7 @@ func readsFlowVariable[T antlr.ParserRuleContext](
 	return err == nil && sym.IsValueVariable()
 }
 
-// TakeUnit gives the node registered for expr the unit of the target that takes its
-// value, so that the node converts its value when it compiles.
+// TakeUnit gives the node registered for expr the unit of the target of its value.
 func TakeUnit[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,

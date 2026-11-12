@@ -12,8 +12,6 @@
 package statement
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -305,13 +303,15 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 			exprType := atypes.InferFromExpression(ctx.Child(expr))
 			if exprType.IsValid() && varType.IsValid() {
 				// A declaration with no unit takes the unit of its value.
-				if varType.IsNumeric() && varType.Unit == nil {
-					varType.Unit = exprType.Unit
+				if value := varType.Unwrap(); value.IsNumeric() && value.Unit == nil {
+					varType = expression.WithUnit(varType, exprType.Unwrap().Unit)
 				}
-				expression.WarnValueTruncation(
-					ctx, ctx.AST, expr, exprType, varType,
-					declaredSink(ctx, name, varType, expr),
-				)
+				expression.CheckUnits(ctx, expression.Write{
+					AST:    ctx.AST,
+					Expr:   expr,
+					Source: exprType,
+					Target: varType,
+				})
 				// Check magnitude safety for unit conversions (warnings only)
 				if varType.Unit != nil && exprType.Unit != nil {
 					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
@@ -361,23 +361,6 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 func assignable(target, value types.Type) bool {
 	return types.StructuralMatch(target.UnwrapChan(), value.UnwrapChan()) &&
 		atypes.Compatible(target, value)
-}
-
-// declaredSink returns the Sink of the declaration that ctx analyzes.
-func declaredSink[T antlr.ParserRuleContext](
-	ctx context.Context[T],
-	name string,
-	t types.Type,
-	init parser.IExpressionContext,
-) *expression.Sink {
-	_, stateful := any(ctx.AST).(parser.IStatefulVariableContext)
-	return &expression.Sink{
-		Name:     name,
-		Type:     t,
-		AST:      ctx.AST,
-		Init:     init,
-		Stateful: stateful,
-	}
 }
 
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
@@ -964,18 +947,15 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			return
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
-			declared := expectedReturnType
-			declared.Unit = actualReturnType.Unwrap().Unit
-			if expression.ReportMissingUnit(
-				ctx, ctx.AST, actualReturnType, expectedReturnType,
-				"the result of '"+funcName+"'", nil,
-				fmt.Sprintf("hint: declare the result as `%s`", declared),
-			) {
+			if _, ok := expression.CheckUnits(ctx, expression.Write{
+				AST:     ctx.AST,
+				Expr:    returnExpr,
+				Source:  actualReturnType,
+				Target:  expectedReturnType,
+				Subject: "the result of '" + funcName + "'",
+			}); !ok {
 				return
 			}
-			expression.WarnValueTruncation(
-				ctx, ctx.AST, returnExpr, actualReturnType, expectedReturnType, nil,
-			)
 			// If either type is a type variable, add a constraint instead of checking
 			// directly
 			if actualReturnType.Kind == types.KindVariable ||
@@ -1496,18 +1476,16 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	if expression.ReportMissingUnit(
-		ctx, ctx.AST, exprType, varType, "'"+name+"'",
-		expression.SinkOf(ctx, varScope), "",
-	) {
+	converted, ok := expression.CheckUnits(ctx, expression.Write{
+		AST:     ctx.AST,
+		Expr:    expr,
+		Source:  exprType,
+		Target:  varType,
+		Subject: "'" + name + "'",
+	})
+	if !ok {
 		return
 	}
-	// A value assigned to a variable of another unit converts.
-	converted := !parser.IsLiteral(expr) &&
-		types.UnitsConvertible(exprType.Unit, varType.Unit)
-	expression.WarnValueTruncation(
-		ctx, ctx.AST, expr, exprType, varType, expression.SinkOf(ctx, varScope),
-	)
 	if varType.Unit != nil && exprType.Unit != nil {
 		// Check magnitude safety for unit conversions (warnings only)
 		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)

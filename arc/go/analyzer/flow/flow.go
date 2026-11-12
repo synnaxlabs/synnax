@@ -428,26 +428,27 @@ func analyzeIdentifier(
 			))
 			return
 		}
-		if sym.IsValueVariable() && expression.ReportMissingUnit(
-			ctx, ctx.AST, srcType, chanValueType, "'"+name+"'",
-			expression.SinkOf(ctx, sym), "",
-		) {
-			return
+		converts := false
+		if sym.IsValueVariable() {
+			var ok bool
+			if converts, ok = expression.CheckUnits(ctx, expression.Write{
+				AST:     ctx.AST,
+				Expr:    prevNode.Expression(),
+				Source:  srcType,
+				Target:  chanValueType,
+				Subject: "'" + name + "'",
+			}); !ok {
+				return
+			}
 		}
 		if srcType.IsValid() {
 			// A literal takes the type of the variable it is written to.
 			expected, actual, check := srcType, chanValueType, atypes.Check
-			expr := prevNode.Expression()
 			if sym.IsValueVariable() {
 				expected, actual = chanValueType, srcType
-				// A value written to a variable of another unit converts.
-				if expr != nil {
-					expression.TakeUnit(ctx, expr, chanValueType.Unit)
-				}
-				if (expr == nil || !parser.IsLiteral(expr)) &&
-					types.UnitsConvertible(actual.Unit, expected.Unit) {
-					check = atypes.CheckConverted
-				}
+			}
+			if converts {
+				check = atypes.CheckConverted
 			}
 			if err = check(
 				ctx.Constraints,
@@ -460,27 +461,7 @@ func analyzeIdentifier(
 					"%s does not match channel %s value type %s",
 					srcDesc, name, chanValueType,
 				))
-				return
 			}
-			if !sym.IsValueVariable() {
-				return
-			}
-			if id := prevNode.Identifier(); id != nil {
-				head, tail := parser.IdentifierParts(id)
-				if src, srcErr := ctx.Scope.ResolveMember(
-					ctx,
-					head,
-					tail,
-				); srcErr == nil {
-					expression.WarnTruncation(
-						ctx, ctx.AST, src, sym.Type, expression.SinkOf(ctx, sym),
-					)
-				}
-				return
-			}
-			expression.WarnValueTruncation(
-				ctx, ctx.AST, expr, srcType, sym.Type, expression.SinkOf(ctx, sym),
-			)
 		}
 	}
 }

@@ -41,8 +41,7 @@ func compileTypeCast(
 	return targetType, nil
 }
 
-// EmitCast converts the value of type from on the stack to the type to. A value in
-// another unit of the same dimension converts to the unit of to.
+// EmitCast converts the value of type from on the stack to the type and unit of to.
 func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	from, to types.Type,
@@ -79,8 +78,8 @@ func width(t types.Type) int {
 	}
 }
 
-// EmitUnitScale converts the value of type t on the stack to the unit to. An integer
-// truncates toward zero. A series converts each element.
+// EmitUnitScale converts the value or series of type t on the stack to the unit to.
+// An integer truncates toward zero.
 func EmitUnitScale[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	t types.Type,

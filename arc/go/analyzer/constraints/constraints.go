@@ -196,8 +196,7 @@ func (s *System) applySubstitutions(t types.Type, visited set.Set[string]) types
 			visited.Add(t.Name)
 			result := s.applySubstitutions(sub, visited)
 			visited.Remove(t.Name)
-			// A type variable with a unit keeps it, so that a literal stays in the
-			// unit that it is written in.
+			// A type variable keeps its own unit, which is the unit of its literal.
 			if t.Unit != nil {
 				result.Unit = t.Unit
 			}

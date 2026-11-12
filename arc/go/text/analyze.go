@@ -2278,7 +2278,9 @@ func extractInputValues(
 						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 						return nil, paramType, false
 					}
-					expression.WarnTruncation(ctx, expr, sym, paramType, nil)
+					expression.CheckUnits(ctx, expression.Write{
+						AST: expr, Source: sym.Type, Target: paramType,
+					})
 					// A native node converts the register when it reads it. Any other
 					// node reads a scale node that fires with the call.
 					if fnSym.Exec != symbol.ExecFlow {
@@ -2302,7 +2304,11 @@ func extractInputValues(
 						return nil, paramType, false
 					}
 					if parsed.Truncated {
-						expression.WarnTruncation(ctx, expr, sym, paramType, nil)
+						expression.CheckUnits(ctx, expression.Write{
+							AST:    expr,
+							Source: sym.Type,
+							Target: paramType,
+						})
 					}
 					return parsed.Value, paramType, true
 				}
