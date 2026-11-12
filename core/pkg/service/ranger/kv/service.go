@@ -12,11 +12,12 @@ package kv
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -51,9 +52,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing key-value pairs on ranges.
 type Service struct {
-	closer xio.MultiCloser
-	cfg    ServiceConfig
-	table  *gorp.Table[string, Pair]
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	table   *gorp.Table[string, Pair]
+	indexes indexes
+	state   *actions.State[string, Action]
 }
 
 // OpenService opens a new kv.Service with the provided configuration.
@@ -62,22 +65,36 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[string, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Pair]{
 		DB:              cfg.DB,
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
-		signalsCfg.SetName = "sy_range_kv_set"
-		signalsCfg.DeleteName = "sy_range_kv_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[string, Pair]{
+			Changes:    s.table.Changes,
+			Resource:   rangeOf,
+			SetKey:     signals.UnmarshalEntryKey[string, Pair],
+			SetName:    "sy_range_kv_set",
+			DeleteName: "sy_range_kv_delete",
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[string, Action]{
+			Name:     "sy_range_kv_action_set",
+			Actions:  s.state,
+			Resource: rangeOf,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -87,12 +104,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create and delete key-value pairs.
+// rangeOf returns the range that owns the pair with the given Gorp key.
+func rangeOf(key string) resource.ID {
+	return resource.ID{Type: resource.TypeRange, Key: Pair{}.GorpKeyRange(key)}
+}
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[string, Action] { return s.state }
+
+// NewWriter opens a new Writer to create, change, and delete key-value pairs.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
+	return Writer{tx: tx, table: s.table, dispatcher: s.state.Dispatcher()}
 }
 
 // NewReader opens a new Reader to retrieve key-value pairs.
-func (s *Service) NewReader(tx gorp.Tx) Reader {
-	return Reader{tx: gorp.OverrideTx(s.cfg.DB, tx), table: s.table}
+func (s *Service) NewReader(snap gorp.Snapshot) Reader {
+	return Reader{snap: snap, table: s.table}
 }

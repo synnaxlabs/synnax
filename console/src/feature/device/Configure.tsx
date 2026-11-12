@@ -11,7 +11,6 @@ import { type device } from "@synnaxlabs/client";
 import { type ComponentType, type ReactElement } from "react";
 
 import { HARDWARE, type Hardware } from "@/feature/device/integrations";
-import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -26,15 +25,18 @@ interface HardwareProps {
   close: () => void;
   /** Returns to the view that opened the form. */
   onBack?: () => void;
-  /** Runs after the form opens a new read task for the device. */
+  /** Runs after the form opens a new read or write task for the device. */
   onTaskCreated?: () => void;
 }
 
+const useNoCreate = (): undefined => undefined;
+
 const createConfigure = ({
-  icon,
-  zeroProperties,
+  Configure,
   useCreateRead,
+  useCreateWrite,
 }: Hardware): ComponentType<HardwareProps> => {
+  const useWrite = useCreateWrite ?? useNoCreate;
   const ConfigureHardware = ({
     deviceKey,
     close,
@@ -42,17 +44,24 @@ const createConfigure = ({
     onTaskCreated,
   }: HardwareProps): ReactElement => {
     const createRead = useCreateRead();
+    const createWrite = useWrite();
     return (
-      <PlatformDevice.Configure
+      <Configure
         deviceKey={deviceKey}
         close={close}
         onBack={onBack}
-        icon={icon}
-        initialProperties={zeroProperties}
-        onCreateTask={(key) => {
+        onCreateReadTask={(key) => {
           createRead({ deviceKey: key });
           onTaskCreated?.();
         }}
+        onCreateWriteTask={
+          createWrite == null
+            ? undefined
+            : (key) => {
+                createWrite({ deviceKey: key });
+                onTaskCreated?.();
+              }
+        }
       />
     );
   };

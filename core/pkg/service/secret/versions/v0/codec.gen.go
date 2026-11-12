@@ -61,7 +61,7 @@ func (s Secret) EncodeOrc(w *orc.Writer) error {
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Path)
+		w.String(v.FileName)
 	default:
 		return errors.Newf("Secret: nil or unknown variant %T", s.Variant)
 	}
@@ -70,11 +70,11 @@ func (s Secret) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Secret) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "stored":
 		var v StoredSecret
 		if err := v.Base.DecodeOrc(r); err != nil {
@@ -98,7 +98,7 @@ func (s *Secret) DecodeOrc(r *orc.Reader) error {
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Path, err = r.String(); err != nil {
+		if v.FileName, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v

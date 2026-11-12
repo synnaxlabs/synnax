@@ -12,6 +12,7 @@ package license_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -20,6 +21,7 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apilicense.ServiceConfig {
 		return apilicense.ServiceConfig{
+			DB:      &gorp.DB{},
 			RBAC:    &rbac.Service{},
 			License: &license.Service{},
 		}
@@ -38,6 +40,11 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
+				"db",
+				func(c *apilicense.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
 				"rbac",
 				func(c *apilicense.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
@@ -54,6 +61,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apilicense.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.License).To(BeIdenticalTo(cfg.License))
 		})
@@ -61,6 +69,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apilicense.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.License).To(BeIdenticalTo(cfg.License))
 		})

@@ -13,9 +13,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	Describe("By Keys", func() {
 		It(
 			"Should retrieve only the projects matching the given keys",
@@ -34,8 +36,8 @@ var _ = Describe("Retrieve", func() {
 		)
 	})
 
-	Describe("Limit and Offset", func() {
-		It("Should bound and page the result set", func(ctx SpecContext) {
+	Describe("Limit", func() {
+		It("Should bound the result set", func(ctx SpecContext) {
 			keys := make([]project.Key, 3)
 			for i := range keys {
 				p := project.Project{Name: "page"}
@@ -46,11 +48,6 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().Where(project.MatchKeys(keys...)).Limit(2).
 				Entries(&limited).Exec(ctx, tx)).To(Succeed())
 			Expect(limited).To(HaveLen(2))
-
-			var offset []project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(keys...)).Offset(2).
-				Entries(&offset).Exec(ctx, tx)).To(Succeed())
-			Expect(offset).To(HaveLen(1))
 		})
 	})
 })

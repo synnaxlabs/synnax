@@ -10,11 +10,13 @@
 import { capture, fixtures } from "@/index";
 
 const STATUS = "Engine 1";
+// A stand-in for a routing key. The task never starts, so nothing sends it.
+const ROUTING_KEY = "docs-example-routing-key";
 
 /**
  * Docs `device-drivers/pagerduty/alert-task/create`: run "Create PagerDuty alert
- * task", enter a routing key, add an alert on the Engine 1 status, treat errors as
- * critical, and fill the incident fields. The task is never started.
+ * task", save the routing key as a new secret, add an alert on the Engine 1 status,
+ * treat errors as critical, and fill the incident fields. The task is never started.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createStatuses([{ key: "engine-1", name: STATUS }]);
@@ -33,14 +35,29 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // The form fills most of the panel, so zoom on a point at its center.
   await capture.zoomCenter(session, form, 1.4);
 
-  // The key typed is the field's own placeholder, which is never sent anywhere.
-  const routingKey = form.locator("input[type=password]").first();
-  const key = await routingKey.getAttribute("placeholder");
-  if (key == null) throw new Error("The routing key field has no placeholder");
-  await session.click(routingKey);
+  await session.click(form.getByText("Select a secret", { exact: true }).first(), {
+    text: true,
+  });
+  const newSecret = page
+    .locator(".lyra-select__dialog:visible")
+    .getByText("New secret", { exact: true })
+    .first();
+  await session.waitFor(newSecret);
+  await session.hold(400);
+  await session.click(newSecret, { text: true });
+  const modal = page.locator(capture.MODAL).first();
+  const value = modal.getByPlaceholder("Value", { exact: true }).first();
+  await session.waitFor(value);
+  await session.hold(600);
+  await session.click(value);
   session.setSpeed(3);
-  await session.type(key, 60);
+  await session.type(ROUTING_KEY, 60);
   session.setSpeed(1);
+  await session.hold(500);
+  await session.click(
+    modal.getByRole("button", { name: "Create", exact: true }).first(),
+  );
+  await session.waitForHidden(modal);
   await session.hold(500);
 
   await session.click(form.getByRole("button", { name: "Add alert" }).first());

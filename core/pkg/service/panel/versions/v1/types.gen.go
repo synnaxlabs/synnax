@@ -14,13 +14,15 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -59,7 +61,7 @@ type ResourceTab struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via
 	// SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 func (ResourceTab) isTabVariant() {}
@@ -353,7 +355,7 @@ type Panel struct {
 	Root Node `json:"root" msgpack:"root"`
 	// Parent is the parent resource for the panel in the ontology. Required on create
 	// and absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -362,6 +364,33 @@ func (p *Panel) ApplyDefaults() {
 		v0 := LeafNode{}
 		p.Root.Variant = v0
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Panel) SetDefaults() {
+	{
+		v0 := LeafNode{}
+		p.Root.Variant = v0
+	}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

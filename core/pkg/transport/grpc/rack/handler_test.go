@@ -14,15 +14,41 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	grpcrack "github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+var _ = Describe("Create", func() {
+	It("Should accept a rack with no role, as the C++ client sends", func(
+		ctx SpecContext,
+	) {
+		var received rack.CreateRequest
+		transport.RackCreate.BindHandler(func(
+			_ context.Context,
+			req rack.CreateRequest,
+		) (rack.CreateResponse, error) {
+			received = req
+			return rack.CreateResponse{}, nil
+		})
+		MustSucceed(grpcrack.NewRackCreateServiceClient(conn).Exec(
+			ctx,
+			&grpcrack.CreateRequest{
+				Racks: []*rackpb.Rack{{Key: 65537, Name: "Driver rack"}},
+			},
+		))
+		Expect(received.Racks).To(Equal([]rack.Rack{{Key: 65537, Name: "Driver rack"}}))
+	})
+})
 
 var _ = Describe("Retrieve", func() {
 	var (
@@ -49,8 +75,7 @@ var _ = Describe("Retrieve", func() {
 					{Key: &filter.Set[rack.Key]{In: []rack.Key{65537}}},
 					{Integrations: &filter.Contains[string]{Any: []string{"ni"}}},
 				},
-				Not:        &svcrack.Where{Embedded: &filter.Bool{Eq: new(true)}},
-				HostIsNode: new(false),
+				Not: &svcrack.Where{Embedded: &filter.Bool{Eq: new(true)}},
 			},
 			Limit:         new(uint32(10)),
 			IncludeStatus: true,
@@ -83,5 +108,78 @@ var _ = Describe("Retrieve", func() {
 		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
 			"sy.validation---api.rack.pb.RetrieveRequest has unknown fields",
 		)))
+	})
+})
+
+var _ = Describe("Dispatch", func() {
+	var (
+		client   grpcrack.RackDispatchServiceClient
+		received rack.DispatchRequest
+	)
+
+	BeforeEach(func() {
+		client = grpcrack.NewRackDispatchServiceClient(conn)
+		received = rack.DispatchRequest{}
+		transport.RackDispatch.BindHandler(func(
+			_ context.Context,
+			req rack.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+	})
+
+	It("Should decode each action from the JSON form that HTTP takes", func(
+		ctx SpecContext,
+	) {
+		MustSucceed(client.Exec(ctx, &grpcrack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: [][]byte{
+				[]byte(
+					`{"type": "set", "set": {"path": ["version"], "value": "0.50.0"}}`,
+				),
+			},
+		}))
+		Expect(received).To(Equal(rack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: []svcrack.Action{svcrack.NewSetAction(svcrack.SetPayload{
+				Path:  []string{"version"},
+				Value: "0.50.0",
+			})},
+		}))
+	})
+
+	It("Should reject an action that does not decode", func(ctx SpecContext) {
+		Expect(client.Exec(ctx, &grpcrack.DispatchRequest{
+			Key:     65537,
+			Actions: [][]byte{[]byte(`{"type": 1}`)},
+		})).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+
+	It("Should encode each action as JSON that decodes to the same action", func(
+		ctx SpecContext,
+	) {
+		translator := transport.RackDispatch.(*fgrpc.UnaryServer[
+			rack.DispatchRequest,
+			*grpcrack.DispatchRequest,
+			struct{},
+			*emptypb.Empty,
+		]).RequestTranslator.(fgrpc.Translator[
+			rack.DispatchRequest,
+			*grpcrack.DispatchRequest,
+		])
+		req := rack.DispatchRequest{
+			Key:         65537,
+			DispatchKey: "dk",
+			Actions: []svcrack.Action{svcrack.NewSetAction(svcrack.SetPayload{
+				Path:   []string{"version"},
+				Value:  "0.2.0",
+				Guards: []patch.Guard{{Path: []string{"version"}, Value: "0.1.0"}},
+			})},
+		}
+		Expect(translator.Backward(ctx, MustSucceed(translator.Forward(ctx, req)))).
+			To(Equal(req))
 	})
 })

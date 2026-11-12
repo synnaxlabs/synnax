@@ -17,6 +17,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -140,7 +141,10 @@ func checkArgType[T antlr.ParserRuleContext](
 	arg symbol.Argument,
 	signature string,
 ) {
-	argType := atypes.InferFromExpression(ctx.Child(arg.Expr))
+	argType := computedArgType(ctx, arg.Expr)
+	if !argType.IsValid() {
+		argType = atypes.InferFromExpression(ctx.Child(arg.Expr))
+	}
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}
@@ -149,4 +153,19 @@ func checkArgType[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(diagnostics.Error(err, arg.AST).
 			WithCode(codes.FuncArgType).WithNote("signature: " + signature))
 	}
+}
+
+// computedArgType returns the output type of the node registered for a computed
+// argument, or an invalid type if expr has none. Inferring expr again would replace the
+// node body's types.
+func computedArgType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+) types.Type {
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return types.Type{}
+	}
+	out, _ := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+	return out.Type
 }

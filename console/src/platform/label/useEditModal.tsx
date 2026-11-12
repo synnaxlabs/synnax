@@ -23,7 +23,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Label } from "@synnaxlabs/pluto";
+import { Access, Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 
@@ -63,7 +63,7 @@ const Item = (props: List.ItemProps<label.Key>) => {
   const { itemKey } = props;
   const { form } = Label.useForm({ query: { key: itemKey } });
   const { update: handleDelete } = Label.useDelete();
-  const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
+  const canDelete = Access.useDeleteGranted(label.resourceID(itemKey));
   return (
     <List.Item
       className={CSS.BE("label", "list-item")}
@@ -160,18 +160,20 @@ const EMPTY_CONTENT = (
 );
 
 const Edit = () => {
-  const { data, getItem, retrieve, subscribe, answered } = Label.useList();
-  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
+  const { data, getItem, subscribe, answered, more, search } = Flux.useList(
+    (client) => client.labels,
+    { name: "labels", pageSize: 15 },
+  );
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   return (
     <Modal.Frame y className={CSS.BE("label", "edit")}>
       <Modal.Header icon={<Icon.Label />}>Label.Edit</Modal.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
-        onFetchMore={fetchMore}
+        onFetchMore={more}
         subscribe={subscribe}
       >
         <Input.Text
