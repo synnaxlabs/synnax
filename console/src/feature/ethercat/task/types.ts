@@ -205,19 +205,25 @@ export const bindReadChannel = (
 };
 
 /**
- * @returns the end that the name of the read channel takes: its data type when it is
- * unscaled and the first channel of its entry holds another type, else nothing.
+ * @returns the end that the name of the read channel takes: `_calibrated` or `_raw`
+ * when it is scaled and a scaled channel of its entry has the other calibration, its
+ * data type when it is unscaled and the first channel of its entry holds another type,
+ * else nothing.
  */
 export const readNameSuffix = (
   slave: SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
 ): string => {
-  if (isScaled(ch)) return "";
   const at = isAt(ch);
-  const first = slave.properties.read.channels.find(
-    (b) => at(b) && !b.scaled && dataTypes.has(b.channel),
+  const bound = slave.properties.read.channels.filter(
+    (b) => at(b) && dataTypes.has(b.channel),
   );
+  if (isScaled(ch)) {
+    if (!bound.some((b) => b.scaled && b.calibrated !== ch.calibrated)) return "";
+    return ch.calibrated ? "_calibrated" : "_raw";
+  }
+  const first = bound.find((b) => !b.scaled);
   const dataType = readDataType(ch);
   return first != null && dataTypes.get(first.channel) !== dataType
     ? `_${dataType}`
@@ -405,9 +411,8 @@ export const getEntryChannelName = (
 
 /**
  * The name deploying the task gives a read channel: its own name, or a default. A
- * default name of a scaled channel ends in `_scaled`. The name of an unscaled channel
- * ends in its data type when the first channel of its entry holds another type. A name
- * that already ends in the type does not get it again.
+ * default name of a scaled channel ends in `_scaled`. The name then ends in what
+ * readNameSuffix returns, unless it already ends in it.
  */
 export const readChannelName = (
   slave: SlaveDevice,
@@ -421,7 +426,7 @@ export const readChannelName = (
       slave.properties.pdos.inputs,
       ch,
     );
-    if (isScaled(ch)) return `${name}_scaled`;
+    if (isScaled(ch)) name = `${name}_scaled`;
   }
   return Task.withSuffix(name, readNameSuffix(slave, ch, dataTypes));
 };

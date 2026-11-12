@@ -1234,17 +1234,17 @@ describe("Read", () => {
     ]);
   });
 
-  it("should give a calibrated scaled channel apart from an uncalibrated one", async () => {
+  it("should give a calibrated scaled channel its own channel and name", async () => {
+    const identifier = createIdentifier();
     const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
+      identifier,
       network: "eth0",
       pdos: createPDOs(),
     });
-    const scaled = (calibrated: boolean, name: string): ethercat.EntryReadChannel => ({
+    const scaled = (calibrated: boolean): ethercat.EntryReadChannel => ({
       ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
       scale: { type: "linear", slope: 2, offset: 0 },
       calibrated,
-      name,
     });
     const deploy = async (ch: ethercat.EntryReadChannel) => {
       const { container, draft, unmount } = await renderRead({
@@ -1260,9 +1260,12 @@ describe("Read", () => {
       unmount();
       return deployed.config.channels[0].channel;
     };
-    const rawKey = await deploy(scaled(false, uniqueName("ecat_raw_scaled")));
-    const calibratedKey = await deploy(scaled(true, uniqueName("ecat_calibrated")));
+    const rawKey = await deploy(scaled(false));
+    const calibratedKey = await deploy(scaled(true));
     expect(calibratedKey).not.toBe(rawKey);
+    const [raw, calibrated] = await client.channels.retrieve([rawKey, calibratedKey]);
+    expect(raw.name).toBe(`${identifier}_Status_scaled`);
+    expect(calibrated.name).toBe(`${identifier}_Status_scaled_calibrated`);
     const updated = await client.devices.retrieve({
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
