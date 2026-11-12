@@ -32,7 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     });
     const item = capture.treeItem(page, "user:", "synnax");
     await session.waitFor(item);
-    await capture.contextMenu(session, item, "Manage credentials");
+    await capture.contextMenu(session, item, "Manage sign-in");
     session.endZoom();
     const modal = page.locator(capture.MODAL).first();
     const name = modal.getByPlaceholder("Key name", { exact: true });
