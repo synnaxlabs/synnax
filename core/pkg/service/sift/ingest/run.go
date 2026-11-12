@@ -87,7 +87,7 @@ func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 			) {
 			return existing.RunId, nil
 		}
-		_, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+		if _, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
 			Run: &runsv2.Run{
 				RunId:     existing.RunId,
 				Name:      r.Name,
@@ -98,8 +98,10 @@ func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 			UpdateMask: &fieldmaskpb.FieldMask{
 				Paths: []string{"name", "start_time", "stop_time", "tags"},
 			},
-		})
-		return existing.RunId, err
+		}); err != nil {
+			return "", err
+		}
+		return existing.RunId, nil
 	}
 	assetID, err := e.asset(ctx)
 	if err != nil {
