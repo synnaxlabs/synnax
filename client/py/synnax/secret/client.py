@@ -122,6 +122,7 @@ class Client:
         """Deletes secrets. Unknown keys are ignored.
 
         :param keys: The keys of the secrets to delete.
+        :raises ValidationError: If a resource uses one of the secrets.
         :raises AccessDenied: If the caller cannot delete one of the secrets.
         """
         self._client.send("/secret/delete", _DeleteRequest(keys=normalize(keys)), Empty)

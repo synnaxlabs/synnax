@@ -165,6 +165,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
 
   /**
    * Deletes secrets. Unknown keys are ignored.
+   * @throws {ValidationError} if a resource uses one of the secrets.
    * @throws {AccessDeniedError} if the caller cannot delete one of the secrets.
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

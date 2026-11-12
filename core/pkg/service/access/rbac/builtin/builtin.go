@@ -51,6 +51,7 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeBuiltin},
 	{Type: resource.TypeView},
 	{Type: resource.TypeSecret},
+	{Type: resource.TypeCertificate},
 }
 
 var (
@@ -109,6 +110,7 @@ var (
 				{Type: resource.TypeStatus},
 				{Type: resource.TypeView},
 				{Type: resource.TypeSecret},
+				{Type: resource.TypeCertificate},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
@@ -171,6 +173,15 @@ var (
 			Name:     "Driver Secret View Access",
 			Objects:  []resource.ID{{Type: resource.TypeSecret}},
 			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
+			Name:    "Driver Certificate Access",
+			Objects: []resource.ID{{Type: resource.TypeCertificate}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+			},
 			Internal: true,
 		},
 		{

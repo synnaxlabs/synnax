@@ -47,4 +47,5 @@ constexpr const char *TYPE_NI_DEVICE = "ni_device";
 constexpr const char *TYPE_OPCUA_SERVER = "opcua_server";
 constexpr const char *TYPE_ARC_DIRECTORY = "arc_directory";
 constexpr const char *TYPE_SECRET = "secret";
+constexpr const char *TYPE_CERTIFICATE = "certificate";
 }

@@ -18,6 +18,7 @@ import (
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -652,6 +653,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SecretResolve: unary[secret.ResolveRequest, secret.ResolveResponse](
 			router,
 			"/api/v1/secret/resolve",
+		),
+
+		// CERTIFICATE
+		CertificateSet: unary[certificate.SetRequest, certificate.SetResponse](
+			router,
+			"/api/v1/certificate/set",
+		),
+		CertificateRetrieve: unary[certificate.RetrieveRequest, certificate.RetrieveResponse](
+			router,
+			"/api/v1/certificate/retrieve",
+		),
+		CertificateDelete: unary[certificate.DeleteRequest, struct{}](
+			router,
+			"/api/v1/certificate/delete",
+		),
+		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathCertificateDispatch,
 		),
 
 		// IMPORT/EXPORT

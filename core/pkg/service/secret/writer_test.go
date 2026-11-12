@@ -14,12 +14,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
+
+const notFileName = "file_name: must be a file name, not a path"
 
 var _ = Describe("Writer", func() {
 	var (
@@ -214,6 +218,21 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 	})
+
+	DescribeTable("ValidateFileName",
+		func(name string, matcher types.GomegaMatcher) {
+			v := validate.New("secret")
+			secret.ValidateFileName(v, "file_name", name)
+			Expect(v.Error()).To(matcher)
+		},
+		Entry("a file name", "key.pem", Succeed()),
+		Entry("an empty name", "", MatchError("file_name: required")),
+		Entry("the folder itself", ".", MatchError(notFileName)),
+		Entry("the parent folder", "..", MatchError(notFileName)),
+		Entry("a forward slash", "a/key.pem", MatchError(notFileName)),
+		Entry("a backslash", `a\key.pem`, MatchError(notFileName)),
+		Entry("a Windows drive", "C:key.pem", MatchError(notFileName)),
+	)
 
 	Describe("Delete", func() {
 		It("Should delete the secret", func(ctx SpecContext) {

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
@@ -264,6 +265,8 @@ type Layer struct {
 	Grant *grant.Service
 	// Secret stores the hidden values that devices and tasks connect with.
 	Secret *secret.Service
+	// Certificate stores certificates and reports their expiry.
+	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
 	// Node serves the host node of the Core as a resource.
@@ -903,10 +906,20 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
+	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
+		Instrumentation: cfg.Child("certificate"),
+		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
+		Status:          l.Status,
+		Signals:         l.Signals,
+	}); !ok(err, l.Certificate) {
+		return nil, err
+	}
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
+			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),

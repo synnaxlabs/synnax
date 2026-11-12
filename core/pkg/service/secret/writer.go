@@ -129,17 +129,27 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	)
 }
 
-// Delete deletes the secrets with the given keys. Delete is idempotent.
+// Delete deletes the secrets with the given keys. It returns a gorp.RestrictError when
+// anything uses one of them. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Secret](keys...)).
 		Exec(ctx, w.tx)
 }
 
-// isFileName reports whether name stays in the folder that a rack joins it to. A colon
-// starts a Windows drive, such as C:key.pem.
-func isFileName(name string) bool {
-	return name != "." && name != ".." && !strings.ContainsAny(name, `/\:`)
+// ValidateFileName adds an error to v at field unless name is a file name, so a rack
+// that joins it to a folder stays in that folder. A colon starts a Windows drive, such
+// as C:key.pem.
+func ValidateFileName(v *validate.Validator, field, name string) {
+	if name == "" {
+		v.Ternary(field, true, "required")
+		return
+	}
+	v.Ternary(
+		field,
+		name == "." || name == ".." || strings.ContainsAny(name, `/\:`),
+		"must be a file name, not a path",
+	)
 }
 
 func validateSecret(s Secret, value []byte) error {
@@ -148,12 +158,7 @@ func validateSecret(s Secret, value []byte) error {
 	case StoredSecret:
 		v.Ternary("value", len(value) == 0, "required")
 	case FileSecret:
-		v.NotEmptyString("file_name", variant.FileName)
-		v.Ternary(
-			"file_name",
-			!isFileName(variant.FileName),
-			"must be a file name, not a path",
-		)
+		ValidateFileName(v, "file_name", variant.FileName)
 		v.Ternary("value", len(value) != 0, "must be empty for a file secret")
 	default:
 		v.Ternary("source", true, "required")

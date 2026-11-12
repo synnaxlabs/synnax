@@ -133,6 +133,7 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/secret/grant/create",
 			),
+			Entry("unary certificate set", http.MethodPost, "/api/v1/certificate/set"),
 		)
 
 		DescribeTable("Should not register a route for a deleted edit endpoint",

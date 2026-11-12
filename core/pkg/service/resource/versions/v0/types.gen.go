@@ -76,13 +76,15 @@ const (
 	TypeArcDirectory   Type = "arc_directory"
 	// TypeSecret identifies a secret.
 	TypeSecret Type = "secret"
+	// TypeCertificate identifies a certificate.
+	TypeCertificate Type = "certificate"
 )
 
 // IsValid reports whether t is one of the defined Type
 // values.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret:
+	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret, TypeCertificate:
 		return true
 	default:
 		return false

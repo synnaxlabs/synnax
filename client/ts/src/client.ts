@@ -25,6 +25,7 @@ import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { batch } from "@/batch";
+import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -137,6 +138,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
+  certificate: changes(
+    certificate.ACTION_CHANNEL_NAME,
+    certificate.DELETE_CHANNEL_NAME,
+  ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
@@ -201,6 +206,7 @@ export default class Synnax extends framer.Client {
   readonly arcs: arc.Client;
   readonly views: view.Client;
   readonly secrets: secret.Client;
+  readonly certificates: certificate.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -381,6 +387,7 @@ export default class Synnax extends framer.Client {
     });
     this.views = new view.Client({ unary, cache });
     this.secrets = new secret.Client({ unary, cache });
+    this.certificates = new certificate.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,

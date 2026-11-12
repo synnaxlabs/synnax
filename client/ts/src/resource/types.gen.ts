@@ -46,6 +46,7 @@ export const TYPES = [
   "opcua_server",
   "arc_directory",
   "secret",
+  "certificate",
 ] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;

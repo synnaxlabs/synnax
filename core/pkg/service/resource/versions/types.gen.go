@@ -76,6 +76,8 @@ const (
 	TypeArcDirectory   Type = v0.TypeArcDirectory
 	// TypeSecret identifies a secret.
 	TypeSecret Type = v0.TypeSecret
+	// TypeCertificate identifies a certificate.
+	TypeCertificate Type = v0.TypeCertificate
 )
 
 // ID is a unique identifier for a Resource. An example:
