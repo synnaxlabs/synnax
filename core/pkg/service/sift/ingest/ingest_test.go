@@ -622,6 +622,22 @@ var _ = Describe("Engine", func() {
 			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
 		})
 
+		It("Should set a run while Upload runs", func(ctx SpecContext) {
+			idx := createIndex(ctx)
+			data := createData(ctx, idx, telem.Float64T)
+			write(ctx, idx, []telem.TimeStamp{at(1), at(2)},
+				map[channel.Key]telem.Series{data.Key(): telem.NewSeriesV(1.0, 2.0)})
+			e := open(ctx, channel.Keys{data.Key()})
+			done := make(chan error, 1)
+			go func() {
+				done <- e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)
+			}()
+			id := MustSucceed(e.SetRun(ctx, run))
+			Eventually(done).Should(Receive(Succeed()))
+			Expect(server.Points("stand", data.Name)).To(HaveLen(2))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
+		})
+
 		It("Should return the last error once it runs out of retries",
 			func(ctx SpecContext) {
 				server.FailRuns(
