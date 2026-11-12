@@ -19,6 +19,10 @@ inputs:
     description: Where to store pnpm files
     required: false
     default: ~/setup-pnpm
+  install:
+    description: Whether to install the workspace dependencies
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -67,6 +71,7 @@ runs:
 
     # pnpm/setup already installed the runtime from devEngines.
     - name: Install dependencies
+      if: inputs.install == 'true'
       shell: bash
       run: pnpm install --no-runtime
 
