@@ -201,13 +201,14 @@ lighter step or the base step in dark mode.
   the submit button. The note keeps its space while empty, so nothing moves when it
   shows. It is one plain sentence ("Incorrect username or password."), and it is empty
   before the first attempt.
-- A span of time (a timeout, a delay, a window) is a typed duration field
-  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
-  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit people
-  think in for that field, such as milliseconds for a click delay and seconds for a
-  timeout, whatever unit the value is stored in. The readings and a hint show under the
-  field while it has focus, also when it already has a value. A bound is a message under
-  the field ("Timeout must be 1min or less"), never a silent clamp.
+- A span of time (a timeout, a delay, a window) is a typed duration field, never a
+  number with a unit suffix. Use `Form.TimeSpanField` when the stored unit is the unit
+  of a number typed alone, and `Input.TimeSpan inline` with its own `unit` when they
+  differ. The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit
+  people think in for that field, such as milliseconds for a click delay and seconds for
+  a timeout, whatever unit the value is stored in. The readings and a hint show under
+  the field while it has focus, also when it already has a value. A bound is a message
+  under the field ("Timeout must be 1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
