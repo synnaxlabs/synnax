@@ -159,12 +159,17 @@ const isReadBinding = (
   const at = isAt(ch);
   const scaled = isScaled(ch);
   const dataType = readDataType(ch);
-  return (b) => at(b) && b.scaled === scaled && dataTypes.get(b.channel) === dataType;
+  return (b) =>
+    at(b) &&
+    b.scaled === scaled &&
+    b.calibrated === ch.calibrated &&
+    dataTypes.get(b.channel) === dataType;
 };
 
 /**
  * @returns the channel of the entry that holds the data type of the read channel, or 0.
- * A scaled channel writes float64 samples, so it maps to its own Synnax channel.
+ * Scaled and calibrated channels write float64 samples, so each maps to its own Synnax
+ * channel.
  */
 export const readChannelOf = (
   slave: SlaveDevice,
@@ -175,8 +180,8 @@ export const readChannelOf = (
 
 /**
  * Maps the read channel to the Synnax channel with the key on the slave, in place of
- * the channel it replaces: the scaled channel of the entry, or a deleted one. Adds the
- * data type of the channel to dataTypes.
+ * the channel it replaces: the scaled channel of the entry with the same calibration,
+ * or a deleted one. Adds the data type of the channel to dataTypes.
  */
 export const bindReadChannel = (
   slave: SlaveDevice,
@@ -188,9 +193,14 @@ export const bindReadChannel = (
   const scaled = isScaled(ch);
   const { read } = slave.properties;
   read.channels = read.channels.filter(
-    (b) => !at(b) || b.scaled !== scaled || (!scaled && dataTypes.has(b.channel)),
+    (b) =>
+      !at(b) ||
+      b.scaled !== scaled ||
+      b.calibrated !== ch.calibrated ||
+      (!scaled && dataTypes.has(b.channel)),
   );
-  read.channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
+  const { index, subIndex, calibrated } = ch;
+  read.channels.push({ index, subIndex, scaled, calibrated, channel: key });
   dataTypes.set(key, readDataType(ch));
 };
 

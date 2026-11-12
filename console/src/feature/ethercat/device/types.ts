@@ -78,6 +78,8 @@ const readBindingZ = z.object({
   subIndex: z.number(),
   /** The channel holds the scaled samples of the entry. */
   scaled: z.boolean().default(false),
+  /** The channel holds the calibrated samples of the entry. */
+  calibrated: z.boolean().default(false),
   channel: z.number(),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
@@ -117,7 +119,7 @@ const readBindingsZ = z
   .array(readBindingZ)
   .or(
     bindingMapZ<ReadBinding>("scaled", (bindings, address, scaled, channel) =>
-      bindings.push({ ...address, scaled, channel }),
+      bindings.push({ ...address, scaled, calibrated: false, channel }),
     ),
   );
 

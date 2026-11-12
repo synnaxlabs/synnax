@@ -607,8 +607,20 @@ describe("Read", () => {
     });
     expect(updated.properties.readIndex).not.toBe(0);
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: status.channel },
-      { index: 0x6000, subIndex: 2, scaled: false, channel: named.channel },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: false,
+        calibrated: false,
+        channel: status.channel,
+      },
+      {
+        index: 0x6000,
+        subIndex: 2,
+        scaled: false,
+        calibrated: false,
+        channel: named.channel,
+      },
     ]);
     const index = await client.channels.retrieve(updated.properties.readIndex);
     expect(index.name).toBe(`${identifier}_time`);
@@ -644,6 +656,7 @@ describe("Read", () => {
         index: e.index,
         subIndex: 1,
         scaled: false,
+        calibrated: false,
         channel: keys[i],
       }),
     );
@@ -1210,8 +1223,59 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: rawKey },
-      { index: 0x6000, subIndex: 1, scaled: true, channel: scaledKey },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: rawKey },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: true,
+        calibrated: false,
+        channel: scaledKey,
+      },
+    ]);
+  });
+
+  it("should give a calibrated scaled channel apart from an uncalibrated one", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const scaled = (calibrated: boolean, name: string): ethercat.EntryReadChannel => ({
+      ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+      scale: { type: "linear", slope: 2, offset: 0 },
+      calibrated,
+      name,
+    });
+    const deploy = async (ch: ethercat.EntryReadChannel) => {
+      const { container, draft, unmount } = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [ch],
+      });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const rawKey = await deploy(scaled(false, uniqueName("ecat_raw_scaled")));
+    const calibratedKey = await deploy(scaled(true, uniqueName("ecat_calibrated")));
+    expect(calibratedKey).not.toBe(rawKey);
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: true, calibrated: false, channel: rawKey },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: true,
+        calibrated: true,
+        channel: calibratedKey,
+      },
     ]);
   });
 
@@ -1436,7 +1500,7 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: first },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: first },
     ]);
   });
 
@@ -1480,8 +1544,20 @@ describe("Read", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: first },
-        { index: 0x6000, subIndex: 1, scaled: false, channel: typed },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: first,
+        },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: typed,
+        },
       ]);
       expect(await deploy(["uint16"])).toEqual([first]);
     });
@@ -1508,7 +1584,13 @@ describe("Read", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: second },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: second,
+        },
       ]);
     });
 
@@ -1685,7 +1767,13 @@ describe("Read", () => {
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
       expect(second.slave.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: first.channel },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: first.channel,
+        },
       ]);
     });
 
