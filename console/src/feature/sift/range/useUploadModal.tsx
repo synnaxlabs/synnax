@@ -28,7 +28,7 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Device as PDevice, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Device, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
@@ -217,7 +217,7 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
 const DEVICES_QUERY = { where: { make: { eq: MAKE } }, limit: 2 };
 
 const Upload = (props: Modals.ContentProps<UploadModalParams, void>) => {
-  const { variant, data } = PDevice.useResultMultiple(DEVICES_QUERY);
+  const { variant, data } = Device.useResultMultiple(DEVICES_QUERY);
   if (variant === "loading") return null;
   const device = data?.length === 1 ? data[0].key : "";
   return <UploadForm {...props} device={device} />;
