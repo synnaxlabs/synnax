@@ -134,11 +134,11 @@ type truncatingEncoder struct{}
 
 func (truncatingEncoder) ContentType() string { return "application/x-truncated" }
 
-func (truncatingEncoder) Encode(context.Context, any) ([]byte, error) {
+func (truncatingEncoder) Encode(any) ([]byte, error) {
 	return nil, errors.New("truncating encoder only streams")
 }
 
-func (truncatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+func (truncatingEncoder) EncodeStream(w io.Writer, v any) error {
 	msg, ok := v.(message)
 	if !ok {
 		return errors.Newf("truncating encoder cannot encode %T", v)

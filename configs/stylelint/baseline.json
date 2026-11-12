@@ -1,6 +1,5 @@
 {
   "foreignClasses": {
-    "console/src/app/App.css": ["pluto-editor"],
     "console/src/app/palette/Palette.css": ["lyra-list__scroll--empty"],
     "console/src/app/window/Primary.css": [
       "lyra--hidden",
@@ -21,7 +20,6 @@
       "lyra-list__virtualizer",
       "pluto-arc__stage"
     ],
-    "console/src/feature/arc/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/auth/ConnectionGuard.css": ["lyra-orbital"],
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
@@ -140,7 +138,6 @@
     "pluto/src/channel/Select.css": ["lyra-dialog__frame", "lyra-dialog__trigger"],
     "pluto/src/code/Editor.css": ["lyra--bordered"],
     "pluto/src/errors/Fallback.css": ["lyra-breadcrumb__separator"],
-    "pluto/src/index.css": ["lyra-text"],
     "pluto/src/mosaic/Mosaic.css": [
       "lyra-flex",
       "lyra-resize",

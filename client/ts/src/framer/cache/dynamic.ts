@@ -40,11 +40,16 @@ export interface DynamicProps {
   now?: () => TimeStamp;
   /** Flushes every buffer as the same object, never as a right-sized copy. */
   compactionDisabled?: boolean;
+  /**
+   * The most samples a buffer sized by a span holds.
+   * @default 1e6
+   */
+  maxBufferSize?: number;
 }
 
 // Bounds for dynamically calculated buffer sizes.
 const MIN_SIZE = 100;
-const MAX_SIZE = 1e6;
+const DEFAULT_MAX_SIZE = 1e6;
 // Size used until enough writes have arrived to estimate a rate.
 const DEF_SIZE = 1e4;
 const MAX_DEF_WRITES = 100;
@@ -107,8 +112,14 @@ export class Dynamic {
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
       compactionDisabled = false,
+      maxBufferSize = DEFAULT_MAX_SIZE,
     } = props;
-    this.props = { dynamicBufferSize, instrumentation, compactionDisabled };
+    this.props = {
+      dynamicBufferSize,
+      instrumentation,
+      compactionDisabled,
+      maxBufferSize,
+    };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -305,11 +316,11 @@ export class Dynamic {
   }
 
   private nextBufferSize(): number {
-    const { dynamicBufferSize } = this.props;
+    const { dynamicBufferSize, maxBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
-    if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
+    if (this.totalWrites < MAX_DEF_WRITES) return Math.min(DEF_SIZE, maxBufferSize);
     const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
-    return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
+    return Math.round(Math.min(Math.max(size, MIN_SIZE), maxBufferSize));
   }
 
   /**

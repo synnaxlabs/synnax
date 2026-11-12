@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -37,24 +37,11 @@ describe("Static", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  const createSymbol = async (
-    svg: string,
-  ): Promise<{ symbol: schematic.symbol.Symbol; parent: ontology.ID }> => {
-    const group_ = await client.groups.create({
-      parent: ontology.ROOT_ID,
-      name: `custom-Static-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    const parent = group.ontologyID(group_.key);
-    const symbol = await client.schematics.symbols.create({
-      name: "sym",
-      parent,
-      data: createData(svg),
-    });
-    return { symbol, parent };
-  };
+  const createSymbol = async (svg: string): Promise<schematic.symbol.Symbol> =>
+    await client.schematics.symbols.create({ name: "sym", data: createData(svg) });
 
   it("should warn when the symbol markup does not parse", async () => {
-    const { symbol } = await createSymbol("<svg><rect></svg>");
+    const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, container } = render(<Static specKey={symbol.key} />, {
       wrapper,
     });
@@ -63,19 +50,17 @@ describe("Static", () => {
   });
 
   it("should mount the symbol once valid markup replaces it", async () => {
-    const { symbol, parent } = await createSymbol("<svg><rect></svg>");
+    const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
       <Static specKey={symbol.key} />,
       { wrapper },
     );
     await findByText("Invalid custom symbol");
     await act(async () => {
-      await client.schematics.symbols.create({
-        key: symbol.key,
-        name: symbol.name,
-        parent,
-        data: createData(VALID_SVG),
-      });
+      await client.schematics.symbols.dispatch(
+        symbol.key,
+        schematic.symbol.set({ path: ["data", "svg"], value: VALID_SVG }),
+      );
     });
     await waitFor(() => {
       expect(queryByText("Invalid custom symbol")).toBeNull();

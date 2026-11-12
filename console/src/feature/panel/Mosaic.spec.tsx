@@ -10,7 +10,7 @@
 import { panel, type Synnax as Client } from "@synnaxlabs/client";
 import {
   type BuiltInRole,
-  createPanelParent,
+  createPanelProject,
   createTestClient,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
@@ -305,7 +305,7 @@ describe("Panel.Mosaic not found", () => {
         variant: "leaf",
         tabs: [{ variant: "view", key: uuid.create(), type: "probe" }],
       },
-      parent: await createPanelParent(client),
+      project: await createPanelProject(client),
     });
     fireEvent.click(screen.getByText("Retry"));
     await waitFor(() => expect(screen.getByText(`content-${key}`)).toBeTruthy());

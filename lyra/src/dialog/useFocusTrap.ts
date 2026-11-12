@@ -10,20 +10,11 @@
 import { type FocusEvent, type RefObject, useLayoutEffect, useRef } from "react";
 
 import { inTopModal } from "@/dialog/Background";
-import { FOCUSABLE } from "@/util";
+import { follows, tabbable } from "@/dialog/tabOrder";
 
 /** Whether the node is in the page behind the surface: before it or around it. */
 const behind = (surface: Node, node: Node): boolean =>
   (surface.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
-
-const follows = (a: Node, b: Node): boolean =>
-  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-
-const tabbable = (root: HTMLElement): HTMLElement[] =>
-  Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) =>
-      el.tabIndex >= 0 && !el.matches(":disabled") && el.getClientRects().length > 0,
-  );
 
 /** Props for the backdrop of a modal that {@link useFocusTrap} holds the focus in. */
 export interface FocusTrapProps {

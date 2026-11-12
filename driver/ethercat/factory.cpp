@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <format>
+#include <map>
+#include <string>
+
 #include "absl/log/log.h"
 
 #include "x/cpp/lib/lib.h"
@@ -14,6 +19,7 @@
 #include "driver/common/factory.h"
 #include "driver/common/read_task.h"
 #include "driver/common/scan_task.h"
+#include "driver/common/status.h"
 #include "driver/common/write_task.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
@@ -28,7 +34,7 @@
 #include "x/cpp/breaker/breaker.h"
 
 namespace driver::ethercat {
-
+namespace {
 #ifdef _WIN32
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
@@ -36,7 +42,7 @@ const std::string PCAP_LIB_NAME = "libpcap.dylib";
 #endif
 
 #ifndef __linux__
-static bool check_pcap_available() {
+bool check_pcap_available() {
 #ifdef _WIN32
     // Npcap installs its DLLs outside the default search path unless it runs in
     // WinPcap-compatible mode.
@@ -57,7 +63,8 @@ std::unique_ptr<master::Manager> default_manager() {
         LOG(INFO) << "[ethercat] using IgH EtherCAT master backend";
         return std::move(igh_mgr);
     }
-    LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
+    LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend: "
+              << err.message();
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
     if (!check_pcap_available()) return nullptr;
@@ -65,14 +72,113 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
-    pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
+/// @brief returns the settings saved for each slave on the network, keyed by position.
+/// Its errors call the network name.
+/// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
+/// properties, since the bus starts every slave on it, or when two devices at one
+/// position have different settings.
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::rack::Key rack,
+    const std::string &network,
+    const std::string &name
+) {
+    auto [devices, dev_err] = client->devices.retrieve(
+        synnax::device::Where{
+            .make = DEVICE_MAKE,
+            .model = SLAVE_DEVICE_MODEL,
+            .rack = rack,
+        }
+    );
+    if (dev_err)
+        return {
+            {},
+            x::errors::Error(
+                dev_err,
+                "The Driver could not read the slave settings for " + name +
+                    " from the Core: " + dev_err.data
+            )
+        };
+    std::map<uint16_t, slave::Config> configs;
+    std::map<uint16_t, std::string> labels;
+    for (const auto &dev: devices) {
+        auto parser = x::json::Parser(dev.properties);
+        const auto props = slave::Properties::parse(parser);
+        if (props.network != network) continue;
+        if (parser.error())
+            return {
+                {},
+                x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    dev.name + " has invalid properties. Every slave on " + name +
+                        " starts with the bus, so fix them before you start the "
+                        "task.\n" +
+                        common::config_err_description(parser.error())
+                )
+            };
+        const auto label = props.serial == 0
+                             ? dev.name
+                             : std::format("{} (serial {})", dev.name, props.serial);
+        const auto &config = props.config;
+        const auto [it, added] = configs.emplace(props.position, config);
+        if (added) {
+            labels[props.position] = label;
+            continue;
+        }
+        if (it->second == config) continue;
+        const auto [first, second] = std::minmax(labels[props.position], label);
+        return {
+            {},
+            x::errors::Error(
+                errors::SLAVE_CONFIG_ERROR,
+                std::format(
+                    "{} and {} are both saved at position {} on {} with different "
+                    "settings. Give them the same settings, or delete the device that "
+                    "is no longer on the bus.",
+                    first,
+                    second,
+                    props.position,
+                    name
+                )
+            )
+        };
+    }
+    return {configs, x::errors::NIL};
+}
+}
+
+Factory::Factory(
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan op_timeout
+):
+    Factory(
+        default_manager(),
+        std::move(client),
+        rack,
+        std::move(rt_manager),
+        op_timeout
+    ) {}
 
 Factory::Factory(
     std::unique_ptr<master::Manager> manager,
-    std::shared_ptr<x::thread::rt::Manager> rt_manager
+    std::shared_ptr<synnax::Synnax> client,
+    const synnax::rack::Key rack,
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const x::telem::TimeSpan op_timeout
 ):
-    pool(std::make_shared<engine::Pool>(std::move(manager), std::move(rt_manager))) {}
+    pool(
+        std::make_shared<engine::Pool>(
+            std::move(manager),
+            [client = std::move(client),
+             rack](const std::string &network, const std::string &name) {
+                return slave_configs(client, rack, network, name);
+            },
+            std::move(rt_manager),
+            op_timeout
+        )
+    ) {}
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -81,7 +187,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = this->pool->acquire(cfg.slaves.network);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     // The bus recovers a lost device without a limit, so the task waits for it.
@@ -101,7 +207,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = this->pool->acquire(cfg.slaves.network);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
@@ -165,15 +271,6 @@ Factory::configure_initial_tasks(
         SCAN_TASK_TYPE,
         INTEGRATION_NAME
     );
-}
-
-bool Factory::is_interface_active(const std::string &key) const {
-    return this->pool->is_active(key);
-}
-
-std::vector<slave::Properties>
-Factory::get_cached_slaves(const std::string &key) const {
-    return slave::discovered_properties(this->pool->get_slaves(key));
 }
 
 }

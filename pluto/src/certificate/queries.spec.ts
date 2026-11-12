@@ -20,7 +20,7 @@ import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 const client = createTestClient();
 
 const createCertificate = async (name: string): Promise<certificate.Certificate> =>
-  await client.certificates.create({
+  await client.certificates.set({
     name,
     source: "file",
     certificatePath: "/etc/synnax/client.crt",
@@ -33,47 +33,48 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should list certificates by key", async () => {
-      const first = await createCertificate("list 1");
-      const second = await createCertificate("list 2");
-      const { result } = renderHook(() => Certificate.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({ key: [first.key, second.key] });
-      });
-      expect(result.current.data).toEqual([first.key, second.key]);
-      expect(result.current.getItem(first.key)).toEqual(first);
+    it("should list certificates by name and move a renamed one", async () => {
+      const prefix = id.create();
+      const b = await createCertificate(`${prefix} b`);
+      const a = await createCertificate(`${prefix} a`);
+      const { result } = renderHook(
+        () => Certificate.useList({ query: { key: [b.key, a.key] } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+      expect(result.current.getItem(a.key)).toEqual(a);
+      await client.certificates.rename(a.key, `${prefix} c`);
+      await waitFor(() => expect(result.current.data).toEqual([b.key, a.key]));
     });
 
     it("should find a certificate by a search term", async () => {
       const name = `${id.create()} broker`;
       const created = await createCertificate(name);
       const { result } = renderHook(() => Certificate.useList(), { wrapper });
-      await waitFor(async () => {
-        await act(async () => {
-          await result.current.retrieveAsync({ searchTerm: name });
-        });
-        expect(result.current.data).toContain(created.key);
-      });
+      act(() => result.current.search(name));
+      await waitFor(() => expect(result.current.data).toContain(created.key));
     });
 
-    it("should add a certificate when it is created", async () => {
+    it("should add a certificate that matches a search when it is created", async () => {
+      const prefix = id.create();
       const { result } = renderHook(() => Certificate.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({});
-      });
-      const created = await createCertificate("created after list");
+      act(() => result.current.search(prefix));
+      await waitFor(() => expect(result.current.answered).toBe(true));
+      const created = await createCertificate(`${prefix} created`);
       await waitFor(() => expect(result.current.data).toContain(created.key));
     });
 
     it("should remove a certificate when it is deleted", async () => {
       const created = await createCertificate("deleted after list");
-      const { result } = renderHook(() => Certificate.useList(), { wrapper });
-      await act(async () => {
-        await result.current.retrieveAsync({});
-      });
-      expect(result.current.data).toContain(created.key);
+      const { result } = renderHook(
+        () => Certificate.useList({ query: { key: [created.key] } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([created.key]));
       await client.certificates.delete(created.key);
-      await waitFor(() => expect(result.current.data).not.toContain(created.key));
+      await waitFor(() => expect(result.current.data).toEqual([]));
     });
   });
 

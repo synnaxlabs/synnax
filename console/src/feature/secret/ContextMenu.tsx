@@ -13,9 +13,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCreateModal } from "@/feature/secret/useCreateModal";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
+import { Secret as PlatformSecret } from "@/platform/secret";
 
 type Named = Pick<secret.Secret, "key" | "name">;
 
@@ -53,12 +53,10 @@ export const SecretMenu = ({
   onUsedBy,
   onRename,
 }: SecretMenuProps): ReactElement => {
-  const id = secret.ontologyID(s.key);
+  const id = secret.resourceID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
-  // The Core replaces a value as a create that overwrites the secret.
-  const canReplace = Access.useCreateGranted(secret.TYPE_ONTOLOGY_ID) && canUpdate;
-  const openReplace = useCreateModal();
+  const openReplace = PlatformSecret.useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
@@ -69,7 +67,7 @@ export const SecretMenu = ({
       <Menu.Divider />
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
-      {canReplace && s.source === "stored" && (
+      {canUpdate && s.source === "stored" && (
         <Menu.Item
           itemKey="replace"
           onClick={() => void openReplace({ replace: s.key })}
@@ -95,7 +93,7 @@ export const CertificateMenu = ({
   certificate: c,
   onRename,
 }: CertificateMenuProps): ReactElement => {
-  const id = certificate.ontologyID(c.key);
+  const id = certificate.resourceID(c.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
   const handleDelete = useDeleteCertificate();

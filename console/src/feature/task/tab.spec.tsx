@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, type task } from "@synnaxlabs/client";
+import { query, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -138,23 +138,27 @@ describe("task tab", () => {
       type: "rack_status",
       config: {},
     });
-    await client.tasks.create({
-      ...created.payload,
-      status: createTaskStatus({ details: { task: created.key, running: true } }),
-    });
+    await client.statuses.set(
+      createTaskStatus({
+        owner: task.resourceID(created.key),
+        details: { running: true },
+      }),
+    );
     // Restore rebuilds from the corpse the cache holds, which exists only once
     // the client has seen the task live. The tab reads statuses, so the corpse
     // carries the running one the driver last reported.
     await client.tasks.retrieve({ key: created.key, includeStatus: true });
     await client.tasks.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.tasks.getCached(created.key))).toBe(true),
+      expect(query.Deleted.matches(client.tasks.watch(created.key).getCached())).toBe(
+        true,
+      ),
     );
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
     });
-    await restore({ client, project: project.key, resource: created.ontologyID });
+    await restore({ client, project: project.key, resource: created.resourceID });
 
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.

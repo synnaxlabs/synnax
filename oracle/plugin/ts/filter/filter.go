@@ -17,6 +17,7 @@ package filter
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/samber/lo"
@@ -115,6 +116,42 @@ type templateData struct {
 	// ShortcutKey is the Zod schema of the key that shortcutZ reads beside a name, and
 	// empty when the filter takes no name shortcut.
 	ShortcutKey string
+	// Cursor is true when the request takes a cursor, so lists of the target can page.
+	Cursor bool
+	// ListFields are the top-level fields that a list of the target can read, set only
+	// for a target with actions.
+	ListFields []string
+	// Orders holds the sorts that the request's order can select.
+	Orders []orderData
+	// KeyCompare is the function that orders two record keys.
+	KeyCompare string
+	sorts      []resolution.Sort
+}
+
+// listFields returns the wire names of the fields that a bare line, a filter, a
+// search, a reference, or a sort can read.
+func listFields(fields, lines []resolution.Field) []string {
+	return lo.FilterMap(fields, func(f resolution.Field, _ int) (string, bool) {
+		read := domain.HasDomainFromField(f, "filter") ||
+			domain.HasDomainFromField(f, "search") ||
+			domain.HasDomainFromField(f, "ref") ||
+			domain.HasExprFromField(f, "index", "sorted") ||
+			lo.ContainsBy(lines, func(l resolution.Field) bool {
+				return !l.HasType() && l.Name == f.Name
+			})
+		return f.Name, read
+	})
+}
+
+type orderData struct {
+	// Name is the sort's OrderField value.
+	Name string
+	// Cursor is the Cursor field that holds the sort value.
+	Cursor string
+	// Access reads the sort value from a record.
+	Access string
+	// Compare is the function that orders two sort values.
+	Compare string
 }
 
 type lineData struct {
@@ -194,9 +231,8 @@ func generateFile(
 	}
 	form := where.Form.(resolution.StructForm)
 	var key *resolution.TypeRef
-	named, patterned := false, false
+	named := false
 	for _, line := range where.Filter.Lines {
-		patterned = patterned || line.Name == "name_patterns"
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
 		if line.HasType() {
@@ -269,11 +305,92 @@ func generateFile(
 		}
 		data.Lines = append(data.Lines, ld)
 	}
-	// A name could look like a free-text key, so a name needs another key type. Clients
-	// send a bare name to name_patterns, when the filter has it, in hand-written code.
-	if key != nil && named && !patterned &&
-		resolution.PrimitiveBase(*key, table) != "string" {
+	// A name could look like a free-text key, so a name needs another key type.
+	if key != nil && named && resolution.PrimitiveBase(*key, table) != "string" {
 		data.ShortcutKey = zodOf(*key)
+	}
+
+	// The analyzer derives a Cursor for a target with a key, and its sorts from the
+	// target's marks.
+	if cursor, ok := table.Get(where.Namespace + ".Cursor"); ok {
+		target, _, _ := resolution.Dealias(where.Filter.Target, table)
+		targetFields, _ := resolution.RecordFields(target, table)
+		sorts, err := resolution.Sorts(targetFields, table)
+		if err != nil {
+			return fail("%v", err)
+		}
+		for _, sort := range sorts {
+			if !lo.ContainsBy(fields, func(f resolution.Field) bool {
+				return f.Name == sort.Path[0].Name
+			}) {
+				return fail(
+					"%s sorts by %s, which the cache's %s does not hold",
+					target.Name,
+					sort.Path[0].Name,
+					record.Name,
+				)
+			}
+		}
+		keyField := lo.Must(cursor.Form.(resolution.StructForm).Field("key"))
+		switch keyType := resolution.PrimitiveBase(keyField.Type, table); {
+		case keyType == "string":
+			data.KeyCompare = "compare.codePoints"
+		case keyType == "uuid":
+			data.KeyCompare = "compare.uuids"
+		case resolution.IsNumberPrimitive(keyType):
+			data.KeyCompare = "compareNumbers"
+		default:
+			return fail("cannot order the %s key of %s", keyType, record.Name)
+		}
+		data.Cursor = true
+		// Only a type that changes through actions needs them: a patch names the field.
+		if len(target.Actions()) > 0 {
+			data.ListFields = listFields(targetFields, where.Filter.Lines)
+		}
+		data.AddImport(
+			tspaths.CalculateImport(outputPath, "x/ts/src/compare"),
+			"compare",
+		)
+		data.AddImport(
+			tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
+			"Cursor",
+		)
+		if len(sorts) > 0 {
+			data.AddImport(
+				tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
+				"Order",
+			)
+			data.AddImport(
+				tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
+				"OrderField",
+			)
+		}
+		data.sorts = sorts
+	}
+	for _, sort := range data.sorts {
+		od := orderData{
+			Name:   sort.Name,
+			Cursor: tstypes.FieldName(sort.Name),
+			Access: strings.Join(
+				lo.Map(sort.Path, func(f resolution.Field, _ int) string {
+					return tstypes.FieldName(f.Name)
+				}),
+				".",
+			),
+		}
+		switch {
+		case sort.Textual:
+			od.Compare = "compare.text"
+		case sort.Type.Name == "telem.TimeStamp":
+			od.Compare = "telem.TimeStamp.sort"
+			data.AddImport(
+				tspaths.CalculateImport(outputPath, "x/ts/src/telem"),
+				"telem",
+			)
+		default:
+			od.Compare = "compareNumbers"
+		}
+		data.Orders = append(data.Orders, od)
 	}
 
 	data.AddImport("zod", "z")
@@ -295,7 +412,14 @@ func generateFile(
 
 var fileTemplate = template.Must(
 	template.New("ts-filter").
-		Funcs(template.FuncMap{"formatDoc": doc.FormatTS}).
+		Funcs(template.FuncMap{
+			"formatDoc": doc.FormatTS,
+			"hasNumberOrder": func(orders []orderData) bool {
+				return lo.SomeBy(orders, func(o orderData) bool {
+					return o.Compare == "compareNumbers"
+				})
+			},
+		}).
 		Parse(`// Code generated by Oracle. DO NOT EDIT.
 {{- range .SynnaxImports }}
 import {{ if .Namespace }}* as {{ .Namespace }}{{ else }}{ {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} }{{ end }} from "{{ .Path }}";
@@ -416,6 +540,69 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
     .transform((input) =>
       filter.split(input, ["and", "or", "not"{{ range .Lines }}, "{{ .Name }}"{{ end }}]),
     );
+{{- if .Cursor }}
+{{- if .ListFields }}
+
+/** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
+export const LIST_FIELDS: readonly string[] = [{{ range $i, $f := .ListFields }}{{ if $i }}, {{ end }}"{{ $f }}"{{ end }}];
+{{- end }}
+{{- if or (eq .KeyCompare "compareNumbers") (hasNumberOrder .Orders) }}
+
+const compareNumbers = (a: number | bigint, b: number | bigint): number =>
+  a < b ? -1 : a > b ? 1 : 0;
+{{- end }}
+{{- if .Orders }}
+
+/** @returns the position of record in order, or in key order when order is absent. */
+export const cursor = (record: {{ .Record }}, order?: Order): Cursor => {
+  if (order == null) return { key: record.key };
+  switch (order.field) {
+{{- range .Orders }}
+    case "{{ .Name }}":
+      return { key: record.key, {{ .Cursor }}: record.{{ .Access }} };
+{{- end }}
+  }
+};
+
+const compareValues = (field: OrderField, a: Cursor, b: Cursor): number => {
+  switch (field) {
+{{- range .Orders }}
+    case "{{ .Name }}":
+      if (a.{{ .Cursor }} == null || b.{{ .Cursor }} == null)
+        throw new Error("a cursor has no {{ .Name }}");
+      return {{ .Compare }}(a.{{ .Cursor }}, b.{{ .Cursor }});
+{{- end }}
+  }
+};
+
+/**
+ * Orders two positions as the Core walks them: by the order's field, then by key, or
+ * by key alone when order is absent.
+ *
+ * @returns a negative number if a comes before b, a positive number if after, and 0 if
+ * they are the same position.
+ * @throws {Error} if a or b holds no value for the order's field.
+ */
+export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {
+  if (order == null) return {{ .KeyCompare }}(a.key, b.key);
+  const c = compareValues(order.field, a, b) || {{ .KeyCompare }}(a.key, b.key);
+  return order.descending ? -c : c;
+};
+{{- else }}
+
+/** @returns the position of record in key order. */
+export const cursor = (record: {{ .Record }}): Cursor => ({ key: record.key });
+
+/**
+ * Orders two positions by key, as the Core walks them.
+ *
+ * @returns a negative number if a comes before b, a positive number if after, and 0 if
+ * they are the same position.
+ */
+export const compareCursors = (a: Cursor, b: Cursor): number =>
+  {{ .KeyCompare }}(a.key, b.key);
+{{- end }}
+{{- end }}
 {{- with .ShortcutKey }}
 
 /**

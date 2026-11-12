@@ -13,13 +13,12 @@ package grant
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -76,8 +75,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg   ServiceConfig
 	table *gorp.Table[Key, Grant]
-	// redeem makes the read and delete of a redeem one step, so a grant works once.
-	redeem sync.Mutex
 }
 
 // OpenService opens a [Service] with the given configurations. If the error is nil, the
@@ -103,40 +100,42 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close releases the service's resources.
 func (s *Service) Close() error { return s.table.Close() }
 
-// NewWriter opens a [Writer] that runs in tx. If tx is nil, the Writer writes directly
-// to the DB.
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
-}
+// NewWriter opens a [Writer] that runs in tx.
+func (s *Service) NewWriter(tx gorp.Tx) Writer { return Writer{svc: s, tx: tx} }
 
 // Redeem returns the grant with the given key and deletes it, so no later call can use
-// it. Redeem writes directly to the DB. It returns an error wrapping access.ErrDenied
-// when no grant has the key, the grant has expired, or the grant is for a subject other
-// than subject. A grant for another subject stays in place.
+// it. Redeem runs in a transaction of its own, so two calls cannot both use one grant,
+// and the caller must not hold a transaction or snapshot of the DB. It returns an error
+// wrapping access.ErrDenied when no grant has the key, the grant has expired, or the
+// grant is for a subject other than subject. A grant for another subject stays in
+// place, and an expired grant is deleted.
 func (s *Service) Redeem(
 	ctx context.Context,
 	key Key,
-	subject ontology.ID,
+	subject resource.ID,
 ) (Grant, error) {
-	s.redeem.Lock()
-	defer s.redeem.Unlock()
-	var g Grant
-	if err := s.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Grant](key)).
-		Entry(&g).
-		Exec(ctx, s.cfg.DB); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return Grant{}, errEnded(key)
+	var (
+		g       Grant
+		expired bool
+	)
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Grant](key)).
+			Entry(&g).
+			Exec(ctx, tx); err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				return errEnded(key)
+			}
+			return err
 		}
-		return Grant{}, err
-	}
-	expired := g.ExpiresAt.Before(s.now())
-	if !expired && g.Subject != subject {
-		return Grant{}, errors.Wrapf(access.ErrDenied, "grant is not for %s", subject)
-	}
-	if err := s.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Grant](key)).
-		Exec(ctx, s.cfg.DB); err != nil {
+		expired = g.ExpiresAt.Before(s.now())
+		if !expired && g.Subject != subject {
+			return errors.Wrapf(access.ErrDenied, "grant is not for %s", subject)
+		}
+		return s.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Grant](key)).
+			Exec(ctx, tx)
+	}); err != nil {
 		return Grant{}, err
 	}
 	if expired {

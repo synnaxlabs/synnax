@@ -74,10 +74,20 @@ const validateIndexChannels = ({
   });
 };
 
+const ARRAY_SIZE_ERROR = "Array size must be a positive integer";
+
+const deploySamplingZ = z.discriminatedUnion("type", [
+  opcua.unarySamplingZ,
+  opcua.arraySamplingZ.extend({
+    size: z.uint32({ error: ARRAY_SIZE_ERROR }).min(1, { error: ARRAY_SIZE_ERROR }),
+  }),
+]);
+
 export const deployReadConfigZ = opcua.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(10000),
+    sampling: deploySamplingZ,
     channels: opcua.readChannelZ
       .array()
       .check(Task.validateReadChannels)
@@ -87,8 +97,8 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, channels, sampleRate, streamRate } = value;
-    if (arrayMode) {
+    const { sampling, channels, sampleRate, streamRate } = value;
+    if (sampling.type === "array") {
       channels.forEach(({ disabled, field }, i) => {
         if (disabled || field === "") return;
         issues.push({
@@ -98,14 +108,7 @@ export const deployReadConfigZ = opcua.readConfigZ
           input: value,
         });
       });
-      if (!Number.isInteger(arraySize) || arraySize <= 0)
-        issues.push({
-          code: "custom",
-          message: "Array size must be a positive integer",
-          path: ["arraySize"],
-          input: value,
-        });
-      else if (sampleRate < arraySize)
+      if (sampleRate < sampling.size)
         issues.push({
           code: "custom",
           message: "Sample rate must be greater than or equal to the array size",

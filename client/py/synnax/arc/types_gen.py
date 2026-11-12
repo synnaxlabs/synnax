@@ -11,24 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.arc import graph as graph_
-from synnax.arc import program as program_
-from synnax.arc import text as text_
-from synnax.ontology.payload import ID
+from synnax import status as status_
+from synnax.arc import graph as graph_, program as program_, text as text_
+from synnax.resource import ID
 from x import filter
-
-MODE_TEXT: Literal["text"] = "text"
-
-MODE_GRAPH: Literal["graph"] = "graph"
-
-
-Mode = Literal["text", "graph"]
+from x.filter import shorthand
 
 TYPE_AUTOMATION: Literal["automation"] = "automation"
 
@@ -37,7 +29,56 @@ TYPE_MODULE: Literal["module"] = "module"
 
 Type = Literal["automation", "module"]
 
+CHANGE_KIND_CHANGED: Literal["changed"] = "changed"
+
+CHANGE_KIND_ADDED: Literal["added"] = "added"
+
+CHANGE_KIND_REMOVED: Literal["removed"] = "removed"
+
+
+ChangeKind = Literal["changed", "added", "removed"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
+MODE_TEXT: Literal["text"] = "text"
+
+MODE_GRAPH: Literal["graph"] = "graph"
+
+
+Mode = Literal["text", "graph"]
+
 Key: TypeAlias = UUID
+
+Status: TypeAlias = status_.Status
+
+
+class Change(BaseModel):
+    """Is one difference between an automation's content and what its task last ran.
+
+    Attributes:
+        type: Is whether the automation's own text or a module changed.
+        path: Is the import path of the module. Empty for the automation.
+        kind: Is how the content differs from what the task last ran.
+    """
+
+    type: Type
+    path: str = ""
+    kind: ChangeKind
+
+
+class Order(BaseModel):
+    """Is a sort of arcs.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TextSource(BaseModel):
@@ -70,6 +111,7 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        directories: Matches the Arcs in any of the given directories.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -79,6 +121,12 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    directories: list[UUID] | None = None
+
+    @field_validator("directories", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -91,9 +139,22 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
+        "directories": UUID | list[UUID],
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of arcs: the sort value and the key of a arc.
+
+    Attributes:
+        key: Is the key of the arc at the position.
+        name: Is the name of the arc at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class Base(BaseModel):
@@ -103,11 +164,13 @@ class Base(BaseModel):
         key: Is the unique identifier for this module.
         name: Is a human-readable name for the module.
         source: Is the Arc's source code, written as text or drawn as a graph.
+        directory: Is the key of the directory that holds the Arc.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
+    directory: UUID | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -120,18 +183,24 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the arcs to retrieve. An absent where selects all of them.
         search_term: Keeps the arcs that match the term, closest match first.
+        order: Sorts the arcs. An absent order sorts them by key.
+        after: Starts the arcs strictly past this position in their order.
         limit: Is the most arcs to return.
-        offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
+        include_changes: Includes the changes of each record.
+        include_status: Includes the status of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_program: bool = False
+    include_changes: bool = False
+    include_status: bool = False
 
 
 class AutomationPayload(Base):
@@ -139,12 +208,14 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
+    changes: list[Change] | None = None
 
 
 class ModulePayload(Base):
     """Is an Arc that holds code for other Arcs to import."""
 
     type: Literal["module"] = "module"
+    status: Status | None = None
 
 
 # Is an Arc module combining visual graph representation and text-based source
@@ -169,8 +240,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="arc")
+TYPE_RESOURCE_ID = ID(type="arc")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="arc", key=str(key))

@@ -9,7 +9,7 @@
 
 import { type channel, type ranger } from "@synnaxlabs/client";
 
-import { type flux } from "@/flux/aether";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "channel";
 export const PLURAL_RESOURCE_NAME = "channels";
@@ -23,8 +23,9 @@ export const retrieveDefinition: flux.Definition<RetrieveQuery, channel.Channel>
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key, rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  onChange: ({ client, query }, handler) =>
+    client.channels.watch(query).onChange(handler),
+  getCached: ({ client, query }) => client.channels.watch(query).getCached(),
 };
 
 export type RetrieveMultipleQuery = channel.RetrieveMultipleParams;
@@ -34,7 +35,5 @@ export const retrieveMultipleDefinition: flux.Definition<
   channel.Channel[]
 > = {
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  ...flux.listReads(({ client, query }) => client.channels.watch(query)),
 };

@@ -46,7 +46,8 @@ func intTypeDoc(name, desc, rng string) string {
 func (s *Server) Hover(
 	ctx context.Context,
 	params *protocol.HoverParams,
-) (*protocol.Hover, error) {
+) (result *protocol.Hover, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	d, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		s.cfg.L.Debug(
@@ -597,6 +598,9 @@ func (s *Server) getUserSymbolHover(
 		if members := formatModuleMembersList(sym); len(members) > 0 {
 			d.Add(doc.Paragraph("Members: " + strings.Join(members, ", ")))
 		}
+	case symbol.KindConstant:
+		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
 		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))

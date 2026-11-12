@@ -14,6 +14,7 @@ package certificate
 import (
 	"strconv"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -52,6 +53,37 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 		if l.In != nil {
 			fs = append(fs, MatchKeys(l.In...))
+		}
+	}
+	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
+		text := *l
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchNames(l.In...))
+			}
+			text.In = nil
+			text.Eq = nil
+		}
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
+			if err != nil {
+				return nil, validate.PathedError(err, "name")
+			}
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Certificate,
+			) (bool, error) {
+				return match(e.Base().Name), nil
+			}))
 		}
 	}
 	return And(fs...), nil

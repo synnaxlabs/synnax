@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch, type record } from "@synnaxlabs/x";
+import { caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -49,15 +49,7 @@ export interface ReduceAllResult<S, A> {
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
-/**
- * Applies a path action to a draft of a cached document. The action holds the form the
- * Core stores, with snake_case keys, and the draft holds the camelCase form that the
- * client decodes.
- * @param schema - The document's schema, which names the keys that keep their case.
- * @returns the inverse actions, in the form the Core stores.
- * @throws {Error} if the document cannot hold the action.
- */
-export const applyPath = <S extends object>(
+const applyInverse = <S extends object>(
   state: Draft<S>,
   action: patch.Action,
   schema: z.ZodType,
@@ -69,6 +61,24 @@ export const applyPath = <S extends object>(
     { snapshot: snapshotDraft },
   );
   return inverse.map((a) => patch.camelToSnake(a, opts));
+};
+
+/**
+ * Applies a path action to a draft of a cached document. The action holds the form the
+ * Core stores, with snake_case keys, and the draft holds the camelCase form that the
+ * client decodes. The result targets the path that the action changes, and holds the
+ * inverse actions in the form the Core stores.
+ * @param schema - The document's schema, which names the keys that keep their case.
+ * @throws {Error} if the document cannot hold the action.
+ */
+export const applyPath = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  schema: z.ZodType,
+): HandlerResult<patch.Action> => {
+  const inverse = applyInverse(state, action, schema);
+  if (inverse.length === 0) return NO_OP_RESULT;
+  return { inverse, targets: [patch.pathOf(action).join(".")] };
 };
 
 /**
@@ -88,10 +98,89 @@ export const applyEntryPath = <S extends object>(
   const path = patch.pathOf(action);
   if (path.length <= root.length || root.some((field, i) => path[i] !== field))
     throw new Error(`${path.join(".")} is not inside an entry of ${root.join(".")}`);
-  const inverse = applyPath(state, action, schema);
+  const inverse = applyInverse(state, action, schema);
   if (inverse.length === 0) return NO_OP_RESULT;
   return { inverse, targets: [path[root.length]] };
 };
+
+/**
+ * Applies a path action to a draft of a cached record whose path actions edit only the
+ * top-level fields of a document, then parses the field that the action changes. The
+ * action holds the snake_case form that the Core stores. A field that parses to
+ * undefined is removed.
+ * @param document - The schema of the fields that path actions edit, which also names
+ * the keys that keep their case.
+ * @throws {Error} if the path does not start at a field of the document, or if the
+ * field does not parse after the action.
+ */
+export const applyField = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  document: z.ZodObject,
+): HandlerResult<patch.Action> => {
+  const path = patch.pathOf(action);
+  const [field] = caseconv.snakeToCamelPath(path.slice(0, 1), {
+    schema: document,
+  }).path;
+  const fieldZ: z.ZodType | undefined =
+    field == null || !Object.hasOwn(document.shape, field)
+      ? undefined
+      : document.shape[field];
+  if (fieldZ == null) throw new Error(`no editable field at "${path.join(".")}"`);
+  const result = applyPath(state, action, document);
+  if (result.inverse.length === 0) return result;
+  const draft = state as record.Unknown;
+  const value = snapshotDraft(draft[field]);
+  const next: unknown = zod.parse(fieldZ, value, { label: field });
+  if (next === undefined) delete draft[field];
+  // The parse copies the field but shares its frozen values, so writing back an equal
+  // copy would leave a later action in the batch unable to edit them.
+  else if (!deep.equal(next, value)) draft[field] = next;
+  return result;
+};
+
+/**
+ * Replaces a draft of a cached record with the record that a create carries. A create
+ * has no inverse.
+ */
+export const replace = <S extends record.Keyed<record.Key>>(
+  state: Draft<S>,
+  created: S,
+): HandlerResult<never> => {
+  const draft = state as record.Unknown;
+  for (const key of Object.keys(draft)) if (!(key in created)) delete draft[key];
+  Object.assign(draft, created);
+  return { inverse: [], targets: [String(created.key)] };
+};
+
+const PATH_TYPES: ReadonlySet<string> = new Set(["set", "remove", "insert", "move"]);
+
+/**
+ * @returns whether the action is a path action that changes one of the top-level
+ * fields, named by wire name.
+ */
+export const changesField = (action: { type: string }, fields: readonly string[]) =>
+  PATH_TYPES.has(action.type) &&
+  fields.includes(patch.pathOf(action as patch.Action)[0]);
+
+/**
+ * Lists a set of each field that differs between base and next. Each set holds the
+ * whole field, with its path and value in the snake_case form that the Core stores.
+ * @param schema - The schema of base and next, which names the keys that keep their
+ * case.
+ * @param base - The stored values, or undefined to set each field that next holds.
+ */
+export const diffFields = <F extends string>(
+  schema: z.ZodType,
+  base: Partial<Record<F, unknown>> | undefined,
+  next: Partial<Record<F, unknown>>,
+  fields: F[],
+): Array<{ type: "set"; set: patch.Set }> =>
+  fields.flatMap((field) => {
+    if (deep.equal(base?.[field], next[field])) return [];
+    const { path, convert } = caseconv.camelToSnakePath([field], { schema });
+    return [{ type: "set", set: { path, value: convert(next[field]), guards: [] } }];
+  });
 
 /**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
@@ -159,6 +248,12 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     dispatchKey: z.string(),
     actions: actionZ.array(),
   });
+
+/** The payload of a dispatch entry in a batch. The entry carries no dispatch key. */
+export interface DispatchPayload<K, A> {
+  key: K;
+  actions: A[];
+}
 
 /**
  * dispatchResZ builds the response body schema for the per-service dispatch endpoint:

@@ -30,12 +30,6 @@ func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	if err != nil {
 		return Graph{}, err
 	}
-	graph.Edges = lo.Map(
-		old.Edges,
-		func(e irv0.Edge, _ int) Edge {
-			return Edge{Edge: e, Key: uuid.New().String()}
-		},
-	)
 	graph.Inputs = make(map[string]msgpack.EncodedJSON, len(old.Nodes))
 	for _, node := range old.Nodes {
 		config := make(msgpack.EncodedJSON, len(node.Config)+1)
@@ -44,6 +38,13 @@ func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 		graph.Inputs[node.Key] = config
 	}
 	return graph, nil
+}
+
+// migrateGraphEdges keys every v0 edge.
+func migrateGraphEdges(_ context.Context, old irv0.Edges) (Edges, error) {
+	return lo.Map(old, func(e irv0.Edge, _ int) Edge {
+		return Edge{Edge: e, Key: uuid.New().String()}
+	}), nil
 }
 
 // MigrateNode lifts a v0 node into the v1 shape, dropping the config and type

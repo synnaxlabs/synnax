@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -254,4 +256,28 @@ func (p *Properties) ApplyDefaults() {
 	if p.Sasl.Variant == nil {
 		p.Sasl.Variant = NoneSASL{}
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Properties) SetDefaults() {
+	p.Sasl.Variant = NoneSASL{}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
 }

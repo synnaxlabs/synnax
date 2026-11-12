@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <mutex>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -19,23 +20,31 @@
 #include "driver/rack/status/status.h"
 
 namespace driver::rack::status {
+/// @brief returns true when owner owns status.
+bool owns(
+    const synnax::resource::ID &owner,
+    const ::service::status::pb::Status &status
+) {
+    return synnax::resource::ID::from_proto(status.owner()).first == owner;
+}
+
 /// @brief a status set transport that fails the first rack heartbeat and the first
 /// re-send of task statuses, and echoes every other write.
 class ScriptedSetClient final : public synnax::status::SetClient {
-    const std::string rack_key;
+    const synnax::resource::ID rack;
 
 public:
     std::atomic<int> beats = 0;
     std::atomic<int> task_writes = 0;
 
-    explicit ScriptedSetClient(std::string rack_key): rack_key(std::move(rack_key)) {}
+    explicit ScriptedSetClient(synnax::resource::ID rack): rack(std::move(rack)) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
         // The first task write is the started status, and the second is a re-send.
-        if (req.statuses(0).key() == this->rack_key) {
+        if (owns(this->rack, req.statuses(0))) {
             if (this->beats++ == 0) return {{}, freighter::UNREACHABLE};
         } else if (this->task_writes++ == 1)
             return {{}, freighter::UNREACHABLE};
@@ -48,21 +57,21 @@ public:
 /// @brief a status set transport that fails the first lost task status writes, and
 /// echoes every other write.
 class LostTaskWriteSetClient final : public synnax::status::SetClient {
-    const std::string rack_key;
+    const synnax::resource::ID rack;
     const int lost;
 
 public:
     std::atomic<int> beats = 0;
     std::atomic<int> task_writes = 0;
 
-    explicit LostTaskWriteSetClient(std::string rack_key, const int lost = 1):
-        rack_key(std::move(rack_key)), lost(lost) {}
+    explicit LostTaskWriteSetClient(synnax::resource::ID rack, const int lost = 1):
+        rack(std::move(rack)), lost(lost) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
-        if (req.statuses(0).key() == this->rack_key)
+        if (owns(this->rack, req.statuses(0)))
             this->beats++;
         else if (this->task_writes++ < this->lost)
             return {{}, freighter::UNREACHABLE};
@@ -75,24 +84,77 @@ public:
 /// @brief a status set transport that holds the second rack heartbeat past LATE_GAP,
 /// and echoes every write.
 class SlowSetClient final : public synnax::status::SetClient {
-    const std::string rack_key;
+    const synnax::resource::ID rack;
 
 public:
     std::atomic<int> beats = 0;
     std::atomic<int> task_writes = 0;
 
-    explicit SlowSetClient(std::string rack_key): rack_key(std::move(rack_key)) {}
+    explicit SlowSetClient(synnax::resource::ID rack): rack(std::move(rack)) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
-        if (req.statuses(0).key() != this->rack_key)
+        if (!owns(this->rack, req.statuses(0)))
             this->task_writes++;
         else if (this->beats++ == 1)
             std::this_thread::sleep_for((LATE_GAP + x::telem::SECOND / 2).chrono());
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+};
+
+/// @brief a status set transport that keeps the last rack heartbeat and echoes every
+/// write.
+class BeatRecorder final : public synnax::status::SetClient {
+    const synnax::resource::ID rack;
+    mutable std::mutex mu;
+    synnax::rack::Status last;
+
+public:
+    std::atomic<int> beats = 0;
+
+    explicit BeatRecorder(synnax::resource::ID rack): rack(std::move(rack)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (owns(this->rack, req.statuses(0))) {
+            auto [stat, err] = synnax::rack::Status::from_proto(req.statuses(0));
+            if (err) return {{}, err};
+            std::lock_guard lock(this->mu);
+            this->last = std::move(stat);
+            this->beats++;
+        }
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+
+    [[nodiscard]] synnax::rack::Status last_beat() const {
+        std::lock_guard lock(this->mu);
+        return this->last;
+    }
+};
+
+/// @brief a connectivity transport that reports a Core clock offset from this host.
+class SkewedCheckClient final : public synnax::connection::CheckClient {
+public:
+    /// @brief how far this host is ahead of the Core.
+    std::atomic<std::int64_t> skew = 0;
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::connectivity::CheckResponse, x::errors::Error>
+    send(const std::string &, google::protobuf::Empty &) override {
+        grpc::connectivity::CheckResponse res;
+        res.set_node_version("0.0.0");
+        res.set_node_time((x::telem::TimeStamp::now() -
+                           x::telem::TimeSpan(this->skew.load()))
+                              .nanoseconds());
         return {res, x::errors::NIL};
     }
 };
@@ -126,14 +188,15 @@ TEST(stateTests, Nominal) {
             .channels = {ch.key},
         }
     ));
+    const auto owner = synnax::rack::resource_id(rack.key).to_json();
     x::json::json j;
     for (int i = 0; i < 50; i++) {
         auto frm = ASSERT_NIL_P(streamer.read());
         ASSERT_EQ(frm.size(), 1);
         frm.series->at(0).at(-1, j);
-        if (j["details"]["rack"] == rack.key) break;
+        if (j.value("owner", x::json::json()) == owner) break;
     }
-    EXPECT_EQ(j["details"]["rack"], rack.key);
+    EXPECT_EQ(j.value("owner", x::json::json()), owner);
     EXPECT_EQ(j["variant"], synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
@@ -163,14 +226,15 @@ TEST(stateTests, RenamedRack) {
     auto hb = driver::rack::status::Task::configure(ctx, task);
     ASSERT_NE(hb, nullptr);
     x::defer::defer stop([&hb]() { hb->stop(false); });
-    const auto key = synnax::rack::ontology_id(rack.key).string();
+    const auto owner = synnax::rack::resource_id(rack.key).to_json();
     const auto next_beat_name = [&]() -> std::string {
         for (int i = 0; i < 50; i++) {
             auto [frm, err] = streamer.read();
             if (err) return "";
             for (size_t c = 0; c < frm.size(); c++)
                 for (const auto &raw: frm.series->at(c).strings())
-                    if (const auto j = x::json::json::parse(raw); j["key"] == key)
+                    if (const auto j = x::json::json::parse(raw);
+                        j.value("owner", x::json::json()) == owner)
                         return j["name"];
         }
         return "";
@@ -206,7 +270,7 @@ TEST(stateTests, TaskRunningTransitions) {
         .internal = true,
     };
     ASSERT_NIL(rack.tasks.create(task));
-    const auto key = synnax::task::status_key(task);
+    const auto owner = synnax::task::resource_id(task.key).to_json();
     // The started status is written once, so the streamer must be open before the
     // task is configured.
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
@@ -221,9 +285,8 @@ TEST(stateTests, TaskRunningTransitions) {
         for (size_t c = 0; c < frm.size(); c++)
             for (const auto &raw: frm.series->at(c).strings()) {
                 const auto j = x::json::json::parse(raw);
-                if (j["key"] != key) continue;
+                if (j.value("owner", x::json::json()) != owner) continue;
                 EXPECT_EQ(j["details"]["running"], true);
-                EXPECT_EQ(j["details"]["task"], task.key.to_string());
                 started = true;
             }
     }
@@ -237,7 +300,9 @@ TEST(stateTests, TaskRunningTransitions) {
         for (size_t c = 0; c < frm.size(); c++)
             for (const auto &raw: frm.series->at(c).strings()) {
                 const auto j = x::json::json::parse(raw);
-                if (j["key"] != key || j["details"]["running"] != false) continue;
+                if (j.value("owner", x::json::json()) != owner ||
+                    j["details"]["running"] != false)
+                    continue;
                 EXPECT_EQ(j["message"], "Stopped");
                 stopped = true;
             }
@@ -253,7 +318,7 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<ScriptedSetClient>(
-        synnax::rack::ontology_id(rack.key).string()
+        synnax::rack::resource_id(rack.key)
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
@@ -283,7 +348,7 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<SlowSetClient>(
-        synnax::rack::ontology_id(rack.key).string()
+        synnax::rack::resource_id(rack.key)
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
@@ -313,7 +378,7 @@ TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<LostTaskWriteSetClient>(
-        synnax::rack::ontology_id(rack.key).string()
+        synnax::rack::resource_id(rack.key)
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
@@ -343,7 +408,7 @@ TEST(stateTests, RetriesAFailedResend) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
     const auto transport = std::make_shared<LostTaskWriteSetClient>(
-        synnax::rack::ontology_id(rack.key).string(),
+        synnax::rack::resource_id(rack.key),
         2
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
@@ -366,5 +431,142 @@ TEST(stateTests, RetriesAFailedResend) {
         std::chrono::milliseconds(10)
     );
     EXPECT_EQ(transport->task_writes.load(), 3);
+}
+
+/// @brief it should report the variant, message, and description of its health in each
+/// heartbeat.
+TEST(stateTests, ReportsHealth) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::resource_id(rack.key)
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx,
+        Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+            .description = "Install the Driver release that matches the Core.",
+        }
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto beat = transport->last_beat();
+    EXPECT_EQ(beat.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(beat.message, "Driver 0.59.3 cannot work with Core 0.60.1");
+    EXPECT_EQ(beat.description, "Install the Driver release that matches the Core.");
+    EXPECT_EQ(beat.owner, synnax::rack::resource_id(rack.key));
+    EXPECT_TRUE(beat.details.running);
+}
+
+/// @brief it should warn while the clock skew to the Core exceeds the threshold, and
+/// return to its health once the skew is back under it.
+TEST(stateTests, WarnsOnClockSkew) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto check_transport = std::make_unique<SkewedCheckClient>();
+    auto *skewed = check_transport.get();
+    skewed->skew = (3 * x::telem::SECOND).nanoseconds();
+    client->connectivity = std::make_shared<synnax::connection::Checker>(
+        std::move(check_transport),
+        x::telem::HOUR,
+        "0.0.0",
+        "",
+        x::telem::SECOND
+    );
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::resource_id(rack.key)
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto warned = transport->last_beat();
+    EXPECT_EQ(warned.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(warned.message, "Clock out of sync with the Core");
+    EXPECT_NE(warned.description.find("ahead of the Core"), std::string::npos);
+    EXPECT_NE(warned.description.find("1s limit"), std::string::npos);
+    EXPECT_NE(warned.description.find("NTP"), std::string::npos);
+    EXPECT_TRUE(warned.details.running);
+    skewed->skew = 0;
+    client->connectivity->check();
+    const auto beats = transport->beats.load();
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        beats + 2,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto cleared = transport->last_beat();
+    EXPECT_EQ(cleared.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(cleared.message, "Driver is running");
+    EXPECT_EQ(cleared.description, "");
+}
+
+/// @brief it should say the clock is behind the Core when the skew is negative, and
+/// print the skew without rounding it to the limit.
+TEST(stateTests, WarnsWhenClockBehind) {
+    const auto health = with_clock_skew(
+        Health{},
+        synnax::connection::State{
+            .clock_skew = x::telem::TimeSpan::ZERO() - x::telem::SECOND -
+                          400 * x::telem::MICROSECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(health.message, "Clock out of sync with the Core");
+    EXPECT_EQ(
+        health.description,
+        "The clock of this host is 1s 400us behind the Core, more than the 1s limit. "
+        "Synchronize both clocks with NTP. See " +
+            CLOCK_TROUBLESHOOTING_URL + "."
+    );
+}
+
+/// @brief it should report a health that is not a success over a clock skew warning.
+TEST(stateTests, HealthOverridesClockSkew) {
+    const Health error{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+        .description = "Install the Driver release that matches the Core.",
+    };
+    const auto health = with_clock_skew(
+        error,
+        synnax::connection::State{
+            .clock_skew = 3 * x::telem::SECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, error.variant);
+    EXPECT_EQ(health.message, error.message);
+    EXPECT_EQ(health.description, error.description);
 }
 }

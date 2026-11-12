@@ -112,8 +112,7 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	defer cancel()
 	values, err := s.cfg.Secret.Resolve(
 		ctx,
-		nil,
-		s.rack.OntologyID(),
+		s.rack.ResourceID(),
 		args.Grant,
 		args.Connection.APIKey,
 	)
@@ -140,7 +139,7 @@ func (s scanner) listAssets(
 	if err := s.cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(args.Device)).
 		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, s.cfg.DB); err != nil {
 		return nil, err
 	}
 	res := listAssetsResult{Assets: []string{}}
@@ -183,7 +182,7 @@ func (s scanner) withDevice(
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	conn, err := connect(ctx, s.cfg.Secret, props)
+	conn, err := connect(ctx, s.cfg.Secret, s.cfg.DB, props)
 	if err != nil {
 		return err
 	}

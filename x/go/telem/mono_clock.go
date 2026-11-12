@@ -9,12 +9,11 @@
 
 package telem
 
-// MonoClock provides monotonically increasing timestamps. On platforms with
-// coarse clock resolution (e.g. Windows), consecutive Now() calls can return
-// the same value. MonoClock guarantees each call to Now() returns a strictly
-// greater timestamp than the previous one by bumping by 1 nanosecond when
-// necessary. A custom time source can be provided for testing; if nil, the
-// package-level Now function is used.
+// MonoClock provides monotonically increasing timestamps. Consecutive reads of a clock
+// can return the same value. MonoClock guarantees each call to Now() returns a strictly
+// greater timestamp than the previous one by bumping by 1 nanosecond when necessary. A
+// custom time source can be provided for testing; if nil, the package-level Now
+// function is used.
 type MonoClock struct {
 	last   TimeStamp
 	Source func() TimeStamp

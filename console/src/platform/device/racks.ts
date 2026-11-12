@@ -11,7 +11,12 @@ import { type rack } from "@synnaxlabs/client";
 import { Rack } from "@synnaxlabs/pluto";
 
 /** Whether the rack's Driver is running. */
-export const isRunning = (r: rack.Payload): boolean => r.status?.variant === "success";
+export const isRunning = (r: rack.Payload): boolean =>
+  r.status?.details.running === true;
+
+/** Whether the rack's Driver is running and reports no error, so it can run tasks. */
+export const isReady = (r: rack.Payload): boolean =>
+  isRunning(r) && r.status?.variant !== "error";
 
 export interface BlockedReasonArgs {
   /** The integration the rack must run, such as "opc". */
@@ -23,7 +28,7 @@ export interface BlockedReasonArgs {
 }
 
 const canConnect = (r: rack.Payload, integration: string): boolean =>
-  isRunning(r) && r.integrations.includes(integration);
+  isReady(r) && r.integrations.includes(integration);
 
 /**
  * Returns the rack a new connection starts with: the only running rack with the
@@ -48,6 +53,7 @@ export const getBlockedReason = (
       : `No running Driver has ${name} enabled`;
   const r = racks.find((r) => r.key === key);
   if (r == null) return "This Driver no longer exists";
+  if (r.status?.variant === "error") return r.status.message;
   if (!isRunning(r)) return `${r.name} is not running`;
   if (!r.integrations.includes(integration))
     return `${r.name} does not have ${name} enabled`;
@@ -59,7 +65,9 @@ export interface UseBlockedReasonArgs extends Omit<BlockedReasonArgs, "rack"> {
   rack: rack.Key | null;
 }
 
-/** Returns {@link getBlockedReason} for the Core's racks, or null until they resolve. */
+/**
+ * Returns {@link getBlockedReason} for the Core's racks, or null until they resolve.
+ */
 export const useBlockedReason = ({
   integration,
   name,
