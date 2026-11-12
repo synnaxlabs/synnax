@@ -37,6 +37,20 @@ Per-runner channels, written on change:
     <runner>_gh_cmd        same
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
 
+Pool channels (pools.py), int32, written on change. <pool> is one of ubuntu_build,
+ubuntu_test, ubuntu_agent, win_build, win_test, macos_build, review, hitl, and total. On
+runner_pool_time:
+
+    runner_<pool>_queued      jobs waiting
+    runner_<pool>_busy        runners on a job
+    runner_<pool>_idle        runners online with no job
+    runner_<pool>_starting    instances on their way up
+    runner_<pool>_offline     the rest of the pool
+
+On runner_pool_wait_time:
+
+    runner_<pool>_queue_wait  seconds the oldest waiting job has waited
+
 Cost channels (cost.py), float32 on the cost_query_time index. The totals come
 from a fetch every 6 h; every channel is written each minute, with live runner rates:
 
@@ -126,6 +140,14 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from pools import (
+    POOL_INDEX,
+    WAIT_INDEX,
+    count_channels,
+    pool_counts,
+    pool_waits,
+    wait_channels,
+)
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
 from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
@@ -186,6 +208,8 @@ class Controller:
         self.pool = ThreadPoolExecutor(8)
         self.gh_index = channels.index(GH_INDEX)
         self.ec2_index = channels.index(EC2_INDEX)
+        self.pools_index = channels.index(POOL_INDEX)
+        self.waits_index = channels.index(WAIT_INDEX)
         self.known: set[str] = set()
         self.cost_index = channels.index(QUERY_TIME)
         # What the writer carries, so a fetch that adds a type retargets first.
@@ -196,6 +220,8 @@ class Controller:
         )
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
+        self.last_pools: dict[str, int] = {}
+        self.last_waits: dict[str, int] = {}
         self.cost_pending: dict[str, float] = {}
         self.events = Events(
             client=client, channels=channels, runners=set(), report=log.error
@@ -248,7 +274,7 @@ class Controller:
         self.events.write(events)
         self.gate.step(self.known)
         # A closed gate would disconnect whatever the scaler started.
-        self.scaler.step(
+        booting = self.scaler.step(
             known=self.known,
             status=status,
             labels=labels,
@@ -258,6 +284,22 @@ class Controller:
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
         )
+        if self.jobs.ready:
+            now = sy.TimeStamp.now()
+            pools = pool_counts(
+                status=status, labels=labels, queued=queued, booting=booting
+            )
+            waits = pool_waits(self.jobs.waits(now))
+            change = (
+                on_change(POOL_INDEX, last=self.last_pools, current=pools, now=now)
+                or {}
+            )
+            change |= (
+                on_change(WAIT_INDEX, last=self.last_waits, current=waits, now=now)
+                or {}
+            )
+            if change and self.status.write(change):
+                self.last_pools, self.last_waits = pools, waits
         self.log(
             f"busy={counts.get(BUSY, 0)} "
             f"idle={counts.get(IDLE, 0)} offline={counts.get(OFFLINE, 0)} "
@@ -290,6 +332,8 @@ class Controller:
             self.channels.calculated(name, expression=expression)
         self.uptime.retarget(self.known)
         self.channels.data(index=self.ec2_index, channels=ec2_channels(self.known))
+        self.channels.data(index=self.pools_index, channels=count_channels())
+        self.channels.data(index=self.waits_index, channels=wait_channels())
         for name in command_channels(self.known):
             index = self.channels.index(f"{name}_time")
             self.channels.data(index=index, channels={name: sy.DataType.BOOLEAN})
@@ -302,6 +346,10 @@ class Controller:
                 *ec2_channels(self.known),
                 QUERY_TIME,
                 *cost,
+                POOL_INDEX,
+                *count_channels(),
+                WAIT_INDEX,
+                *wait_channels(),
             ]
         )
         self.events.retarget(self.known)
