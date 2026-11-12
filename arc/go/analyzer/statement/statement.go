@@ -1490,16 +1490,6 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 	varType := varScope.Type
-	if varScope.Reassigned && types.UnitsIncompatible(exprType.Unit, varType.Unit) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"incompatible dimensions: cannot assign %s to '%s' (%s)",
-			exprType.Unit.Name,
-			name,
-			varType.Unit.Name,
-		))
-		return
-	}
 
 	converted, ok := checkUnits(ctx, name, expr, exprType, varType)
 	if !ok {

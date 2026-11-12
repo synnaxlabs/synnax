@@ -418,16 +418,6 @@ func analyzeIdentifier(
 		(sym.Kind == symbol.KindChannel || sym.IsValueVariable()) {
 		srcType, srcDesc := flowSourceType(ctx, prevNode)
 		chanValueType := sym.Type.Unwrap()
-		if sym.IsValueVariable() &&
-			types.UnitsIncompatible(srcType.Unit, chanValueType.Unit) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-				"incompatible dimensions: cannot write %s to '%s' (%s)",
-				srcType.Unit.Name,
-				name,
-				chanValueType.Unit.Name,
-			))
-			return
-		}
 		converts := false
 		if sym.IsValueVariable() {
 			var ok bool

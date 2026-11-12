@@ -5627,6 +5627,18 @@ var _ = Describe("Sequence", func() {
 			}
 			return got
 		}
+		lastLog := func(ctx SpecContext, h *runtimeHarness) string {
+			GinkgoHelper()
+			var logged []string
+			for i := range 5 {
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+				out, _ := h.Flush()
+				logged = append(logged, drainStrings(out, 101)...)
+			}
+			Expect(logged).ToNot(BeEmpty())
+			return logged[len(logged)-1]
+		}
 		expectWaitOf20ms := func(ctx SpecContext, h *runtimeHarness) {
 			GinkgoHelper()
 			advance(h, ctx, telem.Millisecond)
@@ -5892,15 +5904,7 @@ var _ = Describe("Sequence", func() {
 				}
 				1 => main`, resolver, digests...)
 				defer h.Close(ctx)
-				var logged []string
-				for i := range 5 {
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-					out, _ := h.Flush()
-					logged = append(logged, drainStrings(out, 101)...)
-				}
-				Expect(logged).ToNot(BeEmpty())
-				Expect(logged[len(logged)-1]).To(Equal(expected))
+				Expect(lastLog(ctx, h)).To(Equal(expected))
 			},
 			Entry("a flow to a larger unit",
 				`other -> d`, "d=2 other=120 typed=120000 p=1"),
@@ -5938,15 +5942,7 @@ var _ = Describe("Sequence", func() {
 				}
 				1 => main`, resolver, digests...)
 				defer h.Close(ctx)
-				var logged []string
-				for i := range 5 {
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-					out, _ := h.Flush()
-					logged = append(logged, drainStrings(out, 101)...)
-				}
-				Expect(logged).ToNot(BeEmpty())
-				Expect(logged[len(logged)-1]).To(Equal(expected))
+				Expect(lastLog(ctx, h)).To(Equal(expected))
 			},
 			Entry("to a smaller unit", `coarse -> fine`, "fine=3000 coarse=3"),
 			Entry("to a larger unit",
@@ -5965,15 +5961,7 @@ var _ = Describe("Sequence", func() {
 				}
 				1 => main`, resolver, digests...)
 				defer h.Close(ctx)
-				var logged []string
-				for i := range 5 {
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-					out, _ := h.Flush()
-					logged = append(logged, drainStrings(out, 101)...)
-				}
-				Expect(logged).ToNot(BeEmpty())
-				Expect(logged[len(logged)-1]).To(Equal(expected))
+				Expect(lastLog(ctx, h)).To(Equal(expected))
 			},
 			Entry("an integer pressure by a factor below one",
 				"src i64 psi := 100psi\ndst i64 bar := 0bar", "src=100 dst=6"),
@@ -6022,23 +6010,23 @@ var _ = Describe("Sequence", func() {
 		)
 
 		DescribeTable("Gives a function input a literal and a variable in the same way",
-			func(ctx SpecContext, param, expected string) {
-				for _, arg := range []string{"14.7psi", "p"} {
-					h := newRuntimeHarness(ctx, `
-					p := 14.7psi
-					func show(x `+param+`) str {
-					    return `+`f"{x}"`+`
-					}
-					raw -> show(x=`+arg+`) -> log`, resolver, digests...)
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.Millisecond)
-					out, _ := h.Flush()
-					Expect(drainStrings(out, 101)).To(Equal([]string{expected}), arg)
-					h.Close(ctx)
+			func(ctx SpecContext, param, arg, expected string) {
+				h := newRuntimeHarness(ctx, `
+				p := 14.7psi
+				func show(x `+param+`) str {
+				    return `+`f"{x}"`+`
 				}
+				raw -> show(x=`+arg+`) -> log`, resolver, digests...)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{expected}))
 			},
-			Entry("an input in the same unit", `f64 psi`, "14.7"),
-			Entry("an input in another unit converts", `f64 bar`, "1.01352972"),
+			Entry("a literal in the same unit", `f64 psi`, `14.7psi`, "14.7"),
+			Entry("a variable in the same unit", `f64 psi`, `p`, "14.7"),
+			Entry("a literal in another unit", `f64 bar`, `14.7psi`, "1.01352972"),
+			Entry("a variable in another unit", `f64 bar`, `p`, "1.01352972"),
 		)
 
 		It(
@@ -6075,15 +6063,7 @@ var _ = Describe("Sequence", func() {
 				}
 				1 => main`, resolver, digests...)
 				defer h.Close(ctx)
-				var logged []string
-				for i := range 5 {
-					h.Ingest(100, telem.NewSeriesV[int64](1))
-					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
-					out, _ := h.Flush()
-					logged = append(logged, drainStrings(out, 101)...)
-				}
-				Expect(logged).ToNot(BeEmpty())
-				Expect(logged[len(logged)-1]).To(Equal(expected))
+				Expect(lastLog(ctx, h)).To(Equal(expected))
 			},
 			Entry("a unit literal that a function returns",
 				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",

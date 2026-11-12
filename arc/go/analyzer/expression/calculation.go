@@ -42,6 +42,16 @@ func CheckUnits[T antlr.ParserRuleContext](
 	w Write,
 ) (converts, ok bool) {
 	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
+	if types.UnitsIncompatible(from, to) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			w.AST,
+			"incompatible dimensions: cannot write %s to %s (%s)",
+			from.Name,
+			w.Subject,
+			to.Name,
+		))
+		return false, false
+	}
 	if from != nil && to == nil && w.Target.IsNumeric() {
 		ctx.Diagnostics.Add(codes.UnitMissing.At(w.AST, w.Subject, from.Name).
 			WithNote("hint: declare " + w.Subject + " in " + from.Name))
