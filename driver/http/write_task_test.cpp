@@ -407,6 +407,27 @@ TEST(HTTPWriteTask, ParseConfigFixedFieldMissingValueErrors) {
     EXPECT_NE(err.data.find("value"), std::string::npos);
 }
 
+/// @brief it should fail when a bytes field does not hold canonical base64 text.
+TEST(HTTPWriteTask, ParseConfigBytesFieldNotBase64Errors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{{"type", "bytes"}, {"pointer", "/extra"}, {"value", "AQ\r\nI="}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value is not base64"), std::string::npos);
+}
+
 /// @brief it should fail when a json field does not hold JSON text.
 TEST(HTTPWriteTask, ParseConfigJSONFieldNotJSONErrors) {
     synnax::task::Task task;

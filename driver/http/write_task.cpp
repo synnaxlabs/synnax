@@ -13,6 +13,7 @@
 #include <variant>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
@@ -61,6 +62,13 @@ fixed_value(const ::x::payload::WriteField &field) {
                         x::errors::Error(x::errors::VALIDATION, "value is not JSON"),
                     };
                 return {std::move(value), x::errors::NIL};
+            } else if constexpr (std::is_same_v<F, ::x::payload::BytesWriteField>) {
+                if (auto [_, err] = x::base64::decode_strict(f.value); err)
+                    return {
+                        std::nullopt,
+                        x::errors::Error(x::errors::VALIDATION, "value is not base64"),
+                    };
+                return {x::json::json(f.value), x::errors::NIL};
             } else if constexpr (
                 std::is_same_v<F, ::x::payload::UuidWriteField> ||
                 std::is_same_v<F, ::x::payload::TimestampWriteField>
