@@ -216,6 +216,38 @@ describe("device/tree", () => {
   });
 });
 
+describe("several selected devices", () => {
+  const renderMenu = async (devices: { key: string; name: string }[]) => {
+    const Item = Device.TREE_ITEMS.device;
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: devices.map((d) =>
+        createResource(deviceClient.resourceID(d.key), d.name),
+      ),
+    });
+  };
+
+  it("should offer the integration's Disable for slaves of one make", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const a = await createSlaveDevice(client, rack.key);
+    const b = await createSlaveDevice(client, rack.key);
+    await renderMenu([a, b]);
+    expect(await screen.findByText("Disable")).toBeTruthy();
+    expect(screen.queryByText("Configure")).toBeNull();
+  });
+
+  it("should offer no integration items for devices of different makes", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(client, rack.key);
+    const modbus = await createModbusDevice(client);
+    await renderMenu([slave, modbus]);
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Disable")).toBeNull();
+    expect(screen.queryByText("Edit connection")).toBeNull();
+  });
+});
+
 describe("device location", () => {
   it("should read the location in the format of the device's integration", async () => {
     const dev = await createTestDevice(client, {

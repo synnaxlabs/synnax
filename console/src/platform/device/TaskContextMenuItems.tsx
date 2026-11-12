@@ -66,7 +66,7 @@ export const TaskContextMenuItems = ({
   items,
 }: TaskContextMenuItemsProps) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-  if (!hasCreatePermission) return null;
+  if (!hasCreatePermission || ids.length !== 1) return null;
   const deviceKey = ids[0].key;
   const maybeConfigure = () => {
     const dev = client.devices.watch(deviceKey).getCached();
