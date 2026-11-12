@@ -97,6 +97,19 @@ var _ = Describe("Migrate", func() {
 				TimeFormat:       payload.TimeFormatISO8601,
 			},
 		),
+		Entry("a number with a time format and no entries as a timestamp",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeNumber,
+				TimeFormat: &unixMs,
+			},
+			v2.TimestampChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.Float64T),
+				TimeFormat: payload.TimeFormatUnixMs,
+			}),
 		Entry("a time format on a bound string field as a string",
 			v1.ChannelField{
 				Channel:    7,
