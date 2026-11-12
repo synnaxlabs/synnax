@@ -67,26 +67,21 @@ tsk = mqtt.ReadTask(
         mqtt.PlainReadEntry(
             topic="plant/sensors",
             fields=[
-                mqtt.ReadField(
-                    pointer="/temperature",
-                    channel=temperature.key,
-                    data_type=sy.DataType.FLOAT64,
-                    name="Temperature",
+                mqtt.FloatReadField(
+                    pointer="/temperature", channel=temperature.key, name="Temperature"
                 ),
-                mqtt.ReadField(
-                    pointer="/pressure",
-                    channel=pressure.key,
-                    data_type=sy.DataType.FLOAT64,
-                    name="Pressure",
+                mqtt.FloatReadField(
+                    pointer="/pressure", channel=pressure.key, name="Pressure"
                 ),
-                mqtt.ReadField(
+                mqtt.UnsignedReadField(
                     pointer="/state",
                     channel=running.key,
-                    data_type=sy.DataType.UINT8,
                     name="Running",
                     enum_values=[
-                        payload.EnumEntry(label="idle", value=0),
-                        payload.EnumEntry(label="running", value=1),
+                        payload.UnsignedEntry(label="idle", value=payload.Unsigned(0)),
+                        payload.UnsignedEntry(
+                            label="running", value=payload.Unsigned(1)
+                        ),
                     ],
                 ),
             ],

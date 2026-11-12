@@ -104,13 +104,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
                 data_type=sy.DataType.FLOAT64,
                 entry=lambda mirror: mqtt.PlainReadEntry(
                     topic=f"{MIRROR}/temperature",
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="/value",
-                            channel=mirror.key,
-                            data_type=sy.DataType.FLOAT64,
-                        )
-                    ],
+                    fields=[mqtt.FloatReadField(pointer="/value", channel=mirror.key)],
                 ),
             ) as mirror,
             self.tsk.run(),

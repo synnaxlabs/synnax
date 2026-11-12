@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt } from "@synnaxlabs/client";
 import { DataType, payload } from "@synnaxlabs/x";
 
-import { type BrowsedField, type ReadField } from "@/feature/mqtt/task/types";
+import {
+  type BrowsedField,
+  createReadField,
+  type ReadField,
+} from "@/feature/mqtt/task/types";
+import { Task } from "@/platform/task";
 
 const DATA_TYPES: Record<payload.JSONType, string> = {
   number: DataType.FLOAT64.toString(),
@@ -24,12 +28,11 @@ const DATA_TYPES: Record<payload.JSONType, string> = {
  * index and a variable-length channel has none.
  */
 export const createReadFields = (scalars: BrowsedField[]): ReadField[] => {
-  const fields = scalars.map(({ pointer, type }) => ({
-    ...mqtt.readFieldZ.parse({}),
-    pointer,
-    dataType: DATA_TYPES[type],
-  }));
-  const isVariable = (f: ReadField) => new DataType(f.dataType).isVariable;
+  const fields = scalars.map(({ pointer, type }) =>
+    createReadField(Task.Payload.readOptionsOf(DATA_TYPES[type]), { pointer }),
+  );
+  const isVariable = (f: ReadField) =>
+    new DataType(Task.Payload.dataTypeOf(f)).isVariable;
   if (fields.every(isVariable)) return fields;
   return fields.map((f) => ({ ...f, disabled: isVariable(f) }));
 };
@@ -38,7 +41,8 @@ export const createReadFields = (scalars: BrowsedField[]): ReadField[] => {
  * @returns the JSON type of the sample that a field came from.
  * @throws {Error} if no JSON sample gives a field of its data type.
  */
-export const jsonTypeOf = ({ dataType }: ReadField): payload.JSONType => {
+export const jsonTypeOf = (field: ReadField): payload.JSONType => {
+  const dataType = Task.Payload.dataTypeOf(field);
   const type = payload.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
   if (type == null) throw new Error(`No JSON sample gives a ${dataType} field`);
   return type;

@@ -84,13 +84,14 @@ var _ = Describe("Service", func() {
 
 	Describe("Normalize", func() {
 		DescribeTable(
-			"Should import a config at version 1 and reject a later version",
+			"Should import a config at versions 1 and 2 and reject a later version",
 			func(ctx SpecContext, store func(*mqtt.Service) config.Store) {
 				s := store(svc)
-				Expect(s.Version()).To(BeEquivalentTo(1))
+				Expect(s.Version()).To(BeEquivalentTo(2))
 				MustSucceed(s.Normalize(ctx, db, 1, msgpack.EncodedJSON{}))
-				newer := " version 2 is newer than this Core supports (latest: 1)"
-				Expect(s.Normalize(ctx, db, 2, msgpack.EncodedJSON{})).Error().
+				MustSucceed(s.Normalize(ctx, db, 2, msgpack.EncodedJSON{}))
+				newer := " version 3 is newer than this Core supports (latest: 2)"
+				Expect(s.Normalize(ctx, db, 3, msgpack.EncodedJSON{})).Error().
 					To(MatchError(ContainSubstring(s.Type() + newer)))
 			},
 			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),

@@ -77,43 +77,39 @@ SparkplugDataType enum {
     @doc value "is the Sparkplug B data type of a tag."
 }
 
-ReadField struct {
-    key         string = create {
-        @doc value "uniquely identifies the field within the entry."
-        @key
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a float."
     }
-    name        string = "" {
-        @doc value "is the human-readable field name."
+    integer extends payload.IntegerRead {
+        @doc value "reads a signed integer."
     }
-    disabled    bool = false {
-        @doc value "is true when the field is excluded from the task."
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads an unsigned integer."
     }
-    channel     channel.Key = 0 {
-        @doc value     "is the Synnax channel the extracted value is written to."
-        @ref kind      use
-        @ref on_delete restrict
+    string extends payload.StringRead {
+        @doc value "reads a string."
     }
-    pointer     string = "" {
-        @doc value """
-            is the JSON Pointer to the value within the payload. An empty pointer takes
-            the whole payload.
-        """
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean."
     }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the extracted value."
-        @ts type   "string"
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp."
     }
-    time_format payload.TimeFormat? {
-        @doc value """
-            is the encoding of the JSON value when the target channel holds timestamps.
-            Required for timestamp channels.
-        """
+    json {
+        @doc value "reads any JSON value."
     }
-    enum_values payload.EnumEntry[] {
-        @doc value "maps string labels in the payload to numeric channel values."
+    uuid {
+        @doc value "reads a UUID string."
+    }
+    bytes {
+        @doc value "reads base64 text."
     }
 
-    @doc value  "is a single value extracted from the JSON payload of a topic."
+    @doc value  """
+        is a single value extracted from the JSON payload of a topic. The type field is
+        the kind of the value, which matches the data type of the channel.
+    """
     @go marshal
 }
 
@@ -465,4 +461,31 @@ EdgeConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+}
+
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the entry."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    channel  channel.Key = 0 {
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    pointer  string = "" {
+        @doc value """
+            is the JSON Pointer to the value within the payload. An empty pointer takes
+            the whole payload.
+        """
+    }
+
+    @doc value  "carries the fields every read field shares."
+    @go marshal
 }

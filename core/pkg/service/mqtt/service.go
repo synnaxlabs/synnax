@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -90,6 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	channels := readChannels(cfg.Channel)
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,
@@ -97,10 +99,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            ReadTaskType,
 			Ladder:          versions.ReadConfigLadder,
+			Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
-			ValidateEntry:   (*ReadConfig).Validate,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *ReadConfig,
+			) error {
+				return resolveReadConfig(ctx, snap, channels, c)
+			},
+			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
+				return v2.ReconcileReadConfig(ctx, tx, channels, cfg.Instrumentation, c)
+			},
+			ValidateEntry: validateReadConfig,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
