@@ -263,6 +263,19 @@ var _ = Describe("Server", func() {
 				&ingestionconfigsv2.CreateIngestionConfigRequest{},
 			)).Error().To(MatchError(ContainSubstring("asset_name is required")))
 		})
+
+		It("Should return the errors FailConfigs sets, in order",
+			func(ctx SpecContext) {
+				server.FailConfigs(status.Error(codes.Unavailable, "down"))
+				Expect(configs.CreateIngestionConfig(
+					ctx,
+					&ingestionconfigsv2.CreateIngestionConfigRequest{
+						AssetName: "stand",
+					},
+				)).Error().To(WithTransform(status.Code, Equal(codes.Unavailable)))
+				createConfig(ctx, "key")
+				Expect(server.IngestionConfigs()).To(HaveLen(1))
+			})
 	})
 
 	Describe("ListIngestionConfigs", func() {
