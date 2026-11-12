@@ -14,16 +14,19 @@ import {
   NotFoundError,
   panel,
   project,
+  query,
   ranger,
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
+import { assert, describe, expect, it } from "vitest";
 
-import { Overview } from "@/feature/range/overview/Overview";
+import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {
@@ -44,10 +47,14 @@ import {
 
 const client = createTestClient();
 
+const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
+
+const Deleted = ({ name }: Flux.Tombstone): ReactElement => <>{name} was deleted</>;
+
 const renderOverview = async (
   rangeKey: ranger.Key,
   as: Client = client,
-): Promise<{ store: TestStore }> => {
+): Promise<{ store: TestStore; project: project.Key }> => {
   const { panelKey, tabKey } = await createResourceTab(
     client,
     ranger.resourceID(rangeKey),
@@ -60,14 +67,18 @@ const renderOverview = async (
     project: proj.key,
   });
   await primePanel(wrapper, panelKey);
+  const { Content, Guard } = TAB;
+  assert(Guard != null);
   await renderSuspended(
     <>
-      <Overview />
+      <Guard FallbackComponent={Deleted}>
+        <Content />
+      </Guard>
       <Modals.Stack />
     </>,
     { wrapper },
   );
-  return { store };
+  return { store, project: proj.key };
 };
 
 const createChannel = async (): Promise<channel.Channel> =>
@@ -101,7 +112,7 @@ const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =
   });
 };
 
-describe("range/next/overview", () => {
+describe("range/overview", () => {
   describe("metadata", () => {
     it("should add a pair from the add line of the empty section", async () => {
       const rng = await createTestRange(client);
@@ -206,6 +217,57 @@ describe("range/next/overview", () => {
       await expect(client.schematics.retrieve({ key: doc.key })).rejects.toThrow(
         NotFoundError,
       );
+    });
+  });
+
+  describe("tab", () => {
+    it("should show the tombstone in place of the overview once the range is deleted", async () => {
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      await screen.findByDisplayValue(rng.name);
+      await act(async () => await client.ranges.delete(rng.key));
+      await screen.findByText(`${rng.name} was deleted`);
+      expect(screen.queryByDisplayValue(rng.name)).toBeNull();
+    });
+
+    it("should show the overview again once the deleted range is restored", async () => {
+      const { restore } = TAB;
+      assert(restore != null);
+      const rng = await createTestRange(client);
+      const { project } = await renderOverview(rng.key);
+      await screen.findByDisplayValue(rng.name);
+      await act(async () => await client.ranges.delete(rng.key));
+      await screen.findByText(`${rng.name} was deleted`);
+      await act(
+        async () => await restore({ client, project, resource: rng.resourceID }),
+      );
+      await screen.findByDisplayValue(rng.name);
+    });
+
+    it("should restore a deleted range under its original key", async () => {
+      const { restore } = TAB;
+      assert(restore != null);
+      const rng = await createTestRange(client);
+      // Restore rebuilds from the corpse the cache holds, which exists only once the
+      // client has seen the range live.
+      await client.ranges.retrieve(rng.key);
+      await client.ranges.delete(rng.key);
+      await waitFor(() =>
+        expect(query.Deleted.matches(client.ranges.watch(rng.key).getCached())).toBe(
+          true,
+        ),
+      );
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      await restore({ client, project: proj.key, resource: rng.resourceID });
+      // Read back through a second client: the restoring client writes through to its
+      // own cache, so a retrieve on it would pass even if the Core never got it.
+      const remote = createTestClient();
+      const [restored] = await remote.ranges.retrieve([rng.key]);
+      expect(restored.name).toEqual(rng.name);
+      expect(restored.timeRange).toEqual(rng.timeRange);
+      // Name lookups read the range through the resource service.
+      const named = await remote.resources.retrieve(rng.resourceID);
+      expect(named.name).toEqual(rng.name);
     });
   });
 
