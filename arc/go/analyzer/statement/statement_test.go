@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
@@ -26,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // readWriteChan builds the read+write channel type a bare channel alias carries.
@@ -1173,34 +1175,80 @@ var _ = Describe("Statement", func() {
 
 		DescribeTable(
 			"numeric condition deprecation warnings",
-			func(bCtx SpecContext, code string, warningCount int) {
+			func(bCtx SpecContext, code string, fixes ...string) {
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				warnings := testutil.Warnings(ctx.Diagnostics)
-				Expect(warnings).To(HaveLen(warningCount))
-				for _, w := range warnings {
+				Expect(warnings).To(HaveLen(len(fixes)))
+				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"numeric conditions are deprecated; use an explicit " +
+						"non-boolean conditions are deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
+					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(Equal([]protocol.TextEdit{
+						{Range: w.Range, NewText: fixes[i]},
+					}))
 				}
 			},
-			Entry("integer literal condition", `if 1 { x := 42 }`, 1),
-			Entry("float literal condition", `if 1.5 { x := 42 }`, 1),
+			Entry(
+				"integer literal condition",
+				`if 1 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"float literal condition",
+				`if 1.5 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"negative literal condition",
+				`if -3 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"unit literal condition",
+				`if 5s { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"zero integer literal condition",
+				`if 0 { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"zero float literal condition",
+				`if 0.0 { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"zero unit literal condition",
+				`if 0s { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"calculation condition",
+				`if 1 + 2 { x := 42 }`,
+				"1 + 2 != 0",
+			),
 			Entry(
 				"numeric else-if condition",
 				`if false { x := 1 } else if 2 { y := 2 }`,
-				1,
+				"true",
 			),
 			Entry(
 				"numeric if and else-if conditions",
 				`if 1 { x := 1 } else if 2 { y := 2 }`,
-				2,
+				"true",
+				"true",
 			),
-			Entry("bool literal condition", `if true { x := 42 }`, 0),
-			Entry("comparison condition", `if 1 > 0 { x := 42 }`, 0),
+			Entry("string literal condition", `if "a" { x := 42 }`, "true"),
+			Entry("empty string literal condition", `if "" { x := 42 }`, "false"),
+			Entry("bool literal condition", `if true { x := 42 }`),
+			Entry("comparison condition", `if 1 > 0 { x := 42 }`),
 		)
 
 		It("should warn on a numeric variable condition", func(bCtx SpecContext) {
@@ -1211,7 +1259,11 @@ var _ = Describe("Statement", func() {
 			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(testutil.Warnings(ctx.Diagnostics)).To(HaveLen(1))
+			warnings := testutil.Warnings(ctx.Diagnostics)
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0].Notes).To(HaveLen(1))
+			Expect(warnings[0].Notes[0].Message).
+				To(Equal("hint: change `x` to `x != 0`"))
 		})
 
 		It("should not warn on a bool variable condition", func(bCtx SpecContext) {
