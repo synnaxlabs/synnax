@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import ast
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -19,11 +20,16 @@ from reliability import (
     TC_ARTIFACT,
     TC_JOB_NAME,
     Cases,
+    case_rows,
     ci_jobs,
     enumerate_tests,
+    hardware_suites,
     integration_sources,
     os_of,
     platform_skip,
+    run_id_of,
+    shipped_changes,
+    spaces_key,
     suite_jobs,
 )
 
@@ -51,6 +57,8 @@ FILES = {
     "integration/tests/console/plot.py": (
         "import x\n\n\nclass Plot(TestCase):\n    pass\n"
     ),
+    "scripts/test_check.py": "def test_checks():\n    pass\n",
+    "scripts/runners/tests/test_scaler.py": "def test_scales():\n    pass\n",
 }
 
 # A scratch repo holding FILES, and the SHA of its only commit.
@@ -125,6 +133,12 @@ class TestEnumerateTests:
         root, sha = repo
         assert enumerate_tests(root, sha=sha, lang="go", dirs=["console"]) == []
 
+    def test_should_leave_out_the_tests_of_a_nested_job(self, repo: Repo) -> None:
+        root, sha = repo
+        assert enumerate_tests(root, sha=sha, lang="py", dirs=["scripts"]) == [
+            ("scripts/test_check.py", 1, "test_checks"),
+        ]
+
 
 class TestIntegrationSources:
     """Integration sources read at a commit."""
@@ -152,7 +166,24 @@ CASES = {
         "from framework.test_case import TestCase\n\n\n"
         "class TaskCase(TestCase):\n"
         "    def run(self):\n"
-        "        self.client.tasks.configure(self.tsk)\n"
+        "        self.client.tasks.configure(self.tsk)\n\n\n"
+        "class ReadTaskCase(TestCase, Generic[T]):\n    pass\n"
+    ),
+    "tests/hitl/crio_case.py": (
+        "from framework.test_case import TestCase\n\n\n"
+        "class CRIOCase(TestCase):\n    pass\n"
+    ),
+    "tests/hitl/crio_driver.py": (
+        "from tests.hitl.crio_case import CRIOCase\n\n\n"
+        "class CRIODriver(CRIOCase):\n    pass\n"
+    ),
+    "tests/hitl/ethercat.py": (
+        "from tests.driver.task import ReadTaskCase\n\n\n"
+        "class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):\n    pass\n"
+    ),
+    "tests/hitl/ethercat_perf.py": (
+        "from tests.hitl.ethercat import EtherCATRead\n\n\n"
+        "class EtherCATStartTime(EtherCATRead):\n    pass\n"
     ),
     "tests/console/plot.py": (
         "from console.case import ConsoleCase\n\n\n"
@@ -210,9 +241,200 @@ class TestCases:
         assert case.tags == ["headless", "driver", "not-windows"]
         assert case.skipped == {"windows": "DAQmx is installed"}
 
+    def test_should_tag_a_crio_case_as_using_the_driver(self) -> None:
+        case = Cases(CASES).resolve("hitl/crio_driver", name="crio_driver")
+        assert case.tags == ["headless", "driver"]
+
+    def test_should_resolve_a_case_through_a_generic_base(self) -> None:
+        case = Cases(CASES).resolve("hitl/ethercat_perf", name="ethercat_perf")
+        assert case.source == "integration/tests/hitl/ethercat_perf.py#L4"
+
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
             Cases(CASES).resolve("driver/ni", name="ni")
+
+
+def tc(case: str, name: str, status: str, **fields: Any) -> dict[str, Any]:
+    return {"case": case, "name": name, "status": status, "duration_s": 1.5, **fields}
+
+
+class TestCaseRows:
+    """Test rows read from a test conductor summary."""
+
+    def test_should_give_a_passed_case_its_suite_source_and_tags(self) -> None:
+        summary = {"tests": [tc("driver/ni", "NIRead", "PASSED")]}
+        assert case_rows(summary, suite=3, runner_os="windows", cases=Cases(CASES)) == [
+            [
+                3,
+                "driver/ni › NIRead",
+                "passed",
+                None,
+                1.5,
+                "integration/tests/driver/ni.py#L6",
+                ["headless", "driver", "windows-only"],
+            ]
+        ]
+
+    def test_should_read_the_skip_reason_and_the_error(self) -> None:
+        summary = {
+            "tests": [
+                tc("driver/ni", "NIRead", "SKIPPED", skip_reason="No DAQmx"),
+                tc("driver/ni", "NIMissing", "TIMEOUT", error_message="Timed out"),
+            ]
+        }
+        rows = case_rows(summary, suite=0, runner_os="ubuntu", cases=Cases(CASES))
+        assert [r[2:4] for r in rows] == [
+            ["skipped", "No DAQmx"],
+            ["failed", "Timed out"],
+        ]
+
+    def test_should_skip_a_case_an_older_run_passed_on_a_platform_it_skips(
+        self,
+    ) -> None:
+        summary = {"tests": [tc("driver/ni", "NIRead", "PASSED")]}
+        [row] = case_rows(summary, suite=0, runner_os="ubuntu", cases=Cases(CASES))
+        assert row[2:4] == ["skipped", "Windows DAQmx drivers required"]
+
+
+HITL_JOB = {
+    "conclusion": "success",
+    "html_url": "https://github.com/synnaxlabs/synnax/actions/runs/2/job/3",
+}
+
+
+def summary(name: str, *tests: dict[str, Any]) -> dict[str, Any]:
+    return {"run": {"name": name}, "tests": list(tests)}
+
+
+class TestHardwareSuites:
+    """Suites and test rows read from the summaries of a hardware run."""
+
+    def test_should_make_a_hardware_suite_for_each_conductor_run(self) -> None:
+        suites, rows = hardware_suites(
+            [
+                summary("tc_hitl", tc("driver/ni", "NIRead", "PASSED")),
+                summary("tc_hitl_perf", tc("driver/ni", "NIMissing", "FAILED")),
+            ],
+            job=HITL_JOB,
+            cases=Cases(CASES),
+            first=7,
+        )
+        assert [(s["job"], s["count"]) for s in suites] == [
+            ("hitl", 1),
+            ("hitl-perf", 1),
+        ]
+        assert suites[0] == {
+            "job": "hitl",
+            "product": "driver",
+            "lang": "py",
+            "kind": "system",
+            "tags": ["e2e", "hardware"],
+            "os": "windows",
+            "conclusion": "success",
+            "url": HITL_JOB["html_url"],
+            "count": 1,
+        }
+        assert [(r[0], r[1], r[2]) for r in rows] == [
+            (7, "driver/ni › NIRead", "passed"),
+            (8, "driver/ni › NIMissing", "failed"),
+        ]
+
+    def test_should_keep_the_last_conductor_run_of_a_name(self) -> None:
+        suites, rows = hardware_suites(
+            [
+                summary("tc_hitl", tc("driver/ni", "NIRead", "FAILED")),
+                summary("tc_hitl", tc("driver/ni", "NIRead", "PASSED")),
+                summary("tc_hitl_perf"),
+            ],
+            job=HITL_JOB,
+            cases=Cases(CASES),
+            first=0,
+        )
+        assert len(suites) == 2
+        assert [r[2] for r in rows] == ["passed"]
+
+    def test_should_exit_when_a_conductor_run_has_no_summary(self) -> None:
+        with pytest.raises(
+            SystemExit, match=r"hardware run has no summary for \['tc_hitl'\]"
+        ):
+            hardware_suites(
+                [summary("tc_hitl_perf")], job=HITL_JOB, cases=Cases(CASES), first=0
+            )
+
+
+class TestShippedChanges:
+    """Shipped files that differ between two commits."""
+
+    def test_should_list_every_change_outside_unshipped_folders(
+        self, tmp_path: Path
+    ) -> None:
+        git(tmp_path, "init", "-q", "-b", "main")
+
+        def commit(files: dict[str, str]) -> str:
+            for path, text in files.items():
+                (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+                (tmp_path / path).write_text(text)
+            git(tmp_path, "add", ".")
+            git(
+                tmp_path,
+                "-c",
+                "user.email=ci@synnaxlabs.com",
+                "-c",
+                "user.name=ci",
+                "commit",
+                "-q",
+                "-m",
+                "change",
+            )
+            return git(tmp_path, "rev-parse", "HEAD")
+
+        files = [
+            ".python-version",
+            "core/a.go",
+            "integration/tests/a.py",
+            "scripts/a.py",
+            "site/docs/a.md",
+            "studio/a.ts",
+            "vendor/open62541/a.c",
+        ]
+        base = commit(dict.fromkeys(files, "a"))
+        docs = commit(
+            dict.fromkeys(["scripts/a.py", "site/docs/a.md", "studio/a.ts"], "b")
+        )
+        assert shipped_changes(tmp_path, base=base, head=docs) == []
+        code = commit(dict.fromkeys(files, "c"))
+        assert shipped_changes(tmp_path, base=base, head=code) == [
+            ".python-version",
+            "core/a.go",
+            "integration/tests/a.py",
+            "vendor/open62541/a.c",
+        ]
+
+
+class TestSpacesKey:
+    """Data keys read from release versions."""
+
+    def test_should_key_the_data_by_the_release_train(self) -> None:
+        assert spaces_key("0.61.0") == "docs/reliability/0.61/run.json"
+
+    def test_should_exit_on_a_version_that_is_not_a_release(self) -> None:
+        with pytest.raises(
+            SystemExit,
+            match=re.escape("--version must be a release such as 0.61.0, not 0.61"),
+        ):
+            spaces_key("0.61")
+
+
+class TestRunIdOf:
+    """Run IDs read from workflow run URLs."""
+
+    def test_should_read_the_id_of_a_run_or_a_job_url(self) -> None:
+        url = "https://github.com/synnaxlabs/synnax/actions/runs/43167272303/job/1"
+        assert run_id_of(url) == "43167272303"
+
+    def test_should_exit_on_a_url_that_names_no_run(self) -> None:
+        with pytest.raises(SystemExit, match="not a workflow run URL: x"):
+            run_id_of("x")
 
 
 class TestPlatformSkip:
@@ -379,13 +601,23 @@ class TestSuiteJobs:
             == {}
         )
 
-    def test_should_include_the_lint_rule_suite(self) -> None:
-        eslint = job("eslint-config / Test (ubuntu-latest)", runner="ubuntu-latest")
-        assert suite_jobs([eslint]) == {("eslint-config", "ubuntu"): eslint}
+    @pytest.mark.parametrize("key", ["eslint-config", "stylelint-config"])
+    def test_should_include_the_lint_rule_suites(self, key: str) -> None:
+        lint = job(f"{key} / Test (ubuntu-latest)", runner="ubuntu-latest")
+        assert suite_jobs([lint]) == {(key, "ubuntu"): lint}
 
     def test_should_leave_out_the_thread_sanitizer_rerun_of_driver_tests(self) -> None:
         tsan = job("driver-tsan / Test (ubuntu-build-bot)", runner="ubuntu-build-bot")
         assert suite_jobs([tsan]) == {}
+
+    def test_should_leave_out_the_oldest_dependency_rerun_of_client_tests(
+        self,
+    ) -> None:
+        lowest = job(
+            "client-py-lowest / Test (ubuntu-latest, Python oldest)",
+            runner="ubuntu-latest",
+        )
+        assert suite_jobs([lowest]) == {}
 
     def test_should_reject_a_job_with_no_entry(self) -> None:
         with pytest.raises(
