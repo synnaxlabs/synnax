@@ -62,9 +62,11 @@ host connects without TLS, for the fake server and a local Sift.
 start position, and an optional end.
 
 - **Read**: `framer.Service.OpenIterator` (`core/pkg/service/framer/service.go:204`)
-  reads from the position. An upload stops at its end. A streaming task opens
-  `NewStreamer` first and holds its frames, iterates from the position to the first held
-  frame, then sends the held and live frames.
+  reads from the position, one chunk of the index at a time, then reads the data
+  channels over the time span of that chunk. Each sample arrives with its timestamp,
+  even from a channel that starts after its index. An upload stops at its end. A
+  streaming task opens `NewStreamer` first and holds its frames, iterates from the
+  position to the first held frame, then sends the held and live frames.
 - **Flows**: One flow per index channel, named after it, holds the channels it indexes.
   Index samples become message timestamps and are not sent as Sift channels. A channel
   missing from a frame gets an `Empty` value. The engine rejects a virtual channel, a
@@ -147,8 +149,9 @@ only streams and cannot catch up. It keeps its position in a second status,
 `sift_stream:<task key>`, that says how many samples Sift confirmed since the task
 started. The task status cannot hold it: `StatusHandler.Send` clears `Details.Data`
 (`core/pkg/service/driver/status.go:75`). A new task, or one whose position status was
-deleted, starts at the current time. Like every task, it starts again with the Core only
-when auto start is on.
+deleted, starts at the current time. The task saves its start position when it opens, so
+a stop before the first checkpoint loses no data. Like every task, it starts again with
+the Core only when auto start is on.
 
 ### 4.5 Runs
 
@@ -163,11 +166,13 @@ asset to the run.
   (`core/pkg/service/ranger/service.go:156`). After each checkpoint, the task makes the
   run of each range that has one of its labels (`ranger.MatchLabels`) and ends before
   the position. While the task catches up, the position is the earliest of its index
-  positions. Once it sends live samples, it is the latest, so an index with no new
-  samples does not hold runs back. The checks resume from a time saved in the position
-  status, so ranges that ended while the task was stopped get runs too. A rename or time
-  edit updates the run. A label change fires no range action, so it does not update the
-  tags. A deleted range leaves its Sift run.
+  positions. Once it sends live samples, it is the latest, or the last time the task had
+  sent every sample it received. So an idle index, or a test that stops before its range
+  ends, does not hold runs back. The checks resume from a time saved in the position
+  status, so ranges that ended while the task was stopped get runs too. The first check
+  after a start covers every ended range, so an edit made while the task was stopped
+  reaches its run. A rename, a time edit, or a label change updates the run. A deleted
+  range leaves its Sift run.
 
 Sift cannot make an ad hoc run over a live stream, so a run appears after its range
 ends.
