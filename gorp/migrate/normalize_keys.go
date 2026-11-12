@@ -49,7 +49,7 @@ func NormalizeKeys[K gorp.Key, E gorp.Entry[K]](legacyTypeName string) gorp.Migr
 			for itr.First(); itr.Valid(); itr.Next() {
 				rawValue := itr.Value()
 				var entry E
-				if err = tx.Decode(ctx, rawValue, &entry); err != nil {
+				if err = tx.Decode(rawValue, &entry); err != nil {
 					return errors.Wrapf(
 						err,
 						"%s: failed to decode entry at old prefix key %x",

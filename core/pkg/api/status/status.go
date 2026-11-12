@@ -13,16 +13,12 @@ import (
 	"context"
 	"encoding/json/v2"
 	"strconv"
-	"strings"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -37,14 +33,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Label stores and retrieves labels.
-	//
-	// [REQUIRED]
-	Label *label.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -56,8 +44,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Label = override.Nil(c.Label, other.Label)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -65,15 +51,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
-	v.NotNil("label", c.Label)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *status.Service
-	label    *label.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -83,93 +65,83 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Status,
-		label:    cfg.Label,
-		access:   cfg.RBAC,
 	}, nil
 }
 
-func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
-	ids := make([]ontology.ID, 0, len(statuses))
-	for _, s := range statuses {
-		ids = append(ids, s.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
-	}
-	return ids
-}
-
-func decodeDetails[D any](details any) error {
+func decodeDetails[D any](details any) (D, error) {
+	var decoded D
 	b, err := json.Marshal(details)
 	if err != nil {
-		return errors.Wrap(validate.ErrValidation, err.Error())
+		return decoded, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	var decoded D
 	if err = json.Unmarshal(b, &decoded); err != nil {
-		return errors.Wrap(validate.ErrValidation, err.Error())
+		var zero D
+		return zero, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	return nil
+	return decoded, nil
 }
 
-func validateDetails(s status.Status[any]) error {
-	// A row that its resource cannot decode fails every read of that resource's status.
-	resourceType, _, _ := strings.Cut(s.Key, ":")
-	switch ontology.ResourceType(resourceType) {
-	case ontology.ResourceTypeRack:
-		return decodeDetails[rack.StatusDetails](s.Details)
-	case ontology.ResourceTypeDevice:
-		return decodeDetails[device.StatusDetails](s.Details)
-	case ontology.ResourceTypeTask:
-		return decodeDetails[task.StatusDetails](s.Details)
-	case ontology.ResourceTypeChannel:
-		return decodeDetails[struct{}](s.Details)
-	default:
+// resolveDetails returns an error if the owner of s cannot decode its details, since
+// such a status fails every read. A rack status takes its decoded details, so a status
+// sent without them reads as not running in every client.
+func resolveDetails(s *status.Status[any]) error {
+	if s.Owner == nil {
 		return nil
 	}
+	var err error
+	switch s.Owner.Type {
+	case resource.TypeDevice:
+		_, err = decodeDetails[device.StatusDetails](s.Details)
+	case resource.TypeTask:
+		_, err = decodeDetails[task.StatusDetails](s.Details)
+	case resource.TypeRack:
+		var details rack.StatusDetails
+		if details, err = decodeDetails[rack.StatusDetails](s.Details); err == nil {
+			s.Details = details
+		}
+	case resource.TypeChannel:
+		_, err = decodeDetails[struct{}](s.Details)
+	}
+	return err
 }
 
 // SetRequest is a request to set (create or update) statuses in the cluster.
 type SetRequest struct {
-	// Parent is the parent ontology ID for the statuses.
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
-	// Statuses are the statuses to set.
+	// Statuses are the statuses to set. A status with an owner goes to the status its
+	// owner holds, whatever key it carries. An update keeps the stored owner.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 // SetResponse is a response to a SetRequest.
 type SetResponse struct {
-	// Statuses are the statuses that were set.
+	// Statuses are the statuses as stored, with their resolved keys and labels.
 	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
-// Set creates or updates statuses in the cluster. It returns a validation error and
-// writes nothing if a status keyed by a rack, device, task, or channel carries details
-// that resource cannot decode.
+// Set creates or updates the statuses in order. It returns a validation error if a
+// status carries details that its resolved owner cannot decode. On error, tx keeps the
+// writes of earlier statuses.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
 ) (SetResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: statusAccessOntologyIDs(req.Statuses),
-	}); err != nil {
-		return SetResponse{}, err
-	}
-	for i, st := range req.Statuses {
-		if err := validateDetails(st); err != nil {
+	w := s.internal.NewWriter(tx)
+	for i := range req.Statuses {
+		st := &req.Statuses[i]
+		if err := w.Resolve(ctx, st); err != nil {
+			return SetResponse{}, err
+		}
+		if err := resolveDetails(st); err != nil {
 			return SetResponse{}, validate.PathedError(
 				err, "statuses", strconv.Itoa(i), "details",
 			)
 		}
+		if err := w.Set(ctx, st); err != nil {
+			return SetResponse{}, err
+		}
 	}
-	if err := s.internal.NewWriter(tx).SetManyWithParent(
-		ctx,
-		&req.Statuses,
-		req.Parent,
-	); err != nil {
-		return SetResponse{}, err
-	}
-	return SetResponse{Statuses: req.Statuses}, nil
+	return SetResponse(req), nil
 }
 
 // SetByKeyOrNameRequest is a request to upsert a status by key or by name.
@@ -207,17 +179,6 @@ func (s *Service) SetByKeyOrName(
 		return SetByKeyOrNameResponse{}, err
 	}
 	st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
-	action := access.ActionUpdate
-	if len(matches) == 0 {
-		action = access.ActionCreate
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  action,
-		Objects: []ontology.ID{st.OntologyID()},
-	}); err != nil {
-		return SetByKeyOrNameResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -227,32 +188,29 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the statuses that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, status.ResourceID)
+}
+
+// Retrieve returns the statuses that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	res := RetrieveResponse{Statuses: []status.Status[any]{}}
-	q, err := req.Apply(s.internal.NewRetrieve[any]().Entries(&res.Statuses))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve[any]().Entries(&res.Statuses))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if req.IncludeLabels {
-		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Statuses[i].Labels = labels
-		}
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: statusAccessOntologyIDs(res.Statuses),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, status.Match[any])).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -266,19 +224,12 @@ type RenameRequest struct {
 	Key status.Key `json:"key" msgpack:"key"`
 }
 
-// Rename renames the status. It requires update access on it.
+// Rename renames the status.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{status.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -292,12 +243,5 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: status.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

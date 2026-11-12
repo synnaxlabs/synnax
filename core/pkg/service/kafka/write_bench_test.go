@@ -120,7 +120,7 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 			}},
 		}
 	}
-	t := newTask(kafka.WriteTaskType, cfg)
+	t := newTask(ctx, kafka.WriteTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).

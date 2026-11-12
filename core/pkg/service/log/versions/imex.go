@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -46,6 +47,11 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 	}
 	if err != nil {
 		return Log{}, err
+	}
+	// A Console state lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults.
+	if env.Version <= legacy.LastVersion {
+		l = defaults.Fill(l)
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.

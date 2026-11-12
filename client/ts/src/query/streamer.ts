@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type breaker, DataType, errors, zod } from "@synnaxlabs/x";
+import { type breaker, caseconv, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
@@ -16,9 +16,10 @@ import { type framer } from "@/framer";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 
 /**
- * A raw channel reaction: parses frames from the channel with the schema and invokes
- * onChange once per frame with every parsed value, in order. Mirror listeners bind to
- * this shape internally; domains register reactions via the cache's listen.
+ * A raw channel reaction: parses each sample from the channel with the schema and
+ * invokes onChange once per frame with every value that parses, in order. Mirror
+ * listeners bind to this shape internally; domains register reactions via the cache's
+ * listen.
  */
 export interface Listener<Z extends z.ZodType = z.ZodType> {
   /** The name of the Synnax channel to listen to */
@@ -27,12 +28,17 @@ export interface Listener<Z extends z.ZodType = z.ZodType> {
   schema: Z;
   /** Receives the frame's parsed values for the channel as one batch. */
   onChange(this: void, changed: z.output<Z>[]): Promise<unknown> | unknown;
+  /**
+   * Receives each sample that fails the schema, as the schema received it, before
+   * onChange gets the frame's valid values. The streamer reports the first error of
+   * each frame too.
+   */
+  onInvalid?(this: void, raw: unknown, error: Error): void;
 }
 
 /**
- * Sorts channel names to ensure deletions are processed before other changes. This
- * ensures that modifications to things like relationships (delete followed by create)
- * are processed in the correct order.
+ * Sorts channel names so deletions are processed before other changes, so a delete and
+ * a re-create of one record in the same frame apply in order.
  * @returns Sort order (-1, 0, or 1)
  */
 const channelNameSort = (a: string, b: string) => {
@@ -118,6 +124,13 @@ export const createStreamer = ({
     if (isConnectionError(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
+  const deliver = async (fn: () => unknown, message: string) => {
+    try {
+      await fn();
+    } catch (exc) {
+      report(exc, message);
+    }
+  };
   const open = async (): Promise<ObservableStreamer> => {
     if (closed) throw new EOF();
     const listenersForChannels = Map.groupBy(allListeners, ({ channel }) => channel);
@@ -127,8 +140,8 @@ export const createStreamer = ({
       { channels },
       {
         breaker: breakerConfig,
-        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
-        // circuit
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness
+        // short circuit
         onReopen: () => {
           onLive?.();
           onReopen?.();
@@ -144,33 +157,48 @@ export const createStreamer = ({
     // ObservableStreamer construction below starts reads, so onOpen precedes any frame.
     onOpen?.();
     onLive?.();
+    // A listener can await, so each frame waits for the one before it to apply.
+    let applied: Promise<void> = Promise.resolve();
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = frame.uniqueNames.sort(channelNameSort);
-      void (async () => {
+      applied = applied.then(async () => {
         for (const name of namesInFrame) {
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
+          const json = series.dataType.equals(DataType.JSON);
+          const samples: unknown[] = json ? series.toStrings() : Array.from(series);
           const parseOpts = { label: `${name} sample` };
-          for (const { onChange, schema } of listeners) {
-            let parsed: z.output<typeof schema>[];
-            try {
-              if (!series.dataType.equals(DataType.JSON))
-                parsed = Array.from(series).map((s) => zod.parse(schema, s, parseOpts));
-              else parsed = series.parseJSON(schema);
-            } catch (exc) {
-              report(exc, `failed to parse streamer change for ${name}`);
-              continue;
+          for (const { onChange, onInvalid, schema } of listeners) {
+            const parsed: z.output<typeof schema>[] = [];
+            let reported = false;
+            for (const sample of samples) {
+              let raw = sample;
+              try {
+                // Decoded here so onInvalid gets the value that the schema rejected.
+                if (json)
+                  raw = caseconv.snakeToCamel(JSON.parse(sample as string), { schema });
+                parsed.push(zod.parse(schema, raw, parseOpts));
+              } catch (exc) {
+                // One report per frame, so a frame of bad samples cannot flood onError.
+                if (!reported)
+                  report(exc, `failed to parse streamer change for ${name}`);
+                reported = true;
+                if (onInvalid != null)
+                  await deliver(
+                    () => onInvalid(raw, errors.fromUnknown(exc)),
+                    `failed to handle invalid streamer change for ${name}`,
+                  );
+              }
             }
-            if (parsed.length === 0) continue;
-            try {
-              await onChange(parsed);
-            } catch (exc) {
-              report(exc, `failed to handle streamer change for ${name}`);
-            }
+            if (parsed.length > 0)
+              await deliver(
+                () => onChange(parsed),
+                `failed to handle streamer change for ${name}`,
+              );
           }
         }
-      })();
+      });
     };
     const stream = new ObservableStreamer(h, undefined, (error) => {
       // drop the memoized stream so the next demand opens a fresh one

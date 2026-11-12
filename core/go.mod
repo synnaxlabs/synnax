@@ -1,11 +1,10 @@
 module github.com/synnaxlabs/synnax
 
-go 1.27.3
+go 1.27.4
 
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
 	github.com/synnaxlabs/arc => ../arc/go
-	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
 	github.com/synnaxlabs/gorp => ../gorp
@@ -13,7 +12,9 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
 	github.com/cockroachdb/pebble/v2 v2.1.7
@@ -27,10 +28,10 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.9
 	github.com/sift-stack/sift/go v0.4.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/arc v0.0.0
-	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/gorp v0.0.0
@@ -39,12 +40,14 @@ require (
 	github.com/twmb/franz-go v1.22.1
 	github.com/twmb/franz-go/pkg/kadm v1.19.0
 	github.com/twmb/franz-go/pkg/kfake v0.0.0-20261007040850-d3792b34935a
+	github.com/twmb/franz-go/pkg/kmsg v1.14.0
 	github.com/uptrace/uptrace-go v1.47.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.lsp.dev/protocol v1.0.1
 	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/grpc v1.84.0
@@ -61,7 +64,6 @@ require (
 	github.com/RaduBerinde/axisds v0.1.0 // indirect
 	github.com/RaduBerinde/btreemap v0.0.0-20260105202824-d3184786f603 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
-	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cockroachdb/crlib v0.0.0-20260823170307-44ef894cf300 // indirect
@@ -127,13 +129,11 @@ require (
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
-	github.com/twmb/franz-go/pkg/kmsg v1.14.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.76.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
@@ -161,7 +161,6 @@ require (
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect

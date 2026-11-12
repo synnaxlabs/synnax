@@ -10,53 +10,43 @@
 package label
 
 import (
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
 // label.
 func (CreatePayload) Handle(Label) (Label, error) {
-	return Label{}, errors.Wrap(
-		validate.ErrValidation, "only the Core dispatches a label create",
-	)
+	return Label{}, actions.CoreOnlyError("a label create")
 }
 
-// Handle applies the set to the label's name or color.
+// Handle applies the set to the label.
 func (p SetPayload) Handle(l Label) (Label, error) {
-	return edit(l, patch.Set(p).Apply)
+	return apply(l, patch.Set(p))
 }
 
-// Handle applies the remove to the label's name or color.
+// Handle applies the remove to the label.
 func (p RemovePayload) Handle(l Label) (Label, error) {
-	return edit(l, patch.Remove(p).Apply)
+	return apply(l, patch.Remove(p))
 }
 
-// Handle applies the insert to the label's name or color.
+// Handle applies the insert to the label.
 func (p InsertPayload) Handle(l Label) (Label, error) {
-	return edit(l, patch.Insert(p).Apply)
+	return apply(l, patch.Insert(p))
 }
 
-// Handle applies the move to the label's name or color.
+// Handle applies the move to the label.
 func (p MovePayload) Handle(l Label) (Label, error) {
-	return edit(l, patch.Move(p).Apply)
+	return apply(l, patch.Move(p))
 }
 
-// document is the part of a label that path actions edit.
-type document struct {
-	Name  string      `json:"name"`
-	Color color.Color `json:"color"`
-}
-
-// edit applies a path action to a copy of the label's document. A document that gains a
-// member it does not declare, such as a path to the label's key, is rejected.
-func edit(l Label, apply func(map[string]any) error) (Label, error) {
-	d, err := patch.Edit(document{Name: l.Name, Color: l.Color}, apply)
+func apply[A patch.Action](l Label, a A) (Label, error) {
+	c, err := patch.Begin(a)
+	if err == nil {
+		err = l.Patch(c)
+	}
 	if err != nil {
 		return Label{}, err
 	}
-	l.Name, l.Color = d.Name, d.Color
 	return l, nil
 }

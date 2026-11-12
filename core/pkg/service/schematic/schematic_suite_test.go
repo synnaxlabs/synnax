@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,9 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -33,45 +33,51 @@ func TestSchematic(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	proj    project.Project
-	svc     *schematic.Service
-	imexSvc *imex.Service
-	tx      gorp.Tx
+	db         *gorp.DB
+	groupSvc   *group.Service
+	proj       project.Project
+	projectSvc *project.Service
+	rangerSvc  *ranger.Service
+	svc        *schematic.Service
+	imexSvc    *imex.Service
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		var (
-			groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-		)
-		imexSvc = imex.NewService()
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			ImEx:     imexSvc,
-			Panel:    panelSvc,
-		}))
-		svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			ImEx:     imexSvc,
-		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db,
+	}))
+	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+	}))
+	imexSvc = imex.NewService()
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB: db,
+	}))
+	svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imexSvc,
+	}))
+	proj.Name = "test-project"
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+})
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key schematic.Key,
+	dispatchKey string,
+	acts []schematic.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		_, err := svc.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Apply(ctx, key, acts...)
+		return err
 	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+}

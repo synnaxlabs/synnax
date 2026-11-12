@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -86,7 +87,7 @@ var _ = Describe("Edge task", func() {
 	// start configures and starts an edge task, and waits for its birth.
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.EdgeTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.EdgeTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -560,6 +561,28 @@ var _ = Describe("Edge task", func() {
 			},
 		)
 
+		It("Should write each command that arrives within one step of the clock",
+			func(ctx SpecContext) {
+				stamp := telem.Now()
+				factory = MustOpen(mqtt.OpenFactory(mqtt.FactoryConfig{
+					Device:  deviceSvc,
+					Channel: channelSvc,
+					Framer:  framerSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Now:     func() telem.TimeStamp { return stamp },
+				}))
+				_, cmdData := createIndexed(ctx, telem.Float64T)
+				start(ctx, edgeConfig(dev, commandTag(
+					"setpoint", createVirtual(ctx, telem.Float64T), cmdData[0],
+				)))
+				host.sendCommand(commandMetric("setpoint", 0, 1.0))
+				host.sendCommand(commandMetric("setpoint", 0, 2.0))
+				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
+					Should(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
+			},
+		)
+
 		It("Should write the commands that it holds when the connection drops",
 			func(ctx SpecContext) {
 				_, cmdData := createIndexed(ctx, telem.Float64T)
@@ -571,8 +594,10 @@ var _ = Describe("Edge task", func() {
 					values[i] = float64(i)
 					host.sendCommand(commandMetric("setpoint", 0, values[i]))
 				}
-				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
-					Should(BeNumerically(">", 0))
+				// The client takes messages in order, so the second birth comes after
+				// it took every command.
+				host.sendRebirth()
+				Eventually(host.births).Should(HaveLen(2))
 				// No reconnect follows, so a held command is written now or never.
 				broker.stop()
 				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
@@ -588,7 +613,7 @@ var _ = Describe("Edge task", func() {
 					port:    port,
 					refused: []string{"spBv1.0/plant/NCMD/line1"},
 				})
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev,
 					edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 				))
@@ -598,9 +623,13 @@ var _ = Describe("Edge task", func() {
 				Expect(configured.Exec(
 					startCtx,
 					task.Command{Type: "start", Key: "start"},
-				)).To(MatchError(ContainSubstring(
+				)).To(Succeed())
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(ContainSubstring(
 					"the broker refused the subscription to spBv1.0/plant/NCMD/line1",
-				)))
+				))
 			},
 		)
 
@@ -838,7 +867,7 @@ var _ = Describe("Edge task", func() {
 				ch := createVirtual(ctx, telem.Float64T)
 				port := broker.port
 				broker.stop()
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev, edgeTag("temp", ch, "double"),
 				))
 				configured := configure(ctx, factory, t)
@@ -857,7 +886,7 @@ var _ = Describe("Edge task", func() {
 			ch := createVirtual(ctx, telem.Float64T)
 			port := broker.port
 			broker.stop()
-			t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 				dev, edgeTag("temp", ch, "double"),
 			))
 			configured := configure(ctx, factory, t)
@@ -889,7 +918,7 @@ var _ = Describe("Edge task", func() {
 			func(ctx SpecContext) {
 				moved := startBroker(0)
 				movedHost := startHost(moved, "plant", "line1")
-				t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+				t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 					dev, edgeTag("temp", createVirtual(ctx, telem.Float64T), "double"),
 				))
 				configured := configure(ctx, factory, t)
@@ -920,7 +949,7 @@ var _ = Describe("Edge task", func() {
 
 		It("Should start and stop many times without a leak", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
-			t := newTask(rackKey, mqtt.EdgeTaskType, edgeConfig(
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, edgeConfig(
 				dev, edgeTag("temp", ch, "double"),
 			))
 			configured := configure(ctx, factory, t)
@@ -957,7 +986,7 @@ var _ = Describe("Edge task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.EdgeTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.EdgeTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(message)),
@@ -1002,7 +1031,9 @@ var _ = Describe("Edge task", func() {
 						Model:      "daq",
 						Properties: msgpack.EncodedJSON{},
 					}
-					Expect(deviceSvc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return deviceSvc.NewWriter(tx).Create(ctx, &other)
+					})).To(Succeed())
 					cfg := valid(ctx)
 					cfg["device"] = other.Key
 					return cfg, "device: DAQ is not an MQTT broker"

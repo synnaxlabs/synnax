@@ -15,15 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func rangeView(name string) view.View {
@@ -40,33 +40,18 @@ func statusView(name string) view.View {
 
 var _ = Describe("View", func() {
 	var (
-		otg *ontology.Ontology
 		svc *view.Service
 		w   view.Writer
 		tx  gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{
-			DB: db,
-		}))
-		g := MustOpen(
-			group.OpenService(
-				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg},
-			),
-		)
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 	})
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 
 	Describe("Writer", func() {
@@ -119,24 +104,27 @@ var _ = Describe("View", func() {
 					w.Create(ctx, &s),
 				).To(MatchError(ContainSubstring("name: required")))
 			})
-			It("Should update an existing view", func(ctx SpecContext) {
-				s := rangeView("Test View")
-				Expect(w.Create(ctx, &s)).To(Succeed())
-				updated := view.View{Variant: view.StatusView{
-					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
-					Where: &status.Where{Variant: &filter.Set[status.Variant]{
-						Eq: new(status.VariantError),
-					}},
+			It("Should refuse a view whose key exists", func(ctx SpecContext) {
+				stored := rangeView("Test View")
+				Expect(w.Create(ctx, &stored)).To(Succeed())
+				again := view.View{Variant: view.StatusView{
+					Base: view.Base{Key: stored.GorpKey(), Name: "Updated Name"},
 				}}
-				Expect(w.Create(ctx, &updated)).To(Succeed())
+				Expect(w.Create(ctx, &again)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"view %s already exists",
+						stored.GorpKey(),
+					)),
+				))
 				var retrieved view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.GorpKey())).
+						Where(view.MatchKeys(stored.GorpKey())).
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved).To(Equal(updated))
+				Expect(retrieved).To(Equal(stored))
 			})
 		})
 
@@ -171,7 +159,8 @@ var _ = Describe("View", func() {
 						Where(view.MatchKeys(s.GorpKey())).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(Equal(s.WithName("After")))
+					s.SetBase(view.Base{Key: s.GorpKey(), Name: "After"})
+					Expect(res).To(Equal(s))
 				},
 			)
 			It(
@@ -234,8 +223,6 @@ var _ = Describe("View", func() {
 				rangeView("View B"),
 				statusView("View C"),
 			}
-			tx = db.OpenTx()
-			w = svc.NewWriter(tx)
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})
 
@@ -305,19 +292,11 @@ var _ = Describe("View", func() {
 			})
 		})
 
-		Describe("Limit and Offset", func() {
+		Describe("Limit", func() {
 			It("Should limit results", func(ctx SpecContext) {
 				var views []view.View
 				Expect(
 					svc.NewRetrieve().Limit(2).Entries(&views).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(views).To(HaveLen(2))
-			})
-
-			It("Should offset results", func(ctx SpecContext) {
-				var views []view.View
-				Expect(
-					svc.NewRetrieve().Offset(1).Limit(2).Entries(&views).Exec(ctx, tx),
 				).To(Succeed())
 				Expect(views).To(HaveLen(2))
 			})
@@ -332,7 +311,9 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.GorpKey()
 					}
-					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, keys...)
+					})).To(Succeed())
 				})
 				Expect(
 					svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db),
@@ -344,11 +325,11 @@ var _ = Describe("View", func() {
 	})
 
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
 			v := rangeView(name)
 			Expect(w.Create(ctx, &v)).To(Succeed())
-			return view.OntologyID(v.GorpKey())
+			return view.ResourceID(v.GorpKey())
 		}
 
 		It(
@@ -356,12 +337,12 @@ var _ = Describe("View", func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -369,8 +350,10 @@ var _ = Describe("View", func() {
 			"Should not match a staged view outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				q := search.Query[resource.ID]{Term: "injector"}
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})

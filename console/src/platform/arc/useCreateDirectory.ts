@@ -7,52 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, ontology } from "@synnaxlabs/client";
+import { arc, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Tree } from "@/platform/tree";
 
 export interface UseCreateDirectoryProps {
-  parent: ontology.ID;
-  root: ontology.ID;
+  /** The directory to create the new directory in. */
+  parent: resource.ID;
+  root: resource.ID;
   state: Tree.TreeState;
 }
 
+const beforeUpdate = async ({
+  data,
+}: Flux.BeforeUpdateParams<Arc.Directory.CreateParams>) => {
+  if (data.key == null) throw new Error("a directory drafted in a tree needs a key");
+  const [name, renamed] = await Text.asyncEdit(
+    List.itemNameID(resource.idToString(arc.directory.resourceID(data.key))),
+  );
+  if (!renamed || name === "") return false;
+  return { ...data, name };
+};
+
 /**
- * Returns a function that adds an unnamed directory row under parent and creates the
+ * Returns a function that shows a draft directory under parent and creates the
  * directory once the user names it.
  */
 export const useCreateDirectory = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setResource, expand },
+  state: { addDraft, expand },
 }: UseCreateDirectoryProps): (() => void) => {
-  const { update } = Arc.Directory.useCreate({
-    beforeUpdate: async ({
-      data,
-      rollbacks,
-    }: Flux.BeforeUpdateParams<Arc.Directory.CreateParams>) => {
-      const newID = arc.directory.ontologyID(uuid.create());
-      const newIDString = ontology.idToString(newID);
-      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-      const node: PTree.Node<string> = { key: newIDString, children: [] };
-      setResource(res);
-      const destination = ontology.idsEqual(parent, root)
-        ? null
-        : ontology.idToString(parent);
-      if (destination != null) expand(destination);
-      setNodes([...PTree.setNode({ tree, destination, additions: node })]);
-      rollbacks.push(() =>
-        setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
-      );
-      const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
-      if (!renamed || name === "") return false;
-      return { ...data, key: newID.key, name };
-    },
-  });
-  return () => update({ parent: parent.key, name: "" });
+  const { updateAsync } = Arc.Directory.useCreate({ beforeUpdate });
+  return () => {
+    const id = arc.directory.resourceID(uuid.create());
+    const key = resource.idToString(id);
+    const parentKey = resource.idToString(parent);
+    if (!resource.idsEqual(parent, root)) expand(parentKey);
+    const done = addDraft({ resource: { key, id, name: "" }, parent: parentKey });
+    void (async () => {
+      await updateAsync({ parent: parent.key, key: id.key, name: "" });
+      done();
+    })();
+  };
 };

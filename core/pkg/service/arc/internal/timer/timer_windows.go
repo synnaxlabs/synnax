@@ -56,14 +56,6 @@ func Now() time.Duration {
 	return time.Duration(c/f*int64(time.Second) + c%f*int64(time.Second)/f)
 }
 
-// Wall returns the wall clock time from GetSystemTimePreciseAsFileTime. Go's time.Now
-// on Windows moves only on each system tick.
-func Wall() time.Time {
-	var ft windows.Filetime
-	windows.GetSystemTimePreciseAsFileTime(&ft)
-	return time.Unix(0, ft.Nanoseconds())
-}
-
 // platform waits on a waitable timer.
 type platform struct {
 	// handle is the waitable timer.
@@ -76,7 +68,7 @@ type platform struct {
 }
 
 func (t *Timer) open() error {
-	h, _, _ := procCreateWaitableTimerExW.Call(
+	h, _, highResErr := procCreateWaitableTimerExW.Call(
 		0,
 		0,
 		createWaitableTimerHighResolution,
@@ -91,7 +83,10 @@ func (t *Timer) open() error {
 			0,
 			windows.TIMER_ALL_ACCESS,
 		); h == 0 {
-			return errors.Wrap(err, "failed to create waitable timer")
+			return errors.Wrap(
+				errors.Join(highResErr, err),
+				"failed to create waitable timer",
+			)
 		}
 		if err = windows.TimeBeginPeriod(1); err != nil {
 			return errors.Join(

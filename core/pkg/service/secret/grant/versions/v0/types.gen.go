@@ -14,7 +14,7 @@ package v0
 import (
 	"uuid"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -29,7 +29,7 @@ type Grant struct {
 	// Key is the unique identifier for this grant.
 	Key Key `json:"key" msgpack:"key"`
 	// Subject is the subject that may read the secrets.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Secrets are the secrets the subject may read.
 	Secrets []secret.Key `json:"secrets" msgpack:"secrets"`
 	// ExpiresAt is when the grant stops working, if no read has used it.

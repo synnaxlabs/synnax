@@ -26,6 +26,7 @@ TEST(TestXErrors, testErrorConstructionFromString) {
 TEST(TestXErrors, testErrorEqualsExactlyEqual) {
     const auto err1 = Error("test", "");
     const auto err2 = Error("test", "");
+    // NOLINTNEXTLINE(custom-error-assertion): tests operator== itself.
     ASSERT_EQ(err1, err2);
 }
 
@@ -58,6 +59,7 @@ TEST(TestXErrors, testDefaultConstructor) {
     const auto err = Error();
     ASSERT_EQ(err.type, TYPE_NIL);
     ASSERT_TRUE(err.data.empty());
+    // NOLINTNEXTLINE(custom-error-assertion): tests Error itself.
     ASSERT_TRUE(err.ok());
 }
 
@@ -104,9 +106,11 @@ TEST(TestXErrors, testReparentMethod) {
 /// @brief it should return true for ok() on nil errors and false otherwise.
 TEST(TestXErrors, testOkMethod) {
     const auto nil_err = Error(TYPE_NIL, "");
+    // NOLINTNEXTLINE(custom-error-assertion): tests ok() itself.
     ASSERT_TRUE(nil_err.ok());
 
     const auto non_nil_err = Error("error", "");
+    // NOLINTNEXTLINE(custom-error-assertion): tests ok() itself.
     ASSERT_FALSE(non_nil_err.ok());
 }
 

@@ -62,7 +62,7 @@ export const use = (): ((projectKey?: string) => void) => {
           await client.imex.import(await file.read(), {
             ...imex.JSON_OPTIONS,
             fileName: file.name,
-            parent: project.ontologyID(activeProjectKeyAfter),
+            parent: project.resourceID(activeProjectKeyAfter),
           }),
       });
     }, "Failed to import files");
@@ -78,7 +78,7 @@ export const use = (): ((projectKey?: string) => void) => {
 export const useCanImport = (): boolean => {
   const selected = Session.Project.useSelectOptionalSelected();
   const granted = Access.useUpdateGranted(
-    selected == null ? project.TYPE_ONTOLOGY_ID : project.ontologyID(selected),
+    selected == null ? project.TYPE_RESOURCE_ID : project.resourceID(selected),
   );
   return selected == null || granted;
 };

@@ -13,15 +13,17 @@
  */
 export interface EngineRef {
   engine: "web" | "tauri";
+  /** Overrides CORE_EMBEDDED when set, to drive the Synnax Desktop branches. */
+  coreEmbedded?: boolean;
 }
 
 /**
  * mockRuntimeEngine builds the module shape for mocking the session runtime's ENGINE
- * constant. It spreads the real module and overrides ONLY ENGINE with a getter reading
- * the given ref, so Drift and every other export stay real. vi.mock factories are
- * hoisted above imports, so the spec must reach this helper through a dynamic import
- * inside the factory and create the ref via vi.hoisted: const mocks = vi.hoisted((): {
- * engine: "web" | "tauri" } => ({ engine: "web" }));
+ * and CORE_EMBEDDED constants. It spreads the real module and overrides ONLY those two
+ * with getters reading the given ref, so Drift and every other export stay real.
+ * vi.mock factories are hoisted above imports, so the spec must reach this helper
+ * through a dynamic import inside the factory and create the ref via vi.hoisted: const
+ * mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
  * vi.mock("@/session/runtime/runtime", async (importOriginal) => { const {
  * mockRuntimeEngine } = await import("@/testutil/runtime"); return await
  * mockRuntimeEngine(importOriginal, mocks); });
@@ -29,9 +31,15 @@ export interface EngineRef {
 export const mockRuntimeEngine = async (
   importOriginal: () => Promise<unknown>,
   ref: EngineRef,
-): Promise<Record<string, unknown>> => ({
-  ...((await importOriginal()) as Record<string, unknown>),
-  get ENGINE() {
-    return ref.engine;
-  },
-});
+): Promise<Record<string, unknown>> => {
+  const original = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...original,
+    get ENGINE() {
+      return ref.engine;
+    },
+    get CORE_EMBEDDED() {
+      return ref.coreEmbedded ?? original.CORE_EMBEDDED;
+    },
+  };
+};
