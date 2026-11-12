@@ -609,6 +609,18 @@ var _ = Describe("Engine", func() {
 			Expect(server.Runs()).To(HaveLen(1))
 		})
 
+		It("Should retry a temporary failure to update a run", func(ctx SpecContext) {
+			e := open(ctx, channel.Keys{ch.Key()})
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Name = "renamed"
+			Expect(e.SetRun(ctx, run)).To(Equal(id))
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
+		})
+
 		It("Should return the last error once it runs out of retries",
 			func(ctx SpecContext) {
 				server.FailRuns(
