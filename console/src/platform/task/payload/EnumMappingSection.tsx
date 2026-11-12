@@ -20,11 +20,13 @@ interface NumberEntries {
 }
 
 interface TextEntries {
-  /** The path of the enum values, held as text, such as 64-bit integers. */
+  /** The path of the enum values, held as text: strings, or 64-bit integers. */
   path: deep.Target<PlatformForm.Entry<"label", string>[]>;
   valueType: "string";
-  /** The value of an added entry, such as "0" for an integer. */
-  defaultValue: string;
+  /** The value of an added entry, such as "0" for an integer. Defaults to "". */
+  defaultValue?: string;
+  /** Shows what a channel value looks like, such as "1". */
+  valuePlaceholder?: string;
 }
 
 export type EnumMappingSectionProps = (NumberEntries | TextEntries) & {
@@ -32,14 +34,19 @@ export type EnumMappingSectionProps = (NumberEntries | TextEntries) & {
   valueFirst?: boolean;
 };
 
-// The Core rejects a repeated label, so an added entry takes a free one.
+/**
+ * @returns a label that none of labels holds, for an added enum entry. The Core rejects
+ * a repeated or empty label.
+ */
+export const createLabel = (labels: string[]): string => {
+  let n = labels.length + 1;
+  while (labels.includes(`LABEL_${n}`)) n++;
+  return `LABEL_${n}`;
+};
+
 const createEntry =
   <V,>(value: V) =>
-  (labels: string[]): { key: string; value: V } => {
-    let n = labels.length + 1;
-    while (labels.includes(`LABEL_${n}`)) n++;
-    return { key: `LABEL_${n}`, value };
-  };
+  (labels: string[]): { key: string; value: V } => ({ key: createLabel(labels), value });
 
 /** Maps string labels in a payload to channel values. */
 export const EnumMappingSection = ({
@@ -53,9 +60,10 @@ export const EnumMappingSection = ({
         resourceName="mapping"
         keyField="label"
         keyPlaceholder="String (e.g. ON)"
+        valuePlaceholder={rest.valuePlaceholder}
         valueType="string"
         valueFirst={valueFirst}
-        createEntry={createEntry(rest.defaultValue)}
+        createEntry={createEntry(rest.defaultValue ?? "")}
       />
     ) : (
       <PlatformForm.KeyValueEditor

@@ -58,8 +58,39 @@ const (
 	SparkplugDataTypeDateTime SparkplugDataType = versions.SparkplugDataTypeDateTime
 )
 
-// ReadField is a single value extracted from the JSON payload of a topic.
+// ReadField is a single value extracted from the JSON payload of a topic. The type
+// field is the kind of the value, which matches the data type of the channel.
 type ReadField = versions.ReadField
+
+// ReadFieldVariant is implemented by every ReadField variant.
+type ReadFieldVariant = versions.ReadFieldVariant
+
+// FloatReadField reads a float.
+type FloatReadField = versions.FloatReadField
+
+// IntegerReadField reads a signed integer.
+type IntegerReadField = versions.IntegerReadField
+
+// UnsignedReadField reads an unsigned integer.
+type UnsignedReadField = versions.UnsignedReadField
+
+// StringReadField reads a string.
+type StringReadField = versions.StringReadField
+
+// BooleanReadField reads a boolean.
+type BooleanReadField = versions.BooleanReadField
+
+// TimestampReadField reads a timestamp.
+type TimestampReadField = versions.TimestampReadField
+
+// JsonReadField reads any JSON value.
+type JsonReadField = versions.JsonReadField
+
+// UuidReadField reads a UUID string.
+type UuidReadField = versions.UuidReadField
+
+// BytesReadField reads base64 text.
+type BytesReadField = versions.BytesReadField
 
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = versions.BaseReadEntry
@@ -168,3 +199,6 @@ type EdgeTag = versions.EdgeTag
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = versions.EdgeConfig
+
+// BaseReadField carries the fields every read field shares.
+type BaseReadField = versions.BaseReadField

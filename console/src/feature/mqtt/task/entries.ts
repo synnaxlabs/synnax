@@ -17,11 +17,13 @@ import {
 } from "@/feature/mqtt/task/sparkplug";
 import {
   type BrowsedTopic,
+  createReadField,
   type PlainReadEntry,
   type ReadField,
   type SparkplugReadEntry,
   type SparkplugTag,
 } from "@/feature/mqtt/task/types";
+import { Task } from "@/platform/task";
 
 /** The prefix configure gives the channels of a topic's fields. */
 export const namePrefix = (devName: string, topic: string): string =>
@@ -69,6 +71,8 @@ export const leavesOf = ({ payload, fields: scalars }: BrowsedTopic): ReadField[
   const fields = createReadFields(scalars);
   if (fields.length > 0 || payload === "") return fields;
   return [
-    { ...mqtt.readFieldZ.parse({}), pointer: "", dataType: DataType.STRING.toString() },
+    createReadField(Task.Payload.readOptionsOf(DataType.STRING.toString()), {
+      pointer: "",
+    }),
   ];
 };

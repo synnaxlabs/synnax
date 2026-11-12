@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -14,10 +15,12 @@ import { type ReactElement } from "react";
 import { BindChannels } from "@/platform/task/BindChannels";
 import { type ReadChannelField, type ReadChannelProps } from "@/platform/task/channels";
 
+type BoundField = Pick<ReadChannelField, "key" | "pointer" | "channel">;
+
 /** A read source, such as an endpoint, whose fields read into channels. */
 interface ReadSource {
   index: string;
-  fields: ReadChannelField[];
+  fields: BoundField[];
 }
 
 export interface BindReadChannelsProps {
@@ -27,6 +30,8 @@ export interface BindReadChannelsProps {
   propertiesKey: deep.Target<string>;
   /** The read properties of the device, or null while the device is unknown. */
   read: Record<string, ReadChannelProps> | null;
+  /** Changes a field that a binding changed to agree with the channel it binds. */
+  match?: (field: BoundField, channel: channel.Channel) => BoundField;
 }
 
 /**
@@ -37,11 +42,12 @@ export const BindReadChannels = ({
   path,
   propertiesKey,
   read,
+  match,
 }: BindReadChannelsProps): ReactElement => {
   const source = deep.widen(path);
   const key = Form.useFieldValue(propertiesKey);
   const indexKey = Form.useFieldValue(source.index);
-  const resolve = (field: ReadChannelField) => {
+  const resolve = (field: BoundField): Partial<BoundField> | null => {
     if (read == null) return null;
     const props = read[key];
     if (props == null) return { channel: 0 };
@@ -50,5 +56,12 @@ export const BindReadChannels = ({
         field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
     };
   };
-  return <BindChannels path={source.fields} resolve={resolve} />;
+  const matchChannel =
+    match == null
+      ? undefined
+      : (field: BoundField, channels: channel.Channel[]): BoundField => {
+          const bound = channels.find(({ key }) => key === field.channel);
+          return bound == null ? field : match(field, bound);
+        };
+  return <BindChannels path={source.fields} resolve={resolve} match={matchChannel} />;
 };
