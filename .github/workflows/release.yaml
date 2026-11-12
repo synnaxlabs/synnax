@@ -71,10 +71,11 @@ env:
   GH_REPO: ${{ github.repository }}
   GH_TOKEN: ${{ github.token }}
 
-# The drafts and the builds start at dispatch. CI and the migration audit gate only the
-# publish jobs, so a run that fails either one leaves only drafts, and the next run
-# clears them. An `if` with `!cancelled()` drops the implicit success check, so the
-# product and package publish jobs state both gates. The image and the docs follow them.
+# The drafts and the builds start at dispatch. The Core build reads the Console and the
+# Driver from the drafts of the run. One publish job follows CI, the migration audit,
+# and every build, so a run that fails any of them leaves only drafts, and the next run
+# clears them. An `if` with `!cancelled()` drops the implicit success check, so each job
+# states the results it needs. The packages, the image, and the docs follow the publish.
 jobs:
   ci:
     name: CI
@@ -302,32 +303,26 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  publish-console:
-    name: Publish Console
-    needs: [resolve, ci, migration-audit, build-console]
-    if: >-
-      !cancelled() && needs.build-console.result == 'success' && needs.ci.result ==
-      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
-      'success')
+  # The Core embeds the manifest with the other Console update files, so it goes into
+  # the draft before the Core builds. Its links work when the release is public.
+  manifest-console:
+    name: Write Console updater manifest
+    needs: [resolve, build-console]
+    if: ${{ !cancelled() && needs.build-console.result == 'success' }}
     permissions:
       actions: read
       contents: write
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ needs.resolve.outputs.console_tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Publish updater manifest
+      - name: Write updater manifest
         uses: ./.github/actions/publish-updater-manifest
         with:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
-
-      - name: Publish release
-        run: gh release edit "$TAG" --draft=false --latest=false
 
   draft-driver:
     name: Draft Driver
@@ -389,37 +384,19 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  publish-driver:
-    name: Publish Driver
-    needs: [resolve, ci, migration-audit, build-driver]
-    if: >-
-      !cancelled() && needs.build-driver.result == 'success' && needs.ci.result ==
-      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
-      'success')
-    permissions:
-      actions: read
-      contents: write
-    runs-on: ubuntu-latest
-    env:
-      TAG: ${{ needs.resolve.outputs.driver_tag }}
-    steps:
-      - name: Publish release
-        run: gh release edit "$TAG" --draft=false --latest=false
-
   # Packages have no candidate channel, so a candidate run never publishes them. The
   # registries trust this file by name, so the publish jobs live here and not in a called
   # workflow.
   publish-ts:
     name: Publish TypeScript packages
-    needs: [resolve, ci, migration-audit, publish-console, publish-driver, publish-core]
-    # Packages go out after every product this run releases, and never after one fails.
+    needs: [resolve, ci, migration-audit, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so CI and the audit gate it here.
     if: >-
       !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
       'success' && needs.ci.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success') && (!inputs.console ||
-      needs.publish-console.result == 'success') && (!inputs.driver ||
-      needs.publish-driver.result == 'success') && (!inputs.core ||
-      needs.publish-core.result == 'success')
+      needs.migration-audit.result == 'success') && (!inputs.console && !inputs.driver
+      && !inputs.core || needs.publish.result == 'success')
     permissions:
       contents: write
       id-token: write
@@ -551,15 +528,14 @@ jobs:
 
   publish-py:
     name: Publish Python packages
-    needs: [resolve, ci, migration-audit, publish-console, publish-driver, publish-core]
-    # Packages go out after every product this run releases, and never after one fails.
+    needs: [resolve, ci, migration-audit, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so CI and the audit gate it here.
     if: >-
       !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
       'success' && needs.ci.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success') && (!inputs.console ||
-      needs.publish-console.result == 'success') && (!inputs.driver ||
-      needs.publish-driver.result == 'success') && (!inputs.core ||
-      needs.publish-core.result == 'success')
+      needs.migration-audit.result == 'success') && (!inputs.console && !inputs.driver
+      && !inputs.core || needs.publish.result == 'success')
     permissions:
       contents: write
       id-token: write
@@ -631,16 +607,10 @@ jobs:
             echo "All distributions already published; nothing to upload."
           fi
 
-  # The Core embeds the Console and Driver, so it waits for the ones this run releases
-  # and never runs after one fails. A skipped publish job still waits for CI, so the
-  # Core draft starts after CI ends, even in a run with only the Core.
   draft-core:
     name: Draft Core
-    needs: [resolve, publish-console, publish-driver]
-    if: >-
-      !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+    needs: resolve
+    if: inputs.core
     permissions:
       actions: read
       contents: write
@@ -668,12 +638,18 @@ jobs:
             needs.resolve.outputs.core_driver_version }}).
           prerelease: ${{ inputs.prerelease }}
 
-  # A job with no status check skips when any ancestor skipped, so each job after
-  # draft-core has its own. Without one, a run with no Console or Driver skips the Core.
+  # The Core embeds the Console and the Driver. When the run releases one, the build
+  # downloads it from the draft, which holds every file after that build and the
+  # manifest job pass. If not, it downloads the newest published release on the train. A
+  # job with no status check skips when any ancestor skipped, so each job from here has
+  # its own. Without one, a run with no Console or Driver skips the Core.
   build-core:
     name: Build Core
-    needs: [resolve, draft-core]
-    if: ${{ !cancelled() && needs.draft-core.result == 'success' }}
+    needs: [resolve, draft-core, manifest-console, build-driver]
+    if: >-
+      !cancelled() && needs.draft-core.result == 'success' && (!inputs.console ||
+      needs.manifest-console.result == 'success') && (!inputs.driver ||
+      needs.build-driver.result == 'success')
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -763,34 +739,55 @@ jobs:
         run: |
           gh release upload --clobber "${env:TAG}" .\.github\scripts\synnax-setup-v${env:VERSION}.exe
 
-  publish-core:
-    name: Publish Core
-    needs: [resolve, ci, migration-audit, build-core, windows-installer]
+  # The only job that makes a release public. It runs after CI, the migration audit, and
+  # every build of the run pass. A publish of a release that is already public changes
+  # nothing, so a rerun finishes a publish that stopped part way.
+  publish:
+    name: Publish
+    needs:
+      [resolve, ci, migration-audit, manifest-console, build-driver, windows-installer]
     if: >-
-      !cancelled() && needs.windows-installer.result == 'success' && needs.ci.result ==
-      'success' && (!inputs.migration_audit || needs.migration-audit.result ==
-      'success')
+      !cancelled() && (inputs.console || inputs.driver || inputs.core) &&
+      needs.resolve.result == 'success' && needs.ci.result == 'success' &&
+      (!inputs.migration_audit || needs.migration-audit.result == 'success') &&
+      (!inputs.console || needs.manifest-console.result == 'success') && (!inputs.driver
+      || needs.build-driver.result == 'success') && (!inputs.core ||
+      needs.windows-installer.result == 'success')
     permissions:
       actions: read
       contents: write
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ needs.resolve.outputs.core_tag }}
     steps:
       # The repo has one Latest badge, and a publish takes it by default. It belongs to
-      # the newest stable Core, so a Console, Driver, or Desktop publish declines it.
-      - name: Publish release
+      # the newest stable Core, so the Core goes first, and a Console, Driver, or
+      # Desktop publish declines it.
+      - name: Publish Core
+        if: inputs.core
         env:
+          TAG: ${{ needs.resolve.outputs.core_tag }}
           LATEST:
             ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
         run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
-  # No job needs the image, so a failed push blocks only the image. A rerun of this job
-  # alone has every input, and it moves latest or next only to the newest Core.
+      - name: Publish Driver
+        if: inputs.driver
+        env:
+          TAG: ${{ needs.resolve.outputs.driver_tag }}
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+      - name: Publish Console
+        if: inputs.console
+        env:
+          TAG: ${{ needs.resolve.outputs.console_tag }}
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+  # The image builds and pushes in one step, so it follows the publish. No job needs the
+  # image, so a failed push blocks only the image. A rerun of this job alone has every
+  # input, and it moves latest or next only to the newest Core.
   publish-core-image:
     name: Publish Core image
-    needs: [resolve, publish-core]
-    if: ${{ !cancelled() && needs.publish-core.result == 'success' }}
+    needs: [resolve, publish]
+    if: ${{ !cancelled() && inputs.core && needs.publish.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -812,14 +809,11 @@ jobs:
 
   deploy-docs:
     name: Deploy docs
-    needs: [resolve, publish-console, publish-driver, publish-core]
+    needs: [resolve, publish]
     # The docs read stable versions at build time. A release changes the download links
     # of its train, next, and the newest train, and a new train moves the previous one
     # off the root.
-    if: >-
-      !cancelled() && !inputs.prerelease && (needs.publish-console.result == 'success'
-      || needs.publish-driver.result == 'success' || needs.publish-core.result ==
-      'success')
+    if: ${{ !cancelled() && !inputs.prerelease && needs.publish.result == 'success' }}
     uses: ./.github/workflows/deploy.docs.yaml
     with:
       versions: next latest previous
