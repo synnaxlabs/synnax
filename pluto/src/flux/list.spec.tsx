@@ -55,8 +55,10 @@ describe("useList", () => {
     });
   });
 
-  const byName = () =>
-    ({ where: { labels: [lbl.key] }, order: { field: "name" } }) as const;
+  const byName = (): ranger.RetrieveRequest => ({
+    where: { labels: [lbl.key] },
+    order: { field: "name", descending: false },
+  });
 
   // A late change signal from a create reads that one range by key. Only a read in the
   // list's order is a list read.
@@ -123,11 +125,10 @@ describe("useList", () => {
 
   describe("getItem", () => {
     // The Core alone checks a name pattern, so the list fetches again on each change.
-    const byPattern = () =>
-      ({
-        where: { and: [{ labels: [lbl.key] }, { name: { regex: "." } }] },
-        order: { field: "name" },
-      }) as const;
+    const byPattern = (): ranger.RetrieveRequest => ({
+      where: { and: [{ labels: [lbl.key] }, { name: { regex: "." } }] },
+      order: { field: "name", descending: false },
+    });
 
     interface FrameControl {
       getItem?: Flux.UseListReturn<ranger.Key, ranger.Range>["getItem"];
