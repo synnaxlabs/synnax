@@ -434,7 +434,7 @@ var _ = Describe("Stored write configs", func() {
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("type", "unsigned"),
 				SatisfyAll(
-					HaveKeyWithValue("type", "integer"),
+					HaveKeyWithValue("type", "string"),
 					HaveKeyWithValue("enum_values", HaveExactElements(SatisfyAll(
 						HaveKeyWithValue("label", "ON"),
 						HaveKeyWithValue("value", "1"),
