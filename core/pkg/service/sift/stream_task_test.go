@@ -299,6 +299,56 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should stop when Sift rejects the API key for a run",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.Unauthenticated, "expired"))
+				start(ctx, streamConfig(l.Key))
+				endedRange(ctx, l.Key)
+				Eventually(func() task.Status {
+					return taskStatus(ctx, t)
+				}).Should(SatisfyAll(
+					HaveField("Variant", status.VariantError),
+					HaveField("Message", "Failed to run task"),
+					HaveField(
+						"Description",
+						ContainSubstring("Sift rejected the API key"),
+					),
+					HaveField("Details.Running", false),
+				))
+			})
+
+		It("Should skip a run that Sift rejects until its range changes",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(func() task.Status {
+					return taskStatus(ctx, t)
+				}).Should(SatisfyAll(
+					HaveField("Variant", status.VariantError),
+					HaveField("Message", "Failed to set Sift run"),
+					HaveField("Description", "Sift rejected the run of "+rng.Name+
+						": bad name. Change the range to try again."),
+					HaveField("Details.Running", true),
+				))
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(BeEmpty())
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			},
+		)
+
 		It("Should not make a run of a range without a task label",
 			func(ctx SpecContext) {
 				start(ctx, streamConfig(l.Key))
