@@ -37,8 +37,8 @@ export interface Credentials extends z.infer<typeof credentialsZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** ReadField is a single value extracted from a record's JSON value. */
-export const readFieldZ = z.object({
+/** BaseReadField carries the fields every Kafka read field shares. */
+export const baseReadFieldZ = z.object({
   /** key uniquely identifies the field within the task. */
   key: z.string().default(id.create),
   /** disabled is true when the field is excluded from the task. */
@@ -49,19 +49,8 @@ export const readFieldZ = z.object({
   channel: channel.keyZ.default(0),
   /** pointer is the JSON Pointer to the value within the record value. */
   pointer: z.string().default(""),
-  /** dataType is the data type of the extracted value. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the encoding of the JSON value when the target channel holds
-   * timestamps. Required for timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /**
-   * enumValues maps string labels in the record to numeric or boolean channel values.
-   */
-  enumValues: payload.enumEntryZ.array().default(() => []),
 });
-export interface ReadField extends z.infer<typeof readFieldZ> {}
+export interface BaseReadField extends z.infer<typeof baseReadFieldZ> {}
 
 /** WriteChannel is a channel whose samples a write task produces as records. */
 export const writeChannelZ = z.object({
@@ -153,6 +142,138 @@ export const SASL_SCHEMAS: {
   scram_sha_512: scramSha512SASLZ,
 };
 
+/** FloatReadField reads a number into a float channel. */
+export const floatReadFieldZ = baseReadFieldZ.extend(payload.floatReadZ.shape).extend({
+  type: z.literal("float"),
+});
+export interface FloatReadField extends z.infer<typeof floatReadFieldZ> {}
+
+/** IntegerReadField reads a number into a signed integer channel. */
+export const integerReadFieldZ = baseReadFieldZ
+  .extend(payload.integerReadZ.shape)
+  .extend({
+    type: z.literal("integer"),
+  });
+export interface IntegerReadField extends z.infer<typeof integerReadFieldZ> {}
+
+/** UnsignedReadField reads a number into an unsigned integer channel. */
+export const unsignedReadFieldZ = baseReadFieldZ
+  .extend(payload.unsignedReadZ.shape)
+  .extend({
+    type: z.literal("unsigned"),
+  });
+export interface UnsignedReadField extends z.infer<typeof unsignedReadFieldZ> {}
+
+/** StringReadField reads a string into a string channel. */
+export const stringReadFieldZ = baseReadFieldZ
+  .extend(payload.stringReadZ.shape)
+  .extend({
+    type: z.literal("string"),
+  });
+export interface StringReadField extends z.infer<typeof stringReadFieldZ> {}
+
+/** BooleanReadField reads a boolean into a boolean channel. */
+export const booleanReadFieldZ = baseReadFieldZ
+  .extend(payload.booleanReadZ.shape)
+  .extend({
+    type: z.literal("boolean"),
+  });
+export interface BooleanReadField extends z.infer<typeof booleanReadFieldZ> {}
+
+/** TimestampReadField reads a timestamp into a timestamp channel. */
+export const timestampReadFieldZ = baseReadFieldZ
+  .extend(payload.timestampReadZ.shape)
+  .extend({
+    type: z.literal("timestamp"),
+  });
+export interface TimestampReadField extends z.infer<typeof timestampReadFieldZ> {}
+
+/** JsonReadField reads any JSON value into a JSON channel. */
+export const jsonReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("json"),
+});
+export interface JsonReadField extends z.infer<typeof jsonReadFieldZ> {}
+
+/** UuidReadField reads a UUID string into a UUID channel. */
+export const uuidReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidReadField extends z.infer<typeof uuidReadFieldZ> {}
+
+/** BytesReadField reads a base64 string into a bytes channel. */
+export const bytesReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("bytes"),
+});
+export interface BytesReadField extends z.infer<typeof bytesReadFieldZ> {}
+
+/**
+ * ReadField is a single value extracted from a record's JSON value. The type is the
+ * kind of value the field reads.
+ */
+export const readFieldZ = z.discriminatedUnion("type", [
+  floatReadFieldZ,
+  integerReadFieldZ,
+  unsignedReadFieldZ,
+  stringReadFieldZ,
+  booleanReadFieldZ,
+  timestampReadFieldZ,
+  jsonReadFieldZ,
+  uuidReadFieldZ,
+  bytesReadFieldZ,
+]);
+export type ReadField =
+  | FloatReadField
+  | IntegerReadField
+  | UnsignedReadField
+  | StringReadField
+  | BooleanReadField
+  | TimestampReadField
+  | JsonReadField
+  | UuidReadField
+  | BytesReadField;
+
+export const READ_FIELD_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<ReadField, { type: K }>>;
+} = {
+  float: floatReadFieldZ,
+  integer: integerReadFieldZ,
+  unsigned: unsignedReadFieldZ,
+  string: stringReadFieldZ,
+  boolean: booleanReadFieldZ,
+  timestamp: timestampReadFieldZ,
+  json: jsonReadFieldZ,
+  uuid: uuidReadFieldZ,
+  bytes: bytesReadFieldZ,
+};
+
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  topic: z.string().default(""),
+  recordKey: recordKeyZ.default("channel_name"),
+  record: recordZ.prefault({}),
+  channels: writeChannelZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+/** Properties configures the connection to a Kafka cluster device. */
+export const propertiesZ = z.object({
+  /** brokers contains the bootstrap broker addresses, as host:port. */
+  brokers: z
+    .string()
+    .array()
+    .default(() => []),
+  /** secure is true when every broker connection uses TLS. */
+  secure: z.boolean().default(false),
+  /**
+   * caCertificate is the PEM-encoded certificate authority that signs the brokers'
+   * certificates. Empty trusts the system roots.
+   */
+  caCertificate: z.string().default(""),
+  /** sasl is the authentication the brokers require. */
+  sasl: saslZ.prefault({ mechanism: "none" }),
+});
+export interface Properties extends z.infer<typeof propertiesZ> {}
+
 /** ReadRecord is a set of fields read from the records with one Kafka key. */
 export const readRecordZ = z.object({
   /** key uniquely identifies the record within the task. */
@@ -171,34 +292,6 @@ export const readRecordZ = z.object({
   fields: readFieldZ.array().default(() => []),
 });
 export interface ReadRecord extends z.infer<typeof readRecordZ> {}
-
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  topic: z.string().default(""),
-  recordKey: recordKeyZ.default("channel_name"),
-  record: recordZ.prefault({}),
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-/** Properties configures the connection to a Kafka cluster device. */
-export const propertiesZ = z.object({
-  /** brokers contains the bootstrap broker addresses, as host:port. */
-  brokers: z
-    .string()
-    .array()
-    .default(() => []),
-  /** tls is true when every broker connection uses TLS. */
-  tls: z.boolean().default(false),
-  /**
-   * caCertificate is the PEM-encoded certificate authority that signs the brokers'
-   * certificates. Empty trusts the system roots.
-   */
-  caCertificate: z.string().default(""),
-  /** sasl is the authentication the brokers require. */
-  sasl: saslZ.prefault({ mechanism: "none" }),
-});
-export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),

@@ -17,7 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, http, task
-from x import payload, telem
+from x import payload
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
 
@@ -56,8 +56,8 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class ReadField(BaseModel):
-    """Is a single value extracted from a record's JSON value.
+class BaseReadField(BaseModel):
+    """Carries the fields every Kafka read field shares.
 
     Attributes:
         key: Uniquely identifies the field within the task.
@@ -65,11 +65,6 @@ class ReadField(BaseModel):
         name: Is the name given to the channel when the task creates it.
         channel: Is the Synnax channel the extracted value is written to.
         pointer: Is the JSON Pointer to the value within the record value.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the record to numeric or boolean channel
-            values.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -77,9 +72,6 @@ class ReadField(BaseModel):
     name: str = ""
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -163,26 +155,74 @@ SASL = Annotated[
 ]
 
 
-class ReadRecord(BaseModel):
-    """Is a set of fields read from the records with one Kafka key.
+class FloatReadField(BaseReadField, payload.FloatRead):
+    """Reads a number into a float channel."""
 
-    Attributes:
-        key: Uniquely identifies the record within the task.
-        record_key: Is the Kafka key of the records read here. Empty reads every record
-            that no other record of the task claims, keyless ones included.
-        index: Is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
-        fields: Contains the values to extract from the record.
-    """
+    type: Literal["float"] = "float"
 
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    record_key: str = ""
-    index: str = ""
-    fields: list[ReadField] = Field(default_factory=list)
 
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+class IntegerReadField(BaseReadField, payload.IntegerRead):
+    """Reads a number into a signed integer channel."""
+
+    type: Literal["integer"] = "integer"
+
+
+class UnsignedReadField(BaseReadField, payload.UnsignedRead):
+    """Reads a number into an unsigned integer channel."""
+
+    type: Literal["unsigned"] = "unsigned"
+
+
+class StringReadField(BaseReadField, payload.StringRead):
+    """Reads a string into a string channel."""
+
+    type: Literal["string"] = "string"
+
+
+class BooleanReadField(BaseReadField, payload.BooleanRead):
+    """Reads a boolean into a boolean channel."""
+
+    type: Literal["boolean"] = "boolean"
+
+
+class TimestampReadField(BaseReadField, payload.TimestampRead):
+    """Reads a timestamp into a timestamp channel."""
+
+    type: Literal["timestamp"] = "timestamp"
+
+
+class JsonReadField(BaseReadField):
+    """Reads any JSON value into a JSON channel."""
+
+    type: Literal["json"] = "json"
+
+
+class UuidReadField(BaseReadField):
+    """Reads a UUID string into a UUID channel."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class BytesReadField(BaseReadField):
+    """Reads a base64 string into a bytes channel."""
+
+    type: Literal["bytes"] = "bytes"
+
+
+# Is a single value extracted from a record's JSON value. The type is the kind of
+# value the field reads.
+ReadField = Annotated[
+    FloatReadField
+    | IntegerReadField
+    | UnsignedReadField
+    | StringReadField
+    | BooleanReadField
+    | TimestampReadField
+    | JsonReadField
+    | UuidReadField
+    | BytesReadField,
+    Field(discriminator="type"),
+]
 
 
 class WriteConfig(task.StartConfig):
@@ -213,16 +253,38 @@ class Properties(BaseModel):
 
     Attributes:
         brokers: Contains the bootstrap broker addresses, as host:port.
-        tls: Is true when every broker connection uses TLS.
+        secure: Is true when every broker connection uses TLS.
         ca_certificate: Is the PEM-encoded certificate authority that signs the brokers'
             certificates. Empty trusts the system roots.
         sasl: Is the authentication the brokers require.
     """
 
     brokers: list[str] = Field(default_factory=list)
-    tls: bool = False
+    secure: bool = False
     ca_certificate: str = ""
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))
+
+
+class ReadRecord(BaseModel):
+    """Is a set of fields read from the records with one Kafka key.
+
+    Attributes:
+        key: Uniquely identifies the record within the task.
+        record_key: Is the Kafka key of the records read here. Empty reads every record
+            that no other record of the task claims, keyless ones included.
+        index: Is the key of the field whose channel indexes the others. Empty when the
+            task stamps samples on arrival.
+        fields: Contains the values to extract from the record.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    record_key: str = ""
+    index: str = ""
+    fields: list[ReadField] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class ReadConfig(task.PersistConfig):

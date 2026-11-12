@@ -18,10 +18,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -93,6 +96,7 @@ var _ = Describe("Service", func() {
 					"record_key": "press_1",
 					"fields": []any{map[string]any{
 						"key":     "f-1",
+						"type":    "float",
 						"pointer": "/value",
 					}},
 				}},
@@ -115,7 +119,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"records": []any{map[string]any{
 					"key":    "r-1",
-					"fields": []any{map[string]any{"key": "f-1"}},
+					"fields": []any{map[string]any{"key": "f-1", "type": "float"}},
 				}},
 			}))
 			data := MustSucceed(svc.Read.Read(ctx, db, key))
@@ -123,7 +127,7 @@ var _ = Describe("Service", func() {
 			Expect(data["records"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("record_key", ""),
 				HaveKeyWithValue("fields", HaveExactElements(
-					HaveKeyWithValue("data_type", "float64"),
+					HaveKeyWithValue("type", "float"),
 				)),
 			)))
 		})
@@ -196,4 +200,53 @@ var _ = Describe("Service", func() {
 		Entry("negative", -1.0, "rate: must be greater than 0"),
 		Entry("too high for a nonzero period", 1e12, "is too high"),
 	)
+})
+
+var _ = Describe("Read config migration", func() {
+	It("Should lift a stored v0 read field and change it to its channel's kind", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		db := node.DB
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		channels := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  statuses,
+		}))
+		ch := channel.Channel{
+			Name:     "data_" + uuid.New().String()[:8],
+			DataType: telem.Int8T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channels.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		stored := v0.ReadConfig{
+			Key: uuid.New(),
+			Records: []v0.ReadRecord{{
+				Key: "r",
+				Fields: []v0.ReadField{{
+					Key:        "f",
+					Channel:    ch.Key(),
+					Pointer:    "/v",
+					DataType:   telem.Float64T,
+					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
+				}},
+			}},
+		}
+		Expect(gorp.NewCreate[uuid.UUID, v0.ReadConfig]().Entry(&stored).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db, Channel: channels}))
+		var got kafka.ReadConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, kafka.ReadConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, kafka.ReadConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Records[0].Fields[0].Variant).To(Equal(kafka.IntegerReadField{
+			Key: "f", Channel: ch.Key(), Pointer: "/v",
+			EnumValues: []payload.IntegerEntry{{Label: "ON", Value: 1}},
+		}))
+	})
 })

@@ -93,6 +93,13 @@ func NewEnum[T telem.Sample](label string, v T) Enum {
 	return Enum{label: label, dataType: s.DataType, sample: sample}
 }
 
+// Convert returns v as a sample of dt, converted as an Enum value is. A
+// variable-density sample has no length prefix. Convert returns an error wrapping
+// validate.ErrValidation when v does not convert to dt.
+func Convert[T telem.Sample](v T, dt telem.DataType) ([]byte, error) {
+	return encodeEnum(NewEnum("", v), dt)
+}
+
 func encodeEnums(enums []Enum, dt telem.DataType) ([]Enum, error) {
 	out := make([]Enum, len(enums))
 	for i, en := range enums {
@@ -108,7 +115,7 @@ func encodeEnums(enums []Enum, dt telem.DataType) ([]Enum, error) {
 func encodeEnum(en Enum, dt telem.DataType) ([]byte, error) {
 	from := en.dataType
 	switch {
-	case dt == telem.StringT && from == telem.StringT:
+	case dt == from && (dt == telem.StringT || dt == telem.TimestampT):
 		return en.sample, nil
 	case numeric(dt) && numeric(from):
 		n := sampleNumber(from, en.sample)

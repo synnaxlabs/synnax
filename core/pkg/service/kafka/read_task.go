@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -48,7 +47,7 @@ import (
 type readGroup struct {
 	// key is the record key the group claims; empty claims every unclaimed record.
 	key    string
-	fields []ReadField
+	fields []BaseReadField
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
 	// extractor resolves the fields' pointers in a record.
@@ -158,7 +157,8 @@ func buildReadGroups(
 ) (map[string]*readGroup, error) {
 	var keys channel.Keys
 	for _, rec := range cfg.Records {
-		for _, fld := range rec.Fields {
+		for _, f := range rec.Fields {
+			fld := f.Base()
 			if fld.Disabled {
 				continue
 			}
@@ -199,25 +199,12 @@ func buildReadGroups(
 		claimed.Add(rec.RecordKey)
 		g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
 		var pointers []xjson.Pointer
-		for _, fld := range rec.Fields {
+		for _, f := range rec.Fields {
+			fld := f.Base()
 			if fld.Disabled {
 				continue
 			}
 			ch := channels[fld.Channel]
-			if ch.DataType != fld.DataType {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: data type %s does not match channel %s (%s)",
-					fld.Key, fld.DataType, ch.Name, ch.DataType,
-				)
-			}
-			if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: time_format is required for timestamp channel %s",
-					fld.Key, ch.Name,
-				)
-			}
 			if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
 				return nil, errors.Wrapf(
 					validate.ErrValidation,
@@ -229,7 +216,7 @@ func buildReadGroups(
 			if err != nil {
 				return nil, errors.Wrapf(err, "field %q", fld.Key)
 			}
-			dec, err := newDecoder(fld, ch)
+			col, err := newColumn(f, ch)
 			if err != nil {
 				return nil, errors.Wrapf(err, "field %q", fld.Key)
 			}
@@ -239,7 +226,7 @@ func buildReadGroups(
 			g.fields = append(g.fields, fld)
 			g.channels = append(g.channels, ch)
 			pointers = append(pointers, pointer)
-			g.columns = append(g.columns, newColumn(dec, ch.DataType))
+			g.columns = append(g.columns, col)
 		}
 		if len(g.fields) == 0 {
 			continue
@@ -290,29 +277,6 @@ func buildReadGroups(
 		}
 	}
 	return groups, nil
-}
-
-// newDecoder returns the decoder of fld, which writes to ch.
-func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
-	f := xjson.Field{DataType: ch.DataType, Enums: enums(fld.EnumValues)}
-	if fld.TimeFormat != nil {
-		var err error
-		if f.TimeFormat, err = xjson.ParseTimeFormat(
-			string(*fld.TimeFormat),
-		); err != nil {
-			return nil, err
-		}
-	}
-	return xjson.NewDecoder(f)
-}
-
-// enums returns the labels of entries in the form xjson takes.
-func enums(entries []payload.EnumEntry) []xjson.Enum {
-	out := make([]xjson.Enum, len(entries))
-	for i, e := range entries {
-		out[i] = xjson.NewEnum(e.Label, e.Value)
-	}
-	return out
 }
 
 // Exec implements driver.Task. Start and stop answer the command with a status,
@@ -811,13 +775,15 @@ func (t *readTask) convert(rec *kgo.Record) {
 		return
 	}
 	for i, fld := range g.fields {
-		if g.values[i] == nil {
-			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
-			g.truncate(r.pos)
-			return
-		}
 		col := &g.columns[i]
-		if err := col.append(g.values[i]); err != nil {
+		if col.absent(g.values[i]) {
+			if !col.filled {
+				t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+				g.truncate(r.pos)
+				return
+			}
+			col.appendFill()
+		} else if err := col.append(g.values[i]); err != nil {
 			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
 			g.truncate(r.pos)
 			return

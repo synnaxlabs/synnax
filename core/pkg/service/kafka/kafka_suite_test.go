@@ -44,6 +44,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -166,6 +167,45 @@ func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
 // clusterProperties are device properties pointing at the suite's fake cluster.
 func clusterProperties() kafka.Properties {
 	return kafka.Properties{Brokers: cluster.ListenAddrs()}
+}
+
+// readField returns a field with base of the kind that reads into a channel of dt. A
+// timestamp field reads unix_ns.
+func readField(base kafka.BaseReadField, dt telem.DataType) kafka.ReadField {
+	GinkgoHelper()
+	kind, ok := payload.KindOf(dt)
+	Expect(ok).To(BeTrue())
+	switch kind {
+	case payload.KindFloat:
+		return kafka.ReadField{Variant: kafka.FloatReadField{BaseReadField: base}}
+	case payload.KindInteger:
+		return kafka.ReadField{Variant: kafka.IntegerReadField{BaseReadField: base}}
+	case payload.KindUnsigned:
+		return kafka.ReadField{Variant: kafka.UnsignedReadField{BaseReadField: base}}
+	case payload.KindString:
+		return kafka.ReadField{Variant: kafka.StringReadField{BaseReadField: base}}
+	case payload.KindBoolean:
+		return kafka.ReadField{Variant: kafka.BooleanReadField{BaseReadField: base}}
+	case payload.KindTimestamp:
+		return timestampField(base, payload.TimeFormatUnixNs)
+	case payload.KindJSON:
+		return kafka.ReadField{Variant: kafka.JsonReadField{BaseReadField: base}}
+	case payload.KindUUID:
+		return kafka.ReadField{Variant: kafka.UuidReadField{BaseReadField: base}}
+	default:
+		return kafka.ReadField{Variant: kafka.BytesReadField{BaseReadField: base}}
+	}
+}
+
+// timestampField returns a timestamp field with base that reads format.
+func timestampField(
+	base kafka.BaseReadField,
+	format payload.TimeFormat,
+) kafka.ReadField {
+	return kafka.ReadField{Variant: kafka.TimestampReadField{
+		BaseReadField: base,
+		TimestampRead: payload.TimestampRead{TimeFormat: format},
+	}}
 }
 
 // toJSON converts v, marshaled with opts, into the map a stored task config or device

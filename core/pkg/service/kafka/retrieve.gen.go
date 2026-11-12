@@ -49,18 +49,97 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				var targets []channel.Key
 				for _, v1 := range e.Records {
 					for _, v2 := range v1.Fields {
-						if v2.Channel != 0 {
-							targets = append(targets, v2.Channel)
+						switch v3 := v2.Variant.(type) {
+						case FloatReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case IntegerReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case UnsignedReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case StringReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case BooleanReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case TimestampReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case JsonReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case UuidReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case BytesReadField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
 						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
-				for i3 := range e.Records {
-					for i4 := range e.Records[i3].Fields {
-						if e.Records[i3].Fields[i4].Channel == t {
-							e.Records[i3].Fields[i4].Channel = 0
+				for i4 := range e.Records {
+					for i5 := range e.Records[i4].Fields {
+						switch v6 := e.Records[i4].Fields[i5].Variant.(type) {
+						case FloatReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case IntegerReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case UnsignedReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case StringReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case BooleanReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case TimestampReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case JsonReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case UuidReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
+						case BytesReadField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Records[i4].Fields[i5].Variant = v6
 						}
 					}
 				}

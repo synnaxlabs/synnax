@@ -12,7 +12,6 @@ import "schemas/synnax/device"
 import "schemas/synnax/http"
 import "schemas/synnax/task"
 import "schemas/x/payload"
-import "schemas/x/telem"
 
 @go output "core/pkg/service/kafka"
 @py output "client/py/synnax/kafka"
@@ -50,7 +49,7 @@ Properties struct {
     brokers        string[] {
         @doc value "contains the bootstrap broker addresses, as host:port."
     }
-    tls            bool = false {
+    secure         bool = false {
         @doc value "is true when every broker connection uses TLS."
     }
     ca_certificate string = "" {
@@ -102,42 +101,63 @@ ScanConfig struct extends task.ScanConfig {
     @patch
 }
 
-ReadField struct {
-    key         string = create {
+BaseReadField struct {
+    key      string = create {
         @doc value "uniquely identifies the field within the task."
         @key
     }
-    disabled    bool = false {
+    disabled bool = false {
         @doc value "is true when the field is excluded from the task."
     }
-    name        string = "" {
+    name     string = "" {
         @doc value "is the name given to the channel when the task creates it."
     }
-    channel     channel.Key = 0 {
+    channel  channel.Key = 0 {
         @doc value     "is the Synnax channel the extracted value is written to."
         @ref kind      use
         @ref on_delete restrict
     }
-    pointer     string = "" {
+    pointer  string = "" {
         @doc value "is the JSON Pointer to the value within the record value."
     }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the extracted value."
-        @ts type   "string"
+
+    @doc value  "carries the fields every Kafka read field shares."
+    @go marshal
+}
+
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a number into a float channel."
     }
-    time_format payload.TimeFormat? {
-        @doc value """
-            is the encoding of the JSON value when the target channel holds timestamps.
-            Required for timestamp channels.
-        """
+    integer extends payload.IntegerRead {
+        @doc value "reads a number into a signed integer channel."
     }
-    enum_values payload.EnumEntry[] {
-        @doc value """
-            maps string labels in the record to numeric or boolean channel values.
-        """
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads a number into an unsigned integer channel."
+    }
+    string extends payload.StringRead {
+        @doc value "reads a string into a string channel."
+    }
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean into a boolean channel."
+    }
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp into a timestamp channel."
+    }
+    json {
+        @doc value "reads any JSON value into a JSON channel."
+    }
+    uuid {
+        @doc value "reads a UUID string into a UUID channel."
+    }
+    bytes {
+        @doc value "reads a base64 string into a bytes channel."
     }
 
-    @doc value  "is a single value extracted from a record's JSON value."
+    @doc value  """
+        is a single value extracted from a record's JSON value. The type is the kind of
+        value the field reads.
+    """
     @go marshal
 }
 

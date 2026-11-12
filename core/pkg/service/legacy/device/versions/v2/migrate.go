@@ -10,12 +10,28 @@
 package v2
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateDevice)
+
+// KafkaSecureMigration renames the tls property of each Kafka cluster device to secure.
+var KafkaSecureMigration = migrate.NewEntry(
+	"v62_kafka_secure",
+	func(_ context.Context, d Device) (Device, error) {
+		tls, ok := d.Properties["tls"]
+		if d.Make != "kafka" || !ok {
+			return d, nil
+		}
+		d.Properties["secure"] = tls
+		delete(d.Properties, "tls")
+		return d, nil
+	},
+)
 
 // MembersMigration sets the group of each stored device from the ontology edge that
 // placed it in a group.

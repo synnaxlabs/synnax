@@ -55,6 +55,17 @@ var _ = Describe("Properties", func() {
 			To(MatchError(ContainSubstring(`unknown mechanism "kerberos"`)))
 	})
 
+	It("Should read TLS from secure and not from tls", func() {
+		var props kafka.Properties
+		Expect(json.Unmarshal([]byte(`{"secure":true}`), &props)).To(Succeed())
+		Expect(props.Secure).To(BeTrue())
+		props = kafka.Properties{}
+		Expect(json.Unmarshal([]byte(`{"tls":true}`), &props)).To(Succeed())
+		Expect(props.Secure).To(BeFalse())
+		Expect(string(MustSucceed(json.Marshal(kafka.Properties{Secure: true})))).
+			To(SatisfyAll(ContainSubstring(`"secure":true`), Not(ContainSubstring("tls"))))
+	})
+
 	Describe("ApplyDefaults", func() {
 		It("Should default the SASL mechanism to none", func() {
 			props := kafka.Properties{Brokers: []string{"localhost:9092"}}

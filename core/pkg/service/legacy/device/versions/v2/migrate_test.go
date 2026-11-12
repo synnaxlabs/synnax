@@ -23,6 +23,7 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -297,5 +298,47 @@ var _ = Describe("Group migrations", func() {
 			"Name":   Equal("Outer"),
 			"Parent": HaveValue(Equal(r1.ResourceID())),
 		}))
+	})
+})
+
+var _ = Describe("KafkaSecureMigration", func() {
+	migrateDevice := func(ctx SpecContext, d v2.Device) v2.Device {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v2.Key, v2.Device]().Entry(&d).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: []gorp.Migration{v2.KafkaSecureMigration},
+		})).To(Succeed())
+		var got v2.Device
+		Expect(gorp.NewRetrieve[v2.Key, v2.Device]().
+			Where(gorp.MatchKeys[v2.Key, v2.Device](d.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
+
+	It("Should rename the tls property of a Kafka device to secure", func(
+		ctx SpecContext,
+	) {
+		got := migrateDevice(ctx, v2.Device{
+			Key:        "kafka-1",
+			Make:       "kafka",
+			Properties: msgpack.EncodedJSON{"brokers": []any{"b:9092"}, "tls": true},
+		})
+		Expect(got.Properties).To(HaveKeyWithValue("secure", true))
+		Expect(got.Properties).NotTo(HaveKey("tls"))
+		Expect(got.Properties).To(HaveKey("brokers"))
+	})
+
+	It("Should leave the tls property of another make", func(ctx SpecContext) {
+		got := migrateDevice(ctx, v2.Device{
+			Key:        "other-1",
+			Make:       "other",
+			Properties: msgpack.EncodedJSON{"tls": true},
+		})
+		Expect(got.Properties).To(HaveKeyWithValue("tls", true))
+		Expect(got.Properties).NotTo(HaveKey("secure"))
 	})
 })
