@@ -15,7 +15,7 @@ import { Access, Flux, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
-import { Aliases, useAliases } from "@/feature/range/next/overview/Aliases";
+import { Aliases } from "@/feature/range/next/overview/Aliases";
 import {
   childOrder,
   Children,
@@ -49,7 +49,7 @@ export const Overview: Panel.Content = () => {
     children.more();
   }, [key]);
   const pairs = Ranger.useResultMetaData({ rangeKey: key }).data ?? NO_PAIRS;
-  const aliasList = useAliases(key, range.parent ?? undefined);
+  const aliases = Ranger.useResultAliases({ rangeKey: key }).data;
   const documents = useDocuments(key);
   const [adding, setAdding] = useState<Adding>(null);
   const openCreate = Range.useCreateModal();
@@ -57,7 +57,7 @@ export const Overview: Panel.Content = () => {
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
   const hasChildren = children.data.length > 0;
   const showMetaData = pairs.length > 0 || adding === "metadata";
-  const aliasCount = aliasList == null ? 0 : Object.keys(aliasList.aliases).length;
+  const aliasCount = aliases == null ? 0 : Object.keys(aliases).length;
   const showAliases = aliasCount > 0 || adding === "alias";
   const setAddingTo = (to: Adding) => (next: boolean) => setAdding(next ? to : null);
   return (
@@ -86,11 +86,12 @@ export const Overview: Panel.Content = () => {
         ) : (
           <AddLine onClick={() => setAdding("metadata")}>Metadata</AddLine>
         )}
-        {aliasList != null &&
+        {aliases != null &&
           (showAliases ? (
             <Aliases
               rangeKey={key}
-              {...aliasList}
+              parent={range.parent}
+              aliases={aliases}
               adding={adding === "alias"}
               onAddingChange={setAddingTo("alias")}
             />

@@ -58,7 +58,6 @@ export {
   type HydrateMode,
   type IngestOptions,
   type Interceptor,
-  isChange,
   type Keyed,
   type ListenerSpec,
   partialUpdate,

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query, ranger } from "@synnaxlabs/client";
+import { type channel, query, type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Synnax } from "@synnaxlabs/pluto";
-import { type KeyboardEvent, type ReactElement, useEffect, useState } from "react";
+import { Channel, Ranger } from "@synnaxlabs/pluto";
+import { type KeyboardEvent, type ReactElement, useState } from "react";
 
 import {
   AddButton,
@@ -35,62 +35,22 @@ interface DraftProps extends RangeKeyProps {
 
 const NO_ALIASES: Record<channel.Key, string> = {};
 
-interface AliasList {
-  aliases: Record<channel.Key, string>;
-  /** The channels whose alias comes from an ancestor of the range. */
-  inherited: Set<channel.Key>;
-}
-
-/** @returns the channel aliases of the range, or null until the Core answers. */
-export const useAliases = (
-  rangeKey: ranger.Key,
-  parent?: ranger.Key,
-): AliasList | null => {
-  const client = Synnax.use();
-  const [list, setList] = useState<AliasList | null>(null);
-  useEffect(() => {
-    if (client == null) return;
-    let live = true;
-    const load = () => {
-      Promise.all([
-        client.ranges.listAliases(rangeKey),
-        parent == null ? NO_ALIASES : client.ranges.listAliases(parent),
-      ]).then(([aliases, fromParent]) => {
-        if (!live) return;
-        const inherited = new Set(
-          Object.keys(aliases)
-            .map(Number)
-            .filter((ch) => fromParent[ch] === aliases[ch]),
-        );
-        setList({ aliases, inherited });
-      }, console.error);
-    };
-    load();
-    const stop = client.ranges.aliases.subscribeBatch((events) => {
-      const touched = events.some((e) => {
-        if (!query.isChange(e)) return false;
-        const { range } = ranger.alias.decodeDeleteChange(e.key);
-        return range === rangeKey || range === parent;
-      });
-      if (touched) load();
-    });
-    return () => {
-      live = false;
-      stop();
-    };
-  }, [client, rangeKey, parent]);
-  return list;
-};
-
 interface AliasProps extends RangeKeyProps {
   channel: channel.Key;
+  /** The name of the channel, or undefined until it loads. */
+  name?: string;
   alias: string;
   /** An inherited alias cannot be removed here. Changing it sets the range's own. */
   inherited: boolean;
 }
 
-const Alias = ({ rangeKey, channel, alias, inherited }: AliasProps): ReactElement => {
-  const name = Channel.useResultName({ key: channel }).data;
+const Alias = ({
+  rangeKey,
+  channel,
+  name,
+  alias,
+  inherited,
+}: AliasProps): ReactElement => {
   const { update } = Channel.useUpdateAlias();
   const { update: remove } = Channel.useDeleteAlias();
   const input = (
@@ -176,38 +136,52 @@ const AliasDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
   );
 };
 
-interface AliasesProps extends RangeKeyProps, AliasList {
+interface AliasesProps extends RangeKeyProps {
+  /** The range above, whose aliases the range inherits. */
+  parent?: ranger.Key;
+  aliases: Record<channel.Key, string>;
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
 }
 
 export const Aliases = ({
   rangeKey,
+  parent,
   aliases,
-  inherited,
   adding,
   onAddingChange,
-}: AliasesProps): ReactElement => (
-  <Section
-    title="Channel aliases"
-    icon={<Icon.Channel />}
-    actions={<AddButton tooltip="Add alias" onClick={() => onAddingChange(true)} />}
-  >
-    <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
-      {Object.entries(aliases)
-        .toSorted(([, a], [, b]) => a.localeCompare(b))
-        .map(([key, alias]) => (
-          <Alias
-            key={key}
-            rangeKey={rangeKey}
-            channel={Number(key)}
-            alias={alias}
-            inherited={inherited.has(Number(key))}
-          />
-        ))}
-      {adding && (
-        <AliasDraft rangeKey={rangeKey} onClose={() => onAddingChange(false)} />
-      )}
-    </Flex.Box>
-  </Section>
-);
+}: AliasesProps): ReactElement => {
+  const fromParent =
+    Ranger.useResultAliases(parent == null ? null : { rangeKey: parent }).data ??
+    NO_ALIASES;
+  const keys = Object.keys(aliases).map(Number);
+  const channels = Channel.useResultMultiple(
+    keys.length === 0 ? null : query.keysRequest(keys),
+  ).data;
+  const names = new Map(channels?.map(({ key, name }) => [key, name]));
+  return (
+    <Section
+      title="Channel aliases"
+      icon={<Icon.Channel />}
+      actions={<AddButton tooltip="Add alias" onClick={() => onAddingChange(true)} />}
+    >
+      <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
+        {Object.entries(aliases)
+          .toSorted(([, a], [, b]) => a.localeCompare(b))
+          .map(([key, alias]) => (
+            <Alias
+              key={key}
+              rangeKey={rangeKey}
+              channel={Number(key)}
+              name={names.get(Number(key))}
+              alias={alias}
+              inherited={fromParent[Number(key)] === alias}
+            />
+          ))}
+        {adding && (
+          <AliasDraft rangeKey={rangeKey} onClose={() => onAddingChange(false)} />
+        )}
+      </Flex.Box>
+    </Section>
+  );
+};
