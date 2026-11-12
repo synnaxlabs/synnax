@@ -662,7 +662,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      docker: true
       core: true
       sign_binaries: true
       use_simple_artifact_names: true
@@ -670,9 +669,6 @@ jobs:
       release_tag: ${{ needs.resolve.outputs.core_tag }}
       console_release: console/v${{ needs.resolve.outputs.core_console_version }}
       driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
-      docker_channel:
-        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
-        && 'latest' || '' }}
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -764,6 +760,31 @@ jobs:
           LATEST:
             ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
         run: gh release edit "$TAG" --draft=false --latest="$LATEST"
+
+  # No job needs the image, so a failed push blocks only the image. A rerun of this job
+  # alone has every input, and it moves latest or next only to the newest Core.
+  publish-core-image:
+    name: Publish Core image
+    needs: [resolve, publish-core]
+    if: ${{ !cancelled() && needs.publish-core.result == 'success' }}
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      docker: true
+      core: true
+      version: ${{ needs.resolve.outputs.core_version }}
+      release_tag: ${{ needs.resolve.outputs.core_tag }}
+      console_release: console/v${{ needs.resolve.outputs.core_console_version }}
+      driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
+      docker_channel:
+        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
+        && 'latest' || '' }}
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
 
   deploy-docs:
     name: Deploy docs

@@ -15,7 +15,6 @@ import freighter
 import synnax as sy
 from synnax.exceptions import create_registry
 from x.exceptions import ExceptionPayload
-from x.params import RequiresNamedParams
 
 
 class TestCreateRegistry:
@@ -101,7 +100,6 @@ class TestError:
             freighter.StreamClosed,
             freighter.Unreachable,
             sy.WriterClosed,
-            RequiresNamedParams,
         ],
     )
     def test_local(self, exc: type[Exception]) -> None:
