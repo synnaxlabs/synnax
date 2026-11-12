@@ -263,6 +263,24 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should update the tags of a run when its range gets a label",
+			func(ctx SpecContext) {
+				cold := label.Label{Name: "cold"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Create(ctx, &cold)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{cold.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire", "cold")),
+				))
+			})
+
 		It("Should not make a run of a range without a task label",
 			func(ctx SpecContext) {
 				start(ctx, streamConfig(l.Key))
