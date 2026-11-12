@@ -136,21 +136,100 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case PlainWriteTarget:
-						if v2.Channel.Channel != 0 {
-							targets = append(targets, v2.Channel.Channel)
+						switch v3 := v2.Channel.Variant.(type) {
+						case FloatChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case IntegerChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case UnsignedChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case StringChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case BooleanChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case TimestampChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case JsonChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case UuidChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						case BytesChannelField:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
 						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
-				for i3 := range e.Targets {
-					switch v4 := e.Targets[i3].Variant.(type) {
+				for i4 := range e.Targets {
+					switch v5 := e.Targets[i4].Variant.(type) {
 					case PlainWriteTarget:
-						if v4.Channel.Channel == t {
-							v4.Channel.Channel = 0
+						switch v6 := v5.Channel.Variant.(type) {
+						case FloatChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case IntegerChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case UnsignedChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case StringChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case BooleanChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case TimestampChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case JsonChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case UuidChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
+						case BytesChannelField:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							v5.Channel.Variant = v6
 						}
-						e.Targets[i3].Variant = v4
+						e.Targets[i4].Variant = v5
 					}
 				}
 			},

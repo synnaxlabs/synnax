@@ -197,7 +197,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface ChannelField extends mqtt.ChannelField {}
+export type ChannelField = mqtt.ChannelField;
 
 export interface PlainWriteTarget extends mqtt.PlainWriteTarget {}
 
@@ -205,26 +205,16 @@ export interface SparkplugWriteTarget extends mqtt.SparkplugWriteTarget {}
 
 export type WriteTarget = PlainWriteTarget | SparkplugWriteTarget;
 
-const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
+const validatePointer = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { value } = ctx;
-  if (value.enumValues.length > 0 && value.jsonType !== "string")
+  const pointer = json.pointerZ.safeParse(value.pointer);
+  if (!pointer.success)
     ctx.issues.push({
       code: "custom",
       input: value,
-      message: "Enum values require the string JSON type",
-      path: ["jsonType"],
+      message: pointer.error.issues[0].message,
+      path: ["pointer"],
     });
-  const seen = new Set<number>();
-  value.enumValues.forEach((entry, i) => {
-    if (seen.has(entry.value))
-      ctx.issues.push({
-        code: "custom",
-        input: value,
-        message: `Duplicate enum value ${entry.value}`,
-        path: ["enumValues", i, "value"],
-      });
-    else seen.add(entry.value);
-  });
 };
 
 // The Core sets each pointer in turn, so one inside another replaces or blocks it.
@@ -269,9 +259,7 @@ const deployWriteFieldZ = z.discriminatedUnion("type", [
 const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
   .extend({
     topic: deployTopicZ,
-    channel: mqtt.channelFieldZ
-      .extend({ pointer: json.pointerZ })
-      .check(validateChannelField),
+    channel: mqtt.channelFieldZ.check(validatePointer),
     fields: deployWriteFieldZ.array().default(() => []),
   })
   .check(validateWriteTarget);

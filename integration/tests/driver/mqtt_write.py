@@ -37,9 +37,8 @@ class MQTTWriteValve(MQTTWriteTaskCase):
         return [
             mqtt.PlainWriteTarget(
                 topic="plant/valve/set",
-                channel=mqtt.ChannelField(
+                channel=mqtt.FloatChannelField(
                     pointer="/position",
-                    json_type="number",
                     channel=cmd,
                     data_type=sy.DataType.FLOAT64,
                 ),

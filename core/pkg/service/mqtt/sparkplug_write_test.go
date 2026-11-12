@@ -271,7 +271,7 @@ var _ = Describe("Sparkplug B write targets", func() {
 				plain := createVirtual(ctx, telem.Float64T)
 				tag := createVirtual(ctx, telem.Int32T)
 				start(ctx, writeConfig(dev,
-					plainTarget("plant/valve/set", plain, "/v", "number"),
+					plainTarget("plant/valve/set", plain, "/v", "float"),
 					tagTarget("plant", "line1", "", "rpm", "int32", tag),
 				))
 				command(ctx, plain, telem.NewSeriesV(0.5), func(g Gomega) {
