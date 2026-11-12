@@ -144,16 +144,17 @@ versions, or dispatch the packages from `release/core-X.Y` cut at the run's comm
 resolve stage keeps a tag on the train that names `HEAD`, and PyPI skips what already
 went up.
 
-The npm trusted publishers allow staging only. The npm job stages every package in one
-`pnpm stage publish --batch` request, then pushes the tag. Nothing installs until a
-maintainer approves each package on npmjs.com with 2FA, in dependency order: `x`,
-`alamos`, `freighter`, then `client`. A staged version is hidden from the registry, so a
-run whose tag already names its commit skips the stage. While `client` waits for
-approval at the newest `ts/v*` version, overall or on the run's train, the job stages
-nothing, so approvals never move a dist-tag back. Three cases need a person. To reject a
-release, reject every staged package and delete its `ts/v*` tag. If a stage fails part
-way, reject what staged and rerun. If the tag push fails after a stage, push the tag at
-the run's commit by hand and rerun.
+The npm trusted publishers allow staging only. The npm job stages each package with
+`pnpm stage publish -r`, since pnpm cannot stage a batch, then pushes the tag. Nothing
+installs until a maintainer approves each package on npmjs.com with 2FA, in dependency
+order: `x`, `alamos`, `freighter`, then `client`. A staged version is hidden from the
+registry, so a run whose tag already names its commit skips the stage. While `client`
+waits for approval at the newest `ts/v*` version, overall or on the run's train, the job
+stages nothing, so approvals never move a dist-tag back. Three cases need a person. To
+reject a release, reject every staged package and delete its `ts/v*` tag. If a stage
+fails part way, reject what staged and rerun. No tag guards those packages, so a later
+approval of one can move a dist-tag back; the run summary asks for the reject. If the
+tag push fails after a stage, push the tag at the run's commit by hand and rerun.
 
 A merge publishes nothing. Both publish through OIDC trusted publishing with
 `id-token: write`, so no registry token lives in the repo's secrets. The registries
