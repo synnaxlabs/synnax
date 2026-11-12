@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -153,8 +152,6 @@ type uploader struct {
 type upload struct {
 	key    status.Key
 	cancel context.CancelFunc
-	// deleted is set when the status of the upload is deleted.
-	deleted atomic.Bool
 }
 
 // openUploader starts the uploader of rk. The caller must close it.
@@ -205,7 +202,6 @@ func (u *uploader) observe(
 		}
 		for _, up := range u.running {
 			if up.key == c.Key {
-				up.deleted.Store(true)
 				up.cancel()
 			}
 		}
@@ -274,8 +270,7 @@ func (u *uploader) schedule(ctx context.Context) error {
 // start runs the upload of s. u.mu must be held.
 func (u *uploader) start(s UploadStatus) {
 	ctx, cancel := context.WithCancel(u.sCtx)
-	up := &upload{key: s.Key, cancel: cancel}
-	u.running[s.Details.Device] = up
+	u.running[s.Details.Device] = &upload{key: s.Key, cancel: cancel}
 	u.sCtx.Go(func(context.Context) error {
 		defer func() {
 			cancel()
@@ -284,33 +279,15 @@ func (u *uploader) start(s UploadStatus) {
 			u.mu.Unlock()
 			u.signal()
 		}()
-		u.finish(ctx, up, &s, u.send(ctx, up, &s))
+		u.finish(ctx, &s, u.send(ctx, &s))
 		return nil
 	}, signal.WithKeyf("upload-%s", s.Key), signal.RecoverWithErrOnPanic())
 }
 
 // finish writes the final status of the upload. A stopped upload keeps its pending
 // status so that it resumes.
-func (u *uploader) finish(
-	ctx context.Context,
-	up *upload,
-	s *UploadStatus,
-	err error,
-) {
+func (u *uploader) finish(ctx context.Context, s *UploadStatus, err error) {
 	switch {
-	case up.deleted.Load():
-		// A progress write may land after the delete, so delete again.
-		ctx := context.WithoutCancel(ctx)
-		if err := u.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return u.cfg.Status.NewWriter(tx).Delete(ctx, s.Key)
-		}); err != nil {
-			u.cfg.L.Error(
-				"failed to delete cancelled upload status",
-				zap.String("status", s.Key),
-				zap.Error(err),
-			)
-		}
-		return
 	case ctx.Err() != nil:
 		return
 	case err != nil:
@@ -322,12 +299,12 @@ func (u *uploader) finish(
 		s.Message = "Uploaded to Sift"
 		s.Description = uploadProgress(s.Details)
 	}
-	u.write(ctx, up, s)
+	u.write(ctx, s)
 }
 
 // send sends the data of s to Sift and makes its run, saving progress in s as Sift
 // confirms it.
-func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error {
+func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	d := &s.Details
 	var dev device.Device
 	if err := u.cfg.Device.NewRetrieve().
@@ -355,7 +332,7 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 		s.Description = uploadProgress(*d)
 	}
 	uploading()
-	u.write(ctx, up, s)
+	u.write(ctx, s)
 	e, err := ingest.New(ctx, ingest.Config{
 		DB:                 u.cfg.DB,
 		Instrumentation:    u.cfg.Child("upload"),
@@ -369,14 +346,14 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 			d.Positions = toPositions(cp.Positions)
 			d.Samples += cp.Samples
 			uploading()
-			u.write(ctx, up, s)
+			u.write(ctx, s)
 			return nil
 		},
 		OnRetry: func(ctx context.Context, err error) {
 			s.Variant = status.VariantWarning
 			s.Message = "Retrying upload to Sift"
 			s.Description = err.Error()
-			u.write(ctx, up, s)
+			u.write(ctx, s)
 		},
 	})
 	if err != nil {
@@ -410,15 +387,25 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	return err
 }
 
-// write saves s unless its upload was cancelled. It saves even after ctx is done, so
-// that a stopped upload keeps its progress.
-func (u *uploader) write(ctx context.Context, up *upload, s *UploadStatus) {
-	if up.deleted.Load() {
-		return
-	}
+// write saves s unless its status was deleted, which cancels the upload. It saves even
+// after ctx is done, so that a stopped upload keeps its progress.
+func (u *uploader) write(ctx context.Context, s *UploadStatus) {
 	s.Time = telem.Now()
 	ctx = context.WithoutCancel(ctx)
 	if err := u.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		// Transactions run one at a time, so no delete lands between the check and the
+		// set.
+		var stored UploadStatus
+		err := u.cfg.Status.NewRetrieve[UploadDetails]().
+			Where(status.MatchKeys[UploadDetails](s.Key)).
+			Entry(&stored).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
 		return u.cfg.Status.NewWriter(tx).Set(ctx, s)
 	}); err != nil {
 		u.cfg.L.Error(
