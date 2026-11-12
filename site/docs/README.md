@@ -25,6 +25,11 @@ release workflows redeploy the docs after each stable release. The updater route
 five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
 limit; the site works without it.
 
+The release notes in `src/releases` take their date from the same listing: the day, in
+Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with no stable
+Core release show "Unreleased" and no links. Never pass a `date` to the notes of 0.59 or
+later. Earlier notes keep the prop, because their tags are `synnax-v*`.
+
 ## Versions
 
 `DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
