@@ -125,9 +125,10 @@ The Core queues the upload and sends it in the background:
   The labels of the range become the tags of the run. When you upload the range again,
   the same run gets the new name, span, and tags. An upload of a time span makes no run.
 - **Failures** -> when Sift is not available, the upload shows **Retrying upload to
-  Sift** and tries again. It continues from the data that Sift confirmed.
-- **Cancel** -> click <Icon.Close /> on the upload. The same button removes a finished
-  upload from the list.
+  Sift** and tries again. It continues from the data that Sift confirmed. After a
+  restart of the Core, the upload continues in the same way.
+- **Cancel** -> click <Icon.Close /> on the upload. Sift keeps the data that the upload
+  sent before you cancel it. The same button removes a finished upload from the list.
 
 An upload of a range that has not ended sends the data up to the current time.
 
