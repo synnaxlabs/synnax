@@ -190,6 +190,18 @@ describe("MQTT Read form", () => {
     });
   });
 
+  it("should change the width of a field with an unfinished enum mapping", async () => {
+    await renderRead([
+      createReadEntry("e1", "plant/oven", {
+        fields: [createReadField("f1", "/state", { dataType: "int64" })],
+      }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/state/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    await selectFromDropdown("int64", "int16");
+    await screen.findByText("int16");
+  });
+
   it("should name a new field's channel after the broker, topic, and pointer", async () => {
     const { dev } = await renderRead([createReadEntry("e1", "plant/oven")]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
