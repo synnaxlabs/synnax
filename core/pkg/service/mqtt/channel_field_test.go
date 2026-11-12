@@ -342,6 +342,11 @@ var _ = Describe("Stored write configs", func() {
 					JSONType:   payload.JSONTypeString,
 					TimeFormat: &unixMs,
 				}),
+				plain("e", v1.ChannelField{
+					Channel:    create(telem.Float64T),
+					JSONType:   payload.JSONTypeString,
+					TimeFormat: &unixMs,
+				}),
 			}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())
@@ -359,7 +364,7 @@ var _ = Describe("Stored write configs", func() {
 				return t.(map[string]any)["channel"]
 			}
 			targets := data["targets"].([]any)
-			Expect(targets).To(HaveLen(4))
+			Expect(targets).To(HaveLen(5))
 			Expect(field(targets[0])).To(SatisfyAll(
 				HaveKeyWithValue("type", "unsigned"),
 				Not(HaveKey("data_type")),
@@ -378,6 +383,10 @@ var _ = Describe("Stored write configs", func() {
 			Expect(field(targets[3])).To(SatisfyAll(
 				HaveKeyWithValue("type", "timestamp"),
 				HaveKeyWithValue("time_format", "unix_ms"),
+			))
+			Expect(field(targets[4])).To(SatisfyAll(
+				HaveKeyWithValue("type", "string"),
+				Not(HaveKey("time_format")),
 			))
 		},
 	)
