@@ -19,7 +19,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
 	"github.com/synnaxlabs/x/breaker"
@@ -684,6 +686,34 @@ var _ = Describe("Engine", func() {
 				Expect(server.Points("stand", ch.Name)).To(BeEmpty())
 			})
 
+		It("Should stop within the confirm timeout when Sift stops reading",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				write(ctx, idx, stamps, map[channel.Key]telem.Series{
+					ch.Key(): telem.NewSeries(make([]float64, count)),
+				})
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					ConfirmTimeout: 100 * telem.Millisecond,
+				})
+				server.Pause()
+				DeferCleanup(server.Resume)
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				Eventually(server.Streams).Should(Equal(1))
+				// Gives the sends time to fill the stream that Sift does not read.
+				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+			})
+
 		It("Should read from storage when it falls behind the live samples",
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)
@@ -706,6 +736,110 @@ var _ = Describe("Engine", func() {
 				}).WithTimeout(10 * time.Second).Should(HaveLen(count))
 				Expect(stop()).To(Succeed())
 			})
+
+		Describe("Samples missing from the live stream", func() {
+			// live waits until the engine sends live samples, which it reports as a
+			// position at the current time while no samples arrive.
+			live := func() {
+				GinkgoHelper()
+				start := telem.Now()
+				Eventually(func() telem.TimeStamp {
+					return rec.last().Through
+				}).Should(BeNumerically(">", start))
+			}
+
+			openWriter := func(
+				ctx context.Context,
+				keys channel.Keys,
+				cfg framer.WriterConfig,
+			) func(...telem.Series) {
+				GinkgoHelper()
+				cfg.Keys = keys
+				cfg.EnableAutoCommit = new(true)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, cfg))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				return func(series ...telem.Series) {
+					GinkgoHelper()
+					Expect(MustSucceed(w.Write(frame.NewMulti(keys, series)))).
+						To(BeTrue())
+				}
+			}
+
+			It("Should send a stored frame that the live stream did not carry",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+					})
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					write(ctx, idx, []telem.TimeStamp{at(1)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+					Eventually(func() []fake.Point {
+						return server.Points("stand", ch.Name)
+					}).Should(HaveLen(1))
+					keys := channel.Keys{idx.Key(), ch.Key()}
+					stored := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: at(2),
+						Mode:  framer.WriterModePersistOnly,
+					}))
+					Expect(MustSucceed(stored.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeries([]telem.TimeStamp{at(2)}),
+						telem.NewSeriesV(2.0),
+					})))).To(BeTrue())
+					Expect(stored.Close()).To(Succeed())
+					write(ctx, idx, []telem.TimeStamp{at(3)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(3.0)})
+					Eventually(func() []fake.Point {
+						return server.Points("stand", ch.Name)
+					}).Should(Equal([]fake.Point{
+						point(at(1), 1.0),
+						point(at(2), 2.0),
+						point(at(3), 3.0),
+					}))
+					Expect(stop()).To(Succeed())
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+
+			It("Should send the values of a channel written without its index",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+					})
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					openWriter(
+						ctx,
+						channel.Keys{idx.Key(), other.Key()},
+						framer.WriterConfig{Start: at(1)},
+					)(
+						telem.NewSeries([]telem.TimeStamp{at(1), at(2)}),
+						telem.NewSeriesV(10.0, 20.0),
+					)
+					Eventually(func() []fake.Point {
+						return server.Points("stand", other.Name)
+					}).Should(HaveLen(2))
+					openWriter(
+						ctx,
+						channel.Keys{ch.Key()},
+						framer.WriterConfig{Start: at(1)},
+					)(telem.NewSeriesV(1.0, 2.0))
+					Eventually(func() []fake.Point {
+						return server.Points("stand", ch.Name)
+					}).Should(Equal([]fake.Point{
+						point(at(1), 1.0),
+						point(at(2), 2.0),
+					}))
+					Expect(stop()).To(Succeed())
+					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+		})
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
 			idx := createIndex(ctx)

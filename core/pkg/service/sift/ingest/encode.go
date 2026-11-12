@@ -34,13 +34,16 @@ func newColumn(series []telem.Series) *column {
 	return &column{series: series, cur: -1}
 }
 
-// encode calls send with one request per timestamp of f in fr at or after from. It
-// returns the timestamp after the last one it sent and the number of values it sent.
+// encode calls send with one request per timestamp of f in fr at or after from that has
+// a value. It returns the timestamp after the last one it read and the number of values
+// it sent. It sets each element of last that has a value to the time after the last
+// value of its channel.
 func encode(
 	configID string,
 	f flow,
 	fr framer.Frame,
 	from telem.TimeStamp,
+	last []telem.TimeStamp,
 	send func(*ingestv1.IngestWithConfigDataStreamRequest) error,
 ) (telem.TimeStamp, int64, error) {
 	var (
@@ -72,8 +75,13 @@ func encode(
 				v := c.value(a)
 				if v != empty {
 					n++
+					last[i] = ts + 1
 				}
 				req.ChannelValues[i] = v
+			}
+			if n == 0 {
+				next = max(next, ts+1)
+				continue
 			}
 			if err := send(req); err != nil {
 				return next, samples, err
