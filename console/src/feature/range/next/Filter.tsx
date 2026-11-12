@@ -144,6 +144,7 @@ const LabelPicker = ({
         <Select.Dialog
           surface="menu"
           data-surface={surfaceID}
+          aria-label={PROPERTIES.labels.name}
           className={pickerClass(className, true)}
         >
           <Select.Body<label.Key>
@@ -191,6 +192,7 @@ const StagePicker = ({
         <Select.Dialog
           surface="menu"
           data-surface={surfaceID}
+          aria-label={PROPERTIES.stage.name}
           className={pickerClass(className)}
         >
           <Select.List>
@@ -239,6 +241,7 @@ const TimePicker = ({
         <Select.Dialog
           surface="menu"
           data-surface={surfaceID}
+          aria-label={PROPERTIES.time.name}
           className={pickerClass(className)}
         >
           <Select.List>
@@ -333,6 +336,7 @@ const ParentPicker = ({
         <Select.Dialog
           surface="menu"
           data-surface={surfaceID}
+          aria-label={PROPERTIES.parent.name}
           className={pickerClass(className, true)}
         >
           <Select.Body<ranger.Key>
