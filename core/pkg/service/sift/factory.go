@@ -235,10 +235,9 @@ func validateScanConfig(cfg *ScanConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	if cfg.Rate.Period() <= 0 {
-		return errors.Wrapf(validate.ErrValidation, "rate: %s is too high", cfg.Rate)
-	}
-	return nil
+	v := validate.New("sift.scan")
+	v.Ternaryf("rate", cfg.Rate.Period() <= 0, "%s is too high", cfg.Rate)
+	return v.Error()
 }
 
 // configureScan returns the scan task of t, and whether the factory starts it.

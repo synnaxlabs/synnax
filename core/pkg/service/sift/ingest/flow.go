@@ -13,12 +13,12 @@ import (
 	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"slices"
 
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -106,10 +106,7 @@ func buildFlows(channels, indexes []channel.Channel) ([]flow, error) {
 		flows = append(flows, *f)
 	}
 	if len(flows) == 0 {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"select at least one channel that is not an index",
-		)
+		return nil, validate.Errorf("select at least one channel that is not an index")
 	}
 	slices.SortFunc(flows, func(a, b flow) int {
 		return cmp.Compare(a.index.Key(), b.index.Key())
@@ -118,44 +115,26 @@ func buildFlows(channels, indexes []channel.Channel) ([]flow, error) {
 }
 
 func validateChannel(ch channel.Channel) error {
-	if ch.IsCalculated() {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s is calculated, and Sift can only take stored channels",
-			ch.Name,
-		)
-	}
-	if ch.Virtual {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s is virtual, and the Core stores no data for virtual channels",
-			ch.Name,
-		)
-	}
-	if ch.Index() == 0 {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s has no index, so its samples have no timestamps",
-			ch.Name,
-		)
-	}
-	if _, ok := dataTypes[ch.DataType]; !ok {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s has data type %s, which Sift cannot store",
-			ch.Name,
-			ch.DataType,
-		)
-	}
-	if len(ch.Name) > maxNameLength {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s has a name longer than the %d characters Sift allows",
-			ch.Name,
+	_, storable := dataTypes[ch.DataType]
+	var reason string
+	switch {
+	case ch.IsCalculated():
+		reason = "is calculated, and Sift can only take stored channels"
+	case ch.Virtual:
+		reason = "is virtual, and the Core stores no data for virtual channels"
+	case ch.Index() == 0:
+		reason = "has no index, so its samples have no timestamps"
+	case !storable:
+		reason = fmt.Sprintf("has data type %s, which Sift cannot store", ch.DataType)
+	case len(ch.Name) > maxNameLength:
+		reason = fmt.Sprintf(
+			"has a name longer than the %d characters Sift allows",
 			maxNameLength,
 		)
+	default:
+		return nil
 	}
-	return nil
+	return validate.Errorf("channel %s %s", ch.Name, reason)
 }
 
 // clientKey returns the ingestion config key for flows on asset. Equal flows on the
