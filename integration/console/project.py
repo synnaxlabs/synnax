@@ -13,8 +13,7 @@ import random
 import shutil
 import zipfile
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.base import ResourceClient
 from console.layout import LayoutClient

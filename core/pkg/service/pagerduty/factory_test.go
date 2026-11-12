@@ -139,7 +139,10 @@ var _ = Describe("Factory", func() {
 		Describe("ConfigureTask", func() {
 			It("Should return ErrTaskNotHandled for non-pagerduty types",
 				func(ctx context.Context) {
-					t := task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"}
+					t := createTask(
+						ctx,
+						task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"},
+					)
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(driver.ErrTaskNotHandled))
 				},
@@ -162,10 +165,10 @@ var _ = Describe("Factory", func() {
 					cfg := encodeConfig(pd.TaskConfig{
 						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key: required")))
 				},
@@ -179,10 +182,10 @@ var _ = Describe("Factory", func() {
 							{Status: "test-status", Disabled: true},
 						},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("alerts")))
 				},
@@ -193,16 +196,16 @@ var _ = Describe("Factory", func() {
 					cfg := encodeConfig(pd.TaskConfig{
 						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					Expect(stat.Details.Running).To(BeFalse())
@@ -220,8 +223,8 @@ var _ = Describe("Factory", func() {
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
 				Entry("driven by a start command", "cmd-1"),
@@ -238,8 +241,8 @@ var _ = Describe("Factory", func() {
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -260,8 +263,8 @@ var _ = Describe("Factory", func() {
 						)))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to start task"))
 					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
@@ -274,16 +277,16 @@ var _ = Describe("Factory", func() {
 					cfg := encodeConfig(pd.TaskConfig{
 						Alerts: []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
-						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 				},
 			)
 
@@ -293,16 +296,16 @@ var _ = Describe("Factory", func() {
 						AutoStart: true,
 						Alerts:    []pd.Alert{{Status: "test-status"}},
 					})
-					t := task.Task{
+					t := createTask(ctx, task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
-					}
+					})
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to configure task"))
 					Expect(stat.Description).To(ContainSubstring("routing_key"))
@@ -320,8 +323,8 @@ var _ = Describe("Factory", func() {
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))
 					Expect(stat.Message).To(Equal("Started task"))
 					Expect(stat.Details.Running).To(BeTrue())

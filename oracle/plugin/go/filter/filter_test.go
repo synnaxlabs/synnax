@@ -376,7 +376,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve) (Retrieve, error) {",
 					"q = q.SkipMissingKeys()",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
@@ -385,12 +385,98 @@ var _ = Describe("Go Filter Plugin", func() {
 					"if *r.Limit == 0 {",
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
-					"return q.Offset(int(r.Offset)), nil",
+					"return q, nil",
+					`"a search cannot resume after a position",`,
+					"q = q.After(r.After.Key)",
 				).
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
+				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit")
 		})
 
-		It("Should generate the request methods at the request output", func(
+		It(
+			"Should apply an order and its cursor to the Retrieve",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key  uuid   {
+						@key
+					}
+					name string {
+						@index sorted
+						@search
+					}
+					span Span   { @index sorted start }
+					@retrieve
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "request.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`errors.Wrap(validate.ErrValidation, "a search sorts by relevance")`,
+						"o, err := r.order()",
+						"q = q.OrderBy(o)",
+						"} else if r.After != nil {",
+						"func (r RetrieveRequest) order() (Order, error) {",
+						"case OrderFieldName:",
+						"return OrderByName(dir), nil",
+						"if r.After.Name == nil {",
+						"return OrderByNameAfter(\n\t\t\tdir,\n\t\t\t*r.After.Name,\n\t\t\t"+
+							"r.After.Key,\n\t\t), nil",
+						"case OrderFieldSpanStart:",
+						`"is required to resume an order by span_start",`,
+						"return OrderBySpanStartAfter(",
+						`"%q is not a field to sort by",`,
+					).
+					ToNotContain("errors.New(")
+			},
+		)
+
+		It("Should keep the decode doc for a request with no orders", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"\treturn q, nil\n}\n\n// UnmarshalJSONFrom decodes the request",
+				).
+				ToNotContain("func (r RetrieveRequest) order()")
+		})
+
+		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					name string
+					@retrieve
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToNotContain("r.After", "r.Order")
+		})
+
+		It("Should generate the request functions at the request output", func(
 			ctx SpecContext,
 		) {
 			resp := MustGenerate(ctx, `
@@ -416,7 +502,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToContain(
 					"package thing",
 					`servicething "github.com/synnaxlabs/synnax/core/pkg/service/thing"`,
-					"func (r RetrieveRequest) Apply(q servicething.Retrieve) "+
+					"func ApplyRetrieve(r RetrieveRequest, q servicething.Retrieve) "+
 						"(servicething.Retrieve, error) {",
 					"f, err := servicething.MatchWhere(*r.Where)",
 					"return servicething.Retrieve{}, validate.PathedError(err, \"where\")",
@@ -445,7 +531,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve[any]) "+
+						"(Retrieve[any], error) {",
 					"f, err := MatchWhere[any](*r.Where)",
 					"q = q.Where(MatchSearch(r.SearchTerm))",
 					"return q.Where(MatchKeys[any]()), nil",

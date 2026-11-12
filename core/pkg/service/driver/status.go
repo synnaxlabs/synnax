@@ -48,7 +48,7 @@ type StatusHandler struct {
 // running, "Task configured" message.
 func NewStatusHandler(db *gorp.DB, svc *status.Service, t task.Task) *StatusHandler {
 	return &StatusHandler{db: db, svc: svc, stat: task.Status{
-		Key:     t.OntologyID().String(),
+		Owner:   new(t.ResourceID()),
 		Name:    t.Name,
 		Variant: status.VariantSuccess,
 		Message: "Task configured",
@@ -150,6 +150,7 @@ func (h *StatusHandler) Reply(
 	cmdKey string,
 	variant status.Variant,
 	message string,
+	description string,
 	data msgpack.EncodedJSON,
 ) error {
 	h.mu.Lock()
@@ -157,7 +158,7 @@ func (h *StatusHandler) Reply(
 	stat := h.stamp()
 	stat.Variant = variant
 	stat.Message = message
-	stat.Description = ""
+	stat.Description = description
 	stat.Details.Cmd = cmdKey
 	stat.Details.Data = data
 	return h.write(ctx, stat)
@@ -175,7 +176,7 @@ func (h *StatusHandler) write(ctx context.Context, stat task.Status) error {
 	return h.db.WithTx(ctx, func(tx gorp.Tx) error {
 		var prev task.Status
 		if err := h.svc.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Where(status.MatchOwners[task.StatusDetails](*stat.Owner)).
 			Entry(&prev).
 			Exec(ctx, tx); err == nil {
 			stat.Name = prev.Name

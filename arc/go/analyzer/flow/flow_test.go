@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -1128,7 +1129,7 @@ sensor_chan -> demux() -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to top-level variable 'some_var'"))
+					).To(Equal("cannot reassign top-level variable 'some_var'"))
 				},
 			)
 
@@ -1174,7 +1175,7 @@ sequence main {
 						{
 							Name: "out_chan",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 						},
 					}
 					ast := MustSucceed(parser.Parse(`
@@ -3458,6 +3459,22 @@ sequence main {
 				sequence main { stage first {} }`,
 				1,
 			),
+			Entry(
+				"numeric expression in a routing entry",
+				`func split() {v u8} (a u8, b u8) {
+					a = v
+					b = v
+				}
+				sequence main {
+					stage first {
+						u8_gate -> split() -> {
+							a: u8_gate * 2 => next
+						}
+					}
+					stage second {}
+				}`,
+				1,
+			),
 		)
 	})
 })
@@ -3940,6 +3957,14 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel num_u8 value type u8",
 			},
 		}),
+		Entry("channel into a channel alias", mismatchCase{
+			source: "sequence main {\n    vlv := num_u8\n    num_f64 -> vlv\n}",
+			line:   2,
+			substrings: []string{
+				"num_f64 value type f64",
+				"does not match channel vlv value type u8",
+			},
+		}),
 		Entry("qualified func output into a bool channel", mismatchCase{
 			source: "import time\ntime.wait(duration=1s) -> flag",
 			line:   1,
@@ -3994,5 +4019,79 @@ sensor_chan -> r`))
 				Expect(ctx.Diagnostics.String()).To(ContainSubstring("read-only"))
 			},
 		)
+	})
+})
+
+var _ = Describe("Module constants in flows", func() {
+	// analyze analyzes source with the standard library and channels x and y.
+	analyze := func(bCtx SpecContext, source string) context.Context[parser.IProgramContext] {
+		GinkgoHelper()
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}, &symbol.Symbol{
+			Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
+		}))
+		ast := MustSucceed(parser.Parse("import math\n" + source))
+		ctx := context.NewRoot(bCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		return ctx
+	}
+	// constantTypes returns the type of each use of math.inf.
+	constantTypes := func(ctx context.Context[parser.IProgramContext]) []types.Type {
+		var out []types.Type
+		for node, t := range ctx.TypeMap {
+			if id, ok := node.(parser.IIdentifierContext); ok &&
+				id.GetText() == "math.inf" {
+				out = append(out, ctx.Constraints.ApplySubstitutions(t))
+			}
+		}
+		return out
+	}
+
+	DescribeTable("Should type a constant at the node it feeds",
+		func(bCtx SpecContext, source string, expected types.Type) {
+			ctx := analyze(bCtx, source)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(constantTypes(ctx)).To(Equal([]types.Type{expected}))
+		},
+		Entry("a channel sink", "x -> math.inf -> y", types.F32()),
+		Entry("a function input", `
+		func keep() {v f32} f32 {
+			return v
+		}
+		math.inf -> keep() -> y`, types.F32()),
+		Entry("a routing entry", `
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		func amplify() {signal f32} f32 {
+			return signal
+		}
+		x -> split() -> {
+			high: math.inf -> amplify() -> y
+		}`, types.F32()),
+		Entry("a transition", `
+		sequence main {
+			stage a {
+				x -> math.inf => b
+			}
+			stage b {
+			}
+		}
+		x => main`, types.F64()),
+	)
+
+	It("Should reject an unknown member in a routing entry", func(bCtx SpecContext) {
+		ctx := analyze(bCtx, `
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		func amplify() {signal f32} f32 {
+			return signal
+		}
+		x -> split() -> {
+			high: math.nope -> amplify() -> y
+		}`)
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("undefined symbol: nope"))
 	})
 })

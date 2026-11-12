@@ -26,9 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -81,7 +81,7 @@ func queueUpload(
 	if err := cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(args.Device)).
 		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, cfg.DB); err != nil {
 		return "", err
 	}
 	if _, err := decodeProperties(dev); err != nil {
@@ -98,7 +98,7 @@ func queueUpload(
 	if err := cfg.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(args.Range)).
 		Entry(&rng).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, cfg.DB); err != nil {
 		return "", err
 	}
 	// A range that has not ended sends the data written so far.
@@ -125,11 +125,9 @@ func queueUpload(
 			Asset:     args.Asset,
 		},
 	}
-	if err := cfg.Status.NewWriter(nil).SetWithParent(
-		ctx,
-		&s,
-		ranger.OntologyID(rng.Key),
-	); err != nil {
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return cfg.Status.NewWriter(tx).Set(ctx, &s)
+	}); err != nil {
 		return "", err
 	}
 	return s.Key, nil
@@ -199,7 +197,7 @@ func (u *uploader) observe(
 		if !strings.HasPrefix(c.Key, uploadKeyPrefix) {
 			continue
 		}
-		if c.Variant != change.VariantDelete {
+		if c.Kind != gorp.ChangeDelete {
 			u.signal()
 			continue
 		}
@@ -235,14 +233,14 @@ func (u *uploader) schedule(ctx context.Context) error {
 			status.VariantWarning,
 		)).
 		Entries(&pending).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, u.cfg.DB); err != nil {
 		return err
 	}
 	var devs []device.Device
 	if err := u.cfg.Device.NewRetrieve().
 		Where(device.MatchMakes(Make)).
 		Entries(&devs).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, u.cfg.DB); err != nil {
 		return err
 	}
 	racks := make(map[device.Key]rack.Key, len(devs))
@@ -298,10 +296,10 @@ func (u *uploader) finish(
 	switch {
 	case up.deleted.Load():
 		// A progress write may land after the delete, so delete again.
-		if err := u.cfg.Status.NewWriter(nil).Delete(
-			context.WithoutCancel(ctx),
-			s.Key,
-		); err != nil {
+		ctx := context.WithoutCancel(ctx)
+		if err := u.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return u.cfg.Status.NewWriter(tx).Delete(ctx, s.Key)
+		}); err != nil {
 			u.cfg.L.Error(
 				"failed to delete cancelled upload status",
 				zap.String("status", s.Key),
@@ -331,14 +329,14 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err := u.cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(d.Device)).
 		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, u.cfg.DB); err != nil {
 		return err
 	}
 	props, err := decodeProperties(dev)
 	if err != nil {
 		return err
 	}
-	conn, err := connect(ctx, u.cfg.Secret, props)
+	conn, err := connect(ctx, u.cfg.Secret, u.cfg.DB, props)
 	if err != nil {
 		return err
 	}
@@ -355,6 +353,7 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	uploading()
 	u.write(ctx, up, s)
 	e, err := ingest.New(ctx, ingest.Config{
+		DB:                 u.cfg.DB,
 		Instrumentation:    u.cfg.Child("upload"),
 		Framer:             u.cfg.Framer,
 		Channel:            u.cfg.Channel,
@@ -382,13 +381,25 @@ func (u *uploader) send(ctx context.Context, up *upload, s *UploadStatus) error 
 	if err = e.Upload(ctx, d.TimeRange, fromPositions(d.Positions)); err != nil {
 		return err
 	}
-	tags, err := rangeTags(ctx, u.cfg.Label, d.Range)
+	var rng ranger.Range
+	err = u.cfg.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(d.Range)).
+		Entry(&rng).
+		Exec(ctx, u.cfg.DB)
+	// A range deleted during the upload has no run to make.
+	if errors.Is(err, query.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	tags, err := rangeTags(ctx, u.cfg, rng)
 	if err != nil {
 		return err
 	}
 	_, err = e.SetRun(ctx, ingest.Run{
-		Key:       d.Range.String(),
-		Name:      s.Name,
+		Key:       rng.Key.String(),
+		Name:      rng.Name,
 		TimeRange: d.TimeRange,
 		Tags:      tags,
 	})
@@ -402,8 +413,10 @@ func (u *uploader) write(ctx context.Context, up *upload, s *UploadStatus) {
 		return
 	}
 	s.Time = telem.Now()
-	if err := u.cfg.Status.NewWriter(nil).
-		Set(context.WithoutCancel(ctx), s); err != nil {
+	ctx = context.WithoutCancel(ctx)
+	if err := u.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return u.cfg.Status.NewWriter(tx).Set(ctx, s)
+	}); err != nil {
 		u.cfg.L.Error(
 			"failed to save upload status",
 			zap.String("status", s.Key),

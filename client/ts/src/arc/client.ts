@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, zod } from "@synnaxlabs/x";
+import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -21,27 +21,39 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
+import { validateIdentifier } from "@/arc/identifier";
+import { arcKeyOf } from "@/arc/task/task";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
   arcZ,
+  type Change,
   type Key,
   keyZ,
   type New,
-  ontologyID,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
-import { NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
+import { LINES } from "@/arc/where";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/arc/where.gen";
+import { type batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -49,13 +61,18 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
-// The table caches Arcs without their compiled program.
-const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
+// The table caches Arcs without their compiled program, module status, or changes. A
+// module's status is read through Client.status, and changes through retrieveChanges.
+const cachedRequestZ = retrieveRequestZ.omit({
+  includeProgram: true,
+  includeStatus: true,
+  includeChanges: true,
+});
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([
+const retrieveMultiParamsZ = filter.requestInputZ(
   cachedRequestZ,
   retrieveInputZ(cachedRequestZ.omit({ where: true }).shape),
-]);
+);
 const createReqZ = z.object({ dispatchKey: z.string(), arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -108,20 +125,13 @@ export interface UpdateTaskParams {
   performance?: Performance;
 }
 
-const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
-  ontology.matchRelationship(rel, {
-    from: ontologyID(arcKey),
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: "task" },
-  });
-
 export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
-  ontology: ontology.Client;
   tasks: task.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
+  statuses: status.Client;
+  batch: batch.Client;
 }
 
 export class Client extends query.Retriever<
@@ -138,6 +148,7 @@ export class Client extends query.Retriever<
   private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly store: query.Table<Key, Arc>;
   private readonly taskAnswers: query.Retrieves<Key, task.Task | null>;
+  private readonly statusAnswers: query.Retrieves<Key, status.Status | null>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -152,8 +163,10 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ, dispatchResZ),
       encode,
@@ -176,18 +189,21 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
-        matches: (a, req) => matches(a, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (a, req) => matches(LINES, a, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.directories = new directory.Client({
       unary: cfg.unary,
-      ontology: cfg.ontology,
+      cache,
+      arcs: store,
+      batch: cfg.batch,
     });
     this.store = store;
     this.dispatcher = dispatcher;
@@ -196,8 +212,10 @@ export class Client extends query.Retriever<
       source: this.cfg.tasks.store,
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [
-        query.deriveWatch(this.cfg.statusStore, (event) => task.affectedKeys(event)),
+      triggers: [
+        query.deriveTrigger(this.cfg.statuses.store, (event) =>
+          this.cfg.statuses.ownerKeys(event, "task"),
+        ),
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
@@ -208,24 +226,20 @@ export class Client extends query.Retriever<
         return tsk == null ? [] : [tsk.key];
       },
       compose: (records) => records[0] ?? null,
-      matches: (t, q) =>
-        this.cfg.ontology.cache.relationships.has(
-          ontology.relationshipToString({
-            from: ontologyID(q),
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: task.ontologyID(t.key),
-          }),
-        ),
-      watch: [
-        query.watch(this.cfg.ontology.cache.relationships, (event, q: Key) => {
-          const rel =
-            event.variant === "set"
-              ? event.value
-              : ontology.relationshipZ.parse(event.key);
-          if (!isTaskChild(rel, q)) return null;
-          return [rel.to.key];
-        }),
-      ],
+      matches: (t, q) => !t.snapshot && arcKeyOf(t) === q,
+    });
+    this.statusAnswers = cache.queries<
+      Key,
+      status.Status | null,
+      status.Key,
+      status.Status
+    >({
+      name: "Arc status",
+      table: this.cfg.statuses.store,
+      fetch: async (q) =>
+        (await this.cfg.statuses.retrieveOwned([resourceID(q)])).map(({ key }) => key),
+      compose: (records) => records[0] ?? null,
+      matches: (s, q) => s.owner != null && resource.idsEqual(s.owner, resourceID(q)),
     });
   }
 
@@ -239,6 +253,7 @@ export class Client extends query.Retriever<
     const optimistic = array
       .toArray(arcs)
       .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
+    for (const a of optimistic) if (a.type === "module") validateIdentifier(a.name);
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -282,25 +297,9 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      query.partialUpdate(this.store, key, { name });
-      return () => query.partialUpdate(this.store, key, { name: prev });
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [renameAction({ name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    if (this.store.get(key)?.type === "module") validateIdentifier(name);
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {
@@ -313,6 +312,14 @@ export class Client extends query.Retriever<
    */
   get task(): query.Retrieves<Key, task.Task | null> {
     return this.taskAnswers;
+  }
+
+  /**
+   * Cached queries for the compile status of a module, keyed by the module's key.
+   * Resolves null for an automation and for a module the Core has not compiled.
+   */
+  get status(): query.Retrieves<Key, status.Status | null> {
+    return this.statusAnswers;
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -395,7 +402,22 @@ export class Client extends query.Retriever<
     return this.dispatcher.transaction(key, kind);
   }
 
-  private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
+  /**
+   * The differences between the automation's content and the content its task last
+   * ran, as the Core last saw it. Empty for a module and for an automation that was
+   * never deployed.
+   */
+  async retrieveChanges(key: Key): Promise<Change[]> {
+    const where = { key: { eq: key } };
+    const arcs = await this.execRetrieve({ where, includeChanges: true });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
+    const a = arcs[0];
+    return a.type === "automation" ? (a.changes ?? []) : [];
+  }
+
+  private async execRetrieve(
+    params: SingleRetrieveParams | RetrieveRequest,
+  ): Promise<Arc[]> {
     const res = await this.cfg.unary.send(
       "/arc/retrieve",
       params,
@@ -409,8 +431,9 @@ export class Client extends query.Retriever<
   // copy is only as fresh as the streamer. Fetches always hit the network; only the
   // server materializes text.
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
-    const arcs = await this.execRetrieve(q);
-    checkForMultipleOrNoResults("Arc", q, arcs, true);
+    const { where } = singleRetrieveParamsZ.parse(q);
+    const arcs = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 
@@ -432,7 +455,7 @@ export class Client extends query.Retriever<
   // The status is parsed because the status table holds every domain's statuses
   // generically.
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
-    const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
+    const cachedStatus = this.cfg.statuses.ownedBy(task.resourceID(cached.key));
     const payload = cached.payload;
     if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
     const parsed = task.defaultStatusZ.safeParse(cachedStatus);
@@ -441,19 +464,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {
-    let children: ontology.Resource[];
-    try {
-      children = await this.cfg.ontology.children.retrieve({
-        ids: ontologyID(arcKey),
-        types: ["task"],
-      });
-    } catch (e) {
-      // An Arc that does not exist cannot have a task.
-      if (NotFoundError.matches(e)) return null;
-      throw errors.fromUnknown(e);
-    }
-    const child = children[0];
-    if (child == null) return null;
-    return await this.cfg.tasks.retrieve(child.id.key);
+    const [tsk] = await this.cfg.tasks.retrieve({ arcs: [arcKey], snapshot: false });
+    return tsk ?? null;
   }
 }

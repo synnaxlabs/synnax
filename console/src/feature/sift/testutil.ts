@@ -20,7 +20,7 @@ export interface CreateSiftDeviceOptions {
 
 /** Creates a stored secret that holds a Sift API key on the live Core. */
 export const createAPIKey = async (client: Synnax): Promise<secret.Secret> =>
-  await client.secrets.create({
+  await client.secrets.set({
     name: uniqueName("sift_api_key"),
     source: "stored",
     value: "key",

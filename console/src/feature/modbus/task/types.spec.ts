@@ -78,6 +78,19 @@ describe("Modbus Read Task Types", () => {
       expect(overlaps.ranges).toEqual({});
     });
 
+    it("should mark a string that reads the addresses of a register", () => {
+      const a = holding("a", 10, "uint16");
+      const b = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register_string.parse({
+        type: "holding_register_string",
+        key: "b",
+        address: 9,
+        length: 4,
+      });
+      const overlaps = Modbus.Task.findOverlaps([a, b]);
+      expect(overlaps.keys).toEqual(new Set(["a", "b"]));
+      expect(overlaps.ranges).toEqual({ holding_register: [[10, 10]] });
+    });
+
     it("should not mark channels of another type at the same address", () => {
       const a = holding("a", 10, "uint16");
       const b = Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
@@ -188,18 +201,13 @@ describe("deploy configs", () => {
     ]);
   });
 
-  it.each([0, 251])("should reject a string of %d characters", (stringLength) => {
-    const result = Modbus.Task.deployReadConfigZ.safeParse(
-      readConfig([
-        { type: "input_register", address: 0, dataType: "string", stringLength },
-        { type: "input_register", address: 200, dataType: "uint16", stringLength },
-      ]),
-    );
-    expect(issues(result)).toEqual([
-      {
-        path: ["channels", 0, "stringLength"],
-        message: "String length must be from 1 to 250",
-      },
+  it.each([0, 251])("should reject a string of %d characters", (length) => {
+    const result = Modbus.Task.READ_SCHEMAS.config.safeParse({
+      device: "my_device",
+      channels: [{ type: "input_register_string", address: 0, length }],
+    });
+    expect(result.error?.issues.map(({ path }) => path)).toEqual([
+      ["channels", 0, "length"],
     ]);
   });
 

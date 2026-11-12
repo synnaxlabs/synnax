@@ -127,6 +127,32 @@ describe("openStreamer", () => {
   });
 
   describe("batched frame delivery", () => {
+    it("applies each frame after the frame before it", async () => {
+      const applied: string[] = [];
+      const first = Promise.withResolvers<void>();
+      const onChange = vi.fn(async (changed: Array<{ name: string }>) => {
+        if (changed[0].name === "a") await first.promise;
+        applied.push(changed[0].name);
+      });
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({ test: new Series([{ name: "a" }]) }),
+        new framer.Frame({ test: new Series([{ name: "b" }]) }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(onChange).toHaveBeenCalledTimes(1);
+      first.resolve();
+      await expect.poll(() => applied).toEqual(["a", "b"]);
+      await closeStreamer();
+    });
+
     it("delivers a channel's records from one frame as a single batch", async () => {
       const onChange = vi.fn();
       const schema = z.object({ name: z.string() });
@@ -149,6 +175,71 @@ describe("openStreamer", () => {
         { name: "b" },
         { name: "c" },
       ]);
+    });
+
+    it("delivers the valid samples of a series and passes on the invalid ones", async () => {
+      const onChange = vi.fn();
+      const onInvalid = vi.fn();
+      const onError = vi.fn();
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({
+          test: new Series([{ name: "a" }, { name: 1 }, { name: 2 }, { name: "c" }]),
+        }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          onError,
+          listeners: [{ channel: "test", schema, onChange, onInvalid }],
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await closeStreamer();
+      expect(onChange).toHaveBeenCalledExactlyOnceWith([{ name: "a" }, { name: "c" }]);
+      expect(onInvalid.mock.calls).toEqual([
+        [{ name: 1 }, expect.any(Error)],
+        [{ name: 2 }, expect.any(Error)],
+      ]);
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError.mock.calls[0][0].message).toBe(
+        "failed to parse streamer change for test",
+      );
+    });
+
+    it("fetches the key of an invalid record and keeps the frame's valid records", async () => {
+      interface Entry {
+        key: string;
+        value: number;
+      }
+      const entryZ = z.object({ key: z.string(), value: z.number() });
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, value: 9 })),
+      );
+      const table = new query.Table<string, Entry>({ onError: vi.fn(), fetch });
+      const listener = query
+        .createSetListener<typeof entryZ, string, Entry>("set_ch", entryZ)
+        .bind(table);
+      const frames = [
+        new framer.Frame({
+          set_ch: new Series([
+            { key: "k1", value: 1 },
+            { key: "k2", value: "bad" },
+            { key: "k3", value: 3 },
+          ]),
+        }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: [listener],
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => table.get("k2")).toEqual({ key: "k2", value: 9 });
+      await closeStreamer();
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k2"]);
+      expect(table.get("k1")).toEqual({ key: "k1", value: 1 });
+      expect(table.get("k3")).toEqual({ key: "k3", value: 3 });
     });
 
     it("coalesces a fetch listener's refetches into one call per frame", async () => {
@@ -638,8 +729,8 @@ describe("openStreamer", () => {
       const executionOrder: string[] = [];
       const listeners: Record<string, Mock> = {};
       const channels = [
-        "relationship_create",
-        "relationship_delete",
+        "sy_range_set",
+        "sy_range_delete",
         "user_delete",
         "user_update",
         "permission_delete",
@@ -678,53 +769,37 @@ describe("openStreamer", () => {
       const deleteChannels = executionOrder.slice(0, 3);
       const nonDeleteChannels = executionOrder.slice(3);
 
-      expect(deleteChannels).toContain("relationship_delete");
+      expect(deleteChannels).toContain("sy_range_delete");
       expect(deleteChannels).toContain("user_delete");
       expect(deleteChannels).toContain("permission_delete");
 
-      expect(nonDeleteChannels).toContain("relationship_create");
+      expect(nonDeleteChannels).toContain("sy_range_set");
       expect(nonDeleteChannels).toContain("user_update");
       expect(nonDeleteChannels).toContain("permission_grant");
 
       await closeStreamer();
     });
 
-    it("should correctly handle relationship changes (delete then create)", async () => {
+    it("should apply a delete and a re-create of one record in order", async () => {
       const operations: Array<{ channel: string; data: unknown }> = [];
       const deleteListener = vi.fn().mockImplementation((changed) => {
-        operations.push({ channel: "relationship_delete", data: changed });
+        operations.push({ channel: "sy_range_delete", data: changed });
       });
-      const createListener = vi.fn().mockImplementation((changed) => {
-        operations.push({ channel: "relationship_create", data: changed });
+      const setListener = vi.fn().mockImplementation((changed) => {
+        operations.push({ channel: "sy_range_set", data: changed });
       });
 
-      const relationshipSchema = z.object({
-        parentId: z.number(),
-        childId: z.number(),
-        type: z.string(),
-      });
+      const rangeSchema = z.object({ key: z.string(), name: z.string() });
 
       const listeners: query.Listener[] = [
-        {
-          channel: "relationship_create",
-          schema: relationshipSchema,
-          onChange: createListener,
-        },
-        {
-          channel: "relationship_delete",
-          schema: relationshipSchema,
-          onChange: deleteListener,
-        },
+        { channel: "sy_range_set", schema: rangeSchema, onChange: setListener },
+        { channel: "sy_range_delete", schema: rangeSchema, onChange: deleteListener },
       ];
 
       const frames = [
         new framer.Frame({
-          relationship_create: new Series([
-            { parentId: 1, childId: 2, type: "updated" },
-          ]),
-          relationship_delete: new Series([
-            { parentId: 1, childId: 2, type: "original" },
-          ]),
+          sy_range_set: new Series([{ key: "a", name: "recreated" }]),
+          sy_range_delete: new Series([{ key: "a", name: "original" }]),
         }),
       ];
 
@@ -737,15 +812,11 @@ describe("openStreamer", () => {
 
       await expect.poll(() => operations.length).toBe(2);
 
-      expect(operations[0].channel).toBe("relationship_delete");
-      expect(operations[0].data).toEqual([
-        { parentId: 1, childId: 2, type: "original" },
-      ]);
+      expect(operations[0].channel).toBe("sy_range_delete");
+      expect(operations[0].data).toEqual([{ key: "a", name: "original" }]);
 
-      expect(operations[1].channel).toBe("relationship_create");
-      expect(operations[1].data).toEqual([
-        { parentId: 1, childId: 2, type: "updated" },
-      ]);
+      expect(operations[1].channel).toBe("sy_range_set");
+      expect(operations[1].data).toEqual([{ key: "a", name: "recreated" }]);
 
       await closeStreamer();
     });

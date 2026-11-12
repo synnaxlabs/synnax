@@ -46,7 +46,10 @@ describe("LinePlot", () => {
 
   const createPlot = async (lines: lineplotClient.Line[] = []): Promise<string> => {
     const project = await client.projects.create({ name: `lineplot_${uuid.create()}` });
-    const { key } = await client.lineplots.create(project.key, { name: "plot" });
+    const { key } = await client.lineplots.create({
+      project: project.key,
+      name: "plot",
+    });
     await renderHookSuspended(() => LinePlot.use({ key }), { wrapper });
     if (lines.length === 0) return key;
     const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });

@@ -16,11 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -42,32 +40,27 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB: db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    g,
-				Label:    labelSvc,
+				DB: db,
+			}))
+			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:           db,
-				Ontology:     otg,
-				Group:        g,
-				HostProvider: testutil.NewStaticHostProvider(1),
-				Status:       stat,
-				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v0.Key(uint64(testRack.Key)<<32 | 42)
 			legacyRow := gorptestutil.SetPreV54Row(
@@ -85,26 +78,18 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				},
 			)
 
-			secrets := secrettestutil.OpenService(
-				ctx,
-				db,
-				otg,
-				g,
-				pagerduty.FindSecretUses,
-			)
+			secrets := secrettestutil.OpenService(ctx, db)
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
 			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Rack:     rackSvc,
-				Status:   stat,
-				ImEx:     imex.NewService(),
-				Configs:  configs,
+				DB:      db,
+				Rack:    rackSvc,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
 			}))
 
 			By("Carrying the task through the full chain to a UUID key")
@@ -112,18 +97,18 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Ancient Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config["routing_key"]).To(BeAssignableToTypeOf(""))
 			routingKey := uuid.MustParse(migrated.Config["routing_key"].(string))
-			Expect(secrets.Reveal(ctx, nil, routingKey)).
+			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-ancient")))
 			var routingSecret secret.Secret
 			Expect(secrets.NewRetrieve().
 				Where(secret.MatchKeys(routingKey)).
 				Entry(&routingSecret).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(routingSecret.Base().Name).To(Equal("Ancient Task routing key"))
 
 			By("Deleting the legacy-prefix row")

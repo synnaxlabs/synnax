@@ -19,16 +19,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// TypeMismatchError represents a type mismatch with an optional hint for fixing it.
-type TypeMismatchError struct {
+// typeMismatchError represents a type mismatch with an optional hint for fixing it.
+type typeMismatchError struct {
 	Message string
 	Hint    string
 }
 
-func (e *TypeMismatchError) Error() string { return e.Message }
+func (e *typeMismatchError) Error() string { return e.Message }
 
-// GetHint implements diagnostics.HintProvider.
-func (e *TypeMismatchError) GetHint() string { return e.Hint }
+// GetHint implements the hint interface of diagnostics.
+func (e *typeMismatchError) GetHint() string { return e.Hint }
 
 // Check verifies type compatibility between t1 and t2, adding constraints for type
 // variables or recursively checking wrapped types for channels and series.
@@ -71,6 +71,16 @@ func Check(
 		)
 	}
 
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
+		t2.Constraint != nil {
+		// The untyped value takes the target's type, and never changes it, so a later
+		// write can still fix an untyped target's type.
+		target := cs.ApplySubstitutions(t1)
+		if !untypedFits(target, t2) {
+			return newTypeMismatchError(target, t2, reason)
+		}
+		return cs.AddEquality(t2, target, source, reason)
+	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		return cs.AddEquality(t1, t2, source, reason)
 	}
@@ -85,12 +95,12 @@ func Check(
 	return nil
 }
 
-// newTypeMismatchError creates a TypeMismatchError for type mismatches.
+// newTypeMismatchError creates a typeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
 func newTypeMismatchError(
 	expected, actual types.Type,
 	reason string,
-) *TypeMismatchError {
+) *typeMismatchError {
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf(
@@ -107,7 +117,7 @@ func newTypeMismatchError(
 		hintType := concreteTypeForHint(expected)
 		hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
 	}
-	return &TypeMismatchError{Message: msg, Hint: hint}
+	return &typeMismatchError{Message: msg, Hint: hint}
 }
 
 // concreteTypeForHint returns a concrete type name for use in error hints. Converts

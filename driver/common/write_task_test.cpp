@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <future>
+#include <iterator>
 
 #include "gtest/gtest.h"
 
@@ -15,6 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/common/testutil.h"
 #include "driver/common/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
@@ -50,6 +53,32 @@ public:
         auto err = pipeline::testutil::Sink::write(frame);
         this->set_state(frame);
         return err;
+    }
+};
+
+/// @brief a sink that skips each command of 0 and reports a warning for it. A command
+/// of 2 also warns, but fails with a temporary error.
+class SkippingSink final : public Sink {
+public:
+    /// @brief the frames the sink did not skip.
+    std::shared_ptr<x::sync::List<x::telem::Frame>> writes;
+
+    explicit SkippingSink(
+        const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes
+    ):
+        Sink(std::vector<synnax::channel::Key>{1}), writes(writes) {}
+
+    x::errors::Error write(x::telem::Frame &frame) override {
+        const auto value = frame.at<uint8_t>(1, 0);
+        if (value == 0 || value == 2)
+            this->warn({
+                .message = "Skipped invalid command",
+                .description = "Channel 1: 0 is not valid. Write 1.",
+            });
+        if (value == 0) return x::errors::NIL;
+        if (value == 2) return {errors::TEMPORARY_HARDWARE_ERROR, "device unreachable"};
+        this->writes->push_back(frame.deep_copy());
+        return x::errors::NIL;
     }
 };
 
@@ -121,6 +150,74 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
 
     const std::string stop_cmd_key = "stop";
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
+}
+
+/// @brief a command that arrives while the state loop is not waiting should still wake
+/// the next state read instead of waiting out the full state period.
+TEST(TestCommonWriteTask, ReadWakesForCommandSetBeforeWait) {
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    for (const float hz: {1.0F, 10.0F, 100.0F}) {
+        const auto rate = x::telem::HERTZ * hz;
+        SCOPED_TRACE(std::to_string(hz) + " Hz");
+        MockSink sink(
+            rate,
+            {{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        );
+        x::telem::Frame cmd(1);
+        cmd.emplace(1, x::telem::Series(static_cast<uint8_t>(1)));
+        ASSERT_NIL(sink.write(cmd));
+        x::breaker::Breaker breaker;
+        x::telem::Frame fr;
+        pipeline::Authorities authorities;
+        const auto start = std::chrono::steady_clock::now();
+        ASSERT_NIL(sink.read(breaker, fr, authorities));
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
+        EXPECT_LT(elapsed, rate.period().chrono() / 2);
+    }
+}
+
+/// @brief after a read reports a command, the next read should wait for a new command
+/// instead of returning at once.
+TEST(TestCommonWriteTask, ReadWaitsForNextCommandAfterReport) {
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    const auto rate = x::telem::HERTZ * 10;
+    const auto half_period = rate.period().chrono() / 2;
+    MockSink sink(
+        rate,
+        {{1, state}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    pipeline::Authorities authorities;
+    x::telem::Frame first(1);
+    first.emplace(1, x::telem::Series(static_cast<uint8_t>(1)));
+    ASSERT_NIL(sink.write(first));
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+
+    auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    EXPECT_GE(std::chrono::steady_clock::now() - start, half_period);
+
+    x::telem::Frame second(1);
+    second.emplace(1, x::telem::Series(static_cast<uint8_t>(0)));
+    ASSERT_NIL(sink.write(second));
+    start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, half_period);
+    EXPECT_EQ(fr.at<uint8_t>(3, 0), 0);
 }
 
 /// @brief it should stream every command channel but report state only for the outputs
@@ -208,9 +305,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
-    EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Started task");
 
@@ -240,9 +336,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
-    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Stopped task");
 
@@ -308,7 +403,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     ASSERT_FALSE(write_task.start("cmd_2"));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto ack_state = ctx->statuses[1];
-    EXPECT_EQ(ack_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(ack_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(ack_state.details.cmd, "cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ack_state.message, "Started task");
@@ -399,6 +494,233 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     EXPECT_EQ(sink->stop_count, 1);
 }
 
+/// @brief it should restart a task whose command pipeline failed, whether or not the
+/// failed run has stopped yet.
+TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    streamer_factory->open_errors = {x::errors::UNKNOWN};
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    ASSERT_TRUE(write_task->start("start_cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().details.cmd, "start_cmd_2");
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.message, "Started task");
+    EXPECT_TRUE(status.details.running);
+    EXPECT_EQ(sink->start_count, 2);
+    EXPECT_EQ(sink->stop_count, 1);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
+/// @brief it should stop the sink before it restarts a task whose command pipeline
+/// exited without an error.
+TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector{pipeline::testutil::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                std::make_shared<std::vector<x::errors::Error>>(
+                    std::vector{freighter::STREAM_CLOSED}
+                ),
+                x::errors::NIL,
+            }}
+        )
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // A start while the command pipeline still runs is answered without a restart.
+    ASSERT_EVENTUALLY_TRUE(write_task->start("start_cmd_2"));
+    EXPECT_EQ(sink->stop_count, 1);
+    EXPECT_EQ(sink->start_count, 2);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
+namespace {
+const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
+
+/// @brief creates a write task with one state channel.
+std::unique_ptr<WriteTask> create_state_write_task(
+    const std::shared_ptr<driver::task::MockContext> &ctx,
+    const std::shared_ptr<pipeline::testutil::WriterFactory> &writer_factory,
+    const std::shared_ptr<std::vector<x::telem::Frame>> &cmd_reads,
+    const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
+    const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
+) {
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    return std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::Config{.name = "cat", .base_interval = x::telem::MILLISECOND},
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 100,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            writes,
+            write_errors
+        ),
+        writer_factory,
+        pipeline::testutil::simple_streamer_factory(
+            std::vector<synnax::channel::Key>{1},
+            cmd_reads
+        )
+    );
+}
+}
+
+/// @brief it should report a failed start when the state writer fails to open after
+/// the command streamer opens.
+TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::promise<void> open;
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{OPEN_ERR}
+    );
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Started task");
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(status.description, "no control authority");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed command while the state writer is still opening.
+TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::promise<void> open;
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    cmd_reads->emplace_back(1, x::telem::Series(static_cast<uint8_t>(1)));
+    const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    writer_factory->open_gate = open.get_future().share();
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        cmd_reads,
+        writes,
+        std::make_shared<std::vector<x::errors::Error>>(
+            std::vector{x::errors::Error("base", "write error")}
+        )
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    // The failed command stops the task, which waits for the state writer to open.
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "write error");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed write when the state writer fails to reopen
+/// after it opened.
+TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // The second state write fails, the writer closes as unreachable, and the reopen
+    // fails.
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::NIL, OPEN_ERR},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto write_task = create_state_write_task(
+        ctx,
+        writer_factory,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "no control authority");
+    write_task->stop("stop_cmd", true);
+}
+
+/// @brief it should stop when both pipelines run out of retries while the Core is
+/// unreachable.
+TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const std::vector unreachable(10, freighter::UNREACHABLE);
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto write_task = std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "cat",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = 2,
+        },
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 100,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        ),
+        std::make_shared<pipeline::testutil::WriterFactory>(
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            unreachable
+        ),
+        std::make_shared<pipeline::testutil::StreamerFactory>(
+            unreachable,
+            std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
+        )
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    EXPECT_FALSE(write_task->stop("stop_cmd", true));
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.details.cmd, "stop_cmd");
+    EXPECT_FALSE(status.details.running);
+}
+
 /// @brief a task whose sink has no state channels never starts the state pipeline.
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
@@ -444,6 +766,154 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->start_count, 2);
     ASSERT_TRUE(write_task.stop("stop_cmd_3", true));
     EXPECT_EQ(raw_sink->stop_count, 2);
+}
+
+/// @brief it should run a sink with no outputs from start to stop with no streamer or
+/// writer, and release its hardware exactly once.
+TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
+    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        {},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto sink = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto *raw_sink = sink.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        writer_factory,
+        streamer_factory
+    );
+
+    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].message, "Started task");
+    EXPECT_TRUE(ctx->statuses[0].details.running);
+    EXPECT_EQ(raw_sink->start_count, 1);
+
+    ASSERT_FALSE(write_task.start("start_cmd_2"));
+    EXPECT_EQ(raw_sink->start_count, 1);
+
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+    EXPECT_EQ(ctx->statuses.back().message, "Stopped task");
+    EXPECT_EQ(raw_sink->stop_count, 1);
+    ASSERT_FALSE(write_task.stop("stop_cmd_2", true));
+    EXPECT_EQ(raw_sink->stop_count, 1);
+
+    EXPECT_EQ(streamer_factory->streamer_opens.load(), 0);
+    EXPECT_EQ(writer_factory->writer_opens.load(), 0);
+}
+
+/// @brief it should warn once without a retry wait for a skipped command, and clear the
+/// warning on the next command.
+TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    for (const uint8_t v: {0, 0, 1})
+        reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+    const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    // A breaker wait would outlast the timeout below.
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
+        std::make_unique<SkippingSink>(writes),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1}, reads)
+    );
+    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        writes->size(),
+        1,
+        std::chrono::seconds(2),
+        std::chrono::milliseconds(5)
+    );
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto statuses = ctx->snapshot();
+    std::vector<synnax::task::Status> warnings;
+    std::ranges::copy_if(statuses, std::back_inserter(warnings), [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
+    ASSERT_EQ(warnings.size(), 1);
+    EXPECT_EQ(warnings[0].message, "Skipped invalid command");
+    EXPECT_EQ(warnings[0].description, "Channel 1: 0 is not valid. Write 1.");
+    EXPECT_TRUE(warnings[0].details.running);
+    EXPECT_EQ(statuses.back().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(statuses.back().details.running);
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
+/// @brief a write task that runs a SkippingSink on the given commands.
+struct SkippingWrite {
+    std::shared_ptr<x::sync::List<x::telem::Frame>>
+        writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    std::shared_ptr<driver::task::MockContext>
+        ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::unique_ptr<WriteTask> task;
+
+    explicit SkippingWrite(const std::vector<uint8_t> &commands) {
+        const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+        for (const auto v: commands)
+            reads->emplace_back(1, x::telem::Series(v, x::telem::UINT8_T));
+        synnax::task::Task t;
+        t.key = x::uuid::create();
+        this->task = std::make_unique<WriteTask>(
+            t,
+            this->ctx,
+            x::breaker::Config{.name = "test", .base_interval = x::telem::MILLISECOND},
+            std::make_unique<SkippingSink>(this->writes),
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory({1}, reads)
+        );
+    }
+};
+
+/// @brief it should report a temporary error instead of a warning from the same write.
+TEST(TestCommonWriteTask, TemporaryErrorTakesPrecedenceOverWarning) {
+    SkippingWrite w({2});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto statuses = w.ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().variant;
+        },
+        synnax::status::VARIANT_WARNING
+    );
+    const auto status = w.ctx->snapshot().back();
+    EXPECT_EQ(status.message, "Failed to write commands");
+    EXPECT_EQ(status.description, "device unreachable");
+    ASSERT_TRUE(w.task->stop("stop", true));
+}
+
+/// @brief it should log a repeated warning once, and log it again after a clean write.
+TEST(TestCommonWriteTask, RepeatedWarningLogsOnce) {
+    WarningSink log;
+    SkippingWrite w({0, 0, 1, 0});
+    ASSERT_TRUE(w.task->start("start"));
+    ASSERT_EVENTUALLY_EQ(log.count("0 is not valid"), 2);
+    EXPECT_EQ(w.writes->size(), 1);
+    ASSERT_TRUE(w.task->stop("stop", true));
 }
 
 /// @brief it should parse a device key from the config.

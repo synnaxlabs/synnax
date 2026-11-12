@@ -13,33 +13,31 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-An HTTP read task sends requests to a web API at a fixed rate and records values from
-each JSON response in channels. For example, it can record the temperature and humidity
-from a weather station once a second.
-
-Before you start, you need a
-[connected HTTP server](/reference/hardware/http/connect-server).
+An HTTP read task polls a web API at a fixed rate and records values from each JSON
+response in channels. Before you start,
+[connect an HTTP server](/reference/hardware/http/connect-server).
 
 <Divider.Divider x />
 
 ## Endpoints and fields
 
-An endpoint is one request: a method, a path, and optional query parameters, headers,
-and body. A field is one value in the JSON response, found by a
-[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`.
-Each field records into one channel.
+An endpoint is one request. A field is one value in its JSON response, found by a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
+and recorded in one channel.
 
 - **Numbers** -> recorded as they are.
 - **Booleans** -> recorded as 1 and 0.
 - **Strings** -> converted with the **Enum mapping**, else read as a number. A string
   channel records the text.
 
-Each endpoint has its own timestamps. Set the **Source** of an endpoint to one of these:
+A field cannot record into a channel with the `uuid`, `json`, or `bytes` data type. The
+task fails to start with an error that names the channel.
 
-- **Poll time** -> the Driver uses the time halfway through the request.
-- **Response value** -> the Driver reads the time from the response, at a **Pointer**,
-  in a **Format**: ISO 8601, or Unix time in seconds, milliseconds, microseconds, or
-  nanoseconds.
+The **Source** of an endpoint sets its timestamps:
+
+- **Poll time** -> the time halfway through the request.
+- **Response value** -> a time in the response, at a **Pointer**, in a **Format**: ISO
+  8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds.
 
 <Divider.Divider x />
 
@@ -54,10 +52,9 @@ Each endpoint has its own timestamps. Set the **Source** of an endpoint to one o
 4. Click **Add field** on the endpoint, then set **Pointer** and **Data type**.
 5. Click <Icon.Play /> (**Start**).
 
-The Console creates a channel for each field and an index channel for each endpoint. For
-a server named "Weather station", the path `/api/data` and the pointer `/temperature`
-give `Weather_station_api_data_temperature`, with the index
-`Weather_station_api_data_time`. To choose a name, set **Channel** before you start.
+The Console creates a channel for each field and an index channel for each endpoint,
+named from the server, path, and pointer. To choose a name, set **Channel** before you
+start.
 
 <Video id="hardware/http/read-task" />
 
@@ -150,37 +147,56 @@ await task.start();
 | Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
 | Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
 
-Turn on **NaN fill** (`nan_fill_enabled=True` in Python, `nanFillEnabled: true` in
-TypeScript) to write `NaN` when a float field is missing or cannot be converted. It is
-off by default. With it off, an invalid field skips every field that shares its endpoint
-and index channel. Invalid non-float fields still skip that group.
+An invalid field skips every field that shares its endpoint and index channel. Turn on
+**NaN fill** (`nan_fill_enabled`) to write `NaN` for an invalid float field instead. It
+still sends a warning. Invalid non-float fields always skip the group.
 
-The HTTP read task has no stream rate. Each response is sent to the Core at once. See
-[read tasks](/reference/hardware/tasks#read-tasks).
+The task has no [stream rate](/reference/hardware/tasks#read-tasks). Each response goes
+to the Core at once.
 
 <Divider.Divider x />
 
 ## Endpoint and field reference
 
-Each table shows the Console label of a setting, with its Python field under it. An
-endpoint has these settings:
+Each setting shows its Console label, then its Python field. An endpoint has these
+settings:
 
-| Setting                                        | Default | Notes                                                           |
-| ---------------------------------------------- | ------- | --------------------------------------------------------------- |
-| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.        |
-| Path <small>`path`</small>                     |         | Added to the base address of the server.                        |
-| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                 |
-| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                      |
-| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`. |
+| Setting                                        | Default | Notes                                                                     |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------------------- |
+| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.                  |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.                                  |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                           |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                                |
+| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`.           |
+| Source <small>`index`</small>                  | Empty   | The key of the field that gives the timestamps. Empty uses the poll time. |
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                           |
-| ----------------------------------------- | --------- | ----------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                  |
-| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel. |
-| Channel <small>`channel`</small>          |           | The channel that records the value.             |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
+| Setting                                   | Default   | Notes                                                                                                                      |
+| ----------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                                                                                             |
+| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.                                                                            |
+| Channel <small>`channel`</small>          |           | The channel that records the value.                                                                                        |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.                                                                               |
+| Optional <small>`optional`</small>        | Off       | A missing value is normal for this field.                                                                                  |
+| Fill value <small>`fill_value`</small>    | None      | Written when an optional value is missing.                                                                                 |
+| Format <small>`time_format`</small>       | None      | The encoding of a time value: `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, or `unix_ns`. Required for a timestamp channel. |
+
+For **Source** set to **Response value** in code, add a field that records into the
+index channel, with the **Pointer** and the `time_format` of the time in the response.
+Then set `index` of the endpoint to the `key` of that field.
+
+Turn on **Optional** for a value that can be missing as a normal state of the device,
+such as a sensor that is off. A value is missing when its pointer is absent, or when it
+is `null` or an empty string. On a string channel, an empty string is a real value.
+
+The task then writes the **Fill value** with no warning, so the other fields on its
+index channel keep writing. With no fill value, it writes `NaN`, so a non-float channel
+needs one. An index channel cannot be optional.
+
+A wrong pointer on an optional field also sends no warning. Other invalid values still
+warn. If a request fails, the task skips the field, so an outage does not look like a
+real reading.
 
 <Divider.Divider x />
 
@@ -215,11 +231,26 @@ case sensitive.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"Failed to read some data"}>
+<Problem.Cause>
+
+Some fields of a response were missing or invalid. The description lists each problem.
+The task keeps running. See [task options](#task-options) for how an invalid field
+affects the other fields on its index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointer and the data type of each field in the description against a response
+from the server.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"Falling behind poll rate"}>
 <Problem.Cause>
 
-The requests take longer than one period. The description gives the number of endpoints
-and the read period.
+The requests take longer than one period.
 
 </Problem.Cause>
 <Problem.Fix>

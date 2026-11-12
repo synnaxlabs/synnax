@@ -43,15 +43,11 @@
     },
     {
       "amplitude": 3.75,
-      "cmd_channel": 2030,
-      "cmd_channel_name": "fixture_ao_func_gen_cmd",
       "disabled": false,
       "frequency": 12.5,
       "key": "ch-ao-func-gen",
       "offset": -0.625,
       "port": 2,
-      "state_channel": 2031,
-      "state_channel_name": "fixture_ao_func_gen_state",
       "type": "ao_func_gen",
       "wave_type": "Sawtooth"
     }
