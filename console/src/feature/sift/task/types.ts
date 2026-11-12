@@ -11,7 +11,7 @@ import { type task } from "@synnaxlabs/client";
 import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const PREFIX = "sift";
+const PREFIX = "sift";
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
