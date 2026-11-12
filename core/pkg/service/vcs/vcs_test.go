@@ -767,6 +767,18 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		It(
+			"Should clear a push error on a connect with no remote",
+			func(ctx SpecContext) {
+				connect(ctx, remoteURL)
+				Expect(os.Rename(remoteDir, remoteDir+".away")).To(Succeed())
+				createSchematic(ctx, "Valves")
+				commit(ctx, "Add the valves")
+				Expect(MustSucceed(svc.Status(ctx)).Error).ToNot(BeEmpty())
+				Expect(connect(ctx, "").Error).To(BeEmpty())
+			},
+		)
+
 		It("Should push a waiting snapshot tag after a restart", func(ctx SpecContext) {
 			connect(ctx, remoteURL)
 			away := remoteDir + ".away"

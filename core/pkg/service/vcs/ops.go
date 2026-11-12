@@ -91,13 +91,12 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 			return Status{}, errors.Combine(err, s.repo.setRemote(s.conn.RemoteURL))
 		}
 		s.fetchedAt = telem.Now()
-		s.lastErr = ""
 	}
 	if err := writeConnection(s.dir, conn); err != nil {
 		return Status{}, err
 	}
 	s.conn = conn
-	s.tagErr = ""
+	s.lastErr, s.tagErr = "", ""
 	if err := s.startTracking(ctx, req.Author); err != nil {
 		s.cache(nil)
 		return Status{}, err
