@@ -399,7 +399,7 @@ var _ = Describe("Stored write configs", func() {
 				HaveKeyWithValue("time_format", "unix_ms"),
 			))
 			Expect(field(targets[4])).To(SatisfyAll(
-				HaveKeyWithValue("type", "string"),
+				HaveKeyWithValue("type", "float"),
 				Not(HaveKey("time_format")),
 			))
 		},
