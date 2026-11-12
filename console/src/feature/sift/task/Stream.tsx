@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/sift/task/Stream.css";
+
 import { type channel, type Synnax as Client } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -29,6 +31,7 @@ import {
   STREAM_TYPE,
   type StreamSchemas,
 } from "@/feature/sift/task/types";
+import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -60,25 +63,19 @@ const Progress = () => {
   if (progress == null) return null;
   return (
     <PForm.Section title="Progress">
-      <Flex.Box y gap="tiny">
-        <Flex.Box x align="center" gap="small">
-          <Status.Indicator variant={progress.variant} />
-          <Text.Text>{progress.message}</Text.Text>
-          <Text.Text x>
-            <Telem.Text.TimeSpanSince
-              el="span"
-              level="p"
-              color="gray"
-              format="semantic"
-              variant="code"
-            >
-              {progress.time}
-            </Telem.Text.TimeSpanSince>
-            <Icon.Time color={9} />
-          </Text.Text>
-        </Flex.Box>
-        <Text.Text level="small" color={9}>
-          {progress.description}
+      <Flex.Box x justify="between" align="start">
+        <Status.Summary status={progress} center={false} />
+        <Text.Text x>
+          <Telem.Text.TimeSpanSince
+            el="span"
+            level="p"
+            color="gray"
+            format="semantic"
+            variant="code"
+          >
+            {progress.time}
+          </Telem.Text.TimeSpanSince>
+          <Icon.Time color={9} />
         </Text.Text>
       </Flex.Box>
     </PForm.Section>
@@ -86,7 +83,7 @@ const Progress = () => {
 };
 
 const Form: FC = () => (
-  <PForm.Sections>
+  <PForm.Sections className={CSS.B("sift-stream")}>
     <PForm.Section title="Data">
       <PForm.Field path={path.config.channels} label="Channels" required>
         {({ value, onChange, preview }) => (
