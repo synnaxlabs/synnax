@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -140,10 +139,9 @@ func validateScanConfig(cfg *ScanConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	if cfg.Rate.Period() <= 0 {
-		return errors.Wrapf(validate.ErrValidation, "rate: %s is too high", cfg.Rate)
-	}
-	return nil
+	v := validate.New("sift.scan")
+	v.Ternaryf("rate", cfg.Rate.Period() <= 0, "%s is too high", cfg.Rate)
+	return v.Error()
 }
 
 // configureScan returns the scan task of t, and whether the factory starts it.
