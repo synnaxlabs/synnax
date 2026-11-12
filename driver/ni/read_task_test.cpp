@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstring>
 #include <thread>
 #include <utility>
 
@@ -1808,5 +1809,106 @@ TEST_F(SharedIndexReadTest, testRestartIgnoresReleasedWriter) {
         EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
     for (const auto &status: second.ctx->snapshot())
         EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
+}
+
+namespace {
+/// @brief a DAQmx API that rejects the sample clock or Verify with DAQmx error text.
+class RejectingAPI final : public daqmx::MockAPI {
+public:
+    /// @brief the error text for configuring the sample clock, when not empty.
+    std::string timing_error;
+    /// @brief the error text for Verify, when not empty.
+    std::string verify_error;
+
+    int32
+    CfgSampClkTiming(TaskHandle, const char[], float64, int32, int32, uInt64) override {
+        return this->fail(this->timing_error);
+    }
+
+    int32 TaskControl(TaskHandle, int32) override {
+        return this->fail(this->verify_error);
+    }
+
+    int32 GetExtendedErrorInfo(char buf[], const uInt32 size) override {
+        if (buf == nullptr) return static_cast<int32>(this->error.size() + 1);
+        std::strncpy(buf, this->error.c_str(), size);
+        return 0;
+    }
+
+private:
+    std::string error;
+
+    int32 fail(const std::string &text) {
+        if (text.empty()) return 0;
+        this->error = text;
+        return DAQmxErrorInvalidAttributeValue;
+    }
+};
+
+/// @brief parses base_analog_config against a new device and channel.
+std::unique_ptr<ReadTaskConfig> parse_analog_config() {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    synnax::device::Device dev{
+        .key = make_unique_channel_name("ni"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
+    EXPECT_NIL(client->devices.create(dev));
+    const auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("virtual"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p, "ni_analog_read");
+    EXPECT_NIL(p.error());
+    return cfg;
+}
+
+/// @brief applies cfg to the rejecting API and returns its field errors.
+x::json::json apply_field_errors(
+    const ReadTaskConfig &cfg,
+    const std::shared_ptr<RejectingAPI> &api
+) {
+    const auto err = cfg.apply(std::make_shared<daqmx::SugaredAPI>(api), nullptr);
+    EXPECT_TRUE(err.matches(x::errors::VALIDATION)) << err;
+    return x::json::json::parse(err.data)["errors"];
+}
+}
+
+/// @brief it should put a Verify error on the field of the channel that DAQmx names.
+TEST(ReadTaskConfigTest, testApplyPutsVerifyErrorOnChannel) {
+    const auto cfg = parse_analog_config();
+    auto api = std::make_shared<RejectingAPI>();
+    api->verify_error = "Requested value is not a supported value for this property."
+                        "\n\nProperty: DAQmx_AI_Max\nValue Must Be Greater Than: -5.0"
+                        "\nValue Must Be Less Than: 5.0\nChannel Name: channels_0\n";
+    const auto fields = apply_field_errors(*cfg, api);
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["path"], "channels.0.max_val");
+    EXPECT_EQ(fields[0]["message"], "Must be between -5 and 5");
+}
+
+/// @brief it should put a sample clock source error on the timing source field.
+TEST(ReadTaskConfigTest, testApplyPutsTimingSourceError) {
+    const auto cfg = parse_analog_config();
+    auto api = std::make_shared<RejectingAPI>();
+    api->timing_error = "Source terminal to be routed could not be found on the "
+                        "device.\n\nProperty: DAQmx_SampClk_Src\n";
+    const auto fields = apply_field_errors(*cfg, api);
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["path"], "timing_source");
+    EXPECT_EQ(
+        fields[0]["message"],
+        "Source terminal to be routed could not be found on the device."
+    );
+    EXPECT_TRUE(api->calls_to("TaskControl").empty());
 }
 }

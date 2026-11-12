@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -339,7 +340,7 @@ TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "func_gen_only",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -368,44 +369,52 @@ TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
     EXPECT_EQ(calls[1]["args"]["physicalChannel"], "dev1/ao1");
 }
 
+/// @brief a write task with a function generator at config index 0 and a commanded
+/// voltage output at index 1.
+class GeneratorWriteTest : public SingleChannelAnalogWriteTest {
+protected:
+    void SetUp() override {
+        client = std::make_shared<synnax::Synnax>(new_test_client());
+        ASSERT_NIL(client->channels.create(state_idx_ch));
+        state_ch_1.index = state_idx_ch.key;
+        ASSERT_NIL(client->channels.create(state_ch_1));
+        ASSERT_NIL(client->channels.create(cmd_ch_1));
+        const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+        synnax::device::Device dev{
+            .key = make_unique_channel_name("ni"),
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "ELVIS II",
+            .name = "my_device",
+        };
+        ASSERT_NIL(client->devices.create(dev));
+        const x::json::json j{
+            {"state_rate", 25},
+            {"device", dev.key},
+            {"channels",
+             x::json::json::array(
+                 {func_gen_channel(0),
+                  {{"type", "ao_voltage"},
+                   {"key", "voltage"},
+                   {"port", 1},
+                   {"disabled", false},
+                   {"min_val", 0},
+                   {"max_val", 5},
+                   {"state_channel", state_ch_1.key},
+                   {"cmd_channel", cmd_ch_1.key},
+                   {"custom_scale", {{"type", "none"}}}}}
+             )}
+        };
+        auto p = x::json::Parser(j);
+        cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
+        ASSERT_NIL(p.error());
+    }
+};
+
 /// @brief it should give a function generator beside a commanded output no command or
 /// state channel, and leave its write slot unused after the commanded value.
-TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
-    client = std::make_shared<synnax::Synnax>(new_test_client());
-    ASSERT_NIL(client->channels.create(state_idx_ch));
-    state_ch_1.index = state_idx_ch.key;
-    ASSERT_NIL(client->channels.create(state_ch_1));
-    ASSERT_NIL(client->channels.create(cmd_ch_1));
-    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = "func_gen_mixed",
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "ni",
-        .model = "ELVIS II",
-        .name = "my_device",
-    };
-    ASSERT_NIL(client->devices.create(dev));
-    const x::json::json j{
-        {"state_rate", 25},
-        {"device", dev.key},
-        {"channels",
-         x::json::json::array(
-             {func_gen_channel(0),
-              {{"type", "ao_voltage"},
-               {"key", "voltage"},
-               {"port", 1},
-               {"disabled", false},
-               {"min_val", 0},
-               {"max_val", 5},
-               {"state_channel", state_ch_1.key},
-               {"cmd_channel", cmd_ch_1.key},
-               {"custom_scale", {{"type", "none"}}}}}
-         )}
-    };
-    auto p = x::json::Parser(j);
-    cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
-    ASSERT_NIL(p.error());
+TEST_F(GeneratorWriteTest, testFunctionGeneratorIsNotCommanded) {
     ASSERT_EQ(cfg->output_channels().size(), 1);
     ASSERT_EQ(cfg->buf_indexes.size(), 1);
     EXPECT_EQ(cfg->buf_indexes.at(cmd_ch_1.key), 0);
@@ -428,6 +437,53 @@ TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
     wt->stop("stop_cmd", true);
     ASSERT_EQ(written_data->size(), 1);
     EXPECT_EQ(written_data->at(0), (std::vector<double>{3, 0}));
+}
+
+namespace {
+const std::string AO_RANGE_ERROR = "Requested value is not a supported value for this "
+                                   "property.\n\nProperty: DAQmx_AO_Min\nValue Must "
+                                   "Be Greater Than: -10.0\nValue Must Be Less Than: "
+                                   "10.0\n";
+
+/// @brief a DAQmx API that fails Verify with DAQmx error text.
+class RejectingAPI final : public daqmx::MockAPI {
+public:
+    /// @brief the error text for Verify.
+    std::string verify_error;
+
+    int32 TaskControl(TaskHandle, int32) override {
+        return DAQmxErrorInvalidAttributeValue;
+    }
+
+    int32 GetExtendedErrorInfo(char buf[], const uInt32 size) override {
+        if (buf == nullptr) return static_cast<int32>(this->verify_error.size() + 1);
+        std::strncpy(buf, this->verify_error.c_str(), size);
+        return 0;
+    }
+};
+}
+
+/// @brief it should put a Verify error on the config index of the output that DAQmx
+/// names, though DAQmx holds the commanded output first.
+TEST_F(GeneratorWriteTest, testApplyPutsVerifyErrorAtConfigIndex) {
+    auto api = std::make_shared<RejectingAPI>();
+    api->verify_error = AO_RANGE_ERROR + "Channel Name: channels_1\n";
+    const auto err = cfg->apply(std::make_shared<daqmx::SugaredAPI>(api), nullptr);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    const auto fields = x::json::json::parse(err.data)["errors"];
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["path"], "channels.1.min_val");
+    EXPECT_EQ(fields[0]["message"], "Must be between -10 and 10");
+}
+
+/// @brief it should lead a range error on a function generator with its DAQmx channel
+/// name, since a generator has no range field.
+TEST_F(GeneratorWriteTest, testApplyPrefixesGeneratorRangeError) {
+    auto api = std::make_shared<RejectingAPI>();
+    api->verify_error = AO_RANGE_ERROR + "Channel Name: channels_0\n";
+    const auto err = cfg->apply(std::make_shared<daqmx::SugaredAPI>(api), nullptr);
+    EXPECT_FALSE(err.matches(x::errors::VALIDATION));
+    EXPECT_EQ(err.data, "channels_0: " + api->verify_error);
 }
 
 /// @brief Test that an invalid channel type in the configuration is properly detected
