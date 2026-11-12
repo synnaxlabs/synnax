@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/sift/range/Uploads.css";
+
 import { type ranger, sift, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -17,14 +19,30 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
+import { bounds, TimeRange } from "@synnaxlabs/x";
 
 import { MAKE } from "@/feature/sift/device/types";
 import { useList as useUploadKeys } from "@/feature/sift/range/list";
-import { progress } from "@/feature/sift/range/progress";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 import { FLAGS } from "@/flags";
+import { CSS } from "@/platform/css";
 
 const { useResult: useUpload } = PStatus.createRetrieve(sift.uploadDetailsZ);
+
+/**
+ * @returns the fraction of the upload's time range, from 0 to 1, before which Sift has
+ * confirmed every sample.
+ */
+const progress = ({ timeRange, positions }: sift.UploadDetails): number => {
+  if (positions.length === 0) return 0;
+  const tr = new TimeRange(timeRange);
+  const reached = positions.reduce(
+    (min, p) => (p.time.before(min) ? p.time : min),
+    positions[0].time,
+  );
+  const done = new TimeRange(tr.start, reached).span.valueOf();
+  return bounds.clamp({ lower: 0, upper: 1 }, Number(done) / Number(tr.span.valueOf()));
+};
 
 const UploadListItem = (props: List.ItemProps<status.Key>) => {
   const upload = useUpload({ key: props.itemKey }).data;
@@ -42,7 +60,9 @@ const UploadListItem = (props: List.ItemProps<status.Key>) => {
           <Text.Text weight={450}>{details.asset}</Text.Text>
           <Text.Text color={9}>{message}</Text.Text>
           {pending && (
-            <Text.Text color={9}>{Math.floor(progress(details) * 100)}%</Text.Text>
+            <Text.Text color={9} className={CSS.BE("sift-uploads", "progress")}>
+              {Math.floor(progress(details) * 100)}%
+            </Text.Text>
           )}
         </Flex.Box>
         {description != null && description !== "" && (
@@ -53,8 +73,8 @@ const UploadListItem = (props: List.ItemProps<status.Key>) => {
       </Flex.Box>
       <Button.Button
         variant="text"
-        tooltip={pending ? "Cancel upload" : "Remove upload"}
-        aria-label={pending ? "Cancel upload" : "Remove upload"}
+        tooltip={pending ? "Cancel upload" : "Delete upload"}
+        aria-label={pending ? "Cancel upload" : "Delete upload"}
         onClick={() => del(upload.key)}
       >
         <Icon.Close />
@@ -73,14 +93,18 @@ export interface UploadsProps {
 
 /**
  * The Sift uploads of a range, with their progress, and an action that uploads the
- * range. It renders nothing until the range has an upload or a Sift device exists.
+ * range. It renders nothing until the range has an upload or a Sift device exists, or
+ * the uploads fail to list.
  */
 export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
   const devices = PDevice.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
   const open = useUploadModal();
-  const data = useUploadKeys(FLAGS.sift ? rangeKey : null);
-  if (!FLAGS.sift || (data.length === 0 && devices.length === 0)) return null;
+  const uploads = useUploadKeys(FLAGS.sift ? rangeKey : null);
+  const data = uploads.data ?? [];
+  const failed = uploads.variant === "error";
+  if (!FLAGS.sift || (!failed && data.length === 0 && devices.length === 0))
+    return null;
   return (
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>
@@ -99,11 +123,15 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      <List.Frame data={data}>
-        <List.Scroll>
-          <List.Items>{uploadListItem}</List.Items>
-        </List.Scroll>
-      </List.Frame>
+      {failed ? (
+        <Status.Summary status={uploads.status} />
+      ) : (
+        <List.Frame data={data}>
+          <List.Scroll>
+            <List.Items>{uploadListItem}</List.Items>
+          </List.Scroll>
+        </List.Frame>
+      )}
     </Flex.Box>
   );
 };
