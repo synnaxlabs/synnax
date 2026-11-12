@@ -17,9 +17,9 @@ pull requests from <pulls.json>, a list of objects with number and headRefOid. I
 reruns a run only when all of these are true:
 
 - The run failed on its first attempt, so a run is never rerun two times.
-- The run has an OK job, and no other job failed. A job failed when its conclusion is
-  failure or timed_out, or when it got a runner and then was cancelled, which is how a
-  job that reaches its timeout ends.
+- The run has an OK job, and no job other than OK and the job that wakes the shepherd
+  failed. A job failed when its conclusion is failure or timed_out, or when it got a
+  runner and then was cancelled, which is how a job that reaches its timeout ends.
 - The run is the newest CI run for the head of an open pull request.
 - The pull request is not in the merge queue.
 
@@ -38,6 +38,8 @@ from typing import Any
 
 WORKFLOW = "ci.yaml"
 GATE = "OK"
+# Jobs that run only after a check failed, so their failure is no failed check.
+NOT_CHECKS = (GATE, "Wake the shepherd")
 FAILED = ("failure", "timed_out")
 # A run can wait for runners for more than an hour before GitHub fails it.
 CREATED = timedelta(hours=6)
@@ -61,14 +63,14 @@ def _failed(job: dict[str, Any]) -> bool:
 
 
 def outage(run: Run, jobs: list[dict[str, Any]]) -> bool:
-    """Returns True if run failed on its first attempt, has an OK job, and no other
-    job failed."""
+    """Returns True if run failed on its first attempt, has an OK job, and no check
+    failed."""
     return (
         run["status"] == "completed"
         and run["conclusion"] == "failure"
         and run["run_attempt"] == 1
         and any(j["name"] == GATE for j in jobs)
-        and not any(j["name"] != GATE and _failed(j) for j in jobs)
+        and not any(j["name"] not in NOT_CHECKS and _failed(j) for j in jobs)
     )
 
 

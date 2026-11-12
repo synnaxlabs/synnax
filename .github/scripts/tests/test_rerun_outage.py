@@ -107,6 +107,10 @@ class TestOutage:
     def test_should_be_false_when_another_job_failed(self) -> None:
         assert not outage(REAL, REAL_JOBS)
 
+    def test_should_be_true_when_the_shepherd_job_failed(self) -> None:
+        shepherd = jobs(("Wake the shepherd", "failure"))
+        assert outage(OK_FAILED, [*OK_FAILED_JOBS, *shepherd])
+
     def test_should_be_false_when_another_job_timed_out(self) -> None:
         assert not outage(OK_FAILED, [*OK_FAILED_JOBS, *jobs(("knip", "timed_out"))])
 
