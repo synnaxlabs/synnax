@@ -407,7 +407,7 @@ var _ = Describe("Stored write configs", func() {
 				Not(HaveKey("data_type")),
 			))
 			Expect(field(targets[1])).To(SatisfyAll(
-				HaveKeyWithValue("type", "integer"),
+				HaveKeyWithValue("type", "string"),
 				HaveKeyWithValue("enum_values", HaveExactElements(SatisfyAll(
 					HaveKeyWithValue("label", "ON"),
 					HaveKeyWithValue("value", "1"),

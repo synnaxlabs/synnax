@@ -10,6 +10,8 @@
 package v2_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
@@ -57,9 +59,39 @@ var _ = Describe("Migrate", func() {
 				BaseChannelField: base(telem.Int16T),
 				EnumValues:       []payload.FloatEntry{},
 			}),
-		Entry("a string with entries as a float that keeps them",
+		Entry("a string with entries as a string with text entries",
 			v1.ChannelField{
 				JSONType:   payload.JSONTypeString,
+				DataType:   telem.Uint8T,
+				EnumValues: onOff,
+			},
+			v2.StringChannelField{
+				BaseChannelField: base(telem.Uint8T),
+				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
+					{Label: "ON", Value: "1"},
+				},
+			}),
+		Entry("each entry value as its decimal text",
+			v1.ChannelField{
+				JSONType: payload.JSONTypeString,
+				EnumValues: []payload.EnumEntry{
+					{Label: "HALF", Value: 0.5},
+					{Label: "BIG", Value: 1e21},
+					{Label: "HIGH", Value: math.Inf(1)},
+				},
+			},
+			v2.StringChannelField{
+				BaseChannelField: base(telem.Float64T),
+				EnumValues: []payload.StringEntry{
+					{Label: "HALF", Value: "0.5"},
+					{Label: "BIG", Value: "1000000000000000000000"},
+					{Label: "HIGH", Value: "+Inf"},
+				},
+			}),
+		Entry("a number with entries as a float that keeps them",
+			v1.ChannelField{
+				JSONType:   payload.JSONTypeNumber,
 				DataType:   telem.Uint8T,
 				EnumValues: onOff,
 			},
@@ -72,7 +104,10 @@ var _ = Describe("Migrate", func() {
 			}),
 		Entry("a string with no entries as a string",
 			v1.ChannelField{JSONType: payload.JSONTypeString, DataType: telem.Float32T},
-			v2.StringChannelField{BaseChannelField: base(telem.Float32T)}),
+			v2.StringChannelField{
+				BaseChannelField: base(telem.Float32T),
+				EnumValues:       []payload.StringEntry{},
+			}),
 		Entry("a boolean as a boolean",
 			v1.ChannelField{JSONType: payload.JSONTypeBoolean, DataType: telem.Uint8T},
 			v2.BooleanChannelField{BaseChannelField: base(telem.Uint8T)}),
@@ -151,22 +186,25 @@ var _ = Describe("Migrate", func() {
 			}),
 		Entry("a time format with no channel, ignored as v1 did",
 			v1.ChannelField{JSONType: payload.JSONTypeString, TimeFormat: &unixMs},
-			v2.StringChannelField{BaseChannelField: base(telem.Float64T)}),
-		Entry("a time format on a bound field with entries as a float",
+			v2.StringChannelField{
+				BaseChannelField: base(telem.Float64T),
+				EnumValues:       []payload.StringEntry{},
+			}),
+		Entry("a string with entries and a stale time format as a string",
 			v1.ChannelField{
 				Channel:    7,
 				JSONType:   payload.JSONTypeString,
 				TimeFormat: &unixMs,
 				EnumValues: onOff,
 			},
-			v2.FloatChannelField{
+			v2.StringChannelField{
 				Pointer:  "/v",
 				Channel:  7,
 				Name:     "cmd",
 				DataType: new(telem.Float64T),
-				EnumValues: []payload.FloatEntry{
-					{Label: "OFF", Value: 0},
-					{Label: "ON", Value: 1},
+				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
+					{Label: "ON", Value: "1"},
 				},
 			}),
 	)
