@@ -22,10 +22,12 @@ from reliability import (
     case_rows,
     ci_jobs,
     enumerate_tests,
+    hardware_suites,
     integration_sources,
     os_of,
     platform_skip,
     run_id_of,
+    shipped_changes,
     suite_jobs,
 )
 
@@ -290,6 +292,125 @@ class TestCaseRows:
         summary = {"tests": [tc("driver/ni", "NIRead", "PASSED")]}
         [row] = case_rows(summary, suite=0, runner_os="ubuntu", cases=Cases(CASES))
         assert row[2:4] == ["skipped", "Windows DAQmx drivers required"]
+
+
+HITL_JOB = {
+    "conclusion": "success",
+    "html_url": "https://github.com/synnaxlabs/synnax/actions/runs/2/job/3",
+}
+
+
+def summary(name: str, *tests: dict[str, Any]) -> dict[str, Any]:
+    return {"run": {"name": name}, "tests": list(tests)}
+
+
+class TestHardwareSuites:
+    """Suites and test rows read from the summaries of a hardware run."""
+
+    def test_should_make_a_hardware_suite_for_each_conductor_run(self) -> None:
+        suites, rows = hardware_suites(
+            [
+                summary("tc_hitl", tc("driver/ni", "NIRead", "PASSED")),
+                summary("tc_hitl_perf", tc("driver/ni", "NIMissing", "FAILED")),
+            ],
+            job=HITL_JOB,
+            cases=Cases(CASES),
+            first=7,
+        )
+        assert [(s["job"], s["count"]) for s in suites] == [
+            ("hitl", 1),
+            ("hitl-perf", 1),
+        ]
+        assert suites[0] == {
+            "job": "hitl",
+            "product": "driver",
+            "lang": "py",
+            "kind": "system",
+            "tags": ["e2e", "hardware"],
+            "os": "windows",
+            "conclusion": "success",
+            "url": HITL_JOB["html_url"],
+            "count": 1,
+        }
+        assert [(r[0], r[1], r[2]) for r in rows] == [
+            (7, "driver/ni › NIRead", "passed"),
+            (8, "driver/ni › NIMissing", "failed"),
+        ]
+
+    def test_should_keep_the_last_conductor_run_of_a_name(self) -> None:
+        suites, rows = hardware_suites(
+            [
+                summary("tc_hitl", tc("driver/ni", "NIRead", "FAILED")),
+                summary("tc_hitl", tc("driver/ni", "NIRead", "PASSED")),
+                summary("tc_hitl_perf"),
+            ],
+            job=HITL_JOB,
+            cases=Cases(CASES),
+            first=0,
+        )
+        assert len(suites) == 2
+        assert [r[2] for r in rows] == ["passed"]
+
+    def test_should_exit_when_a_conductor_run_has_no_summary(self) -> None:
+        with pytest.raises(
+            SystemExit, match=r"hardware run has no summary for \['tc_hitl'\]"
+        ):
+            hardware_suites(
+                [summary("tc_hitl_perf")], job=HITL_JOB, cases=Cases(CASES), first=0
+            )
+
+
+class TestShippedChanges:
+    """Shipped files that differ between two commits."""
+
+    def test_should_list_shipped_code_and_integration_tests_only(
+        self, tmp_path: Path
+    ) -> None:
+        git(tmp_path, "init", "-q", "-b", "main")
+
+        def commit(files: dict[str, str]) -> str:
+            for path, text in files.items():
+                (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+                (tmp_path / path).write_text(text)
+            git(tmp_path, "add", ".")
+            git(
+                tmp_path,
+                "-c",
+                "user.email=ci@synnaxlabs.com",
+                "-c",
+                "user.name=ci",
+                "commit",
+                "-q",
+                "-m",
+                "change",
+            )
+            return git(tmp_path, "rev-parse", "HEAD")
+
+        base = commit(
+            {
+                "core/a.go": "a",
+                "site/docs/a.md": "a",
+                "studio/a.ts": "a",
+                "vendor/open62541/a.c": "a",
+                "uv.lock": "a",
+            }
+        )
+        docs = commit({"site/docs/a.md": "b", "studio/a.ts": "b"})
+        assert shipped_changes(tmp_path, base=base, head=docs) == []
+        code = commit(
+            {
+                "core/a.go": "b",
+                "integration/tests/a.py": "b",
+                "vendor/open62541/a.c": "b",
+                "uv.lock": "b",
+            }
+        )
+        assert shipped_changes(tmp_path, base=base, head=code) == [
+            "core/a.go",
+            "integration/tests/a.py",
+            "uv.lock",
+            "vendor/open62541/a.c",
+        ]
 
 
 class TestRunIdOf:

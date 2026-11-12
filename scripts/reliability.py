@@ -119,6 +119,18 @@ TARGETS = {"console": "console", "driver": "driver", "arc": "arc"}
 HITL_JOB = "Test (synnax-server-1)"
 HITL_OS = "windows"
 HITL_ARTIFACT = "test-results-hitl"
+# The test conductor runs of the job, one per test tier.
+HITL_RUNS = {"tc_hitl", "tc_hitl_perf"}
+
+# Files outside the JOBS folders that shipped code builds with.
+SHIPPED_FILES = [
+    "integration",
+    "vendor",
+    "MODULE.bazel",
+    "MODULE.bazel.lock",
+    "pnpm-lock.yaml",
+    "uv.lock",
+]
 
 # language -> (pathspec globs, declaration pattern). The first group is the name.
 LANGS = {
@@ -505,47 +517,33 @@ def case_rows(
     return rows
 
 
-def hardware(
-    url: str, *, sha: str, cases: Cases, first: int
-) -> tuple[dict[str, Any], list[dict[str, Any]], list[list[Any]]]:
-    """Reads a Test - HITL run. Returns the run, a suite for each test conductor run in
-    it, and their test rows, which index the suites from first. Exits if the run tested
-    shipped code or integration tests that differ from sha's."""
-    rid = run_id_of(url)
-    run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
-    subprocess.run(
-        ["git", "fetch", "-q", "origin", run["head_sha"]], cwd=ROOT, check=True
-    )
+def shipped_changes(root: Path, *, base: str, head: str) -> list[str]:
+    """Lists the files of shipped code, its dependencies, and integration tests that
+    differ between two commits. Toolchain folders and the docs do not count."""
     shipped = [d for p, _, dirs in JOBS.values() if p != "toolchain" for d in dirs]
-    changed = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--name-only",
-            sha,
-            run["head_sha"],
-            "--",
-            *shipped,
-            "integration",
-        ],
-        cwd=ROOT,
+    return subprocess.run(
+        ["git", "diff", "--name-only", base, head, "--", *shipped, *SHIPPED_FILES],
+        cwd=root,
         check=True,
         capture_output=True,
         text=True,
     ).stdout.split()
-    if changed:
-        sys.exit(f"run {rid} tested other code than {sha}: {changed}")
-    (job,) = [j for j in run_jobs(rid) if j["name"] == HITL_JOB]
-    summaries: dict[str, dict[str, Any]] = {}
-    with tempfile.TemporaryDirectory() as tmp:
-        gh("run", "download", rid, "-R", REPO, "-n", HITL_ARTIFACT, "-D", tmp)
-        # A later conductor run of the same name, as in run-<time>-tc_hitl, wins.
-        for path in sorted(Path(tmp).glob("run-*/summary.json")):
-            summary = json.loads(path.read_text())
-            summaries[summary["run"]["name"]] = summary
+
+
+def hardware_suites(
+    summaries: list[dict[str, Any]], *, job: dict[str, Any], cases: Cases, first: int
+) -> tuple[list[dict[str, Any]], list[list[Any]]]:
+    """Returns a suite for each test conductor run of a hardware run, and their test
+    rows, which index the suites from first. Of runs with the same name, as in
+    run-<time>-tc_hitl, the last one in summaries wins. Exits if a run of HITL_RUNS has
+    no summary, as when a timeout or a cancel stopped it."""
+    latest = {summary["run"]["name"]: summary for summary in summaries}
+    missing = HITL_RUNS - set(latest)
+    if missing:
+        sys.exit(f"hardware run has no summary for {sorted(missing)}")
     suites = []
     rows = []
-    for name, summary in summaries.items():
+    for name, summary in latest.items():
         suites.append(
             {
                 "job": name.removeprefix("tc_").replace("_", "-"),
@@ -562,10 +560,34 @@ def hardware(
         rows += case_rows(
             summary, suite=first + len(suites) - 1, runner_os=HITL_OS, cases=cases
         )
+    return suites, rows
+
+
+def hardware(
+    url: str, *, sha: str, cases: Cases, first: int
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[list[Any]]]:
+    """Reads a Test - HITL run. Returns the run, a suite for each test conductor run in
+    it, and their test rows, which index the suites from first. Exits if the run tested
+    shipped code or integration tests that differ from sha's."""
+    rid = run_id_of(url)
+    run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
+    head = run["head_sha"]
+    subprocess.run(["git", "fetch", "-q", "origin", head], cwd=ROOT, check=True)
+    changed = shipped_changes(ROOT, base=sha, head=head)
+    if changed:
+        sys.exit(f"run {rid} tested other code than {sha}: {changed}")
+    (job,) = [j for j in run_jobs(rid) if j["name"] == HITL_JOB]
+    with tempfile.TemporaryDirectory() as tmp:
+        gh("run", "download", rid, "-R", REPO, "-n", HITL_ARTIFACT, "-D", tmp)
+        summaries = [
+            json.loads(path.read_text())
+            for path in sorted(Path(tmp).glob("run-*/summary.json"))
+        ]
+    suites, rows = hardware_suites(summaries, job=job, cases=cases, first=first)
     info = {
         "id": int(rid),
         "url": run["html_url"],
-        "sha": run["head_sha"],
+        "sha": head,
         "started_at": job["started_at"],
         "ended_at": job["completed_at"],
     }
