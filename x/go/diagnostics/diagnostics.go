@@ -13,6 +13,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -76,6 +77,8 @@ type Diagnostic struct {
 	// Fixes each resolve the diagnostic on their own.
 	Fixes []Fix `json:"fixes"`
 	cause error
+	// hinted is set when the first note is the hint of cause.
+	hinted bool
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.
@@ -118,6 +121,7 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 				d.Notes,
 				protocol.DiagnosticRelatedInformation{Message: hint},
 			)
+			d.hinted = true
 		}
 	}
 	return d
@@ -176,6 +180,9 @@ func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnos
 	)}
 	if at.Range != d.Range {
 		note.Location.Range = at.Range
+	}
+	if d.hinted {
+		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
 	}
 	d.Notes = append(d.Notes, note)
 	return d.WithEdits(

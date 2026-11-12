@@ -143,8 +143,11 @@ func checkArgType[T antlr.ParserRuleContext](
 	}
 	if err := atypes.Check(ctx.Constraints, param.Type, argType, arg.AST,
 		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
-		ctx.Diagnostics.Add(codes.FuncArgType.Wrap(err, arg.AST).
-			WithNote("signature: " + signature))
+		d := codes.FuncArgType.Wrap(err, arg.AST)
+		if cast, ok := atypes.CastOf(err); ok {
+			d = d.WithFix(arg.Expr, cast+"("+parser.GetExpressionText(arg.Expr)+")")
+		}
+		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
 	}
 }
 

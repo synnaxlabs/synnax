@@ -349,7 +349,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 // one of the operands the compiler runs, the first two of a chain. Such a comparison
 // always has the same result. The error names the constant as the code wrote it, and
 // the module's is_nan when the module has one.
-func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+func checkNaNComparison[T, O antlr.ParserRuleContext](
 	ctx context.Context[T],
 	operands []O,
 	op string,
@@ -357,25 +357,27 @@ func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
 	if len(operands) < 2 {
 		return
 	}
-	for _, operand := range operands[:2] {
+	for i, operand := range operands[:2] {
 		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
 			continue
 		}
 		primary, _ := parser.SoleOperand(operand)
 		qid := primary.QualifiedIdentifier()
 		head, _ := parser.QualifiedNameParts(qid)
-		check := "is_nan from the math module"
+		check, imported := "is_nan from the math module", false
 		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
 			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
-				check = head + ".is_nan"
+				check, imported = head+".is_nan", true
 			}
 		}
 		if op == "!=" {
 			check = "not " + check
 		}
-		ctx.Diagnostics.Add(
-			codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check),
-		)
+		d := codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check)
+		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
+			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
+		}
+		ctx.Diagnostics.Add(d)
 		return
 	}
 }
@@ -894,11 +896,15 @@ func TruthyCondition(
 	}
 	fix, known := literalTruth(expr)
 	if !known {
-		start, stop := condition.GetStart(), condition.GetStop()
-		fix = start.GetInputStream().GetText(start.GetStart(), stop.GetStop()) +
-			" != " + zero
+		fix = sourceText(condition) + " != " + zero
 	}
 	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+}
+
+// sourceText returns the source code of node.
+func sourceText(node antlr.ParserRuleContext) string {
+	start, stop := node.GetStart(), node.GetStop()
+	return start.GetInputStream().GetText(start.GetStart(), stop.GetStop())
 }
 
 // literalTruth returns the bool that the literal expr always is, when it is known.

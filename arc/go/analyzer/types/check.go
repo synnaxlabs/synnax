@@ -23,6 +23,8 @@ import (
 type typeMismatchError struct {
 	Message string
 	Hint    string
+	// Cast is the type that the hint says to cast the value to, if any.
+	Cast string
 }
 
 func (e *typeMismatchError) Error() string { return e.Message }
@@ -112,12 +114,21 @@ func newTypeMismatchError(
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
-	var hint string
+	var hint, cast string
 	if expected.IsNumeric() && actual.IsNumeric() {
-		hintType := concreteTypeForHint(expected)
-		hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		cast = concreteTypeForHint(expected)
+		hint = fmt.Sprintf("hint: use %s(value) to convert", cast)
 	}
-	return &typeMismatchError{Message: msg, Hint: hint}
+	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
+}
+
+// CastOf returns the type that a cast of the value fixes err with, if there is one.
+func CastOf(err error) (string, bool) {
+	var mismatch *typeMismatchError
+	if !errors.As(err, &mismatch) || mismatch.Cast == "" {
+		return "", false
+	}
+	return mismatch.Cast, true
 }
 
 // concreteTypeForHint returns a concrete type name for use in error hints. Converts

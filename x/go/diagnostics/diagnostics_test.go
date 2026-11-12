@@ -900,6 +900,15 @@ var _ = Describe("Diagnostics", func() {
 				}}))
 			})
 
+			It("Should take the place of the hint from the error", func() {
+				ctx := ruleCtxAt(first, last)
+				d := diagnostics.Error(hintedError{msg: "m", hint: "use f64(value)"}, ctx).
+					WithFix(ctx, "f64(x + 1)")
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
+					{Message: "hint: change `x + 1` to `f64(x + 1)`"},
+				}))
+			})
+
 			It("Should keep each fix", func() {
 				ctx := ruleCtxAt(first, last)
 				d := diagnostics.Warningf(ctx, "numeric").

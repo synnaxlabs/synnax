@@ -2191,6 +2191,28 @@ var _ = Describe("Expressions", func() {
 			Entry("not on v != v", "v != v", ""),
 		)
 
+		DescribeTable("Should give the check to write as the fix",
+			func(ctx SpecContext, expr, fix string) {
+				ast := MustSucceed(parser.Parse(body("a := " + expr)))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				d := (*aCtx.Diagnostics)[0]
+				if fix == "" {
+					Expect(d.Fixes).To(BeEmpty())
+					return
+				}
+				Expect(d.Fixes).To(HaveLen(1))
+				Expect(d.Fixes[0].Edits).To(HaveLen(1))
+				Expect(d.Fixes[0].Edits[0].NewText).To(Equal(fix))
+			},
+			Entry("==", "v == math.nan", "math.is_nan(v)"),
+			Entry("!=", "v != math.nan", "not math.is_nan(v)"),
+			Entry("the constant on the left", "math.nan == w", "math.is_nan(w)"),
+			Entry("a calculation", "v + 1.0 == math.nan", "math.is_nan(v + 1.0)"),
+			Entry("no fix for an ordered comparison", "v < math.nan", ""),
+		)
+
 		DescribeTable("Should name the module the code wrote",
 			func(ctx SpecContext, source, message string) {
 				custom := symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
