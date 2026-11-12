@@ -21,7 +21,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
+import { deep, narrow, primitive } from "@synnaxlabs/x";
 import { type FC, useRef } from "react";
 import { type z } from "zod";
 
@@ -59,6 +59,28 @@ export interface FormTabProps {
 }
 
 export interface Forms extends Record<string, FC<FormTabProps>> {}
+
+// Puts each class instance of original, such as a DataType, back in copy, where
+// structuredClone made it a plain object.
+const keepInstances = (original: unknown, copy: unknown): void => {
+  const keep = (v: unknown, set: (v: unknown) => void, next: unknown): void => {
+    if (narrow.isObject(v) && !narrow.isPlainObject(v)) set(v);
+    else keepInstances(v, next);
+  };
+  if (Array.isArray(original) && Array.isArray(copy))
+    original.forEach((v, i) => keep(v, (c) => (copy[i] = c), copy[i]));
+  else if (narrow.isPlainObject(original) && narrow.isPlainObject(copy))
+    Object.entries(original).forEach(([k, v]) => {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+      keep(v, (c) => (copy[k] = c), copy[k]);
+    });
+};
+
+const copyConfig = <T,>(config: T): T => {
+  const copy = deep.copy(config);
+  keepInstances(config, copy);
+  return copy;
+};
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
@@ -149,7 +171,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           // The form's values are the cached task, and onConfigure changes its config.
           const [newConfig, newRack] = await onConfigure(
             client,
-            deep.copy(config),
+            copyConfig(config),
             name,
           );
           // Another client can edit the task while onConfigure runs, so only the

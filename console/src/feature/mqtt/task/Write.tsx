@@ -258,7 +258,11 @@ const createTarget = (topic: string, field?: ReadField): PlainWriteTarget => {
   const channel =
     field == null
       ? { type: "float", dataType: DEFAULT_DATA_TYPE }
-      : { type: kindOf(field), pointer: field.pointer, dataType: field.dataType };
+      : {
+          type: kindOf(field),
+          pointer: field.pointer,
+          dataType: Task.Payload.dataTypeOf(field),
+        };
   return { ...target, channel: mqtt.channelFieldZ.parse(channel) };
 };
 

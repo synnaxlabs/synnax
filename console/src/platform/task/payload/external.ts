@@ -14,4 +14,5 @@ export * from "@/platform/task/payload/DataTypeField";
 export * from "@/platform/task/payload/EnumMappingSection";
 export * from "@/platform/task/payload/kinds";
 export * from "@/platform/task/payload/kind";
+export * from "@/platform/task/payload/read";
 export * from "@/platform/task/payload/TimeFormatField";

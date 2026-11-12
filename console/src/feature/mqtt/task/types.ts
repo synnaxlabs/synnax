@@ -57,7 +57,31 @@ const validateEnabled =
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends mqtt.ReadField {}
+export type ReadField = mqtt.ReadField;
+
+/** @returns the fields that every kind of read field shares. */
+export const readBaseOf = ({
+  key,
+  name,
+  disabled,
+  channel,
+  pointer,
+}: ReadField): mqtt.BaseReadField => ({ key, name, disabled, channel, pointer });
+
+/** @returns a read field of base with the kind and the options. */
+export const createReadField = (
+  options: Task.Payload.ReadOptions,
+  base: Partial<mqtt.BaseReadField> = {},
+): ReadField => mqtt.readFieldZ.parse({ ...base, ...options });
+
+/**
+ * @returns field with the kind that a channel of the given data type takes. A field of
+ * that kind comes back as it is.
+ */
+export const matchDataType = (field: ReadField, dataType: string): ReadField =>
+  payload.kindOf(dataType) === field.type
+    ? field
+    : createReadField(Task.Payload.readOptionsOf(dataType, field), readBaseOf(field));
 
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
@@ -65,30 +89,49 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
+const enumLabelsOf = (field: ReadField): string[] => {
+  switch (field.type) {
+    case "float":
+    case "integer":
+    case "unsigned":
+    case "string":
+    case "boolean":
+      return field.enumValues.map(({ label }) => label);
+    default:
+      return [];
+  }
+};
+
+const validateReadField = (ctx: z.core.ParsePayload<ReadField>) => {
+  const { value } = ctx;
+  const pointer = json.pointerZ.safeParse(value.pointer);
+  if (!pointer.success)
+    for (const { message } of pointer.error.issues)
+      ctx.issues.push({ code: "custom", input: value, message, path: ["pointer"] });
   const seen = new Set<string>();
-  ctx.value.forEach(({ label }, i) => {
-    if (seen.has(label))
+  enumLabelsOf(value).forEach((label, i) => {
+    if (label === "" && value.type !== "string")
       ctx.issues.push({
         code: "custom",
-        input: ctx.value,
+        input: value,
+        message: "Enum label cannot be empty",
+        path: ["enumValues", i, "label"],
+      });
+    else if (seen.has(label))
+      ctx.issues.push({
+        code: "custom",
+        input: value,
         message: `Duplicate enum label "${label}"`,
-        path: [i, "label"],
+        path: ["enumValues", i, "label"],
       });
     else seen.add(label);
   });
 };
 
-const deployReadFieldZ = mqtt.readFieldZ.extend({
-  pointer: json.pointerZ,
-  enumValues: payload.enumEntryZ
-    .array()
-    .check(validateEnumLabels)
-    .default(() => []),
-});
+const deployReadFieldZ = mqtt.readFieldZ.check(validateReadField);
 
 const isVariable = (field: ReadField): boolean =>
-  new DataType(field.dataType).isVariable;
+  new DataType(Task.Payload.dataTypeOf(field)).isVariable;
 
 const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
   const { value } = ctx;
@@ -104,7 +147,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
         input: value,
         message:
           "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-        path: ["fields", i, "dataType"],
+        path: ["fields", i, "type"],
       });
     if (pointers.has(field.pointer))
       ctx.issues.push({
@@ -114,14 +157,12 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
         path: ["fields", i, "pointer"],
       });
     else pointers.add(field.pointer);
-    const isTimestamp =
-      field.key === value.index || DataType.TIMESTAMP.equals(field.dataType);
-    if (isTimestamp && field.timeFormat == null)
+    if (field.key === value.index && field.type !== "timestamp")
       ctx.issues.push({
         code: "custom",
         input: value,
-        message: "A timestamp field requires a time format",
-        path: ["fields", i, "timeFormat"],
+        message: "The index field must read a timestamp",
+        path: ["fields", i, "type"],
       });
   });
 };

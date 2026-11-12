@@ -30,11 +30,17 @@ func autoMigrateEdgeConfig(_ context.Context, old v1.EdgeConfig) (EdgeConfig, er
 	}, nil
 }
 
-func autoMigrateReadConfig(_ context.Context, old v1.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
+	entries, err := lo.MapErr(old.Entries, func(v v1.ReadEntry, _ int) (ReadEntry, error) {
+		return autoMigrateReadEntry(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		PersistConfig: old.PersistConfig,
 		Device:        old.Device,
-		Entries:       old.Entries,
+		Entries:       entries,
 	}, nil
 }
 
@@ -50,6 +56,34 @@ func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfi
 		Device:      old.Device,
 		Targets:     targets,
 	}, nil
+}
+
+func autoMigrateReadEntry(_ context.Context, old v1.ReadEntry) (ReadEntry, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return ReadEntry{}, nil
+	case v1.PlainReadEntry:
+		return ReadEntry{Variant: PlainReadEntry{
+			BaseReadEntry:   variant.BaseReadEntry,
+			Topic:           variant.Topic,
+			Qos:             variant.Qos,
+			RetainedIgnored: variant.RetainedIgnored,
+			Index:           variant.Index,
+		}}, nil
+	case v1.SparkplugReadEntry:
+		return ReadEntry{Variant: SparkplugReadEntry{
+			BaseReadEntry: variant.BaseReadEntry,
+			Group:         variant.Group,
+			EdgeNode:      variant.EdgeNode,
+			Device:        variant.Device,
+			Tag:           variant.Tag,
+			Channel:       variant.Channel,
+			Name:          variant.Name,
+			DataType:      variant.DataType,
+		}}, nil
+	default:
+		return ReadEntry{}, errors.Newf("unknown ReadEntry variant %T", variant)
+	}
 }
 
 func autoMigrateWriteTarget(_ context.Context, old v1.WriteTarget) (WriteTarget, error) {

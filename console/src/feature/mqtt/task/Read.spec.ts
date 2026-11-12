@@ -9,12 +9,14 @@
 
 import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { payload } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
+import { Task } from "@/platform/task";
 import {
   clickDeploy,
   deployAndAwaitTask,
@@ -28,13 +30,15 @@ const client = createTestClient();
 const createReadField = (
   key: string,
   pointer: string,
-  overrides: Partial<MQTT.Task.ReadField> = {},
-): MQTT.Task.ReadField => ({
-  ...mqtt.readFieldZ.parse({}),
-  key,
-  pointer,
-  ...overrides,
-});
+  { dataType = "float64", ...overrides }: Record<string, unknown> = {},
+): MQTT.Task.ReadField =>
+  mqtt.readFieldZ.parse({
+    type: payload.kindOf(String(dataType)),
+    dataType,
+    key,
+    pointer,
+    ...overrides,
+  });
 
 const createReadEntry = (
   key: string,
@@ -160,6 +164,32 @@ describe("MQTT Read form", () => {
     expect(screen.getByText("Enum mapping")).toBeTruthy();
   });
 
+  it("should set the kind of a field from its data type", async () => {
+    const { draft } = await renderRead([
+      createReadEntry("e1", "plant/oven", {
+        fields: [createReadField("f1", "/state")],
+      }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/state/ }));
+    await selectFromDropdown("float64", "uint8");
+    await waitFor(async () => {
+      const [entry] = await retrieveEntries(draft.key);
+      if (entry.type !== "plain") throw new Error("expected a plain entry");
+      expect(entry.fields[0]).toMatchObject({ type: "unsigned", key: "f1" });
+      expect(Task.Payload.dataTypeOf(entry.fields[0])).toBe("uint8");
+    });
+    await selectFromDropdown("uint8", "Timestamp");
+    await screen.findByText("Format");
+    await waitFor(async () => {
+      const [entry] = await retrieveEntries(draft.key);
+      if (entry.type !== "plain") throw new Error("expected a plain entry");
+      expect(entry.fields[0]).toMatchObject({
+        type: "timestamp",
+        timeFormat: "iso8601",
+      });
+    });
+  });
+
   it("should name a new field's channel after the broker, topic, and pointer", async () => {
     const { dev } = await renderRead([createReadEntry("e1", "plant/oven")]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
@@ -273,7 +303,7 @@ describe("MQTT Read form", () => {
           {
             type: "plain",
             topic: TOPIC,
-            fields: [{ pointer: "/temperature", dataType: "float64", disabled: false }],
+            fields: [{ pointer: "/temperature", type: "float", disabled: false }],
           },
         ]),
       );
@@ -287,8 +317,8 @@ describe("MQTT Read form", () => {
           {
             topic: TOPIC,
             fields: [
-              { pointer: "/temperature", dataType: "float64" },
-              { pointer: "/label", dataType: "string", disabled: false },
+              { pointer: "/temperature", type: "float" },
+              { pointer: "/label", type: "string", disabled: false },
             ],
           },
         ]),
@@ -347,7 +377,10 @@ describe("MQTT Read form", () => {
             ? [
                 [
                   e.topic,
-                  e.fields.map(({ pointer, dataType }) => ({ pointer, dataType })),
+                  e.fields.map((f) => ({
+                    pointer: f.pointer,
+                    dataType: Task.Payload.dataTypeOf(f),
+                  })),
                 ],
               ]
             : [],
@@ -638,7 +671,10 @@ describe("MQTT Read form", () => {
             index: "t1",
             fields: [
               createReadField("f1", "/temp"),
-              createReadField("t1", "/ts", { timeFormat: "unix_sec" }),
+              createReadField("t1", "/ts", {
+                dataType: "timestamp",
+                timeFormat: "unix_sec",
+              }),
             ],
           }),
           createReadEntry("e2", "plant/line", {
@@ -1025,6 +1061,31 @@ describe("MQTT Read form", () => {
       const virtualCh = await client.channels.retrieve(topicProps.channels[""]);
       expect(virtualCh.virtual).toBe(true);
       expect(virtualCh.name).toBe(`${dev.name}_plant_mode`);
+    });
+
+    it("should give a field the kind of the channel it binds to", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("mqtt_state"),
+        dataType: "int32",
+        virtual: true,
+      });
+      const dev = await createBroker(client, {
+        properties: { read: { "plant/state": { index: 0, channels: { "": ch.key } } } },
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          createReadEntry("e1", "plant/state", {
+            fields: [createReadField("f1", "")],
+          }),
+        ]),
+      );
+      await renderTaskFormTab(MQTT.Task.Read, { client, taskKey: draft.key });
+      await waitFor(async () => {
+        const [entry] = await retrieveEntries(draft.key);
+        if (entry.type !== "plain") throw new Error("expected a plain entry");
+        expect(entry.fields[0]).toMatchObject({ type: "integer", channel: ch.key });
+      });
     });
 
     it("should keep the case of a topic and a pointer in the device properties", async () => {

@@ -38,33 +38,6 @@ export const QO_S = ["at_most_once", "at_least_once", "exactly_once"] as const;
 export const qoSZ = z.enum(QO_S);
 export type QoS = z.infer<typeof qoSZ>;
 
-/** ReadField is a single value extracted from the JSON payload of a topic. */
-export const readFieldZ = z.object({
-  /** key uniquely identifies the field within the entry. */
-  key: z.string().default(id.create),
-  /** name is the human-readable field name. */
-  name: z.string().default(""),
-  /** disabled is true when the field is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /** channel is the Synnax channel the extracted value is written to. */
-  channel: channel.keyZ.default(0),
-  /**
-   * pointer is the JSON Pointer to the value within the payload. An empty pointer takes
-   * the whole payload.
-   */
-  pointer: z.string().default(""),
-  /** dataType is the data type of the extracted value. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the encoding of the JSON value when the target channel holds
-   * timestamps. Required for timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /** enumValues maps string labels in the payload to numeric channel values. */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ReadField extends z.infer<typeof readFieldZ> {}
-
 /** BaseReadEntry carries the fields every read entry shares. */
 export const baseReadEntryZ = z.object({
   /** key uniquely identifies the entry within the task. */
@@ -137,68 +110,23 @@ export const edgeTagZ = z.object({
 });
 export interface EdgeTag extends z.infer<typeof edgeTagZ> {}
 
-/** PlainReadEntry reads JSON payloads from one topic. */
-export const plainReadEntryZ = baseReadEntryZ.extend({
-  type: z.literal("plain"),
-  /** topic is the topic to subscribe to. It holds no wildcards. */
-  topic: z.string().default(""),
-  /** qos is the quality of service of the subscription. */
-  qos: qoSZ.default("at_most_once"),
-  /**
-   * retainedIgnored is true when the task drops the retained message that the broker
-   * sends on subscribe.
-   */
-  retainedIgnored: z.boolean().default(false),
-  /** fields contains the values to extract from each payload. */
-  fields: readFieldZ.array().default(() => []),
-  /**
-   * index is the key of the field whose channel indexes the others. Empty when the task
-   * stamps samples on arrival.
-   */
-  index: z.string().default(""),
-});
-export interface PlainReadEntry extends z.infer<typeof plainReadEntryZ> {}
-
-/** SparkplugReadEntry reads one Sparkplug B tag. */
-export const sparkplugReadEntryZ = baseReadEntryZ.extend({
-  type: z.literal("sparkplug"),
-  /** group is the Sparkplug group ID of the edge node. */
-  group: z.string().default(""),
-  /** edgeNode is the Sparkplug edge node ID. */
-  edgeNode: z.string().default(""),
-  /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
-  device: z.string().default(""),
-  /** tag is the name of the tag. */
-  tag: z.string().default(""),
-  /** channel is the Synnax channel the tag value is written to. */
-  channel: channel.keyZ.default(0),
-  /** name is the human-readable name of the channel. */
+/** BaseReadField carries the fields every read field shares. */
+export const baseReadFieldZ = z.object({
+  /** key uniquely identifies the field within the entry. */
+  key: z.string().default(id.create),
+  /** name is the human-readable field name. */
   name: z.string().default(""),
-  /** dataType is the data type of the channel. */
-  dataType: z.string().default("float64"),
+  /** disabled is true when the field is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /** channel is the Synnax channel the extracted value is written to. */
+  channel: channel.keyZ.default(0),
+  /**
+   * pointer is the JSON Pointer to the value within the payload. An empty pointer takes
+   * the whole payload.
+   */
+  pointer: z.string().default(""),
 });
-export interface SparkplugReadEntry extends z.infer<typeof sparkplugReadEntryZ> {}
-
-export const READ_ENTRY_TYPES = ["plain", "sparkplug"] as const;
-export const readEntryTypeZ = z.enum(READ_ENTRY_TYPES);
-export type ReadEntryType = z.infer<typeof readEntryTypeZ>;
-
-/**
- * ReadEntry is a single source of an MQTT read task. The type field selects a plain
- * topic with a JSON payload or a Sparkplug B tag.
- */
-export const readEntryZ = z.discriminatedUnion("type", [
-  plainReadEntryZ,
-  sparkplugReadEntryZ,
-]);
-export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
-
-export const READ_ENTRY_SCHEMAS: {
-  [K in ReadEntryType]: z.ZodType<Extract<ReadEntry, { type: K }>>;
-} = {
-  plain: plainReadEntryZ,
-  sparkplug: sparkplugReadEntryZ,
-};
+export interface BaseReadField extends z.infer<typeof baseReadFieldZ> {}
 
 /** FloatChannelField writes each sample as a JSON number. */
 export const floatChannelFieldZ = baseChannelFieldZ.extend({
@@ -359,11 +287,109 @@ export const edgeConfigZ = task.startConfigZ.extend({
 });
 export interface EdgeConfig extends z.infer<typeof edgeConfigZ> {}
 
-export const readConfigZ = task.persistConfigZ.extend({
-  device: device.keyZ.default(""),
-  entries: readEntryZ.array().default(() => []),
+/** FloatReadField reads a float. */
+export const floatReadFieldZ = baseReadFieldZ.extend(payload.floatReadZ.shape).extend({
+  type: z.literal("float"),
 });
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+export interface FloatReadField extends z.infer<typeof floatReadFieldZ> {}
+
+/** IntegerReadField reads a signed integer. */
+export const integerReadFieldZ = baseReadFieldZ
+  .extend(payload.integerReadZ.shape)
+  .extend({
+    type: z.literal("integer"),
+  });
+export interface IntegerReadField extends z.infer<typeof integerReadFieldZ> {}
+
+/** UnsignedReadField reads an unsigned integer. */
+export const unsignedReadFieldZ = baseReadFieldZ
+  .extend(payload.unsignedReadZ.shape)
+  .extend({
+    type: z.literal("unsigned"),
+  });
+export interface UnsignedReadField extends z.infer<typeof unsignedReadFieldZ> {}
+
+/** StringReadField reads a string. */
+export const stringReadFieldZ = baseReadFieldZ
+  .extend(payload.stringReadZ.shape)
+  .extend({
+    type: z.literal("string"),
+  });
+export interface StringReadField extends z.infer<typeof stringReadFieldZ> {}
+
+/** BooleanReadField reads a boolean. */
+export const booleanReadFieldZ = baseReadFieldZ
+  .extend(payload.booleanReadZ.shape)
+  .extend({
+    type: z.literal("boolean"),
+  });
+export interface BooleanReadField extends z.infer<typeof booleanReadFieldZ> {}
+
+/** TimestampReadField reads a timestamp. */
+export const timestampReadFieldZ = baseReadFieldZ
+  .extend(payload.timestampReadZ.shape)
+  .extend({
+    type: z.literal("timestamp"),
+  });
+export interface TimestampReadField extends z.infer<typeof timestampReadFieldZ> {}
+
+/** JsonReadField reads any JSON value. */
+export const jsonReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("json"),
+});
+export interface JsonReadField extends z.infer<typeof jsonReadFieldZ> {}
+
+/** UuidReadField reads a UUID string. */
+export const uuidReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidReadField extends z.infer<typeof uuidReadFieldZ> {}
+
+/** BytesReadField reads base64 text. */
+export const bytesReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("bytes"),
+});
+export interface BytesReadField extends z.infer<typeof bytesReadFieldZ> {}
+
+/**
+ * ReadField is a single value extracted from the JSON payload of a topic. The type
+ * field is the kind of the value, which matches the data type of the channel.
+ */
+export const readFieldZ = z.discriminatedUnion("type", [
+  floatReadFieldZ,
+  integerReadFieldZ,
+  unsignedReadFieldZ,
+  stringReadFieldZ,
+  booleanReadFieldZ,
+  timestampReadFieldZ,
+  jsonReadFieldZ,
+  uuidReadFieldZ,
+  bytesReadFieldZ,
+]);
+export type ReadField =
+  | FloatReadField
+  | IntegerReadField
+  | UnsignedReadField
+  | StringReadField
+  | BooleanReadField
+  | TimestampReadField
+  | JsonReadField
+  | UuidReadField
+  | BytesReadField;
+
+export const READ_FIELD_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<ReadField, { type: K }>>;
+} = {
+  float: floatReadFieldZ,
+  integer: integerReadFieldZ,
+  unsigned: unsignedReadFieldZ,
+  string: stringReadFieldZ,
+  boolean: booleanReadFieldZ,
+  timestamp: timestampReadFieldZ,
+  json: jsonReadFieldZ,
+  uuid: uuidReadFieldZ,
+  bytes: bytesReadFieldZ,
+};
 
 /** PlainWriteTarget publishes a JSON payload to one topic. */
 export const plainWriteTargetZ = baseWriteTargetZ.extend({
@@ -422,8 +448,77 @@ export const WRITE_TARGET_SCHEMAS: {
   sparkplug: sparkplugWriteTargetZ,
 };
 
+/** PlainReadEntry reads JSON payloads from one topic. */
+export const plainReadEntryZ = baseReadEntryZ.extend({
+  type: z.literal("plain"),
+  /** topic is the topic to subscribe to. It holds no wildcards. */
+  topic: z.string().default(""),
+  /** qos is the quality of service of the subscription. */
+  qos: qoSZ.default("at_most_once"),
+  /**
+   * retainedIgnored is true when the task drops the retained message that the broker
+   * sends on subscribe.
+   */
+  retainedIgnored: z.boolean().default(false),
+  /** fields contains the values to extract from each payload. */
+  fields: readFieldZ.array().default(() => []),
+  /**
+   * index is the key of the field whose channel indexes the others. Empty when the task
+   * stamps samples on arrival.
+   */
+  index: z.string().default(""),
+});
+export interface PlainReadEntry extends z.infer<typeof plainReadEntryZ> {}
+
+/** SparkplugReadEntry reads one Sparkplug B tag. */
+export const sparkplugReadEntryZ = baseReadEntryZ.extend({
+  type: z.literal("sparkplug"),
+  /** group is the Sparkplug group ID of the edge node. */
+  group: z.string().default(""),
+  /** edgeNode is the Sparkplug edge node ID. */
+  edgeNode: z.string().default(""),
+  /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
+  device: z.string().default(""),
+  /** tag is the name of the tag. */
+  tag: z.string().default(""),
+  /** channel is the Synnax channel the tag value is written to. */
+  channel: channel.keyZ.default(0),
+  /** name is the human-readable name of the channel. */
+  name: z.string().default(""),
+  /** dataType is the data type of the channel. */
+  dataType: z.string().default("float64"),
+});
+export interface SparkplugReadEntry extends z.infer<typeof sparkplugReadEntryZ> {}
+
+export const READ_ENTRY_TYPES = ["plain", "sparkplug"] as const;
+export const readEntryTypeZ = z.enum(READ_ENTRY_TYPES);
+export type ReadEntryType = z.infer<typeof readEntryTypeZ>;
+
+/**
+ * ReadEntry is a single source of an MQTT read task. The type field selects a plain
+ * topic with a JSON payload or a Sparkplug B tag.
+ */
+export const readEntryZ = z.discriminatedUnion("type", [
+  plainReadEntryZ,
+  sparkplugReadEntryZ,
+]);
+export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
+
+export const READ_ENTRY_SCHEMAS: {
+  [K in ReadEntryType]: z.ZodType<Extract<ReadEntry, { type: K }>>;
+} = {
+  plain: plainReadEntryZ,
+  sparkplug: sparkplugReadEntryZ,
+};
+
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),
   targets: writeTargetZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+export const readConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  entries: readEntryZ.array().default(() => []),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}

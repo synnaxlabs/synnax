@@ -44,7 +44,11 @@ func decodeReadConfig(
 		if err != nil {
 			return ReadConfig{}, err
 		}
-		return t1, nil
+		t2, err := v2.MigrateReadConfig(ctx, t1)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t2, nil
 	case v2.Version:
 		return imex.DecodeBlob[ReadConfig](data, "mqtt.ReadConfig", version)
 	}

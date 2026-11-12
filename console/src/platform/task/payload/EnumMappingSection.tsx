@@ -70,3 +70,30 @@ export const EnumMappingSection = ({
     )}
   </Form.Section>
 );
+
+export interface TextEnumMappingSectionProps {
+  /** The path of the enum values. */
+  path: deep.Target<PlatformForm.Entry<"label", string>[]>;
+  /** Shows what a channel value looks like, such as "1". */
+  valuePlaceholder?: string;
+}
+
+/**
+ * Maps string labels in a payload to channel values held as text: strings, or the
+ * decimal digits of 64-bit integers.
+ */
+export const TextEnumMappingSection = ({
+  path,
+  valuePlaceholder,
+}: TextEnumMappingSectionProps): ReactElement => (
+  <Form.Section title="Enum mapping">
+    <PlatformForm.KeyValueEditor
+      path={path}
+      resourceName="mapping"
+      keyField="label"
+      keyPlaceholder="String (e.g. ON)"
+      valuePlaceholder={valuePlaceholder}
+      valueType="string"
+    />
+  </Form.Section>
+);

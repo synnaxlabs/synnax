@@ -9,6 +9,10 @@
 
 package v2
 
+// CustomTypeName gives ReadConfig records a table prefix that cannot collide with the
+// identically named config types of other integrations.
+func (ReadConfig) CustomTypeName() string { return "mqtt_read_config" }
+
 // CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
 // identically named config types of other integrations.
 func (WriteConfig) CustomTypeName() string { return "mqtt_write_config" }
