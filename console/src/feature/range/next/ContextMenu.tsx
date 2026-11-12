@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ranger, UnexpectedError } from "@synnaxlabs/client";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -15,7 +16,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
-import { strings, TimeStamp } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
@@ -66,7 +67,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
     description: "Deleting a range also deletes its child ranges.",
   });
   const { update: del } = Ranger.useDelete();
-  const now = TimeStamp.now();
+  const now = useNow(() => null);
   const running = ranges.filter(
     (r) => Ranger.getStage(r.timeRange, now) === "in_progress",
   );

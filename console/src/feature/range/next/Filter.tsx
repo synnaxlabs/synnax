@@ -15,6 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -22,14 +23,7 @@ import { type position } from "@synnaxlabs/lyra/position";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Label, Ranger } from "@synnaxlabs/pluto";
-import {
-  deep,
-  filter as xfilter,
-  location,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { deep, filter as xfilter, location, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import {
@@ -233,7 +227,7 @@ const TimePicker = ({
     if (next == null) setConditions(drop(conditions, "time"));
     else setWindow(next.span);
   };
-  const now = TimeStamp.now();
+  const now = useNow(() => null);
   const range =
     window instanceof TimeRange
       ? window
