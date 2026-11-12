@@ -172,17 +172,19 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 // Derive fills the fields of ranges that the Core derives on read and does not store,
-// reading the ranges nested in each one through snap.
+// reading the ranges nested in each one through snap. A range has children when visible
+// accepts the key of a range nested in it. visible must not read ranges.
 func (s *Service) Derive(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	ranges []Range,
+	visible func(Key) bool,
 ) error {
 	keys := make([]Key, len(ranges))
 	for i, r := range ranges {
 		keys[i] = r.Key
 	}
-	parents, err := s.indexes.parent.Referenced(ctx, snap, keys...)
+	parents, err := s.indexes.parent.Referenced(ctx, snap, visible, keys...)
 	if err != nil {
 		return err
 	}

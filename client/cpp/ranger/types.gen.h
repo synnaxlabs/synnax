@@ -134,7 +134,8 @@ struct Where {
     std::optional<bool> labeled;
     /// @brief stages matches ranges in any of the given stages at the Core's clock.
     ::x::filter::List<std::string> stages;
-    /// @brief recent matches ranges that overlap the given span of time that ends now.
+    /// @brief recent matches ranges that overlap the span ending now, or starting now
+    /// if negative.
     std::optional<::x::telem::TimeSpan> recent;
 
     /// @brief returns a filter that matches when both a and b match.

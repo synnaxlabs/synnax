@@ -554,6 +554,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Referenced", func() {
+		all := func(string) bool { return true }
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx)
 			createRack(ctx, 1)
@@ -564,8 +565,15 @@ var _ = Describe("Reference", func() {
 		})
 
 		It("Should return the targets that an entry holds", func(ctx SpecContext) {
-			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2, 3)).
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2, 3)).
 				To(Equal(set.New[uint32](1, 2)))
+		})
+
+		It("Should count only the entries that in accepts", func(ctx SpecContext) {
+			Expect(createDevice(ctx, refDevice{Key: "c", Rack: 2})).To(Succeed())
+			c := func(k string) bool { return k == "c" }
+			Expect(deviceRef.rack.Referenced(ctx, db, c, 1, 2, 3)).
+				To(Equal(set.New[uint32](2)))
 		})
 
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
@@ -573,9 +581,9 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewCreate().
 				Entry(&refDevice{Key: "a", Rack: 3}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceRef.rack.Referenced(ctx, tx, 1, 2, 3)).
+			Expect(deviceRef.rack.Referenced(ctx, tx, all, 1, 2, 3)).
 				To(Equal(set.New[uint32](2, 3)))
-			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2, 3)).
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2, 3)).
 				To(Equal(set.New[uint32](1, 2)))
 		})
 
@@ -583,7 +591,7 @@ var _ = Describe("Reference", func() {
 			Expect(devices.NewDelete().
 				Where(gorp.MatchKeys[string, refDevice]("b")).
 				Exec(ctx, db)).To(Succeed())
-			Expect(deviceRef.rack.Referenced(ctx, db, 1, 2)).
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2)).
 				To(Equal(set.New[uint32](1)))
 		})
 	})
@@ -1064,8 +1072,6 @@ var _ = Describe("Reference", func() {
 			It("Should fail a probe of the reference", func(ctx SpecContext) {
 				Expect(deviceRef.rack.Get(ctx, nil, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
-				Expect(deviceRef.rack.Referenced(ctx, nil, 1)).Error().
-					To(MatchError(gorp.ErrIndexInvalid))
 				Expect(racks.Dependents(ctx, db, 1)).Error().
 					To(MatchError(gorp.ErrIndexInvalid))
 			})
@@ -1089,6 +1095,20 @@ var _ = Describe("Reference", func() {
 					Entries(&unlabeled).
 					Exec(ctx, db)).To(Succeed())
 				Expect(unlabeled).To(HaveLen(1))
+			})
+
+			It("Should scan the table in Referenced", func(ctx SpecContext) {
+				createRack(ctx, 2)
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().
+					Entry(&refDevice{Key: "d2", Rack: 2}).
+					Exec(ctx, tx)).To(Succeed())
+				all := func(string) bool { return true }
+				Expect(deviceRef.rack.Referenced(ctx, tx, all, 1, 2)).
+					To(Equal(set.New[uint32](1, 2)))
+				d1 := func(k string) bool { return k == "d1" }
+				Expect(deviceRef.rack.Referenced(ctx, tx, d1, 1, 2)).
+					To(Equal(set.New[uint32](1)))
 			})
 
 			It("Should fail a filter on another entry type", func(ctx SpecContext) {

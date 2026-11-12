@@ -104,6 +104,38 @@ var _ = Describe("Retrieve", func() {
 		Entry("with the parent denied", false, 0),
 	)
 
+	DescribeTable("Should count only the children that the subject can retrieve", func(
+		ctx SpecContext,
+		childGranted bool,
+	) {
+		u := createUser(ctx)
+		parent := createRange(ctx)
+		child := ranger.Range{
+			Name:      "child",
+			TimeRange: telem.NewRangeSeconds(1, 5),
+			Parent:    &parent.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Ranger.NewWriter(tx).Create(ctx, &child)
+		})).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), parent.ResourceID())
+		if childGranted {
+			grant(ctx, access.ActionRetrieve, u.ResourceID(), child.ResourceID())
+		}
+		res := MustSucceed(retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{Where: &ranger.Where{
+				Key: &filter.Set[ranger.Key]{Eq: &parent.Key},
+			}},
+		))
+		Expect(res.Ranges).To(HaveExactElements(
+			HaveField("HasChildren", childGranted),
+		))
+	},
+		Entry("with the child granted", true),
+		Entry("with the child denied", false),
+	)
+
 	It("Should deny a named child range whose parent the subject cannot retrieve", func(
 		ctx SpecContext,
 	) {
@@ -770,14 +802,16 @@ var _ = Describe("Retrieve", func() {
 			byName []ranger.Key
 			// byStart holds the children from the latest start to the earliest.
 			byStart []ranger.Key
+			// byEnd holds the children from the earliest end to the latest.
+			byEnd []ranger.Key
 		)
 		BeforeEach(func(ctx SpecContext) {
 			parent = createRange(ctx)
-			child := func(name string, start telem.TimeStamp) ranger.Key {
+			child := func(name string, start, end telem.TimeStamp) ranger.Key {
 				GinkgoHelper()
 				r := ranger.Range{
 					Name:      name,
-					TimeRange: telem.TimeRange{Start: start, End: start + 1},
+					TimeRange: telem.TimeRange{Start: start, End: end},
 					Parent:    &parent.Key,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -785,10 +819,10 @@ var _ = Describe("Retrieve", func() {
 				})).To(Succeed())
 				return r.Key
 			}
-			beta := child("beta", 30)
-			upper := child("Alpha", 10)
-			gamma := child("Gamma", 20)
-			lower := child("alpha", 40)
+			beta := child("beta", 30, 35)
+			upper := child("Alpha", 10, 50)
+			gamma := child("Gamma", 20, 25)
+			lower := child("alpha", 40, 41)
 			tie := []ranger.Key{upper, lower}
 			// Gorp orders equal names by the trailing bytes of the key.
 			slices.SortFunc(tie, func(a, b ranger.Key) int {
@@ -798,6 +832,7 @@ var _ = Describe("Retrieve", func() {
 			})
 			byName = append(tie, beta, gamma)
 			byStart = []ranger.Key{lower, beta, gamma, upper}
+			byEnd = []ranger.Key{gamma, beta, lower, upper}
 		})
 		page := func(
 			ctx context.Context,
@@ -825,6 +860,7 @@ var _ = Describe("Retrieve", func() {
 					Key:            last.Key,
 					Name:           &last.Name,
 					TimeRangeStart: &last.TimeRange.Start,
+					TimeRangeEnd:   &last.TimeRange.End,
 				}
 			}
 		}
@@ -849,6 +885,11 @@ var _ = Describe("Retrieve", func() {
 				Descending: true,
 			}
 			Expect(page(authed(ctx), order, 2)).To(Equal(byStart))
+		})
+
+		It("Should page ranges by end time", func(ctx SpecContext) {
+			order := apiranger.Order{Field: apiranger.OrderFieldTimeRangeEnd}
+			Expect(page(authed(ctx), order, 3)).To(Equal(byEnd))
 		})
 
 		It("Should page ranges by key with no order", func(ctx SpecContext) {
@@ -880,6 +921,15 @@ var _ = Describe("Retrieve", func() {
 					After: &apiranger.Cursor{Key: uuid.New()},
 				},
 				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that resumes an order by end time without the end time",
+				apiranger.RetrieveRequest{
+					Order: &apiranger.Order{Field: apiranger.OrderFieldTimeRangeEnd},
+					After: &apiranger.Cursor{Key: uuid.New()},
+				},
+				"after.time_range_end: is required to resume an order by "+
+					"time_range_end: validation error",
 			),
 			Entry(
 				"that sorts a search",

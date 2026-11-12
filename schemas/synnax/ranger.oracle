@@ -133,7 +133,10 @@ Where filter Range {
         @doc value "matches ranges in any of the given stages at the Core's clock."
     }
     recent   telem.TimeSpan  {
-        @doc value "matches ranges that overlap the given span of time that ends now."
+        @doc value """
+            matches ranges that overlap the span ending now, or starting now if
+            negative.
+        """
     }
 
     @doc value         "is a filter that selects ranges."

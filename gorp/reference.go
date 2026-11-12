@@ -424,27 +424,60 @@ func (r *reference[K, E, T]) Get(
 	return probe(ctx, r.store, snap, targets)
 }
 
-// Referenced returns those of targets that at least one entry holds, with the changes
-// staged against snap applied. Pass a nil snap to skip staged changes. Like Get, it
-// counts the entries of a commit in flight, which can fail.
+// Referenced returns those of targets that at least one entry holds, counting only the
+// entries whose keys in accepts. It sees the changes staged against snap, and like Get,
+// it counts the entries of a commit in flight, which can fail. in runs while the index
+// is locked, so it must not read the index.
 //
-// Referenced waits for the index to populate, or for ctx to end. It returns
-// ErrIndexInvalid if population failed.
+// Referenced waits for the index to populate, or for ctx to end. It scans the table
+// when the index failed to populate.
 func (r *reference[K, E, T]) Referenced(
 	ctx context.Context,
 	snap Snapshot,
+	in func(K) bool,
 	targets ...T,
 ) (set.Set[T], error) {
-	if err := r.store.Wait(ctx); err != nil {
+	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+		return r.scanReferenced(ctx, snap, in, targets)
+	} else if err != nil {
 		return nil, err
 	}
-	held, err := r.store.HeldValues(scopeOf(snap), targets)
+	held, err := r.store.HeldValues(scopeOf(snap), targets, in)
 	if err != nil {
 		return nil, err
 	}
 	for _, t := range targets {
-		if !held.Contains(t) && len(r.store.Committing(t)) > 0 {
+		if !held.Contains(t) && slices.ContainsFunc(r.store.Committing(t), in) {
 			held.Add(t)
+		}
+	}
+	return held, nil
+}
+
+// scanReferenced is Referenced for an index that failed to populate.
+func (r *reference[K, E, T]) scanReferenced(
+	ctx context.Context,
+	snap Snapshot,
+	in func(K) bool,
+	targets []T,
+) (set.Set[T], error) {
+	var holders []E
+	if err := NewRetrieve[K, E]().
+		Where(r.Filter(targets...)).
+		Entries(&holders).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	wanted := set.New(targets...)
+	held := make(set.Set[T])
+	for i := range holders {
+		if !in(holders[i].GorpKey()) {
+			continue
+		}
+		for _, t := range r.targetsOf(&holders[i]) {
+			if wanted.Contains(t) {
+				held.Add(t)
+			}
 		}
 	}
 	return held, nil

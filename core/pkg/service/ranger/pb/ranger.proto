@@ -97,6 +97,7 @@ message Where {
   optional bool labeled = 10;
   // stages matches ranges in any of the given stages at the Core's clock.
   StageList stages = 11;
-  // recent matches ranges that overlap the given span of time that ends now.
+  // recent matches ranges that overlap the span ending now, or starting now if
+  // negative.
   optional int64 recent = 12;
 }
