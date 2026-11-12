@@ -201,9 +201,11 @@ HTTP Driver reads the key from `bound` and rejects an enabled `unbound` field, w
 rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 
 **Console**: The data type select sets the kind, and `DataTypeField` shows every type.
-`onConfigure` binds each enabled unbound field to the device's stored channel for its
-pointer when that channel exists, or else creates one, and saves the field as bound. An
-adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
+`onConfigure` binds each enabled unbound field to the channel that the device stores for
+it: the index channel for an index field, the pointer's channel for a read field, and
+the target's channel for a channel field. When that channel does not exist, it creates
+one. It then saves the field as bound. An adapter keeps the atomic Phase 13 near 400
+lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
