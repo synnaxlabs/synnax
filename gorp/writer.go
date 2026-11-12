@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -36,6 +37,8 @@ type Writer[K Key, E Entry[K]] struct {
 	references []Reference[K, E]
 	// derived is true when the writes of the Writer are cascades or detaches.
 	derived bool
+	// exclusive is true when Set refuses an entry whose key exists.
+	exclusive bool
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
@@ -148,19 +151,27 @@ func (w *Writer[K, E]) bind(tx Tx) Writer[K, E] {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
+	k := entry.GorpKey()
+	encoded := w.keyCodec.Encode(k)
+	changes := &w.tx.txIdentity().changes
+	s, err := w.find(ctx, changes, k, encoded)
+	if err != nil {
+		return err
+	}
+	if w.exclusive && changes.present(s) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s %s already exists",
+			w.tableName,
+			key.Format(k),
+		)
+	}
 	if w.table != nil {
 		if err := w.table.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}
-	data, err := w.tx.Encode(ctx, entry)
-	if err != nil {
-		return err
-	}
-	k := entry.GorpKey()
-	encoded := w.keyCodec.Encode(k)
-	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
+	data, err := w.tx.Encode(entry)
 	if err != nil {
 		return err
 	}
@@ -204,7 +215,7 @@ func (w *Writer[K, E]) find(
 		w.tx,
 		NewTarget(w.tableName, k),
 		encoded,
-		func(stored []byte) ([]Link, error) { return w.storedLinks(ctx, k, stored) },
+		func(stored []byte) ([]Link, error) { return w.storedLinks(k, stored) },
 	)
 }
 
@@ -212,11 +223,7 @@ func (w *Writer[K, E]) find(
 // tx. It reads them from the index of each reference that has loaded, and else from
 // stored, the encoded record. A record that cannot be decoded fails the write, so that
 // no change misses a removed link.
-func (w *Writer[K, E]) storedLinks(
-	ctx context.Context,
-	k K,
-	stored []byte,
-) ([]Link, error) {
+func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, error) {
 	var (
 		links []Link
 		known bool
@@ -228,7 +235,7 @@ func (w *Writer[K, E]) storedLinks(
 		}
 		if e == nil {
 			e = new(E)
-			if err := w.tx.Decode(ctx, stored, e); err != nil {
+			if err := w.tx.Decode(stored, e); err != nil {
 				return nil, errors.Wrapf(
 					err,
 					"[gorp] - read the links of %s %s",

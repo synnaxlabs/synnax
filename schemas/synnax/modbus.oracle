@@ -71,18 +71,16 @@ ReadChannel union on type extends BaseReadChannel {
         @doc value "reads a single bit from a discrete input."
     }
     holding_register extends RegisterValue {
-        string_length int32 = 0 {
-            @doc value "is the length, in characters, when data_type is a string."
-        }
-
         @doc value "reads a typed value from one or more holding registers."
     }
     input_register extends RegisterValue {
-        string_length int32 = 0 {
-            @doc value "is the length, in characters, when data_type is a string."
-        }
-
         @doc value "reads a typed value from one or more input registers."
+    }
+    holding_register_string extends RegisterString {
+        @doc value "reads a string from consecutive holding registers."
+    }
+    input_register_string extends RegisterString {
+        @doc value "reads a string from consecutive input registers."
     }
     holding_register_bit extends RegisterBit {
         @doc value "reads one bit of a holding register."
@@ -186,5 +184,22 @@ RegisterBit struct {
     }
 
     @doc value  "addresses one bit of a 16-bit register."
+    @go marshal
+}
+
+RegisterString struct {
+    length        uint16 {
+        @doc value    "is the number of characters, two to each register."
+        @validate max 250
+        @validate min 1
+    }
+    bytes_swapped bool?  {
+        @doc value """
+            is true when the two characters of each register are swapped. When absent,
+            the device's byte order applies.
+        """
+    }
+
+    @doc value  "interprets consecutive 16-bit registers as a fixed-length string."
     @go marshal
 }

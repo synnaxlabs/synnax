@@ -43,11 +43,16 @@ export const configureDeviceScript =
       await session.hold(600);
       await capture.contextMenu(session, item, "Configure");
 
-      const modal = page.locator(".console-configure").first();
+      // EtherCAT slaves have their own dialog.
+      const modal = page
+        .locator(".console-configure, .console-ethercat-configure__frame")
+        .first();
       const nameInput = modal.locator("input").first();
       await session.waitFor(nameInput);
       await session.zoom(modal);
       await session.hold(600);
+      // Only the generic dialog focuses the name on open.
+      await session.click(nameInput, { text: true });
       await session.press("ControlOrMeta+a");
       await session.type(name);
       await session.hold(500);

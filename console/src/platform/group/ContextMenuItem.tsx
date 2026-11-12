@@ -14,7 +14,7 @@ import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { isScope } from "@/platform/group/move";
+import { isScope } from "@/platform/group/member";
 
 export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
   ids: resource.ID[];

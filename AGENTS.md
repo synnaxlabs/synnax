@@ -18,10 +18,14 @@ Synnax is an observability and control platform for hardware telemetry. Monorepo
 ## Release model
 
 `main` is the only long-lived branch. Nothing publishes on push: a person dispatches
-every release from `main` or from a `release/<product>-X.Y` hotfix branch. Candidates
-(`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
-shapes, wire quirks, migrations — is owed only to what a stable release shipped;
-candidate-era formats may be dropped freely. See RFC 0058.
+every release, candidates included, from `main` or a `release/<product>-X.Y` branch
+only. A release from `main` is always the next minor of the Console, Core, and Driver. A
+patch releases only from `release/<product>-X.Y`, cut from the `X.Y.0` tag when train
+`X.Y` needs one. The TypeScript and Python packages share the Core's minor: from `main`
+they release only with the Core, at the next patch on its minor. Candidates (`-rc.N`
+tags) never count as shipped. Backward compatibility — file formats, stored shapes, wire
+quirks, migrations — is owed only to what a stable release shipped; candidate-era
+formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
 
 Units = v2.Units
@@ -45,7 +47,13 @@ StrainConfig = v2.StrainConfig
 
 ThermocoupleType = v2.ThermocoupleType
 
-CJC = v2.CJC
+CJC union on source extends v2.CJC {
+    chan {
+        port uint32 = 0 {
+            @doc value "is the port of the channel that measures the reference."
+        }
+    }
+}
 
 VelocityUnits = v2.VelocityUnits
 
@@ -77,9 +85,13 @@ TwoPointLin = v2.TwoPointLin
 
 CustomScale = v2.CustomScale
 
-BaseAIChannel = v2.BaseAIChannel
+BaseAIChannel struct extends v2.BaseAIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+}
 
-AIChannel = v2.AIChannel
+AIChannel union on type extends v2.AIChannel {}
 
 CIEdge = v2.CIEdge
 
@@ -105,31 +117,132 @@ ZIndexPhase = v2.ZIndexPhase
 
 ZIndex = v2.ZIndex
 
-BaseCIChannel = v2.BaseCIChannel
+BaseCIChannel struct extends v2.BaseCIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical counter the channel uses."
+    }
+}
 
-CIChannel = v2.CIChannel
+CIChannel union on type extends v2.CIChannel {
+    ci_frequency {
+        divisor uint32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+    }
+    ci_edge_count {
+        initial_count uint32 = 0 {
+            @doc value "is the value the counter starts at."
+        }
+    }
+    ci_period {
+        divisor uint32 = 4 {
+            @doc value "is the counter divisor for large-range measurement."
+        }
+    }
+    ci_velocity_angular {
+        pulses_per_rev uint32 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+    }
+    ci_position_angular {
+        pulses_per_rev uint32 = 24 {
+            @doc value "is the number of encoder pulses per revolution."
+        }
+    }
+}
 
 WaveType = v2.WaveType
 
-BaseAOChannel = v2.BaseAOChannel
+BaseAOChannel struct extends v2.BaseAOChannel {
+    -cmd_channel
+    -state_channel
+    -cmd_channel_name
+    -state_channel_name
+    port uint32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+}
 
-AOChannel = v2.AOChannel
+CommandedAOChannel struct {
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
 
-DIChannel = v2.DIChannel
+    @doc value  "carries the command and state channels of a commanded analog output."
+    @go marshal
+}
 
-DOChannel = v2.DOChannel
+AOChannel union on type extends BaseAOChannel {
+    ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
+        @doc value "drives a current output."
+    }
+    ao_func_gen {
+        wave_type WaveType = sine {
+            @doc value "selects the waveform to generate."
+        }
+        frequency float64 = 0 {
+            @doc value "is the waveform frequency, in Hertz."
+        }
+        amplitude float64 = 0 {
+            @doc value "is the waveform amplitude."
+        }
+        offset    float64 = 0 {
+            @doc value "is the waveform DC offset."
+        }
 
-AnalogReadConfig = v2.AnalogReadConfig
+        @doc value """
+            generates a waveform from task start to task stop, with no commands.
+        """
+    }
+    ao_voltage extends MinMaxVal, CustomScale, CommandedAOChannel {
+        @doc value "drives a voltage output."
+    }
 
-CounterReadConfig = v2.CounterReadConfig
+    @doc value  """
+        is a single NI analog output channel. The type field selects the output mode and
+        the fields that accompany it.
+    """
+    @go marshal
+}
+
+DIChannel struct extends v2.DIChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel reads from."
+    }
+    line uint8 = 0 {
+        @doc value "is the digital line within the port the channel reads from."
+    }
+}
+
+DOChannel struct extends v2.DOChannel {
+    port uint32 = 0 {
+        @doc value "is the physical port the channel writes to."
+    }
+    line uint8 = 0 {
+        @doc value "is the digital line within the port the channel writes to."
+    }
+}
+
+AnalogReadConfig struct extends v2.AnalogReadConfig {}
+
+CounterReadConfig struct extends v2.CounterReadConfig {}
 
 WriteConfig = v2.WriteConfig
 
-AnalogWriteConfig = v2.AnalogWriteConfig
+AnalogWriteConfig struct extends v2.AnalogWriteConfig {}
 
-DigitalReadConfig = v2.DigitalReadConfig
+DigitalReadConfig struct extends v2.DigitalReadConfig {}
 
-DigitalWriteConfig = v2.DigitalWriteConfig
+DigitalWriteConfig struct extends v2.DigitalWriteConfig {}
 
 ScanConfig struct extends v2.ScanConfig {
     -ignored_models

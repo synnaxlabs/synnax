@@ -29,6 +29,7 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
 import { resource } from "@/resource";
@@ -183,7 +184,10 @@ export interface Observer {
    * opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
-  /** Fires on a definitive credential rejection, never on token self-heal. */
+  /**
+   * Fires on a definitive credential rejection, and when the Core keeps rejecting fresh
+   * sessions after every token retry. Never fires for a token error a retry fixes.
+   */
   onFailure?: (error: Error) => void;
 }
 
@@ -490,7 +494,9 @@ export class Client {
         u = res.user;
         owned = false;
       } else
-        throw new AuthError("no credentials, API key, token, or cookie to log in with");
+        throw new MissingCredentialsError(
+          "no credentials, API key, token, or cookie to log in with",
+        );
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
@@ -540,13 +546,29 @@ export class Client {
         }
       }
       // a cookie session has no token to send; the browser attaches the cookie
-      const { authState } = this;
+      const { authState, generation } = this;
       if (authState.authenticated && authState.token !== "")
         reqCtx.params.Authorization = `Bearer ${authState.token}`;
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
+        const parsed = errors.fromUnknown(err);
+        // the browser dropped the cookie, so the session is over
+        const cookieLost =
+          MissingCredentialsError.matches(parsed) &&
+          authState.authenticated &&
+          authState.token === "";
+        if (cookieLost && this.proof() == null) {
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
+          const ended = new SessionEndedError(parsed.message, { cause: parsed });
+          if (generation === this.generation) this.observer.onFailure?.(ended);
+          throw ended;
+        }
+        if (!cookieLost && !RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
+        if (retries < MAX_RETRIES) {
           // only the session this request carried is dead; a login that finished in
           // the meantime holds a different one
           if (this.authState === authState) {
@@ -555,7 +577,10 @@ export class Client {
           }
           return await attempt(reqCtx, next, retries + 1);
         }
-        throw errors.fromUnknown(err);
+        // the Core rejects every fresh session, so logging in again cannot fix it. A
+        // session from before a setCredentials says nothing about the new credentials.
+        if (generation === this.generation) this.observer.onFailure?.(parsed);
+        throw parsed;
       }
     };
     return async (reqCtx, next) => await attempt(reqCtx, next, 0);

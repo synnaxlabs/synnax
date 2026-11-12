@@ -6,6 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Arc } from "@/components/arc";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -29,12 +30,11 @@ In the messages below, `<name>` stands for a value that changes.
 <Problem.List>
 
 <Problem.Item
-  code="ARC2004"
-  severity="error"
-  message={[
-    "<op> with <name> is always false, use <check> instead",
-    "!= with <name> is always true, use not <check> instead",
-  ]}
+  {...Arc.diagnostic(
+    "ARC2004",
+    ["<op>", "<name>", "false", "<check>"],
+    ["!=", "<name>", "true", "not <check>"],
+  )}
 >
   <Problem.Cause>
     The code compares a value to a NaN constant, such as `math.nan`, with `<op>`: `==`,
@@ -49,21 +49,25 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  code="ARC3001"
-  severity="error"
-  message={[
-    "missing required argument for parameter '<p>' of func '<f>'",
-    "too many arguments for func '<f>': expected at most <n>",
-  ]}
->
-  <Problem.Cause>The call has too few or too many arguments.</Problem.Cause>
-  <Problem.Fix>Match the signature in the note.</Problem.Fix>
+<Problem.Item {...Arc.diagnostic("ARC2005")}>
+  <Problem.Cause>An `if` or a `=>` uses a non-boolean value as a condition.</Problem.Cause>
+  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC2006", ["<T>"])}>
+  <Problem.Cause>
+    A cast converts a `bool` to a number type other than `u8`, such as `i32(b)`.
+  </Problem.Cause>
+  <Problem.Fix>Cast the `bool` to `u8` first, such as `i32(u8(b))`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>
+  <Problem.Cause>The call has no argument for a required parameter.</Problem.Cause>
+  <Problem.Fix>Add the argument. The note shows the signature.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
-  code="ARC3002"
-  severity="error"
+  {...Arc.diagnostic("ARC3002")}
   message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
 >
   <Problem.Cause>An argument has the wrong type.</Problem.Cause>
@@ -72,25 +76,31 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  code="ARC4003"
-  severity="warning"
-  message="'<old>' is deprecated, use '<new>' instead"
->
+<Problem.Item {...Arc.diagnostic("ARC3003", ["<f>", "<n>"])}>
+  <Problem.Cause>
+    The call has more arguments than the function has parameters.
+  </Problem.Cause>
+  <Problem.Fix>Remove the extra arguments. The note shows the signature.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC4003", ["<old>", "<new>"])}>
   <Problem.Cause>The code uses an old name, such as `interval`.</Problem.Cause>
   <Problem.Fix>Use the qualified name, such as `time.interval`.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  code="ARC5001"
-  severity="error"
-  message={'imported module "<m>" is unused'}
->
+<Problem.Item {...Arc.diagnostic("ARC4004")}>
+  <Problem.Cause>
+    A variable declaration in a stage or sequence comes after a flow or a transition.
+  </Problem.Cause>
+  <Problem.Fix>Move the declaration above the first flow or transition.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item {...Arc.diagnostic("ARC5001", ["<m>"])}>
   <Problem.Cause>The code imports a module and does not use it.</Problem.Cause>
   <Problem.Fix>Remove the import.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item code="ARC6001" severity="error" message="constant <value> overflows <T>">
+<Problem.Item {...Arc.diagnostic("ARC6001", ["<value>", "<T>"])}>
   <Problem.Cause>
     An expression made only of integer literals has a value that does not fit its type,
     such as `x i8 := 100 + 100`.
@@ -98,11 +108,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Use a wider type, such as `i16`, or change the values.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  code="ARC6002"
-  severity="error"
-  message={["integer division by zero", "integer modulo by zero"]}
->
+<Problem.Item {...Arc.diagnostic("ARC6002", ["division"], ["modulo"])}>
   <Problem.Cause>
     An integer `/` or `%` divides by a zero made only of literals: `x := 1 / 0`.
   </Problem.Cause>
@@ -142,14 +148,15 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Fix>Write the number in decimal digits.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={'unknown module "<m>"'}>
-  <Problem.Cause>No module has that name.</Problem.Cause>
+  <Problem.Cause>No module has that name or path.</Problem.Cause>
   <Problem.Fix>
-    Use a module from the [standard library](/reference/control/arc/standard-library).
+    Use a module from the [standard library](/reference/control/arc/standard-library),
+    or correct the [import path](/reference/control/arc/modules#import-a-module).
   </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={'duplicate import: "<m>" is already imported'}>
-  <Problem.Cause>The code imports the module two times.</Problem.Cause>
-  <Problem.Fix>Remove one import.</Problem.Fix>
+  <Problem.Cause>Two imports give the same name.</Problem.Cause>
+  <Problem.Fix>Remove one import, or add `as` to one.</Problem.Fix>
 </Problem.Item>
 <Problem.Item
   message={"import statements must appear before any other top-level declarations"}
@@ -159,11 +166,12 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item message={"undefined symbol: <name>"}>
   <Problem.Cause>
-    The name is not declared, the channel does not exist, or the module is not imported.
-    A note gives the `import` to add.
+    The name is not declared, the channel does not exist, the module is not imported, or
+    your role cannot read the channel. A note gives the `import` to add.
   </Problem.Cause>
   <Problem.Fix>
-    Declare the name, correct the channel name, or add the import.
+    Declare the name, correct the channel name, add the import, or ask an administrator
+    for read access to the channel.
   </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"name <x> conflicts with existing <kind> at line <l>, col <c>"}>
@@ -196,13 +204,13 @@ This section lists the most common diagnostics without a code, not all of them.
 
 <Problem.List>
 
-<Problem.Item
-  message={
-    "cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function"
-  }
->
-  <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
-  <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
+<Problem.Item message={"cannot reassign top-level variable '<name>'"}>
+  <Problem.Cause>
+    An `=`, a `->`, or a rebind changes a variable declared at the top level.
+  </Problem.Cause>
+  <Problem.Fix>
+    Declare the variable in the sequence, stage, or function that changes it.
+  </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"stateful variables cannot be declared at the top level"}>
   <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>
@@ -244,7 +252,7 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item
   message={
-    "function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>{}"
+    "function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>()"
   }
 >
   <Problem.Cause>
@@ -348,7 +356,7 @@ This section lists the most common diagnostics without a code, not all of them.
 </Problem.Item>
 <Problem.Item
   message={[
-    'color must be a hex value (e.g. "#3bc454") or rgb(r,g,b): "<v>": validation error',
+    'color must be a hex value (e.g. "#3bc454"), rgb(r,g,b), or hsl(h,s%,l%): "<v>": validation error',
     'invalid hex color: "<v>": validation error',
     'invalid hex color length: "<v>": validation error',
     'rgb() takes 3 channels; use rgba() for alpha: "<v>": validation error',
@@ -356,10 +364,17 @@ This section lists the most common diagnostics without a code, not all of them.
     'rgb channels must be 0-255: "<v>": validation error',
     'invalid rgb alpha: "<v>": validation error',
     'rgba alpha must be 0-1: "<v>": validation error',
+    'hsl() takes 3 channels; use hsla() for alpha: "<v>": validation error',
+    'hsla() requires a 4th alpha channel: "<v>": validation error',
+    'invalid hsl hue: "<v>": validation error',
+    'hsl saturation must be 0-100%: "<v>": validation error',
+    'hsl lightness must be 0-100%: "<v>": validation error',
+    'invalid hsl alpha: "<v>": validation error',
+    'hsla alpha must be 0-1: "<v>": validation error',
   ]}
 >
   <Problem.Cause>`ranges.create` has a `color` that is not a color.</Problem.Cause>
-  <Problem.Fix>Use a hex, `rgb()`, or `rgba()` color.</Problem.Fix>
+  <Problem.Fix>Use a hex, `rgb()`, `rgba()`, `hsl()`, or `hsla()` color.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"stable.for input must be a numeric or bool type, got <T>"}>
   <Problem.Cause>`stable.for` gets a `str` value.</Problem.Cause>
@@ -392,20 +407,6 @@ failed to compile function 'f' body: failed to compile return expression: float 
     series or an expression.
   </Problem.Cause>
   <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
-</Problem.Item>
-
-</Problem.List>
-
-### Warnings without a code
-
-<Problem.List>
-
-<Problem.Item
-  severity="warning"
-  message={"numeric conditions are deprecated; use an explicit comparison like x != 0"}
->
-  <Problem.Cause>An `if` or a `=>` uses a number as a condition.</Problem.Cause>
-  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

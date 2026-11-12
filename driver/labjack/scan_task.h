@@ -33,7 +33,7 @@ const std::vector SCAN_SKIP_ERRORS = {
 struct ScanTaskConfig : ::synnax::labjack::ScanConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg):
         ::synnax::labjack::ScanConfig(::synnax::labjack::ScanConfig::parse(cfg)) {
-        if (this->tcp_scan_multiplier <= 0)
+        if (this->tcp_scan_multiplier == 0)
             cfg.field_err("tcp_scan_multiplier", "must be greater than 0");
     }
 };

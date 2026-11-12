@@ -13,9 +13,12 @@ import { Runtime } from "@/platform/runtime";
 
 const URL = "https://docs.synnaxlabs.com/reference/";
 
-/** Opens the Synnax documentation in the user's browser. */
-export const useOpen = (): (() => void) => {
+/** Opens the reference page at path, by default the index, in the user's browser. */
+export const useOpen = (path: string = ""): (() => void) => {
   const handleError = Status.useErrorHandler();
   return () =>
-    handleError(async () => await Runtime.openExternal(URL), "Failed to open docs");
+    handleError(
+      async () => await Runtime.openExternal(`${URL}${path}`),
+      "Failed to open docs",
+    );
 };

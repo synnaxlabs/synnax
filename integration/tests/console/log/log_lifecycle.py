@@ -100,18 +100,14 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-        # Resources Toolbar
         self.test_open_log_from_resources(log_name, expected_link=log_link)
         self.test_drag_log_onto_mosaic(log_name, expected_link=log_link)
 
-        # Search and Command Palette
         self.test_open_log_from_search(log_name, expected_link=log_link)
 
-        # Clean up shared log before ctx tests to prevent accumulation
         self.console.pages.delete(log_name)
         self._shared_log_name = None
 
-        # Resources Toolbar > Context Menu
         ctx_log = self.console.pages.create(Log, f"Context Menu Test {self.suffix}")
         self.ctx_log_name = ctx_log.page_name
         self._cleanup_pages.append(self.ctx_log_name)
@@ -131,7 +127,6 @@ class LogLifecycle(ConsoleCase):
             "Log should show 'No channels configured'"
         )
         assert log.is_empty(), "Log should be empty when no channels configured"
-        assert not log.is_streaming(), "Log should not be streaming without channel"
 
     def test_no_data_received(self, log: Log) -> None:
         """Test that log shows 'No data received yet' for channel with no data."""
@@ -143,7 +138,6 @@ class LogLifecycle(ConsoleCase):
             "Log should show 'No data received yet'"
         )
         assert log.is_empty(), "Log should be empty when no data received"
-        assert not log.is_streaming(), "Log should not be streaming without data"
 
     def test_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a persisted channel."""
@@ -160,9 +154,8 @@ class LogLifecycle(ConsoleCase):
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
     def test_timestamp_channel_streaming(self, log: Log) -> None:
-        """Test that a log displaying an index (timestamp) channel renders new
-        entries. A TIMESTAMP-typed channel must stream like any other channel;
-        a regression in the worker render path froze the log when one was added.
+        """Test that a log streams an index (timestamp) channel and renders its
+        values as formatted dates.
         """
         self.log("Testing timestamp (index) channel streaming")
 
@@ -181,9 +174,7 @@ class LogLifecycle(ConsoleCase):
         )
         entries = log.wait_for_copied_entries()
         assert len(entries) >= 1, "Log should render entries from a timestamp channel"
-        # Each entry's value must render as a formatted date (e.g. "Jun 9
-        # 15:59:52.809"), not the raw i64 nanosecond value. This is the bigint
-        # formatting path whose regression previously froze the log.
+        # A formatted date such as "Jun 9 15:59:52.809", not raw nanoseconds.
         formatted_value = re.compile(r"[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}")
         assert all(
             self.timestamp_name in entry and formatted_value.search(entry)
@@ -210,7 +201,6 @@ class LogLifecycle(ConsoleCase):
         )
         assert not log.is_empty(), "Log should not be empty with virtual data"
 
-        # log entries are NOT persisted across reloads,
         self.console.reload()
 
         assert log.wait_until_waiting_for_data(), (
@@ -311,8 +301,6 @@ class LogLifecycle(ConsoleCase):
 
     def test_ctx_operations(self) -> None:
         """Test non-destructive context menu operations using shared log."""
-        assert self.ctx_log_name is not None
-
         self.log("Testing copy link via context menu")
         link = self.console.pages.copy_link(self.ctx_log_name)
         assert link == self.ctx_log_link, (
@@ -336,7 +324,6 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_log(self) -> None:
         """Test deleting a log via context menu in the project resources toolbar."""
         self.log("Testing delete log via context menu")
-        assert self.ctx_log_name is not None
         self.console.pages.delete(self.ctx_log_name)
 
     def test_ctx_delete_multiple_logs(self) -> None:

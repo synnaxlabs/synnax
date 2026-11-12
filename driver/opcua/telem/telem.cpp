@@ -95,21 +95,6 @@ UA_DataType *data_type_to_ua(const x::telem::DataType &data_type) {
 namespace {
 constexpr size_t UUID_SIZE = 16;
 
-/// @returns the samples of a series of a variable-length data type.
-std::vector<std::string> variable_samples(const x::telem::Series &series) {
-    std::vector<std::string> samples;
-    samples.reserve(series.size());
-    const auto *ptr = series.data();
-    const auto *end = ptr + series.byte_size();
-    while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
-        const uint32_t len = read_u32_le(ptr);
-        ptr += VARIABLE_LENGTH_PREFIX_SIZE;
-        samples.emplace_back(reinterpret_cast<const char *>(ptr), len);
-        ptr += len;
-    }
-    return samples;
-}
-
 /// @returns the 16 bytes of the UUID that guid holds, in RFC 4122 order.
 std::string uuid_bytes(const UA_Guid &guid) {
     std::string bytes(UUID_SIZE, '\0');
@@ -220,7 +205,7 @@ write(x::telem::Series &series, const std::vector<x::telem::SampleValue> &sample
     }
     std::vector<x::telem::SampleValue> all;
     all.reserve(series.size() + samples.size());
-    for (auto &sample: variable_samples(series))
+    for (auto &sample: series.strings())
         all.emplace_back(std::move(sample));
     all.insert(all.end(), samples.begin(), samples.end());
     series = to_series(dt, all);
@@ -360,7 +345,7 @@ std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series
         const auto guid = to_guid(s.data() + (s.size() - 1) * UUID_SIZE);
         status = UA_Variant_setScalarCopy(&v, &guid, &UA_TYPES[UA_TYPES_GUID]);
     } else if (dt == x::telem::BYTES_T) {
-        const auto bytes = variable_samples(s).back();
+        const auto bytes = s.at<std::string>(-1);
         const UA_ByteString ua{
             .length = bytes.size(),
             .data = reinterpret_cast<UA_Byte *>(const_cast<char *>(bytes.data()))

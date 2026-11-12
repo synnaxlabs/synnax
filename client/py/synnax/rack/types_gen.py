@@ -28,7 +28,15 @@ ORDER_FIELD_NAME: Literal["name"] = "name"
 
 OrderField = Literal["name"]
 
-Status: TypeAlias = status_.Status
+
+class StatusDetails(BaseModel):
+    """Contains rack-specific status details.
+
+    Attributes:
+        running: Is true when the status comes from a running Driver.
+    """
+
+    running: bool = False
 
 
 class Where(BaseModel):
@@ -107,6 +115,31 @@ class Order(BaseModel):
     descending: bool = False
 
 
+Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve racks.
+
+    Attributes:
+        where: Selects the racks to retrieve. An absent where selects all of them.
+        search_term: Keeps the racks that match the term, closest match first.
+        order: Sorts the racks. An absent order sorts them by key.
+        after: Starts the racks strictly past this position in their order.
+        limit: Is the most racks to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
+
+
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
     Core. Racks are the integration point between the Core and physical hardware through
@@ -138,28 +171,6 @@ class Base(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class RetrieveRequest(BaseModel):
-    """Is a request to retrieve racks.
-
-    Attributes:
-        where: Selects the racks to retrieve. An absent where selects all of them.
-        search_term: Keeps the racks that match the term, closest match first.
-        order: Sorts the racks. An absent order sorts them by key.
-        after: Starts the racks strictly past this position in their order.
-        limit: Is the most racks to return.
-        include_status: Includes the status of each record.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    where: Where | None = None
-    search_term: str = ""
-    order: Order | None = None
-    after: Cursor | None = None
-    limit: int | None = Field(default=None, ge=0, le=4294967295)
-    include_status: bool = False
 
 
 class Rack(BaseModel):

@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
+#include <limits>
+#include <string>
+#include <variant>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
@@ -17,6 +22,28 @@
 /// @brief it should correctly round-trip a simple Type through protobuf
 TEST(TypesTest, testTypeProtobufRoundTrip) {
     ASSERT_TRUE(true);
+}
+
+/// @brief it should read NaN and infinity text for float types only.
+TEST(ToSampleValue, NonFiniteFloatsFromText) {
+    using arc::types::to_sample_value;
+    arc::types::Type f32, f64, str;
+    f32.kind = arc::types::Kind::F32;
+    f64.kind = arc::types::Kind::F64;
+    str.kind = arc::types::Kind::String;
+    EXPECT_TRUE(std::isnan(std::get<float>(to_sample_value("NaN", f32).value())));
+    EXPECT_TRUE(std::isnan(std::get<double>(to_sample_value("NaN", f64).value())));
+    EXPECT_EQ(
+        std::get<float>(to_sample_value("Infinity", f32).value()),
+        std::numeric_limits<float>::infinity()
+    );
+    EXPECT_EQ(
+        std::get<double>(to_sample_value("-Infinity", f64).value()),
+        -std::numeric_limits<double>::infinity()
+    );
+    EXPECT_EQ(std::get<double>(to_sample_value(1.5, f64).value()), 1.5);
+    EXPECT_FALSE(to_sample_value("other", f64).has_value());
+    EXPECT_EQ(std::get<std::string>(to_sample_value("NaN", str).value()), "NaN");
 }
 
 TEST(ToSampleValue, I64FromNumber) {

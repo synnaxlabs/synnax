@@ -35,6 +35,7 @@ var Migrations = []gorp.Migration{
 	v3.Migration,
 	v3.MembersMigration,
 	v3.OwnersMigration,
+	v3.ArcExplorerTabsMigration,
 	v4.Migration,
 }
 

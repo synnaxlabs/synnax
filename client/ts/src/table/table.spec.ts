@@ -67,7 +67,7 @@ describe("Table", () => {
       const proj = await client.projects.create({ name: "Table" });
       const dest = await client.projects.create({ name: "Table" });
       const v = await client.tables.create({ project: proj.key, name: "Table" });
-      await client.batch.send([client.tables.setProjectRequest(v.key, dest.key)]);
+      await client.batch.send(client.tables.setProjectRequest(v.key, dest.key));
       const res = await client.tables.retrieve([v.key]);
       expect(res[0].project).toEqual(dest.key);
     });

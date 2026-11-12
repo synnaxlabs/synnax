@@ -22,6 +22,7 @@ export * from "@/platform/task/EnabledCheckbox";
 export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";
+export * from "@/platform/task/integration";
 export * from "@/platform/task/ParentRangeButton";
 export * from "@/platform/task/payload";
 export * from "@/platform/task/port";

@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/arc/symbol"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -30,6 +32,55 @@ func (s *Service) moduleSource(
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
 		return s.retrieveModuleText(ctx, snap, path, filters...)
+	}
+}
+
+// modulePaths returns a loader function that lists the import path of each text
+// module that readable allows. It reads readable outside the snapshot, since reading
+// the access can open a snapshot of its own.
+func (s *Service) modulePaths(
+	readable func(context.Context, resource.ID) (bool, error),
+) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		var (
+			dirs []directory.Directory
+			arcs []Arc
+		)
+		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			if err := s.directories.NewRetrieve().
+				Entries(&dirs).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
+			return s.NewRetrieve().Entries(&arcs).Exec(ctx, snap)
+		}); err != nil {
+			return nil, err
+		}
+		byKey := make(map[directory.Key]directory.Directory, len(dirs))
+		for _, d := range dirs {
+			byKey[d.Key] = d
+		}
+		paths := make([]string, 0, len(arcs))
+		for _, a := range arcs {
+			if _, ok := a.Base().Source.Variant.(TextSource); !ok ||
+				a.Type() != TypeModule {
+				continue
+			}
+			ok, err := readable(ctx, a.ResourceID())
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				continue
+			}
+			segments := []string{a.Base().Name}
+			for p := a.Base().Directory; p != nil && *p != s.root; p = byKey[*p].Parent {
+				segments = append(segments, byKey[*p].Name)
+			}
+			slices.Reverse(segments)
+			paths = append(paths, strings.Join(segments, "."))
+		}
+		return paths, nil
 	}
 }
 
@@ -59,6 +110,44 @@ func (s *Service) retrieveModuleText(
 	path string,
 	filters ...Filter,
 ) (arctext.Text, error) {
+	a, err := s.retrieveModule(ctx, snap, path, filters...)
+	if err != nil {
+		return arctext.Text{}, err
+	}
+	src, ok := a.Base().Source.Variant.(TextSource)
+	if !ok {
+		return arctext.Text{}, errors.Newf(
+			"module %q is a graph and cannot be imported", path,
+		)
+	}
+	return src.Text.Materialize(), nil
+}
+
+// retrieveModule returns the module at an import path that every filter matches.
+func (s *Service) retrieveModule(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	path string,
+	filters ...Filter,
+) (Arc, error) {
+	a, err := s.retrieveArc(ctx, snap, path, filters...)
+	if err != nil {
+		return Arc{}, err
+	}
+	if a.Type() != TypeModule {
+		return Arc{}, errors.Newf("%q is an automation and cannot be imported", path)
+	}
+	return a, nil
+}
+
+// retrieveArc returns the Arc of either type at an import path that every filter
+// matches.
+func (s *Service) retrieveArc(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	path string,
+	filters ...Filter,
+) (Arc, error) {
 	notFound := errors.Wrapf(symbol.ErrModuleNotFound, "unknown module %q", path)
 	segments := strings.Split(path, ".")
 	parent := s.root
@@ -71,10 +160,10 @@ func (s *Service) retrieveModuleText(
 			)).
 			Entries(&dirs).
 			Exec(ctx, snap); err != nil {
-			return arctext.Text{}, err
+			return Arc{}, err
 		}
 		if len(dirs) == 0 {
-			return arctext.Text{}, notFound
+			return Arc{}, notFound
 		}
 		parent = dirs[0].Key
 	}
@@ -87,22 +176,10 @@ func (s *Service) retrieveModuleText(
 		q = q.Where(f)
 	}
 	if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
-		return arctext.Text{}, err
+		return Arc{}, err
 	}
 	if len(arcs) == 0 {
-		return arctext.Text{}, notFound
+		return Arc{}, notFound
 	}
-	a := arcs[0]
-	if a.Type() != TypeModule {
-		return arctext.Text{}, errors.Newf(
-			"%q is an automation and cannot be imported", path,
-		)
-	}
-	src, ok := a.Base().Source.Variant.(TextSource)
-	if !ok {
-		return arctext.Text{}, errors.Newf(
-			"module %q is a graph and cannot be imported", path,
-		)
-	}
-	return src.Text.Materialize(), nil
+	return arcs[0], nil
 }

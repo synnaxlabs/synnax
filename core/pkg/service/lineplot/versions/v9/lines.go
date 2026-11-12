@@ -47,8 +47,9 @@ func ReconcileLines(plot Key, channels Channels, existing []Line) []Line {
 			kept.Add(id)
 			l, ok := byIdentity[id]
 			if !ok {
-				l = Line{YAxis: yAxis, YChannel: yChannel, XChannel: channels.X1}
-				l.ApplyDefaults()
+				l = Line{}
+				l.SetDefaults()
+				l.YAxis, l.YChannel, l.XChannel = yAxis, yChannel, channels.X1
 			}
 			l.Key = v8.LineKey(plot, yAxis, yChannel, channels.X1)
 			lines = append(lines, l)

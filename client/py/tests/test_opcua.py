@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 from tests.task_targets import TaskTargets
@@ -62,8 +63,7 @@ class TestOPCReadTask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
-                    "array_size": 1,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": True,
                     "channels": [
@@ -84,7 +84,7 @@ class TestOPCReadTask:
                     "device": "some-device-key",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": False,
                     "channels": [
@@ -120,8 +120,7 @@ class TestOPCReadTask:
                     "sample_rate": 10,
                     "data_saving_disabled": True,
                     "auto_start": True,
-                    "array_mode": True,
-                    "array_size": 1,
+                    "sampling": {"type": "array", "size": 1},
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
@@ -141,6 +140,24 @@ class TestOPCReadTask:
         input_data = test_data["data"]
         sy.opcua.ReadConfig.model_validate(input_data)
 
+    def test_unary_sampling_by_default(self) -> None:
+        """Should sample one value per node when no sampling is given."""
+        task = sy.opcua.ReadTask(device="some-device-key")
+        assert task.config.model_dump()["sampling"] == {"type": "unary"}
+
+    def test_array_sampling(self) -> None:
+        """Should write the array sampling and its size."""
+        task = sy.opcua.ReadTask(
+            device="some-device-key",
+            sampling=sy.opcua.ArraySampling(size=5),
+        )
+        assert task.config.model_dump()["sampling"] == {"type": "array", "size": 5}
+
+    def test_array_sampling_rejects_zero_size(self) -> None:
+        """Should reject an array size of 0."""
+        with pytest.raises(ValidationError):
+            sy.opcua.ArraySampling(size=0)
+
     def test_create_and_retrieve_task(
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
@@ -150,8 +167,7 @@ class TestOPCReadTask:
             device="some-device-key",
             sample_rate=10,
             stream_rate=5,
-            array_mode=False,
-            array_size=1,
+            sampling=sy.opcua.UnarySampling(),
             channels=[
                 sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",

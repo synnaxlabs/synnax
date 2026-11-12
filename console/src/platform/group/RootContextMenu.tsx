@@ -14,7 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { isScope } from "@/platform/group/move";
+import { isScope } from "@/platform/group/member";
 import { useCreateEmpty } from "@/platform/group/useCreateEmpty";
 import { type Tree } from "@/platform/tree";
 

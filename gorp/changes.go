@@ -126,6 +126,14 @@ func (l *changeList) find(
 	return s, nil
 }
 
+// present reports whether the record of s exists at the write of s.
+func (l *changeList) present(s slot) bool {
+	if s.at >= 0 {
+		return l.entries[s.at].present
+	}
+	return s.existed
+}
+
 // set merges a set of the record of s to value, which holds links. derived is true when
 // the set is a cascade or a detach.
 func (l *changeList) set(s slot, value []byte, links []Link, derived bool) {

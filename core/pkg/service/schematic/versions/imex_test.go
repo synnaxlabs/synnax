@@ -179,6 +179,40 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
 	})
 
+	DescribeTable("Should keep an explicit zero and default an omitted field", func(
+		ctx SpecContext,
+		path string,
+	) {
+		sch := decode(ctx, path)
+		gauge := func(node string) versions.GaugeElementConfig {
+			GinkgoHelper()
+			cfg, ok := sch.Configs[node].Variant.(versions.GaugeElementConfig)
+			Expect(ok).To(BeTrue())
+			return cfg
+		}
+		Expect(gauge("g1").Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		Expect(gauge("g2").Bounds).To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
+	},
+		Entry("current version", "testdata/import_v10_zeros.json"),
+		Entry("older version", "testdata/import_v8_zeros.json"),
+	)
+
+	DescribeTable("Should import a zero scale as 1 and keep the other zeros", func(
+		ctx SpecContext,
+		path string,
+	) {
+		sch := decode(ctx, path)
+		valve := valveConfig(sch, "v1")
+		Expect(valve.Scale).To(Equal(1.0))
+		Expect(valve.StalenessTimeout).To(BeZero())
+		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+	},
+		Entry("current version", "testdata/import_v10_zero_scale.json"),
+		Entry("older version", "testdata/import_v8_zero_scale.json"),
+	)
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))
 	})

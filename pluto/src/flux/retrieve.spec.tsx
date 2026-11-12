@@ -9,7 +9,7 @@
 
 import {
   DisconnectedError,
-  type label,
+  label,
   NotFoundError,
   query,
   UnexpectedError,
@@ -1903,7 +1903,10 @@ describe("useResult", () => {
     });
     expect(result.current.variant).toEqual("success");
     const renamed = `live-a-renamed-${id.create()}`;
-    await client.labels.create({ ...first, name: renamed });
+    await client.labels.dispatch(
+      first.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     await waitFor(
       () =>
         expect(result.current.data?.map(({ name }) => name)).toEqual([

@@ -113,65 +113,41 @@ var _ = Describe("Device", func() {
 					Exists(ctx, tx)).To(BeFalse())
 			},
 		)
-		It("Should move a device to another rack", func(ctx SpecContext) {
-			rw := rackSvc.NewWriter(tx)
-			rack1 := rack.Rack{Name: "Rack 1"}
-			rack2 := rack.Rack{Name: "Rack 2"}
-			Expect(rw.Create(ctx, &rack1)).To(Succeed())
-			Expect(rw.Create(ctx, &rack2)).To(Succeed())
+		It("Should refuse a device whose key exists", func(ctx SpecContext) {
 			d := device.Device{
-				Key:      "moving-device",
-				Rack:     rack1.Key,
-				Location: "original-loc",
-				Name:     "Mover",
+				Key:      "existing-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Original Name",
 				Make:     "Test Make",
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			d.Rack = rack2.Key
-			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(svc.NewRetrieve().
-				Where(device.MatchRacks(rack1.Key)).
-				Exists(ctx, tx)).To(BeFalse())
+			again := device.Device{
+				Key:      d.Key,
+				Rack:     d.Rack,
+				Location: d.Location,
+				Name:     "New Name",
+				Make:     d.Make,
+				Model:    d.Model,
+			}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("device existing-device already exists")),
+			))
 			var res device.Device
 			Expect(svc.NewRetrieve().
-				Where(device.MatchRacks(rack2.Key)).
+				Where(device.MatchKeys(d.Key)).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(res.Key).To(Equal(d.Key))
+			Expect(res.Name).To(Equal("Original Name"))
+			var deviceStatus device.Status
+			Expect(stat.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
+				Entry(&deviceStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(deviceStatus.Name).To(Equal("Original Name"))
 		})
-		It(
-			"Should update the status name when renaming a device",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "rename-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "loc",
-					Name:     "Original Name",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				d2 := device.Device{
-					Key:      "rename-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "loc",
-					Name:     "New Name",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d2)).To(Succeed())
-
-				var deviceStatus device.Status
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
-					Entry(&deviceStatus).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(deviceStatus.Name).To(Equal("New Name"))
-				Expect(deviceStatus.Message).To(Equal("Device status unknown"))
-			},
-		)
 
 		It(
 			"Should use the provided status when creating a device",
@@ -250,46 +226,6 @@ var _ = Describe("Device", func() {
 			},
 		)
 		It(
-			"Should restore a missing status row when the device is re-configured",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "heal-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "heal-loc",
-					Name:     "Heal Device",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				sw := stat.NewWriter(tx)
-				Expect(sw.DeleteOwned(ctx, d.ResourceID())).
-					To(Succeed())
-				Expect(stat.NewRetrieve[any]().
-					Where(status.MatchOwners[any](d.ResourceID())).
-					Entry(new(status.Status[any])).
-					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-
-				reconfigured := device.Device{
-					Key:      d.Key,
-					Rack:     d.Rack,
-					Location: d.Location,
-					Name:     d.Name,
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
-
-				var healed device.Status
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
-					Entry(&healed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(healed.Owner).To(HaveValue(Equal(d.ResourceID())))
-			},
-		)
-
-		It(
 			"Should not write a provided status over the status of another device",
 			func(ctx SpecContext) {
 				retrieve := func(d device.Device) device.Status {
@@ -333,47 +269,12 @@ var _ = Describe("Device", func() {
 			},
 		)
 
-		It(
-			"Should not clobber a live status row on a no-op re-configure",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "live-status-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "live-loc",
-					Name:     "Live Device",
-					Make:     "Test Make",
-					Model:    "Test Model",
-					Status: &device.Status{
-						Variant: status.VariantSuccess,
-						Message: "Device is connected",
-						Time:    telem.Now(),
-					},
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				reconfigured := device.Device{
-					Key:      d.Key,
-					Rack:     d.Rack,
-					Location: d.Location,
-					Name:     d.Name,
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
-
-				var preserved device.Status
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
-					Entry(&preserved).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-				Expect(preserved.Message).To(Equal("Device is connected"))
-			},
-		)
-
 		DescribeTable(
-			"Should keep the stored status when an update sends none",
-			func(ctx SpecContext, change func(context.Context, *device.Device)) {
+			"Should keep the live status when an apply renames or moves the device",
+			func(
+				ctx SpecContext,
+				change func(context.Context, device.Device) []device.Action,
+			) {
 				d := device.Device{
 					Key:      "keep-status-device",
 					Rack:     rackSvc.EmbeddedKey,
@@ -392,18 +293,12 @@ var _ = Describe("Device", func() {
 					Details: device.StatusDetails{Rack: d.Rack},
 				}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
-
-				updated := device.Device{
-					Key:      d.Key,
-					Rack:     d.Rack,
-					Location: d.Location,
-					Name:     d.Name,
-					Make:     d.Make,
-					Model:    d.Model,
-				}
-				change(ctx, &updated)
-				Expect(w.Create(ctx, &updated)).To(Succeed())
-
+				Expect(w.Apply(ctx, d.Key, change(ctx, d)...)).To(Succeed())
+				var updated device.Device
+				Expect(svc.NewRetrieve().
+					Where(device.MatchKeys(d.Key)).
+					Entry(&updated).
+					Exec(ctx, tx)).To(Succeed())
 				var stored device.Status
 				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
@@ -414,34 +309,53 @@ var _ = Describe("Device", func() {
 				Expect(stored.Time).To(Equal(live.Time))
 				Expect(stored.Name).To(Equal(updated.Name))
 				Expect(stored.Details.Rack).To(Equal(updated.Rack))
-				Expect(updated.Status.Message).To(Equal("Device is connected"))
 			},
 			Entry(
 				"renamed",
-				func(_ context.Context, d *device.Device) { d.Name = "Renamed Device" },
+				func(context.Context, device.Device) []device.Action {
+					return []device.Action{device.NewSetAction(device.SetPayload{
+						Path:  []string{"name"},
+						Value: "Renamed Device",
+					})}
+				},
 			),
 			Entry(
 				"moved under another device",
-				func(ctx context.Context, d *device.Device) {
+				func(ctx context.Context, d device.Device) []device.Action {
 					GinkgoHelper()
-					d.Parent = createChassis(ctx, w, d.Rack)
+					return []device.Action{device.NewSetRackAction(
+						device.SetRackPayload{
+							Rack:   d.Rack,
+							Parent: createChassis(ctx, w, d.Rack),
+						},
+					)}
 				},
 			),
 			Entry(
 				"renamed and moved under another device",
-				func(ctx context.Context, d *device.Device) {
+				func(ctx context.Context, d device.Device) []device.Action {
 					GinkgoHelper()
-					d.Name = "Renamed Device"
-					d.Parent = createChassis(ctx, w, d.Rack)
+					return []device.Action{
+						device.NewSetAction(device.SetPayload{
+							Path:  []string{"name"},
+							Value: "Renamed Device",
+						}),
+						device.NewSetRackAction(device.SetRackPayload{
+							Rack:   d.Rack,
+							Parent: createChassis(ctx, w, d.Rack),
+						}),
+					}
 				},
 			),
 			Entry(
 				"moved to another rack",
-				func(ctx context.Context, d *device.Device) {
+				func(ctx context.Context, _ device.Device) []device.Action {
 					GinkgoHelper()
 					r := rack.Rack{Name: "Destination Rack"}
 					Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-					d.Rack = r.Key
+					return []device.Action{
+						device.NewSetRackAction(device.SetRackPayload{Rack: r.Key}),
+					}
 				},
 			),
 		)
@@ -463,60 +377,6 @@ var _ = Describe("Device", func() {
 				})).To(MatchError(ContainSubstring(
 					"owner: device early-status-device does not exist",
 				)))
-			},
-		)
-
-		It(
-			"Should write a provided status when renaming a device",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "rename-provided-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "rename-loc",
-					Name:     "Original Name",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				d.Name = "New Name"
-				d.Status = &device.Status{
-					Variant: status.VariantSuccess,
-					Message: "Device is connected",
-					Time:    telem.Now(),
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				var stored device.Status
-				Expect(stat.NewRetrieve[device.StatusDetails]().
-					Where(status.MatchOwners[device.StatusDetails](d.ResourceID())).
-					Entry(&stored).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(stored.Message).To(Equal("Device is connected"))
-				Expect(stored.Name).To(Equal("New Name"))
-			},
-		)
-
-		It(
-			"Should return the stored status when a no-op update drops a provided one",
-			func(ctx SpecContext) {
-				d := device.Device{
-					Key:      "noop-provided-device",
-					Rack:     rackSvc.EmbeddedKey,
-					Location: "noop-loc",
-					Name:     "Noop Device",
-					Make:     "Test Make",
-					Model:    "Test Model",
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-
-				d.Status = &device.Status{
-					Variant: status.VariantSuccess,
-					Message: "Device is connected",
-					Time:    telem.Now(),
-				}
-				Expect(w.Create(ctx, &d)).To(Succeed())
-				Expect(d.Status.Message).To(Equal("Device status unknown"))
 			},
 		)
 
@@ -649,8 +509,14 @@ var _ = Describe("Device", func() {
 				Parent:   chassisA,
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
-			module.Parent = chassisB
-			Expect(w.Create(ctx, &module)).To(Succeed())
+			Expect(w.Apply(
+				ctx,
+				module.Key,
+				device.NewSetRackAction(device.SetRackPayload{
+					Rack:   module.Rack,
+					Parent: chassisB,
+				}),
+			)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(device.MatchParents(*chassisA)).
 				Exists(ctx, tx)).To(BeFalse())
@@ -660,7 +526,7 @@ var _ = Describe("Device", func() {
 		})
 
 		It(
-			"Should clear the parent of a device written without one",
+			"Should clear the parent of a device moved without one",
 			func(ctx SpecContext) {
 				chassis := createChassis(ctx, w, rackSvc.EmbeddedKey)
 				module := device.Device{
@@ -673,8 +539,11 @@ var _ = Describe("Device", func() {
 					Parent:   chassis,
 				}
 				Expect(w.Create(ctx, &module)).To(Succeed())
-				module.Parent = nil
-				Expect(w.Create(ctx, &module)).To(Succeed())
+				Expect(w.Apply(
+					ctx,
+					module.Key,
+					device.NewSetRackAction(device.SetRackPayload{Rack: module.Rack}),
+				)).To(Succeed())
 				var res device.Device
 				Expect(svc.NewRetrieve().
 					Where(device.MatchKeys(module.Key)).
@@ -713,13 +582,14 @@ var _ = Describe("Device", func() {
 				Parent:   chassis,
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
-			var c device.Device
-			Expect(svc.NewRetrieve().
-				Where(device.MatchKeys(*chassis)).
-				Entry(&c).
-				Exec(ctx, tx)).To(Succeed())
-			c.Parent = &module.Key
-			Expect(w.Create(ctx, &c)).To(MatchError(fmt.Sprintf(
+			Expect(w.Apply(
+				ctx,
+				*chassis,
+				device.NewSetRackAction(device.SetRackPayload{
+					Rack:   rackSvc.EmbeddedKey,
+					Parent: &module.Key,
+				}),
+			)).To(MatchError(fmt.Sprintf(
 				"parent: device %s would form a cycle: validation error",
 				*chassis,
 			)))
@@ -788,31 +658,26 @@ var _ = Describe("Device", func() {
 			Expect(retrieve(ctx).Group).To(BeNil())
 		})
 
-		It("Should keep the group of a device written again", func(ctx SpecContext) {
+		It("Should keep the group of a renamed device", func(ctx SpecContext) {
 			g := createGroup(ctx, d.Rack)
 			Expect(w.SetGroup(ctx, &g, d.Key)).To(Succeed())
-			d.Name = "Renamed Device"
-			Expect(w.Create(ctx, &d)).To(Succeed())
+			Expect(w.Rename(ctx, d.Key, "Renamed Device")).To(Succeed())
 			Expect(retrieve(ctx).Group).To(Equal(&g))
 		})
-
-		It(
-			"Should clear the group of a device moved to another rack",
-			func(ctx SpecContext) {
-				g := createGroup(ctx, d.Rack)
-				Expect(w.SetGroup(ctx, &g, d.Key)).To(Succeed())
-				d.Rack = rackSvc.EmbeddedKey
-				Expect(w.Create(ctx, &d)).To(Succeed())
-				Expect(retrieve(ctx).Group).To(BeNil())
-			},
-		)
 
 		It(
 			"Should refuse to move a device with a parent into a group",
 			func(ctx SpecContext) {
 				g := createGroup(ctx, d.Rack)
 				d.Parent = createChassis(ctx, w, d.Rack)
-				Expect(w.Create(ctx, &d)).To(Succeed())
+				Expect(w.Apply(
+					ctx,
+					d.Key,
+					device.NewSetRackAction(device.SetRackPayload{
+						Rack:   d.Rack,
+						Parent: d.Parent,
+					}),
+				)).To(Succeed())
 				Expect(w.SetGroup(ctx, &g, d.Key)).To(MatchError(fmt.Sprintf(
 					"group: a device held by device %s cannot sit in a group: "+
 						"validation error",
@@ -843,16 +708,6 @@ var _ = Describe("Device", func() {
 				)))
 			},
 		)
-
-		It("Should clear the group of a device given a parent", func(ctx SpecContext) {
-			g := createGroup(ctx, d.Rack)
-			Expect(w.SetGroup(ctx, &g, d.Key)).To(Succeed())
-			d.Parent = createChassis(ctx, w, d.Rack)
-			Expect(w.Create(ctx, &d)).To(Succeed())
-			stored := retrieve(ctx)
-			Expect(stored.Parent).To(Equal(d.Parent))
-			Expect(stored.Group).To(BeNil())
-		})
 	})
 	Describe("Rack", func() {
 		It("Should refuse to delete a rack that holds a device", func(ctx SpecContext) {
@@ -1452,7 +1307,7 @@ func createChassis(ctx context.Context, w device.Writer, rackKey rack.Key) *devi
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -1515,9 +1370,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := d
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							return svc.NewWriter(tx).Rename(ctx, d.Key, "renamed")
 						})).To(Succeed())
 					}
 				})

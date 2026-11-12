@@ -123,7 +123,7 @@ var _ = Describe("NormalizeKeys", func() {
 			func(ctx SpecContext) {
 				writeOldFormatEntry(ctx, entryV1{ID: 7, Data: "migrate me"})
 
-				oldPrefix := MustSucceed(msgpack.Codec.Encode(ctx, "entryV1"))
+				oldPrefix := MustSucceed(msgpack.Codec.Encode("entryV1"))
 				iter := MustSucceed(kvs.OpenIterator(kv.IterPrefix(oldPrefix)))
 				iter.First()
 				Expect(iter.Valid()).To(BeTrue())

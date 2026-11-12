@@ -17,6 +17,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -136,6 +137,9 @@ class Master final : public master::Master {
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
+    /// @brief keeps the mailbox exchanges of check(), write(), and read() apart, and
+    /// guards the startup parameters in the session plan while the bus runs.
+    std::mutex mailbox_mu;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.
@@ -145,6 +149,10 @@ public:
 
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
+
+    /// @brief returns the name that Windows shows for the adapter, or the interface
+    /// name when there is none.
+    [[nodiscard]] std::string name() const override;
 
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
@@ -161,8 +169,16 @@ public:
 
     x::errors::Error send() override;
 
-    /// @brief shares only atomics with receive() and send(), so it takes no lock.
+    /// @brief shares only atomics with receive() and send().
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    x::errors::Error write(
+        uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    ) override;
+
+    std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) override;
 
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
@@ -177,6 +193,18 @@ private:
         return this->api->context.slavelist[pos];
     }
 
+    /// @brief returns the name of the slave at pos as a NUL-terminated string.
+    [[nodiscard]] const char *slave_name(const uint16_t pos) const {
+        return this->record(pos).name;
+    }
+
+    /// @brief writes parameters to the slave at pos in order, returning
+    /// STARTUP_PARAMETER_ERROR with why the slave rejected the first one that fails.
+    x::errors::Error write_parameters(
+        uint16_t pos,
+        const std::vector<slave::StartupParameter> &parameters
+    );
+
     /// @brief writes a slave's startup parameters in order, recording why the slave
     /// rejected the first one that fails. Returns true when the slave took them all.
     bool write_startup_parameters(
@@ -186,6 +214,10 @@ private:
 
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
+
+    /// @brief reads the settings that the ESI catalog describes for the slave from it,
+    /// or the reason the read failed into its status.
+    void read_settings(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);

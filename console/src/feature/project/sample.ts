@@ -22,8 +22,8 @@ import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 
 const NAME = "Sample project";
 
-// Fixed keys make each new sample overwrite the last one, even after a rename, so only
-// one copy of the Arc programs drives the sample channels.
+// Fixed keys let each new sample replace the last one, even after a rename, so only one
+// copy of the Arc programs drives the sample channels.
 export const KEYS = {
   project: "adacd22e-b3a6-4b20-a587-136795288889",
   schematic: "07ba9c3b-d84e-4e85-934d-e2c750355791",
@@ -208,15 +208,18 @@ export interface Programs {
  */
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
-  await client.projects.create({ key: KEYS.project, name: NAME });
+  // A reset keeps the project, so the visualizations that the user added to it stay.
+  if (await exists(client)) await client.projects.rename(KEYS.project, NAME);
+  else await client.projects.create({ key: KEYS.project, name: NAME });
+  // Deleting an Arc deletes its task, which stops the old program.
+  await Promise.all([
+    client.arcs.delete([KEYS.simulator, KEYS.sequence]),
+    client.panels.delete(KEYS.panel),
+    client.schematics.delete(KEYS.schematic),
+    client.lineplots.delete(KEYS.linePlot),
+  ]);
   await client.schematics.create({ ...createSchematic(ch), project: KEYS.project });
   await client.lineplots.create({ ...createLinePlot(ch), project: KEYS.project });
-  // Overwriting an existing schematic or line plot keeps its project and group, and the
-  // user can have moved either one. Both go back to the top of the sample project.
-  await client.batch.send([
-    client.schematics.setProjectRequest(KEYS.schematic, KEYS.project),
-    client.lineplots.setProjectRequest(KEYS.linePlot, KEYS.project),
-  ]);
   await client.arcs.create([
     {
       key: KEYS.simulator,

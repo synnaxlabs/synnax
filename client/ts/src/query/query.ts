@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 
 import {
-  AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -277,8 +277,8 @@ export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 /**
  * Opens change delivery in the background, since a streaming failure must never block
- * a read. Never rejects. A denial or a missing license belongs to the connection, which
- * reports it once, so only other failures go to report.
+ * a read. Never rejects. A rejected login or session, a denial, or a missing license
+ * belongs to the connection, which reports it once. Only other failures go to report.
  */
 export const startStreaming = async (
   hooks: SpaceHooks,
@@ -287,9 +287,9 @@ export const startStreaming = async (
   try {
     await hooks.ensureStreaming?.();
   } catch (exc) {
-    if (AccessDeniedError.matches(exc)) return;
-    // The connection opens the stream once a license applies, and the epoch bump that
-    // follows refetches maintained answers.
+    if (AuthError.matches(exc)) return;
+    // The connection opens the stream once a login succeeds or a license applies, and
+    // the epoch bump that follows refetches maintained answers.
     if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
     report(exc);
   }
@@ -819,10 +819,18 @@ export class Space<
     return promise;
   }
 
-  /** Starts a fetch that subscribers have no caller for and that reads join. */
+  /**
+   * Starts a fetch that subscribers have no caller for and that reads join. A not-found
+   * for a key that the table holds as deleted is no failure: the table delivers the
+   * deletion to subscribers.
+   */
   private fetchUncovered(query: Query<P, K, D, V>): void {
     if (query.state.variant === "loading") return;
-    this.fetch(query).catch((exc: unknown) => this.report(exc));
+    this.fetch(query).catch((exc: unknown) => {
+      const key = this.config.keyOf?.(query.params);
+      const deleted = key != null && this.config.table.status(key) === "tombstoned";
+      if (!(deleted && NotFoundError.matches(exc))) this.report(exc);
+    });
   }
 
   /** Never rejects: a failed refetch leaves the previous answer in place. */
@@ -948,13 +956,16 @@ export class Space<
     query.teardown = teardown;
     const { table, keyOf, matches, triggers } = this.config;
     const { params } = query;
+    const key = keyOf?.(params);
+    const entry = key == null ? undefined : table.get(key);
     // Rules 2 and 3 build membership from events, and none reached the answer or the
     // fetch in flight before now, so it is reconfirmed when one may have. Rule 1
-    // re-seeds from the table below and needs no network.
+    // re-seeds from the table below and needs no network, unless the entry does not
+    // cover the query.
     const { variant } = query.state;
     if (
       (variant === "ready" || variant === "loading") &&
-      keyOf?.(params) == null &&
+      (key == null || (entry != null && !this.covers(entry, params))) &&
       this.unobserved(query)
     ) {
       this.markStale(query);
@@ -977,7 +988,7 @@ export class Space<
       }
     }
 
-    if (this.isServerComputed(params) || (keyOf?.(params) == null && matches == null)) {
+    if (this.isServerComputed(params) || (key == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
       // wholesale refetch; membership is never patched locally. A change to a
       // current member's entry notifies immediately, so optimistic writes render
@@ -1003,7 +1014,6 @@ export class Space<
       return;
     }
 
-    const key = keyOf?.(params);
     if (key != null) {
       // Rule 1: exact-key — track one entry; deletion flips the answer. An entry
       // already in the table answers the query without a fetch. The state is a

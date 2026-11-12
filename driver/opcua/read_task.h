@@ -19,6 +19,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -88,10 +89,8 @@ struct InputChan {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
-    /// @brief whether each read returns an array of samples per node.
-    const bool array_mode;
-    /// @brief the number of samples in each array when array_mode is true.
-    const size_t array_size;
+    /// @brief how the task samples each node.
+    const ::synnax::opcua::Sampling sampling;
     /// @brief whether a bad value of a float channel writes NaN. Otherwise, a bad value
     /// skips the read for every channel on the same index.
     const bool nan_fill_enabled;
@@ -110,8 +109,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        array_mode(other.array_mode),
-        array_size(other.array_size),
+        sampling(other.sampling),
         nan_fill_enabled(other.nan_fill_enabled),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
@@ -128,22 +126,40 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser
     ):
+        ReadTaskConfig(
+            client,
+            parser,
+            parser.has("sampling")
+                ? ::synnax::opcua::parse_sampling(parser.child("sampling"))
+                : ::synnax::opcua::Sampling{::synnax::opcua::UnarySampling{}}
+        ) {}
+
+    /// @brief whether the task reads an array of samples from each node.
+    [[nodiscard]] bool array() const {
+        return std::holds_alternative<::synnax::opcua::ArraySampling>(this->sampling);
+    }
+
+private:
+    ReadTaskConfig(
+        const std::shared_ptr<synnax::Synnax> &client,
+        x::json::Parser &parser,
+        ::synnax::opcua::Sampling sampling
+    ):
         common::BaseReadTaskConfig(
             parser,
             common::TimingConfig(),
-            !parser.field<bool>("array_mode", false)
+            !std::holds_alternative<::synnax::opcua::ArraySampling>(sampling)
         ),
         device_key(parser.field<std::string>("device")),
-        array_mode(parser.field<bool>("array_mode", false)),
-        array_size(parser.field<std::size_t>("array_size", 1)),
+        sampling(std::move(sampling)),
         nan_fill_enabled(parser.field<bool>("nan_fill_enabled", false)),
-        // Array mode never uses samples_per_chan and its stream rate may be zero.
-        samples_per_chan(this->array_mode ? 0 : this->sample_rate / this->stream_rate) {
+        // Array sampling never uses samples_per_chan and its stream rate may be zero.
+        samples_per_chan(this->array() ? 0 : this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](x::json::Parser &cp) {
             const auto parsed = ::synnax::opcua::ReadChannel::parse(cp);
             if (parsed.disabled) return;
-            if (this->array_mode && !parsed.field.empty())
-                cp.field_err("field", "array mode cannot read structure fields");
+            if (this->array() && !parsed.field.empty())
+                cp.field_err("field", "array sampling cannot read structure fields");
             channels.push_back(std::make_unique<InputChan>(parsed, cp));
         });
         if (this->channels.empty()) {
@@ -176,6 +192,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
     }
 
+public:
     [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const {
         std::vector<synnax::channel::Channel> chs;
         chs.reserve(this->channels.size());
@@ -526,6 +543,8 @@ public:
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
+    /// @brief the number of samples each read returns per node.
+    const std::size_t array_size;
     /// @brief regulates the read rate and times each block of samples.
     common::SoftwareTimedSampleClock sample_clock;
 
@@ -536,13 +555,14 @@ public:
         ReadTaskConfig cfg
     ):
         BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
-        sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
+        array_size(std::get<::synnax::opcua::ArraySampling>(this->cfg.sampling).size),
+        sample_clock(this->cfg.sample_rate / this->array_size) {}
 
     /// @brief re-arms the block timer. Without it, the first block after a restart
     /// spans only the time the read took instead of a full acquisition window.
     x::errors::Error start() override {
         this->sample_clock = common::SoftwareTimedSampleClock(
-            this->cfg.sample_rate / this->cfg.array_size
+            this->cfg.sample_rate / this->array_size
         );
         return BaseReadTaskSource::start();
     }
@@ -570,11 +590,11 @@ public:
                 this->result(results, i),
                 quality,
                 [&](const UA_Variant &v) {
-                    x::telem::Series s(ch.data_type, this->cfg.array_size);
+                    x::telem::Series s(ch.data_type, this->array_size);
                     auto err = telem::ua_array_write_to_series(
                                    s,
                                    &v,
-                                   this->cfg.array_size,
+                                   this->array_size,
                                    ch.name
                     )
                                    .second;
@@ -583,8 +603,8 @@ public:
             );
             if (!series.has_value())
                 if (const auto fill = this->fill(i); fill.has_value()) {
-                    series.emplace(ch.data_type, this->cfg.array_size);
-                    for (std::size_t j = 0; j < this->cfg.array_size; ++j)
+                    series.emplace(ch.data_type, this->array_size);
+                    for (std::size_t j = 0; j < this->array_size; ++j)
                         series->write(*fill);
                 }
             if (!series.has_value()) skipped.insert(this->cfg.indexes[i]);
@@ -603,7 +623,7 @@ public:
             if (!skipped.contains(idx))
                 fr.emplace(
                     idx,
-                    x::telem::Series::linspace(start, end, this->cfg.array_size)
+                    x::telem::Series::linspace(start, end, this->array_size)
                 );
         res.warning = quality.warning();
         return res;

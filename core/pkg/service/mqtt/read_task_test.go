@@ -196,6 +196,17 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		It("Should store bytes from base64", func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.BytesT)
+			start(ctx, readConfig(dev, plainEntry(
+				"plant/line10", field("b", data[0], "/b"),
+			)))
+			broker.publish("plant/line10", `{"b":"AP8/"}`, false)
+			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+				Should(BeEquivalentTo(1))
+			Expect(stored(ctx, data[0]).At(0)).To(Equal([]byte{0x00, 0xff, 0x3f}))
+		})
+
 		It("Should stream and not store when data saving is disabled",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
@@ -269,6 +280,8 @@ var _ = Describe("Read task", func() {
 				"duplicate value at /v"),
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
 				"invalid UTF-8"),
+			Entry("text that is not base64 into a bytes channel", telem.BytesT,
+				`{"v":"a*b="}`, "field v: illegal base64 data at input byte 1"),
 		)
 
 		It("Should reject a timestamp that is not after the last one written",
@@ -712,12 +725,32 @@ var _ = Describe("Read task", func() {
 						"field v of topic plant/x: channel 4000000 does not exist"
 				},
 			),
-			Entry("a channel of a data type that a field cannot write",
+			Entry("a bytes channel at the root pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.BytesT)
 					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
-						"field v of topic plant/x: channel " + ch.Name +
-							": cannot convert a JSON value to bytes"
+						"field v of topic plant/x: a bytes channel requires a JSON " +
+							"pointer"
+				},
+			),
+			Entry("an enum value that does not fit the channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Int8T)
+					f := field("v", data[0], "")
+					f["enum_values"] = []any{
+						map[string]any{"label": "BIG", "value": 200},
+					}
+					return readConfig(dev, plainEntry("plant/x", f)),
+						`enum label "BIG": 200 is out of range for int8`
+				},
+			),
+			Entry("an enum value on a string channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.StringT)
+					f := field("v", data[0], "")
+					f["enum_values"] = []any{map[string]any{"label": "ON", "value": 1}}
+					return readConfig(dev, plainEntry("plant/x", f)),
+						`enum label "ON": a float64 value does not convert to string`
 				},
 			),
 			Entry("fields of one topic on different indexes",

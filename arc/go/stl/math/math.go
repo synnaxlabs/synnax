@@ -366,7 +366,7 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 		)
 	}
 	// The schema rejects a non-numeric window value; Next reads the live values.
-	var inputs WindowInputs
+	var inputs windowInputs
 	if err := windowInputsSchema.Parse(
 		nodeCfg.Node.Inputs.ValueMap(),
 		&inputs,
@@ -382,7 +382,7 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 	}, nil
 }
 
-type WindowInputs struct {
+type windowInputs struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 	Count    int64          `json:"count"    msgpack:"count"`
 }

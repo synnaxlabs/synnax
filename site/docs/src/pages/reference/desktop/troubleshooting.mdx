@@ -6,6 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -26,11 +27,18 @@ state of Synnax, such as **Running** or **Stopped unexpectedly**, and:
 - **Running since** -> when Synnax became ready. Shown only while Synnax runs.
 - **Starts** -> the number of times Synnax started since the app opened.
 - **Last problem** -> the last problem, if there was one.
+- **Reason** -> why Synnax stopped. Shown only after Synnax stopped unexpectedly.
 - **Data** -> the size and location of the data folder.
-- The end of the log, updated every 2 seconds.
+- The end of the log, updated every 2 seconds, with a color for each log level.
 
-The dialog has the buttons **Erase all data**, **Show data folder**, **Show logs**,
-**Export**, and **Restart**.
+To read an earlier line, scroll up or select text. The log then stops moving until you
+click **Jump to latest**.
+
+The dialog has the buttons **Show data folder**, **Show logs**, **Copy logs**,
+**Export**, and **Restart**. **Copy logs** copies the version, the state, and the end of
+the log. In the main window, the dialog also has **Erase all data**.
+
+<Video id="desktop/troubleshooting/diagnostics" />
 
 ### Export diagnostics for support
 
@@ -46,7 +54,8 @@ recorded data and no passwords. Send this file to the person who supports you.
 ## Logs
 
 Synnax writes its log to `core.log` in the log folder. To open the folder, run the "Show
-logs" command.
+logs" command. When Synnax crashes, the crash output is in `core-stderr.log`. The crash
+output of the start before is in `core-stderr.previous.log`.
 
 | Operating system | Log folder                                   |
 | ---------------- | -------------------------------------------- |
@@ -78,9 +87,10 @@ Wait a few seconds for the indicator to go away. If it stays, run "Open diagnost
 <Problem.Body>
 <Problem.Cause>
 
-Synnax failed five times in a row, so Synnax Desktop stopped trying to start it. A
+Synnax failed six times in a row, so Synnax Desktop stopped trying to start it. A
 failure is a crash, a start that takes more than 60 seconds, or three failed health
-checks in a row. The last problem shows under the heading.
+checks in a row. A run of 60 seconds or more resets the count. The last problem shows
+under the heading.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -88,6 +98,50 @@ checks in a row. The last problem shows under the heading.
 1. Click **Restart** to try again.
 2. If Synnax stops again, click **Diagnostics** and
    [export diagnostics](#export-diagnostics-for-support) for support.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax stops after an update, or after you install an earlier version
+
+<Problem.Body>
+<Problem.Cause>
+
+Synnax does not open data that a later version opened. Before the first start of a new
+version, Synnax backs up its metadata. If the update fails, Synnax puts the backup back
+and does not start that version again. **Restart** does not help.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Run the "Show logs" command, and open `core.log`.
+2. If the log shows "Data was last opened by Core", install the latest version of Synnax
+   Desktop.
+3. If the log shows "Update to Core ... failed",
+   [export diagnostics](#export-diagnostics-for-support) for support. Your data is as it
+   was before the update. To use Synnax until a fix is ready, install the earlier
+   version of Synnax Desktop, or
+   [erase all data](/reference/desktop/data#erase-all-data).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Creating a channel fails with "using more channels than allowed by the license"
+
+<Problem.Body>
+<Problem.Cause>
+
+Synnax Desktop holds up to 50 channels. Index channels count. Virtual and calculated
+channels do not.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- Delete channels that you no longer need.
+- Use a [virtual channel](/reference/channels#virtual-channels) or a
+  [calculated channel](/reference/channels/calculated) for values that you do not need
+  to store.
+- For more channels, use [Synnax Enterprise](/reference/get-started/editions).
 
 </Problem.Fix>
 </Problem.Body>

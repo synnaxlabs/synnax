@@ -14,6 +14,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/patch"
 )
 
@@ -23,41 +25,50 @@ func (CreatePayload) Handle(Log) (Log, error) {
 	return Log{}, actions.CoreOnlyError("a log create")
 }
 
-// Handle applies the set to the log's name.
+// Handle applies the set to the log's name, group, or project.
 func (p SetPayload) Handle(state Log) (Log, error) {
 	return edit(state, patch.Set(p).Apply)
 }
 
-// Handle applies the remove to the log's name.
+// Handle applies the remove to the log's name, group, or project.
 func (p RemovePayload) Handle(state Log) (Log, error) {
 	return edit(state, patch.Remove(p).Apply)
 }
 
-// Handle applies the insert to the log's name.
+// Handle applies the insert to the log's name, group, or project.
 func (p InsertPayload) Handle(state Log) (Log, error) {
 	return edit(state, patch.Insert(p).Apply)
 }
 
-// Handle applies the move to the log's name.
+// Handle applies the move to the log's name, group, or project.
 func (p MovePayload) Handle(state Log) (Log, error) {
 	return edit(state, patch.Move(p).Apply)
 }
 
 // document is the part of a log that path actions edit.
 type document struct {
-	Name string `json:"name"`
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
 }
 
 // edit applies a path action to a copy of the log's document. A document that gains a
-// member it does not declare, such as a path to the log's group, is rejected.
+// member it does not declare is rejected.
 func edit(state Log, apply func(map[string]any) error) (Log, error) {
-	d, err := patch.Edit(document{Name: state.Name}, apply)
+	d, err := patch.Edit(
+		document{Name: state.Name, Group: state.Group, Project: state.Project},
+		apply,
+	)
 	if err != nil {
 		return Log{}, err
 	}
-	state.Name = d.Name
+	state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 // Handle appends a default channel entry for the given channel. No-op when the
 // channel already has an entry. The inverse RemoveChannel undoes the append

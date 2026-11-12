@@ -466,7 +466,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
           tool: cargo-llvm-cov
 
@@ -642,8 +642,6 @@ jobs:
           version: latest-known
 
       - name: Check names that are public without need
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: uv run --project scripts scripts/check_exports_py.py
 
   format:
@@ -853,8 +851,6 @@ jobs:
         run: pnpm knip
 
       - name: Check exports that only their own module's specs use
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: python3 scripts/check_exports_ts.py
 
   lint-integration:
@@ -1082,9 +1078,6 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
   vite-plugin:
     needs: changes
     if:
@@ -1305,7 +1298,6 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
-      - versions
       - vite-plugin
       - www
       - www-site

@@ -262,7 +262,7 @@ class PagesClient(ResourceClient):
             page_tab = self.layout.get_tab(name)
 
         pluto_labels = {
-            "log": ".pluto-log",
+            "log": "role=log",
             "lineplot": ".pluto-line-plot",
             "schematic": ".pluto-schematic",
             "table": ".pluto-table",

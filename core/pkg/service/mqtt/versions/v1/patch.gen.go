@@ -22,13 +22,17 @@ func (cf *ChannelField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&cf.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&cf.JSONType, c.Next())
+		return patch.Defaulted(&cf.JSONType, c.Next(), func(def *ChannelField) {
+			cf.JSONType = def.JSONType
+		})
 	case "channel":
 		return patch.Value(&cf.Channel, c.Next())
 	case "name":
 		return patch.Value(&cf.Name, c.Next())
 	case "data_type":
-		return patch.Value(&cf.DataType, c.Next())
+		return patch.Defaulted(&cf.DataType, c.Next(), func(def *ChannelField) {
+			cf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&cf.TimeFormat, c.Next())
 	case "enum_values":
@@ -104,7 +108,9 @@ func (et *EdgeTag) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&et.Channel, c.Next())
 	case "tag_type":
-		return patch.Value(&et.TagType, c.Next())
+		return patch.Defaulted(&et.TagType, c.Next(), func(def *EdgeTag) {
+			et.TagType = def.TagType
+		})
 	case "command_channel":
 		return patch.Value(&et.CommandChannel, c.Next())
 	case "command_channel_name":
@@ -181,7 +187,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":
@@ -219,7 +227,9 @@ func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -328,7 +338,9 @@ func (pre *PlainReadEntry) Patch(c patch.Cursor) error {
 	case "topic":
 		return patch.Value(&pre.Topic, c.Next())
 	case "qos":
-		return patch.Value(&pre.Qos, c.Next())
+		return patch.Defaulted(&pre.Qos, c.Next(), func(def *PlainReadEntry) {
+			pre.Qos = def.Qos
+		})
 	case "retained_ignored":
 		return patch.Value(&pre.RetainedIgnored, c.Next())
 	case "fields":
@@ -373,7 +385,9 @@ func (sre *SparkplugReadEntry) Patch(c patch.Cursor) error {
 	case "name":
 		return patch.Value(&sre.Name, c.Next())
 	case "data_type":
-		return patch.Value(&sre.DataType, c.Next())
+		return patch.Defaulted(&sre.DataType, c.Next(), func(def *SparkplugReadEntry) {
+			sre.DataType = def.DataType
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -458,7 +472,9 @@ func (swf *StaticWriteField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&swf.BaseWriteField.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&swf.JSONType, c.Next())
+		return patch.Defaulted(&swf.JSONType, c.Next(), func(def *StaticWriteField) {
+			swf.JSONType = def.JSONType
+		})
 	case "value":
 		return patch.Any(&swf.Value, c.Next())
 	default:
@@ -481,7 +497,9 @@ func (gwf *GeneratedWriteField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&gwf.BaseWriteField.Pointer, c.Next())
 	case "generator":
-		return patch.Value(&gwf.Generator, c.Next())
+		return patch.Defaulted(&gwf.Generator, c.Next(), func(def *GeneratedWriteField) {
+			gwf.Generator = def.Generator
+		})
 	case "time_format":
 		return patch.OptionalValue(&gwf.TimeFormat, c.Next())
 	default:
@@ -570,12 +588,16 @@ func (pwt *PlainWriteTarget) Patch(c patch.Cursor) error {
 	case "topic":
 		return patch.Value(&pwt.Topic, c.Next())
 	case "qos":
-		return patch.Value(&pwt.Qos, c.Next())
+		return patch.Defaulted(&pwt.Qos, c.Next(), func(def *PlainWriteTarget) {
+			pwt.Qos = def.Qos
+		})
 	case "retained":
 		return patch.Value(&pwt.Retained, c.Next())
 	case "channel":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&pwt.Channel, c)
+			return patch.Defaulted(&pwt.Channel, c, func(def *PlainWriteTarget) {
+				pwt.Channel = def.Channel
+			})
 		}
 		return pwt.Channel.Patch(c)
 	case "fields":
@@ -614,7 +636,9 @@ func (swt *SparkplugWriteTarget) Patch(c patch.Cursor) error {
 	case "tag":
 		return patch.Value(&swt.Tag, c.Next())
 	case "tag_type":
-		return patch.Value(&swt.TagType, c.Next())
+		return patch.Defaulted(&swt.TagType, c.Next(), func(def *SparkplugWriteTarget) {
+			swt.TagType = def.TagType
+		})
 	case "channel":
 		return patch.Value(&swt.Channel, c.Next())
 	case "name":

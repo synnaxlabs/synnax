@@ -190,7 +190,7 @@ export const removeChannels = async (
 ): Promise<void> => {
   const client = connect(opts);
   try {
-    const found = await client.channels.retrieve({ names });
+    const found = await client.channels.retrieve(names);
     if (found.length > 0) await client.channels.delete(found.map((c) => c.key));
   } finally {
     await client.close();

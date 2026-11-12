@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -355,7 +356,10 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should stay silent when the change stream is denied", async () => {
+    it.each([
+      ["denied", AccessDeniedError],
+      ["refused for a failed login", AuthError],
+    ])("should stay silent when the change stream is %s", async (_, StreamError) => {
       const table = newTable();
       const onError = vi.fn();
       const answers = singleSpace(
@@ -366,7 +370,7 @@ describe("Answers", () => {
         },
         {
           ensureStreaming: async () => {
-            throw new AccessDeniedError("no permission to stream");
+            throw new StreamError("refused");
           },
           onError,
         },
@@ -854,16 +858,20 @@ describe("Answers", () => {
     const coveringSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: Q) => Promise<string[]>,
+      hooks?: SpaceHooks,
     ) =>
-      new Space<Q, number, string, Rec>({
-        name: "thing",
-        table,
-        fetch,
-        compose: (records) => records[0]?.value ?? 0,
-        keyOf: (query) => query.k,
-        covers: (record) => record.value > 0,
-        single: true,
-      });
+      new Space<Q, number, string, Rec>(
+        {
+          name: "thing",
+          table,
+          fetch,
+          compose: (records) => records[0]?.value ?? 0,
+          keyOf: (query) => query.k,
+          covers: (record) => record.value > 0,
+          single: true,
+        },
+        hooks,
+      );
 
     it("does not answer from an entry that does not cover the query", () => {
       const table = newTable();
@@ -988,6 +996,42 @@ describe("Answers", () => {
       stop();
     });
 
+    it("does not report a subscriber fetch that finds the record deleted", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () =>
+          await table.track(async (since) => {
+            table.ingestDeletes(["a"], since);
+            throw new NotFoundError("thing not found");
+          }),
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("reports a subscriber fetch that finds no record the table holds", async () => {
+      const table = newTable();
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () => {
+          throw new NotFoundError("thing not found");
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
     it("leaves an entry written during a fetch to that fetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
@@ -1014,6 +1058,78 @@ describe("Answers", () => {
       table.set(rec("a", 0));
       expect(seen.at(-1)).toEqual(0);
       stop();
+    });
+
+    describe("after an unmaintained gap", () => {
+      // The fetch answers with the server's current value, which the table never
+      // receives while nothing maintains the query.
+      const gapSpace = (table: query.Table<string, Rec>) => {
+        const server = { value: 0 };
+        const fetch = vi.fn(async () => {
+          table.set(rec("a", server.value));
+          return ["a"];
+        });
+        const space = coveringSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+        return { server, fetch, space };
+      };
+
+      it("refetches a changed uncovered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        table.set(rec("b", 1));
+        const seen: query.Cached<number>[] = [];
+        const stopAgain = space.onChange(qA, (result) => {
+          if (result !== undefined) seen.push(result);
+        });
+        await expect.poll(() => space.getCached(qA)).toEqual(-1);
+        expect(seen.at(-1)).toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        stopAgain();
+      });
+
+      it("does not refetch an unchanged uncovered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        const stopAgain = space.onChange(qA, () => {});
+        // Past the refetch debounce: a scheduled reconfirm would have landed.
+        await wait(150);
+        expect(fetch).toHaveBeenCalledTimes(1);
+        stopAgain();
+      });
+
+      it("refetches an uncovered answer for a new read", async () => {
+        const table = newTable();
+        table.set(rec("a", 0));
+        const { server, fetch, space } = gapSpace(table);
+        const stop = space.onChange(qA, () => {});
+        await space.retrieve(qA);
+        stop();
+        server.value = -1;
+        await expect(space.retrieve(qA)).resolves.toEqual(-1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it("does not refetch a covered answer for a new subscriber", async () => {
+        const table = newTable();
+        table.set(rec("a", 1));
+        const { fetch, space } = gapSpace(table);
+        space.onChange(qA, () => {})();
+        const stop = space.onChange(qA, () => {});
+        // Past the refetch debounce: a scheduled reconfirm would have landed.
+        await wait(150);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(space.getCached(qA)).toEqual(1);
+        stop();
+      });
     });
   });
 

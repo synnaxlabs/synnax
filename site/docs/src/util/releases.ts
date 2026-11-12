@@ -79,10 +79,27 @@ const listingZ = z.array(releaseZ);
 
 export type Release = z.infer<typeof releaseZ>;
 
+const trainOf = ({ order: [major, minor] }: Parsed): string => `${major}.${minor}`;
+
+const published = function* (
+  releases: Release[],
+  product: Product,
+  channel: Channel,
+): Generator<Parsed> {
+  for (const release of releases) {
+    if (release.draft) continue;
+    const parsed = parse(release.tag_name);
+    if (parsed == null || parsed.product !== product) continue;
+    if (channel === "stable" && (parsed.candidate || release.prerelease)) continue;
+    yield parsed;
+  }
+};
+
 /**
  * Finds the highest version among the listed releases of a product. Semver order,
  * never release date, so a hotfix on an old train never outranks the current one.
  * @param channel - `stable` skips candidates; `next` ranks candidates with stables.
+ * @param train - Keeps to one train, such as `0.61`.
  * @returns The version without the tag prefix, such as `0.59.0`, or null if the
  * product has no published release on the channel.
  */
@@ -90,16 +107,21 @@ export const highest = (
   releases: Release[],
   product: Product,
   channel: Channel,
+  train?: string,
 ): string | null => {
   let best: Parsed | null = null;
-  for (const release of releases) {
-    if (release.draft) continue;
-    const parsed = parse(release.tag_name);
-    if (parsed == null || parsed.product !== product) continue;
-    if (channel === "stable" && (parsed.candidate || release.prerelease)) continue;
+  for (const parsed of published(releases, product, channel)) {
+    if (train != null && trainOf(parsed) !== train) continue;
     if (best == null || compare(parsed.order, best.order) > 0) best = parsed;
   }
   return best?.version ?? null;
+};
+
+const trains = (releases: Release[], product: Product): string[] => {
+  const orders = new Map<string, number[]>();
+  for (const parsed of published(releases, product, "stable"))
+    orders.set(trainOf(parsed), parsed.order);
+  return [...orders].sort(([, a], [, b]) => compare(b, a)).map(([train]) => train);
 };
 
 export interface Options {
@@ -107,6 +129,8 @@ export interface Options {
   token?: string;
   /** How long one listing serves lookups. Defaults to five minutes. */
   ttl?: TimeSpan;
+  /** The train the docs describe, such as `0.61`. `documented` keeps to it. */
+  train?: string;
   fetch?: typeof fetch;
   now?: () => number;
 }
@@ -120,6 +144,7 @@ interface Listing {
 export class Releases {
   private readonly token?: string;
   private readonly ttl: number;
+  private readonly train?: string;
   private readonly fetcher: typeof fetch;
   private readonly now: () => number;
   private listing: Listing | null = null;
@@ -127,11 +152,13 @@ export class Releases {
   constructor({
     token,
     ttl = TimeSpan.minutes(5),
+    train,
     fetch: fetcher = globalThis.fetch,
     now = Date.now,
   }: Options = {}) {
     this.token = token;
     this.ttl = ttl.milliseconds;
+    this.train = train;
     this.fetcher = fetcher;
     this.now = now;
   }
@@ -146,6 +173,35 @@ export class Releases {
     if (version == null)
       throw new Error(`GitHub lists no ${channel} ${product} release`);
     return version;
+  }
+
+  /**
+   * Returns the newest stable release of a product that the docs describe. Desktop has
+   * its own version line, so it takes the newest stable release.
+   * @throws {Error} if the API is unreachable or lists no such release.
+   */
+  async documented(product: Product): Promise<string> {
+    if (product === "desktop" || this.train == null) return await this.latest(product);
+    return await this.onTrain(product, this.train);
+  }
+
+  /**
+   * Returns the newest stable release of a product on a train, such as `0.60`.
+   * @throws {Error} if the API is unreachable or lists no such release.
+   */
+  async onTrain(product: Product, train: string): Promise<string> {
+    const version = highest(await this.list(), product, "stable", train);
+    if (version == null)
+      throw new Error(`GitHub lists no stable ${product} release on train ${train}`);
+    return version;
+  }
+
+  /**
+   * Lists the trains with a stable release of a product, newest first.
+   * @throws {Error} if the API is unreachable.
+   */
+  async trains(product: Product): Promise<string[]> {
+    return trains(await this.list(), product);
   }
 
   private list(): Promise<Release[]> {

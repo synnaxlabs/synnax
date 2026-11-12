@@ -128,9 +128,43 @@ export const holdRequests = (
   return { release: () => released.resolve() };
 };
 
+/** Rejects with error each request for which matches is true. Sends the others on. */
+export const rejectRequests = (
+  client: Synnax,
+  matches: (target: string, req: unknown) => boolean,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  return vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (matches(args[0], args[1])) throw error;
+    return await send(...args);
+  });
+};
+
+/**
+ * Fails each request to target with the error, so the Core does not get it. Call it
+ * inside a test: the failures end when that test finishes.
+ */
+export const failRequests = (
+  client: Synnax,
+  target: string,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) throw error;
+    return await send(...args);
+  });
+  onTestFinished(() => spy.mockRestore());
+};
+
 /**
  * Holds each response to target until release is called. responded resolves when the
- * first held response arrives.
+ * first held response arrives, and sent returns the count of requests to target.
  */
 export const holdResponses = (
   client: Synnax,
@@ -143,7 +177,9 @@ export const holdResponses = (
   const responded = new Promise<void>((resolve) => (respond = resolve));
   let release = (): void => {};
   const released = new Promise<void>((resolve) => (release = resolve));
+  let sent = 0;
   vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) sent++;
     const res = await send(...args);
     if (args[0] === target) {
       respond();
@@ -151,5 +187,5 @@ export const holdResponses = (
     }
     return res;
   });
-  return { responded, release };
+  return { responded, release, sent: () => sent };
 };

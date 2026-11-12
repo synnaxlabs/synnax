@@ -106,9 +106,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : COUNTER_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />
@@ -197,6 +199,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
+    const before = deep.copy(dev.properties);
     let devModified = false;
 
     let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
@@ -253,7 +256,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev, SCHEMAS);
+      if (devModified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
     }
   }
 

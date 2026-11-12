@@ -91,7 +91,7 @@ type readTask struct {
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 	groups map[string]*readGroup
-	// writer writes every group's channels, nil while stopped.
+	// writer writes every group's channels, nil once the consumer exits.
 	writer *framer.Writer
 	// client is the consumer, nil while stopped.
 	client *kgo.Client
@@ -120,7 +120,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -311,7 +310,7 @@ func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
 func enums(entries []http.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
-		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+		out[i] = xjson.NewEnum(e.Label, e.Value)
 	}
 	return out
 }
@@ -386,11 +385,17 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 	if answerErr = t.status.Send(
 		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
 	); answerErr != nil {
-		// The caller sees the start fail, so the consumer must not outlive it.
-		return t.release(), answerErr
+		// The caller sees the start fail, so the consumer must not outlive it. The
+		// consumer never ran, so the start closes the writer itself.
+		return errors.Combine(t.release(), t.closeWriter()), answerErr
 	}
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
+	t.sCtx.Go(
+		t.consume,
+		signal.RecoverWithErrOnPanic(),
+		signal.CancelOnFail(),
+		signal.DeferErr(t.closeWriter),
+	)
 	return nil, nil
 }
 
@@ -499,8 +504,11 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
-	// The writer outlives the start command, so it opens in the consumer's context.
-	if t.writer, err = t.openWriter(sCtx); err != nil {
+	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
+	// consumer must finish its write. The consumer closes it on exit.
+	wCtx, cancelWriter := context.WithCancel(context.Background())
+	if t.writer, err = t.openWriter(wCtx); err != nil {
+		cancelWriter()
 		cancel()
 		return err
 	}
@@ -509,9 +517,13 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.failed.Store(false)
 	t.skips = driver.NewSkips("record")
 	t.disconnected = false
+	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
-		signal.NewHardShutdown(sCtx, cancel),
+		xio.CloserFunc(func() error {
+			defer cancelWriter()
+			return stopConsumer.Close()
+		}),
 	}
 	return nil
 }
@@ -544,7 +556,15 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeClient commits the marked offsets, closes the consumer, and closes the writers.
+// closeWriter releases the task's channels. It runs as the consumer exits, for any
+// reason, once no write is in progress.
+func (t *readTask) closeWriter() error {
+	err := t.writer.Close()
+	t.writer = nil
+	return err
+}
+
+// closeClient commits the marked offsets and closes the consumer.
 func (t *readTask) closeClient() (err error) {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -552,8 +572,6 @@ func (t *readTask) closeClient() (err error) {
 	defer cancel()
 	err = t.client.CommitMarkedOffsets(ctx)
 	t.client.Close()
-	err = errors.Join(err, t.writer.Close())
-	t.writer = nil
 	return err
 }
 
@@ -811,9 +829,9 @@ func (t *readTask) convert(rec *kgo.Record) {
 	g.rows = append(g.rows, r)
 }
 
-// keep sorts the group's rows by timestamp and drops the replay. A body-stamped
-// regression is dropped with a status. Kafka timestamps only count milliseconds, so a
-// regression of one moves to a nanosecond past the last written stamp.
+// keep sorts the group's rows by timestamp and drops the replay. An indexed group drops
+// a regression with a status. Kafka timestamps only count milliseconds, so a row in the
+// millisecond of the last Kafka stamp moves to a nanosecond past the last written one.
 func (t *readTask) keep(g *readGroup) {
 	slices.SortStableFunc(g.rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := g.rows[:0]
@@ -822,7 +840,9 @@ func (t *readTask) keep(g *readGroup) {
 			if g.replaying {
 				continue
 			}
-			if g.stamp != -1 {
+			tie := g.stamp == -1 &&
+				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
+			if g.index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,

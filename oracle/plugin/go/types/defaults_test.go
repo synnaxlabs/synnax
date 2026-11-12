@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -695,6 +696,22 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should emit GreaterThan for a numeric gt", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					rate float64 {
+						@validate gt 0.5
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`v.GreaterThan("rate", c.Rate, 0.5)`).
+				ToNotContain(`GreaterThanEq`)
+		})
+
 		It("Should emit LessThanEq for a numeric max", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -907,6 +924,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					name string {
 						@validate min_length 2
 					}
+					rate float64 {
+						@validate gt 0
+					}
 				}
 				generated {}
 			}
@@ -933,6 +953,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					`v.MinLength("name", s.Name, 2)`,
+					`v.GreaterThan("rate", s.Rate, 0)`,
 				)
 			},
 		)
@@ -1292,4 +1313,895 @@ var _ = Describe("Default group generation", func() {
 			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
 		},
 	)
+})
+
+var _ = Describe("Decode-time default generation", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	It(
+		"Should set every default without a zero guard and decode over the defaults",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Cfg struct {
+				rolling int32 = 1
+				name    string = "untitled"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`"encoding/json/jsontext"`,
+				`vmsgpack "github.com/vmihailenco/msgpack/v5"`,
+				"func (c *Cfg) SetDefaults() {\n\tc.Rolling = 1\n"+
+					"\tc.Name = \"untitled\"\n}",
+				"func (c *Cfg) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n"+
+					"\ttype plain Cfg\n"+
+					"\tif reflect.ValueOf(*c).IsZero() {\n\t\tc.SetDefaults()\n\t}\n"+
+					"\treturn json.UnmarshalDecode(dec, (*plain)(c))\n}",
+				"func (c *Cfg) DecodeMsgpack(dec *vmsgpack.Decoder) error {\n"+
+					"\ttype plain Cfg\n"+
+					"\tif reflect.ValueOf(*c).IsZero() {\n\t\tc.SetDefaults()\n\t}\n"+
+					"\treturn dec.Decode((*plain)(c))\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set only the non-zero leaves of a struct default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Bounds struct {
+				lower float64
+				upper float64
+			}
+
+			Cfg struct {
+				bounds Bounds = { lower = 0, upper = 100 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (c *Cfg) SetDefaults() {\n\tc.Bounds.Upper = 100\n}").
+				ToNotContain("func (b *Bounds) SetDefaults()", "c.Bounds.Lower =")
+		},
+	)
+
+	It(
+		"Should set the defaults of a required nested struct but not of an optional, "+
+			"slice, or map one",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rolling int32 = 1 }
+			Outer struct {
+				inner  Inner
+				maybe  Inner?
+				list   Inner[]
+				byName map<string, Inner>
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n}",
+					"func (i *Inner) UnmarshalJSONFrom(",
+					"func (o *Outer) UnmarshalJSONFrom(",
+				).
+				ToNotContain(
+					"o.Maybe.SetDefaults()",
+					"o.List[i].SetDefaults()",
+					"value.SetDefaults()",
+				)
+		},
+	)
+
+	It(
+		"Should emit no SetDefaults on a struct that reaches defaults only in a slice",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rolling int32 = 1 }
+			Outer struct { list Inner[] }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (i *Inner) SetDefaults() {").
+				ToNotContain(
+					"func (o *Outer) SetDefaults()",
+					"func (o *Outer) UnmarshalJSONFrom(",
+				)
+		},
+	)
+
+	It(
+		"Should give an embedded parent no decode hooks and set its defaults from the "+
+			"embedder",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (b *Base) SetDefaults() {\n\tb.Rate = 0.2\n}",
+					"func (c *Cfg) SetDefaults() {\n\tc.Base.SetDefaults()\n"+
+						"\tc.Mode = \"auto\"\n}",
+					"func (c *Cfg) UnmarshalJSONFrom(",
+				).
+				ToNotContain(
+					"func (b *Base) UnmarshalJSONFrom(",
+					"func (b *Base) DecodeMsgpack(",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should reject an embedded type with defaults that a field holds",
+		func(ctx SpecContext, field string) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Bases = Base[]
+			BaseMap = map<string, Base>
+			DistinctBases Base[]
+			Page struct<T> { items T[] }
+			Box struct<T> { item T }
+			Name struct { value string }
+			Pair struct<A, B> { a A b B }
+			Outer struct { ` + field + ` }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Outer.items: Base has defaults and another struct embeds it, so it " +
+					"cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
+			)))
+		},
+		Entry("in a slice", "items Base[]"),
+		Entry("in a map value", "items map<string, Base>"),
+		Entry("in an optional field", "items Base?"),
+		Entry("in a named slice", "items Bases"),
+		Entry("in a named map", "items BaseMap"),
+		Entry("in a distinct slice", "items DistinctBases"),
+		Entry("in a slice of a generic struct", "items Page<Base>"),
+		Entry("in a type parameter field of a generic struct", "items Box<Base>"),
+		Entry("in a generic struct inside a slice", "items Box<Base>[]"),
+		Entry(
+			"in a second instantiation of a generic struct",
+			"items Pair<Box<Name>, Box<Base>>",
+		),
+	)
+
+	It(
+		"Should reject an embedded type with defaults that a generic struct extends",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Page struct<T> extends Base { items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.Base: Base has defaults and another struct embeds it",
+			)))
+		},
+	)
+
+	It(
+		"Should reject a generic struct that instantiates itself without end",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Box struct<T> { item T }
+			Node struct<T> { kids Node<Box<T>>[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Node.kids: Node instantiates itself without end",
+			)))
+		},
+	)
+
+	It(
+		"Should accept a generic struct that recurses into a fixed instantiation",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Wrapper struct { name string }
+			Tree struct<T> {
+				value T
+				kids  Tree<Wrapper>[]
+			}
+			Outer struct { t Tree<Base> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("T Tree[Base]")
+		},
+	)
+
+	It(
+		"Should accept a generic struct nested in itself",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Box struct<T> { item T }
+			Outer struct { items Box<Box<Base>> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("Items Box[Box[Base]]")
+		},
+	)
+
+	It(
+		"Should reject an embedded type with defaults in a required field of a "+
+			"generic struct",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Page struct<T> { meta Base items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.meta: Base has defaults and another struct embeds it",
+			)))
+		},
+	)
+
+	DescribeTable(
+		"Should reject an embedded type with defaults that an inline variant field "+
+			"holds",
+		func(ctx SpecContext, field string) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Shape union on type {
+				box { ` + field + ` }
+				dot {}
+			}
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"BoxShape.items: Base has defaults and another struct embeds it, so " +
+					"it cannot be held in a slice, a map, an optional field, or a " +
+					"generic struct",
+			)))
+		},
+		Entry("in a slice", "items Base[]"),
+		Entry("in a map value", "items map<string, Base>"),
+		Entry("in an optional field", "items Base?"),
+	)
+
+	It(
+		"Should accept an embedded type without defaults that a field holds",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { name string }
+			Cfg struct extends Base { mode string = "auto" }
+			Outer struct { items Base[] }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("Items []Base")
+		},
+	)
+
+	It(
+		"Should accept an embedded type with defaults in a required field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+			Outer struct { item Base }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (o *Outer) SetDefaults() {\n\to.Item.SetDefaults()\n}")
+		},
+	)
+
+	It(
+		"Should give decode hooks to a @create struct, whose New Go omits",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Doc struct {
+				name string = "untitled"
+
+				@create
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (d *Doc) UnmarshalJSONFrom(").
+				ToNotContain("type New ")
+		},
+	)
+
+	Describe("Default groups", func() {
+		It(
+			"Should set a group only when every member is zero",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+					name  string  = "untitled"
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetDefaults() {\n\tc.SetUngroupedDefaults()\n"+
+						"\tc.DefaultGroups()\n}",
+					"func (c *Cfg) SetUngroupedDefaults() {\n\tc.Name = \"untitled\"\n}",
+					"func (c *Cfg) DefaultGroups() {\n"+
+						"\tif c.Lower == 0 && c.Upper == 0 {\n\t\tc.Upper = 1\n\t}\n}",
+				)
+			},
+		)
+
+		It("Should document the group rule on every grouped method", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"// SetDefaults sets every field outside a default group to its "+
+					"schema default. Each\n// default group takes its defaults only "+
+					"when all of its members are zero.\nfunc (c *Cfg) SetDefaults() {",
+				"// DefaultGroups sets the defaults of each default group whose "+
+					"members are all zero, in\n// this type and in the types it "+
+					"embeds or holds. A group with a non-zero member keeps\n// its "+
+					"values.\nfunc (c *Cfg) DefaultGroups() {",
+			)
+		})
+
+		It("Should document the group rule on a union of grouped variants", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Scale union on type {
+					map {
+						pre_scaled_min float64 = 0 { @default group "pre_scaled" }
+						pre_scaled_max float64 = 1 { @default group "pre_scaled" }
+					}
+					none {}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"// ApplyDefaults fills the active variant's zero-valued fields with " +
+					"their\n// schema-declared defaults. A default group takes its " +
+					"defaults only when all of its\n// members are zero.\nfunc (u " +
+					"*Scale) ApplyDefaults() {",
+			)
+		})
+
+		It("Should document the group rule on a grouped ApplyDefaults", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"// ApplyDefaults fills zero-valued fields with their " +
+					"schema-declared " +
+					"defaults. A default\n// group takes its defaults only when all " +
+					"of its members are zero.\nfunc (c *Cfg) ApplyDefaults() {",
+			)
+		})
+
+		It(
+			"Should set the groups of a decoded value only when it started zero",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"// UnmarshalJSONFrom decodes the input over the value. A zero value "+
+						"first takes its\n// defaults outside its default groups.",
+					"// DecodeMsgpack decodes the input over the value, as "+
+						"UnmarshalJSONFrom does.",
+					"\tfresh := reflect.ValueOf(*c).IsZero()\n\tif fresh {\n"+
+						"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+						"\tif err := json.UnmarshalDecode(dec, (*plain)(c)); err != nil {"+
+						"\n\t\treturn err\n\t}\n"+
+						"\tif fresh {\n\t\tc.DefaultGroups()\n\t}"+
+						"\n\treturn nil\n}",
+					"\tfresh := reflect.ValueOf(*c).IsZero()\n\tif fresh {\n"+
+						"\t\tc.SetUngroupedDefaults()\n\t}\n"+
+						"\tif err := dec.Decode((*plain)(c)); err != nil {"+
+						"\n\t\treturn err\n\t}\n"+
+						"\tif fresh {\n\t\tc.DefaultGroups()\n\t}"+
+						"\n\treturn nil\n}",
+				)
+			},
+		)
+
+		It(
+			"Should set a nested field's groups from the parent that prefilled it",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					lower float64 = 0 { @default group "range" }
+					upper float64 = 1 { @default group "range" }
+					units string  = "volts"
+				}
+
+				Cfg struct { range Range }
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetUngroupedDefaults() {\n"+
+						"\tc.Range.SetUngroupedDefaults()\n}",
+					"func (c *Cfg) DefaultGroups() {\n\tc.Range.DefaultGroups()\n}",
+					"func (r *Range) UnmarshalJSONFrom(",
+				)
+			},
+		)
+
+		It(
+			"Should set a child's restated group before its embedded parent's",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				MinMax struct {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+
+				Cfg struct extends MinMax {
+					min_val = 2 { @default group "range" }
+					max_val = 100 { @default group "range" }
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Cfg) SetUngroupedDefaults() {\n"+
+						"\tc.MinMax.SetUngroupedDefaults()\n}",
+					"func (c *Cfg) DefaultGroups() {\n"+
+						"\tif c.MinVal == 0 && c.MaxVal == 0 {\n"+
+						"\t\tc.MinVal = 2\n\t\tc.MaxVal = 100\n\t}\n"+
+						"\tc.MinMax.DefaultGroups()\n}",
+				)
+			},
+		)
+
+		It(
+			"Should decode a grouped union variant over its ungrouped defaults",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Scale union on type {
+					map {
+						pre_scaled_min float64 = 0 { @default group "pre_scaled" }
+						pre_scaled_max float64 = 1 { @default group "pre_scaled" }
+					}
+					none {}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"\t\tv.MapScale.SetUngroupedDefaults()\n" +
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {\n" +
+						"\t\t\treturn err\n\t\t}\n\t\tv.MapScale.DefaultGroups()\n",
+				)
+			},
+		)
+	})
+
+	It(
+		"Should scope the setup of a union literal default in its own block",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct {}
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (p *Panel) SetDefaults() {\n\tp.Root.Variant = LeafNode{}\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set the defaults of a defaulted union variant in its own block",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct { depth int32 = 3 }
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (p *Panel) SetDefaults() {\n\t{\n\t\tv0 := LeafNode{}\n" +
+					"\t\tv0.SetDefaults()\n\t\tp.Root.Variant = v0\n\t}\n}",
+			)
+		},
+	)
+
+	It(
+		"Should write a zero default that overrides an inherited default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Parent struct { rate float64 = 0.2 }
+			Child struct extends Parent { rate float64 = 0 }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n" +
+						"\tc.Rate = 0\n}",
+				).
+				ToNotContain("c.Rate == 0")
+		},
+	)
+
+	It(
+		"Should build a struct default that overrides an inherited one in full",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			XY struct {
+				x int32
+				y int32
+			}
+			Parent struct { pos XY = { x = 5 } }
+			Child struct extends Parent { pos XY = { x = 0, y = 3 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Parent.SetDefaults()\n\t{\n" +
+					"\t\tv0 := XY{}\n\t\tv0.X = 0\n\t\tv0.Y = 3\n\t\tc.Pos = v0\n\t}\n}",
+			)
+		},
+	)
+
+	It(
+		"Should set a restated literal's groups after the decode",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			MinMax struct {
+				min_val float64 = 0 { @default group "range" }
+				max_val float64 = 1 { @default group "range" }
+				label   string  = "signal"
+			}
+			Parent struct { range MinMax = {} }
+			Child struct extends Parent { range MinMax = { min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"\t\tv0 := MinMax{}\n\t\tv0.SetUngroupedDefaults()\n"+
+						"\t\tv0.MinVal = -10\n\t\tc.Range = v0\n",
+					"func (c *Child) DefaultGroups() {\n\tc.Parent.DefaultGroups()\n"+
+						"\tc.Range.DefaultGroups()\n}",
+				).
+				ToNotContain("v0.DefaultGroups()")
+		},
+	)
+
+	It(
+		"Should set a union literal's groups after its members",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Scale union on type {
+				map {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+				none {}
+			}
+			Cfg struct { scale Scale = { type = "map", min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0 := MapScale{}\n\t\tv0.SetUngroupedDefaults()\n" +
+					"\t\tv0.MinVal = -10\n\t\tv0.DefaultGroups()\n",
+			)
+		},
+	)
+
+	It(
+		"Should clear a list that an enclosing default filled",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			A struct { items int32[] }
+			T struct { a A = { items = [1] } }
+			Parent struct { t T = {} }
+			Child struct extends Parent { t T = { a = { items = [] } } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"\t\tv0 := T{}\n\t\tv0.SetDefaults()\n\t\tv0.A.Items = nil\n" +
+					"\t\tc.T = v0\n",
+			)
+		},
+	)
+
+	It(
+		"Should set the defaults of a required field typed by an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct { rate int32 = 5 }
+			Alias = Inner
+			Outer struct { child Alias }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (o *Outer) SetDefaults() {\n\to.Child.SetDefaults()\n}")
+		},
+	)
+
+	It(
+		"Should set the defaults of a parent named through an alias",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate int32 = 10 }
+			Alias = Base
+			Child struct extends Alias { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Child) SetDefaults() {\n\tc.Alias.SetDefaults()\n" +
+					"\tc.Mode = \"auto\"\n}",
+			)
+		},
+	)
+
+	It(
+		"Should write a zero leaf that overrides a nested type's own default",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Inner struct {
+				rate int32 = 5
+				tags string[] = ["a"]
+			}
+			Outer struct { inner Inner = { rate = 0, tags = [] } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (o *Outer) SetDefaults() {\n\to.Inner.SetDefaults()\n"+
+						"\to.Inner.Rate = 0\n\to.Inner.Tags = nil\n}",
+				).
+				ToNotContain("o.Inner.Rate == 0", "o.Inner.Tags == nil")
+		},
+	)
+
+	It(
+		"Should set a union base's defaults on a defaulted variant",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { weight int32 = 2 }
+			Leaf struct { name string? }
+			Split struct { size int32 }
+			Node union on variant extends Base {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = leaf }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0 := LeafNode{}\n\t\tv0.SetDefaults()\n",
+			)
+		},
+	)
+
+	It(
+		"Should clear a variant's default list that a union literal sets empty",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Leaf struct { values int32[] = [1] }
+			Split struct { size int32 }
+			Node union on variant {
+				leaf  Leaf
+				split Split
+			}
+			Panel struct { root Node = { variant = "leaf", values = [] } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0.SetDefaults()\n\t\tv0.Values = nil\n",
+			)
+		},
+	)
+
+	It(
+		"Should give no decode hooks to a parent that another package embeds",
+		func(ctx SpecContext) {
+			loader.Add("schemas/task", `
+			@go output "core/pkg/service/task"
+
+			ReadConfig struct { sample_rate float64 = 10 }
+		`)
+			source := `
+			import "schemas/task"
+
+			@go output "core/pkg/service/ni"
+
+			Cfg struct extends task.ReadConfig { mode string = "auto" }
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "task/types.gen.go").
+				ToContain("func (r *ReadConfig) SetDefaults()").
+				ToNotContain(
+					"func (r *ReadConfig) UnmarshalJSONFrom(",
+					"func (r *ReadConfig) DecodeMsgpack(",
+				)
+		},
+	)
+
+	It(
+		"Should give no decode hooks to a type whose versioned copy is embedded",
+		func(ctx SpecContext) {
+			loader.Add("schemas/xv1", `
+			@go output "core/pkg/service/x/versions/v1"
+
+			Base struct { rate float64 = 0.2 }
+			Cfg struct extends Base { mode string = "auto" }
+		`)
+			source := `
+			import "schemas/xv1"
+
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Doc struct { cfg xv1.Cfg }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "service/x/types.gen.go").
+				ToContain(
+					"func (b *Base) SetDefaults()",
+					"func (d *Doc) UnmarshalJSONFrom(",
+				).
+				ToNotContain("func (b *Base) UnmarshalJSONFrom(")
+		},
+	)
+
+	Describe("Union variants", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			LinearParams struct { slope int32 = 1 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none   NoneParams
+			}
+		`
+
+		It(
+			"Should give a variant SetDefaults but no decode hooks",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						"func (l *LinearScale) SetDefaults() {\n"+
+							"\tl.LinearParams.SetDefaults()\n}",
+						"func (l *LinearParams) SetDefaults() {\n\tl.Slope = 1\n}",
+					).
+					ToNotContain(
+						"func (l *LinearScale) UnmarshalJSONFrom(",
+						"func (l *LinearParams) UnmarshalJSONFrom(",
+						"func (n *NoneScale) SetDefaults()",
+					)
+			},
+		)
+
+		It(
+			"Should decode a variant over its defaults",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"\t\t\tLinearScale\n\t\t}\n\t\tv.LinearScale.SetDefaults()\n"+
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {",
+					"\t\t\tNoneScale\n\t\t}\n"+
+						"\t\tif err := json.Unmarshal(data, &v, opts); err != nil {",
+				)
+			},
+		)
+	})
 })

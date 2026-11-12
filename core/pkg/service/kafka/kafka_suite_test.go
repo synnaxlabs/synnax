@@ -39,8 +39,11 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -52,7 +55,9 @@ import (
 
 var (
 	// hookedKV stores the node, so a spec can intercept the commits of db.
-	hookedKV   *hookkv.DB
+	hookedKV *hookkv.DB
+	// faultyFS holds the time-series data, so a spec can hold a write in progress.
+	faultyFS   *FaultyFS
 	db         *gorp.DB
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
@@ -72,8 +77,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	st := DeferClose(storagetestutil.OpenLayer(ctx))
 	hookedKV = hookkv.Wrap(st.KV)
+	faultyFS = WrapFaultyFS(xfs.NewMem())
 	node := testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+		Storage: &storage.Layer{
+			KV: hookedKV,
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -115,7 +124,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+		DB:      db,
+		Channel: channelSvc,
+	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,
@@ -156,10 +168,11 @@ func clusterProperties() kafka.Properties {
 	return kafka.Properties{Brokers: cluster.ListenAddrs()}
 }
 
-// toJSON converts v into the map a stored task config or device holds.
-func toJSON(v any) msgpack.EncodedJSON {
+// toJSON converts v, marshaled with opts, into the map a stored task config or device
+// holds.
+func toJSON(v any, opts ...json.Options) msgpack.EncodedJSON {
 	GinkgoHelper()
-	b := MustSucceed(json.Marshal(v))
+	b := MustSucceed(json.Marshal(v, opts...))
 	var m msgpack.EncodedJSON
 	Expect(json.Unmarshal(b, &m)).To(Succeed())
 	return m
@@ -210,8 +223,10 @@ func createIndexed(
 	return index, data
 }
 
-// newTask stores and returns a task of typ holding cfg. It skips task.Writer, which
-// writes a status of its own, so a spec sees only the statuses the factory writes.
+// newTask stores and returns a task of typ holding cfg. It leaves out each zero struct
+// field, so the factory's decode gives that field its default as it does an absent one.
+// To send an explicit zero, pass cfg as a map. newTask skips task.Writer, which writes
+// a status of its own, so a spec sees only the statuses the factory writes.
 func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	GinkgoHelper()
 	t := task.Task{
@@ -219,7 +234,7 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 		Rack:   rackSvc.EmbeddedKey,
 		Name:   "test-" + typ,
 		Type:   typ,
-		Config: toJSON(cfg),
+		Config: toJSON(cfg, json.OmitZeroStructFields(true)),
 	}
 	Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
 		To(Succeed())

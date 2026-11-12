@@ -15,13 +15,14 @@ import { type deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   addressKey,
   type Channel,
   DIRECTIONS,
   hasEntry,
   type PDOType,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -32,8 +33,8 @@ export interface AddSlaveEntriesItemProps<
   path: deep.Target<C[]>;
   /** The entries to add: inputs for a read task, outputs for a write task. */
   pdoType: PDOType;
-  /** Creates a channel bound to one entry of the slave with the given key. */
-  createChannel: (device: string, entry: ethercat.PDOEntry) => C;
+  /** Creates a channel bound to one entry of the slave. */
+  createChannel: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C;
 }
 
 /**
@@ -58,11 +59,11 @@ export const AddSlaveEntriesItem = <C extends Channel>({
   const used = new Set(
     all.flatMap((ch) => (ch.device === device && hasEntry(ch) ? [addressKey(ch)] : [])),
   );
-  const unused = uniqueEntries(slave.properties.pdos[pdoType]).filter(
+  const unused = usableEntries(slave.properties, pdoType).filter(
     (entry) => !used.has(addressKey(entry)),
   );
   if (unused.length === 0) return null;
-  const handleClick = () => push(unused.map((entry) => createChannel(device, entry)));
+  const handleClick = () => push(unused.map((entry) => createChannel(slave, entry)));
   return (
     <>
       <Menu.Item itemKey="addSlaveEntries" onClick={handleClick}>

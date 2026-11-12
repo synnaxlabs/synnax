@@ -144,24 +144,30 @@ func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
-func (db *DB) Close() error {
+// Close closes the DB. It returns an error wrapping resource.ErrOpen and leaves the DB
+// open if a writer is open. Close is idempotent.
+func (db *DB) Close() error { return errors.Skip(db.MarkClosed(), ErrDBClosed) }
+
+// MarkClosed marks the DB closed, so that it refuses new writers. It returns an error
+// wrapping resource.ErrOpen and leaves the DB open if a writer is open, or ErrDBClosed
+// if the DB is already closed. The DB stays closed until UnmarkClosed.
+func (db *DB) MarkClosed() error {
 	if !db.closed.CompareAndSwap(false, true) {
-		return nil
+		return db.wrapError(ErrDBClosed)
 	}
-	count := db.openWriters.Load()
-	if count > 0 {
-		err := db.wrapError(
-			errors.Wrapf(
-				resource.ErrOpen,
-				"cannot close channel because there are %d unclosed writers accessing it",
-				count,
-			),
-		)
+	if count := db.openWriters.Load(); count > 0 {
 		db.closed.Store(false)
-		return err
+		return db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"cannot close channel because there are %d unclosed writers accessing it",
+			count,
+		))
 	}
 	return nil
 }
+
+// UnmarkClosed opens a DB that MarkClosed marked closed.
+func (db *DB) UnmarkClosed() { db.closed.Store(false) }
 
 // RenameChannel renames the DB's channel to the given name, and persists the change to
 // the underlying DB.

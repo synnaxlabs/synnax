@@ -14,6 +14,7 @@ package v2
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -80,8 +81,9 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(rc.SampleRate))
 	w.Float64(float64(rc.StreamRate))
 	w.String(rc.Device)
-	w.Bool(rc.ArrayMode)
-	w.Int32(int32(rc.ArraySize))
+	if err := rc.Sampling.EncodeOrc(w); err != nil {
+		return err
+	}
 	w.Bool(rc.Channels != nil)
 	if rc.Channels != nil {
 		w.Uint32(uint32(len(rc.Channels)))
@@ -124,10 +126,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	if rc.Device, err = r.String(); err != nil {
 		return err
 	}
-	if rc.ArrayMode, err = r.Bool(); err != nil {
-		return err
-	}
-	if rc.ArraySize, err = r.Int32(); err != nil {
+	if err = rc.Sampling.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -150,6 +149,42 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if rc.NanFillEnabled, err = r.Bool(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Sampling) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case UnarySampling:
+		w.String("unary")
+	case ArraySampling:
+		w.String("array")
+		w.Uint32(uint32(v.Size))
+	default:
+		return errors.Newf("Sampling: nil or unknown variant %T", s.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Sampling) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "unary":
+		var v UnarySampling
+		s.Variant = v
+	case "array":
+		var v ArraySampling
+		if v.Size, err = r.Uint32(); err != nil {
+			return err
+		}
+		s.Variant = v
+	default:
+		return errors.Newf("Sampling: unknown variant %q", tag)
 	}
 	return nil
 }

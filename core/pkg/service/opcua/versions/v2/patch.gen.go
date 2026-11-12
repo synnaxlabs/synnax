@@ -30,7 +30,9 @@ func (rc *ReadChannel) Patch(c patch.Cursor) error {
 	case "node_name":
 		return patch.Value(&rc.BaseChannel.NodeName, c.Next())
 	case "data_type":
-		return patch.Value(&rc.BaseChannel.DataType, c.Next())
+		return patch.Defaulted(&rc.BaseChannel.DataType, c.Next(), func(def *ReadChannel) {
+			rc.BaseChannel.DataType = def.BaseChannel.DataType
+		})
 	case "channel":
 		return patch.Value(&rc.Channel, c.Next())
 	case "is_index":
@@ -67,15 +69,22 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
-	case "array_mode":
-		return patch.Value(&rc.ArrayMode, c.Next())
-	case "array_size":
-		return patch.Value(&rc.ArraySize, c.Next())
+	case "sampling":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&rc.Sampling, c, func(def *ReadConfig) {
+				rc.Sampling = def.Sampling
+			})
+		}
+		return rc.Sampling.Patch(c)
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
 	case "nan_fill_enabled":
@@ -92,11 +101,87 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Float(float64(rc.ReadConfig.SampleRate))
 	h.Float(float64(rc.ReadConfig.StreamRate))
 	h.String(rc.Device)
-	h.Bool(rc.ArrayMode)
-	h.Int(int64(rc.ArraySize))
+	rc.Sampling.HashContent(h)
 	h.Len(len(rc.Channels))
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
 	h.Bool(rc.NanFillEnabled)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (s *Sampling) Patch(c patch.Cursor) error {
+	switch v := s.Variant.(type) {
+	case UnarySampling:
+		c, ok := c.Guard("type", "unary")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	case ArraySampling:
+		c, ok := c.Guard("type", "array")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	default:
+		return patch.Absent(s, c, "type")
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (s *Sampling) HashContent(h *content.Hash) {
+	switch v := s.Variant.(type) {
+	case UnarySampling:
+		h.String("unary")
+		v.HashContent(h)
+	case ArraySampling:
+		h.String("array")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (us *UnarySampling) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (us *UnarySampling) HashContent(h *content.Hash) {
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (as *ArraySampling) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "size":
+		return patch.Defaulted(&as.Size, c.Next(), func(def *ArraySampling) {
+			as.Size = def.Size
+		})
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (as *ArraySampling) HashContent(h *content.Hash) {
+	h.Uint(uint64(as.Size))
 }

@@ -119,9 +119,9 @@ export const openToolbar = async (
 };
 
 /**
- * resizeToolbar sets the open left drawer's width by driving its resize
- * handle with synthetic events. The width is per-rail state, so a setup-time
- * resize persists for every toolbar opened on that rail during recording.
+ * resizeToolbar sets the open left drawer's width by dragging its resize handle, then
+ * returns the cursor to the drawer's main-nav icon. The width is per-rail state, so a
+ * setup-time resize persists for every toolbar opened on that rail during recording.
  * Clamped by the active toolbar's min/max size.
  */
 export const resizeToolbar = async (
@@ -133,21 +133,15 @@ export const resizeToolbar = async (
     .locator(".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)")
     .first();
   await session.waitFor(drawer);
-  await drawer.evaluate((el, target) => {
-    const handle = el.querySelector(".lyra-resize__handle");
-    if (handle == null) throw new Error("drawer resize handle not found");
-    const rect = handle.getBoundingClientRect();
-    const x0 = rect.x + rect.width / 2;
-    const y = rect.y + rect.height / 2;
-    const x1 = x0 + (target - el.getBoundingClientRect().width);
-    handle.dispatchEvent(
-      new DragEvent("dragstart", { bubbles: true, clientX: x0, clientY: y }),
-    );
-    window.dispatchEvent(
-      new MouseEvent("mousemove", { clientX: x1, clientY: y, buttons: 1 }),
-    );
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: x1, clientY: y }));
-  }, width);
+  const handle = await drawer.locator(".lyra-resize__handle").first().boundingBox();
+  const current = (await drawer.boundingBox())?.width;
+  if (handle == null || current == null)
+    throw new Error("drawer resize handle not found");
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await session.drag({ x, y }, { x: x + width - current, y }, { zoom: false });
+  // Left on the handle, the cursor would paint its hover state into the shot.
+  await session.moveTo(page.locator("button.console-main-nav__item.lyra--selected"));
   await session.settle(300);
 };
 

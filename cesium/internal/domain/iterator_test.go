@@ -10,6 +10,7 @@
 package domain_test
 
 import (
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -271,6 +272,48 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.SeekGE(ctx, 10*telem.SecondTS)).To(BeFalse())
 					Expect(i.SeekLE(ctx, 10*telem.SecondTS)).To(BeFalse())
 				})
+
+				It("Should move between domains while domains are written before them",
+					func(ctx SpecContext) {
+						first := (1000 * telem.SecondTS).SpanRange(telem.Second)
+						second := (2000 * telem.SecondTS).SpanRange(telem.Second)
+						for _, tr := range []telem.TimeRange{first, second} {
+							Expect(testutil.WriteDomain(ctx, db, tr, []byte{1})).
+								To(Succeed())
+						}
+						var finished atomic.Bool
+						written := make(chan error, 1)
+						go func() {
+							var err error
+							for s := 100; s < 1000 && err == nil; s++ {
+								err = testutil.WriteDomain(
+									ctx,
+									db,
+									(telem.TimeStamp(s) * telem.SecondTS).
+										SpanRange(telem.Second),
+									[]byte{1},
+								)
+							}
+							finished.Store(true)
+							written <- err
+						}()
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						DeferCleanup(func() {
+							Eventually(written).Should(Receive(BeNil()))
+							Expect(i.Close()).To(Succeed())
+						})
+						for !finished.Load() {
+							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(first))
+							Expect(i.Next()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(second))
+							Expect(i.SeekLE(ctx, second.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(second))
+							Expect(i.Prev()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(first))
+						}
+					},
+				)
 			})
 
 			Describe("Exhaustion", func() {

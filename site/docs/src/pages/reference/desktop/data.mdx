@@ -18,7 +18,14 @@ Synnax Desktop keeps its data in one folder for each user account on the compute
 
 The folder holds your channels, recorded data, ranges, and projects. To open it, run the
 "Show data folder" command. Do not change the files in the folder while Synnax Desktop
-runs.
+runs. Synnax Desktop 1.0 kept metadata backups in a `backups` folder next to `core`.
+Synnax Desktop deletes that folder when you erase all data.
+
+Synnax Desktop also writes `~/.synnax/desktop.json`
+(`%USERPROFILE%\.synnax\desktop.json` on Windows). The file holds the address of Synnax
+and an API key, so that
+[scripts on the same computer](/reference/client/connect#connect-to-synnax-desktop) can
+connect.
 
 <Divider.Divider x />
 
@@ -26,22 +33,29 @@ runs.
 
 Before a new version of Synnax Desktop first runs on your data, it copies your channels,
 ranges, and projects to the `backups` folder in the data folder. It keeps the three
-newest copies. The copies hold no recorded data. Synnax Desktop has no way to restore a
-copy.
+newest copies. The copies hold no recorded data.
+
+If the update fails before it finishes, Synnax puts the newest copy back by itself and
+does not start that version again. See
+[Synnax stops after an update](/reference/desktop/troubleshooting#synnax-stops-after-an-update-or-after-you-install-an-earlier-version).
+You cannot restore a copy by hand.
 
 <Divider.Divider x />
 
 ## Erase all data
 
-<Note.Note variant="error">
+<Note.Note variant="warning">
   Erase all data cannot be undone. It deletes every channel, all recorded data, every
-  project, and all metadata backups.
+  project, all metadata backups, and the API key that scripts use. It also logs the
+  computer out of your Synnax account.
 </Note.Note>
 
 1. Run the "Erase all data" command, or select **Erase all data** in the diagnostics
    dialog.
 2. Hold the **Erase all data** button for one second to confirm.
 
-Synnax Desktop deletes the data, then closes and opens again with no data. The logs and
-your app settings stay. If the erase fails, Synnax stays stopped: click **Restart** in
-the diagnostics dialog.
+Synnax Desktop deletes the data and `~/.synnax/desktop.json`, logs out, then closes and
+opens again with no data. On the next launch, log in again. The new `desktop.json` holds
+a new API key, so code that holds the old key needs the new one. The logs and your app
+settings stay. If the erase fails, Synnax stays stopped: click **Restart** in the
+diagnostics dialog.

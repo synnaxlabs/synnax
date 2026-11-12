@@ -22,13 +22,17 @@ func (cf *ChannelField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&cf.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&cf.JSONType, c.Next())
+		return patch.Defaulted(&cf.JSONType, c.Next(), func(def *ChannelField) {
+			cf.JSONType = def.JSONType
+		})
 	case "channel":
 		return patch.Value(&cf.Channel, c.Next())
 	case "name":
 		return patch.Value(&cf.Name, c.Next())
 	case "data_type":
-		return patch.Value(&cf.DataType, c.Next())
+		return patch.Defaulted(&cf.DataType, c.Next(), func(def *ChannelField) {
+			cf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&cf.TimeFormat, c.Next())
 	case "enum_values":
@@ -81,7 +85,9 @@ func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -129,7 +135,9 @@ func (we *WriteEndpoint) Patch(c patch.Cursor) error {
 	case "disabled":
 		return patch.Value(&we.Disabled, c.Next())
 	case "method":
-		return patch.Value(&we.Method, c.Next())
+		return patch.Defaulted(&we.Method, c.Next(), func(def *WriteEndpoint) {
+			we.Method = def.Method
+		})
 	case "path":
 		return patch.Value(&we.Path, c.Next())
 	case "headers":
@@ -138,7 +146,9 @@ func (we *WriteEndpoint) Patch(c patch.Cursor) error {
 		return patch.Value(&we.QueryParams, c.Next())
 	case "channel":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&we.Channel, c)
+			return patch.Defaulted(&we.Channel, c, func(def *WriteEndpoint) {
+				we.Channel = def.Channel
+			})
 		}
 		return we.Channel.Patch(c)
 	case "fields":
@@ -238,7 +248,9 @@ func (swf *StaticWriteField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&swf.BaseWriteField.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&swf.JSONType, c.Next())
+		return patch.Defaulted(&swf.JSONType, c.Next(), func(def *StaticWriteField) {
+			swf.JSONType = def.JSONType
+		})
 	case "value":
 		return patch.Any(&swf.Value, c.Next())
 	default:
@@ -261,7 +273,9 @@ func (gwf *GeneratedWriteField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&gwf.BaseWriteField.Pointer, c.Next())
 	case "generator":
-		return patch.Value(&gwf.Generator, c.Next())
+		return patch.Defaulted(&gwf.Generator, c.Next(), func(def *GeneratedWriteField) {
+			gwf.Generator = def.Generator
+		})
 	case "time_format":
 		return patch.OptionalValue(&gwf.TimeFormat, c.Next())
 	default:

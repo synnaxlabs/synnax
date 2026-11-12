@@ -10,6 +10,8 @@
 package expression
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
@@ -22,24 +24,27 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	head, tail string,
 ) (types.Type, error) {
-	scope, err := ctx.Scope.Resolve(ctx, head, symbol.IncludeInternal)
-	if err != nil {
-		return types.Type{}, err
-	}
 	name := head
 	if tail != "" {
-		scope, err = scope.Resolve(ctx, tail)
-		if err != nil {
+		name = head + "." + tail
+	}
+	scope := liftedInput(ctx.Scope, name)
+	if scope == nil {
+		var err error
+		if scope, err = ctx.Scope.ResolveMember(
+			ctx,
+			head,
+			tail,
+			symbol.IncludeInternal,
+		); err != nil {
 			return types.Type{}, err
 		}
-		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
-		// Inherited channel read/write (cpu := chan): no local here, read by key.
-		if scope.Type.Kind == types.KindChan && !sameFunction(ctx.Scope, scope) {
-			ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
+		if scope.Type.Kind == types.KindChan {
+			EmitChannelKey(ctx, scope)
 			if chanRef {
 				return scope.Type, nil
 			}
@@ -48,7 +53,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		// A never-reassigned literal flow variable collapses to its initial value;
 		// reassigned and computed reads are lifted into params before compilation.
-		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
+		if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
 			if scope.DefaultValue != nil {
 				return castAndEmitConst(ctx, scope)
 			}
@@ -58,13 +63,6 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			)
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
-		if scope.Type.Kind == types.KindChan {
-			if chanRef {
-				return scope.Type, nil
-			}
-			emitChannelRead(ctx, scope.Type)
-			return scope.Type.Unwrap(), nil
-		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
 		// Reassigned is only tracked at flow level; a never-written $= there is
@@ -79,7 +77,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
-		ctx.Writer.WriteI32Const(int32(scope.ID))
+		EmitChannelKey(ctx, scope)
 		if chanRef {
 			return scope.Type, nil
 		}
@@ -96,6 +94,36 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	}
 }
 
+// liftedInput returns the input of the enclosing function that carries a read of the
+// module member name, nil for a bare name or a read that was not lifted.
+func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
+	if !strings.Contains(name, ".") {
+		return nil
+	}
+	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
+		return nil
+	}
+	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
+		return in
+	}
+	return nil
+}
+
+// EmitChannelKey pushes the key of the channel that sym names. A param or variable of
+// the function being compiled holds the key in a local. A channel, or an alias declared
+// outside the function, has a constant key.
+func EmitChannelKey[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	sym *symbol.Symbol,
+) {
+	if sym.Kind != symbol.KindChannel && SameFunction(ctx.Scope, sym) {
+		ctx.Writer.WriteLocalGet(sym.ID)
+		return
+	}
+	ctx.Writer.WriteI32Const(int32(channelKeyOf(sym)))
+}
+
 // channelKeyOf returns the channel key sym refers to: its SourceID when sym is
 // an alias bound to another channel, otherwise its own ID.
 func channelKeyOf(sym *symbol.Symbol) int {
@@ -105,9 +133,9 @@ func channelKeyOf(sym *symbol.Symbol) int {
 	return sym.ID
 }
 
-// sameFunction reports whether a and b compile into the same unit (same enclosing
+// SameFunction reports whether a and b compile into the same unit (same enclosing
 // function, or both module-level).
-func sameFunction(a, b *symbol.Symbol) bool {
+func SameFunction(a, b *symbol.Symbol) bool {
 	af, aErr := a.ClosestAncestorOfKind(symbol.KindFunction)
 	bf, bErr := b.ClosestAncestorOfKind(symbol.KindFunction)
 	// A module-level symbol has no enclosing function.
@@ -123,7 +151,7 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	sym *symbol.Symbol,
 ) (types.Type, error) {
-	t, v := sym.Type, sym.DefaultValue
+	t, v := sym.Type, types.DecodeValue(sym.DefaultValue, sym.Type)
 	var cast any
 	switch t.Kind {
 	case types.KindString:

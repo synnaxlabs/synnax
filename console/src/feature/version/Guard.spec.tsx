@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection } from "@synnaxlabs/client";
-import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, screen } from "@testing-library/react";
+import { connection, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
@@ -21,13 +22,22 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Auth } from "@/feature/auth";
 import { Version } from "@/feature/version";
+import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { Version as PlatformVersion } from "@/platform/version";
+import {
+  callsOf,
+  clearUpdater,
+  mockUpdater,
+  RESOURCE_ID,
+} from "@/platform/version/testutil";
 import {
   CONNECTION_PARAMS,
   createCore,
   createCoreState,
 } from "@/session/core/testutil";
 import {
+  createTestClientWithGrants,
   INCOMPATIBLE_UNLICENSED_STATUS,
   mockLocationReload,
   pinLocationOrigin,
@@ -65,15 +75,19 @@ const COMPATIBLE_STATUS: connection.Status = {
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
+  client: Synnax | null = null,
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
-    <Auth.Guard>
-      <Version.Guard>
-        <span>{WORKSPACE}</span>
-      </Version.Guard>
-    </Auth.Guard>,
-    { client: null, status, preloadedState: createCoreState([core], core.key) },
+    <PlatformVersion.Provider>
+      <Auth.Guard>
+        <Version.Guard>
+          <span>{WORKSPACE}</span>
+        </Version.Guard>
+      </Auth.Guard>
+      <Modals.Stack />
+    </PlatformVersion.Provider>,
+    { client, status, preloadedState: createCoreState([core], core.key) },
   );
 };
 
@@ -90,7 +104,7 @@ describe("Version.Guard", () => {
     mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
   });
 
-  afterEach(clearMocks);
+  afterEach(clearUpdater);
 
   it("should show the mismatch screen in place of the workspace", async () => {
     await renderGuard(INCOMPATIBLE_STATUS);
@@ -144,6 +158,50 @@ describe("Version.Guard", () => {
     expect(screen.queryByText(TITLE)).toBeNull();
     expect(await screen.findByText(CORE_NAME)).toBeTruthy();
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+  });
+
+  it("should offer the update of the Console that a secure Core serves", async () => {
+    mockUpdater({ version: "0.61.0", served: "0.60.2" });
+    await renderGuard(INCOMPATIBLE_STATUS, true);
+    fireEvent.click(await screen.findByRole("button", { name: "Update Console" }));
+    expect(await screen.findByText("Version 0.60.2 available")).toBeTruthy();
+  });
+
+  it("should explain that it cannot downgrade over an insecure connection", async () => {
+    mockUpdater({ version: "0.61.0", served: "0.60.2" });
+    await renderGuard(INCOMPATIBLE_STATUS);
+    expect(
+      await screen.findByText("Cannot downgrade over an insecure connection"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Core 0.60.1 is older than Console 0.61.0. Install Console 0.60.1 by hand, or connect to the Core over TLS to downgrade.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
+  });
+
+  it("should not offer an update when the Core serves none", async () => {
+    const ipc = mockUpdater({ version: "0.61.0", served: null });
+    await renderGuard(INCOMPATIBLE_STATUS, true);
+    await waitFor(() =>
+      expect(callsOf(ipc, "updater_check").length).toBeGreaterThan(0),
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
+  });
+
+  it("should not offer an update that moves the Console past the Core", async () => {
+    const granted = await createTestClientWithGrants(createTestClient(), {
+      update: [RESOURCE_ID],
+    });
+    const ipc = mockUpdater({ version: "0.61.0", served: null, latest: "0.61.3" });
+    await renderGuard(INCOMPATIBLE_STATUS, true, granted);
+    await waitFor(() =>
+      expect(callsOf(ipc, "plugin:updater|check").length).toBeGreaterThan(0),
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Update Console" })).toBeNull();
   });
 
   it("should render the workspace before a check reports a version", async () => {

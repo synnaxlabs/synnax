@@ -169,6 +169,10 @@ streamer.update_channels(["time", "temperature", "pressure"])
 await streamer.update(["time", "temperature", "pressure"]);
 ```
 
+`update` returns before the Core streams the new channels. To wait until it does, pass
+`{ waitForAck: true }` as the second argument. Read frames at the same time, or the
+update does not return.
+
   </Fragment>
 
 </Client.Tabs>
@@ -177,8 +181,11 @@ await streamer.update(["time", "temperature", "pressure"]);
 
 ## Slow the stream
 
-When your code reads more slowly than frames come, the Core drops frames. To get all the
-samples, slow the stream, or read the stored data later. Two options reduce the data:
+When your Python code reads more slowly than frames come, the Core drops frames. The
+TypeScript client keeps unread frames in memory instead. When they pass 256 MB, it
+closes the streamer, and `read` throws
+`stream holds more than 268435456 bytes of unread messages`. To get all the samples,
+slow the stream, or read the stored data later. Two options reduce the data:
 
 <Client.Tabs exclude={["console"]}>
 
@@ -208,9 +215,10 @@ const streamer = await client.openStreamer({
 
 </Client.Tabs>
 
-- <Client.Var py="downsample_factor" ts="downsampleFactor" /> -> keep one of each `N`
-samples in each series. The Core drops the other samples and does not average them. A
-write of fewer than `N` samples is not reduced.
+- <Client.Var py="downsample_factor" ts="downsampleFactor" /> -> keep every `N`th sample
+of each channel, counted across writes. The Core drops the other samples and does not
+average them. When a write holds no sample that the Core keeps, the Core sends nothing
+for it.
 - <Client.Var py="throttle_rate" ts="throttleRate" /> -> send at most this many frames
 each second. The Core joins the samples between two sends into one frame, so the
 streamer gets all samples in fewer frames.
@@ -261,7 +269,7 @@ A streamer that you do not close keeps its connection to the Core open.
   type="int"
   default="1"
 >
-  Keep one of each `downsample_factor` samples in each series.
+  Keep every `downsample_factor`th sample of each channel, counted across writes.
 </Field.Item>
 
 <Field.Item name="throttle_rate" id="python-throttle-rate" type="float" default="0">
@@ -269,9 +277,15 @@ A streamer that you do not close keeps its connection to the Core open.
   when it receives it.
 </Field.Item>
 
-<Field.Item name="keep_alive" id="python-keep-alive" type="CrudeTimeSpan" default="5 s">
-  How often the Core sends a keep-alive message. A read raises a timeout error after
-  three intervals with no message. Use at least 2 seconds, or 0 to turn off the check.
+<Field.Item
+  name="keep_alive"
+  id="python-keep-alive"
+  type="TimeSpan | float"
+  default="5 s"
+>
+  How often the Core sends a keep-alive message. A read raises `Unreachable` after three
+  intervals with no message. Use at least 2 seconds, or 0 to turn off the check. A
+  number is seconds.
 </Field.Item>
 
 </Field.List>
@@ -292,7 +306,7 @@ A streamer that you do not close keeps its connection to the Core open.
   type="number"
   default="1"
 >
-  Keep one of each `downsampleFactor` samples in each series.
+  Keep every `downsampleFactor`th sample of each channel, counted across writes.
 </Field.Item>
 
 <Field.Item name="throttleRate" id="typescript-throttle-rate" type="Rate" default="0">

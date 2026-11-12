@@ -15,8 +15,9 @@ import { addChannel, taskScript } from "./common/task";
 /**
  * Docs `reference/hardware/modbus/read-task` (Create a Modbus read task): right-click
  * a Modbus server in the devices toolbar and create a read task, set the rates to 10 Hz
- * and 5 Hz, add a float32 holding register at address 0 and a coil at address 3, then
- * start the task. The server is simulated, so the task reads no values.
+ * and 5 Hz, make the first channel a float32 holding register at address 0, add a coil
+ * at address 3, then start the task. The server is simulated, so the task reads no
+ * values.
  */
 export default taskScript({
   device: fixtures.MODBUS_PLC,
@@ -24,9 +25,9 @@ export default taskScript({
   rates: { "Sample rate": "10", "Stream rate": "5" },
   channels: async (session, form) => {
     const channels = form.locator(CHANNEL);
-    await addChannel(session, form);
+    // A new task starts with one coil at address 0.
     await choose(session, channels.nth(0), "Coil", "Holding register");
-    await choose(session, channels.nth(0), "uint8", "float32");
+    await choose(session, channels.nth(0), "uint16", "float32");
     await addChannel(session, form);
     await choose(session, channels.nth(1), "Holding register", "Coil");
     await setAddress(session, channels.nth(1), "3");

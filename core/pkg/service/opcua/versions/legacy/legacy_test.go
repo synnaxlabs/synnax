@@ -61,6 +61,56 @@ var _ = Describe("Era normalization", func() {
 	})
 })
 
+var _ = Describe("Read", func() {
+	It("Should write a present sampling over the flat array fields", func() {
+		in := msgpack.EncodedJSON{
+			"array_mode": false,
+			"array_size": 3,
+			"sampling":   map[string]any{"type": "array", "size": float64(24)},
+		}
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
+			"array_mode": true,
+			"array_size": float64(24),
+		}))
+	})
+
+	It("Should write a present unary sampling as no array mode", func() {
+		in := msgpack.EncodedJSON{
+			"array_mode": true,
+			"array_size": 3,
+			"sampling":   map[string]any{"type": "unary"},
+		}
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
+			"array_mode": false,
+		}))
+	})
+
+	DescribeTable("Should reject a sampling of an unknown type",
+		func(sampling any) {
+			Expect(legacy.Read.Validate(msgpack.EncodedJSON{"sampling": sampling})).
+				To(MatchError(ContainSubstring("sampling: unknown type")))
+		},
+		Entry("an unknown type", map[string]any{"type": "burst"}),
+		Entry("no type", map[string]any{"size": 5}),
+		Entry("a sampling that is not an object", "array"),
+	)
+
+	It("Should accept a config with or without a known sampling", func() {
+		Expect(legacy.Read.Validate(msgpack.EncodedJSON{})).To(Succeed())
+		Expect(legacy.Read.Validate(msgpack.EncodedJSON{
+			"sampling": map[string]any{"type": "array", "size": 24},
+		})).To(Succeed())
+	})
+
+	It("Should keep the flat array fields without a sampling", func() {
+		in := msgpack.EncodedJSON{"array_mode": true, "array_size": 3}
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
+			"array_mode": true,
+			"array_size": 3,
+		}))
+	})
+})
+
 var _ = Describe("Scan", func() {
 	It("Should rename the driver scan fields", func() {
 		in := msgpack.EncodedJSON{"scan_rate": 0.5, "enabled": false}

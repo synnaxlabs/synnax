@@ -167,6 +167,7 @@ const invokeMethodsSchema = {
     output: z.promise(z.number()),
   }),
   throwError: z.function(),
+  isEven: z.function({ input: z.tuple([z.number()]), output: z.boolean() }),
 } satisfies aether.MethodsSchema;
 
 class InvokeLeaf
@@ -198,6 +199,10 @@ class InvokeLeaf
 
   asyncMethod(n: number): Promise<number> {
     return this.asyncMethodSpy(n);
+  }
+
+  isEven(n: number): boolean {
+    return n % 2 === 0;
   }
 
   throwError(): void {

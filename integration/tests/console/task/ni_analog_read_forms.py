@@ -26,8 +26,9 @@ class NIAnalogReadForms(NIRackCase):
     def run(self) -> None:
         """Test channel type form inputs with random subset selection."""
         console = self.console
-        rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = "AI_E103"
+        suffix = random.randint(100, 999)
+        rack_name = f"TestRack_{suffix}"
+        device_name = f"AI_E103_{suffix}"
 
         self.log("Creating NI Analog Read Task")
         ni_ai = console.pages.create(AnalogRead, "Test_AI_task")

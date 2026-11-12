@@ -49,8 +49,8 @@ const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
 
 const selectedText = (log: Log): string =>
   log
-    .selectedLines()
-    .map(({ text }) => text)
+    .selection()
+    .lines.map(({ text }) => text)
     .join("\n");
 
 let testIdCounter = 0;
@@ -581,7 +581,7 @@ describe("log/aether/Log", () => {
 
       expect(log.state.selectionStart).toBe(-1);
       expect(log.state.selectionEnd).toBe(-1);
-      expect(log.selectedLines()).toEqual([]);
+      expect(log.selection().lines).toEqual([]);
     });
 
     it("should not modify selection when no entries are evicted", () => {
@@ -660,6 +660,17 @@ describe("log/aether/Log", () => {
       source.notify();
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(SELECT_ALL_END);
+    });
+
+    it("should keep select-all on every entry when older entries land", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i + 5));
+      const { log, source, updateState } = setup(entries);
+      updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
+      const older = Array.from({ length: 5 }, (_, i) => makeEntry(i));
+      source.setEntries([...older, ...entries]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(0);
+      expect(log.selection().lines).toHaveLength(25);
     });
 
     it("should follow the selected entries when an entry lands before them", () => {
@@ -1043,7 +1054,7 @@ describe("log/aether/Log", () => {
           selectionEnd: 0,
         });
         log.render();
-        return log.selectedLines()[0].text;
+        return log.selection().lines[0].text;
       };
 
       it("should format the value with the channel's timestamp config", () => {
@@ -1144,7 +1155,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.selectedLines().map((l) => l.text);
+      const lines = log.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("hello");
       // Continuation: no name, but leading whitespace preserves value alignment.
@@ -1168,7 +1179,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      const [line] = log.selectedLines().map((l) => l.text);
+      const [line] = log.selection().lines.map((l) => l.text);
       expect(line).toContain("log");
     });
 
@@ -1197,7 +1208,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      const lines = log.selectedLines().map((l) => l.text);
+      const lines = log.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("sensor");
       expect(lines[0]).toContain("first");
       const valueCol = lines[0].indexOf("first");
@@ -1225,7 +1236,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.selectedLines().map((l) => l.text);
+      const lines = log.selection().lines.map((l) => l.text);
       expect(lines[0]).toBe("line1");
       expect(lines[1]).toBe("line2");
     });
@@ -1259,7 +1270,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      const lines = log.selectedLines().map((l) => l.text);
+      const lines = log.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("chA");
       expect(lines[0]).toContain("a1");
       expect(lines[1]).not.toContain("chA");
@@ -1289,7 +1300,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      const lines = log.selectedLines().map((l) => l.text);
+      const lines = log.selection().lines.map((l) => l.text);
       expect(lines[0]).toContain("log");
       expect(lines[0]).toContain("data");
       expect(lines[1]).not.toContain("log");
@@ -1607,7 +1618,7 @@ describe("log/aether/Log", () => {
           selectionEnd: 0,
         });
         log.render();
-        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+        expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
 
       it("should default to local time", () => {
@@ -1617,7 +1628,7 @@ describe("log/aether/Log", () => {
         });
         log.render();
         expect(log.state.timeZone).toBe("local");
-        expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:02:03/);
+        expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:02:03/);
       });
     });
 
@@ -1636,7 +1647,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.selectedLines()[0].text).toMatch(/^2026-01-05 01:00:00/);
+      expect(log.selection().lines[0].text).toMatch(/^2026-01-05 01:00:00/);
     });
 
     it("should keep dates off copied lines when timestamps are hidden", () => {
@@ -1647,7 +1658,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.selectedLines()[0].text).toBe("v");
+      expect(log.selection().lines[0].text).toBe("v");
     });
   });
 
@@ -1657,7 +1668,7 @@ describe("log/aether/Log", () => {
       updateState({ selectionStart: 0, selectionEnd: SELECT_ALL_END });
       source.push(makeEntry(1));
       source.notify();
-      expect(log.selectedLines()).toHaveLength(2);
+      expect(log.selection().lines).toHaveLength(2);
     });
 
     const countReads = (count: number) => {
@@ -1689,7 +1700,7 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("selectedLines", () => {
+  describe("selection", () => {
     it("should be empty when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
@@ -1698,7 +1709,7 @@ describe("log/aether/Log", () => {
       });
       log.render();
       expect(selectedText(log)).toBe("");
-      expect(log.selectedLines()).toEqual([]);
+      expect(log.selection().lines).toEqual([]);
     });
 
     it("should return a single selected entry", () => {
@@ -1709,7 +1720,7 @@ describe("log/aether/Log", () => {
       });
       log.render();
       expect(selectedText(log).length).toBeGreaterThan(0);
-      expect(log.selectedLines()).toHaveLength(1);
+      expect(log.selection().lines).toHaveLength(1);
     });
 
     it("should return a range of selected entries", () => {
@@ -1719,7 +1730,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 5,
       });
       log.render();
-      expect(log.selectedLines()).toHaveLength(4);
+      expect(log.selection().lines).toHaveLength(4);
       expect(selectedText(log)).toContain("\n");
     });
 
@@ -1730,7 +1741,7 @@ describe("log/aether/Log", () => {
         selectionEnd: Number.MAX_SAFE_INTEGER,
       });
       log.render();
-      expect(log.selectedLines()).toHaveLength(10);
+      expect(log.selection().lines).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {
@@ -1740,7 +1751,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      expect(log.selectedLines()).toHaveLength(4);
+      expect(log.selection().lines).toHaveLength(4);
     });
 
     it("should include the color of a channel with a custom color", () => {
@@ -1756,7 +1767,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.selectedLines()[0].color).not.toBe("");
+      expect(log.selection().lines[0].color).not.toBe("");
     });
 
     it("should have an empty color when a channel has no custom color", () => {
@@ -1766,7 +1777,40 @@ describe("log/aether/Log", () => {
         selectionEnd: 0,
       });
       log.render();
-      expect(log.selectedLines()[0].color).toBe("");
+      expect(log.selection().lines[0].color).toBe("");
+    });
+  });
+
+  describe("selection partial", () => {
+    const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
+    const SELECT_ALL = { selectionStart: 0, selectionEnd: SELECT_ALL_END };
+
+    it("should be true for a select-all when older values are stored", () => {
+      const { log } = setup(entries, REGION_500, SELECT_ALL);
+      expect(log.selection().partial).toBe(true);
+    });
+
+    it("should be true for a select-all when newer values are stored", () => {
+      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      source.exhausted = true;
+      source.live = false;
+      updateState(SELECT_ALL);
+      expect(log.selection().partial).toBe(true);
+    });
+
+    it("should be false for a select-all of a log that holds every value", () => {
+      const { log, source, updateState } = setup(entries, REGION_500, SELECT_ALL);
+      source.exhausted = true;
+      updateState(SELECT_ALL);
+      expect(log.selection().partial).toBe(false);
+    });
+
+    it("should be false for a selection that is not a select-all", () => {
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 4,
+      });
+      expect(log.selection().partial).toBe(false);
     });
   });
 
@@ -1924,7 +1968,7 @@ describe("log/aether/Log", () => {
         selectionEnd: 3,
       });
       log.render();
-      expect(log.selectedLines()).toHaveLength(4);
+      expect(log.selection().lines).toHaveLength(4);
       expect(selectedText(log)).toContain("Temperature");
       expect(selectedText(log)).toContain("Pressure");
       expect(selectedText(log)).toContain("Humidity");
@@ -1947,9 +1991,9 @@ describe("log/aether/Log", () => {
         selectionEnd: 1,
       });
       log.render();
-      expect(log.selectedLines()[0].color).not.toBe("");
-      expect(log.selectedLines()[1].color).not.toBe("");
-      expect(log.selectedLines()[0].color).not.toBe(log.selectedLines()[1].color);
+      expect(log.selection().lines[0].color).not.toBe("");
+      expect(log.selection().lines[1].color).not.toBe("");
+      expect(log.selection().lines[0].color).not.toBe(log.selection().lines[1].color);
     });
   });
 

@@ -19,16 +19,18 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// TypeMismatchError represents a type mismatch with an optional hint for fixing it.
-type TypeMismatchError struct {
+// typeMismatchError represents a type mismatch with an optional hint for fixing it.
+type typeMismatchError struct {
 	Message string
 	Hint    string
+	// Cast is the type that the hint says to cast the value to, if any.
+	Cast string
 }
 
-func (e *TypeMismatchError) Error() string { return e.Message }
+func (e *typeMismatchError) Error() string { return e.Message }
 
-// GetHint implements diagnostics.HintProvider.
-func (e *TypeMismatchError) GetHint() string { return e.Hint }
+// GetHint implements the hint interface of diagnostics.
+func (e *typeMismatchError) GetHint() string { return e.Hint }
 
 // Check verifies type compatibility between t1 and t2, adding constraints for type
 // variables or recursively checking wrapped types for channels and series.
@@ -71,12 +73,28 @@ func Check(
 		)
 	}
 
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
+		t2.Constraint != nil {
+		// The untyped value takes the target's type, and never changes it, so a later
+		// write can still fix an untyped target's type.
+		target := cs.ApplySubstitutions(t1)
+		if !untypedFits(target, t2) {
+			return newTypeMismatchError(target, t2, reason)
+		}
+		return cs.AddEquality(t2, target, source, reason)
+	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		return cs.AddEquality(t1, t2, source, reason)
 	}
 
 	if t1.Kind == types.KindSeries || t1.Kind == types.KindChan {
-		return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
+		err := Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
+		// A cast of the whole value does not convert its elements.
+		var mismatch *typeMismatchError
+		if errors.As(err, &mismatch) {
+			mismatch.Cast = ""
+		}
+		return err
 	}
 
 	if t1.Kind != t2.Kind || !types.UnitsAssignable(t1.Unit, t2.Unit) {
@@ -85,12 +103,12 @@ func Check(
 	return nil
 }
 
-// newTypeMismatchError creates a TypeMismatchError for type mismatches.
+// newTypeMismatchError creates a typeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
 func newTypeMismatchError(
 	expected, actual types.Type,
 	reason string,
-) *TypeMismatchError {
+) *typeMismatchError {
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf(
@@ -102,12 +120,25 @@ func newTypeMismatchError(
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
-	var hint string
+	var hint, cast string
 	if expected.IsNumeric() && actual.IsNumeric() {
-		hintType := concreteTypeForHint(expected)
-		hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		name := concreteTypeForHint(expected)
+		hint = fmt.Sprintf("hint: use %s(value) to convert", name)
+		if expected.Unwrap().Kind == expected.Kind &&
+			actual.Unwrap().Kind == actual.Kind {
+			cast = name
+		}
 	}
-	return &TypeMismatchError{Message: msg, Hint: hint}
+	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
+}
+
+// CastOf returns the type that a cast of the value fixes err with, if there is one.
+func CastOf(err error) (string, bool) {
+	var mismatch *typeMismatchError
+	if !errors.As(err, &mismatch) || mismatch.Cast == "" {
+		return "", false
+	}
+	return mismatch.Cast, true
 }
 
 // concreteTypeForHint returns a concrete type name for use in error hints. Converts

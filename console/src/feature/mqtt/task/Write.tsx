@@ -346,7 +346,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   config,
 ) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
       if (target.disabled) continue;
@@ -379,7 +379,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

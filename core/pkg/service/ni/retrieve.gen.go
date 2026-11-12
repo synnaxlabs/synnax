@@ -883,10 +883,6 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 						if v2.CmdChannel != 0 {
 							targets = append(targets, v2.CmdChannel)
 						}
-					case AOFuncGenChannel:
-						if v2.CmdChannel != 0 {
-							targets = append(targets, v2.CmdChannel)
-						}
 					case AOVoltageChannel:
 						if v2.CmdChannel != 0 {
 							targets = append(targets, v2.CmdChannel)
@@ -899,11 +895,6 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AOCurrentChannel:
-						if v4.CmdChannel == t {
-							v4.CmdChannel = 0
-						}
-						e.Channels[i3].Variant = v4
-					case AOFuncGenChannel:
 						if v4.CmdChannel == t {
 							v4.CmdChannel = 0
 						}
@@ -930,10 +921,6 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 						if v2.StateChannel != 0 {
 							targets = append(targets, v2.StateChannel)
 						}
-					case AOFuncGenChannel:
-						if v2.StateChannel != 0 {
-							targets = append(targets, v2.StateChannel)
-						}
 					case AOVoltageChannel:
 						if v2.StateChannel != 0 {
 							targets = append(targets, v2.StateChannel)
@@ -946,11 +933,6 @@ func analogWriteConfigReferences() []gorp.Reference[uuid.UUID, AnalogWriteConfig
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
 					case AOCurrentChannel:
-						if v4.StateChannel == t {
-							v4.StateChannel = 0
-						}
-						e.Channels[i3].Variant = v4
-					case AOFuncGenChannel:
 						if v4.StateChannel == t {
 							v4.StateChannel = 0
 						}

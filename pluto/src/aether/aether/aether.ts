@@ -127,7 +127,7 @@ export type EmptyMethodsSchema = Record<string, never>;
 export type HandlersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
     ? F extends (...params: infer A) => infer R
-      ? R extends Promise<unknown>
+      ? [R] extends [Promise<unknown>]
         ? (...params: A) => R
         : (...params: A) => R | Promise<R>
       : never

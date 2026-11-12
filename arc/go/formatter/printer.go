@@ -475,10 +475,11 @@ func (p *printer) reactiveBodyIsEmpty(idx int, tokens []antlr.Token) bool {
 	return p.isEmptyBlock(idx, tokens) && !p.hasCommentsInBlock(idx, tokens)
 }
 
-// inReactiveBodyContext reports whether the innermost open brace is a stage
-// or stageless sequence body.
+// inReactiveBodyContext reports whether the innermost open delimiter is the brace of
+// a stage or stageless sequence body.
 func (p *printer) inReactiveBodyContext() bool {
-	if len(p.braceContextStack) == 0 {
+	if len(p.braceContextStack) == 0 || len(p.delimiterStack) == 0 ||
+		p.delimiterStack[len(p.delimiterStack)-1] != parser.ArcLexerLBRACE {
 		return false
 	}
 	ctx := p.braceContextStack[len(p.braceContextStack)-1]

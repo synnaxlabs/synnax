@@ -78,22 +78,21 @@ var _ = Describe("Codec", func() {
 				SampleRate:         telem.Rate(4.5),
 				StreamRate:         telem.Rate(5.5),
 				Device:             "test_6",
-				ArrayMode:          true,
-				ArraySize:          9,
+				Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 				Channels: []v2.ReadChannel{
 					{
-						Key:      "test_10",
-						Name:     "test_11",
-						Disabled: false,
-						NodeID:   "test_13",
-						NodeName: "test_14",
-						DataType: telem.DataType("test_15"),
-						Channel:  channel.Key(17),
-						IsIndex:  true,
-						Field:    "test_18",
+						Key:      "test_9",
+						Name:     "test_10",
+						Disabled: true,
+						NodeID:   "test_12",
+						NodeName: "test_13",
+						DataType: telem.DataType("test_14"),
+						Channel:  channel.Key(16),
+						IsIndex:  false,
+						Field:    "test_17",
 					},
 				},
-				NanFillEnabled: true,
+				NanFillEnabled: false,
 			}),
 			Entry("zero values", v2.ReadConfig{
 				Key:                uuid.Nil(),
@@ -102,8 +101,7 @@ var _ = Describe("Codec", func() {
 				SampleRate:         telem.Rate(0),
 				StreamRate:         telem.Rate(0),
 				Device:             "",
-				ArrayMode:          false,
-				ArraySize:          0,
+				Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 				Channels:           []v2.ReadChannel{},
 				NanFillEnabled:     false,
 			}),
@@ -114,11 +112,25 @@ var _ = Describe("Codec", func() {
 				SampleRate:         telem.Rate(4.5),
 				StreamRate:         telem.Rate(5.5),
 				Device:             "test_6",
-				ArrayMode:          true,
-				ArraySize:          9,
+				Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 				Channels:           []v2.ReadChannel{},
-				NanFillEnabled:     false,
+				NanFillEnabled:     true,
 			}),
+		)
+	})
+	Describe("Sampling", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Sampling) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Sampling
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("unary variant", v2.Sampling{Variant: v2.UnarySampling{}}),
+			Entry("array variant", v2.Sampling{Variant: v2.ArraySampling{Size: 2}}),
 		)
 	})
 })
@@ -158,22 +170,21 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		SampleRate:         telem.Rate(4.5),
 		StreamRate:         telem.Rate(5.5),
 		Device:             "test_6",
-		ArrayMode:          true,
-		ArraySize:          9,
+		Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 		Channels: []v2.ReadChannel{
 			{
-				Key:      "test_10",
-				Name:     "test_11",
-				Disabled: false,
-				NodeID:   "test_13",
-				NodeName: "test_14",
-				DataType: telem.DataType("test_15"),
-				Channel:  channel.Key(17),
-				IsIndex:  true,
-				Field:    "test_18",
+				Key:      "test_9",
+				Name:     "test_10",
+				Disabled: true,
+				NodeID:   "test_12",
+				NodeName: "test_13",
+				DataType: telem.DataType("test_14"),
+				Channel:  channel.Key(16),
+				IsIndex:  false,
+				Field:    "test_17",
 			},
 		},
-		NanFillEnabled: true,
+		NanFillEnabled: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -183,6 +194,23 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.ReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSampling(b *testing.B) {
+	seed := v2.Sampling{Variant: v2.UnarySampling{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Sampling
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -258,22 +286,21 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			SampleRate:         telem.Rate(4.5),
 			StreamRate:         telem.Rate(5.5),
 			Device:             "test_6",
-			ArrayMode:          true,
-			ArraySize:          9,
+			Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 			Channels: []v2.ReadChannel{
 				{
-					Key:      "test_10",
-					Name:     "test_11",
-					Disabled: false,
-					NodeID:   "test_13",
-					NodeName: "test_14",
-					DataType: telem.DataType("test_15"),
-					Channel:  channel.Key(17),
-					IsIndex:  true,
-					Field:    "test_18",
+					Key:      "test_9",
+					Name:     "test_10",
+					Disabled: true,
+					NodeID:   "test_12",
+					NodeName: "test_13",
+					DataType: telem.DataType("test_14"),
+					Channel:  channel.Key(16),
+					IsIndex:  false,
+					Field:    "test_17",
 				},
 			},
-			NanFillEnabled: true,
+			NanFillEnabled: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -289,8 +316,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			SampleRate:         telem.Rate(0),
 			StreamRate:         telem.Rate(0),
 			Device:             "",
-			ArrayMode:          false,
-			ArraySize:          0,
+			Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 			Channels:           []v2.ReadChannel{},
 			NanFillEnabled:     false,
 		}
@@ -308,10 +334,9 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			SampleRate:         telem.Rate(4.5),
 			StreamRate:         telem.Rate(5.5),
 			Device:             "test_6",
-			ArrayMode:          true,
-			ArraySize:          9,
+			Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 			Channels:           []v2.ReadChannel{},
-			NanFillEnabled:     false,
+			NanFillEnabled:     true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -331,6 +356,45 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.ReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSampling(f *testing.F) {
+	{
+		seed := v2.Sampling{Variant: v2.UnarySampling{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Sampling{Variant: v2.ArraySampling{Size: 2}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Sampling
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Sampling
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"github.com/synnaxlabs/oracle/plugin"
+	cppactions "github.com/synnaxlabs/oracle/plugin/cpp/actions"
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
@@ -25,9 +26,11 @@ import (
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
+	pyactions "github.com/synnaxlabs/oracle/plugin/py/actions"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
 	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
+	tsgroup "github.com/synnaxlabs/oracle/plugin/ts/group"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
@@ -45,10 +48,12 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		tstypes.New(tstypes.DefaultOptions()),
 		gotypes.New(gotypes.DefaultOptions()),
 		pytypes.New(pytypes.DefaultOptions()),
+		pyactions.New(pyactions.DefaultOptions()),
 		pbtypes.New(pbtypes.DefaultOptions()),
 		cpptypes.New(cpptypes.DefaultOptions()),
 		cppjson.New(cppjson.DefaultOptions()),
 		cpppb.New(cpppb.DefaultOptions()),
+		cppactions.New(cppactions.DefaultOptions()),
 		gopb.New(gopb.DefaultOptions()),
 		goquery.New(goquery.DefaultOptions()),
 		gofilter.New(gofilter.DefaultOptions()),
@@ -59,6 +64,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
+		tsgroup.New(tsgroup.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err

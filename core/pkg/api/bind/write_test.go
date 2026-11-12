@@ -329,8 +329,13 @@ var _ = Describe("Write", func() {
 			stored := createLabel(ctx)
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
-					l := label.Label{Key: stored.Key, Name: "changed"}
-					return svc.Label.NewWriter(tx).Create(ctx, &l)
+					return svc.Label.NewWriter(tx).Apply(
+						ctx,
+						stored.Key,
+						label.NewSetAction(
+							label.SetPayload{Path: []string{"name"}, Value: "changed"},
+						),
+					)
 				},
 				needed: need{access.ActionUpdate, stored.ResourceID()},
 			}
@@ -403,9 +408,14 @@ var _ = Describe("Write", func() {
 				child := createRange(ctx, &from.Key)
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						r := child
-						r.Parent = &to.Key
-						return svc.Ranger.NewWriter(tx).Create(ctx, &r)
+						return svc.Ranger.NewWriter(tx).Apply(
+							ctx,
+							child.Key,
+							ranger.NewSetAction(ranger.SetPayload{
+								Path:  []string{"parent"},
+								Value: to.Key,
+							}),
+						)
 					},
 					granted: []need{
 						{access.ActionUpdate, child.ResourceID()},
@@ -438,8 +448,8 @@ var _ = Describe("Write", func() {
 							ctx,
 							t.Key,
 							task.NewSetAction(task.SetPayload{
-								Path:  []string{"config", "routing_key"},
-								Value: "changed",
+								Path:  []string{"config", "auto_start"},
+								Value: true,
 							}),
 						)
 						return err

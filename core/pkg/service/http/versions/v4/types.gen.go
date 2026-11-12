@@ -12,6 +12,9 @@
 package v4
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -20,6 +23,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Method is the HTTP method used when requesting an endpoint.
@@ -106,6 +110,30 @@ func (r *ReadField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadField) SetDefaults() {
+	r.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
 type ReadEndpoint struct {
 	// Key uniquely identifies the endpoint within the task.
@@ -135,6 +163,30 @@ func (r *ReadEndpoint) ApplyDefaults() {
 	for i := range r.Fields {
 		r.Fields[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadEndpoint) SetDefaults() {
+	r.Method = MethodGet
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadEndpoint
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadEndpoint
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -171,10 +223,35 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.Rate = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.GreaterThan("rate", r.Rate, 0)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
 	}

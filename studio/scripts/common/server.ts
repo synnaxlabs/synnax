@@ -11,12 +11,14 @@ import { type Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
-import { DRIVER, fieldItem, recordTask, type TaskShot } from "./task";
+import { DRIVER, fieldItem, rackItem, recordTask, type TaskShot } from "./task";
 
 /** A simulated server and how to connect it from the Console. */
 export interface Server {
-  /** The simulated server the Driver connects to. */
+  /** The simulated server that the rack connects to. */
   server: fixtures.SimulatorOptions;
+  /** The name of the rack that connects to the server. Defaults to the Driver. */
+  rack?: string;
   /** The palette command that opens the connect dialog. */
   command: string;
   /** The entry of the server in the dialog that the devices toolbar opens. */
@@ -90,6 +92,35 @@ export const HTTP: Server = {
   },
 };
 
+/** The rack of the Core, which runs the MQTT and Kafka tasks. */
+const CORE_RACK = "Node 1";
+
+export const MQTT: Server = {
+  server: { protocol: "mqtt", port: 1883 },
+  rack: CORE_RACK,
+  command: "Connect an MQTT broker",
+  title: "MQTT broker",
+  defaultName: "MQTT broker",
+  name: "Plant broker",
+  fill: async (session, modal) => {
+    await session.click(modal.getByPlaceholder("broker.example.com").first());
+    await session.type("127.0.0.1");
+  },
+};
+
+export const KAFKA: Server = {
+  server: { protocol: "kafka", port: 9092 },
+  rack: CORE_RACK,
+  command: "Connect Kafka cluster",
+  title: "Kafka cluster",
+  defaultName: "Kafka cluster",
+  name: "Plant cluster",
+  fill: async (session, modal) => {
+    await session.click(modal.getByPlaceholder("localhost:9092").first());
+    await session.type("localhost:9092");
+  },
+};
+
 /**
  * browseNodes returns task channels that open MyObject in the OPC UA browser and drag
  * each of `nodes` from it into the channel list.
@@ -121,7 +152,7 @@ export const browseNodes =
 const fillForm = async (
   session: capture.CaptureSession,
   modal: Locator,
-  { defaultName, name, fill }: Server,
+  { defaultName, name, fill, rack = DRIVER }: Server,
 ): Promise<void> => {
   const nameInput = modal.getByPlaceholder(defaultName).first();
   await session.waitFor(nameInput);
@@ -134,7 +165,9 @@ const fillForm = async (
   await session.hold(400);
 
   await fill(session, modal);
-  await session.waitFor(fieldItem(modal, "Connect from").getByText(DRIVER));
+  await session.waitFor(
+    fieldItem(modal, "Connect from").getByText(rack, { exact: true }),
+  );
   await session.hold(800);
 
   await capture.clickButton(session, "Connect");
@@ -143,7 +176,7 @@ const fillForm = async (
 };
 
 /** connect connects a server through its palette command. */
-const connect = async (
+export const connect = async (
   session: capture.CaptureSession,
   server: Server,
 ): Promise<void> => {
@@ -163,7 +196,7 @@ export const serverTaskScript =
       await capture.login(session);
       await capture.clearPanel(session);
       await connect(session, server);
-      await recordTask(session, { device: server.name, ...shot });
+      await recordTask(session, { device: server.name, rack: server.rack, ...shot });
     } finally {
       await sim.stop();
     }
@@ -199,9 +232,9 @@ export const connectServerScript =
       await fillForm(session, modal, server);
       await session.hold(600);
 
-      const driver = capture.treeItem(page, "rack:", DRIVER);
-      await session.waitFor(driver);
-      await session.click(driver, { text: true });
+      const rack = rackItem(page, server.rack ?? DRIVER);
+      await session.waitFor(rack);
+      await session.click(rack, { text: true });
       await session.waitFor(capture.treeItem(page, "device:", server.name));
       await session.moveTo({ x: 1000, y: 500 });
       await session.hold(3000);

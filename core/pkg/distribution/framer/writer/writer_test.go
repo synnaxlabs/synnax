@@ -162,6 +162,50 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Canceled Context", Ordered, func() {
+		var s scenario
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = DeferClose(storageScenario(ctx))
+		})
+		DescribeTable("Should return ErrClosed when the pipeline ends first",
+			func(ctx SpecContext, exec func(*writer.Writer, frame.Frame)) {
+				cfg := writer.Config{
+					Keys:              s.keys,
+					Start:             10 * telem.SecondTS,
+					Authorities:       []control.Authority{control.AuthorityAbsolute},
+					ErrOnUnauthorized: new(true),
+					Sync:              new(true),
+				}
+				cCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				w := MustSucceed(s.dist.Framer.OpenWriter(cCtx, cfg))
+				cancel()
+				Eventually(func() error {
+					next, err := s.dist.Framer.OpenWriter(ctx, cfg)
+					if err != nil {
+						return err
+					}
+					return next.Close()
+				}).Should(Succeed())
+				exec(w, frame.NewMulti(s.keys, []telem.Series{
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesV[int64](2),
+					telem.NewSeriesV[int64](3),
+				}))
+				Expect(w.Close()).To(Succeed())
+			},
+			Entry("Write", func(w *writer.Writer, fr frame.Frame) {
+				GinkgoHelper()
+				Expect(w.Write(fr)).Error().To(MatchError(writer.ErrClosed))
+			}),
+			Entry("Commit", func(w *writer.Writer, _ frame.Frame) {
+				GinkgoHelper()
+				Expect(w.Commit()).Error().To(MatchError(writer.ErrClosed))
+			}),
+		)
+	})
+
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
@@ -391,6 +435,43 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
+		It("Should return no end from a commit that fails", func(ctx SpecContext) {
+			gw := testutil.NewNode(ctx)
+			// Commits walk a map of indexes, so most commit before the one that fails.
+			channels := make([]channel.Channel, 8)
+			series := make([]telem.Series, len(channels))
+			for i := range channels {
+				channels[i] = channel.Channel{
+					Name:        fmt.Sprintf("time_%d", i),
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: 1,
+				}
+				series[i] = telem.NewSeriesSecondsTSV(1, 30)
+			}
+			keys := channel.KeysFromChannels(
+				MustSucceed(gw.CreateChannels(ctx, channels)),
+			)
+			live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys[:1],
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frame.NewMulti(keys, series))).To(BeTrue())
+			Expect(fill.Commit()).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot write to time range")),
+			))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
+		})
 		It(
 			"Should report a commit without control",
 			func(ctx SpecContext) {

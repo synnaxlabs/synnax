@@ -138,8 +138,8 @@ A toggle shows as active when its state channel has a value from 0.9 to 1.1. A t
 with no state channel always shows inactive, so each click writes `1`.
 
 If the **Delay** field of a symbol is set, you must press and hold the symbol for that
-number of milliseconds before it writes. **Momentary** buttons have no delay. Set the
-fields in the [control tab](/reference/visualize/schematics#control-tab).
+duration, such as `500ms`, before it writes. **Momentary** buttons have no delay. Set
+the fields in the [control tab](/reference/visualize/schematics#control-tab).
 
 <Divider.Divider x />
 
@@ -170,6 +170,8 @@ schematic, with its color:
 - **A schematic** shows as the username, with a user icon, and the schematic name.
 - **An Arc automation** shows as its Arc name when it runs on the Core, and as its task
   name when it runs on a Driver.
+- **A Python script** shows as the `name` of its
+  [controller](/reference/control/python/controller).
 
 To change the color of a writer, click its swatch. To move the legend, drag it. To show
 or hide the legend, use the **Show control state legend** switch in the **Control** tab

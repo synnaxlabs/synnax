@@ -11,10 +11,10 @@ package lsp
 
 import (
 	"context"
-	"sort"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -407,7 +407,8 @@ func optStr(s string) protocol.Optional[string] {
 func (s *Server) Completion(
 	ctx context.Context,
 	params *protocol.CompletionParams,
-) (protocol.CompletionResult, error) {
+) (result protocol.CompletionResult, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -439,7 +440,7 @@ func (s *Server) Completion(
 
 func (s *Server) getCompletionItems(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 ) []protocol.CompletionItem {
@@ -454,12 +455,12 @@ func (s *Server) getCompletionItems(
 		root = s.cfg.NewRoot()
 	}
 
-	if completionCtx == ContextAuthorityEntry {
+	if completionCtx == contextAuthorityEntry {
 		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextImportPath {
-		return getImportPathCompletions(doc, prefix, pos, root)
+	if completionCtx == contextImportPath {
+		return s.getImportPathCompletions(ctx, doc, prefix, pos, root)
 	}
 
 	// A block document is a func body, so a call in it takes positional arguments.
@@ -478,10 +479,10 @@ func (s *Server) getCompletionItems(
 	tokens := tokenizeContent(doc.displayContent())
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	nesting := detectNesting(tokensBeforeCursor)
-	if doc.isBlock() && nesting == NestingTopLevel {
-		nesting = NestingFunction
+	if doc.isBlock() && nesting == nestingTopLevel {
+		nesting = nestingFunction
 	}
-	if nesting == NestingSequenceBody {
+	if nesting == nestingSequenceBody {
 		// A sequence body accepts `stage` / nested `sequence` declarations
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
@@ -490,11 +491,11 @@ func (s *Server) getCompletionItems(
 		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
-		case NestingTopLevel:
+		case nestingTopLevel:
 			allowed |= categoryTopLevelKeyword
-		case NestingFunction:
+		case nestingFunction:
 			allowed |= categoryFunctionKeyword
-		case NestingStageBody:
+		case nestingStageBody:
 			allowed |= categoryStageKeyword
 		}
 	}
@@ -525,7 +526,7 @@ func (s *Server) getCompletionItems(
 	if completionCtx != ContextTypeAnnotation {
 		// A flow expression can call a WASM function, so only a func body filters.
 		var execFilter symbol.ExecContext
-		if nesting == NestingFunction {
+		if nesting == nestingFunction {
 			execFilter = symbol.ExecWASM
 		}
 		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
@@ -686,12 +687,11 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 	}
 }
 
-// getImportPathCompletions returns the modules reachable from doc's
-// scope chain, surfaced as Module completion items. Used when the cursor
-// sits in the module-name slot of an `import` statement, where only
-// module names are valid suggestions.
-func getImportPathCompletions(
-	doc *Document,
+// getImportPathCompletions returns the modules in doc's scope chain and the user
+// module paths that start with prefix. Used in the module-name slot of an `import`.
+func (s *Server) getImportPathCompletions(
+	ctx context.Context,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 	root *symbol.Symbol,
@@ -705,8 +705,8 @@ func getImportPathCompletions(
 	}
 	var items []protocol.CompletionItem
 	seen := make(set.Set[string])
-	for s := scope; s != nil; s = s.Parent {
-		for _, child := range s.Children() {
+	for sc := scope; sc != nil; sc = sc.Parent {
+		for _, child := range sc.Children() {
 			if child.Kind != symbol.KindModule || child.Internal {
 				continue
 			}
@@ -723,6 +723,31 @@ func getImportPathCompletions(
 				Detail: protocol.NewOptional("module"),
 			})
 		}
+	}
+	if root == nil || root.ModuleResolver() == nil {
+		return items
+	}
+	modules, err := root.ModuleResolver().Search(ctx, prefix)
+	if err != nil {
+		s.cfg.L.Error("failed to search modules", zap.Error(err))
+		return items
+	}
+	// A path holds dots, which the client does not count as part of the word, so
+	// each item replaces the whole typed prefix.
+	start := protocol.Position{
+		Line:      pos.Line,
+		Character: pos.Character - uint32(len(prefix)),
+	}
+	for _, m := range modules {
+		items = append(items, protocol.CompletionItem{
+			Label:  m.Name,
+			Kind:   protocol.CompletionItemKindModule,
+			Detail: protocol.NewOptional("module"),
+			TextEdit: &protocol.TextEdit{
+				Range:   protocol.Range{Start: start, End: pos},
+				NewText: m.Name,
+			},
+		})
 	}
 	return items
 }
@@ -832,28 +857,11 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 	item.InsertTextFormat = protocol.InsertTextFormatSnippet
 }
 
-// formatImportBlock renders module names as a multi-line `import (...)`
-// block, one name per line, indented four spaces. The trailing newline
-// closes the `)` line; callers append an additional `\n` when the edit
-// is inserted at the top of a file and needs a blank-line separator from
-// the following content.
-func formatImportBlock(names []string) string {
-	var b strings.Builder
-	b.WriteString("import (\n")
-	for _, n := range names {
-		b.WriteString("    ")
-		b.WriteString(n)
-		b.WriteByte('\n')
-	}
-	b.WriteString(")\n")
-	return b.String()
-}
-
 // buildAutoImportEdit returns the AdditionalTextEdits that import
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
-// semantics; this wrapper exists for callers that still hold a *Document
+// semantics; this wrapper exists for callers that still hold a *document
 // rather than snapshotted fields.
-func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
+func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(
 		doc.displayContent(),
 		doc.IR.Symbols,
@@ -861,16 +869,8 @@ func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
 	)
 }
 
-// buildAutoImportEditFromSnapshot is the snapshot-friendly form of
-// buildAutoImportEdit. content is the document text and symbols is the
-// document's root symbol scope, both captured by the caller under the
-// server lock so the edit can be computed without touching live document
-// state. When no imports exist a single loose `import <name>` statement
-// is inserted at the top of the file followed by a blank line; when
-// imports do exist they are consolidated with moduleName into a single
-// canonical `import (...)` block. The block form is reserved for two or
-// more imports so files with a single import keep the lighter loose
-// form. Returns nil when moduleName is already imported.
+// buildAutoImportEditFromSnapshot returns the edits that import moduleName into the
+// document with content and the root scope symbols, or nil when it is imported.
 func buildAutoImportEditFromSnapshot(
 	content string,
 	symbols *symbol.Symbol,
@@ -885,66 +885,7 @@ func buildAutoImportEditFromSnapshot(
 	if isModuleImportedInSource(content, moduleName) {
 		return nil
 	}
-	var (
-		existingNames []string
-		stmts         []antlr.ParserRuleContext
-		seenStmts     = set.New[antlr.ParserRuleContext]()
-	)
-	if symbols != nil {
-		for _, child := range symbols.Children() {
-			if child.Kind != symbol.KindModuleAlias || child.AST == nil {
-				continue
-			}
-			if child.Name == moduleName {
-				return nil
-			}
-			existingNames = append(existingNames, child.Name)
-			parent, ok := child.AST.GetParent().(antlr.ParserRuleContext)
-			if !ok || seenStmts.Contains(parent) {
-				continue
-			}
-			seenStmts.Add(parent)
-			stmts = append(stmts, parent)
-		}
-	}
-	if len(stmts) == 0 {
-		return []protocol.TextEdit{{
-			Range: protocol.Range{
-				Start: protocol.Position{Line: 0, Character: 0},
-				End:   protocol.Position{Line: 0, Character: 0},
-			},
-			NewText: "import " + moduleName + "\n\n",
-		}}
-	}
-	allNames := append(existingNames, moduleName)
-	sort.Slice(stmts, func(i, j int) bool {
-		return tokenBefore(stmts[i].GetStart(), stmts[j].GetStart())
-	})
-	// Replace the first statement in document order with the consolidated
-	// block and delete each subsequent statement. Using one big
-	// minStart-to-maxStop replacement instead would clobber any comments or
-	// in-progress edits sitting between the import statements; the
-	// statement-scoped edits leave that interstitial content untouched.
-	first := stmts[0]
-	edits := []protocol.TextEdit{{
-		Range: protocol.Range{
-			Start: protocol.Position{
-				Line:      uint32(first.GetStart().GetLine() - 1),
-				Character: uint32(first.GetStart().GetColumn()),
-			},
-			End: protocol.Position{
-				Line: uint32(first.GetStop().GetLine() - 1),
-				Character: uint32(
-					first.GetStop().GetColumn() + len(first.GetStop().GetText()),
-				),
-			},
-		},
-		NewText: formatImportBlock(allNames),
-	}}
-	for _, st := range stmts[1:] {
-		edits = append(edits, deleteStatementEdit(content, st))
-	}
-	return edits
+	return formatter.AddImport(symbols, moduleName)
 }
 
 // appendModuleMemberCompletions adds completion items for module
@@ -957,7 +898,7 @@ func buildAutoImportEditFromSnapshot(
 // only emitted once (the imported alias is encountered first and wins).
 func appendModuleMemberCompletions(
 	items []protocol.CompletionItem,
-	doc *Document,
+	doc *document,
 	scope *symbol.Symbol,
 	prefix string,
 	pos protocol.Position,
@@ -1017,16 +958,9 @@ func appendModuleMemberCompletions(
 	return items
 }
 
-func tokenBefore(a, b antlr.Token) bool {
-	if a.GetLine() != b.GetLine() {
-		return a.GetLine() < b.GetLine()
-	}
-	return a.GetColumn() < b.GetColumn()
-}
-
 func (s *Server) getAuthorityEntryCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	pos protocol.Position,
 	root *symbol.Symbol,
@@ -1073,7 +1007,7 @@ func (s *Server) getAuthorityEntryCompletions(
 
 func (s *Server) resolveFunctionType(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	name string,
 	root *symbol.Symbol,
 ) (types.Type, bool) {
@@ -1094,7 +1028,7 @@ func (s *Server) resolveFunctionType(
 
 func (s *Server) collectSymbols(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	filter func(types.Type) bool,
 	root *symbol.Symbol,
@@ -1133,7 +1067,7 @@ func (s *Server) collectSymbols(
 
 func (s *Server) getInputParamCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
@@ -1161,7 +1095,7 @@ func (s *Server) getInputParamCompletions(
 
 func (s *Server) getInputValueCompletions(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	prefix string,
 	inputInfo *inputContextInfo,
 	root *symbol.Symbol,

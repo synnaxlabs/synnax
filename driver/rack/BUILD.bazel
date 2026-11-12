@@ -28,16 +28,30 @@ cc_library(
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
+        "state.h",
         "unavailable.h",
         "//driver/version",
     ] + select({
-        "@platforms//os:macos": ["factories_darwin.cpp"],
-        "@platforms//os:linux": ["factories_linux.cpp"],
-        "@platforms//os:windows": ["factories_windows.cpp"],
+        "@platforms//os:macos": [
+            "factories_darwin.cpp",
+            "state_unix.cpp",
+        ],
+        "@platforms//os:linux": [
+            "factories_linux.cpp",
+            "state_unix.cpp",
+        ],
+        "@platforms//os:windows": [
+            "factories_windows.cpp",
+            "state_windows.cpp",
+        ],
     }),
     hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -57,6 +71,7 @@ cc_library(
         "//driver/rack/status",
         "//driver/task",
         "//x/cpp/args",
+        "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/kv",
         "//x/cpp/log",
@@ -123,9 +138,25 @@ cc_test(
 )
 
 cc_test(
+    name = "state_test",
+    srcs = [
+        "state_test.cpp",
+        "//driver/version",
+    ],
+    deps = [
+        "//driver/rack",
+        "//x/cpp/defer",
+        "//x/cpp/env",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "rack_test",
     srcs = [
         "config_test.cpp",
+        "rack_test.cpp",
         "//driver/version",
     ],
     tags = ["requires-core"],

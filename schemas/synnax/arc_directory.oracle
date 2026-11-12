@@ -11,6 +11,7 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/arc/directory"
+@py output "client/py/synnax/arc/directory"
 @ts output "client/ts/src/arc/directory"
 
 Key = uuid {
@@ -42,27 +43,17 @@ Directory struct {
 
         @doc value """
             replaces the directory with the given created state. Emitted by the Core
-            when a directory is created or overwritten whole; clients never dispatch it.
+            when a directory is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the directory."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the directory.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the directory."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the directory."
-    }
+    action Move = patch.Move
 
     @doc value     "holds Arcs and other directories below the Arcs root."
     @go marshal

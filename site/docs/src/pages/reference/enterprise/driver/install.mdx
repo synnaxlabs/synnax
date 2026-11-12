@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
 import { Note } from "@/components/note";
 import { Driver } from "@/components/driver";
 import Step from "@/components/text/Step.astro";
@@ -66,14 +67,18 @@ sudo synnax-driver install
 ```
 
 The `install` command creates a `synnax` system user, the empty environment file
-`/etc/synnax/driver.env`, and the `synnax-driver` service. It does not start the
-service. It gives the service real-time permission and writes the udev rule
+`/etc/synnax/driver.env`, and the `synnax-driver` service. It copies the binary to
+`/var/lib/synnax-driver/bin/`, which the `synnax` user owns, and makes
+`/usr/local/bin/synnax-driver` a link to it. It does not start the service. It gives the
+service real-time permission and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so Arc automations can run with
 [precise timing](/reference/control/arc/timing?platform=Linux#get-the-best-timing-from-a-computer).
 For [EtherCAT](/reference/hardware/ethercat/configure-device#network-interface-access),
 it gives the service raw Ethernet access and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-ethercat.rules`. After you upgrade the Driver, run
-`sudo synnax-driver install` again.
+`sudo synnax-driver install` again. `install` removes the service and writes it again,
+so then run `sudo systemctl enable synnax-driver` and
+`sudo systemctl start synnax-driver`.
 
 </Fragment>
 <Fragment slot="Windows">
@@ -84,7 +89,19 @@ Download the Driver:
 
 Move `synnax-driver.exe` to a permanent folder, such as `C:\Program Files\Synnax\`. Then
 add that folder to the `Path` system environment variable, so that each terminal can run
-`synnax-driver`. Then open a new terminal.
+`synnax-driver`.
+
+Open a new terminal as administrator, and install the Windows service:
+
+```powershell
+synnax-driver install
+```
+
+The `install` command copies the binary to `C:\Program Files\Synnax Driver\` and creates
+the `SynnaxDriver` service, which runs that copy. The service runs as LocalSystem and
+starts with the computer. Windows restarts it when it stops with an error. `install`
+does not start the service. To upgrade the Driver, replace the binary, run `install`
+again, and start the service.
 
 </Fragment>
 <Fragment slot="macOS">
@@ -100,6 +117,20 @@ Move it into a folder on your `PATH`, and make it executable:
 ```bash
 sudo chmod +x /usr/local/bin/synnax-driver
 ```
+
+Install the launchd service:
+
+```bash
+sudo synnax-driver install
+```
+
+The `install` command copies the binary to
+`/Library/Application Support/synnax-driver/bin/`, creates the service
+`com.synnaxlabs.driver` in `/Library/LaunchDaemons`, which runs that copy, and creates
+the empty environment file `/etc/synnax/driver.env`. The service runs as root and starts
+with the computer. launchd restarts it when it stops with an error. `install` does not
+start the service. After you upgrade the Driver, run `sudo synnax-driver install` again,
+and start the service.
 
 </Fragment>
 </Driver.Tabs>
@@ -118,8 +149,9 @@ The output ends with the version:
 
 ## <Step step="2" level="h2">Log in to the Core</Step>
 
-You need the username and password of a user who can create racks. Run `login`. On
-Linux, run it with `sudo`. On NI Linux Real-Time, run it as `admin` with no `sudo`:
+You need the username and password of a user who can create racks. Run `login` with
+admin rights, so that the service reads the login: with `sudo` on Linux and macOS, in an
+administrator terminal on Windows, and as `admin` with no `sudo` on NI Linux Real-Time:
 
 ```bash
 sudo synnax-driver login
@@ -144,8 +176,16 @@ An upgraded Driver that saved a username and password does this at its first sta
 keeps its rack. If that user cannot create racks, the Driver logs the warning
 `Failed to enroll Driver`, and keeps logging in with the password. To fix it, run
 `login` as a user that can create racks, or create an API key for the rack in the
-Console and set it as `api_key` in the
-[configuration](/reference/enterprise/driver/configuration#parameters).
+Console:
+
+1. In the devices toolbar, right-click the rack and select **Manage sign-in**.
+2. Enter a **Key name**, then click **Create key**.
+3. Copy the key. The Core does not show it again.
+4. Set the key as `api_key` in the
+   [configuration](/reference/enterprise/driver/configuration#parameters), then restart
+   the Driver.
+
+<Video id="console/racks/create-key" />
 
 ### Log in to a Core that uses TLS
 
@@ -160,7 +200,8 @@ For a certificate from your own authority, or from a Core that runs with `--auto
   [Install certificates](/reference/enterprise/certificates).
 - **macOS** -> the Driver does not read the macOS keychain. See the macOS tab of
   [Install the certificate](/reference/enterprise/certificates?platform=macOS#install-the-certificate).
-  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in the shell that runs `login` and `start`.
+  Set `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` in `/etc/synnax/driver.env`, before you run
+  `login`.
 
 On Linux and NI Linux Real-Time, you can instead set the same variable in
 `/etc/synnax/driver.env`, before you run `login`. See
@@ -193,19 +234,19 @@ sudo synnax-driver start
 </Fragment>
 <Fragment slot="Windows">
 
-The Driver has no service on Windows. Run it in a terminal, and keep the terminal open:
+In an administrator terminal, start the service:
 
 ```powershell
-synnax-driver start --standalone
+synnax-driver start
 ```
 
 </Fragment>
 <Fragment slot="macOS">
 
-The Driver has no service on macOS. Run it in a terminal, and keep the terminal open:
+Start the service:
 
 ```bash
-synnax-driver start --standalone
+sudo synnax-driver start
 ```
 
 </Fragment>
@@ -242,12 +283,26 @@ synnax-driver status
 </Fragment>
 <Fragment slot="Windows">
 
-The terminal that runs the Driver shows its logs.
+Check the service:
+
+```powershell
+synnax-driver status
+```
+
+A running Driver prints:
+
+```
+Synnax Driver is running (PID: 28191)
+```
 
 </Fragment>
 <Fragment slot="macOS">
 
-The terminal that runs the Driver shows its logs.
+Check the service:
+
+```bash
+sudo synnax-driver status
+```
 
 </Fragment>
 </Driver.Tabs>

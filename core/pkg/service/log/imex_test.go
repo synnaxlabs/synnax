@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -69,7 +70,7 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should export a created log as a versioned envelope",
 			func(ctx SpecContext) {
-				l := createLog(ctx, log.Log{
+				l := createLog(ctx, defaults.Fill(log.Log{
 					Name: "exported",
 					Channels: []log.ChannelEntry{
 						{
@@ -79,7 +80,7 @@ var _ = Describe("ImEx", func() {
 					},
 					TimestampPrecision: 2,
 					ChannelNamesHidden: true,
-				})
+				}))
 				env := MustSucceed(imexSvc.Export(ctx, db, l.ResourceID()))
 				Expect(env.Version).To(Equal(versions.Latest))
 				Expect(env.Type).To(Equal("log"))
@@ -459,7 +460,7 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve log content through export then import",
 			func(ctx SpecContext) {
-				original := createLog(ctx, log.Log{
+				original := createLog(ctx, defaults.Fill(log.Log{
 					Name: "round-trip",
 					Channels: []log.ChannelEntry{
 						{
@@ -471,7 +472,7 @@ var _ = Describe("ImEx", func() {
 					},
 					TimestampPrecision: 1,
 					TimestampsHidden:   true,
-				})
+				}))
 				env := MustSucceed(imexSvc.Export(ctx, db, original.ResourceID()))
 				var id resource.ID
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {

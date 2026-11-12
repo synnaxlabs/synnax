@@ -1,0 +1,265 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/telem/v0"
+
+Kind enum {
+    float     = "float" {
+        @doc value "is a floating point number."
+    }
+    integer   = "integer" {
+        @doc value "is a signed integer."
+    }
+    unsigned  = "unsigned" {
+        @doc value "is an unsigned integer."
+    }
+    string    = "string" {
+        @doc value "is a string."
+    }
+    boolean   = "boolean" {
+        @doc value "is a boolean."
+    }
+    timestamp = "timestamp" {
+        @doc value "is a timestamp in a TimeFormat."
+    }
+    json      = "json" {
+        @doc value "is any JSON value."
+    }
+    uuid      = "uuid" {
+        @doc value "is a UUID string."
+    }
+    bytes     = "bytes" {
+        @doc value "is a byte string."
+    }
+
+    @doc value "is the kind of value a payload field holds."
+}
+
+TimeFormat enum {
+    iso8601  = "iso8601" {
+        @doc value "is an ISO 8601 string."
+    }
+    unix_sec = "unix_sec" {
+        @doc value "is a count of seconds since the Unix epoch."
+    }
+    unix_ms  = "unix_ms" {
+        @doc value "is a count of milliseconds since the Unix epoch."
+    }
+    unix_us  = "unix_us" {
+        @doc value "is a count of microseconds since the Unix epoch."
+    }
+    unix_ns  = "unix_ns" {
+        @doc value "is a count of nanoseconds since the Unix epoch."
+    }
+
+    @doc value "is the encoding of a timestamp value within a payload."
+}
+
+Float float64 {
+    @doc value """
+        is a 64-bit float. It is a JSON number when finite, and the text "NaN",
+        "Infinity", or "-Infinity" when not.
+    """
+    @go hand
+}
+
+Integer int64 {
+    @doc value """
+        is a signed 64-bit integer. It is a JSON string of decimal digits, so it keeps
+        every digit.
+    """
+}
+
+Unsigned uint64 {
+    @doc value """
+        is an unsigned 64-bit integer. It is a JSON string of decimal digits, so it
+        keeps every digit.
+    """
+}
+
+FloatEntry struct {
+    label string {
+        @doc value "is the label in the payload."
+    }
+    value Float  {
+        @doc value "is the channel value the label maps to."
+    }
+
+    @doc value  "maps a payload label to a float channel value."
+    @go marshal
+}
+
+IntegerEntry struct {
+    label string  {
+        @doc value "is the label in the payload."
+    }
+    value Integer {
+        @doc value "is the channel value the label maps to."
+    }
+
+    @doc value  "maps a payload label to a signed integer channel value."
+    @go marshal
+}
+
+UnsignedEntry struct {
+    label string   {
+        @doc value "is the label in the payload."
+    }
+    value Unsigned {
+        @doc value "is the channel value the label maps to."
+    }
+
+    @doc value  "maps a payload label to an unsigned integer channel value."
+    @go marshal
+}
+
+StringEntry struct {
+    label string {
+        @doc value "is the label in the payload."
+    }
+    value string {
+        @doc value "is the channel value the label maps to."
+    }
+
+    @doc value  "maps a payload label to a string channel value."
+    @go marshal
+}
+
+BooleanEntry struct {
+    label string {
+        @doc value "is the label in the payload."
+    }
+    value bool   {
+        @doc value "is the channel value the label maps to."
+    }
+
+    @doc value  "maps a payload label to a boolean channel value."
+    @go marshal
+}
+
+FloatRead struct {
+    data_type   telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+    }
+    enum_values FloatEntry[]    {
+        @doc value "maps payload labels to channel values."
+    }
+    fill        Float?          {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads a float."
+    @go marshal
+}
+
+IntegerRead struct {
+    data_type   telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+    }
+    enum_values IntegerEntry[]  {
+        @doc value "maps payload labels to channel values."
+    }
+    fill        Integer?        {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads a signed integer."
+    @go marshal
+}
+
+UnsignedRead struct {
+    data_type   telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+    }
+    enum_values UnsignedEntry[] {
+        @doc value "maps payload labels to channel values."
+    }
+    fill        Unsigned?       {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads an unsigned integer."
+    @go marshal
+}
+
+StringRead struct {
+    enum_values StringEntry[] {
+        @doc value "maps payload labels to channel values."
+    }
+    fill        string?       {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads a string."
+    @go marshal
+}
+
+BooleanRead struct {
+    enum_values BooleanEntry[] {
+        @doc value "maps payload labels to channel values."
+    }
+    fill        bool?          {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads a boolean."
+    @go marshal
+}
+
+TimestampRead struct {
+    time_format TimeFormat       {
+        @doc value "is the encoding of the timestamp in the payload."
+    }
+    fill        telem.TimeStamp? {
+        @doc value "is written when the payload has no value. Absent requires one."
+    }
+
+    @doc value  "holds the options of a field that reads a timestamp."
+    @go marshal
+}
+
+EnumEntry struct {
+    label string = "" {
+        @doc value "is the string label in the payload."
+    }
+    value float64 = 0 {
+        @doc value "is the numeric channel value the label maps to."
+    }
+
+    @doc value  """
+        maps a string label in a payload to a numeric channel value for enum-style
+        parsing (e.g. "ON" -> 1, "OFF" -> 0).
+    """
+    @go marshal
+}
+
+JSONType enum {
+    number  = "number" {
+        @doc value "writes the value as a JSON number."
+    }
+    string  = "string" {
+        @doc value "writes the value as a JSON string."
+    }
+    boolean = "boolean" {
+        @doc value "writes the value as a JSON boolean."
+    }
+
+    @doc value "is the JSON type a channel value is serialized as in a payload."
+}
+
+GeneratorType enum {
+    uuid      = "uuid" {
+        @doc value "produces a new UUID for each payload."
+    }
+    timestamp = "timestamp" {
+        @doc value "produces the time of the payload."
+    }
+
+    @doc value "is the kind of value produced for a generated write field."
+}

@@ -15,8 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -203,7 +206,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.AnalogRead.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					svc.AnalogRead.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":            "ai_voltage",
 							"terminal_config": "BOGUS",
@@ -220,15 +223,21 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.AnalogWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
-						"channels": []any{map[string]any{
-							"type": "ao_voltage",
-							"custom_scale": map[string]any{
-								"type":             "linear",
-								"pre_scaled_units": "BOGUS",
-							},
-						}},
-					}),
+					svc.AnalogWrite.Prepare(
+						ctx,
+						db,
+						uuid.New(),
+						"",
+						msgpack.EncodedJSON{
+							"channels": []any{map[string]any{
+								"type": "ao_voltage",
+								"custom_scale": map[string]any{
+									"type":             "linear",
+									"pre_scaled_units": "BOGUS",
+								},
+							}},
+						},
+					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid pre_scaled_units: BOGUS")))
 			},
@@ -238,7 +247,7 @@ var _ = Describe("Service", func() {
 			"Should reject a voltage-mode sensitivity unit on a charge accelerometer",
 			func(ctx SpecContext) {
 				Expect(
-					svc.AnalogRead.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					svc.AnalogRead.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":              "ai_accel_charge",
 							"sensitivity_units": "mVoltsPerG",
@@ -257,15 +266,158 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				Expect(
-					svc.CounterRead.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
-						"channels": []any{map[string]any{
-							"type":  "ci_frequency",
-							"units": "BOGUS",
-						}},
-					}),
+					svc.CounterRead.Prepare(
+						ctx,
+						db,
+						uuid.New(),
+						"",
+						msgpack.EncodedJSON{
+							"channels": []any{map[string]any{
+								"type":  "ci_frequency",
+								"units": "BOGUS",
+							}},
+						},
+					),
 				).Error().
 					To(MatchError(ContainSubstring("invalid units: BOGUS")))
 			},
 		)
+
+		It("Should reject a digital read line above 31", func(ctx SpecContext) {
+			Expect(
+				svc.DigitalRead.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"channels": []any{map[string]any{"port": 0, "line": 32}},
+				}),
+			).Error().
+				To(MatchError(ContainSubstring("must be less than or equal to 31")))
+		})
+
+		It("Should reject a digital write line above 31", func(ctx SpecContext) {
+			Expect(
+				svc.DigitalWrite.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"channels": []any{map[string]any{"port": 0, "line": 32}},
+				}),
+			).Error().
+				To(MatchError(ContainSubstring("must be less than or equal to 31")))
+		})
 	})
+	Describe("Explicit zeros", func() {
+		channel := func(data msgpack.EncodedJSON) map[string]any {
+			GinkgoHelper()
+			channels := data["channels"].([]any)
+			Expect(channels).To(HaveLen(1))
+			return channels[0].(map[string]any)
+		}
+
+		It("Should keep a linear custom scale slope of 0", func(ctx SpecContext) {
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "ai_voltage",
+					"key":  "ai",
+					"custom_scale": map[string]any{
+						"type":        "linear",
+						"slope":       0,
+						"y_intercept": 5,
+					},
+				}},
+			}))
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
+			Expect(channel(data)["custom_scale"]).
+				To(HaveKeyWithValue("slope", BeNumerically("==", 0)))
+		})
+
+		It("Should give a v2 divisor of 0 the default on import", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.CounterRead.Normalize(ctx, db, v2.Version,
+				msgpack.EncodedJSON{"channels": []any{map[string]any{
+					"type":    "ci_frequency",
+					"key":     "ci",
+					"divisor": 0,
+				}}},
+			))
+			Expect(channel(out)).To(HaveKeyWithValue("divisor", BeNumerically("==", 4)))
+		})
+
+		It("Should fill a grouped default that an edit leaves all zero", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ai_voltage",
+					"key":     "ai",
+					"min_val": 0,
+					"max_val": 5,
+				}},
+			}))
+			c := MustSucceed(patch.Begin(patch.Set{
+				Path:  []string{"config", "channels", "ai", "max_val"},
+				Value: 0.0,
+			})).Next()
+			rec, changed := MustSucceed2(svc.AnalogRead.Edit(
+				ctx, db, key, "", []patch.Cursor{c},
+			))
+			Expect(changed).To(BeTrue())
+			Expect(rec.Write(ctx, db)).To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
+			Expect(
+				channel(data),
+			).To(HaveKeyWithValue("max_val", BeNumerically("==", 1)))
+		})
+	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scanner.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			for _, store := range []config.Store{
+				svc.AnalogRead,
+				svc.CounterRead,
+				svc.DigitalRead,
+			} {
+				Expect(store.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"sample_rate": sampleRate,
+					"stream_rate": streamRate,
+				})).Error().To(MatchError(ContainSubstring(msg)), store.Type())
+			}
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+	)
+
+	DescribeTable("Should reject a write config whose state rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			for _, store := range []config.Store{svc.AnalogWrite, svc.DigitalWrite} {
+				Expect(store.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"state_rate": rate,
+				})).Error().To(
+					MatchError(ContainSubstring("state_rate: must be greater than 0")),
+					store.Type(),
+				)
+			}
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

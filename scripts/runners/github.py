@@ -7,38 +7,118 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Read-only GitHub Actions API access: runner status and the two job reads jobs.py
-builds on."""
+"""Read-only GitHub Actions API access as a GitHub App installation: runner status and
+the two job reads jobs.py builds on."""
 
 import json
 import ssl
+import threading
+import time
+import urllib.error
 import urllib.request
+from collections.abc import Callable
+from datetime import datetime
 
 import certifi
+import jwt
 
 from common import BUSY, IDLE, OFFLINE
 
+API = "https://api.github.com"
 REPO = "synnaxlabs/synnax"
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+# Mints a new installation token this many seconds before the current one expires.
+REFRESH_MARGIN = 5 * 60
+
+Send = Callable[[urllib.request.Request], dict]
+
+
+def send(req: urllib.request.Request) -> dict:
+    """Sends req to GitHub and returns the decoded JSON response."""
+    with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as resp:
+        return json.load(resp)
 
 
 class GitHub:
-    """Read-only access to the repository's Actions API."""
+    """Read-only access to the repository's Actions API as the GitHub App app_id, signed
+    with its PEM private key. Safe for concurrent use. After GitHub rejects the
+    installation token with a 401, the next call mints a new one.
 
-    def __init__(self, token: str) -> None:
-        self.token = token
+    :param send: Sends a request and returns the decoded JSON response.
+    :param clock: The current Unix time in seconds.
+    """
+
+    def __init__(
+        self,
+        app_id: str,
+        key: str,
+        *,
+        send: Send = send,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self.app_id = app_id
+        self.key = key
+        self.send = send
+        self.clock = clock
+        self.lock = threading.Lock()
+        self.installation: int | None = None
+        self.token = ""
+        self.expires = 0.0
+
+    def request(self, url: str, *, token: str, method: str = "GET") -> dict:
+        return self.send(
+            urllib.request.Request(
+                url,
+                method=method,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+        )
+
+    def installation_token(self) -> str:
+        with self.lock:
+            now = self.clock()
+            if now < self.expires - REFRESH_MARGIN:
+                return self.token
+            # iat sits a minute back and exp under GitHub's 10-minute cap, to allow for
+            # clock drift.
+            app = jwt.encode(
+                {"iss": self.app_id, "iat": int(now) - 60, "exp": int(now) + 9 * 60},
+                self.key,
+                algorithm="RS256",
+            )
+            if self.installation is None:
+                url = f"{API}/repos/{REPO}/installation"
+                self.installation = self.request(url, token=app)["id"]
+            try:
+                minted = self.request(
+                    f"{API}/app/installations/{self.installation}/access_tokens",
+                    token=app,
+                    method="POST",
+                )
+            except urllib.error.HTTPError as e:
+                # The app was installed again under a new ID.
+                if e.code == 404:
+                    self.installation = None
+                raise
+            self.token = minted["token"]
+            self.expires = datetime.fromisoformat(minted["expires_at"]).timestamp()
+            return self.token
 
     def get(self, path: str) -> dict:
-        req = urllib.request.Request(
-            f"https://api.github.com/repos/{REPO}{path}",
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as resp:
-            return json.load(resp)
+        token = self.installation_token()
+        try:
+            return self.request(f"{API}/repos/{REPO}{path}", token=token)
+        except urllib.error.HTTPError as e:
+            # GitHub revoked the token early, so the next call mints a new one.
+            if e.code == 401:
+                with self.lock:
+                    if self.token == token:
+                        self.expires = 0.0
+            raise
 
     def pages(self, path: str, *, key: str) -> list[dict]:
         """Every item under key across all pages of a list endpoint."""

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
 import { createTestClient, waitForStreamLive } from "@/testutil";
+import { view } from "@/view";
 
 describe("View", () => {
   describe("create", () => {
@@ -172,6 +173,21 @@ describe("View", () => {
       expect((await createTestClient().views.retrieve({ key: v.key })).name).toBe(
         "view-rename-empty",
       );
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the view", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({
+        name: "view-dispatch",
+        type: "status",
+        where: { variant: { eq: "error" } },
+      });
+      const where = { variant: { eq: "warning" } };
+      await client.views.dispatch(v.key, view.set({ path: ["where"], value: where }));
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored.where).toEqual(where);
     });
   });
 

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/pluralize"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -290,13 +291,17 @@ func (r retrieveInfo) HasIDRefs() bool {
 // needsSlices reports whether the generated code calls the slices package.
 func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
-		if f.Ref != nil {
-			return false
-		}
-		return f.IsSlice || (!f.IsScalar && (f.IndexFieldName == "" || f.IndexTextual))
+		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		return ref.IsSlice && ref.OnDelete == "Detach"
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
+}
+
+// needsSet reports whether the generated code calls the set package.
+func (r retrieveInfo) needsSet() bool {
+	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
+		return f.Ref == nil && !f.IsScalar && (f.IndexFieldName == "" || f.IndexTextual)
+	})
 }
 
 // HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
@@ -390,6 +395,12 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsSet) {
+		imps.AddInternal(
+			"set",
+			gomod.ResolveImportPath("x/go/set", repoRoot, gomod.DefaultModulePrefix),
+		)
 	}
 
 	data := &templateData{
@@ -772,7 +783,7 @@ var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
 	"toPascal":  naming.ToPascalCase,
 	"toLower":   strings.ToLower,
-	"pluralize": matcher.Plural,
+	"pluralize": pluralize.String,
 }
 
 var retrieveTemplate = template.Must(
@@ -1155,17 +1166,19 @@ func {{.Func}}(vals ...{{.GoType}}) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.{{.IndexFieldName}}.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-				return slices.Contains(vals, e.{{.Access}}), nil
+				return want.Contains(e.{{.Access}}), nil
 			}),
 		)
 {{- else if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(vals...)
 {{- else}}
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return slices.Contains(vals, e.{{.Access}}), nil
+			return want.Contains(e.{{.Access}}), nil
 		})
 {{- end}}
 	}

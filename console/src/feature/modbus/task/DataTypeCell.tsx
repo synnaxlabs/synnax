@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep } from "@synnaxlabs/x";
+import { type DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
@@ -77,7 +77,7 @@ interface CellChannel {
   type: Channel["type"];
   bit?: number;
   dataType?: string;
-  stringLength?: number;
+  length?: number;
 }
 
 export interface DataTypeCellProps {
@@ -103,6 +103,15 @@ export const DataTypeCell = ({
     return (
       <NumberField path={deep.present(fields.bit)} label="Bit" bounds={BIT_BOUNDS} />
     );
+  if ("length" in channel)
+    return (
+      <NumberField
+        path={deep.present(fields.length)}
+        label="String length"
+        prefix="Length"
+        bounds={STRING_LENGTH_BOUNDS}
+      />
+    );
   if (!("dataType" in channel)) return null;
   return (
     <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
@@ -110,14 +119,6 @@ export const DataTypeCell = ({
         path={deep.present(fields.dataType)}
         hideDataTypes={hideDataTypes}
       />
-      {new DataType(channel.dataType).equals(DataType.STRING) && (
-        <NumberField
-          path={deep.present(fields.stringLength)}
-          label="String length"
-          prefix=""
-          bounds={STRING_LENGTH_BOUNDS}
-        />
-      )}
     </Flex.Box>
   );
 };

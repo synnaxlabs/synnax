@@ -151,7 +151,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type LoginResponse struct {
 	// User is the user the token is associated with.
-	User user.User `json:"user" msgpack:"user"`
+	User User `json:"user" msgpack:"user"`
 	// Token is the session token to send with every later request.
 	Token string `json:"token" msgpack:"token"`
 	// ClusterInfo is the information about the cluster.

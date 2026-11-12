@@ -85,15 +85,52 @@ const DEV_PORT_KEY = "synnax-dev-connection-port";
 
 /**
  * Stands in for the Synnax Desktop shell, which tells a Desktop build of the Console
- * how to reach its embedded Core. It answers that the core at `connection` runs, and
- * records every other command so that the capture fails on it.
+ * how to reach its embedded Core. It answers that the core at `connection` runs, the
+ * API key and diagnostics commands with sample values, and records every other command
+ * so that the capture fails on it.
  */
 const desktopShell = (connection: Record<string, string | number>): string => `(() => {
   const unanswered = [];
   window.__studioDesktop = { asked: false, unanswered };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   let callbacks = 0;
+  let apiKey = null;
+  const line = (age, level, logger, msg) =>
+    JSON.stringify({ level, ts: Date.now() / 1000 - age, logger, msg });
+  const answers = {
+    supervisor_api_key: () => apiKey,
+    supervisor_save_api_key: (args) => {
+      apiKey = args.apiKey;
+      return true;
+    },
+    supervisor_diagnostics: () => ({
+      version: "0.61.0",
+      history: {
+        starts: 1,
+        exits: 0,
+        failures: 0,
+        readies: 1,
+        readyAt: Date.now() - 540000,
+        timeToReadyMs: 1840,
+        lastExit: null,
+      },
+      dataDir: "/Users/synnax/Library/Application Support/Synnax/core",
+      logDir: "/Users/synnax/Library/Logs/Synnax",
+      dataSize: 184549376,
+    }),
+    supervisor_log_tail: () =>
+      [
+        line(540, "info", "cesium", "opened database"),
+        line(539, "info", "aspen", "joined cluster"),
+        line(539, "info", "api", "serving on 127.0.0.1:9090"),
+        line(538, "info", "core", "ready"),
+        line(120, "info", "auth", "created API key"),
+      ].join("\\n"),
+    supervisor_export_diagnostics: () => null,
+    "plugin:dialog|save": () => "/Users/synnax/Desktop/synnax-diagnostics.zip",
+  };
   window.__TAURI_INTERNALS__ = {
+    metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
     transformCallback: () => ++callbacks,
     unregisterCallback: () => {},
     invoke: async (cmd, args) => {
@@ -103,6 +140,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
       }
       if (cmd === "plugin:event|listen") return args.handler;
       if (cmd === "plugin:event|unlisten") return null;
+      if (cmd in answers) return answers[cmd](args);
       unanswered.push(cmd);
       throw new Error("Studio's Desktop shell cannot answer " + cmd);
     },

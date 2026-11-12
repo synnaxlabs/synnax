@@ -32,8 +32,10 @@ func (s *sampleSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 var _ = Describe("Allocation", func() {
 	It("Should read a document into samples without allocating", func() {
 		doc := []byte(`{"ts":"2026-01-02T03:04:05Z","v":{"a":1.5,"b":"x\ny"},` +
-			`"s":"ON","n":[1,{"m":-2}]}`)
-		e := xjson.NewExtractor(pointers("/ts", "/v/a", "/v/b", "/s", "/n/1/m"))
+			`"s":"ON","n":[1,{"m":-2}],"b":"AP8\/"}`)
+		e := xjson.NewExtractor(
+			pointers("/ts", "/v/a", "/v/b", "/s", "/n/1/m", "/b"),
+		)
 		decoders := []*xjson.Decoder{
 			MustSucceed(xjson.NewDecoder(xjson.Field{
 				DataType: telem.TimestampT, TimeFormat: xjson.ISO8601,
@@ -44,6 +46,7 @@ var _ = Describe("Allocation", func() {
 				DataType: telem.Uint8T, Enums: onOff,
 			})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.Int64T})),
+			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.BytesT})),
 		}
 		values := make([]jsontext.Value, len(decoders))
 		dst := make([]byte, 0, 1024)
@@ -86,6 +89,7 @@ var _ = Describe("Allocation", func() {
 			{DataType: telem.Float64T},
 			{DataType: telem.StringT, Type: xjson.String},
 			{DataType: telem.Uint8T, Type: xjson.String, Enums: onOff},
+			{DataType: telem.BytesT, Type: xjson.String},
 		}
 		slots := sampleSlots{
 			samples: [][]byte{
@@ -93,6 +97,7 @@ var _ = Describe("Allocation", func() {
 				sample(0.1),
 				[]byte("a\"b"),
 				sample[uint8](1),
+				{0x00, 0xff, 0x3f},
 			},
 		}
 		for _, f := range fields {
@@ -100,7 +105,7 @@ var _ = Describe("Allocation", func() {
 		}
 		t := MustSucceed(xjson.NewTemplate([]xjson.TemplateField{
 			field("/ts", ""), field("/v/a", ""), field("/v/b", ""), field("/s", ""),
-			field("/meta", `{"source":"synnax"}`),
+			field("/b", ""), field("/meta", `{"source":"synnax"}`),
 		}))
 		dst := make([]byte, 0, 1024)
 		var err error
@@ -108,7 +113,7 @@ var _ = Describe("Allocation", func() {
 		render()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(dst)).To(Equal(`{"ts":1767323045.123456789,"v":{"a":0.1,` +
-			`"b":"a\"b"},"s":"ON","meta":{"source":"synnax"}}`))
+			`"b":"a\"b"},"s":"ON","b":"AP8/","meta":{"source":"synnax"}}`))
 		Expect(testing.AllocsPerRun(100, render)).To(BeZero())
 	})
 })

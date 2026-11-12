@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
-#include <memory>
-
 #include "absl/log/log.h"
 
 #include "x/cpp/args/args.h"
@@ -37,30 +34,18 @@ int start(x::args::Parser &args) {
     }
 
     rack::Rack r;
-
-    // Register an early shutdown handler to stop the driver when the process encounters
-    // an error.
-    auto early_shutdown = std::make_shared<std::atomic<bool>>(false);
-    const std::function on_shutdown = [early_shutdown] {
-        x::shutdown::signal_shutdown();
-        early_shutdown->store(true);
-    };
-
-    r.start(args, on_shutdown);
-
-    // Register a signal handler to stop the driver when the process receives a signal.
+    // Wakes the main thread when the rack stops by itself.
+    r.start(args, x::shutdown::signal_shutdown);
     x::shutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    if (!early_shutdown->load())
-        LOG(INFO) << x::log::BLUE()
-                  << "received shutdown signal. Gracefully stopping driver. "
-                     "This can take up to 5 seconds. Please be patient"
-                  << x::log::RESET();
-    else
-        LOG(WARNING) << "unexpected early shutdown";
-    if (const auto err = r.stop())
+    LOG(INFO) << x::log::BLUE()
+              << "stopping driver. This can take up to 5 seconds. Please be patient"
+              << x::log::RESET();
+    const auto err = r.stop();
+    if (err)
         LOG(ERROR) << "stopped with error: " << err;
     else
         LOG(INFO) << x::log::BLUE() << "stopped" << x::log::RESET();
-    return 0;
+    // A nonzero code makes the service manager restart the Driver.
+    return err ? 1 : 0;
 }
 }

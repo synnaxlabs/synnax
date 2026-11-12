@@ -35,8 +35,13 @@ type index struct {
 	totalSize   *atomic.Int64
 }
 
-// insert adds a new pointer to the index.
-func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
+// insert adds a new pointer to the index. When persist is true, the caller must persist
+// the returned write.
+func (idx *index) insert(
+	ctx context.Context,
+	p pointer,
+	persist bool,
+) (preparedWrite, error) {
 	_, span := idx.T.Bench(ctx, "domain/index.insert")
 	idx.mu.Lock()
 	defer span.End()
@@ -46,7 +51,9 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	if p.fileKey == 0 {
 		idx.mu.Unlock()
 		idx.L.DPanic("fileKey must be set")
-		return span.Error(errors.New("inserted pointer cannot have key 0"))
+		return preparedWrite{}, span.Error(
+			errors.New("inserted pointer cannot have key 0"),
+		)
 	}
 	if len(idx.mu.pointers) != 0 {
 		// Hot path optimization for appending to the end of the index.
@@ -60,7 +67,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 					idx.mu.pointers[i].TimeRange,
 				)
 				idx.mu.Unlock()
-				return span.Error(err)
+				return preparedWrite{}, span.Error(err)
 			}
 			insertAt = i + 1
 		}
@@ -81,16 +88,34 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	if persist {
 		write = idx.indexPersist.prepare(idx.persistHead)
 	}
-
 	idx.mu.Unlock()
 	// The live stream carries domains added at the end.
 	if !appended {
 		idx.notifyHistoryChange(ctx, p.TimeRange)
 	}
-	if !persist {
-		return nil
+	return write, nil
+}
+
+// persist writes the pointers that the index file may not hold. The caller must not
+// hold mu.
+func (idx *index) persist() error {
+	idx.mu.Lock()
+	write := idx.indexPersist.prepare(idx.persistHead)
+	idx.mu.Unlock()
+	return idx.run(write)
+}
+
+// run runs write. When an earlier write fails, it prepares and runs another write
+// that restores the pointers the failed write left out. The caller must not hold mu.
+func (idx *index) run(write preparedWrite) error {
+	for {
+		if err := write.run(); !errors.Is(err, errUncovered) {
+			return err
+		}
+		idx.mu.Lock()
+		write = idx.indexPersist.prepare(idx.persistHead)
+		idx.mu.Unlock()
 	}
-	return write.run()
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -109,7 +134,13 @@ func (idx *index) timeRange() telem.TimeRange {
 	return idx.mu.pointers[0].Start.Range(idx.mu.pointers[len(idx.mu.pointers)-1].End)
 }
 
-func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
+// update replaces the pointer that starts at p.Start. When persist is true, the caller
+// must persist the returned write.
+func (idx *index) update(
+	ctx context.Context,
+	p pointer,
+	persist bool,
+) (preparedWrite, error) {
 	_, span := idx.T.Bench(ctx, "domain/index.update")
 	idx.mu.Lock()
 
@@ -120,7 +151,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(newRangeNotFoundError(p.TimeRange))
+		return preparedWrite{}, span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -137,7 +168,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// database to reach this inconceivable state.
 		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(newRangeNotFoundError(p.TimeRange))
+		return preparedWrite{}, span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 &&
 		ptrs[updateAt+1].OverlapsWith(p.TimeRange)
@@ -145,11 +176,11 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	if overlapsWithPrev {
 		err := NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt-1].TimeRange)
 		idx.mu.Unlock()
-		return span.Error(err)
+		return preparedWrite{}, span.Error(err)
 	} else if overlapsWithNext {
 		err := NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange)
 		idx.mu.Unlock()
-		return span.Error(err)
+		return preparedWrite{}, span.Error(err)
 	} else {
 		sizeDelta := int64(p.size) - int64(oldP.size)
 		idx.mu.pointers[updateAt] = p
@@ -166,10 +197,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	if updateAt != lastI {
 		idx.notifyHistoryChange(ctx, oldP.End.Range(p.End))
 	}
-	if !persist {
-		return nil
-	}
-	return write.run()
+	return write, nil
 }
 
 func (idx *index) notifyHistoryChange(ctx context.Context, tr telem.TimeRange) {
@@ -186,16 +214,27 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchLE returns the position of the domain that contains ts, or else of the closest
+// domain before ts, and that domain. ok is false when there is none. One lock covers
+// both, so a concurrent insert cannot shift the position off the domain.
+func (idx *index) searchLE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
-func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchGE is searchLE for the closest domain after ts.
+func (idx *index) searchGE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
 	idx.read(func() {
 		var exact bool
@@ -207,9 +246,10 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 				i += 1
 			}
 		}
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with
@@ -238,15 +278,41 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-func (idx *index) get(i int) (pointer, bool) {
-	idx.mu.RLock()
+// next returns the first domain that starts at or after end, the end of the current
+// domain, and its position. It finds both under one lock, so a concurrent insert
+// cannot shift one off the other. A delete can trim the start of the current domain but
+// not its end.
+func (idx *index) next(end telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		var exact bool
+		i, exact = idx.unprotectedSearch(end.SpanRange(0))
+		if !exact || idx.mu.pointers[i].Start != end {
+			i++
+		}
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
+}
+
+// prev returns the last domain that starts before start, the start of the current
+// domain, and its position. A delete can trim the end of the current domain but not its
+// start.
+func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		var exact bool
+		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
+			i--
+		}
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
+}
+
+func (idx *index) unprotectedGet(i int) (pointer, bool) {
 	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
 		return pointer{}, false
 	}
-	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
-	return v, true
+	return idx.mu.pointers[i], true
 }
 
 func (idx *index) read(f func()) {

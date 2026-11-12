@@ -79,6 +79,13 @@ type TextCellConfig struct {
 
 func (TextCellConfig) isCellConfigVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextCellConfig) SetDefaults() {
+	t.Level = text.LevelH5
+	t.Weight = 400
+	t.Align = FlexAlignmentCenter
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextCellConfig) ApplyDefaults() {
 	if t.Level == "" {
@@ -135,6 +142,14 @@ type ValueCellConfig struct {
 }
 
 func (ValueCellConfig) isCellConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (va *ValueCellConfig) SetDefaults() {
+	va.RollingAverage = 1
+	va.Notation = notation.NotationStandard
+	va.Level = text.LevelH5
+	va.StalenessTimeout = 5
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueCellConfig) ApplyDefaults() {
@@ -214,6 +229,7 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			TextCellConfig
 		}
+		v.TextCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -223,6 +239,7 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CellConfigType `json:"variant"`
 			ValueCellConfig
 		}
+		v.ValueCellConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}

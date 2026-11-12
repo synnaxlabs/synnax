@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -749,6 +750,15 @@ var _ = Describe("Expressions", func() {
 					result := identity(identity(identity(5)))
 				}
 			`),
+			Entry("a call added to a literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + identity(5.0)
+				}
+			`),
 		)
 
 		DescribeTable(
@@ -869,6 +879,49 @@ var _ = Describe("Expressions", func() {
 					return x()
 				}
 			`, "cannot call non-function"),
+			Entry("calling an integer literal", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := 1 + 2(identity(5))
+				}
+			`, "cannot call non-function 2"),
+			Entry("calling a float literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + 1.0(identity(5.0))
+				}
+			`, "cannot call non-function 1.0"),
+			Entry("calling a parenthesized expression", `
+				func testFunc() {
+					result := (1 + 2)(3)
+				}
+			`, "cannot call non-function (1+2)"),
+			Entry("calling a type cast", `
+				func testFunc() {
+					result := f32(1)(2)
+				}
+			`, "cannot call non-function f32(1)"),
+			Entry("calling the result of a call", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := identity(1)(2)
+				}
+			`, "cannot call non-function identity(1)"),
+			Entry("calling an indexed value", `
+				func testFunc() {
+					s series i32 := [1, 2, 3]
+					result := s[0](2)
+				}
+			`, "cannot call non-function s[0]"),
 		)
 
 		It(
@@ -952,6 +1005,48 @@ var _ = Describe("Expressions", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
 				Expect(fn.Channels.Read).ToNot(BeEmpty())
+			},
+		)
+
+		It("Should record a channel read in a series literal element", func(
+			specCtx SpecContext,
+		) {
+			ast := MustSucceed(parser.Parse(`
+			func f() f32 {
+				y := [ch + 1.0]
+				return y[0]
+			}`))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   10,
+			}))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+			Expect(fn.Channels.Read).To(HaveKey(uint32(10)))
+		})
+
+		It(
+			"Should record a call in a series literal element",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+			func g() f32 {
+				return 1.0
+			}
+			func f() f32 {
+				y := [g()]
+				return y[0]
+			}`))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				var calls []string
+				for _, edge := range *ctx.CallEdges {
+					calls = append(calls, edge.Caller.Name+"->"+edge.Callee.Name)
+				}
+				Expect(calls).To(ContainElement("f->g"))
 			},
 		)
 
@@ -1122,6 +1217,49 @@ var _ = Describe("Expressions", func() {
 					x := arr[1:3]
 				}
 			`),
+			Entry("index with an i64 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx i64 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with a u8 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx u8 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with len", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					x := arr[len(arr) - 1]
+				}
+			`),
+		)
+
+		DescribeTable("should reject a non-integer index or slice bound",
+			func(ctx SpecContext, index, got string) {
+				expectFailure(ctx, fmt.Sprintf(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					f f64 := 1.0
+					g f32 := 1.0
+					b bool := true
+					s str := "a"
+					x := arr[%s]
+				}
+			`, index), nil, "series index must be an integer type, got "+got)
+			},
+			Entry("f64 variable", "f", "f64"),
+			Entry("f32 variable", "g", "f32"),
+			Entry("fractional literal", "1.5", ""),
+			Entry("integer-valued float literal", "1.0", ""),
+			Entry("bool", "b", "bool"),
+			Entry("string", "s", "str"),
+			Entry("slice start", "f:2", "f64"),
+			Entry("slice end", "0:g", "f32"),
 		)
 
 		It("Should reject index with undefined variable", func(ctx SpecContext) {
@@ -1596,6 +1734,10 @@ var _ = Describe("Expressions", func() {
 				Expect(warnings).To(HaveLen(warningCount))
 				for _, w := range warnings {
 					Expect(w.Message).To(ContainSubstring("is experimental"))
+					Expect(w.Code).To(Equal(codes.BoolCast.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits[0].NewText).To(Equal("u8(x)"))
 				}
 			},
 			Entry("u8 is the blessed target", "u8", 0),
@@ -1606,6 +1748,18 @@ var _ = Describe("Expressions", func() {
 			Entry("f32", "f32", 1),
 			Entry("f64", "f64", 1),
 		)
+
+		It("Should give no warning for a bool cast through u8", func(ctx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x bool := true
+					y := i32(u8(x))
+				}
+			`))
+			aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
+			analyzer.AnalyzeProgram(aCtx)
+			Expect(*aCtx.Diagnostics).To(BeEmpty(), aCtx.Diagnostics.String())
+		})
 
 		DescribeTable("rejected boolean conversions",
 			func(ctx SpecContext, code string) {
@@ -1936,6 +2090,21 @@ var _ = Describe("Expressions", func() {
 		)
 	})
 
+	Describe("Empty series operands", func() {
+		It("Should bind empty series to an arithmetic operator", func(ctx SpecContext) {
+			expectSuccess(ctx, "func f() {\na := []\nb := []\nz := a * b\n}", nil)
+		})
+
+		It("Should reject an empty series with a bool series", func(ctx SpecContext) {
+			expectFailure(
+				ctx,
+				"func f() {\nflags series bool := [true]\nz := [] * flags\n}",
+				nil,
+				"cannot use bool",
+			)
+		})
+	})
+
 	Describe("NaN and infinity", func() {
 		extras := []symbol.Symbol{
 			{Name: "nan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
@@ -2000,7 +2169,7 @@ var _ = Describe("Expressions", func() {
 				}
 				Expect(*diags).To(HaveLen(1), diags.String())
 				d := (*diags)[0]
-				Expect(d.Code).To(Equal(codes.NaNComparison))
+				Expect(d.Code).To(Equal(codes.NaNComparison.Code))
 				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
 				Expect(d.Message).To(ContainSubstring(message))
 				Expect(d.Message).To(ContainSubstring("math.is_nan"))
@@ -2038,6 +2207,28 @@ var _ = Describe("Expressions", func() {
 			Entry("not on v != v", "v != v", ""),
 		)
 
+		DescribeTable("Should give the check to write as the fix",
+			func(ctx SpecContext, expr, fix string) {
+				ast := MustSucceed(parser.Parse(body("a := " + expr)))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				d := (*aCtx.Diagnostics)[0]
+				if fix == "" {
+					Expect(d.Fixes).To(BeEmpty())
+					return
+				}
+				Expect(d.Fixes).To(HaveLen(1))
+				Expect(d.Fixes[0].Edits).To(HaveLen(1))
+				Expect(d.Fixes[0].Edits[0].NewText).To(Equal(fix))
+			},
+			Entry("==", "v == math.nan", "math.is_nan(v)"),
+			Entry("!=", "v != math.nan", "not math.is_nan(v)"),
+			Entry("the constant on the left", "math.nan == w", "math.is_nan(w)"),
+			Entry("a calculation", "v + 1.0 == math.nan", "math.is_nan(v + 1.0)"),
+			Entry("no fix for an ordered comparison", "v < math.nan", ""),
+		)
+
 		DescribeTable("Should name the module the code wrote",
 			func(ctx SpecContext, source, message string) {
 				custom := symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
@@ -2053,7 +2244,7 @@ var _ = Describe("Expressions", func() {
 				))
 				analyzer.AnalyzeProgram(aCtx)
 				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
-				Expect((*aCtx.Diagnostics)[0].Code).To(Equal(codes.NaNComparison))
+				Expect((*aCtx.Diagnostics)[0].Code).To(Equal(codes.NaNComparison.Code))
 				Expect((*aCtx.Diagnostics)[0].Message).To(Equal(message))
 			},
 			Entry(
@@ -2094,5 +2285,50 @@ var _ = Describe("Expressions", func() {
 				func testFunc() { x := time.nonexistent() }
 			`, "undefined symbol"),
 		)
+	})
+})
+
+var _ = Describe("TruthyCondition", func() {
+	DescribeTable("Should warn with the bool to write as the fix",
+		func(condition string, t types.Type, fix string) {
+			expr := MustSucceed(parser.ParseExpression(condition))
+			d := MustBeOk(expression.TruthyCondition(expr, expr, t))
+			Expect(d.Code).To(Equal(codes.TruthyCondition.Code))
+			Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+			Expect(d.Message).To(Equal(
+				"non-boolean conditions are deprecated, use an explicit " +
+					"comparison like x != 0",
+			))
+			Expect(d.Fixes).To(HaveLen(1))
+			Expect(d.Fixes[0].Edits).To(Equal([]protocol.TextEdit{
+				{Range: d.Range, NewText: fix},
+			}))
+		},
+		Entry("a nonzero integer", "1", types.I64(), "true"),
+		Entry("a nonzero float", "1.5", types.F64(), "true"),
+		Entry("a negative integer", "-3", types.I64(), "true"),
+		Entry("a unit literal", "5s", types.I64(), "true"),
+		Entry("a zero integer", "0", types.I64(), "false"),
+		Entry("a zero float", "0.0", types.F64(), "false"),
+		Entry("a zero unit literal", "0s", types.I64(), "false"),
+		Entry("a string", `"a"`, types.String(), "true"),
+		Entry("an empty string", `""`, types.String(), "false"),
+		Entry("a format string", `f"{x}"`, types.String(), `f"{x}" != ""`),
+		Entry("a number name", "x", types.I64(), "x != 0"),
+		Entry("a string name", "s", types.String(), `s != ""`),
+		Entry("a calculation", "x + 1", types.I64(), "x + 1 != 0"),
+	)
+
+	It("Should compare a condition that is not an expression with zero", func() {
+		condition := MustSucceed(parser.ParseExpression("gate"))
+		d := MustBeOk(expression.TruthyCondition(condition, nil, types.U8()))
+		Expect(d.Fixes).To(HaveLen(1))
+		Expect(d.Fixes[0].Edits[0].NewText).To(Equal("gate != 0"))
+	})
+
+	It("Should give no warning for a bool", func() {
+		expr := MustSucceed(parser.ParseExpression("true"))
+		_, ok := expression.TruthyCondition(expr, expr, types.Bool())
+		Expect(ok).To(BeFalse())
 	})
 })

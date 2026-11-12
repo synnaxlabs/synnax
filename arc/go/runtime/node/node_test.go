@@ -158,7 +158,35 @@ var _ = Describe("Node", func() {
 					compound.Create(newTestConfig(ctx, "time.interval")),
 				)
 				Expect(n).ToNot(BeNil())
-				Expect(factory.createCalled).To(Equal(1))
+				Expect(factory.createCalled).To(Equal(2))
+			},
+		)
+
+		It(
+			"Should match a program function by its full type before splitting",
+			func(ctx SpecContext) {
+				fnNode := &mockNode{}
+				host := &mockFactory{nodeType: "f", returnNode: &mockNode{}}
+				program := &mockFactory{nodeType: "lib.m.f", returnNode: fnNode}
+				compound := node.CompoundFactory{host, program}
+				n := MustSucceed(compound.Create(newTestConfig(ctx, "lib.m.f")))
+				Expect(n).To(Equal(fnNode))
+				Expect(host.createCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should not split the module prefix after a program function fails",
+			func(ctx SpecContext) {
+				expectedErr := errors.New("factory error")
+				program := &mockFactory{nodeType: "lib.m.f", returnError: expectedErr}
+				host := &mockFactory{nodeType: "f", returnNode: &mockNode{}}
+				compound := node.CompoundFactory{program, host}
+				Expect(
+					compound.Create(newTestConfig(ctx, "lib.m.f")),
+				).Error().
+					To(MatchError(expectedErr))
+				Expect(host.createCalled).To(Equal(0))
 			},
 		)
 
@@ -191,8 +219,8 @@ var _ = Describe("Node", func() {
 					compound.Create(newTestConfig(ctx, "control.set")),
 				)
 				Expect(n).To(Equal(controlNode))
-				Expect(controlFactory.createCalled).To(Equal(1))
-				Expect(statusFactory.createCalled).To(Equal(0))
+				Expect(controlFactory.createCalled).To(Equal(2))
+				Expect(statusFactory.createCalled).To(Equal(1))
 			},
 		)
 
@@ -205,8 +233,8 @@ var _ = Describe("Node", func() {
 
 				n := MustSucceed(compound.Create(newTestConfig(ctx, "status.set")))
 				Expect(n).ToNot(BeNil())
-				Expect(wrongModule.createCalled).To(Equal(0))
-				Expect(noModule.createCalled).To(Equal(1))
+				Expect(wrongModule.createCalled).To(Equal(1))
+				Expect(noModule.createCalled).To(Equal(2))
 			},
 		)
 	})

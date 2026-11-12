@@ -317,7 +317,7 @@ var _ = Describe("Text", func() {
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(
-				ContainSubstring("cannot write to top-level variable"),
+				ContainSubstring("cannot reassign top-level variable"),
 			)
 		})
 
@@ -2381,6 +2381,30 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
+			"Should type an integer literal by the channel alias it writes to",
+			func(ctx SpecContext) {
+				source := `
+			sequence s {
+				vlv := flag_ch
+				1 -> vlv
+			}
+			count_ch == 1 => s`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				constant := findNodeByType(inter.Nodes, "constant")
+				Expect(constant.Outputs[0].Type).To(Equal(types.U8()))
+				Expect(constant.Inputs[0].Value).To(Equal(uint8(1)))
+				write := findNodeByType(inter.Nodes, "write")
+				Expect(write.Channels.Write).To(HaveKeyWithValue(uint32(903), "vlv"))
+			},
+		)
+
+		It(
 			"Should reject rebinding an alias to a nonexistent channel",
 			func(ctx SpecContext) {
 				source := `
@@ -2396,7 +2420,7 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot rebind channel read/write variable a; the right-hand side must be a channel",
+					"use '<value> -> a' to write to 'a'",
 				))
 			},
 		)
@@ -2418,7 +2442,7 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot rebind channel read/write variable a; the right-hand side must be a channel",
+					"use '<value> -> a' to write to 'a'",
 				))
 			},
 		)
@@ -2440,7 +2464,7 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(
 					diagnostics.String(),
-				).To(ContainSubstring("cannot rebind channel read/write variable a of type"))
+				).To(ContainSubstring("type mismatch: cannot rebind 'a'"))
 			},
 		)
 
@@ -2458,11 +2482,46 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"cannot reassign a top-level variable; assignment is only valid " +
-						"inside a sequence, stage, or function",
+					"cannot reassign top-level variable 'a'",
 				))
 			},
 		)
+
+		It(
+			"Should write through a top-level alias from a function",
+			func(ctx SpecContext) {
+				source := `
+			a := out_ch
+			func f() i64 {
+				a = 1
+				a = count_ch
+				return 1
+			}
+			count_ch -> f()`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				f := MustBeOk(inter.Functions.Find("f"))
+				Expect(f.Channels.Write).To(HaveKey(uint32(902)))
+				Expect(f.Channels.Read).To(HaveKey(uint32(901)))
+			},
+		)
+
+		It("Should reject assigning a channel at the top level", func(ctx SpecContext) {
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: "count_ch = 1"}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"use '<value> -> count_ch' to write to 'count_ch'",
+			))
+		})
 
 		It("Should reject compound reassignment of a variable", func(ctx SpecContext) {
 			source := `
@@ -9847,4 +9906,32 @@ sensor -> stub.sink()`
 			},
 		)
 	})
+})
+
+var _ = Describe("Module constants in node params", func() {
+	It(
+		"Should store a constant function input as its encoded value",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}))
+			inter, diags := text.Analyze(ctx, MustSucceed(text.Parse(text.Text{Raw: `
+		import math
+		func f(a f64) {v f64} f64 {
+			return a
+		}
+		x -> f(a=-math.inf)`})), root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			var values []any
+			for _, n := range inter.Nodes {
+				if n.Type == "f" {
+					values = append(values, MustBeOk(n.Inputs.Get("a")).Value)
+				}
+			}
+			Expect(values).To(Equal([]any{"-Infinity"}))
+		},
+	)
 })

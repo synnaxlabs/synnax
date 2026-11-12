@@ -20,12 +20,10 @@ const roles = new RoleClients(client);
 
 describe("project toolbar", () => {
   it("should list the top-level project groups and the projects in no group", async () => {
-    // The root lists the project groups, then the projects, each by name. Other specs
-    // leave many projects on the shared Core, and a leading "!" sorts these rows first.
-    const p = await client.projects.create({ name: uniqueName("!project") });
+    const p = await client.projects.create({ name: uniqueName("project") });
     const g = await client.groups.create({
       scope: "project",
-      name: uniqueName("!group"),
+      name: uniqueName("group"),
     });
     onTestFinished(async () => {
       await client.projects.delete(p.key);

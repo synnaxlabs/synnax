@@ -547,6 +547,23 @@ describe("AnalogRead ports", () => {
     },
   );
 
+  it("should not mark the sample rate of a device that reports no rates", async () => {
+    const hardware = createHardware();
+    hardware.aiMaxSingleChannelRate = 0;
+    hardware.aiMaxMultiChannelRate = 0;
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      sampleRate: 10_000_000,
+      channels: [
+        createChannel("ai_voltage", 0, { device: dev.key }),
+        createChannel("ai_voltage", 1, { device: dev.key }),
+      ],
+    });
+    await screen.findByText("Ports");
+    expect(screen.queryByText(/samples at most|may not sample/)).toBeNull();
+  });
+
   it("should deploy channels on free ports of the device", async () => {
     const dev = await createDevice();
     const { container, draft } = await renderWith([
@@ -602,6 +619,15 @@ describe("AnalogRead ports", () => {
         [`ai${i + 8}`, "2", String(i + 1)],
       ]).flat(),
     );
+  });
+
+  it("should show port 0 of a device with no pairs", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs = hardware.analogInputs.map((p) => ({ ...p, negative: 0 }));
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([createChannel("ai_voltage", 1, { device: dev.key })]);
+    const grid = await openPorts(dev);
+    expect(within(grid).getByRole("button", { name: "ai0" })).toBeTruthy();
   });
 
   it.each<
@@ -810,6 +836,17 @@ describe("AnalogRead ports", () => {
     expect(
       await findDialogTriggerByText("Default (Referenced single ended)"),
     ).toBeTruthy();
+  });
+
+  it("should show Default alone on a port whose default was not read", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs[8] = {
+      ...hardware.analogInputs[8],
+      defaultTerminalConfig: "Cfg_Default",
+    };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);
+    expect(await findDialogTriggerByText("Default")).toBeTruthy();
   });
 
   it("should resolve Default for a current channel on a port that takes only current", async () => {

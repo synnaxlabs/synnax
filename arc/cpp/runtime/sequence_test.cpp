@@ -283,6 +283,50 @@ TEST(FloatConstantTest, WritesF64Values) {
     float_constant::expect_values<double>(x::telem::FLOAT64_T);
 }
 
+namespace float_flow {
+/// @brief sends math.nan and math.inf through flows as T and returns the values
+/// written.
+template<typename T>
+std::pair<T, T> run(const x::telem::DataType &dt) {
+    Sequence h(
+        "import math\n%x% -> math.nan -> %a%\n%x% -> math.inf -> %b%\n",
+        {{"x", dt}, {"a", dt}, {"b", dt}}
+    );
+    h.push("x", x::telem::Series(T(1.5)));
+    const auto out = h.flush();
+    return {last<T>(out, h.key("a")), last<T>(out, h.key("b"))};
+}
+
+template<typename T>
+void expect_values(const x::telem::DataType &dt) {
+    const auto [nan, inf] = run<T>(dt);
+    EXPECT_TRUE(std::isnan(nan));
+    EXPECT_EQ(inf, std::numeric_limits<T>::infinity());
+}
+}
+
+/// @brief it should send bare f32 constants through flows.
+TEST(FloatFlowTest, SendsF32Constants) {
+    float_flow::expect_values<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should send bare f64 constants through flows.
+TEST(FloatFlowTest, SendsF64Constants) {
+    float_flow::expect_values<double>(x::telem::FLOAT64_T);
+}
+
+/// @brief it should run a stage transition fed by a constant alone.
+TEST(FloatFlowTest, TransitionsOnAConstant) {
+    Sequence h(
+        "import math\nsequence main {\n    stage a {\n        %x% -> math.inf => b\n    }\n"
+        "    stage b {\n        1 -> %out%\n    }\n}\n%x% => main\n",
+        {{"x", x::telem::FLOAT64_T}, {"out", x::telem::UINT8_T}}
+    );
+    for (int i = 0; i < 5; i++)
+        h.push("x", x::telem::Series(1.5));
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("out")), 1);
+}
+
 namespace float_check {
 /// @brief compiles one program that writes is_nan + 2 * is_infinite + 4 * is_finite
 /// for each value on x, and returns the codes in order.
@@ -378,6 +422,106 @@ TEST(NaNEqualityTest, FollowsIEEE754ForF64) {
     EXPECT_FALSE(run<double>("v == y", x::telem::FLOAT64_T));
     EXPECT_TRUE(run<double>("v != y", x::telem::FLOAT64_T));
     EXPECT_TRUE(run<double>("v != v", x::telem::FLOAT64_T));
+}
+
+namespace stored_float {
+/// @brief wraps decl in a sequence whose first stage writes limit to out. A stage b
+/// that writes limit makes it a reassigned variable.
+std::string sequence(const std::string &decl, const bool reassigned) {
+    const std::string b = reassigned ? "    stage b {\n        %x% -> limit\n    }\n"
+                                     : "";
+    return "sequence main {\n    " + decl +
+           "\n    stage a {\n        limit -> %out%\n    }\n" + b + "}\n%x% => main\n";
+}
+
+/// @brief a sequence whose stage sets limit, declared with op, to V and writes it to
+/// out.
+std::string reassigned_in_stage(const std::string &op) {
+    return "sequence main {\n    limit T " + op + " 0.0\n    stage a {\n" +
+           "        limit = V\n        limit -> %out%\n    }\n}\n%x% => main\n";
+}
+
+const std::string REASSIGNED_IN_FUNCTION = "func f() {v T} T {\n    limit T := 0.0\n"
+                                           "    limit = V\n    return limit\n}\n"
+                                           "%x% -> f() -> %out%\n";
+
+const std::vector<std::string> SOURCES = {
+    "limit T := V\nfunc f() {v T} T { return limit }\n%x% -> f() -> %out%\n",
+    sequence("limit T := V", false),
+    sequence("limit T $= V", false),
+    "func f(a T) {v T} T { return a }\n%x% -> f(a=V) -> %out%\n",
+    sequence("limit T := V", true),
+    sequence("limit T $= V", true),
+    "limit T := V\nlimit -> %out%\n",
+    reassigned_in_stage(":="),
+    reassigned_in_stage("$="),
+    REASSIGNED_IN_FUNCTION,
+};
+
+std::string replace(std::string s, const std::string &from, const std::string &to) {
+    for (auto i = s.find(from); i != std::string::npos; i = s.find(from, i + to.size()))
+        s.replace(i, from.size(), to);
+    return s;
+}
+
+/// @brief the sources that run a computed value: a function cannot read a top-level
+/// variable that holds one.
+const std::vector<std::string> COMPUTED_SOURCES(SOURCES.begin() + 1, SOURCES.end());
+
+/// @brief runs every source with the constant and returns each value written.
+template<typename T>
+std::vector<T>
+run(const std::string &constant,
+    const x::telem::DataType &dt,
+    const std::vector<std::string> &sources = SOURCES) {
+    const std::string type = dt == x::telem::FLOAT32_T ? "f32" : "f64";
+    std::vector<T> out;
+    for (const auto &source: sources) {
+        Sequence h(
+            "import math\n" + replace(replace(source, "T", type), "V", constant),
+            {{"x", dt}, {"out", dt}}
+        );
+        for (int i = 0; i < 5; i++)
+            h.push("x", x::telem::Series(T(1.5)));
+        out.push_back(last<T>(h.flush(), h.key("out")));
+    }
+    return out;
+}
+
+template<typename T>
+void expect_all(const x::telem::DataType &dt) {
+    for (const auto v: run<T>("math.nan", dt))
+        EXPECT_TRUE(std::isnan(v));
+    for (const auto v: run<T>("math.inf", dt))
+        EXPECT_EQ(v, std::numeric_limits<T>::infinity());
+    for (const auto v: run<T>("-math.inf", dt))
+        EXPECT_EQ(v, -std::numeric_limits<T>::infinity());
+}
+}
+
+/// @brief it should keep NaN and infinity in stored f32 values.
+TEST(StoredFloatTest, KeepsNonFiniteF32Values) {
+    stored_float::expect_all<float>(x::telem::FLOAT32_T);
+}
+
+/// @brief it should keep NaN and infinity in stored f64 values.
+TEST(StoredFloatTest, KeepsNonFiniteF64Values) {
+    stored_float::expect_all<double>(x::telem::FLOAT64_T);
+}
+
+/// @brief it should run an expression on a constant wherever a value is computed.
+TEST(StoredFloatTest, RunsComputedNonFiniteValues) {
+    using namespace stored_float;
+    const auto inf = std::numeric_limits<double>::infinity();
+    for (const auto v:
+         run<double>("math.inf * 2.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_EQ(v, inf);
+    for (const auto v:
+         run<double>("-math.inf * 2.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_EQ(v, -inf);
+    for (const auto v:
+         run<double>("math.nan + 1.0", x::telem::FLOAT64_T, COMPUTED_SOURCES))
+        EXPECT_TRUE(std::isnan(v));
 }
 
 namespace empty_series {
@@ -1730,8 +1874,8 @@ TEST(VariableReassignmentTest, EmitsOncePerReEntryOfAnIncrementLoop) {
 TEST(VariableReassignmentTest, RoutesAliasWritesToTheReboundChannelAcrossStages) {
     Sequence h(
         R"(
-    l := %out_a%
     sequence main {
+        l := %out_a%
         stage s1 {
             u8(1) -> l
             %go2% => next
@@ -1762,8 +1906,8 @@ TEST(VariableReassignmentTest, RoutesAliasWritesToTheReboundChannelAcrossStages)
 TEST(VariableReassignmentTest, RoutesAliasReadsToTheReboundChannelAcrossStages) {
     Sequence h(
         R"(
-    r := %in_a%
     sequence main {
+        r := %in_a%
         stage s1 {
             r -> %out%
             %go2% => next
@@ -1802,8 +1946,8 @@ TEST(
 ) {
     Sequence h(
         R"(
-    r := %in_a%
     sequence main {
+        r := %in_a%
         stage s1 {
             r * 2 -> %out%
             %go2% => next
@@ -1829,38 +1973,6 @@ TEST(
 
     h.trigger("go2");
     h.trigger("go1");
-    h.push("in_b", x::telem::Series(std::uint8_t(30)));
-    out = h.flush();
-    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);
-}
-
-TEST(VariableReassignmentTest, RoutesATopLevelAliasExpressionReadAcrossAStageRebind) {
-    Sequence h(
-        R"(
-    r := %in_a%
-    r * 2 -> %out%
-    sequence main {
-        stage s1 {
-            %go2% => next
-        }
-        stage s2 {
-            r = %in_b%
-        }
-    }
-    %start_cmd% => main)",
-        {{"start_cmd", x::telem::UINT8_T},
-         {"in_a", x::telem::UINT8_T},
-         {"in_b", x::telem::UINT8_T},
-         {"out", x::telem::UINT8_T},
-         {"go2", x::telem::UINT8_T}}
-    );
-
-    h.trigger("start_cmd");
-    h.push("in_a", x::telem::Series(std::uint8_t(10)));
-    auto out = h.flush();
-    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 20);
-
-    h.trigger("go2");
     h.push("in_b", x::telem::Series(std::uint8_t(30)));
     out = h.flush();
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);

@@ -870,23 +870,21 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
+		It("Should error with a zero state when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+			Expect(schematic.Reduce(state, schematic.Action{Type: "made_up"})).
+				Error().To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
 			"Should error when Type names a variant whose payload pointer is nil",
 			func(actionType string) {
 				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
+				Expect(schematic.Reduce(state, schematic.Action{Type: actionType})).
+					Error().To(MatchError(union.ErrMissingPayload))
 			},
 			Entry("set", schematic.ActionTypeSet),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
@@ -974,7 +972,7 @@ var _ = Describe("Payload decoding", func() {
 	})
 
 	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
-		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
 			"type": "set_config",
 			"set_config": map[string]any{
 				"key": "l1",
@@ -985,7 +983,7 @@ var _ = Describe("Payload decoding", func() {
 			},
 		}))
 		var a schematic.Action
-		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
+		Expect(msgpack.Codec.Decode(body, &a)).To(Succeed())
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))

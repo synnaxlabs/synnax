@@ -1,6 +1,4 @@
 {
-  "array_mode": false,
-  "array_size": 1,
   "auto_start": true,
   "channels": [
     {
@@ -30,5 +28,8 @@
   "device": "fixture-opc-device",
   "nan_fill_enabled": false,
   "sample_rate": 432.5,
+  "sampling": {
+    "type": "unary"
+  },
   "stream_rate": 43.5
 }

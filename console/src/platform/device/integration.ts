@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Icon } from "@synnaxlabs/lyra/icon";
+import { type Device } from "@synnaxlabs/pluto";
 import { type ComponentType } from "react";
 
 import { type ConfigureProps, type ConnectProps } from "@/platform/device/types";
@@ -25,6 +26,8 @@ export interface Integration {
   make: string;
   /** The type of the scan task each Driver runs for this integration. */
   scanType: string;
+  /** How the locations of its devices read. */
+  location: Device.LocationFormat;
 }
 
 /** An integration the user connects to by address. */

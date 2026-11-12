@@ -116,7 +116,9 @@ func (s *Scale) HashContent(h *content.Hash) {
 func (ls *LinearScale) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "slope":
-		return patch.Value(&ls.Slope, c.Next())
+		return patch.Defaulted(&ls.Slope, c.Next(), func(def *LinearScale) {
+			ls.Slope = def.Slope
+		})
 	case "offset":
 		return patch.Value(&ls.Offset, c.Next())
 	default:
@@ -136,11 +138,15 @@ func (ms *MapScale) Patch(c patch.Cursor) error {
 	case "pre_scaled_min":
 		return patch.Value(&ms.PreScaledMin, c.Next())
 	case "pre_scaled_max":
-		return patch.Value(&ms.PreScaledMax, c.Next())
+		return patch.Defaulted(&ms.PreScaledMax, c.Next(), func(def *MapScale) {
+			ms.PreScaledMax = def.PreScaledMax
+		})
 	case "scaled_min":
 		return patch.Value(&ms.ScaledMin, c.Next())
 	case "scaled_max":
-		return patch.Value(&ms.ScaledMax, c.Next())
+		return patch.Defaulted(&ms.ScaledMax, c.Next(), func(def *MapScale) {
+			ms.ScaledMax = def.ScaledMax
+		})
 	default:
 		return c.UnknownField()
 	}

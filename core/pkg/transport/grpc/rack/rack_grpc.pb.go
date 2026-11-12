@@ -328,3 +328,103 @@ var RackDeleteService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/rack/rack.proto",
 }
+
+const (
+	RackDispatchService_Exec_FullMethodName = "/grpc.rack.RackDispatchService/Exec"
+)
+
+// RackDispatchServiceClient is the client API for RackDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RackDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rackDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRackDispatchServiceClient(cc grpc.ClientConnInterface) RackDispatchServiceClient {
+	return &rackDispatchServiceClient{cc}
+}
+
+func (c *rackDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RackDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RackDispatchServiceServer is the server API for RackDispatchService service.
+// All implementations should embed UnimplementedRackDispatchServiceServer
+// for forward compatibility.
+type RackDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRackDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRackDispatchServiceServer struct{}
+
+func (UnimplementedRackDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedRackDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRackDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RackDispatchServiceServer will
+// result in compilation errors.
+type UnsafeRackDispatchServiceServer interface {
+	mustEmbedUnimplementedRackDispatchServiceServer()
+}
+
+func RegisterRackDispatchServiceServer(s grpc.ServiceRegistrar, srv RackDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedRackDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RackDispatchService_ServiceDesc, srv)
+}
+
+func _RackDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RackDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RackDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RackDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RackDispatchService_ServiceDesc is the grpc.ServiceDesc for RackDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RackDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.rack.RackDispatchService",
+	HandlerType: (*RackDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RackDispatchService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/rack/rack.proto",
+}

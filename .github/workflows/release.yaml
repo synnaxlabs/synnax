@@ -10,9 +10,10 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
-  inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3}{4}{5} from {6}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.typescript && '
+  TypeScript' || '', inputs.python && ' Python' || '', inputs.prerelease && ' candidate'
+  || '', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -29,17 +30,22 @@ on:
         description: Release the Core
         type: boolean
         default: true
-      bump:
-        description: Version bump for every selected product
-        type: choice
-        options:
-          - patch
-          - minor
-        default: patch
+      typescript:
+        description: Publish the npm packages (from main, only with the Core)
+        type: boolean
+        default: true
+      python:
+        description: Publish the PyPI packages (from main, only with the Core)
+        type: boolean
+        default: true
       prerelease:
         description: Tag release candidates (-rc.N)
         type: boolean
         default: false
+      migration_audit:
+        description: Run the migration audit before any draft
+        type: boolean
+        default: true
       console_version:
         description:
           "Console release the Core embeds (default: this run's, else the newest on the
@@ -106,6 +112,7 @@ jobs:
       actions: read
       contents: read
       id-token: write
+    if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
       CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
@@ -129,13 +136,24 @@ jobs:
       core_tag: ${{ steps.core.outputs.tag }}
       core_previous_tag: ${{ steps.core.outputs.previous_tag }}
       core_latest: ${{ steps.core.outputs.latest }}
+      train:
+        ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
+        steps.driver.outputs.minor }}
+      ts_version: ${{ steps.ts.outputs.version }}
+      ts_tag: ${{ steps.ts.outputs.tag }}
+      ts_minor: ${{ steps.ts.outputs.minor }}
+      ts_latest: ${{ steps.ts.outputs.latest }}
+      py_version: ${{ steps.py.outputs.version }}
+      py_tag: ${{ steps.py.outputs.tag }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        if: >-
+          !inputs.console && !inputs.driver && !inputs.core && (inputs.prerelease ||
+          !inputs.typescript && !inputs.python)
         run: |
-          echo "no product selected" >&2
+          echo "no product selected; a candidate run never publishes packages" >&2
           exit 1
 
       - name: Checkout repository
@@ -149,8 +167,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: console
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Driver version
         id: driver
@@ -158,8 +176,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: driver
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Core version
         id: core
@@ -167,8 +185,26 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: core
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
+
+      - name: Resolve TypeScript version
+        id: ts
+        if: inputs.typescript && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: ts
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
+
+      - name: Resolve Python version
+        id: py
+        if: inputs.python && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: py
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -204,14 +240,20 @@ jobs:
   draft-console:
     name: Draft Console
     needs: [resolve, ci, migration-audit]
-    if: inputs.console
+    if: >-
+      !cancelled() && inputs.console && needs.resolve.result == 'success' &&
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success')
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -225,6 +267,7 @@ jobs:
   build-console:
     name: Build Console
     needs: [resolve, draft-console]
+    if: ${{ !cancelled() && needs.draft-console.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -261,6 +304,7 @@ jobs:
   publish-console:
     name: Publish Console
     needs: [resolve, build-console]
+    if: ${{ !cancelled() && needs.build-console.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -284,14 +328,20 @@ jobs:
   draft-driver:
     name: Draft Driver
     needs: [resolve, ci, migration-audit]
-    if: inputs.driver
+    if: >-
+      !cancelled() && inputs.driver && needs.resolve.result == 'success' &&
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success')
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -305,6 +355,7 @@ jobs:
   build-driver:
     name: Build Driver
     needs: [resolve, draft-driver]
+    if: ${{ !cancelled() && needs.draft-driver.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -340,6 +391,7 @@ jobs:
   publish-driver:
     name: Publish Driver
     needs: [resolve, build-driver]
+    if: ${{ !cancelled() && needs.build-driver.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -350,6 +402,229 @@ jobs:
       - name: Publish release
         run: gh release edit "$TAG" --draft=false --latest=false
 
+  # Packages have no candidate channel, so a candidate run never publishes them. The
+  # registries trust this file by name, so the publish jobs live here and not in a called
+  # workflow.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    env:
+      SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      # npm hides a staged version until a maintainer approves it, so the tag goes up
+      # only after a stage succeeds, and a run whose tag already names this commit has
+      # nothing to stage. While the newest version overall or on this train waits for
+      # approval, nothing new stages, so approvals never move a dist-tag back. `client`
+      # is approved last.
+      - name: Claim the version
+        id: claim
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+          MINOR: ${{ needs.resolve.outputs.ts_minor }}
+        run: |
+          status() {
+            curl -s -o /dev/null -w '%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2"
+          }
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then
+            echo "staged=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in x alamos freighter client; do
+            code=$(status "$name" "$VERSION")
+            if [ "$code" != 404 ]; then
+              echo "the registry answered $code for $name $VERSION" >&2
+              exit 1
+            fi
+          done
+          newest() {
+            git ls-remote --tags --refs origin "refs/tags/ts/v$1*" \
+              | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
+          }
+          overall=$(newest "")
+          train=$(newest "$MINOR.")
+          for pending in "$overall" "$train"; do
+            [ -n "$pending" ] || continue
+            code=$(status client "$pending")
+            case "$code" in
+              200) ;;
+              404)
+                echo "client $pending is not out. Approve it, or reject it" >&2
+                echo "and delete the ts/v$pending tag." >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for client $pending" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
+
+      - name: Build
+        run: pnpm build:client
+
+      # A hotfix on an older train must not move `latest` back. The trusted publisher
+      # may only stage, so nothing installs until a maintainer approves it with 2FA.
+      # pnpm cannot stage a batch, so each package stages on its own.
+      - name: Stage
+        id: stage
+        if: steps.claim.outputs.staged != 'true'
+        env:
+          TAG:
+            ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
+            format('train-{0}', needs.resolve.outputs.ts_minor) }}
+        # The stamp dirties the tree, and the resolve job already checked the branch.
+        run: pnpm stage publish -r --tag "$TAG" --no-git-checks
+
+      # No tag guards the packages that a failed stage left on the registry.
+      - name: Ask for a reject
+        if: >-
+          always() && (steps.stage.conclusion == 'failure' || steps.stage.conclusion ==
+          'cancelled')
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Reject the staged npm packages"
+            echo "The stage of \`@synnaxlabs\` $VERSION stopped part way. Before the"
+            echo "next release, reject every $VERSION version in the Staged Packages"
+            echo "tab on npmjs.com or with \`pnpm stage reject\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tag
+        if: steps.claim.outputs.staged != 'true'
+        env:
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Ask for approval
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Approve the npm packages"
+            echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
+            echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
+            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`."
+            echo "Until \`client\` is approved, no release stages on this train, or on"
+            echo "any train while $VERSION is the newest."
+            echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      # The tag claims the version before anything publishes. A run at the same commit
+      # resolves the claimed version again and finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits.
+      - name: Claim the version
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run: |
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in alamos synnax synnax-freighter synnax-x; do
+            url="https://pypi.org/pypi/$name/$VERSION/json"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: .github/scripts/stamp_versions.sh py "$VERSION"
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            (cd "$package" && uv build)
+          done
+
+      - name: Prune already-published distributions
+        run: uv run --no-project python .github/scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
+
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
   draft-core:
@@ -357,16 +632,20 @@ jobs:
     needs: [resolve, ci, migration-audit, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success')
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -399,7 +678,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      docker: true
       core: true
       sign_binaries: true
       use_simple_artifact_names: true
@@ -407,9 +685,6 @@ jobs:
       release_tag: ${{ needs.resolve.outputs.core_tag }}
       console_release: console/v${{ needs.resolve.outputs.core_console_version }}
       driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
-      docker_channel:
-        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
-        && 'latest' || '' }}
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -502,17 +777,46 @@ jobs:
             ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
         run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
+  # No job needs the image, so a failed push blocks only the image. A rerun of this job
+  # alone has every input, and it moves latest or next only to the newest Core.
+  publish-core-image:
+    name: Publish Core image
+    needs: [resolve, publish-core]
+    if: ${{ !cancelled() && needs.publish-core.result == 'success' }}
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      docker: true
+      core: true
+      version: ${{ needs.resolve.outputs.core_version }}
+      release_tag: ${{ needs.resolve.outputs.core_tag }}
+      console_release: console/v${{ needs.resolve.outputs.core_console_version }}
+      driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
+      docker_channel:
+        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
+        && 'latest' || '' }}
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
   deploy-docs:
     name: Deploy docs
-    needs: [publish-console, publish-driver, publish-core]
-    # The docs read stable versions at build time, so a stable release redeploys them.
+    needs: [resolve, publish-console, publish-driver, publish-core]
+    # The docs read stable versions at build time. A release changes the download links
+    # of its train, next, and the newest train, and a new train moves the previous one
+    # off the root.
     if: >-
-      !cancelled() && !inputs.prerelease && contains(needs.*.result, 'success')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger the docs deploy hook
-        env:
-          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
-        run: |
-          [ -n "$HOOK" ] || { echo "::error::DOCS_DEPLOY_HOOK is not set"; exit 1; }
-          curl --fail-with-body --silent --show-error --request POST "$HOOK"
+      !cancelled() && !inputs.prerelease && (needs.publish-console.result == 'success'
+      || needs.publish-driver.result == 'success' || needs.publish-core.result ==
+      'success')
+    uses: ./.github/workflows/deploy.docs.yaml
+    with:
+      versions: next latest previous
+      train: ${{ needs.resolve.outputs.train }}
+    secrets:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

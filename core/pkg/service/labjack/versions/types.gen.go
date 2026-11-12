@@ -11,106 +11,106 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v3"
 
 // TemperatureUnits are the engineering units for a temperature measurement.
-type TemperatureUnits = v2.TemperatureUnits
+type TemperatureUnits = v3.TemperatureUnits
 
 const (
 	// TemperatureUnitsCelsius is degrees Celsius.
-	TemperatureUnitsCelsius TemperatureUnits = v2.TemperatureUnitsCelsius
+	TemperatureUnitsCelsius TemperatureUnits = v3.TemperatureUnitsCelsius
 	// TemperatureUnitsFahrenheit is degrees Fahrenheit.
-	TemperatureUnitsFahrenheit TemperatureUnits = v2.TemperatureUnitsFahrenheit
+	TemperatureUnitsFahrenheit TemperatureUnits = v3.TemperatureUnitsFahrenheit
 	// TemperatureUnitsKelvin is kelvins.
-	TemperatureUnitsKelvin TemperatureUnits = v2.TemperatureUnitsKelvin
+	TemperatureUnitsKelvin TemperatureUnits = v3.TemperatureUnitsKelvin
 )
 
 // ThermocoupleType selects the thermocouple alloy type.
-type ThermocoupleType = v2.ThermocoupleType
+type ThermocoupleType = v3.ThermocoupleType
 
 const (
 	// ThermocoupleTypeJ pairs iron with copper-nickel.
-	ThermocoupleTypeJ ThermocoupleType = v2.ThermocoupleTypeJ
+	ThermocoupleTypeJ ThermocoupleType = v3.ThermocoupleTypeJ
 	// ThermocoupleTypeK pairs nickel-chromium with nickel-aluminum.
-	ThermocoupleTypeK ThermocoupleType = v2.ThermocoupleTypeK
+	ThermocoupleTypeK ThermocoupleType = v3.ThermocoupleTypeK
 	// ThermocoupleTypeN pairs nickel-chromium-silicon with nickel-silicon-magnesium.
-	ThermocoupleTypeN ThermocoupleType = v2.ThermocoupleTypeN
+	ThermocoupleTypeN ThermocoupleType = v3.ThermocoupleTypeN
 	// ThermocoupleTypeR pairs platinum-13% rhodium with platinum.
-	ThermocoupleTypeR ThermocoupleType = v2.ThermocoupleTypeR
+	ThermocoupleTypeR ThermocoupleType = v3.ThermocoupleTypeR
 	// ThermocoupleTypeS pairs platinum-10% rhodium with platinum.
-	ThermocoupleTypeS ThermocoupleType = v2.ThermocoupleTypeS
+	ThermocoupleTypeS ThermocoupleType = v3.ThermocoupleTypeS
 	// ThermocoupleTypeT pairs copper with copper-nickel.
-	ThermocoupleTypeT ThermocoupleType = v2.ThermocoupleTypeT
+	ThermocoupleTypeT ThermocoupleType = v3.ThermocoupleTypeT
 	// ThermocoupleTypeB pairs platinum-30% rhodium with platinum-6% rhodium.
-	ThermocoupleTypeB ThermocoupleType = v2.ThermocoupleTypeB
+	ThermocoupleTypeB ThermocoupleType = v3.ThermocoupleTypeB
 	// ThermocoupleTypeE pairs nickel-chromium with copper-nickel.
-	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
+	ThermocoupleTypeE ThermocoupleType = v3.ThermocoupleTypeE
 	// ThermocoupleTypeC pairs tungsten-5% rhenium with tungsten-26% rhenium.
-	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
+	ThermocoupleTypeC ThermocoupleType = v3.ThermocoupleTypeC
 )
 
 // BaseReadChannel carries the fields every LabJack read channel shares.
-type BaseReadChannel = v2.BaseReadChannel
+type BaseReadChannel = v3.BaseReadChannel
 
 // ReadChannel is a single LabJack read channel. The type field selects the input mode
 // and the fields that accompany it.
-type ReadChannel = v2.ReadChannel
+type ReadChannel = v3.ReadChannel
 
 // ReadChannelVariant is implemented by every ReadChannel variant.
-type ReadChannelVariant = v2.ReadChannelVariant
+type ReadChannelVariant = v3.ReadChannelVariant
 
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
-type ReadChannelType = v2.ReadChannelType
+type ReadChannelType = v3.ReadChannelType
 
 const (
 	// AnalogReadChannelType reads a voltage from an analog input port.
-	AnalogReadChannelType ReadChannelType = v2.AnalogReadChannelType
+	AnalogReadChannelType ReadChannelType = v3.AnalogReadChannelType
 	// DigitalReadChannelType reads a digital input line.
-	DigitalReadChannelType ReadChannelType = v2.DigitalReadChannelType
+	DigitalReadChannelType ReadChannelType = v3.DigitalReadChannelType
 	// ThermocoupleReadChannelType reads temperature from a thermocouple.
-	ThermocoupleReadChannelType ReadChannelType = v2.ThermocoupleReadChannelType
+	ThermocoupleReadChannelType ReadChannelType = v3.ThermocoupleReadChannelType
 )
 
 // AnalogReadChannel reads a voltage from an analog input port.
-type AnalogReadChannel = v2.AnalogReadChannel
+type AnalogReadChannel = v3.AnalogReadChannel
 
 // DigitalReadChannel reads a digital input line.
-type DigitalReadChannel = v2.DigitalReadChannel
+type DigitalReadChannel = v3.DigitalReadChannel
 
 // ThermocoupleReadChannel reads temperature from a thermocouple.
-type ThermocoupleReadChannel = v2.ThermocoupleReadChannel
+type ThermocoupleReadChannel = v3.ThermocoupleReadChannel
 
 // BaseWriteChannel carries the fields every LabJack write channel shares.
-type BaseWriteChannel = v2.BaseWriteChannel
+type BaseWriteChannel = v3.BaseWriteChannel
 
 // WriteChannel is a single LabJack write channel. The type field selects the output
 // mode.
-type WriteChannel = v2.WriteChannel
+type WriteChannel = v3.WriteChannel
 
 // WriteChannelVariant is implemented by every WriteChannel variant.
-type WriteChannelVariant = v2.WriteChannelVariant
+type WriteChannelVariant = v3.WriteChannelVariant
 
 // WriteChannelType is the "type" value that selects a variant of WriteChannel.
-type WriteChannelType = v2.WriteChannelType
+type WriteChannelType = v3.WriteChannelType
 
 const (
 	// AnalogWriteChannelType drives an analog output on a DAC port.
-	AnalogWriteChannelType WriteChannelType = v2.AnalogWriteChannelType
+	AnalogWriteChannelType WriteChannelType = v3.AnalogWriteChannelType
 	// DigitalWriteChannelType drives a digital output line on a DIO port.
-	DigitalWriteChannelType WriteChannelType = v2.DigitalWriteChannelType
+	DigitalWriteChannelType WriteChannelType = v3.DigitalWriteChannelType
 )
 
 // AnalogWriteChannel drives an analog output on a DAC port.
-type AnalogWriteChannel = v2.AnalogWriteChannel
+type AnalogWriteChannel = v3.AnalogWriteChannel
 
 // DigitalWriteChannel drives a digital output line on a DIO port.
-type DigitalWriteChannel = v2.DigitalWriteChannel
+type DigitalWriteChannel = v3.DigitalWriteChannel
 
 // ReadConfig configures a LabJack read task.
-type ReadConfig = v2.ReadConfig
+type ReadConfig = v3.ReadConfig
 
 // WriteConfig configures a LabJack write task.
-type WriteConfig = v2.WriteConfig
+type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures a LabJack scan task.
-type ScanConfig = v2.ScanConfig
+type ScanConfig = v3.ScanConfig

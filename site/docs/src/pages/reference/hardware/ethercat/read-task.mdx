@@ -10,6 +10,7 @@ import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -53,22 +54,28 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click a module and select **Create read task**. The
-   task starts with a channel for each input of the module. To remove a channel,
-   right-click it and select **Remove**.
+   task starts with a channel for each input of the module. On a module whose settings
+   Synnax knows, such as a Dewesoft module, it starts with the measurement inputs only.
+   To remove a channel, right-click it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**, then select the module in **Slave device**. A new channel
-   starts with the module of the last channel.
-4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
-5. Click <Icon.Play /> (**Start**).
+3. Click <Icon.Play /> (**Start**).
 
-To add every input of a module at once, right-click one of its channels and select **Add
-every input of** _module name_.
+To add a channel, click **Add channel**, select the module in **Device**, and select an
+entry in **Entry**. A new channel starts with the module of the last channel, and **Data
+type** shows the type of the entry. To add every input of a module at once, right-click
+one of its channels and select **Add every input of** _module name_.
 
 The Console creates the channels and names them after the identifier of the module and
 the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
 the module has more than one entry with that name, the Console adds the PDO name, or the
-address when the module gives no PDO name, such as `ai1_Value_3101_02`. The index
-channel is `ai1_time`.
+address when the module gives no PDO name, such as `ai1_Value_3101_02`. The name of a
+[scaled](#scales) channel ends in `_scaled`. The index channel is `ai1_time`.
+
+When you start the task, the Console uses channels that already exist where it can. It
+uses an index channel named `<identifier>_time`. It also uses a channel with the default
+name that a deleted device left, when the channel has the same index and no other module
+records into it. Otherwise, a channel name that is in use stops the deploy with an
+[error](#troubleshooting).
 
 Starting or stopping a task does not restart the network. The other tasks on the port
 keep running.
@@ -180,20 +187,22 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
 ## Task options
 
-| Console label | Python field           | Default | Notes                                                     |
-| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| Sample rate   | `sample_rate`          | 10 Hz   | Up to 10 kHz. A whole multiple of the stream rate.        |
-| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
-| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Setting                                           | Default | Notes                                                     |
+| ------------------------------------------------- | ------- | --------------------------------------------------------- |
+| Sample rate <small>`sample_rate`</small>          | 10 Hz   | Up to 10 kHz. A whole multiple of the stream rate.        |
+| Stream rate <small>`stream_rate`</small>          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start <small>`auto_start`</small>            | Off     | Starts the task each time the Driver starts.              |
+
+TypeScript uses the same fields in camel case, such as `sampleRate`.
 
 <Divider.Divider x />
 
 ## Channel reference
 
-Each channel has a `device`, the key of the module (**Slave device**), and a `channel`,
-the Synnax channel that records the value. Each table shows the Console label of a
-setting, with its Python field under it.
+Each channel has a `device`, the key of the module (**Device**), and a `channel`, the
+Synnax channel that records the value. Each table shows the Console label of a setting,
+with its Python field under it.
 
 <Channel.Types>
 
@@ -205,11 +214,12 @@ setting, with its Python field under it.
 
 Reads one input entry at its CoE address.
 
-| Setting                                   | Default | Notes                                                              |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
-| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
+| Setting                                   | Default | Notes                                                                                           |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                                                           |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                                                    |
+| <small>`calibrated`</small>               | `false` | Records physical values. See [Dewesoft](/reference/hardware/ethercat/dewesoft#physical-values). |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales).                              |
 
 </Channel.Type>
 
@@ -232,9 +242,27 @@ A scale converts the raw value of an entry into engineering units:
 | `"table"`      | `pre_scaled_vals`, `scaled_vals`                               | Straight lines between the pairs, clipped at each end |
 
 A scaled channel writes float values, so its Synnax channel must be `float32` or
-`float64`. The Console creates a `float64` channel for it, apart from the raw channel.
+`float64`. The Console creates a `float64` channel for it, apart from the raw channel,
+and its name ends in `_scaled`.
 
-<Client.Tabs exclude={["console"]}>
+Some Dewesoft modules send raw counts. The Driver turns them into
+[physical values](/reference/hardware/ethercat/dewesoft#physical-values) before the
+scale.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. Select the channel, then select a type in **Scale**: **Linear**, **Map**,
+   **Polynomial**, or **Table**.
+2. Enter the values of the scale:
+   - **Linear** -> **Slope** and **Offset**.
+   - **Map** -> **Pre-scaled min**, **Pre-scaled max**, **Scaled min**, and **Scaled
+     max**.
+   - **Polynomial** -> the **Coefficients**, from c0 up.
+   - **Table** -> the pairs of raw and scaled values.
+3. Click <Icon.Play /> (**Start**).
+
+  </Fragment>
   <Fragment slot="python">
 
 ```python
@@ -272,70 +300,184 @@ const channel = {
 
 ## Troubleshooting
 
-### A channel from an earlier release has no entry
+<Problem.List>
+
+<Problem.Item message={"... matches more than one input entry ..."} id="a-channel-from-an-earlier-release-has-no-entry">
+<Problem.Cause>
 
 Earlier releases could select an entry by its name. If the module has more than one
 entry with that name, or none, the upgrade cannot find the address of the entry. The
-Console marks the channel with an error, and the task does not start. The error reads
-"... matches more than one input entry ..." or "... matches no input entry ...".
+Console marks the channel, and the task does not start. The error can also read "...
+matches no input entry ...".
+
+</Problem.Cause>
+<Problem.Fix>
 
 Select an entry for the channel in **Entry**. The first entry in the list with that name
 is the one that the task read before, and it keeps the old channel.
 
-### "All slaves must be on the same network"
+</Problem.Fix>
+</Problem.Item>
 
-The task uses modules on two ports. Create one task for each port.
+<Problem.Item message={"A channel on slave ... has no entry. Pick an entry."}>
+<Problem.Cause>
 
-### "no EtherCAT slaves found on ..."
+A channel has no entry selected.
 
-The Driver got no reply from the modules on the port. Check the cable to the first
-module and the power to the modules. On Windows with DewesoftX installed, see
-[No modules show on a computer with DewesoftX](/reference/hardware/ethercat/configure-device#no-modules-show-on-a-computer-with-dewesoftx).
+</Problem.Cause>
+<Problem.Fix>
 
-### "failed to reach SAFE-OP" or "failed to reach OP"
+Select an entry in **Entry**, or remove the channel.
 
-A module on the port did not start, so no task on the port starts. See
-["failed to reach SAFE-OP" or "failed to reach OP"](/reference/hardware/ethercat/configure-device#failed-to-reach-safe-op-or-failed-to-reach-op).
-If the error contains "Invalid DC SYNC configuration", see
-["failed to reach SAFE-OP: ... Invalid DC SYNC configuration"](/reference/hardware/ethercat/configure-device#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+</Problem.Fix>
+</Problem.Item>
 
-### "sample_rate must be divisible by stream_rate"
+<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Cause>
+
+The module has no input entry at the address of the channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select an entry from the list again. In code, use an address that the Console lists, or
+find the entry by its name.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Data type ... does not fit entry ...", "data type ... is ... but entry ... holds ..."]}>
+<Problem.Cause>
+
+The data type of the channel has a different size from the entry. The Console shows the
+first message, and the Driver shows the second for a task from code.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a number type of the same size, such as `int16` for a 16-bit entry.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel ... is ..., but a ... channel must be float32 or float64"}>
+<Problem.Cause>
+
+A scaled or calibrated channel writes float values, but its Synnax channel holds
+integers.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Configure the task in the Console again. The Console creates a `float64` channel. In
+code, use a `float32` or `float64` channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["More than one channel uses entry ...", "another channel already uses entry ..."]}>
+<Problem.Cause>
+
+Two channels of the task use the same entry.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a different entry for one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["A channel named ... already exists. Give the channel another name.", "Two channels of the task use the name ..."]}>
+<Problem.Cause>
+
+The name of a new channel is in use, by a channel that the Console cannot use for this
+entry or by another channel of the task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set another name in **Channel**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Cause>
+
+The index channel name `<identifier>_time` belongs to another module, or to a channel
+that is not an index.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the [identifier](/reference/hardware/devices#identifiers) of the module.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Channel ... holds ... data, not ..."}>
+<Problem.Cause>
+
+A channel that the task uses again has a different data type from the channel of the
+task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set the data type to the one that the message names, or delete the old channel so that
+the task can create it again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Stream rate must be less than or equal to the sample rate", "sample_rate must be divisible by stream_rate"]}>
+<Problem.Cause>
+
+The stream rate is above the sample rate, or the sample rate is not a whole multiple of
+the stream rate.
+
+</Problem.Cause>
+<Problem.Fix>
 
 Set a sample rate that is a whole multiple of the stream rate, such as 1000 Hz and 25
 Hz.
 
-### "no bus rate at or below 10000 Hz ..."
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"No bus rate at or below 10000 Hz ..."}>
+<Problem.Cause>
 
 The sample rates of the read tasks on the port have no common multiple at or below 10
-kHz. Use sample rates with a small common multiple, such as 250 Hz and 1 kHz.
+kHz.
 
-### "Failed to read data"
+</Problem.Cause>
+<Problem.Fix>
+
+Use sample rates with a small common multiple, such as 250 Hz and 1 kHz.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read data"}>
+<Problem.Cause>
 
 A module on the port stopped responding, so every network cycle fails. Every read task
-on the port shows this warning and pauses. The
-[module status](/reference/hardware/ethercat/configure-device#module-status) shows which
-module is lost. Check its power and its cable.
+on the port shows this warning and pauses. The task keeps trying, at most 5 seconds
+apart, and its data starts again when the module responds.
 
-The task keeps trying, at most 5 seconds apart, and its data starts again when the
-module responds. You do not need to restart the task.
+</Problem.Cause>
+<Problem.Fix>
 
-### "Slave ... has no input entry at ..."
+The [module status](/reference/hardware/ethercat/configure-device#module-status) shows
+which module is lost. Check its power and its cable.
 
-The module has no input entry at the address of the channel. Select an entry from the
-list again. In code, use an address that the Console lists, or find the entry by its
-name.
+</Problem.Fix>
+</Problem.Item>
 
-### "Data type ... does not fit entry ..."
+</Problem.List>
 
-The data type of the channel has a different size from the entry. Select a number type
-of the same size, such as `int16` for a 16-bit entry. From code, the Driver reports
-"data type ... is ... but entry ... holds ...".
-
-### "More than one channel uses entry ..."
-
-Two channels of the task use the same entry. Select a different entry for one of them.
-From code, the Driver reports "another channel already uses entry ...".
-
-For other problems, see
-[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)
-and [Troubleshoot hardware](/reference/hardware/troubleshooting).
+For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
+`No EtherCAT slaves found on ...`, see
+[Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

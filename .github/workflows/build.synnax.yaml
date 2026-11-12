@@ -241,7 +241,7 @@ jobs:
               exit 1
             fi
           done
-          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$'
+          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?)?$'
           for VALUE in "$VERSION" "$DESKTOP_VERSION"; do
             if ! [[ "$VALUE" =~ $SEMVER ]]; then
               echo "malformed version: $VALUE" >&2
@@ -332,8 +332,8 @@ jobs:
     name: Build (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
-    # Hosted macOS builds the Driver with no Bazel cache. One build ran past 75 minutes.
-    timeout-minutes: ${{ matrix.os == 'macos-latest' && 120 || 75 }}
+    # Hosted macOS builds the Driver with no Bazel cache, which can take 95 minutes.
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 180 || 75 }}
     permissions:
       actions: read
       contents: write
@@ -765,6 +765,14 @@ jobs:
             ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
             runner.name) || '~/setup-pnpm' }}
 
+      # The Console's version guard reads the TypeScript client's version.
+      - name: Stamp package versions
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == '' && inputs.release_tag != ''
+        shell: bash
+        env:
+          VERSION: ${{ needs.setup.outputs.VERSION }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
+
       - name: Build Console web assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
@@ -1078,12 +1086,48 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # synnax update checks these signatures before it runs a downloaded binary. The job
+  # runs after the build, so it signs the files that each OS signed.
+  sign:
+    name: Sign release binaries
+    needs: [setup, build]
+    if: inputs.release_tag != '' && (inputs.core || inputs.driver)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download release binaries
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'synnax-v*' --pattern 'synnax-driver-v*' --dir binaries
+
+      - name: Sign release binaries
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          for file in binaries/*; do
+            # A rerun downloads the signatures of the first run too.
+            case "$file" in *.sig) continue ;; esac
+            npx --yes @tauri-apps/cli@2.12.3 signer sign "$file"
+          done
+
+      - name: Upload signatures
+        run:
+          gh release upload --clobber "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          binaries/*.sig
+
   docker:
     name: Build Docker image
     needs: [setup, build, republish]
-    if:
-      inputs.docker && (needs.build.result == 'success' || needs.build.result ==
-      'skipped')
+    # A release builds the image alone from the Console and Driver releases, with no
+    # platform, so build and republish skip.
+    if: >-
+      ${{ !cancelled() && inputs.docker && needs.setup.result == 'success' &&
+      (needs.setup.outputs.matrix == '[]' && !inputs.driver && !inputs.console ||
+      needs.build.result == 'success' && needs.republish.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1180,6 +1224,17 @@ jobs:
           echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
           "$GITHUB_OUTPUT"
 
+      # A rerun after a newer Core release must not move the channel back.
+      - name: Resolve the channel
+        id: channel
+        env:
+          CHANNEL: ${{ inputs.docker_channel }}
+          VERSION: ${{ needs.setup.outputs.VERSION }}
+        run: |
+          CHANNEL=$(git ls-remote --tags --refs origin 'refs/tags/core/v*' \
+            | .github/scripts/image_channel.sh "$CHANNEL" "$VERSION")
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker images
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -1191,8 +1246,8 @@ jobs:
             ${{ inputs.release_tag == '' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
             ${{ inputs.release_tag != '' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
             ${{ inputs.release_tag != '' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.docker_channel != '' && format('ghcr.io/synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
-            ${{ inputs.docker_channel != '' && format('synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
+            ${{ steps.channel.outputs.channel != '' && format('ghcr.io/synnaxlabs/synnax:{0}', steps.channel.outputs.channel) || '' }}
+            ${{ steps.channel.outputs.channel != '' && format('synnaxlabs/synnax:{0}', steps.channel.outputs.channel) || '' }}
           cache-from:
             type=gha,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full'
             || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}

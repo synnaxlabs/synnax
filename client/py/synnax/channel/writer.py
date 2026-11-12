@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
@@ -19,10 +21,13 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
+from synnax.transport import send_batch
+from x import patch
 
 
 class _CreateRequest(BaseModel):
     channels: list[Payload]
+    retrieve_if_name_exists: bool
 
 
 class _Response(BaseModel):
@@ -34,14 +39,24 @@ class _DeleteRequest(BaseModel):
     names: list[str] | tuple[str, ...] | None = None
 
 
-class _RenameRequest(BaseModel):
-    keys: list[Key] | tuple[Key, ...]
-    names: list[str] | tuple[str, ...]
+class _RenamePayload(BaseModel):
+    name: str
 
 
-class _SetGroupRequest(BaseModel):
-    keys: list[Key]
-    group: group_.Key | None = None
+class _RenameAction(BaseModel):
+    type: Literal["rename"] = "rename"
+    rename: _RenamePayload
+
+
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: patch.Set
+
+
+class _DispatchRequest(BaseModel):
+    key: Key
+    dispatch_key: str = ""
+    actions: list[_RenameAction | _SetAction]
 
 
 class Writer:
@@ -61,8 +76,11 @@ class Writer:
     def create(
         self,
         channels: list[Payload],
+        retrieve_if_name_exists: bool,
     ) -> list[Payload]:
-        req = _CreateRequest(channels=channels)
+        req = _CreateRequest(
+            channels=channels, retrieve_if_name_exists=retrieve_if_name_exists
+        )
         return self._client.send("/channel/create", req, _Response).channels
 
     @trace("debug")
@@ -78,10 +96,23 @@ class Writer:
     def rename(
         self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
-        req = _RenameRequest(keys=keys, names=names)
-        self._client.send("/channel/rename", req, Empty)
+        reqs = [
+            _DispatchRequest(
+                key=k, actions=[_RenameAction(rename=_RenamePayload(name=n))]
+            )
+            for k, n in zip(keys, names, strict=True)
+        ]
+        send_batch(self._client, "/channel/dispatch", reqs)
 
     @trace("debug")
     def set_group(self, keys: list[Key], group: group_.Key | None) -> None:
-        req = _SetGroupRequest(keys=keys, group=group)
-        self._client.send("/channel/set-group", req, Empty)
+        value = None if group is None else str(group)
+        action = _SetAction(set=patch.Set(path=["group"], value=value))
+        reqs = [_DispatchRequest(key=k, actions=[action]) for k in keys]
+        send_batch(self._client, "/channel/dispatch", reqs)
+
+    @trace("debug")
+    def set_expression(self, key: Key, expression: str) -> None:
+        action = _SetAction(set=patch.Set(path=["expression"], value=expression))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/channel/dispatch", req, Empty)

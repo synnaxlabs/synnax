@@ -12,6 +12,9 @@
 package v4
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
@@ -19,6 +22,7 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic symbol.
@@ -82,6 +86,30 @@ func (s *Spec) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *Spec) SetDefaults() {
+	s.Scale = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *Spec) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Spec
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *Spec) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Spec
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s Spec) Validate() error {
@@ -110,6 +138,30 @@ type Symbol struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *Symbol) ApplyDefaults() {
 	s.Data.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *Symbol) SetDefaults() {
+	s.Data.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *Symbol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Symbol
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *Symbol) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Symbol
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

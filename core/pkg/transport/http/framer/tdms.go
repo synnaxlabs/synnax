@@ -26,38 +26,37 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TDMSEncoder encodes a read as an NI TDMS file. Each index channel heads a group named
-// after it, followed by the float channels it timestamps. A float channel holds NaN,
-// which NI tools read as no value, where it has no sample. TDMS has no missing value
-// for other types, so each other channel gets its own group: the timestamps of its
-// samples, then the samples. A channel whose name another channel of the read shares
-// takes its name and key, such as "temp (1048577)". Each group sets wf_xcolumns to mark
-// its first channel as its time channel. UUID, bytes, and JSON samples become TDMS
-// strings in their text form. A latest or earliest read holds only the newest or oldest
-// rows of each index. A read of a channel whose index it does not include, or a read
-// under a limit reduction, fails before the first byte. A read that fails after the
-// first byte truncates the body.
-var TDMSEncoder tdmsEncoder
+// NewTDMSEncoder returns an encoder that writes a read as an NI TDMS file. Each index
+// channel heads a group named after it, followed by the float channels it timestamps. A
+// float channel holds NaN, which NI tools read as no value, where it has no sample.
+// TDMS has no missing value for other types, so each other channel gets its own group:
+// the timestamps of its samples, then the samples. A channel whose name another channel
+// of the read shares takes its name and key, such as "temp (1048577)". Each group sets
+// wf_xcolumns to mark its first channel as its time channel. UUID, bytes, and JSON
+// samples become TDMS strings in their text form. A latest or earliest read holds only
+// the newest or oldest rows of each index. A read of a channel whose index it does not
+// include, or a read under a limit reduction, fails before the first byte. A read that
+// fails after the first byte truncates the body. ctx bounds the iterators the encoder
+// opens.
+func NewTDMSEncoder(ctx context.Context) xhttp.Encoder { return tdmsEncoder{ctx: ctx} }
 
-type tdmsEncoder struct{}
-
-var _ xhttp.Encoder = tdmsEncoder{}
+type tdmsEncoder struct{ ctx context.Context }
 
 // ContentType implements http.Encoder.
 func (tdmsEncoder) ContentType() string { return "application/x-tdms" }
 
 // Encode implements encoding.Encoder. It holds the whole read in memory, so prefer
 // EncodeStream.
-func (e tdmsEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e tdmsEncoder) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := e.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 // EncodeStream implements encoding.Encoder. value must be a ReadResponse.
-func (tdmsEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e tdmsEncoder) EncodeStream(w io.Writer, value any) error {
 	res, err := readResponse(value)
 	if err != nil {
 		return err
@@ -67,7 +66,7 @@ func (tdmsEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) err
 		return err
 	}
 	columns := f.columns()
-	if err = openColumns(ctx, res, columns); err != nil {
+	if err = openColumns(e.ctx, res, columns); err != nil {
 		return err
 	}
 	return errors.Combine(f.write(w), closeColumns(columns))

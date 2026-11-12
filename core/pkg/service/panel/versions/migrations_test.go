@@ -168,6 +168,68 @@ var _ = Describe("Migrations", func() {
 			Expect(got).To(Equal(want))
 			Expect(got.Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
 		})
+
+		It("Should remove the Arc explorer tabs of a v0.58 Core", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			docs := uuid.New()
+			old := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Main",
+				Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{
+					{Variant: v0.ViewTab{Key: uuid.New(), Type: "arc_explorer"}},
+					{Variant: v0.ViewTab{Key: docs, Type: "docs"}},
+				}}},
+			}
+			Expect(gorp.WrapWriter[v0.Key, v0.Panel](db).Set(ctx, old)).To(Succeed())
+			own(old.Key)
+			recordComposition(v0.ResourceTabTypesMigration)
+			openTable()
+			tabs := retrieve(old.Key).Root.Variant.(versions.LeafNode).Tabs
+			Expect(tabs).To(HaveLen(1))
+			Expect(tabs[0].Variant.(versions.ViewTab).Key).To(Equal(docs))
+		})
+
+		It("Should remove the Arc explorer tabs of a v0.60 Core", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			docs := v2.Tab{Variant: v2.ViewTab{
+				TabBase: v2.TabBase{Key: uuid.New()},
+				View:    v2.View{Type: "docs"},
+			}}
+			stored := v2.Panel{
+				Key:  uuid.New(),
+				Name: "Main",
+				Root: v2.Node{Variant: v2.SplitNode{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{
+						{Variant: v2.ViewTab{
+							TabBase: v2.TabBase{Key: uuid.New()},
+							View:    v2.View{Type: "arc_explorer"},
+						}},
+					}}},
+					Last: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{docs}}},
+				}},
+			}
+			recordComposition(
+				v0.ResourceTabTypesMigration,
+				v1.Migration,
+				v2.Migration,
+			)
+			Expect(gorp.WrapWriter[v2.Key, v2.Panel](db).Set(ctx, stored)).
+				To(Succeed())
+			own(stored.Key)
+			openTable()
+			root := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
+			Expect(root.First.Variant.(versions.LeafNode).Tabs).To(BeEmpty())
+			Expect(root.Last.Variant.(versions.LeafNode).Tabs).
+				To(Equal([]versions.Tab{docs}))
+		})
 	})
 
 	Describe("Composition", func() {
@@ -219,6 +281,7 @@ var _ = Describe("Migrations", func() {
 			"v61_add_group",
 			"v61_panel_group_membership",
 			"v61_panel_owner",
+			"v61_strip_arc_explorer_tabs",
 			"v61_color_alpha_byte",
 		}))
 	})

@@ -117,6 +117,8 @@ class ReadTask final : public driver::task::Task {
         ReadTask &p;
         /// @brief the warning last written to the log. Empty if there is none.
         Warning logged_warning;
+        /// @brief whether the writer opened since the task last started.
+        bool writer_open = false;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -128,8 +130,19 @@ class ReadTask final : public driver::task::Task {
         /// @brief forgets the logged warning, so the next run logs it again.
         void forget_warning() { this->logged_warning = {}; }
 
+        /// @brief prepares the source for a new run of the task.
+        void begin_run() {
+            this->forget_warning();
+            this->writer_open = false;
+        }
+
+        void writer_opened() override { this->writer_open = true; }
+
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err, "Failed to read data");
+            this->p.state.error(
+                err,
+                this->writer_open ? "Failed to read data" : "Failed to start task"
+            );
             this->p.stop("", true);
         }
 
@@ -260,7 +273,7 @@ public:
             return false;
         }
         this->state.reset();
-        this->source->forget_warning();
+        this->source->begin_run();
         const auto start_ok = !this->state.error(
             this->source->internal->start(),
             "Failed to start task"

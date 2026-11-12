@@ -13,6 +13,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -110,7 +113,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
+	secrets := secrettestutil.OpenService(ctx, node.DB)
+	for _, key := range []string{routingKey1, routingKey2} {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: uuid.MustParse(key), Name: key},
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return secrets.NewWriter(tx).Set(ctx, &s, []byte(key))
+		})).To(Succeed())
+	}
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:     node.DB,
+		Secret: secrets,
+	}))
 	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      node.DB,

@@ -140,6 +140,7 @@ A series is a list of values of one primitive type, such as `series f64`.
 | -------------- | -------------------- | -------------------------------- |
 | Literal        | `[1.0, 2.0, 3.0]`    | `series f64`                     |
 | Empty          | `e series f64 := []` | An empty `series f64`            |
+| Untyped empty  | `e := []`            | Typed by its first use           |
 | Length         | `len(data)`          | `i64`                            |
 | Index          | `data[0]`            | The first element                |
 | Slice          | `data[1:3]`          | Elements 1 and 2                 |
@@ -166,14 +167,25 @@ func peak() f64 {
 
 - An operation on two series needs series of the same length. Different lengths cause a
   runtime error.
+- An untyped `[]` takes its element type from its first typed write or use. `e[0] = n`
+  with `n i32` gives `series i32`, and `e = [true]` or `not e` gives `series bool`.
+  Number literals and arithmetic keep it numeric: `e += 1` then `e += 1.5` is valid. If
+  nothing else sets the type, it is `series f64`.
+- After that, a value of another type fails. `e[0] = 1` then `e[0] = true` fails with
+  `bool is not compatible with numeric`.
+- `w series f64 := e` with an untyped empty `e` fails. Give the literal its type:
+  `e series f64 := []`.
 - Put a series literal in a variable before you use it in an operation.
   `data + [1.0, 2.0]` fails with `series literal requires series type hint`.
-- Give a slice its type: `sub series f64 := data[1:3]`. Without the type, Arc reads the
-  slice as one element.
-- An index outside the series gives `0` on the Core and an error on a Driver. See
+- A slice is a series. `sub := data[1:3]` gives `series f64`, and `x f64 := data[1:3]`
+  fails with `cannot assign series f64 to 'x' (type f64)`.
+- A slice is a copy. A write to `sub` does not change `data`.
+- A negative slice bound counts from the end, so `data[0:-1]` drops the last element. A
+  bound outside the series stops at the nearer end.
+- A negative index counts from the end. An index outside the series is an error. See
   [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
-- A top-level series is not a constant. A flow or function that reads one fails with
-  `cannot read 'data': its initializer is not a compile-time constant`.
+- A top-level series is not a constant. Its declaration fails with
+  `variable 'data' of type series f64 cannot have a computed initializer`.
 
 <Divider.Divider x />
 

@@ -101,7 +101,6 @@ class GrandFinale(SimulatorCase):
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                array_mode=False,
                 channels=OPCUAReadFloat.create_channels(self.client),
             ),
         ]

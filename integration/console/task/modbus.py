@@ -24,6 +24,8 @@ READ_TYPE_NAMES = {
     "discrete_input": "Discrete input",
     "holding_register": "Holding register",
     "input_register": "Input register",
+    "holding_register_string": "Holding register string",
+    "input_register_string": "Input register string",
     "holding_register_bit": "Holding register bit",
     "input_register_bit": "Input register bit",
 }

@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
 from typing import assert_type
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -116,14 +117,16 @@ class TestRackClient:
         ):
             client.racks.delete([rack.key])
 
-    def test_delete_task_attached(self, client: sy.Synnax) -> None:
+    def test_delete_task_attached(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should raise a validation error if tasks are attached to the rack"""
         rack = client.racks.create(name="test")
         client.tasks.create(
             name="test",
             rack=rack.key,
             type="pagerduty_alert",
-            config={"routing_key": "rk"},
+            config={"routing_key": str(create_routing_key())},
         )
         with pytest.raises(sy.ValidationError, match="still holds tasks"):
             client.racks.delete([rack.key])
@@ -173,18 +176,18 @@ class TestRackClient:
         res = client.racks.retrieve(keys=[r.key, 4123456789])
         assert [x.key for x in res] == [r.key]
 
-    def test_update_integrations(self, client: sy.Synnax) -> None:
-        """Should update integrations on upsert"""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a rack whose key exists and keep the stored rack."""
         rack = client.racks.create(
-            racks=sy.Rack(name="py-upsert-integ", integrations=["ni"])
+            racks=sy.Rack(name="py-existing-key", integrations=["ni"])
         )
-        client.racks.create(
-            racks=sy.Rack(
-                key=rack.key, name="py-upsert-integ", integrations=["ni", "opc", "arc"]
+        with pytest.raises(sy.ValidationError, match=f"rack {rack.key} already exists"):
+            client.racks.create(
+                racks=sy.Rack(
+                    key=rack.key, name="py-existing-key", integrations=["ni", "opc"]
+                )
             )
-        )
-        res = client.racks.retrieve(key=rack.key)
-        assert res.integrations == ["ni", "opc", "arc"]
+        assert client.racks.retrieve(key=rack.key).integrations == ["ni"]
 
     def test_retrieve_embedded_rack(self, client: sy.Synnax) -> None:
         rack = client.racks.retrieve_embedded_rack()

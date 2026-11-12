@@ -9,6 +9,7 @@
 
 import { getVersion } from "@tauri-apps/api/app";
 
-// A dev build runs at 0.0.0 and has no release to update to.
-export const isDevBuild = async (): Promise<boolean> =>
-  (await getVersion()).startsWith("0.0.");
+/** Returns true for the version of a dev build, which has no release to update to. */
+export const isDev = (version: string): boolean => version.startsWith("0.0.");
+
+export const isDevBuild = async (): Promise<boolean> => isDev(await getVersion());

@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ethercat, status } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Text } from "@synnaxlabs/lyra/text";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import {
-  type SlaveDevice,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+  mergeStartupParameters,
+  parseStartupCommands,
+  type StartupCommands,
+} from "@/feature/ethercat/device/esi";
+import { sameAddress, visibleFields } from "@/feature/ethercat/device/settings";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { Runtime } from "@/platform/runtime";
 
 const DATA_TYPES = [
   DataType.INT8,
@@ -76,16 +83,13 @@ const parametersZ = z.array(
   }),
 );
 
-const FIELDS: (keyof StartupParameter)[] = [
+const FIELDS: (keyof ethercat.StartupParameter)[] = [
   "index",
   "subIndex",
   "dataType",
   "value",
   "name",
 ];
-
-const formatHex = (value: number, digits: number): string =>
-  `0x${value.toString(16).toUpperCase().padStart(digits, "0")}`;
 
 /** @returns the number that text writes in hex with at most digits, or null. */
 const parseHex = (text: string, digits: number): number | null => {
@@ -136,7 +140,7 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
   <Input.Text
     {...rest}
     onlyChangeOnBlur
-    value={formatHex(value, digits)}
+    value={ethercat.formatHex(value, digits)}
     onChange={(text) => {
       const parsed = parseHex(text, digits);
       if (parsed != null) onChange(parsed);
@@ -146,25 +150,80 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
 
 const createRow = (): Input.TableCell[] => [0, 0, DataType.UINT8.toString(), 0, ""];
 
-const PATH = deep.path<SlaveDevice>().properties.startupParameters;
+const PROPERTIES = deep.path<SlaveDevice>().properties;
+const PATH = PROPERTIES.startupParameters;
+
+const IMPORT_TITLE = "Import from ESI file";
+
+/** @returns a status that tells what an import added, and what it left out. */
+const describeImport = ({
+  device,
+  parameters,
+  unwritableCount,
+  modeCommands,
+}: StartupCommands): status.Status => {
+  const plural = parameters.length === 1 ? "" : "s";
+  const notes: string[] = [];
+  if (modeCommands.length > 0)
+    notes.push(
+      `Left out the mode of the device at ${ethercat.formatAddress(modeCommands[0])}.`,
+    );
+  if (unwritableCount > 0)
+    notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
+  return status.create({
+    variant: "success",
+    message: `Imported ${parameters.length} startup parameter${plural} for ${device}`,
+    description: notes.join(" "),
+  });
+};
 
 /**
  * Edits the CoE values that the Driver writes to a slave each time the network starts.
+ * A parameter with no name shows the name of the shown catalog setting at its address.
  */
 export const StartupParameters = (): ReactElement => {
-  const { value, onChange } = Form.useField(PATH);
-  const statuses = Form.useStatuses(PATH);
   Form.useCheck(PATH, parametersZ);
-  const rows = value.map((p) => FIELDS.map((f) => p[f]));
+  const { value: parameters, onChange } = Form.useField(PATH);
+  const { get } = Form.useContext();
+  const statuses = Form.useStatuses(PATH);
+  const fields = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.device;
+  const shown = fields == null ? [] : visibleFields(fields, parameters);
+  const [result, setResult] = useState<status.Status | null>(null);
+  const handleImport = async () => {
+    try {
+      const file = await Runtime.pickFiles({ title: IMPORT_TITLE, extension: "xml" });
+      if (file == null) return;
+      const bytes = await Runtime.toBytes(await file.read());
+      const commands = parseStartupCommands(bytes, get(PROPERTIES).value);
+      onChange(mergeStartupParameters(get(PATH).value, commands.parameters));
+      setResult(describeImport(commands));
+    } catch (e) {
+      setResult(status.fromException(e, "Failed to import ESI file"));
+    }
+  };
+  const settingName = (address: ethercat.StartupParameter): string =>
+    shown.find((f) => sameAddress(f, address))?.name ?? "";
+  const rows = parameters.map((p) =>
+    FIELDS.map((f) => (f === "name" && p.name === "" ? settingName(p) : p[f])),
+  );
   const handleChange = (next: Input.TableCell[][]) =>
     onChange(
-      next.map(([index, subIndex, dataType, value, name]) => ({
-        index: Number(index),
-        subIndex: Number(subIndex),
-        dataType: String(dataType),
-        value: Number(value),
-        name: String(name),
-      })),
+      next.map(([index, subIndex, dataType, value, name], i) => {
+        const parameter = {
+          index: Number(index),
+          subIndex: Number(subIndex),
+          dataType: String(dataType),
+          value: Number(value),
+          name: String(name),
+        };
+        const before = parameters.at(i);
+        // A cell still showing the catalog name of an unnamed parameter stays unnamed.
+        const shownBefore =
+          before?.name === "" && parameter.name === settingName(before);
+        if (shownBefore || parameter.name === settingName(parameter))
+          parameter.name = "";
+        return parameter;
+      }),
     );
   const cellStatus = ({ x, y }: xy.XY) =>
     statuses.find(({ key }) => key === `${String(PATH)}.${y}.${FIELDS[x]}`);
@@ -173,6 +232,7 @@ export const StartupParameters = (): ReactElement => {
       <Input.Table
         value={rows}
         onChange={handleChange}
+        onRemove={(i) => onChange(parameters.filter((_, j) => j !== i))}
         createRow={createRow}
         resourceName="parameter"
         cellStatus={cellStatus}
@@ -204,10 +264,16 @@ export const StartupParameters = (): ReactElement => {
           {(p) => <Input.Text {...p} placeholder="Filter settings" />}
         </Input.TableColumn>
       </Input.Table>
-      <Text.Text level="small" color={9}>
-        The Driver writes these CoE values to the device each time the network starts,
-        before the device exchanges data.
-      </Text.Text>
+      <Button.Button
+        variant="text"
+        size="small"
+        textColor={9}
+        onClick={() => void handleImport()}
+      >
+        <Icon.Import />
+        {IMPORT_TITLE}
+      </Button.Button>
+      {result != null && <Status.Summary status={result} level="small" />}
     </>
   );
 };

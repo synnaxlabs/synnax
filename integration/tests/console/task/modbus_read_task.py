@@ -20,7 +20,7 @@ NUMBERS = [
     ("discrete_input", 0),
     ("coil", 1),
 ]
-STRING = ("input_register", STRING_START)
+STRING = ("input_register_string", STRING_START)
 STRING_VALUE = "SYNNAX"
 # Input register 140 holds 0b10001100, so bit 0 is off and bit 2 is on.
 BIT = ("input_register_bit", 140)
@@ -55,9 +55,7 @@ class ModbusReadTask(ModbusCase):
         self.log("Testing: Add channels")
         for config_type, address in NUMBERS:
             page.add_channel(READ_TYPE_NAMES[config_type], address=address)
-        page.add_channel(
-            READ_TYPE_NAMES[STRING[0]], address=STRING[1], data_type="String"
-        )
+        page.add_channel(READ_TYPE_NAMES[STRING[0]], address=STRING[1])
         page.set_string_length(CHANNELS.index(STRING), len(STRING_VALUE))
         page.add_channel(READ_TYPE_NAMES[BIT[0]], address=BIT[1])
         page.set_bit(CHANNELS.index(BIT), BIT_INDEX)

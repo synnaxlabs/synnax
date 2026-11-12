@@ -144,15 +144,14 @@ public:
     Alignment alignment;
 
 private:
-    /// @brief validates the input index is within the bounds of the series. If the
-    /// write size is provided, it will also validate that the write does not exceed
-    /// the capacity of the series.
-
+    /// @brief validates that the count samples from index are within the series. A
+    /// negative index counts from the end.
+    /// @returns the index as an offset from the start.
     [[nodiscard]] size_t
-    validate_bounds(const int &index, const size_t write_size = 0) const {
+    validate_bounds(const int &index, const size_t count = 1) const {
         auto adjusted = index;
         if (index < 0) adjusted = static_cast<int>(this->size()) + index;
-        if (adjusted + write_size > this->size() || adjusted < 0)
+        if (adjusted < 0 || adjusted + count > this->size())
             throw std::runtime_error(
                 "index " + std::to_string(index) +
                 " out of bounds for series of size " + std::to_string(this->size())
@@ -674,20 +673,18 @@ public:
         }
     }
 
-    /// @brief constructs the series from the given string. This can also be a JSON
-    /// encoded string, in which case the data type should be set to JSON.
+    /// @brief constructs the series from the given string.
     /// @param data the string to be used as the buffer.
-    /// @param type the type of data being used. Defaults to STRING, but can also be
-    /// set to JSON.
+    /// @param type the variable-length data type of the series. Defaults to STRING.
     explicit Series(const std::string &data, DataType type = STRING_T):
         type(std::move(type)),
         capacity(1),
         cached_byte_size(data.size() + VARIABLE_LENGTH_PREFIX_SIZE),
         sample_count(1),
         buffer(alloc(this->byte_size())) {
-        if (!this->data_type().matches({STRING_T, JSON_T}))
+        if (!this->data_type().is_variable())
             throw std::runtime_error(
-                "cannot set a string value on a non-string or JSON series"
+                "cannot set a string value on a series of a fixed-length data type"
             );
         write_u32_le(this->buffer.get(), static_cast<uint32_t>(data.size()));
         memcpy(this->buffer.get() + 4, data.data(), data.size());
@@ -722,6 +719,37 @@ public:
             },
             v
         );
+    }
+
+    /// @brief constructs a series of size 1 from the given SampleValue that keeps the
+    /// given data type. A JSON or bytes sample is a string, and a UUID sample is a
+    /// string of the 16 bytes of the UUID.
+    /// @param v the sample to hold.
+    /// @param dt the data type of the series.
+    /// @throws std::runtime_error if the sample cannot be held by the data type.
+    explicit Series(const SampleValue &v, const DataType &dt):
+        Series(dt, dt.is_variable() ? 0 : 1) {
+        const auto inferred = DataType::infer(v);
+        if ((dt.is_variable() || dt == UUID_T) && inferred == STRING_T) {
+            const auto &str = std::get<std::string>(v);
+            if (dt.is_variable()) {
+                this->write(str);
+                return;
+            }
+            if (str.size() != x::uuid::UUID::size())
+                throw std::runtime_error(
+                    "a uuid sample must hold 16 bytes, not " +
+                    std::to_string(str.size())
+                );
+            this->write(reinterpret_cast<const uint8_t *>(str.data()), 1);
+            return;
+        }
+        if (inferred != dt && !(dt == BOOLEAN_T && inferred == UINT8_T))
+            throw std::runtime_error(
+                "cannot hold a " + inferred.name() + " sample in a " + dt.name() +
+                " series"
+            );
+        this->write(v);
     }
 
     /// @brief constructs the series from a vector of JSON values.
@@ -941,9 +969,9 @@ public:
             std::is_same_v<T, std::string> || std::is_same_v<T, const char *> ||
             std::is_same_v<T, char *>
         ) {
-            if (!this->data_type().matches({STRING_T, JSON_T}))
+            if (!this->data_type().is_variable())
                 throw std::runtime_error(
-                    "cannot write string to non-string/JSON series"
+                    "cannot write a string to a series of a fixed-length data type"
                 );
 
             const char *str_data = nullptr;
@@ -1026,11 +1054,11 @@ public:
     [[nodiscard]] pb::Series to_proto() const;
 
     /// @brief returns the data as a vector of strings. This method can only be used
-    /// if the data type is STRING or JSON.
+    /// if the data type is variable-length: STRING, JSON, or BYTES.
     [[nodiscard]] std::vector<std::string> strings() const {
-        if (!this->data_type().matches({STRING_T, JSON_T}))
+        if (!this->data_type().is_variable())
             throw std::runtime_error(
-                "cannot convert a non-JSON or non-string series to strings"
+                "cannot convert a series of a fixed-length data type to strings"
             );
         std::vector<std::string> v;
         v.reserve(this->size());
@@ -1095,9 +1123,9 @@ public:
     [[nodiscard]] T at(const int &index) const {
         if constexpr (std::is_same_v<T, std::string>) {
             std::string value;
-            if (!this->data_type().matches({STRING_T, JSON_T}))
+            if (!this->data_type().is_variable())
                 throw std::runtime_error(
-                    "cannot bind a string value on a non-string or JSON series"
+                    "cannot bind a string value on a series of a fixed-length data type"
                 );
             const auto adjusted = this->validate_bounds(index);
             const auto *ptr = this->buffer.get();
@@ -1114,7 +1142,17 @@ public:
             return value;
         } else if constexpr (std::is_same_v<T, TimeStamp>)
             return TimeStamp(this->at<int64_t>(index));
-        else {
+        else if constexpr (std::is_same_v<T, x::uuid::UUID>) {
+            if (!this->data_type().matches({UUID_T}))
+                throw std::runtime_error("cannot bind a UUID on a non-UUID series");
+            std::array<std::uint8_t, 16> bytes{};
+            std::memcpy(
+                bytes.data(),
+                this->buffer.get() + this->validate_bounds(index) * bytes.size(),
+                bytes.size()
+            );
+            return x::uuid::UUID(bytes);
+        } else {
             static_assert(
                 std::is_arithmetic_v<T>,
                 "template argument to at must be a numeric type or string"
@@ -1150,7 +1188,7 @@ public:
         if (dt == UINT8_T) return this->at<uint8_t>(index);
         if (dt == BOOLEAN_T) return this->at<uint8_t>(index);
         if (dt == TIMESTAMP_T) return this->at<TimeStamp>(index);
-        if (dt == STRING_T || dt == JSON_T) return this->at<std::string>(index);
+        if (dt.is_variable()) return this->at<std::string>(index);
         throw std::runtime_error("unsupported data type for at: " + dt.name());
     }
 

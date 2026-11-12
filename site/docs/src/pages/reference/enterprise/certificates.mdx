@@ -80,12 +80,14 @@ sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain synnax-ca.crt
 ```
 
-The Console and browsers use the Keychain. A standalone Driver does not. In the shell
-that runs `synnax-driver`, point it at the file:
+The Console and browsers use the Keychain. A standalone Driver does not. For the Driver
+service, point it at the file in `/etc/synnax/driver.env`, then restart the service:
 
 ```bash
-export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/synnax-ca.crt
+GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/synnax-ca.crt
 ```
+
+For `synnax-driver start --standalone`, export the variable in the shell instead.
 
 </Fragment>
 

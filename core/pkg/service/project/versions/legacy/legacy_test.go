@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -132,7 +133,7 @@ var _ = Describe("CreatePanels", func() {
 		p := project.Project{Name: "Legacy Project"}
 		Expect(projectSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		proj = p.Key
-		l := log.Log{Name: "Metrics", Project: &proj}
+		l := defaults.Fill(log.Log{Name: "Metrics", Project: &proj})
 		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		refs = map[string]resource.ID{"k1": log.ResourceID(l.Key)}
 	})

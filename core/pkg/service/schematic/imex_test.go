@@ -191,6 +191,17 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It("Should import a zero scale as the default", func(ctx SpecContext) {
+			res := importAndRetrieve(
+				ctx,
+				"versions/testdata/import_v10_zero_scale.json",
+				imex.ImportOptions{Parent: proj.ResourceID()},
+			)
+			valve, ok := res.Configs["v1"].Variant.(schematic.ValveElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(valve.Scale).To(Equal(1.0))
+		})
+
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				_, err := imexSvc.Import(

@@ -95,7 +95,7 @@ var _ = Describe("Update", func() {
 		GinkgoHelper()
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.Host = host
-		return MustSucceed(app.Test(req))
+		return serve(app, req)
 	}
 
 	getManifest := func(app *fiber.App, host, forwardedProto string) manifest {
@@ -105,7 +105,7 @@ var _ = Describe("Update", func() {
 		if forwardedProto != "" {
 			req.Header.Set(fiber.HeaderXForwardedProto, forwardedProto)
 		}
-		res := MustSucceed(app.Test(req))
+		res := serve(app, req)
 		Expect(res.StatusCode).To(Equal(http.StatusOK))
 		var served manifest
 		Expect(json.NewDecoder(res.Body).Decode(&served)).To(Succeed())

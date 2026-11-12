@@ -106,7 +106,7 @@ protected:
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = std::to_string(serial),
             .make = "DEWESoft",
@@ -424,6 +424,40 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
 }
 
+/// @brief it should wake the next state read for a command written before the state
+/// loop waits.
+TEST_F(EtherCATWriteTest, SinkStateReadWakesForCommandSetBeforeWait) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    const auto state_ch = create_command_channel("state", x::telem::INT16_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16", state_ch.key)
+    );
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    const auto period = task_cfg.state_rate.period().chrono();
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    pipeline::Authorities authorities;
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(sink.read(breaker, fr, authorities));
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    EXPECT_EQ(fr.at<int16_t>(state_ch.key, 0), static_cast<int16_t>(0x5678));
+    EXPECT_LT(elapsed, period / 2);
+
+    ASSERT_NIL(sink.stop());
+}
+
 /// @brief it should write only the last sample of a channel in a frame.
 TEST_F(EtherCATWriteTest, SinkLastWriteWins) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
@@ -579,7 +613,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
+        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
     );
 }
 

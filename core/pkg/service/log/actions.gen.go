@@ -172,34 +172,16 @@ type SetTimeZonePayload struct {
 }
 
 // SetPayload replaces the value at a path in the log.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the log.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type RemovePayload patch.Remove
 
 // InsertPayload adds an entry to a list in the log.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type InsertPayload patch.Insert
 
 // MovePayload moves an entry in a list in the log.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type MovePayload patch.Move
 
 // Action is a discriminated union for all Log mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
@@ -227,113 +209,113 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Log: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Log, actions ...Action) (Log, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeAddChannel:
 			if a.AddChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddChannel.Handle(state)
 		case ActionTypeRemoveChannel:
 			if a.RemoveChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveChannel.Handle(state)
 		case ActionTypeSetChannelEntry:
 			if a.SetChannelEntry == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelEntry.Handle(state)
 		case ActionTypeSetChannelColor:
 			if a.SetChannelColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelColor.Handle(state)
 		case ActionTypeSetChannelNotation:
 			if a.SetChannelNotation == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelNotation.Handle(state)
 		case ActionTypeSetChannelPrecision:
 			if a.SetChannelPrecision == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelPrecision.Handle(state)
 		case ActionTypeSetChannelAlias:
 			if a.SetChannelAlias == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelAlias.Handle(state)
 		case ActionTypeSetChannelTimestampFormat:
 			if a.SetChannelTimestampFormat == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelTimestampFormat.Handle(state)
 		case ActionTypeSetChannelTimestampTimeZone:
 			if a.SetChannelTimestampTimeZone == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelTimestampTimeZone.Handle(state)
 		case ActionTypeSwapChannel:
 			if a.SwapChannel == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SwapChannel.Handle(state)
 		case ActionTypeSetTimestampPrecision:
 			if a.SetTimestampPrecision == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimestampPrecision.Handle(state)
 		case ActionTypeSetChannelNamesHidden:
 			if a.SetChannelNamesHidden == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelNamesHidden.Handle(state)
 		case ActionTypeSetTimestampsHidden:
 			if a.SetTimestampsHidden == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimestampsHidden.Handle(state)
 		case ActionTypeSetTimeZone:
 			if a.SetTimeZone == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimeZone.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Log{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Log{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Log{}, err
 		}
 	}
 	return state, nil

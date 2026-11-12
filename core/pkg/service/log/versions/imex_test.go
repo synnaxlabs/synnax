@@ -70,6 +70,21 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[1].Precision).To(BeNil())
 	})
 
+	It("Should keep an explicit empty timestamp format at the latest version", func(
+		ctx SpecContext,
+	) {
+		l := decode(ctx, "testdata/import_v3.json")
+		Expect(l.Channels[1].TimestampConfig.Format).To(BeEmpty())
+	})
+
+	It("Should fill an empty timestamp format from an older version", func(
+		ctx SpecContext,
+	) {
+		l := decode(ctx, "testdata/import_v2.json")
+		Expect(l.Channels[1].TimestampConfig.Format).
+			To(Equal(telem.TimestampFormatPreciseDate))
+	})
+
 	It("Should lift a Console v1 state through the legacy chain", func(
 		ctx SpecContext,
 	) {

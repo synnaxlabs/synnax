@@ -11,6 +11,8 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/common/copyright.sh"
+
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
@@ -381,6 +383,15 @@ process_file() {
     local old_header_end=$OLD_HEADER_END
     local old_copyright_year=$OLD_COPYRIGHT_YEAR
 
+    # An Oracle output keeps a past year, because Oracle freezes the files in
+    # versions/vN packages.
+    local year="$CURRENT_YEAR"
+    if is_oracle_output "$file" && [[ $old_copyright_year =~ ^[0-9]{4}$ ]] \
+        && [ "$old_copyright_year" -le "$CURRENT_YEAR" ]; then
+        year="$old_copyright_year"
+        new_header="${new_header//Copyright $CURRENT_YEAR /Copyright $year }"
+    fi
+
     # Detect "between" content (between scan_start_idx and old_header_start).
     # Preserves e.g. a `set -euo pipefail` line that lived between the shebang
     # and the old header. A canonical shebang+blank prefix yields a blank-only
@@ -422,7 +433,7 @@ process_file() {
     # Skip if the file already conforms to the canonical layout. A pending hoist
     # (leading line buried below the header) is never canonical.
     if [ "$has_copyright" = "1" ] \
-        && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
+        && [ "$old_copyright_year" = "$year" ] \
         && [ "$between_start" = "-1" ] \
         && [ "$hoist_idx" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx

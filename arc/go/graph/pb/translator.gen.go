@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/synnaxlabs/arc/graph"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -178,11 +179,15 @@ func GraphToPB(r graph.Graph) (*Graph, error) {
 }
 
 // GraphFromPB converts Graph to Graph.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	var r graph.Graph
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Functions, err = irpb.FunctionsFromPB(pb.Functions)
 	if err != nil {
@@ -202,6 +207,7 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 			r.Inputs[k] = msgpack.EncodedJSON(v.AsMap())
 		}
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

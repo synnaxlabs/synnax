@@ -53,7 +53,8 @@ or generator logic and schemas disagree.
   rejects them in version files). Edit shapes in version files; edit live-only concerns
   in the live file. A hand edit to version-owned live content is overwritten by the next
   sync, and the `versions` gate errors on the drift naming the version files as
-  authority.
+  authority. A `@doc` on a kept declaration that the chain leaves undocumented fails
+  sync and check, and the error names the version file to move it to.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
   empty v(N+1).oracle (header and a comment only) records that everything was removed at
@@ -76,8 +77,9 @@ or generator logic and schemas disagree.
   `@go marshal omit` field, a doc, or a validation rule. To mint,
   `oracle migrate <resource>` scaffolds v(N+1).oracle (alias lines to definers,
   omit-transient declarations redeclared, imports carried), then convert the changed
-  types to full declarations and run `oracle sync`. Shipped-ness is developer knowledge;
-  Oracle never tracks it.
+  types to full declarations and run `oracle sync`. A version is shipped when the
+  shipped release holds its file: the newest stable Core tag (`core/vX.Y.Z`) on the X.Y
+  train of the newest stable tag that HEAD descends from.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
   live file == merged projection), import placement, stored-pin currency, and delta
   minimality (a redeclaration structurally identical to its resolved predecessor must be
@@ -85,7 +87,15 @@ or generator logic and schemas disagree.
   version aliases from a frozen definer has the same `@validate`, `@default`,
   `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
   dependency type such a definer reaches through its pins, at its current version, has
-  the same `@validate` and `@default` in its live file and its version file).
+  the same `@validate` and `@default` in its live file and its version file), and
+  shipped versions (each stored type of a version file the shipped release holds must
+  still decode the data that release wrote). The shipped check fills in each generic
+  type with its type arguments (defaults included) through aliases, distinct types, and
+  bases, then compares the filled-in shapes across pins: stored field names and order,
+  field types, optionality, `@key`, defaults, and enum and union members. A type may
+  move to another file or chain or become an alias with the same filled-in shape, and an
+  enum or union may gain members. Docs, rules, codec markers, and omit-transient types
+  may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
@@ -132,7 +142,7 @@ or generator logic and schemas disagree.
 
 ## Field optionality
 
-Four states. Pick by asking whether the field always means something, and when it does
+Five states. Pick by asking whether the field always means something, and when it does
 not, whether the schema itself can tell.
 
 - **`X = value`**: always meaningful, and absence is harmless, because absence and the
@@ -148,18 +158,37 @@ not, whether the schema itself can tell.
   message, such as a channel data type. No schema can settle it, so absence is the
   honest encoding. On the wire, an absent field is left out of the JSON, never sent as
   `null`.
+- **`X = default`, the default means "not applicable"**: as `X?`, but no valid value can
+  equal the default or the type's zero value (`0`, `""`, or an enum member that this
+  field never holds). Go fills a default only over the zero value. A sample rate is
+  never `0` Hz, so `0` can mean "not supported". A client that leaves the field out
+  sends "not applicable", so use this only where that guess is harmless. The doc comment
+  says what the default means.
 
-Never fake absence with a value. No `none` enum member, no empty string meaning "not
-applicable". A sentinel claims the question was answered when it was not, and it makes
-the "did you forget" check impossible to write.
+Outside that case, never fake absence with a value. No `none` enum member, no `""`
+meaning "not applicable" where `""` is a real value, no `-1` meaning "inherit" (that is
+a behavior, not "not applicable"). A sentinel claims the question was answered when it
+was not, and it makes the "did you forget" check impossible to write. Never add a value
+to a type so that it can mean absence.
 
-One exception exists for `@ref`: a scalar with a zero default (`= 0`, `= ""`) holds no
-target while it is zero, because stored task configs use zero for "none". Give a new
-reference `X?` instead. A `detach` reference needs `X?`, an array, or a zero default. A
-required field in an array element also detaches: the detach drops the element. The same
-rules hold for top-level and nested fields.
+An `@ref` scalar with a zero default (`= 0`, `= ""`) holds no target while it is zero.
+This is the "not applicable" default above, so use it only where no valid key is zero. A
+`detach` reference needs `X?`, an array, or a zero default. A required field in an array
+element also detaches: the detach drops the element. The same rules hold for top-level
+and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
+
+`@py optional` makes a field optional in Python alone. Use it for an `any` field that
+must read an absent key as `None`, because the Python JSON codec drops `None` fields.
+
+## Action aliases
+
+`action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
+A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the action
+its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
+(in Go, a defined type that can carry `Handle`). The target must be a struct with no
+type parameters, and no two actions of a type may share one.
 
 ## Union discriminators
 
@@ -233,8 +262,8 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Path actions
 
-`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
-path actions may edit. A path to any other field fails, so a Core-owned field such as
+`@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
+actions may edit. A path to any other field fails, so a Core-owned field such as
 `labels` gets no tag. Go generates a `Patch` method for the document and for every
 struct that a `@patch` field reaches, in the version package that declares the struct. A
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares

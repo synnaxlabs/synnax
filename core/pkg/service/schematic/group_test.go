@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("SetGroup", func() {
+var _ = Describe("Apply of a move", func() {
 	var (
 		g      group.Group
 		target schematic.Schematic
@@ -67,6 +68,18 @@ var _ = Describe("SetGroup", func() {
 		})).To(Succeed())
 		return p
 	}
+	apply := func(
+		ctx SpecContext,
+		key schematic.Key,
+		acts ...schematic.Action,
+	) ([]schematic.Action, error) {
+		var added []schematic.Action
+		err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			added, err = svc.NewWriter(tx).Apply(ctx, key, acts...)
+			return err
+		})
+		return added, err
+	}
 
 	It(
 		"Should move a schematic into a group and broadcast the move after commit",
@@ -74,18 +87,14 @@ var _ = Describe("SetGroup", func() {
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			tx := DeferClose(db.OpenTx())
-			Expect(svc.NewWriter(tx).SetGroup(ctx, &g.Key, target.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))).
+				To(BeEmpty())
 			Expect(rec.Snapshot()).To(BeEmpty())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(target.Key))
-			Expect(seen[0].Actions).To(Equal([]schematic.Action{
-				schematic.NewSetAction(schematic.SetPayload{
-					Path:  []string{"group"},
-					Value: g.Key,
-				}),
-			}))
+			Expect(seen[0].Actions).To(Equal([]schematic.Action{setGroup(g.Key)}))
 			Expect(retrieveGroup(ctx, target.Key)).To(Equal(&g.Key))
 		},
 	)
@@ -93,9 +102,7 @@ var _ = Describe("SetGroup", func() {
 	It(
 		"Should retrieve schematics by whether they sit in a group",
 		func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, target.Key)
-			})).To(Succeed())
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
 			var grouped, ungrouped []schematic.Schematic
 			Expect(svc.NewRetrieve().
 				Where(schematic.MatchKeys(target.Key, other.Key)).
@@ -125,25 +132,44 @@ var _ = Describe("SetGroup", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return groupSvc.NewWriter(tx).Create(ctx, &inDest)
 			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetGroup(ctx, &inDest.Key, target.Key)
-			})).
-				To(Succeed())
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(apply(ctx, target.Key, setGroup(inDest.Key))).
+				To(Equal([]schematic.Action{setProject(dest.Key)}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(Equal(&inDest.Key))
 			Expect(res.Project).To(Equal(&dest.Key))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]schematic.Action{setGroup(inDest.Key), setProject(dest.Key)},
+			)))
 		},
 	)
+
+	It("Should move a schematic out of its group", func(ctx SpecContext) {
+		Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+		Expect(apply(ctx, target.Key, removeGroup)).To(BeEmpty())
+		res := retrieve(ctx, target.Key)
+		Expect(res.Group).To(BeNil())
+		Expect(res.Project).To(Equal(&proj.Key))
+	})
 
 	It("Should reject a group under no project", func(ctx SpecContext) {
 		top := group.Group{Name: "top", Scope: resource.TypeProject}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &top)
 		})).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).SetGroup(ctx, &top.Key, target.Key)
-		})).To(MatchError(
+		Expect(apply(ctx, target.Key, setGroup(top.Key))).Error().To(MatchError(
 			"group: a schematic sits only in a group under a project: validation error",
+		))
+		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
+	})
+
+	It("Should reject a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(apply(ctx, target.Key, setGroup(missing))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", missing)),
 		))
 		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
 	})
@@ -151,39 +177,37 @@ var _ = Describe("SetGroup", func() {
 	It(
 		"Should move a schematic out of its group when it moves into a project",
 		func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, target.Key)
-			})).To(Succeed())
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
 			dest := createProject(ctx)
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetProject(ctx, dest.Key, target.Key)
-			})).
-				To(Succeed())
+			Expect(apply(ctx, target.Key, setProject(dest.Key))).
+				To(Equal([]schematic.Action{removeGroup}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(BeNil())
 			Expect(res.Project).To(Equal(&dest.Key))
-			seen := rec.Snapshot()
-			Expect(seen).To(HaveLen(2))
-			Expect(seen[0].Actions).To(Equal([]schematic.Action{
-				schematic.NewRemoveAction(schematic.RemovePayload{Key: "group"}),
-			}))
-			Expect(seen[1].Actions).To(Equal([]schematic.Action{
-				schematic.NewSetAction(schematic.SetPayload{
-					Path:  []string{"project"},
-					Value: dest.Key,
-				}),
-			}))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]schematic.Action{setProject(dest.Key), removeGroup},
+			)))
 		},
 	)
+
+	It("Should reject a remove of the project", func(ctx SpecContext) {
+		Expect(apply(
+			ctx,
+			target.Key,
+			schematic.NewRemoveAction(schematic.RemovePayload{Key: "project"}),
+		)).Error().To(MatchError(ContainSubstring(
+			"project: must belong to exactly one of a project and a range",
+		)))
+		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
+	})
 
 	It(
 		"Should move the schematics in a group into the project the group moves under",
 		func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, target.Key)
-			})).To(Succeed())
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
 			dest := createProject(ctx)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.MoveGroups(
@@ -202,9 +226,7 @@ var _ = Describe("SetGroup", func() {
 	It(
 		"Should reject a group move that leaves a schematic under no project",
 		func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, target.Key)
-			})).To(Succeed())
+			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
 			Expect(svc.MoveGroups(ctx, db, []group.Key{g.Key}, nil)).To(MatchError(
 				"group: a schematic sits only in a group under a project: validation error",
 			))
@@ -216,46 +238,16 @@ var _ = Describe("SetGroup", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &channels)
 		})).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).SetGroup(ctx, &channels.Key, target.Key)
-		})).
-			To(MatchError(
-				"group: a schematic cannot sit in a channel group: validation error",
-			))
-		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
-	})
-
-	It("Should reject a client patch of the group", func(ctx SpecContext) {
-		Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
-			schematic.NewSetAction(schematic.SetPayload{
-				Path:  []string{"group"},
-				Value: g.Key,
-			}),
-		})).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`unknown object member name "group"`)),
+		Expect(apply(ctx, target.Key, setGroup(channels.Key))).Error().To(MatchError(
+			"group: a schematic cannot sit in a channel group: validation error",
 		))
 		Expect(retrieveGroup(ctx, target.Key)).To(BeNil())
-	})
-
-	It("Should reject a client patch of the project", func(ctx SpecContext) {
-		dest := createProject(ctx)
-		Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
-			schematic.NewSetAction(schematic.SetPayload{
-				Path:  []string{"project"},
-				Value: dest.Key,
-			}),
-		})).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`unknown object member name "project"`)),
-		))
-		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
 	})
 })
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -300,9 +292,16 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := created
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							_, err := svc.NewWriter(tx).Apply(
+								ctx,
+								created.Key,
+								schematic.NewSetAction(schematic.SetPayload{
+									Path:  []string{"name"},
+									Value: "renamed",
+								}),
+							)
+							return err
 						})).
 							To(Succeed())
 					}
@@ -313,7 +312,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				defer moved.Store(true)
 				for _, g := range groups {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).SetGroup(ctx, &g.Key, created.Key)
+						_, err := svc.NewWriter(tx).
+							Apply(ctx, created.Key, setGroup(g.Key))
+						return err
 					})).
 						To(Succeed())
 					Expect(retrieveGroup()).To(Equal(&g.Key))
@@ -376,7 +377,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				for i := 0; !done.Load(); i++ {
 					g := groups[i%len(groups)].Key
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).SetGroup(ctx, &g, moving.Key)
+						_, err := svc.NewWriter(tx).Apply(ctx, moving.Key, setGroup(g))
+						return err
 					})).
 						To(Succeed())
 				}
@@ -386,7 +388,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				for i := 0; !done.Load(); i++ {
 					p := projects[i%len(projects)]
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).SetProject(ctx, p, moving.Key)
+						_, err := svc.NewWriter(tx).
+							Apply(ctx, moving.Key, setProject(p))
+						return err
 					})).
 						To(Succeed())
 				}
@@ -411,3 +415,20 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		},
 	)
 })
+
+// setGroup returns the action that moves a schematic into the group with key g.
+func setGroup(g group.Key) schematic.Action {
+	return schematic.NewSetAction(
+		schematic.SetPayload{Path: []string{"group"}, Value: g},
+	)
+}
+
+// setProject returns the action that moves a schematic into the project with key p.
+func setProject(p project.Key) schematic.Action {
+	return schematic.NewSetAction(
+		schematic.SetPayload{Path: []string{"project"}, Value: p},
+	)
+}
+
+// removeGroup is the action that moves a schematic out of its group.
+var removeGroup = schematic.NewRemoveAction(schematic.RemovePayload{Key: "group"})

@@ -26,7 +26,7 @@ class Responses(GitHub):
     """Answers API paths from a table instead of the network."""
 
     def __init__(self, responses: dict[str, dict]) -> None:
-        super().__init__("token")
+        super().__init__("1", "")
         self.responses = responses
 
     def get(self, path: str) -> dict:

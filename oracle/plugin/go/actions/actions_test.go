@@ -94,6 +94,9 @@ var _ = Describe("Go Actions Plugin", func() {
 					"type RenamePayload struct {",
 					"func Reduce(state Shape, actions ...Action) (Shape, error) {",
 					"state, err = a.Rename.Handle(state)",
+					"return Shape{}, union.MissingPayload(a.Type)",
+					"return Shape{}, union.UnknownVariant(a.Type)",
+					"return Shape{}, err",
 					"func NewRenameAction(p RenamePayload) Action {",
 				)
 			})
@@ -164,8 +167,8 @@ var _ = Describe("Go Actions Plugin", func() {
 					"Increment *IncrementPayload",
 					"func Reduce(state Counter, actions ...Action) (Counter, error) {",
 					"case ActionTypeSetValue:",
-					`return state, union.MissingPayload(a.Type)`,
-					`return state, union.UnknownVariant(a.Type)`,
+					`return Counter{}, union.MissingPayload(a.Type)`,
+					`return Counter{}, union.UnknownVariant(a.Type)`,
 					"state, err = a.SetValue.Handle(state)",
 					"case ActionTypeIncrement:",
 					"state, err = a.Increment.Handle(state)",
@@ -206,6 +209,83 @@ var _ = Describe("Go Actions Plugin", func() {
 							"Name string `json:\"name\" msgpack:\"name\"`",
 							"Force int32 `json:\"force\" msgpack:\"force\"`",
 						)
+				},
+			)
+
+			It(
+				"Should declare the payload of an action alias over its struct",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@go output "x/go/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key uuid
+
+						action Set = patch.Set
+
+						action Reset {
+							@doc value "resets the counter."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"// SetPayload replaces the value at a path.\n"+
+								"type SetPayload patch.Set\n",
+							"// ResetPayload resets the counter.\n"+
+								"type ResetPayload struct {\n",
+							"Set *SetPayload",
+							"state, err = a.Set.Handle(state)",
+							"func NewSetAction(p SetPayload) Action {",
+						).
+						ToNotContain("type SetPayload struct")
+				},
+			)
+
+			It(
+				"Should write the own doc of an action alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@go output "x/go/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key uuid
+
+						action Set = patch.Set {
+							@doc value "replaces a value in the counter."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"// SetPayload replaces a value in the counter.\n" +
+								"type SetPayload patch.Set\n",
+						).
+						ToNotContain("// SetPayload replaces the value at a path.\n")
 				},
 			)
 

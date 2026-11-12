@@ -52,7 +52,7 @@ func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
 
 var _ = Describe("Stored v7 line plots", func() {
 	It(
-		"Should drop key references to ranges the Core does not hold",
+		"Should keep key references to ranges the Core does not hold",
 		func(ctx SpecContext) {
 			db, keys := openChannels(ctx, 1)
 			ch := keys[0]
@@ -124,6 +124,7 @@ var _ = Describe("Stored v7 line plots", func() {
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Ranges).To(Equal([]ranger.Ref{
 				keyRef(saved.Key.String()),
+				keyRef(local),
 				{Variant: ranger.WindowRef{
 					Window: telem.Window{
 						Variant: telem.DynamicWindow{TimeSpan: telem.Minute},

@@ -98,6 +98,24 @@ var _ = Describe("API keys", func() {
 		})).To(Succeed())
 		rackID = r.ResourceID()
 	})
+	It("Should send an empty username for a user with no password", func(
+		ctx SpecContext,
+	) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "nopass-" + uuid.New().String(),
+		}))
+		key := MustSucceed(create(ctx, rootToken, u.ResourceID()))
+		created := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
+		))
+		expectLegacyUser(*created.User, "")
+		renewed := MustSucceed(apiSvc.RenewSession(
+			authed(ctx, created.Token),
+			struct{}{},
+		))
+		expectLegacyUser(*renewed.User, "")
+	})
 	Describe("CreateKey", func() {
 		It("Should create a key for the caller that logs in as the caller", func(
 			ctx SpecContext,

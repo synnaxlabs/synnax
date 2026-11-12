@@ -11,6 +11,14 @@ import { type ReactElement } from "react";
 import { Composition } from "remotion";
 
 import { Film, type FilmProps } from "@/remotion/Film";
+import {
+  HERO,
+  Hero,
+  type HeroProps,
+  SHOT,
+  Shot,
+  type ShotProps,
+} from "@/remotion/Mail";
 import { StudioVideo, type StudioVideoProps } from "@/remotion/StudioVideo";
 
 /** Placeholder metadata; the CLI overrides everything via calculateMetadata. */
@@ -45,6 +53,15 @@ const DEFAULT_FILM_PROPS: FilmProps = {
   events: [],
 };
 
+/** Placeholder hero; the CLI supplies the still via inputProps. */
+const DEFAULT_HERO_PROPS: HeroProps = { source: "source.webp" };
+
+/** Placeholder shot; the CLI supplies the capture via inputProps. */
+const DEFAULT_SHOT_PROPS: ShotProps = {
+  ...DEFAULT_PROPS,
+  region: { x: 0, y: 0, width: 1920 },
+};
+
 export const Root = (): ReactElement => (
   <>
     <Composition
@@ -76,6 +93,29 @@ export const Root = (): ReactElement => (
         fps: props.plan.fps,
         width: props.plan.width,
         height: props.plan.height,
+        props,
+      })}
+    />
+    <Composition
+      id="mail-hero"
+      component={Hero}
+      durationInFrames={1}
+      fps={30}
+      width={HERO.width}
+      height={HERO.height}
+      defaultProps={DEFAULT_HERO_PROPS}
+    />
+    <Composition
+      id="mail-shot"
+      component={Shot}
+      durationInFrames={60}
+      fps={60}
+      width={SHOT.width}
+      height={SHOT.height}
+      defaultProps={DEFAULT_SHOT_PROPS}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: props.meta.frames,
+        fps: props.meta.fps,
         props,
       })}
     />

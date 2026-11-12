@@ -86,11 +86,11 @@ func (s *Service) ExportGroup(
 		if err != nil {
 			return nil, nil, err
 		}
-		if files[fileName], err = encoder.Encode(ctx, env); err != nil {
+		if files[fileName], err = encoder.Encode(env); err != nil {
 			return nil, nil, err
 		}
 	}
-	manifest, err := encoder.Encode(ctx, imex.Manifest{
+	manifest, err := encoder.Encode(imex.Manifest{
 		Version: manifestVersion,
 		Type:    manifestType,
 		Name:    g.Name,
@@ -129,7 +129,7 @@ func (s *Service) ImportGroup(
 		)
 	}
 	var manifest imex.Manifest
-	if err := imex.Codec.Decode(ctx, manifestData, &manifest); err != nil {
+	if err := imex.Codec.Decode(manifestData, &manifest); err != nil {
 		return group.Group{}, errors.Wrap(err, manifestFileName)
 	}
 	if manifest.Type != manifestType {
@@ -154,7 +154,7 @@ func (s *Service) ImportGroup(
 	)
 	switch manifest.Version {
 	case legacyManifestVersion:
-		members, err = declaredMembers(ctx, manifestData, files, manifestFileName)
+		members, err = declaredMembers(manifestData, files, manifestFileName)
 	case manifestVersion:
 		members = inferredMembers(files, manifestFileName, json.Codec.Extension())
 	default:
@@ -189,13 +189,12 @@ func (s *Service) ImportGroup(
 // declaredMembers reads a version 1 manifest's membership from its symbols list,
 // rejecting a listed file the bundle does not hold and a manifest that lists itself.
 func declaredMembers(
-	ctx context.Context,
 	manifestData []byte,
 	files zip.Files,
 	manifestFileName string,
 ) ([]string, error) {
 	var legacy legacyGroupManifest
-	if err := imex.Codec.Decode(ctx, manifestData, &legacy); err != nil {
+	if err := imex.Codec.Decode(manifestData, &legacy); err != nil {
 		return nil, errors.Wrap(err, manifestFileName)
 	}
 	foldedManifest := filename.Fold(manifestFileName)
@@ -268,7 +267,7 @@ func (s *Service) importMember(
 	g group.Key,
 ) error {
 	var env imex.Envelope
-	if err := imex.Codec.Decode(ctx, data, &env); err != nil {
+	if err := imex.Codec.Decode(data, &env); err != nil {
 		return errors.Wrap(err, name)
 	}
 	typ, err := s.cfg.ImEx.ResolveType(env)

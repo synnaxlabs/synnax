@@ -41,6 +41,13 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+// routingKey1 and routingKey2 are the keys of the secrets that the suite creates for
+// the routing keys of alert configs.
+const (
+	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
+	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
+)
+
 var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		GinkgoHelper()
@@ -103,6 +110,18 @@ var _ = Describe("Driver", func() {
 			Name: "Test Task",
 			Type: pagerduty.AlertTaskType,
 		}
+	}
+
+	setTask := func(ctx context.Context, key task.Key, path []string, value any) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := taskService.NewWriter(tx).Apply(
+				ctx,
+				key,
+				task.NewSetAction(task.SetPayload{Path: path, Value: value}),
+			)
+			return err
+		})).To(Succeed())
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
@@ -497,7 +516,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Create(ctx, &t)
@@ -521,10 +540,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 				Expect(stopCount.Load()).To(BeZero())
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, routingKey2)
 
 				writeCommand(
 					ctx,
@@ -568,7 +584,7 @@ var _ = Describe("Driver", func() {
 				})).To(Succeed())
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{
-					"routing_key": "rk-1",
+					"routing_key": routingKey1,
 					"alerts": []any{
 						map[string]any{"key": "a", "status": "st-detach"},
 					},
@@ -627,7 +643,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Create(ctx, &t)
@@ -642,9 +658,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 
 				t.Name = "Renamed Task"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"name"}, t.Name)
 
 				writeCommand(
 					ctx,
@@ -745,9 +759,7 @@ var _ = Describe("Driver", func() {
 					return rackService.NewWriter(tx).Create(ctx, &otherRack)
 				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 
 				// The redeploy start lands on the new rack; for this driver it is the
 				// teardown signal for the instance it still holds.
@@ -1728,7 +1740,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				countBeforeCreate := configCount.Load()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1743,10 +1755,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(BeNumerically(">", countBeforeCreate))
 
-				t.Config = map[string]any{"routing_key": "rk-2"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, routingKey2)
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
@@ -2118,8 +2127,8 @@ var _ = Describe("Driver", func() {
 			renamedAt := telem.Now()
 			Eventually(func(g Gomega) {
 				var stat rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](key.ResourceID())).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
@@ -2140,8 +2149,8 @@ var _ = Describe("Driver", func() {
 				deletedAt := telem.Now()
 				Eventually(func(g Gomega) {
 					var stat rack.Status
-					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](key.ResourceID())).
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchOwners[rack.StatusDetails](key.ResourceID())).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
@@ -2166,12 +2175,13 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				g.Expect(statuses[0].Variant).To(Equal(status.VariantSuccess))
+				g.Expect(statuses[0].Details.Running).To(BeTrue())
 			}).Should(Succeed())
 		})
 
@@ -2192,8 +2202,8 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2202,8 +2212,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2227,8 +2237,8 @@ var _ = Describe("Driver", func() {
 			owner := embeddedRackKey(ctx).ResourceID()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -2238,16 +2248,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []rack.Status
-			Expect(statusSvc.NewRetrieve[struct{}]().
-				Where(status.MatchOwners[struct{}](owner)).
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+				Where(status.MatchOwners[rack.StatusDetails](owner)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchOwners[rack.StatusDetails](owner)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
@@ -2421,9 +2431,7 @@ var _ = Describe("Driver", func() {
 				details := task.NewStatusDetails(t, true)
 				details.Cmd = "cmd-0"
 				t.Rack = embeddedRackKey(ctx)
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
 						Owner:   new(t.ResourceID()),
@@ -2507,9 +2515,7 @@ var _ = Describe("Driver", func() {
 					return rackService.NewWriter(tx).Create(ctx, &otherRack)
 				})).To(Succeed())
 				t.Rack = otherRack.Key
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskService.NewWriter(tx).Create(ctx, &t)
-				})).To(Succeed())
+				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-2"})
 				Consistently(func() string {

@@ -199,6 +199,9 @@ class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
             channels=channels,
         )
 
+    @abstractmethod
+    def _state_keys(self, task: TaskT) -> list[int]: ...
+
 
 class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
     """Base class for NI analog read task tests."""
@@ -257,7 +260,18 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
     ) -> Sequence[sy.ni.AOChannel]: ...
 
     def _channel_keys(self, task: sy.ni.AnalogWriteTask) -> list[int]:
-        return [ch.cmd_channel for ch in task.config.channels]
+        return [
+            ch.cmd_channel
+            for ch in task.config.channels
+            if not isinstance(ch, sy.ni.AOFuncGenChannel)
+        ]
+
+    def _state_keys(self, task: sy.ni.AnalogWriteTask) -> list[int]:
+        return [
+            ch.state_channel
+            for ch in task.config.channels
+            if not isinstance(ch, sy.ni.AOFuncGenChannel)
+        ]
 
 
 class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
@@ -273,3 +287,6 @@ class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
 
     def _channel_keys(self, task: sy.ni.DigitalWriteTask) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]
+
+    def _state_keys(self, task: sy.ni.DigitalWriteTask) -> list[int]:
+        return [ch.state_channel for ch in task.config.channels]

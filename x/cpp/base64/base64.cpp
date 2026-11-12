@@ -77,4 +77,11 @@ std::string decode(const std::string &input) {
     return out;
 }
 
+std::pair<std::string, errors::Error> decode_strict(const std::string &input) {
+    auto out = decode(input);
+    if (encode(out) != input)
+        return {"", errors::Error(INVALID, "not canonical base64")};
+    return {std::move(out), errors::NIL};
+}
+
 }

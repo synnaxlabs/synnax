@@ -41,7 +41,10 @@ Config struct extends task.PersistConfig {
         @ref on_delete restrict
     }
     hash        string = "" {
-        @doc value "is the semantic hash of the Arc module at deploy time."
+        @doc value """
+            is the hash of the automation's compiled program, or of its source when it
+            does not compile.
+        """
     }
     performance Performance = auto {
         @doc value "sets how closely the runtime holds timer deadlines."

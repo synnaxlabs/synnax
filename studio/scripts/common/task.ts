@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator } from "playwright";
+import { type Locator, type Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -50,6 +50,26 @@ export const fieldItem = (scope: Locator, label: string): Locator =>
         .filter({ hasText: new RegExp(`^\\s*${label}\\s*\\*?\\s*$`) }),
     })
     .first();
+
+/** rackItem returns the devices toolbar item of the rack named exactly `name`. */
+export const rackItem = (page: Page, name: string): Locator =>
+  page
+    .locator("div[id^='rack:']")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .first();
+
+/** setText replaces the value of the text field with the given label. */
+export const setText = async (
+  session: capture.CaptureSession,
+  scope: Locator,
+  label: string,
+  value: string,
+): Promise<void> => {
+  await session.click(fieldItem(scope, label).locator("input").first());
+  await session.press("ControlOrMeta+a");
+  await session.type(value);
+  await session.hold(300);
+};
 
 /** setNumber replaces the value of the numeric field with the given label. */
 const setNumber = async (
@@ -103,31 +123,44 @@ export const addChannel = async (
 export interface TaskShot {
   /** The name of the device in the devices toolbar. */
   device: string;
+  /** The name of the rack that holds the device. Defaults to the Driver. */
+  rack?: string;
   /** The context menu item that creates the task. */
   item: string;
+  /** Sets the task properties that are not numbers. */
+  properties?: (session: capture.CaptureSession, form: Locator) => Promise<void>;
   /** The value of each rate field, by label. */
   rates?: Record<string, string>;
   /** Adds and sets the channels of the task. */
   channels: (session: capture.CaptureSession, form: Locator) => Promise<void>;
+  /** The shot ends on the channels, with the task not started. */
+  unstarted?: boolean;
 }
 
 /**
  * recordTask opens the devices toolbar on the Driver, starts the recording, and creates
  * a task from the device. It zooms on each area of work in turn: the device and its
- * context menu, the rates, and the channels. It then starts the task and holds the
- * whole Console on the status that the Driver reports. The device must be on the
- * Driver.
+ * context menu, the properties, and the channels. It then starts the task and holds the
+ * whole Console on the status that the rack reports.
  */
 export const recordTask = async (
   session: capture.CaptureSession,
-  { device, item, rates = {}, channels }: TaskShot,
+  {
+    device,
+    rack = DRIVER,
+    item,
+    properties,
+    rates = {},
+    channels,
+    unstarted = false,
+  }: TaskShot,
 ): Promise<void> => {
   const { page } = session;
   await capture.openToolbar(session, "device");
   await capture.resizeToolbar(session, 400);
-  const driver = capture.treeItem(page, "rack:", DRIVER);
-  await session.waitFor(driver);
-  await session.click(driver, { text: true });
+  const parent = rackItem(page, rack);
+  await session.waitFor(parent);
+  await session.click(parent, { text: true });
   const node = capture.treeItem(page, "device:", device);
   await session.waitFor(node);
   await session.moveTo({ x: 800, y: 450 });
@@ -141,9 +174,10 @@ export const recordTask = async (
   await session.waitFor(form);
   await session.hold(1200);
 
-  if (Object.keys(rates).length > 0) {
+  if (properties != null || Object.keys(rates).length > 0) {
     await session.zoom(form.locator(".console-task-properties").first());
     await session.hold(400);
+    await properties?.(session, form);
     for (const [label, value] of Object.entries(rates))
       await setNumber(session, form, label, value);
     await session.hold(300);
@@ -159,6 +193,12 @@ export const recordTask = async (
   await session.hold(400);
   await channels(session, form);
   await session.hold(500);
+  if (unstarted) {
+    session.endZoom();
+    await session.moveTo({ x: 1100, y: 120 });
+    await session.hold(3000);
+    return;
+  }
 
   await session.click(form.locator("button:has(svg.lyra-icon--play)").first());
   session.endZoom();

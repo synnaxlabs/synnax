@@ -229,3 +229,31 @@ var _ = Describe("SemanticTokens", func() {
 		Expect(len(tokens.Data) % 5).To(Equal(0))
 	})
 })
+
+var _ = Describe("NewModuleRoot", func() {
+	sources := map[string]string{
+		"lib.m": "export func f() i64 { return 1 }",
+		"other": "export func g() i64 { return 2 }",
+	}
+
+	It("should resolve a user module by its import path", func(ctx SpecContext) {
+		mod := MustSucceed(NewModuleRoot(sources).ResolveModule(ctx, "lib.m"))
+		Expect(mod.FindChild("f")).ToNot(BeNil())
+	})
+
+	It("should report a path with no source as unknown", func(ctx SpecContext) {
+		Expect(NewModuleRoot(sources).ResolveModule(ctx, "nope")).Error().
+			To(MatchError(symbol.ErrModuleNotFound))
+	})
+
+	It("should list the import paths in order", func(ctx SpecContext) {
+		modules := MustSucceed(NewModuleRoot(sources).ModuleResolver().Search(ctx, ""))
+		Expect(modules).To(HaveLen(2))
+		Expect(modules[0].Name).To(Equal("lib.m"))
+		Expect(modules[1].Name).To(Equal("other"))
+	})
+
+	It("should hold the standard modules", func() {
+		Expect(NewModuleRoot(sources).IsAmbientModule("math")).To(BeTrue())
+	})
+})

@@ -18,6 +18,15 @@
     opacity: 0.5;
 }
 
+/* The label gives way to a long name, so the enabled dot stays in view. */
+.console-channel-item__label {
+    min-width: 0;
+}
+
+.console-channel-item__port {
+    max-width: 100%;
+}
+
 .console-channel-item__name {
     max-width: 150px;
     flex-grow: 1;

@@ -39,11 +39,8 @@ int exec_svc_cmd(
 
 int internal_start(x::args::Parser &args) {
     daemon::Config config;
-    // Stays nonzero when start throws, so the unit's restart policy engages.
-    int code = 1;
-    config.callback = [&] { code = start(args); };
-    daemon::run(config);
-    return code;
+    config.callback = [&] { return start(args); };
+    return daemon::run(config);
 }
 
 int service_start(x::args::Parser &args) {
@@ -60,7 +57,11 @@ int service_restart(x::args::Parser &args) {
 
 int service_install(x::args::Parser &args) {
     const auto install = [&] {
+        // Before the service exists, so it never writes to a directory that another
+        // user made.
+        if (auto err = rack::Config::secure_persisted_state(args)) return err;
         if (auto err = daemon::install_service()) return err;
+        if (auto err = rack::Config::move_user_state(args)) return err;
         return rack::Config::secure_persisted_state(args);
     };
     return exec_svc_cmd(install, "install", "installed");

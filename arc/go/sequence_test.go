@@ -6688,6 +6688,39 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Variable reassignment", func() {
+		It("Writes through a top-level alias from a function", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in":        {types.U8(), 101},
+				"out":       {types.U8(), 102},
+				"go2":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				a := out
+				func set_value() u8 {
+				    a = 7
+				    return 0
+				}
+				func copy_in() u8 {
+				    a = in
+				    return 0
+				}
+				start_cmd -> set_value()
+				go2 -> copy_in()`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(7)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](9))
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(9)))
+		})
+
 		It("Reflects a reassignment to an initialized variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
@@ -6781,6 +6814,26 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 101)).To(Equal(uint8(6)))
 			},
 		)
+
+		It("Writes an integer literal through an alias", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 201},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    sink := out_a
+				    1 -> sink
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 201)).To(Equal(uint8(1)))
+		})
 
 		It("Redirects writes through an alias across a rebind", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
@@ -7429,8 +7482,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				l := out_a
 				sequence main {
+				    l := out_a
 				    stage s1 {
 				        u8(1) -> l
 				        go2 => next
@@ -7469,8 +7522,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r -> out
 				        go2 => next
@@ -7517,8 +7570,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r * 2 -> out
 				        go2 => next
@@ -7543,50 +7596,6 @@ var _ = Describe("Sequence", func() {
 
 				trigger(h, ctx, 103)
 				trigger(h, ctx, 104)
-				h.Ingest(102, telem.NewSeriesV[uint8](30))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ = h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(60)))
-			},
-		)
-
-		It(
-			"Routes a top-level alias expression read across a stage rebind",
-			func(ctx SpecContext) {
-				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd": {types.U8(), 100},
-					"in_a":      {types.U8(), 101},
-					"in_b":      {types.U8(), 102},
-					"out":       {types.U8(), 105},
-					"go2":       {types.U8(), 103},
-				})
-				h := newRuntimeHarness(ctx, `
-				r := in_a
-				r * 2 -> out
-				sequence main {
-				    stage s1 {
-				        go2 => next
-				    }
-				    stage s2 {
-				        r = in_b
-				    }
-				}
-				start_cmd => main`, resolver,
-					channels.Digest{Key: 105, DataType: telem.Uint8T},
-				)
-				defer h.Close(ctx)
-
-				trigger(h, ctx, 100)
-				h.Ingest(101, telem.NewSeriesV[uint8](10))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ := h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(20)))
-
-				trigger(h, ctx, 103)
 				h.Ingest(102, telem.NewSeriesV[uint8](30))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)

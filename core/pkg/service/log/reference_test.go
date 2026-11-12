@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,11 +53,11 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			gone, kept := keys[0], keys[1]
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project:  &proj.Key,
 				Name:     "edited",
 				Channels: []log.ChannelEntry{{Channel: gone}, {Channel: kept}},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -81,11 +82,11 @@ var _ = Describe("Channel references", func() {
 	)
 
 	It("Should refuse a channel the Core does not hold", func(ctx SpecContext) {
-		l := log.Log{
+		l := defaults.Fill(log.Log{
 			Project:  &proj.Key,
 			Name:     "missing",
 			Channels: []log.ChannelEntry{{Channel: ch5}, {Channel: 404}},
-		}
+		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(MatchError(
@@ -98,7 +99,7 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
 			first, gone, third := keys[0], keys[1], keys[2]
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project: &proj.Key,
 				Name:    "detach",
 				Channels: []log.ChannelEntry{
@@ -106,7 +107,7 @@ var _ = Describe("Channel references", func() {
 					{Channel: gone},
 					{Channel: third, Alias: "third"},
 				},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -130,11 +131,11 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			kept, gone := keys[0], keys[1]
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project:  &proj.Key,
 				Name:     "export",
 				Channels: []log.ChannelEntry{{Channel: kept}, {Channel: gone}},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -172,11 +173,11 @@ var _ = Describe("Channel references", func() {
 			Namespace:  "Log",
 			Migrations: versions.Migrations,
 		})).To(Succeed())
-		stored := log.Log{
+		stored := defaults.Fill(log.Log{
 			Key:      uuid.New(),
 			Name:     "log",
 			Channels: []log.ChannelEntry{{Channel: 6}, {Channel: kept}},
-		}
+		})
 		Expect(gorp.NewCreate[log.Key, log.Log]().
 			Entry(&stored).
 			Exec(ctx, node.DB)).To(Succeed())

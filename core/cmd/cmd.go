@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/cmd/update"
 	"github.com/synnaxlabs/synnax/cmd/version"
+	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -40,7 +41,12 @@ var Cmd = &cobra.Command{
 
 func init() {
 	addFlags(Cmd)
-	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd, update.NewCmd())
+	Cmd.AddCommand(
+		version.Cmd,
+		cert.Cmd,
+		start.Cmd,
+		update.NewCmd(release.DefaultConfig),
+	)
 	Cmd.AddCommand(serviceCmds()...)
 	Cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return errors.Mark(err, validate.ErrValidation)

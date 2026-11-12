@@ -123,8 +123,9 @@ func (d *delta[K, V]) unstage(key K) {
 
 // merge returns the keys holding any of values once the delta applies to committed.
 func (d *delta[K, V]) merge(committed set.Set[K], values []V) []K {
+	in := AnyOf(values)
 	for k, s := range d.state {
-		if s.deleted || !holdsAny(s.values, values) {
+		if s.deleted || !slices.ContainsFunc(s.values, in) {
 			committed.Remove(k)
 		}
 	}
@@ -147,11 +148,18 @@ func (d *delta[K, V]) applyHolding(keys set.Set[K], holding bool) {
 	}
 }
 
-// holdsAny reports whether held contains any of values.
-func holdsAny[V comparable](held, values []V) bool {
-	return slices.ContainsFunc(held, func(v V) bool {
-		return slices.Contains(values, v)
-	})
+// anyOfSetSize is the number of values past which AnyOf builds a set. A scan of a few
+// values costs less than a hash.
+const anyOfSetSize = 8
+
+// AnyOf returns a predicate that reports whether a value is any of values. Build it
+// once and call it for each candidate. The caller must not change values while the
+// predicate is in use.
+func AnyOf[V comparable](values []V) func(V) bool {
+	if len(values) <= anyOfSetSize {
+		return func(v V) bool { return slices.Contains(values, v) }
+	}
+	return set.New(values...).Contains
 }
 
 // changes is the set of changes that one scope has staged against an index.

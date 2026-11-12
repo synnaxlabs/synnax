@@ -98,6 +98,28 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, device.Key]{
+			Name:     "startup_parameters.device",
+			Table:    "device",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []device.Key {
+				var targets []device.Key
+				for _, v1 := range e.StartupParameters {
+					if v1.Device != "" {
+						targets = append(targets, v1.Device)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t device.Key) {
+				for i2 := range e.StartupParameters {
+					if e.StartupParameters[i2].Device == t {
+						e.StartupParameters[i2].Device = ""
+					}
+				}
+			},
+		}),
 	}
 }
 

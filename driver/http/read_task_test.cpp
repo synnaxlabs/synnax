@@ -274,6 +274,18 @@ TEST(HTTPReadTask, ParseConfigFillValueUnconvertibleErrors) {
     );
 }
 
+/// @brief it should reject numeric enum values on a string channel.
+TEST(HTTPReadTask, ParseConfigStringEnumValuesErrors) {
+    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/value"},
+         {"channel", data.key},
+         {"enum_values", {{{"label", "ON"}, {"value", 1}}}}},
+        "string channel"
+    );
+}
+
 /// @brief it should reject an optional index channel, even with a fill value, because
 /// a filled timestamp would corrupt the index.
 TEST(HTTPReadTask, ParseConfigOptionalIndexErrors) {

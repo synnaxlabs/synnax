@@ -76,6 +76,24 @@ Turn on editing, and set a channel in the **Control** tab of each symbol.
 </Problem.Fix>
 </Problem.Body>
 
+### `Some symbols use channels that no longer exist.`
+
+<Problem.Body>
+<Problem.Cause>
+
+A symbol uses a command channel that was deleted. The notification shows "Skipped
+deleted channels", with this text and the missing channels in the description. The
+schematic takes control of the other channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on editing, and set a channel that exists in the **Control** tab of each symbol
+that used a deleted channel.
+
+</Problem.Fix>
+</Problem.Body>
+
 ### The schematic has no Control tab
 
 <Problem.Body>
@@ -109,7 +127,9 @@ asks for it.
 <Problem.Fix>
 
 [See which writer controls the channel](/reference/control/authority#see-which-writer-controls-a-channel).
-Then lower its authority, or raise yours above it.
+Then lower its authority, or raise yours above it. To find dropped commits in code,
+commit with `commit_result` in Python or `commitResult` in TypeScript, and check
+`authorized`. See [set authority](/reference/control/authority#set-authority).
 
 </Problem.Fix>
 </Problem.Body>
@@ -120,12 +140,30 @@ Then lower its authority, or raise yours above it.
 <Problem.Cause>
 
 The writer asked for an error when it opens without control, and another writer holds
-the channel. The Python `client.write` method asks for it.
+the channel.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Stop the other writer, or open yours with a higher authority.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `cannot access time range <range> because writer <writer> holds it`
+
+<Problem.Body>
+<Problem.Cause>
+
+A writer in `persist` mode, such as the Python or TypeScript `client.write` method,
+writes to a time range that another writer holds. A read task holds its channels while
+it runs. A `persist` writer never takes control, at any authority.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write to a time range before the other writer started, or stop the other writer first.
+See [how authority works](/reference/control/authority#how-authority-works).
 
 </Problem.Fix>
 </Problem.Body>
@@ -307,21 +345,6 @@ Create the channel, or correct the name.
 </Problem.Fix>
 </Problem.Body>
 
-### `numeric conditions are deprecated; use an explicit comparison like x != 0`
-
-<Problem.Body>
-<Problem.Cause>
-
-A number is used as a condition, such as `start_cmd => press`.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Compare it: `start_cmd == 1 => press`.
-
-</Problem.Fix>
-</Problem.Body>
-
 <Divider.Divider x />
 
 ## Python
@@ -342,7 +365,7 @@ See [Synnax drops commands with no error](#synnax-drops-commands-with-no-error).
 </Problem.Fix>
 </Problem.Body>
 
-### `authorities: authority count must be 1 or equal to channel count`
+### `authorities: authorities must be a single authority or a slice of authorities with the same length as keys`
 
 <Problem.Body>
 <Problem.Cause>

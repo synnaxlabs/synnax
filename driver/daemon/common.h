@@ -9,18 +9,31 @@
 
 #pragma once
 
+#include <filesystem>
+#include <string>
+
+#include <sys/types.h>
+
 #include "x/cpp/errors/errors.h"
 
 namespace driver::daemon {
+/// @brief the environment file of the Driver service.
+const std::string ENV_FILE = "/etc/synnax/driver.env";
+
 /// @brief creates the synnax system user the service runs as, if it does not exist.
 x::errors::Error create_system_user();
 
-/// @brief copies the running binary to /usr/local/bin/synnax-driver. Skips the copy
-/// when the running binary is already the installed one.
-x::errors::Error install_binary();
+/// @brief copies the binary at src to dst with mode 0755, owned by uid and gid. It
+/// never follows a link in the folder of dst, and src may be dst.
+x::errors::Error install_binary(
+    const std::filesystem::path &src,
+    const std::filesystem::path &dst,
+    uid_t uid,
+    gid_t gid
+);
 
-/// @brief creates the Driver's environment file, owned by root with mode 0600. The
-/// service manager reads it as root, so only root can read the password in it. An
-/// existing file keeps its contents but gets that owner and mode. Requires root.
+/// @brief creates the Driver's environment file, owned by root with mode 0600, so only
+/// root can read the password in it. An existing file keeps its contents but gets that
+/// owner and mode. Requires root.
 x::errors::Error create_env_file();
 }

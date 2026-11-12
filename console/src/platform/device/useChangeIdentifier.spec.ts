@@ -12,10 +12,14 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createTestDevice, setTestDeviceStatus } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -36,8 +40,13 @@ describe("useChangeIdentifier", () => {
       await result.current.updateAsync({ key: dev.key, identifier });
     });
     await waitFor(() => expect(result.current.variant).toEqual("success"));
-    const updated = await client.devices.retrieve(dev.key);
-    return updated.properties;
+    // The cache receives the edit from the Core's set signal.
+    await waitFor(async () =>
+      expect((await client.devices.retrieve(dev.key)).properties.identifier).toEqual(
+        identifier,
+      ),
+    );
+    return (await client.devices.retrieve(dev.key)).properties;
   };
 
   it("should change the identifier on a device", async () => {
@@ -65,15 +74,15 @@ describe("useChangeIdentifier", () => {
     expect(properties.rate).toEqual(50);
   });
 
-  it("should not send the device's status or parent", async () => {
+  it("should keep the name and the status that the Driver reported", async () => {
     const dev = await createTestDevice(client);
     await setTestDeviceStatus(client, dev);
-    const create = vi.spyOn(client.devices, "create");
     await changeIdentifier(dev, "new_id");
-    const sent = create.mock.lastCall?.[0];
-    create.mockRestore();
-    expect(sent).toMatchObject({ properties: { identifier: "new_id" } });
-    expect(sent).not.toHaveProperty("status");
-    expect(sent).not.toHaveProperty("parent");
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      includeStatus: true,
+    });
+    expect(updated.name).toEqual(dev.name);
+    expect(updated.status?.message).toEqual(TEST_DEVICE_STATUS_MESSAGE);
   });
 });

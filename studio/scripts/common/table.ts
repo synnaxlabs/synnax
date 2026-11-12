@@ -89,10 +89,10 @@ export const cells = (session: capture.CaptureSession, columns: number): Cells =
 };
 
 /**
- * recordStill turns off editing and the indicators, aligns the table to the top left,
- * and records it zoomed in. The last captured frame is the still.
+ * stageStill turns off editing and the indicators, aligns the table to the top left,
+ * and parks the cursor off the panel so the controls fade.
  */
-export const recordStill = async (session: capture.CaptureSession): Promise<void> => {
+export const stageStill = async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await session.click(capture.control(page, "edit-off"), { zoom: false });
   await session.click(capture.control(page, "invisible"), { zoom: false });
@@ -100,9 +100,16 @@ export const recordStill = async (session: capture.CaptureSession): Promise<void
   await capture.hideBottomToolbar(session);
   await session.settleWall(2000);
   await session.settle(500);
-  // Off the panel, so the controls fade.
   await session.moveTo(capture.PARK);
+};
 
+/**
+ * recordStill stages the table with {@link stageStill} and records it zoomed in. The
+ * last captured frame is the still.
+ */
+export const recordStill = async (session: capture.CaptureSession): Promise<void> => {
+  const { page } = session;
+  await stageStill(session);
   session.startRecording();
   await session.zoom(page.locator(".pluto-table").first(), 1.6);
   await session.hold(2500);

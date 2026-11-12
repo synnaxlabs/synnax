@@ -23,7 +23,7 @@ import (
 // UniqueChannelName generates a random channel name that should be unique. Channel name
 // uniqueness itself is enforced by the channel service during creation.
 func UniqueChannelName() string {
-	return fmt.Sprintf("test_ch_%09d", rand.IntN(999999999))
+	return fmt.Sprintf("test_ch_%016x", rand.Uint64())
 }
 
 // CreateVirtual creates count virtual channels with unique names through svc in db and

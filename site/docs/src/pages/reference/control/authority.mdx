@@ -68,6 +68,13 @@ A writer that loses control of an index channel loses its writes to every channe
 that index, even the channels it controls.
 
 </Rule.Item>
+<Rule.Item title="A persist writer never takes control">
+
+A writer in [`persist` mode](/reference/client/write-data#writer-modes) never takes
+control, at any authority. It fails to open when another writer holds the same time
+range. The Python and TypeScript `client.write` methods open a `persist` writer.
+
+</Rule.Item>
 </Rule.List>
 
 ### Virtual channels
@@ -159,14 +166,16 @@ Set `err_on_unauthorized=True` to make `open_writer` raise an error when a diffe
 writer controls one of the channels. Writes made later without control still return no
 error.
 
-To find out if a commit had control, call `commit_result` in place of `commit`. When
-`authorized` is false, the writer did not control a channel. Some channels can still
-commit, so do not use `end`. The writer stays open and can get control again:
+To find out if the Core refused any data, call `commit_result` in place of `commit`.
+When `authorized` is false, the writer did not control a channel with samples to commit,
+or the Core refused a write since the last commit. Each refused write shows at one
+commit only. `end` is zero if the commit lacked control or if the writer writes only
+virtual channels. The writer stays open and can get control again:
 
 ```python
 result = writer.commit_result()
 if not result.authorized:
-    print("Another writer controls a channel")
+    print("The Core refused data since the last commit")
 ```
 
 To control hardware from a script with waits and conditions, see
@@ -199,13 +208,15 @@ Set `errOnUnauthorized: true` to make `openWriter` throw an error when a differe
 writer controls one of the channels. Writes made later without control still return no
 error.
 
-To find out if a commit had control, call `commitResult` in place of `commit`. When
-`authorized` is false, the writer did not control a channel. Some channels can still
-commit, so do not use `end`. The writer stays open and can get control again:
+To find out if the Core refused any data, call `commitResult` in place of `commit`. When
+`authorized` is false, the writer did not control a channel with samples to commit, or
+the Core refused a write since the last commit. Each refused write shows at one commit
+only. `end` is zero if the commit lacked control or if the writer writes only virtual
+channels. The writer stays open and can get control again:
 
 ```typescript
 const result = await writer.commitResult();
-if (!result.authorized) console.log("Another writer controls a channel");
+if (!result.authorized) console.log("The Core refused data since the last commit");
 ```
 
   </Fragment>
@@ -306,11 +317,12 @@ channel.
 | Writer                                     | Default | Where to change it                                                                                                                              |
 | ------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Schematic                                  | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority). Each Console keeps its own value. The schematic does not save it. |
-| Schematic, after a click on a control chip | 255     | Cannot change                                                                                                                                   |
+| Schematic, after a click on a control chip | 255     | Not in the Console. A schematic made in code can set `control.authority` on a symbol.                                                           |
 | Arc automation                             | 255     | [`authority` line](#set-authority)                                                                                                              |
 | Python or TypeScript writer                | 255     | [`authorities` parameter](#set-authority)                                                                                                       |
+| Python or TypeScript `client.write`        | None    | Cannot change. It [never takes control](#how-authority-works).                                                                                  |
 | Read task and write task                   | 255     | Cannot change                                                                                                                                   |
 
-A read task writes the channels it reads at 255, so a script cannot write to them while
-the task runs. A write task writes its
+A read task writes the channels it reads at 255, so a script cannot take control of them
+while the task runs. A write task writes its
 [state channels](/reference/hardware/tasks#state-channels) at 255.

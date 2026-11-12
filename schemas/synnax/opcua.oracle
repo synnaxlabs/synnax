@@ -88,11 +88,8 @@ ReadConfig struct extends task.ReadConfig {
         @ref kind      use
         @ref on_delete restrict
     }
-    array_mode       bool = false {
-        @doc value "is true when each read returns an array of samples per node."
-    }
-    array_size       int32 = 1 {
-        @doc value "is the number of samples in each array when array_mode is true."
+    sampling         Sampling = unary {
+        @doc value "is how the task samples each node."
     }
     channels         ReadChannel[] {
         @doc value "are the OPC UA nodes the task acquires."
@@ -131,4 +128,21 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+}
+
+Sampling union on type {
+    unary {
+        @doc value "reads one sample per node at the sample rate."
+    }
+    array {
+        size uint32 = 1 {
+            @doc value    "is the number of samples in each array the node returns."
+            @validate min 1
+        }
+
+        @doc value "reads an array of samples from each node on each read."
+    }
+
+    @doc value  "selects how a read task samples its nodes."
+    @go marshal
 }

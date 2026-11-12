@@ -12,93 +12,96 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import "@/styles/release-diagrams.css";
-import { releaseAnchor } from "@/util/releaseNotes";
-const {
-    date,
-    version,
-    title,
-    breakingChanges,
-    npmVersion = version,
-    desktopVersion,
-} = Astro.props;
+import { type Release, releaseAnchor, releaseLinks } from "@/util/releaseNotes";
+
+interface Props extends Release {
+    title: string;
+    breakingChanges?: boolean;
+}
+
+const { date, version, title, breakingChanges, desktopVersion } = Astro.props;
 const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
 const firstPart = majorMinor(version);
-const [major, minor] = version.split(".").map(Number);
-// From v0.59, each product has its own tag, and the Core's tag stands for the release.
-const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}`;
+const links = releaseLinks(Astro.props);
 ---
 
-<Flex.Box direction="x" id={releaseAnchor(version)} className="release" empty>
-    <Flex.Box direction="y" className="meta" align="start" gap="large">
-        <Flex.Box direction="y" empty>
-            <Text.Text level="h3" weight={500}>
-                Version {firstPart}
-            </Text.Text>
-            {desktopVersion != null && (
-                <Text.Text
-                    className="desktop-version"
-                    href={`https://github.com/synnaxlabs/synnax/releases/tag/desktop/v${desktopVersion}`}
-                >
-                    Desktop {majorMinor(desktopVersion)}
+<div class="release-frame">
+    <Flex.Box direction="x" id={releaseAnchor(version)} className="release" empty>
+        <Flex.Box direction="y" className="meta" align="start" gap="large">
+            <Flex.Box direction="y" className="info" empty>
+                <Text.Text level="h3" weight={500}>
+                    Version {firstPart}
                 </Text.Text>
-            )}
-            <Text.Text color={8}>{date}</Text.Text>
-            {breakingChanges ? (
-                <Text.Text className="breaking-changes" level="small">
-                    Breaking changes
-                </Text.Text>
-            ) : (
-                <Text.Text className="no-breaking-changes" level="small">
-                    No breaking changes
-                </Text.Text>
+                {desktopVersion != null && (
+                    <Text.Text className="desktop-version" href={links?.desktop}>
+                        Desktop {majorMinor(desktopVersion)}
+                    </Text.Text>
+                )}
+                <Text.Text color={8}>{date ?? "Unreleased"}</Text.Text>
+                {breakingChanges ? (
+                    <Text.Text className="breaking-changes" level="small">
+                        Breaking changes
+                    </Text.Text>
+                ) : (
+                    <Text.Text className="no-breaking-changes" level="small">
+                        No breaking changes
+                    </Text.Text>
+                )}
+            </Flex.Box>
+            {links != null && (
+                <Flex.Box direction="x" className="links" align="center" gap="large">
+                    <Text.Text href={links.github}>
+                        <Icon.Logo.Github className="link" />
+                    </Text.Text>
+                    <Text.Text href={links.python}>
+                        <Icon.Python className="link" />
+                    </Text.Text>
+                    {links.typescript != null && (
+                        <Text.Text href={links.typescript}>
+                            <Icon.TypeScript className="link" />
+                        </Text.Text>
+                    )}
+                </Flex.Box>
             )}
         </Flex.Box>
-        <Flex.Box direction="x" align="center" gap="large">
-            <Text.Text href={`https://github.com/synnaxlabs/synnax/tree/${tag}`}>
-                <Icon.Logo.Github className="link" />
+        <Flex.Box direction="y" className="details">
+            <Text.Text level="h2" className="title">
+                {title}
             </Text.Text>
-            <Text.Text href={`https://pypi.org/project/synnax/${firstPart}/`}>
-                <Icon.Python className="link" />
-            </Text.Text>
-            {npmVersion != null && (
-                <Text.Text
-                    href={`https://npmjs.com/package/@synnaxlabs/client/v/${npmVersion}`}
-                >
-                    <Icon.TypeScript className="link" />
-                </Text.Text>
-            )}
+            <article>
+                <slot />
+            </article>
         </Flex.Box>
     </Flex.Box>
-    <Flex.Box direction="y" className="details">
-        <Text.Text level="h2" className="title">
-            {title}
-        </Text.Text>
-        <article>
-            <slot />
-        </article>
-    </Flex.Box>
-</Flex.Box>
+</div>
 
 <style is:global>
+    /* The notes keep at least 100rem, which fits a code block. The version column
+       shrinks first, to 32rem. Below both, the version moves above the notes. The sum
+       is above the widest page that hides the History list, so the layout never
+       returns to two columns as the window narrows. */
+    .release-frame {
+        container: release / inline-size;
+    }
+
     .release {
         padding: 10rem 0;
         max-width: 1150px;
         position: relative;
         margin: 0 auto;
 
-        .meta {
+        > .meta {
             height: fit-content;
             position: sticky;
             top: 120px;
             padding-top: 1rem;
             padding-left: 3rem;
-            flex-basis: 375px;
-            flex-grow: 1;
+            flex: 1 1 375px;
+            min-width: 32rem;
         }
 
-        .details {
-            flex-basis: 600px;
-            flex-grow: 3;
+        > .details {
+            flex: 3 0 100rem;
             min-width: 0;
         }
 
@@ -135,15 +138,39 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
         }
     }
 
-    @media (width <= 800px) {
-        .release {
-            flex-direction: column !important;
+    @container release (width < 132rem) {
+        .release.release {
+            flex-direction: column;
+            max-width: 125rem;
 
-            .meta {
-                position: unset;
-                flex-basis: fit-content;
-                padding-left: 0;
-                padding-bottom: 4rem;
+            > .meta {
+                position: static;
+                flex: none;
+                min-width: 0;
+                padding: 0 0 5rem;
+                flex-flow: row wrap;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 2rem 4rem;
+            }
+
+            > .meta > .info {
+                flex-flow: row wrap;
+                align-items: baseline;
+                column-gap: 3rem;
+
+                > h3 {
+                    flex-basis: 100%;
+                    margin-bottom: 1rem;
+                }
+            }
+
+            > .details {
+                flex: none;
+            }
+
+            > .details > .title {
+                margin-top: 0;
             }
         }
     }

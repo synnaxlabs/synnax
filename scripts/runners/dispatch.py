@@ -9,7 +9,12 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = [
+#     "boto3",
+#     "certifi>=2026.10.19",
+#     "PyJWT[crypto]>=2.10,<3",
+#     "synnax>=0.60,<0.61",
+# ]
 # ///
 
 """Dispatches each write to a runner's command channel to the matching script.
@@ -39,7 +44,6 @@ from common import (
     command_channels,
     connect,
     parameter_store,
-    patch_client,
     secret,
     shield,
 )
@@ -114,12 +118,12 @@ def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     add_connection_args(p)
     args = p.parse_args()
-    patch_client()
     store = parameter_store()
     client = connect(args, store=store)
     creator = Channels(client=client, enabled=args.create_channels)
     log = Log(client=client, channels=creator, channel=LOG)
-    commands = handlers(aws=AWS(), github=GitHub(secret("GH_TOKEN", store=store)))
+    github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
+    commands = handlers(aws=AWS(), github=github)
     alive = Heartbeat(client=client, channels=creator, name=HEARTBEAT)
     channels = command_channels(known_runners(), commands=tuple(commands))
     names, lookup = existing_channels(client, channels=channels)

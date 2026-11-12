@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <bit>
 
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/testutil/master.h"
@@ -125,7 +127,7 @@ protected:
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::device::Device dev{
-            .key = "ecat_slave_" + std::to_string(serial),
+            .key = make_unique_channel_name("ecat_slave_" + std::to_string(serial)),
             .rack = rack.key,
             .location = NETWORK_INTERFACE + ".Slot 1",
             .make = "DEWESoft",
@@ -194,6 +196,37 @@ protected:
         auto source = std::make_unique<ReadTaskSource>(engine, std::move(task_cfg));
         EXPECT_NIL(source->start());
         return source;
+    }
+
+    /// @brief saves a catalog for the slave that calibrates its int32 entry at
+    /// 0x6000:02 with the gain at 0x8040:15 and the offset at 0x8040:14.
+    void calibrate_slave() {
+        this->slave_device.properties["settings"] = {
+            {"channels",
+             {{{"entries",
+                {{{"index", 0x6000},
+                  {"sub_index", 2},
+                  {"calibration",
+                   {{"data_type", "int32"},
+                    {"index", 0x8040},
+                    {"gain_sub_index", 0x15},
+                    {"offset_sub_index", 0x14},
+                    {"divisor", 1}}}}}}}}},
+        };
+        ASSERT_NIL(this->client->devices.del(this->slave_device.key));
+        ASSERT_NIL(this->client->devices.create(this->slave_device));
+    }
+
+    /// @brief returns a config that reads the entry at 0x6000:02 into data_ch, with the
+    /// calibration of the slave.
+    x::json::json create_sensor_config(const synnax::channel::Channel &data_ch) {
+        auto cfg = this->create_base_config();
+        cfg["sample_rate"] = 10;
+        cfg["stream_rate"] = 10;
+        auto ch = this->create_input_channel_config(data_ch, 0x6000, 2, "int32");
+        ch["calibrated"] = true;
+        cfg["channels"].push_back(ch);
+        return cfg;
     }
 
     synnax::channel::Channel
@@ -442,7 +475,7 @@ TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
 /// valid.
 TEST_F(EtherCATReadTest, ParseConfigRejectsASlaveWithInvalidProperties) {
     auto broken = this->slave_device;
-    broken.key = "ecat_slave_broken";
+    broken.key = make_unique_channel_name("ecat_slave_broken");
     broken.properties["serial"] = "not a number";
     ASSERT_NIL(this->client->devices.create(broken));
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
@@ -599,6 +632,101 @@ TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should turn each raw sample into a physical value with the gain and offset
+/// that the slave holds.
+TEST_F(EtherCATReadTest, SourceAppliesTheCalibrationOfTheSlave) {
+    this->calibrate_slave();
+    this->mock_master->set_object(1, 0x8040, 0x15, std::bit_cast<uint32_t>(2.0F));
+    this->mock_master->set_object(1, 0x8040, 0x14, std::bit_cast<uint32_t>(0.5F));
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT64_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_input<int32_t>(2, -100);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -199.5
+    );
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should apply the scale of a calibrated channel to the physical values.
+TEST_F(EtherCATReadTest, SourceScalesACalibratedChannelAfterItsCalibration) {
+    this->calibrate_slave();
+    this->mock_master->set_object(1, 0x8040, 0x15, std::bit_cast<uint32_t>(2.0F));
+    this->mock_master->set_object(1, 0x8040, 0x14, std::bit_cast<uint32_t>(0.5F));
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT64_T);
+    auto cfg = this->create_sensor_config(data_ch);
+    cfg["channels"][0]["scale"] = {{"type", "linear"}, {"slope", 10}, {"offset", 1}};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_input<int32_t>(2, -100);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -1994.0
+    );
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should fail to start, naming the channel, when it cannot read the
+/// calibration from the slave.
+TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
+    this->calibrate_slave();
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT32_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    const auto err = source.start();
+    ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "Failed to read the calibration of channel " + data_ch.name +
+            ": failed to read 0x8040:15: Object does not exist in the object "
+            "dictionary."
+    );
+}
+
+/// @brief it should reject a calibrated channel whose Synnax channel is not a float
+/// channel.
+TEST_F(EtherCATReadTest, ParseConfigRejectsACalibratedIntegerChannel) {
+    this->calibrate_slave();
+    const auto data_ch = this->create_data_channel("sensor", x::telem::INT32_T);
+    auto parser = x::json::Parser(this->create_sensor_config(data_ch));
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "channel " + data_ch.name +
+            " is int32, but a calibrated channel must be float32 or float64. Pick a "
+            "float channel."
+    );
+}
+
 /// @brief it should read each channel from its own PDO entry.
 TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     auto ch1 = ASSERT_NIL_P(this->client->channels.create(
@@ -697,7 +825,7 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
     EXPECT_EQ(warning->message, "Failed to read data");
     EXPECT_EQ(
         warning->description,
-        "every bus cycle failed: expected 3, got 1 Next retry 1/∞ in 1.0 s."
+        "Every bus cycle failed: expected 3, got 1. Next retry 1/∞ in 1.0 s."
     );
 }
 
@@ -733,6 +861,75 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     EXPECT_TRUE(this->mock_master->config(3).enabled);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     read_task->exec(stop);
+}
+
+/// @brief it should write the startup parameters of each slave to it, in order, when
+/// the task starts the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParameters) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {
+             {{"index", 0x8040},
+              {"sub_index", 0x1C},
+              {"data_type", "float32"},
+              {"value", 5}},
+             {{"index", 0x8040},
+              {"sub_index", 1},
+              {"data_type", "uint16"},
+              {"value", 6}},
+         }},
+    }};
+    auto manager = std::make_unique<testutil::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager), this->client, this->rack.key);
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
+    const auto params = this->mock_master->config(1).startup_parameters;
+    ASSERT_EQ(params.size(), 2);
+    EXPECT_EQ(params[0].sub_index, 0x1C);
+    EXPECT_EQ(params[0].data_type, x::telem::FLOAT32_T);
+    EXPECT_EQ(params[0].value, 5);
+    EXPECT_EQ(params[1].sub_index, 1);
+    EXPECT_EQ(params[1].value, 6);
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+}
+
+/// @brief it should reject a startup parameter whose value does not fit its data type.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAParameterThatDoesNotFitItsType) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    cfg["channels"].push_back(ch);
+    cfg["startup_parameters"] = {{
+        {"device", ch["device"]},
+        {"parameters",
+         {{{"index", 0x8040},
+           {"sub_index", 1},
+           {"data_type", "uint16"},
+           {"value", -1}}}},
+    }};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.parameters.0.value");
+    EXPECT_EQ(errors[0]["message"], "must be a whole number from 0 to 65535");
 }
 
 /// @brief it should run a slave in the mode chosen on its saved device when the bus
@@ -841,9 +1038,11 @@ TEST_F(EtherCATReadTest, StartDropsTheSettingsOfADeletedDevice) {
     read_task->exec(stop);
 }
 
-/// @brief it should fail to start, naming the slave, when a slave the task does not
-/// read has invalid properties on the task's network.
+/// @brief it should fail to start, naming the slave and the network by the name of its
+/// master, when a slave the task does not read has invalid properties on the task's
+/// network.
 TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
+    this->mock_master->set_name("Ethernet 2");
     auto invalid = this->create_configured_slave(NETWORK_INTERFACE, 1, nullptr);
     invalid.name = "EL3102";
     ASSERT_NIL(this->client->devices.create(invalid));
@@ -871,8 +1070,8 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_EQ(
         status.description,
-        "EL3102 has invalid properties. Every slave on eth0 starts with the bus, so "
-        "fix them before you start the task.\nenabled: type must be boolean, but is "
+        "EL3102 has invalid properties. Every slave on Ethernet 2 starts with the bus, "
+        "so fix them before you start the task.\nenabled: type must be boolean, but is "
         "null"
     );
 }
@@ -949,8 +1148,10 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
         "on eth0 with different settings. Give them the same settings, or delete the "
         "device that is no longer on the bus."
     );
-    replacement.properties["enabled"] = false;
-    ASSERT_NIL(this->client->devices.create(replacement));
+    ASSERT_NIL(this->client->devices.dispatch(
+        replacement.key,
+        {synnax::device::set({.path = {"properties", "enabled"}, .value = false})}
+    ));
     read_task->exec(start);
     EXPECT_EQ(this->ctx->statuses.back().message, "Started task");
     EXPECT_FALSE(this->mock_master->config(2).enabled);
@@ -1024,7 +1225,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
         err.data,
-        "slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099"
+        "Slave 1 (Test Slave): expected vendor_id 0x00000001, found 0x00000099."
     );
 }
 

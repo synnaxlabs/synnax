@@ -7,17 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { mockWindows } from "@tauri-apps/api/mocks";
 import { createEvent, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Window } from "@/app/window";
+import { clearUpdater, createStatus, mockUpdater } from "@/platform/version/testutil";
 import { Session } from "@/session";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   getBySelector,
   HaulProvider,
   installPortalRoot,
   renderWithConsole,
+  renderWithStatus,
 } from "@/testutil";
 
 // jsdom has no DragEvent, so the transfer is defined on the event testing-library falls
@@ -30,6 +42,11 @@ const fireFileDragOver = (target: HTMLElement): void => {
 
 describe("app/window/Window", () => {
   installPortalRoot();
+
+  afterEach(async () => {
+    mocks.engine = "web";
+    await clearUpdater();
+  });
 
   // The window's own background carries no actions of its own, so Reload Console is the
   // only thing standing between a right click there and a dead menu.
@@ -57,5 +74,25 @@ describe("app/window/Window", () => {
         Haul.FILE,
       ]),
     );
+  });
+
+  // Without the Provider, every update check reads the empty context default.
+  it("tells the user about a Console update from the main window", async () => {
+    mocks.engine = "tauri";
+    mockUpdater({ served: "1.5.1" });
+    mockWindows(Drift.MAIN_WINDOW);
+    const core = createCore("Local");
+    await renderWithStatus(
+      <HaulProvider>
+        <Window.Window />
+      </HaulProvider>,
+      {
+        client: null,
+        status: createStatus("1.5.0"),
+        preloadedState: createCoreState([core], core.key),
+      },
+    );
+    // The status and the nav bar badge both say it.
+    expect(await screen.findAllByText("Update available")).not.toHaveLength(0);
   });
 });

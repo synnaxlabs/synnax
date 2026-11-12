@@ -14,6 +14,7 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
@@ -156,6 +158,30 @@ func (r *ReadField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadField) SetDefaults() {
+	r.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadField
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry struct {
 	// Key uniquely identifies the entry within the task.
@@ -198,6 +224,11 @@ type PlainReadEntry struct {
 
 func (PlainReadEntry) isReadEntryVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainReadEntry) SetDefaults() {
+	p.Qos = QoSAtMostOnce
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PlainReadEntry) ApplyDefaults() {
 	if p.Qos == "" {
@@ -236,6 +267,11 @@ type SparkplugReadEntry struct {
 }
 
 func (SparkplugReadEntry) isReadEntryVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugReadEntry) SetDefaults() {
+	s.DataType = "float64"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SparkplugReadEntry) ApplyDefaults() {
@@ -295,6 +331,7 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadEntryType `json:"type"`
 			PlainReadEntry
 		}
+		v.PlainReadEntry.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -304,6 +341,7 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadEntryType `json:"type"`
 			SparkplugReadEntry
 		}
+		v.SparkplugReadEntry.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -480,6 +518,31 @@ func (c *ChannelField) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (c *ChannelField) SetDefaults() {
+	c.JSONType = JSONTypeNumber
+	c.DataType = "float64"
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *ChannelField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ChannelField
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c ChannelField) Validate() error {
@@ -523,6 +586,11 @@ type StaticWriteField struct {
 
 func (StaticWriteField) isWriteFieldVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StaticWriteField) SetDefaults() {
+	s.JSONType = JSONTypeNumber
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StaticWriteField) ApplyDefaults() {
 	if s.JSONType == "" {
@@ -548,6 +616,11 @@ type GeneratedWriteField struct {
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (g *GeneratedWriteField) SetDefaults() {
+	g.Generator = GeneratorTypeUUID
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (g *GeneratedWriteField) ApplyDefaults() {
@@ -615,6 +688,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			StaticWriteField
 		}
+		v.StaticWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -624,6 +698,7 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteFieldType `json:"type"`
 			GeneratedWriteField
 		}
+		v.GeneratedWriteField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -739,6 +814,12 @@ type PlainWriteTarget struct {
 
 func (PlainWriteTarget) isWriteTargetVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainWriteTarget) SetDefaults() {
+	p.Channel.SetDefaults()
+	p.Qos = QoSAtLeastOnce
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (p *PlainWriteTarget) ApplyDefaults() {
 	if p.Qos == "" {
@@ -782,6 +863,11 @@ type SparkplugWriteTarget struct {
 }
 
 func (SparkplugWriteTarget) isWriteTargetVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugWriteTarget) SetDefaults() {
+	s.TagType = SparkplugDataTypeDouble
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SparkplugWriteTarget) ApplyDefaults() {
@@ -849,6 +935,7 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteTargetType `json:"type"`
 			PlainWriteTarget
 		}
+		v.PlainWriteTarget.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -858,6 +945,7 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteTargetType `json:"type"`
 			SparkplugWriteTarget
 		}
+		v.SparkplugWriteTarget.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -970,6 +1058,38 @@ func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
+}
+
 // EdgeTag is a single tag published by a Sparkplug B edge node task.
 type EdgeTag struct {
 	// Key uniquely identifies the tag within the task.
@@ -995,6 +1115,30 @@ func (e *EdgeTag) ApplyDefaults() {
 	if e.TagType == "" {
 		e.TagType = SparkplugDataTypeDouble
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *EdgeTag) SetDefaults() {
+	e.TagType = SparkplugDataTypeDouble
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (e *EdgeTag) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain EdgeTag
+	if reflect.ValueOf(*e).IsZero() {
+		e.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(e))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (e *EdgeTag) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain EdgeTag
+	if reflect.ValueOf(*e).IsZero() {
+		e.SetDefaults()
+	}
+	return dec.Decode((*plain)(e))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

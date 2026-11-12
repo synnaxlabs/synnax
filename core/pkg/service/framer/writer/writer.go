@@ -67,8 +67,8 @@ const (
 	CommandEndDomain = writer.CommandEndDomain
 )
 
-// ErrClosed is returned when a method is called on a Writer after it has been closed.
-// Re-exported from [writer.ErrClosed].
+// ErrClosed is returned when a method is called on a Writer after it has been closed,
+// or when its pipeline exits before it answers. Re-exported from [writer.ErrClosed].
 var ErrClosed = writer.ErrClosed
 
 // Writer is a buffered, synchronous wrapper around a StreamWriter that exposes a
@@ -136,21 +136,26 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	}
 	select {
 	case res = <-w.responses.Outlet():
-		return res, w.close(res.Err)
-	case w.requests.Inlet() <- req:
-	}
-	if !sync {
-		return res, nil
-	}
-	for res = range w.responses.Outlet() {
 		if res.Err != nil {
-			return res, w.close(res.Err)
+			return Response{}, w.close(res.Err)
 		}
-		if res.Command == req.Command {
+	case w.requests.Inlet() <- req:
+		if !sync {
 			return res, nil
 		}
+		for res = range w.responses.Outlet() {
+			if res.Err != nil {
+				return Response{}, w.close(res.Err)
+			}
+			if res.Command == req.Command {
+				return res, nil
+			}
+		}
 	}
-	return res, w.close(nil)
+	if err := w.close(nil); err != nil {
+		return Response{}, err
+	}
+	return Response{}, errors.Wrap(ErrClosed, "writer exited without a response")
 }
 
 // Close closes the writer, releasing its control over the written region. Close returns

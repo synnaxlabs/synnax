@@ -44,8 +44,6 @@ var (
 	// These handlers run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apidevice.CreateRequest, apidevice.CreateResponse]
 	del      freighter.UnaryHandler[apidevice.DeleteRequest, struct{}]
-	rename   freighter.UnaryHandler[apidevice.RenameRequest, struct{}]
-	setGroup freighter.UnaryHandler[apidevice.SetGroupRequest, struct{}]
 	dispatch freighter.UnaryHandler[apidevice.DispatchRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apidevice.RetrieveRequest,
@@ -70,8 +68,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
-	rename = bind.Write(binder, apiSvc.Rename)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })

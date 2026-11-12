@@ -377,6 +377,18 @@ func findFuncBody(callSite antlr.ParserRuleContext) parser.IBlockContext {
 	return nil
 }
 
+func analyzeTopLevelAssignment(ctx acontext.Context[parser.IAssignmentContext]) {
+	name := ctx.AST.IDENTIFIER().GetText()
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if !ctx.RejectTopLevel(sym, name) {
+		sequence.RejectReactiveAssignment(ctx.Diagnostics, ctx.AST)
+	}
+}
+
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
@@ -390,9 +402,7 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
 			statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
 		} else if assign := item.Assignment(); assign != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-				"cannot reassign a top-level variable; assignment is only valid "+
-					"inside a sequence, stage, or function"))
+			analyzeTopLevelAssignment(ctx.Child(assign))
 		}
 	}
 	sequence.AnalyzeSynthInlines(ctx)

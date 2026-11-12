@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/patch"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -187,6 +188,36 @@ func expectLikeEdit[D any, P patcher[D]](doc D, a patch.Action) {
 	}
 	Expect(err).ToNot(HaveOccurred())
 	Expect(got).To(Equal(want))
+}
+
+// gain has a field with a schema default and a default group, as Oracle generates them.
+type gain struct {
+	Factor float64 `json:"factor"`
+	Lower  float64 `json:"lower"`
+	Upper  float64 `json:"upper"`
+}
+
+func (g *gain) SetUngroupedDefaults() { g.Factor = 1 }
+
+func (g *gain) DefaultGroups() {
+	if g.Lower == 0 && g.Upper == 0 {
+		g.Upper = 1
+	}
+}
+
+func (gv *gain) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "factor":
+		return patch.Defaulted(&gv.Factor, c.Next(), func(def *gain) {
+			gv.Factor = def.Factor
+		})
+	case "upper":
+		return patch.Defaulted(&gv.Upper, c.Next(), func(def *gain) {
+			gv.Upper = def.Upper
+		})
+	default:
+		return c.UnknownField()
+	}
 }
 
 var _ = Describe("Patch", func() {
@@ -426,6 +457,67 @@ var _ = Describe("Patch", func() {
 			Expect(apply(&doc, set(3.0, "window", "start"))).To(Succeed())
 			Expect(doc.Window).To(Equal(&span{Start: 3, End: 4}))
 			Expect(original).To(Equal(&span{Start: 2, End: 4}))
+		})
+	})
+
+	Describe("Defaulted", func() {
+		partial := func(doc *gain, a patch.Action) (bool, error) {
+			c, err := patch.Begin(a)
+			if err != nil {
+				return false, err
+			}
+			var filled bool
+			return filled, doc.Patch(c.Partial(&filled))
+		}
+		doc := func() gain { return gain{Factor: 3, Lower: 2, Upper: 5} }
+
+		It("Should leave the schema default for a removal", func() {
+			g := doc()
+			Expect(partial(&g, patch.Remove{Key: "factor"})).To(BeTrue())
+			Expect(g.Factor).To(Equal(1.0))
+		})
+
+		It("Should leave the schema default for a null set", func() {
+			g := doc()
+			Expect(partial(&g, patch.Set{Path: []string{"factor"}})).To(BeTrue())
+			Expect(g.Factor).To(Equal(1.0))
+		})
+
+		It("Should keep an explicit zero", func() {
+			g := doc()
+			zero := patch.Set{Path: []string{"factor"}, Value: 0.0}
+			Expect(partial(&g, zero)).To(BeFalse())
+			Expect(g.Factor).To(BeZero())
+		})
+
+		It("Should leave the zero value in a default group", func() {
+			g := doc()
+			Expect(partial(&g, patch.Remove{Key: "upper"})).To(BeTrue())
+			Expect(g.Upper).To(BeZero())
+		})
+
+		It("Should reject a path that goes into the field", func() {
+			g := doc()
+			into := patch.Set{Path: []string{"factor", "x"}, Value: 0.0}
+			Expect(partial(&g, into)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a removal with an unchecked guard", func() {
+			g := doc()
+			guarded := patch.Remove{
+				Key:    "factor",
+				Guards: []patch.Guard{{Path: []string{"factor"}, Value: "a"}},
+			}
+			Expect(partial(&g, guarded)).Error().To(MatchError(ContainSubstring(
+				"the guard names no union that the path goes into",
+			)))
+			Expect(g.Factor).To(Equal(3.0))
+		})
+
+		It("Should reject a removal from a strict document", func() {
+			g := doc()
+			c := MustSucceed(patch.Begin(patch.Remove{Key: "factor"}))
+			Expect(g.Patch(c)).To(MatchError(validate.ErrValidation))
 		})
 	})
 

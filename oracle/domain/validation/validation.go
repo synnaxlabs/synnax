@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package validation provides utilities for parsing @validate domain expressions.
-// It extracts validation rules like required, min/max length, and defaults.
+// It extracts validation rules like required, min/max length, numeric bounds, and
+// defaults.
 package validation
 
 import "github.com/synnaxlabs/oracle/resolution"
@@ -18,6 +19,7 @@ type Rules struct {
 	MinLength      *int64
 	MaxLength      *int64
 	Min            *Number
+	GT             *Number
 	Max            *Number
 	Pattern        *string
 	PatternMessage *string
@@ -33,6 +35,14 @@ type Number struct {
 	Int   int64
 	Float float64
 	IsInt bool
+}
+
+func newNumber(v resolution.ExpressionValue) *Number {
+	return &Number{
+		Int:   v.IntValue,
+		Float: v.FloatValue,
+		IsInt: v.Kind == resolution.ValueKindInt,
+	}
 }
 
 // Parse extracts validation rules from a @validate domain entry.
@@ -56,17 +66,11 @@ func Parse(domain resolution.Domain) *Rules {
 		case "max_length":
 			rules.MaxLength = &v.IntValue
 		case "min":
-			rules.Min = &Number{
-				Int:   v.IntValue,
-				Float: v.FloatValue,
-				IsInt: v.Kind == resolution.ValueKindInt,
-			}
+			rules.Min = newNumber(v)
+		case "gt":
+			rules.GT = newNumber(v)
 		case "max":
-			rules.Max = &Number{
-				Int:   v.IntValue,
-				Float: v.FloatValue,
-				IsInt: v.Kind == resolution.ValueKindInt,
-			}
+			rules.Max = newNumber(v)
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -83,5 +87,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.Max == nil && r.Pattern == nil
+		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil
 }

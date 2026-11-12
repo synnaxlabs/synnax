@@ -12,7 +12,16 @@ import { capture, fixtures } from "@/index";
 import { DRIVER, fieldItem, NI_DAQ } from "./common/task";
 
 /** Every integration in the connect dialog, so that no entry shows a warning. */
-const INTEGRATIONS = ["opc", "modbus", "http", "ni", "labjack", "ethercat"];
+const INTEGRATIONS = [
+  "opc",
+  "modbus",
+  "http",
+  "ni",
+  "labjack",
+  "ethercat",
+  "mqtt",
+  "kafka",
+];
 
 /**
  * Docs `reference/hardware/devices` (Connect a device): open the connect dialog from

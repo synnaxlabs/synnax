@@ -35,6 +35,7 @@ from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
 from x.exceptions import Error, Registry
 from x.lists import normalize
+from x.params import deprecate_positional
 
 
 class WriterCommand(int, Enum):
@@ -88,11 +89,12 @@ class CommitResult(BaseModel):
     """The result of a commit."""
 
     end: TimeStamp
-    """The end of the committed time range. Only valid when authorized is True."""
+    """The end of the committed time range. Zero if the commit lacked control or if the
+    writer writes only virtual channels."""
     authorized: bool
-    """Whether the writer had control of every channel it writes at the commit. When
-    False, other channels may have committed. The writer stays open so that it can
-    regain control."""
+    """False if the writer lacked control of a channel with samples to commit, or if
+    the Core refused a write since the last commit. Each refused write is reported at
+    one commit only. The writer stays open so that it can regain control."""
 
 
 class _WSWriterCodec(WSCodec):
@@ -325,6 +327,7 @@ class Writer:
         :param value: A dictionary mapping channel keys/names to their authority levels.
         """
 
+    @deprecate_positional("authority")
     def set_authority(
         self,
         value: (
@@ -404,7 +407,7 @@ class Writer:
         return self.commit_result().end
 
     def commit_result(self) -> CommitResult:
-        """Commits like commit, and also reports whether the writer had control.
+        """Commits like commit, and also reports whether the Core refused data.
 
         :returns: The result of the commit.
         :raises WriterClosed: If the writer was closed before the commit.

@@ -182,7 +182,7 @@ func (g *Graph) RejectDefinition(
 // keeps a single writer on the status record, so a report and a validity clear apply in
 // submission order. The Graph drops a report for a deleted channel, and a report for a
 // channel it holds as invalid or rejected: that record describes the channel
-// definition.
+// definition. A report that changes nothing takes only the read lock of the DB.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
@@ -193,19 +193,20 @@ func (g *Graph) SetRuntimeStatus(
 	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
 		return nil
 	}
+	var changed bool
+	if err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		stored, found, err := g.retrieveStatus(ctx, snap, key)
+		changed = changes(stored, found, stat)
+		return err
+	}); err != nil || !changed {
+		return err
+	}
+	if stat.Variant == status.VariantError {
+		g.L.Warn(stat.String())
+	} else {
+		g.L.Info(stat.String())
+	}
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		stored, found, err := g.retrieveStatus(ctx, tx, key)
-		if err != nil {
-			return err
-		}
-		if !changes(stored, found, stat) {
-			return nil
-		}
-		if stat.Variant == status.VariantError {
-			g.L.Warn(stat.String())
-		} else {
-			g.L.Info(stat.String())
-		}
 		return g.writeStatus(ctx, tx, key, stat)
 	})
 }
@@ -472,8 +473,11 @@ func (g *Graph) handleChanges(
 						zap.String("name", ch.Name),
 						zap.Stringers("deps", nd.deps),
 					)
+					// An update to an untracked node holds a coalesced create, so the
+					// expression a runtime status describes may be gone.
 					prev, ok := g.mu.nodes[ch.Key()]
-					if ok && (prev.invalid || prev.Expression != ch.Expression) {
+					if (!ok && chg.Kind == gorp.ChangeUpdate) ||
+						(ok && (prev.invalid || prev.Expression != ch.Expression)) {
 						g.clearNodeStatus(ctx, tx, ch.Key())
 					}
 				}
@@ -633,7 +637,7 @@ func (g *Graph) reconcileQueued(
 				continue
 			}
 			valid = append(valid, refetched)
-			if oldInvalid {
+			if oldInvalid || refetched.Expression != nd.Expression {
 				g.clearNodeStatus(ctx, tx, key)
 			}
 			if oldInvalid || oldType != newNode.DataType {

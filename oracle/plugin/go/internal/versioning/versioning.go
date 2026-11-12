@@ -203,16 +203,16 @@ func RewriteCurrent(
 	if len(pathMap) == 0 {
 		return table, pathMap, members, nil
 	}
-	return RewriteOutputPaths(table, pathMap, members), pathMap, members, nil
+	return rewriteOutputPaths(table, pathMap, members), pathMap, members, nil
 }
 
-// RewriteOutputPaths clones table, replacing the @go output value of every
+// rewriteOutputPaths clones table, replacing the @go output value of every
 // version-declaring type whose path appears in pathMap. Types at unmapped paths are
 // unchanged. Non-member types also stay put: they are transient
 // (never persisted), living at the package root rather than the version layout even
 // when siblings at their path are versioned. A member loses its live @go omit, so its
 // version package declares it.
-func RewriteOutputPaths(
+func rewriteOutputPaths(
 	table *resolution.Table,
 	pathMap map[string]string,
 	members set.Set[string],

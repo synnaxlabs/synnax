@@ -73,6 +73,16 @@ func (r *Resolver) RegisterLocal(name string, bodyIndex uint32) {
 	r.compiled[name] = compiledFunc{bodyIndex: bodyIndex}
 }
 
+// References reports whether a recorded call targets the local function name.
+func (r *Resolver) References(name string) bool {
+	for _, ref := range r.pending {
+		if ref.module == "" && ref.name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // TrackWriter registers a writer for patch tracking and returns its ID.
 func (r *Resolver) TrackWriter(w *wasm.Writer) int {
 	id := len(r.writers)
@@ -80,9 +90,9 @@ func (r *Resolver) TrackWriter(w *wasm.Writer) int {
 	return id
 }
 
-// RecordPlaceholder records that a call placeholder was written at the given
+// recordPlaceholder records that a call placeholder was written at the given
 // offset in the tracked writer.
-func (r *Resolver) RecordPlaceholder(writerID int, handle uint32, offset int) {
+func (r *Resolver) recordPlaceholder(writerID int, handle uint32, offset int) {
 	r.writers[writerID].entries = append(r.writers[writerID].entries, patchEntry{
 		handle: handle,
 		offset: offset,
@@ -93,27 +103,30 @@ func (r *Resolver) RecordPlaceholder(writerID int, handle uint32, offset int) {
 // placeholder at the writer's current offset. target's position in the
 // symbol tree determines the WASM coordinate:
 //
-//   - A member of a KindModule (target.Parent.Kind == KindModule) becomes
-//     a WASM import under (target.Parent.Name, target.Name). Any type
+//   - A member of a host module (a KindModule parent that is not UserDefined)
+//     becomes a WASM import under (target.Parent.Name, target.Name). Any type
 //     variables in target.Type are reconciled against concreteType to
 //     produce a per-instantiation type suffix.
-//   - Anything else is treated as a locally-compiled function looked up at
-//     link time via RegisterLocal(target.Name, ...).
+//   - Anything else, a user module's member included, is a locally-compiled
+//     function looked up at link time via RegisterLocal(target.QualifiedName(), ...).
 func (r *Resolver) EmitCall(
 	w *wasm.Writer,
 	writerID int,
 	target *symbol.Symbol,
 	concreteType types.Type,
 ) {
-	var module, suffix string
-	if target.Parent != nil && target.Parent.Kind == symbol.KindModule {
-		module = target.Parent.Name
-		suffix = DeriveTypeSuffix(target.Type, concreteType)
+	p := target.Parent
+	if p != nil && p.Kind == symbol.KindModule && !p.UserDefined {
+		r.record(w, writerID, pendingRef{
+			module:       p.Name,
+			name:         target.Name,
+			typeSuffix:   DeriveTypeSuffix(target.Type, concreteType),
+			concreteType: concreteType,
+		})
+		return
 	}
 	r.record(w, writerID, pendingRef{
-		module:       module,
-		name:         target.Name,
-		typeSuffix:   suffix,
+		name:         target.QualifiedName(),
 		concreteType: concreteType,
 	})
 }
@@ -135,10 +148,10 @@ func (r *Resolver) EmitImportCall(
 	})
 }
 
-// EmitImportCallWithSuffix is EmitImportCall with an explicit type suffix.
+// emitImportCallWithSuffix is EmitImportCall with an explicit type suffix.
 // Use for host functions whose WASM params are all i32 handles but whose
 // import name still needs a type suffix.
-func (r *Resolver) EmitImportCallWithSuffix(
+func (r *Resolver) emitImportCallWithSuffix(
 	w *wasm.Writer,
 	writerID int,
 	module, name string,
@@ -172,7 +185,7 @@ func (r *Resolver) record(w *wasm.Writer, writerID int, ref pendingRef) {
 	r.handleCounter++
 	r.pending = append(r.pending, ref)
 	offset := w.WriteCallPlaceholder(ref.handle)
-	r.RecordPlaceholder(writerID, ref.handle, offset)
+	r.recordPlaceholder(writerID, ref.handle, offset)
 }
 
 // Finalize partitions pending references into imports and locals, registers

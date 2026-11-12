@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, color, type patch, zod } from "@synnaxlabs/x";
-import { type Draft, produce } from "immer";
+import { caseconv, color, type patch, record, zod } from "@synnaxlabs/x";
+import { type Draft, freeze, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -258,6 +258,164 @@ describe("applyEntryPath", () => {
     );
     expect(next).toBe(DOC);
     expect(result).toBe(actions.NO_OP_RESULT);
+  });
+});
+
+describe("applyField", () => {
+  const documentZ = z.object({
+    maxSize: z.number(),
+    group: zod.nullToUndefined(z.string()),
+  });
+  interface Doc {
+    key: string;
+    maxSize: number;
+    group?: string;
+  }
+  const DOC: Doc = { key: "a", maxSize: 1, group: "g" };
+  const setAt = (path: string[], value: unknown, guards: patch.Guard[] = []) => ({
+    type: "set" as const,
+    set: { path, value, guards },
+  });
+  const apply = (action: patch.Action) => {
+    let result: actions.HandlerResult<patch.Action> = actions.NO_OP_RESULT;
+    const next = produce(DOC, (draft) => {
+      result = actions.applyField(draft, action, documentZ);
+    });
+    return { next, result };
+  };
+
+  it("should apply a wire-form path to a field of the document", () => {
+    const { next, result } = apply(setAt(["max_size"], 2));
+    expect(next.maxSize).toBe(2);
+    expect(result).toEqual({
+      inverse: [setAt(["max_size"], 1)],
+      targets: ["max_size"],
+    });
+  });
+
+  it("should remove a field that parses to undefined", () => {
+    const { next } = apply(setAt(["group"], null));
+    expect(next).toEqual({ key: "a", maxSize: 1 });
+  });
+
+  it.each([[["key"]], [["missing"]], [["constructor"]], [["__proto__"]], [[]]])(
+    "should throw on a set at %j",
+    (path) => {
+      expect(() => apply(setAt(path, 2))).toThrow(
+        `no editable field at "${path.join(".")}"`,
+      );
+    },
+  );
+
+  it("should throw when the field does not parse after the action", () => {
+    expect(() => apply(setAt(["max_size"], "big"))).toThrow(
+      "Failed to parse maxSize (1 issue)",
+    );
+  });
+
+  it("should return NO_OP_RESULT when a guard fails", () => {
+    const { next, result } = apply(
+      setAt(["max_size"], 2, [{ path: ["kind"], value: "a" }]),
+    );
+    expect(next).toBe(DOC);
+    expect(result).toBe(actions.NO_OP_RESULT);
+  });
+
+  it("should apply two actions to one field of a frozen document", () => {
+    const documentZ = z.object({ props: record.unknownZ() });
+    const doc = freeze({ key: "a", props: { a: { b: {} }, c: 1 } }, true);
+    const next = produce(doc, (draft) => {
+      actions.applyField(draft, setAt(["props", "c"], 2), documentZ);
+      actions.applyField(draft, setAt(["props", "a", "b", "d"], 3), documentZ);
+    });
+    expect(next).toEqual({ key: "a", props: { a: { b: { d: 3 } }, c: 2 } });
+  });
+});
+
+describe("replace", () => {
+  it("should replace a draft with a created record", () => {
+    let result: actions.HandlerResult<never> = actions.NO_OP_RESULT;
+    const prev: { key: number; name: string; group?: string } = {
+      key: 1,
+      name: "a",
+      group: "g",
+    };
+    const next = produce(prev, (draft) => {
+      result = actions.replace(draft, { key: 1, name: "b" });
+    });
+    expect(next).toEqual({ key: 1, name: "b" });
+    expect(result).toEqual({ inverse: [], targets: ["1"] });
+  });
+});
+
+describe("diffFields", () => {
+  const schema = z.object({
+    name: z.string(),
+    sampleRate: z.number(),
+    props: z.object({
+      portCount: z.number(),
+      channels: z.record(z.string(), z.number()),
+    }),
+    nodes: caseconv.preserveCase(z.record(z.string(), z.number())),
+  });
+  const BASE = {
+    name: "dev",
+    sampleRate: 10,
+    props: { portCount: 1, channels: {} },
+    nodes: { "ns=1;nodeId": 1 },
+  };
+
+  it("should list no action when no field differs", () => {
+    expect(
+      actions.diffFields(schema, BASE, structuredClone(BASE), ["name", "props"]),
+    ).toEqual([]);
+  });
+
+  it("should set only the fields that differ", () => {
+    expect(
+      actions.diffFields(schema, BASE, { ...BASE, name: "renamed" }, ["name", "props"]),
+    ).toEqual([{ type: "set", set: { path: ["name"], value: "renamed", guards: [] } }]);
+  });
+
+  it("should set each listed field that next holds when there is no base", () => {
+    const next = { name: "dev", sampleRate: 10 };
+    expect(actions.diffFields(schema, undefined, next, ["name", "props"])).toEqual([
+      { type: "set", set: { path: ["name"], value: "dev", guards: [] } },
+    ]);
+  });
+
+  it("should skip a field that differs but is not listed", () => {
+    const next = { ...BASE, name: "renamed" };
+    expect(actions.diffFields(schema, BASE, next, ["props"])).toEqual([]);
+  });
+
+  it("should convert the path and the keys of the value to snake_case", () => {
+    const next = {
+      ...BASE,
+      sampleRate: 20,
+      props: { portCount: 2, channels: { portA: 3 } },
+    };
+    expect(actions.diffFields(schema, BASE, next, ["sampleRate", "props"])).toEqual([
+      { type: "set", set: { path: ["sample_rate"], value: 20, guards: [] } },
+      {
+        type: "set",
+        set: {
+          path: ["props"],
+          value: { port_count: 2, channels: { port_a: 3 } },
+          guards: [],
+        },
+      },
+    ]);
+  });
+
+  it("should keep the case of keys that the schema preserves", () => {
+    const next = { ...BASE, nodes: { "ns=1;nodeId": 2 } };
+    expect(actions.diffFields(schema, BASE, next, ["nodes"])).toEqual([
+      {
+        type: "set",
+        set: { path: ["nodes"], value: { "ns=1;nodeId": 2 }, guards: [] },
+      },
+    ]);
   });
 });
 

@@ -25,6 +25,7 @@ type Writer struct {
 	tx         gorp.Tx
 	channel    *channel.Service
 	table      *gorp.Table[string, Alias]
+	indexes    indexes
 	dispatcher actions.Dispatcher[string, Action]
 }
 
@@ -35,7 +36,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Set sets an alias for the given channel on the specified range.
+// Set sets an alias for the given channel on the specified range. It removes the alias
+// from any other channel that holds it on the range.
 func (w Writer) Set(
 	ctx context.Context,
 	rng ranger.Key,
@@ -55,6 +57,9 @@ func (w Writer) Set(
 		)
 	}
 	a := Alias{Range: rng, Channel: ch, Alias: al}
+	if err = w.release(ctx, a); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(&a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -63,16 +68,13 @@ func (w Writer) Set(
 }
 
 // Apply applies acts to the alias with the given Gorp key and attaches them to the
-// transaction of w.
+// transaction of w. Apply leaves the aliases of other channels in place, even when the
+// edited alias matches one of them.
 func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[string, Alias](key)).
 		ChangeErr(func(_ gorp.Context, a Alias) (Alias, error) {
-			next, err := Reduce(a, acts...)
-			if err != nil {
-				return Alias{}, err
-			}
-			return next, nil
+			return Reduce(a, acts...)
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -92,5 +94,16 @@ func (w Writer) Delete(
 	return w.table.
 		NewDelete().
 		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
+		Exec(ctx, w.tx)
+}
+
+// release deletes the alias of every channel other than a.Channel that holds a.Alias
+// on a.Range.
+func (w Writer) release(ctx context.Context, a Alias) error {
+	return w.table.NewDelete().
+		Where(w.indexes.alias.Filter(a.Alias)).
+		Where(gorp.Match(func(_ gorp.Context, o *Alias) (bool, error) {
+			return o.Range == a.Range && o.Channel != a.Channel, nil
+		})).
 		Exec(ctx, w.tx)
 }

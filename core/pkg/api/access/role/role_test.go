@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var roleType = resource.ID{Type: resource.TypeRole}
@@ -90,26 +91,18 @@ var _ = Describe("Create", func() {
 		Expect(roleExists(ctx, r.Key)).To(BeTrue())
 	})
 
-	It("Should refuse to overwrite a role the subject cannot update", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		grantOn(ctx, u.ResourceID(), access.ActionCreate, roleType)
-		r := createRole(ctx)
-		r.Name = "renamed-" + r.Name
-		Expect(create(AuthedCtx(ctx, u), apirole.CreateRequest{
-			Roles: []role.Role{r},
-		})).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
-	})
-
-	It("Should overwrite a role the subject can update", func(ctx SpecContext) {
+	It("Should refuse a role whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRole(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, r.ResourceID())
-		r.Name = "renamed-" + r.Name
-		MustSucceed(create(AuthedCtx(ctx, u), apirole.CreateRequest{
-			Roles: []role.Role{r},
-		}))
+		renamed := r
+		renamed.Name = "renamed-" + r.Name
+		Expect(create(AuthedCtx(ctx, u), apirole.CreateRequest{
+			Roles: []role.Role{renamed},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("role %s already exists", r.Key)),
+		))
 		var stored role.Role
 		Expect(svc.RBAC.Role.NewRetrieve().
 			Where(role.MatchKeys(r.Key)).
