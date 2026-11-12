@@ -20,6 +20,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -1500,27 +1501,62 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     EXPECT_EQ(cfg->channels[1]->dev_loc, "cDAQ2Mod2");
 }
 
-/// @brief Test that the minimum sample rate error message is formatted correctly
-TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
-    // This test verifies the error message format without requiring DAQmx hardware
-    x::telem::Rate configured_rate(25.0);
-    float64 min_rate = 50.0;
-    std::string location = "cDAQ1Mod1";
-    std::string model = "NI SIM";
+namespace {
+/// @brief a DAQmx API whose sample clock runs at a fixed rate.
+class FixedRateAPI final : public daqmx::MockAPI {
+public:
+    float64 rate = 0;
 
-    std::ostringstream msg;
-    msg << "configured sample rate (" << configured_rate
-        << ") is below device minimum (" << min_rate << " Hz) for " << location << " ("
-        << model << ")";
+    int32 GetTimingAttributeDouble(TaskHandle, int32, float64 *value) override {
+        *value = this->rate;
+        return 0;
+    }
+};
 
-    std::string result = msg.str();
+/// @brief applies a one-channel analog read config at 25 Hz to a DAQmx task whose
+/// sample clock runs at the given rate.
+x::errors::Error apply_at_rate(const float64 rate) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = make_unique_channel_name("ni"),
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "my_device",
+    };
+    EXPECT_NIL(client->devices.create(dev));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("virtual"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    auto p = x::json::Parser(j);
+    const ni::ReadTaskConfig cfg(client, p, "ni_analog_read");
+    EXPECT_NIL(p.error());
+    auto api = std::make_shared<FixedRateAPI>();
+    api->rate = rate;
+    return cfg.apply(std::make_shared<daqmx::SugaredAPI>(api), nullptr);
+}
+}
 
-    // Verify the message contains all required components
-    EXPECT_TRUE(result.contains("25 Hz"));
-    EXPECT_TRUE(result.contains("50 Hz"));
-    EXPECT_TRUE(result.contains("cDAQ1Mod1"));
-    EXPECT_TRUE(result.contains("NI SIM"));
-    EXPECT_TRUE(result.contains("below device minimum"));
+/// @brief it should fail with a sample rate field error when DAQmx changes the rate.
+TEST(ReadTaskConfigTest, FailsOnChangedSampleRate) {
+    const auto err = apply_at_rate(1612.903226);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    const auto fields = x::json::json::parse(err.data)["errors"];
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["path"], "sample_rate");
+    EXPECT_EQ(fields[0]["message"], "Device would run at 1612.903226 Hz");
+}
+
+/// @brief it should accept a read-back rate inside the tolerance.
+TEST(ReadTaskConfigTest, AcceptsSampleRateInsideTolerance) {
+    ASSERT_NIL(apply_at_rate(25.0000001));
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
