@@ -499,6 +499,7 @@ jobs:
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
       # pnpm cannot stage a batch, so each package stages on its own.
       - name: Stage
+        id: stage
         if: steps.claim.outputs.staged != 'true'
         env:
           TAG:
@@ -506,6 +507,19 @@ jobs:
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
         # The stamp dirties the tree, and the resolve job already checked the branch.
         run: pnpm stage publish -r --tag "$TAG" --no-git-checks
+
+      # No tag guards the packages that a failed stage left on the registry.
+      - name: Ask for a reject
+        if: failure() && steps.stage.conclusion == 'failure'
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Reject the staged npm packages"
+            echo "The stage of \`@synnaxlabs\` $VERSION stopped part way. Before the"
+            echo "next release, reject every $VERSION version in the Staged Packages"
+            echo "tab on npmjs.com or with \`pnpm stage reject\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tag
         if: steps.claim.outputs.staged != 'true'
