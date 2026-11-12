@@ -513,6 +513,8 @@ jobs:
       inputs.full || needs.changes.outputs.docs == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
+    with:
+      strict: *full
     secrets:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
