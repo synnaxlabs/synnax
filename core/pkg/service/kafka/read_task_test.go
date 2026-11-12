@@ -26,11 +26,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -46,7 +46,7 @@ var _ = Describe("Read task", func() {
 	var (
 		f        driver.Factory
 		producer *kgo.Client
-		unixNs   = http.TimeFormatUnixNs
+		unixNs   = payload.TimeFormatUnixNs
 	)
 	BeforeEach(func() {
 		f = newFactory()
@@ -1379,15 +1379,15 @@ var _ = Describe("Read task", func() {
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
 
-	onOff := []http.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
+	onOff := []payload.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
 	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
 
 	// valueFields reads the timestamp at /ts in format and the value at /v.
 	valueFields := func(
 		index, data channel.Channel,
 		dt telem.DataType,
-		format *http.TimeFormat,
-		enums []http.EnumEntry,
+		format *payload.TimeFormat,
+		enums []payload.EnumEntry,
 	) []kafka.ReadField {
 		return []kafka.ReadField{
 			{
@@ -1411,8 +1411,8 @@ var _ = Describe("Read task", func() {
 		func(
 			ctx SpecContext,
 			dataType telem.DataType,
-			format http.TimeFormat,
-			enums []http.EnumEntry,
+			format payload.TimeFormat,
+			enums []payload.EnumEntry,
 			doc map[string]any,
 			expected telem.Series,
 		) {
@@ -1431,53 +1431,53 @@ var _ = Describe("Read task", func() {
 				To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
 		},
 		Entry("a unix second timestamp",
-			telem.Float64T, http.TimeFormatUnixSec, nil,
+			telem.Float64T, payload.TimeFormatUnixSec, nil,
 			map[string]any{"ts": 10, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
 		Entry("a unix millisecond timestamp",
-			telem.Float64T, http.TimeFormatUnixMs, nil,
+			telem.Float64T, payload.TimeFormatUnixMs, nil,
 			map[string]any{"ts": 10_000, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
 		Entry("a unix microsecond timestamp",
-			telem.Float64T, http.TimeFormatUnixUs, nil,
+			telem.Float64T, payload.TimeFormatUnixUs, nil,
 			map[string]any{"ts": 10_000_000, "v": 1.5},
 			telem.NewSeriesV[float64](1.5)),
 		Entry("an ISO 8601 timestamp",
-			telem.Float64T, http.TimeFormatISO8601, nil,
+			telem.Float64T, payload.TimeFormatISO8601, nil,
 			map[string]any{"ts": "1970-01-01T00:00:10Z", "v": 1.5},
 			telem.NewSeriesV[float64](1.5)),
 		Entry("an integer into a float channel",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
+			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 2}, telem.NewSeriesV[float64](2)),
 		Entry("an integer beyond float64 precision",
-			telem.Int64T, http.TimeFormatUnixNs, nil,
+			telem.Int64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": int64(9007199254740993)},
 			telem.NewSeriesV[int64](9007199254740993)),
 		Entry("the largest unsigned integer",
-			telem.Uint64T, http.TimeFormatUnixNs, nil,
+			telem.Uint64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": uint64(math.MaxUint64)},
 			telem.NewSeriesV[uint64](math.MaxUint64)),
 		Entry("the smallest integer of the channel's range",
-			telem.Int8T, http.TimeFormatUnixNs, nil,
+			telem.Int8T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": -128}, telem.NewSeriesV[int8](-128)),
 		Entry("an integral float into an integer channel",
-			telem.Uint16T, http.TimeFormatUnixNs, nil,
+			telem.Uint16T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": jsontext.Value("6.5e4")},
 			telem.NewSeriesV[uint16](65000)),
 		Entry("an enum label",
-			telem.Uint8T, http.TimeFormatUnixNs, onOff,
+			telem.Uint8T, payload.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "ON"}, telem.NewSeriesV[uint8](1)),
 		Entry("a string",
-			telem.StringT, http.TimeFormatUnixNs, nil,
+			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
 		Entry("a UUID",
-			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
 			telem.NewSeriesV(readUUID)),
 		Entry("bytes from base64",
-			telem.BytesT, http.TimeFormatUnixNs, nil,
+			telem.BytesT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "AP8/"},
 			telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})),
 		Entry("empty bytes from empty base64",
-			telem.BytesT, http.TimeFormatUnixNs, nil,
+			telem.BytesT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
@@ -1502,8 +1502,8 @@ var _ = Describe("Read task", func() {
 		func(
 			ctx SpecContext,
 			dataType telem.DataType,
-			format http.TimeFormat,
-			enums []http.EnumEntry,
+			format payload.TimeFormat,
+			enums []payload.EnumEntry,
 			doc map[string]any,
 			msg string,
 		) {
@@ -1524,62 +1524,62 @@ var _ = Describe("Read task", func() {
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 		Entry("a number where an ISO 8601 timestamp is expected",
-			telem.Float64T, http.TimeFormatISO8601, nil,
+			telem.Float64T, payload.TimeFormatISO8601, nil,
 			map[string]any{"ts": 10, "v": 1.5}, "expected an ISO 8601 string"),
 		Entry("a malformed ISO 8601 timestamp",
-			telem.Float64T, http.TimeFormatISO8601, nil,
+			telem.Float64T, payload.TimeFormatISO8601, nil,
 			map[string]any{"ts": "yesterday", "v": 1.5},
 			"invalid ISO 8601 timestamp"),
 		Entry("a boolean where a numeric timestamp is expected",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
+			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": true, "v": 1.5}, "expected a number, got a boolean"),
 		Entry("a string that holds no number where a numeric timestamp is expected",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
+			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": "soon", "v": 1.5}, `invalid number "soon"`),
 		Entry("an unknown enum label",
-			telem.Uint8T, http.TimeFormatUnixNs, onOff,
+			telem.Uint8T, payload.TimeFormatUnixNs, onOff,
 			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
 		Entry("an object where a number is expected",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
+			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": map[string]any{"x": 1}},
 			"expected a number or boolean"),
 		Entry("a null where a number is expected",
-			telem.Float64T, http.TimeFormatUnixNs, nil,
+			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": nil}, "expected a number or boolean"),
 		Entry("a number where a string is expected",
-			telem.StringT, http.TimeFormatUnixNs, nil,
+			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
 		Entry("a number where a UUID is expected",
-			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),
 		Entry("a malformed UUID",
-			telem.UUIDT, http.TimeFormatUnixNs, nil,
+			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
 		Entry("text that is not base64",
-			telem.BytesT, http.TimeFormatUnixNs, nil,
+			telem.BytesT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
 		Entry("an integer beyond the channel's range",
-			telem.Uint8T, http.TimeFormatUnixNs, nil,
+			telem.Uint8T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
 		Entry("a negative integer into an unsigned channel",
-			telem.Uint32T, http.TimeFormatUnixNs, nil,
+			telem.Uint32T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint32"),
 		Entry("a fraction into an integer channel",
-			telem.Int32T, http.TimeFormatUnixNs, nil,
+			telem.Int32T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
 		Entry("an exponent beyond the integer channel's range",
-			telem.Int64T, http.TimeFormatUnixNs, nil,
+			telem.Int64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
 			"10000000000000000000 is out of range for int64"),
 		Entry("a number beyond float32",
-			telem.Float32T, http.TimeFormatUnixNs, nil,
+			telem.Float32T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
 		Entry("an integer timestamp beyond the nanosecond range",
-			telem.Float64T, http.TimeFormatUnixMs, nil,
+			telem.Float64T, payload.TimeFormatUnixMs, nil,
 			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
 			"1000000000000000000 is out of range for a unix_ms timestamp"),
 		Entry("a floating-point timestamp beyond the nanosecond range",
-			telem.Float64T, http.TimeFormatUnixSec, nil,
+			telem.Float64T, payload.TimeFormatUnixSec, nil,
 			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
 			"1e13 is out of range for a unix_sec timestamp"),
 	)
@@ -1627,7 +1627,7 @@ var _ = Describe("Read task", func() {
 					Channel:    data.Key(),
 					Pointer:    "/v",
 					DataType:   telem.Int8T,
-					EnumValues: []http.EnumEntry{{Label: "BIG", Value: 200}},
+					EnumValues: []payload.EnumEntry{{Label: "BIG", Value: 200}},
 				}}
 			}, `enum label "BIG": 200 is out of range for int8`),
 		Entry("an enum value on a string channel",
@@ -1638,7 +1638,7 @@ var _ = Describe("Read task", func() {
 					Channel:    data.Key(),
 					Pointer:    "/v",
 					DataType:   telem.StringT,
-					EnumValues: []http.EnumEntry{{Label: "ON", Value: 1}},
+					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
 				}}
 			}, `enum label "ON": a float64 value does not convert to string`),
 		Entry("a pointer without a leading slash",

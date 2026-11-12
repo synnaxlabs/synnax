@@ -25,26 +25,6 @@ const (
 	QoSExactlyOnce QoS = versions.QoSExactlyOnce
 )
 
-// TimeFormat is the encoding of a timestamp value within a JSON payload.
-type TimeFormat = versions.TimeFormat
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = versions.TimeFormatISO8601
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = versions.TimeFormatUnixSec
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = versions.TimeFormatUnixMs
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = versions.TimeFormatUnixUs
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = versions.TimeFormatUnixNs
-)
-
-// EnumEntry maps a string label in a JSON payload to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = versions.EnumEntry
-
 // SparkplugDataType is the Sparkplug B data type of a tag.
 type SparkplugDataType = versions.SparkplugDataType
 
@@ -110,28 +90,6 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
-
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType = versions.JSONType
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = versions.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = versions.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
-)
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = versions.GeneratorType
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each message.
-	GeneratorTypeUUID GeneratorType = versions.GeneratorTypeUUID
-	// GeneratorTypeTimestamp produces the time of the message.
-	GeneratorTypeTimestamp GeneratorType = versions.GeneratorTypeTimestamp
-)
 
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = versions.ChannelField
