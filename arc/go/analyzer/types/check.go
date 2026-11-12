@@ -23,6 +23,8 @@ import (
 type typeMismatchError struct {
 	Message string
 	Hint    string
+	// Cast is the type that the hint says to cast the value to, if any.
+	Cast string
 }
 
 func (e *typeMismatchError) Error() string { return e.Message }
@@ -86,7 +88,13 @@ func Check(
 	}
 
 	if t1.Kind == types.KindSeries || t1.Kind == types.KindChan {
-		return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
+		err := Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
+		// A cast of the whole value does not convert its elements.
+		var mismatch *typeMismatchError
+		if errors.As(err, &mismatch) {
+			mismatch.Cast = ""
+		}
+		return err
 	}
 
 	if t1.Kind != t2.Kind || !types.UnitsAssignable(t1.Unit, t2.Unit) {
@@ -112,12 +120,25 @@ func newTypeMismatchError(
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
-	var hint string
+	var hint, cast string
 	if expected.IsNumeric() && actual.IsNumeric() {
-		hintType := concreteTypeForHint(expected)
-		hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		name := concreteTypeForHint(expected)
+		hint = fmt.Sprintf("hint: use %s(value) to convert", name)
+		if expected.Unwrap().Kind == expected.Kind &&
+			actual.Unwrap().Kind == actual.Kind {
+			cast = name
+		}
 	}
-	return &typeMismatchError{Message: msg, Hint: hint}
+	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
+}
+
+// CastOf returns the type that a cast of the value fixes err with, if there is one.
+func CastOf(err error) (string, bool) {
+	var mismatch *typeMismatchError
+	if !errors.As(err, &mismatch) || mismatch.Cast == "" {
+		return "", false
+	}
+	return mismatch.Cast, true
 }
 
 // concreteTypeForHint returns a concrete type name for use in error hints. Converts

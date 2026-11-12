@@ -425,6 +425,7 @@ func (s *Server) runAnalysis(
 	if _, ok := s.documents[docURI]; ok {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
+		doc.analyzed = content
 	}
 	s.mu.Unlock()
 
@@ -545,6 +546,7 @@ func (s *Server) publishDiagnostics(
 	if _, stillOpen := s.documents[docURI]; stillOpen {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
+		doc.analyzed = content
 	}
 	s.mu.Unlock()
 

@@ -46,13 +46,8 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	for _, param := range fnType.Inputs {
 		if param.Value == nil && !supplied.Contains(param.Name) &&
 			!satisfied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				site,
-				"missing required argument for parameter '%s' of func '%s'",
-				param.Name,
-				fnName,
-			).
-				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(codes.FuncArgMissing.At(site, param.Name, fnName).
+				WithNote("signature: " + signature))
 		}
 	}
 	if hook != nil {
@@ -122,10 +117,8 @@ func matchParam[T antlr.ParserRuleContext](
 	positional := fnType.Inputs.Positional(trigger)
 	if arg.Index >= len(positional) {
 		if arg.Index == len(positional) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
-				"too many arguments for func '%s': expected at most %d",
-				fnName, len(positional)).
-				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(codes.FuncArgExtra.At(arg.AST, fnName, len(positional)).
+				WithNote("signature: " + signature))
 		}
 		return types.Param{}, false
 	}
@@ -150,8 +143,11 @@ func checkArgType[T antlr.ParserRuleContext](
 	}
 	if err := atypes.Check(ctx.Constraints, param.Type, argType, arg.AST,
 		fmt.Sprintf("argument '%s' of '%s'", param.Name, fnName)); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, arg.AST).
-			WithCode(codes.FuncArgType).WithNote("signature: " + signature))
+		d := codes.FuncArgType.Wrap(err, arg.AST)
+		if cast, ok := atypes.CastOf(err); ok {
+			d = d.WithFix(arg.Expr, cast+"("+parser.GetExpressionText(arg.Expr)+")")
+		}
+		ctx.Diagnostics.Add(d.WithNote("signature: " + signature))
 	}
 }
 

@@ -11,10 +11,10 @@ package lsp
 
 import (
 	"context"
-	"sort"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -857,23 +857,6 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 	item.InsertTextFormat = protocol.InsertTextFormatSnippet
 }
 
-// formatImportBlock renders module names as a multi-line `import (...)`
-// block, one name per line, indented four spaces. The trailing newline
-// closes the `)` line; callers append an additional `\n` when the edit
-// is inserted at the top of a file and needs a blank-line separator from
-// the following content.
-func formatImportBlock(names []string) string {
-	var b strings.Builder
-	b.WriteString("import (\n")
-	for _, n := range names {
-		b.WriteString("    ")
-		b.WriteString(n)
-		b.WriteByte('\n')
-	}
-	b.WriteString(")\n")
-	return b.String()
-}
-
 // buildAutoImportEdit returns the AdditionalTextEdits that import
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
 // semantics; this wrapper exists for callers that still hold a *document
@@ -886,16 +869,8 @@ func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
 	)
 }
 
-// buildAutoImportEditFromSnapshot is the snapshot-friendly form of
-// buildAutoImportEdit. content is the document text and symbols is the
-// document's root symbol scope, both captured by the caller under the
-// server lock so the edit can be computed without touching live document
-// state. When no imports exist a single loose `import <name>` statement
-// is inserted at the top of the file followed by a blank line; when
-// imports do exist they are consolidated with moduleName into a single
-// canonical `import (...)` block. The block form is reserved for two or
-// more imports so files with a single import keep the lighter loose
-// form. Returns nil when moduleName is already imported.
+// buildAutoImportEditFromSnapshot returns the edits that import moduleName into the
+// document with content and the root scope symbols, or nil when it is imported.
 func buildAutoImportEditFromSnapshot(
 	content string,
 	symbols *symbol.Symbol,
@@ -910,74 +885,7 @@ func buildAutoImportEditFromSnapshot(
 	if isModuleImportedInSource(content, moduleName) {
 		return nil
 	}
-	var (
-		existingNames []string
-		stmts         []antlr.ParserRuleContext
-		seenStmts     = set.New[antlr.ParserRuleContext]()
-	)
-	if symbols != nil {
-		for _, child := range symbols.Children() {
-			if child.Kind != symbol.KindModuleAlias || child.AST == nil {
-				continue
-			}
-			if child.Name == moduleName {
-				return nil
-			}
-			item, ok := child.AST.(parser.IImportItemContext)
-			if !ok {
-				continue
-			}
-			entry := item.ImportPath().GetText()
-			if item.AS() != nil {
-				entry += " as " + item.IDENTIFIER().GetText()
-			}
-			existingNames = append(existingNames, entry)
-			parent, ok := child.AST.GetParent().(antlr.ParserRuleContext)
-			if !ok || seenStmts.Contains(parent) {
-				continue
-			}
-			seenStmts.Add(parent)
-			stmts = append(stmts, parent)
-		}
-	}
-	if len(stmts) == 0 {
-		return []protocol.TextEdit{{
-			Range: protocol.Range{
-				Start: protocol.Position{Line: 0, Character: 0},
-				End:   protocol.Position{Line: 0, Character: 0},
-			},
-			NewText: "import " + moduleName + "\n\n",
-		}}
-	}
-	allNames := append(existingNames, moduleName)
-	sort.Slice(stmts, func(i, j int) bool {
-		return tokenBefore(stmts[i].GetStart(), stmts[j].GetStart())
-	})
-	// Replace the first statement in document order with the consolidated
-	// block and delete each subsequent statement. Using one big
-	// minStart-to-maxStop replacement instead would clobber any comments or
-	// in-progress edits sitting between the import statements; the
-	// statement-scoped edits leave that interstitial content untouched.
-	first := stmts[0]
-	edits := []protocol.TextEdit{{
-		Range: protocol.Range{
-			Start: protocol.Position{
-				Line:      uint32(first.GetStart().GetLine() - 1),
-				Character: uint32(first.GetStart().GetColumn()),
-			},
-			End: protocol.Position{
-				Line: uint32(first.GetStop().GetLine() - 1),
-				Character: uint32(
-					first.GetStop().GetColumn() + len(first.GetStop().GetText()),
-				),
-			},
-		},
-		NewText: formatImportBlock(allNames),
-	}}
-	for _, st := range stmts[1:] {
-		edits = append(edits, deleteStatementEdit(content, st))
-	}
-	return edits
+	return formatter.AddImport(symbols, moduleName)
 }
 
 // appendModuleMemberCompletions adds completion items for module
@@ -1048,13 +956,6 @@ func appendModuleMemberCompletions(
 		}
 	}
 	return items
-}
-
-func tokenBefore(a, b antlr.Token) bool {
-	if a.GetLine() != b.GetLine() {
-		return a.GetLine() < b.GetLine()
-	}
-	return a.GetColumn() < b.GetColumn()
 }
 
 func (s *Server) getAuthorityEntryCompletions(

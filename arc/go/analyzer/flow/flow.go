@@ -74,7 +74,7 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 		analyzeRoutingTable(ctx.Child(routingTable))
 	}
 	rejectTransitionIntoBranch(ctx)
-	warnNumericTransitions(ctx)
+	warnTruthyTransitions(ctx)
 }
 
 // rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select().
@@ -102,9 +102,9 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 	}
 }
 
-// warnNumericTransitions flags a numeric condition feeding a `=>` transition.
-// Numeric truthiness is deprecated: a future release will only accept bool.
-func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
+// warnTruthyTransitions flags a non-boolean value feeding a `=>` transition. That is
+// deprecated, and a future release accepts only a bool.
+func warnTruthyTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
 		op, ok := child.(parser.IFlowOperatorContext)
@@ -117,12 +117,10 @@ func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
 		if !ok || node.Function() != nil {
 			continue
 		}
-		if !inferFlowNodeOutputType(ctx.Child(node)).IsNumeric() {
-			continue
+		t := inferFlowNodeOutputType(ctx.Child(node))
+		if d, ok := expression.TruthyCondition(node, node.Expression(), t); ok {
+			ctx.Diagnostics.Add(d)
 		}
-		ctx.Diagnostics.Add(diagnostics.Warningf(node,
-			"numeric conditions are deprecated; use an explicit comparison like x != 0",
-		))
 	}
 }
 
@@ -616,7 +614,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	}
 	// An entry's types are known once the table's flow nodes are analyzed.
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		warnNumericTransitions(ctx.Child(entry))
+		warnTruthyTransitions(ctx.Child(entry))
 	}
 }
 
