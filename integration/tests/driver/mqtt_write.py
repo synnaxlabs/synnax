@@ -17,6 +17,7 @@ import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import MQTTWriteTaskCase, run_reader, write_until
 from tests.driver.task import create_channel, create_index
+from x import payload
 
 
 class MQTTWriteValve(MQTTWriteTaskCase):
@@ -43,10 +44,8 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                     data_type=sy.DataType.FLOAT64,
                 ),
                 fields=[
-                    mqtt.StaticWriteField(
-                        pointer="/source", json_type="string", value="synnax"
-                    ),
-                    mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
+                    payload.StringWriteField(pointer="/source", value="synnax"),
+                    payload.UuidWriteField(pointer="/id"),
                 ],
             ),
         ]

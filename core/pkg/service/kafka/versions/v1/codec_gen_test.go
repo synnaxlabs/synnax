@@ -18,10 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -50,6 +49,45 @@ var _ = Describe("Codec", func() {
 				Key:      "",
 				Disabled: false,
 				Channel:  channel.Key(0),
+			}),
+		)
+	})
+	Describe("Record", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Record) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Record
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Record{
+				ValuePointer:     "test_1",
+				ChannelPointer:   new(string("test_2")),
+				TimestampPointer: new(string("test_3")),
+				TimeFormat:       payload.TimeFormat("iso8601"),
+				Fields: []payload.WriteField{
+					{Variant: payload.FloatWriteField{
+						BaseWriteField: payload.BaseWriteField{Key: "test_6", Pointer: "test_7"},
+						Value:          payload.Float(8.5),
+					}},
+				},
+			}),
+			Entry("zero values", v1.Record{
+				ValuePointer:     "",
+				ChannelPointer:   nil,
+				TimestampPointer: nil,
+				TimeFormat:       payload.TimeFormat(""),
+				Fields:           []payload.WriteField{},
+			}),
+			Entry("empty collections", v1.Record{
+				ValuePointer:     "test_1",
+				ChannelPointer:   new(string("test_2")),
+				TimestampPointer: new(string("test_3")),
+				TimeFormat:       payload.TimeFormat("iso8601"),
+				Fields:           []payload.WriteField{},
 			}),
 		)
 	})
@@ -115,18 +153,17 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
 					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields: []http.WriteField{
-						{Variant: http.StaticWriteField{
-							BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-							JSONType:       payload.JSONType("number"),
-							Value:          any(map[string]any{"key_15": "value_15"}),
+					Fields: []payload.WriteField{
+						{Variant: payload.FloatWriteField{
+							BaseWriteField: payload.BaseWriteField{Key: "test_12", Pointer: "test_13"},
+							Value:          payload.Float(14.5),
 						}},
 					},
 				},
 				Channels: []v1.WriteChannel{
 					{Variant: v1.FloatWriteChannel{
 						BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-						EnumValues:       []payload.FloatEntry{{Label: "test_18", Value: payload.Float(19.5)}},
+						EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
 					}},
 				},
 			}),
@@ -141,7 +178,7 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   nil,
 					TimestampPointer: nil,
 					TimeFormat:       payload.TimeFormat(""),
-					Fields:           []http.WriteField{},
+					Fields:           []payload.WriteField{},
 				},
 				Channels: []v1.WriteChannel{},
 			}),
@@ -156,7 +193,7 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
 					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields:           []http.WriteField{},
+					Fields:           []payload.WriteField{},
 				},
 				Channels: []v1.WriteChannel{},
 			}),
@@ -174,6 +211,34 @@ func BenchmarkEncodeDecodeBaseWriteChannel(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.BaseWriteChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRecord(b *testing.B) {
+	seed := v1.Record{
+		ValuePointer:     "test_1",
+		ChannelPointer:   new(string("test_2")),
+		TimestampPointer: new(string("test_3")),
+		TimeFormat:       payload.TimeFormat("iso8601"),
+		Fields: []payload.WriteField{
+			{Variant: payload.FloatWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "test_6", Pointer: "test_7"},
+				Value:          payload.Float(8.5),
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Record
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -213,18 +278,17 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			ChannelPointer:   new(string("test_8")),
 			TimestampPointer: new(string("test_9")),
 			TimeFormat:       payload.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
-					BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-					JSONType:       payload.JSONType("number"),
-					Value:          any(map[string]any{"key_15": "value_15"}),
+			Fields: []payload.WriteField{
+				{Variant: payload.FloatWriteField{
+					BaseWriteField: payload.BaseWriteField{Key: "test_12", Pointer: "test_13"},
+					Value:          payload.Float(14.5),
 				}},
 			},
 		},
 		Channels: []v1.WriteChannel{
 			{Variant: v1.FloatWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				EnumValues:       []payload.FloatEntry{{Label: "test_18", Value: payload.Float(19.5)}},
+				EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
 			}},
 		},
 	}
@@ -276,6 +340,76 @@ func FuzzDecodeBaseWriteChannel(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.BaseWriteChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRecord(f *testing.F) {
+	{
+		seed := v1.Record{
+			ValuePointer:     "test_1",
+			ChannelPointer:   new(string("test_2")),
+			TimestampPointer: new(string("test_3")),
+			TimeFormat:       payload.TimeFormat("iso8601"),
+			Fields: []payload.WriteField{
+				{Variant: payload.FloatWriteField{
+					BaseWriteField: payload.BaseWriteField{Key: "test_6", Pointer: "test_7"},
+					Value:          payload.Float(8.5),
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Record{
+			ValuePointer:     "",
+			ChannelPointer:   nil,
+			TimestampPointer: nil,
+			TimeFormat:       payload.TimeFormat(""),
+			Fields:           []payload.WriteField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Record{
+			ValuePointer:     "test_1",
+			ChannelPointer:   new(string("test_2")),
+			TimestampPointer: new(string("test_3")),
+			TimeFormat:       payload.TimeFormat("iso8601"),
+			Fields:           []payload.WriteField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Record
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Record
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -412,18 +546,17 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
-						BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_15": "value_15"}),
+				Fields: []payload.WriteField{
+					{Variant: payload.FloatWriteField{
+						BaseWriteField: payload.BaseWriteField{Key: "test_12", Pointer: "test_13"},
+						Value:          payload.Float(14.5),
 					}},
 				},
 			},
 			Channels: []v1.WriteChannel{
 				{Variant: v1.FloatWriteChannel{
 					BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-					EnumValues:       []payload.FloatEntry{{Label: "test_18", Value: payload.Float(19.5)}},
+					EnumValues:       []payload.FloatEntry{{Label: "test_17", Value: payload.Float(18.5)}},
 				}},
 			},
 		}
@@ -445,7 +578,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   nil,
 				TimestampPointer: nil,
 				TimeFormat:       payload.TimeFormat(""),
-				Fields:           []http.WriteField{},
+				Fields:           []payload.WriteField{},
 			},
 			Channels: []v1.WriteChannel{},
 		}
@@ -467,7 +600,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
+				Fields:           []payload.WriteField{},
 			},
 			Channels: []v1.WriteChannel{},
 		}

@@ -42,6 +42,13 @@ var _ = Describe("WriteConfigLadder", func() {
 							"generator":   "timestamp",
 							"time_format": "unix_ns",
 						},
+						map[string]any{
+							"type":      "static",
+							"key":       "s",
+							"pointer":   "/s",
+							"json_type": "number",
+							"value":     5,
+						},
 					},
 				}},
 			},
@@ -51,9 +58,15 @@ var _ = Describe("WriteConfigLadder", func() {
 		Expect(ch.JSONType).To(Equal(payload.JSONTypeString))
 		Expect(*ch.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
 		Expect(ch.EnumValues).To(Equal([]payload.EnumEntry{{Label: "ON", Value: 1}}))
-		Expect(cfg.Endpoints[0].Fields).To(HaveLen(1))
-		g := cfg.Endpoints[0].Fields[0].Variant.(versions.GeneratedWriteField)
-		Expect(g.Generator).To(Equal(payload.GeneratorTypeTimestamp))
-		Expect(*g.TimeFormat).To(Equal(payload.TimeFormatUnixNs))
+		Expect(cfg.Endpoints[0].Fields).To(Equal([]payload.WriteField{
+			{Variant: payload.TimestampWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "g"},
+				TimeFormat:     payload.TimeFormatUnixNs,
+			}},
+			{Variant: payload.IntegerWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "s", Pointer: "/s"},
+				Value:          5,
+			}},
+		}))
 	})
 })

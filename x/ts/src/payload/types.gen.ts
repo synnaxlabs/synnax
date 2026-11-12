@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+import { id } from "@/id";
 import { floatZ, integerZ, unsignedZ } from "@/payload/number";
 import { telem } from "@/telem";
 
@@ -100,6 +101,15 @@ export const timestampReadZ = z.object({
 });
 export interface TimestampRead extends z.infer<typeof timestampReadZ> {}
 
+/** BaseWriteField carries the fields every write field shares. */
+export const baseWriteFieldZ = z.object({
+  /** key uniquely identifies the field within its payload. */
+  key: z.string().default(id.create),
+  /** pointer is the JSON Pointer where the value is placed in the payload. */
+  pointer: z.string().default(""),
+});
+export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
+
 /**
  * EnumEntry maps a string label in a payload to a numeric channel value for enum-style
  * parsing (e.g. "ON" -> 1, "OFF" -> 0).
@@ -162,3 +172,113 @@ export const booleanReadZ = z.object({
   fill: z.boolean().optional(),
 });
 export interface BooleanRead extends z.infer<typeof booleanReadZ> {}
+
+/** FloatWriteField places a JSON number in every payload. */
+export const floatWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("float"),
+  /** value is the number placed at the pointer. It must be finite. */
+  value: floatZ,
+});
+export interface FloatWriteField extends z.infer<typeof floatWriteFieldZ> {}
+
+/** IntegerWriteField places a JSON number in every payload. */
+export const integerWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("integer"),
+  /** value is the number placed at the pointer. */
+  value: integerZ,
+});
+export interface IntegerWriteField extends z.infer<typeof integerWriteFieldZ> {}
+
+/** UnsignedWriteField places a JSON number in every payload. */
+export const unsignedWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("unsigned"),
+  /** value is the number placed at the pointer. */
+  value: unsignedZ,
+});
+export interface UnsignedWriteField extends z.infer<typeof unsignedWriteFieldZ> {}
+
+/** StringWriteField places a JSON string in every payload. */
+export const stringWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("string"),
+  /** value is the string placed at the pointer. */
+  value: z.string(),
+});
+export interface StringWriteField extends z.infer<typeof stringWriteFieldZ> {}
+
+/** BooleanWriteField places a JSON boolean in every payload. */
+export const booleanWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("boolean"),
+  /** value is the boolean placed at the pointer. */
+  value: z.boolean(),
+});
+export interface BooleanWriteField extends z.infer<typeof booleanWriteFieldZ> {}
+
+/** JsonWriteField places a JSON value in every payload. */
+export const jsonWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("json"),
+  /** value is the JSON text of the value placed at the pointer. */
+  value: z.string(),
+});
+export interface JsonWriteField extends z.infer<typeof jsonWriteFieldZ> {}
+
+/** UuidWriteField places a new UUID string in each payload. */
+export const uuidWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidWriteField extends z.infer<typeof uuidWriteFieldZ> {}
+
+/** TimestampWriteField places the time of each payload. */
+export const timestampWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("timestamp"),
+  /** timeFormat is the encoding of the timestamp. */
+  timeFormat: timeFormatZ.default("iso8601"),
+});
+export interface TimestampWriteField extends z.infer<typeof timestampWriteFieldZ> {}
+
+/** BytesWriteField places base64 text in every payload. */
+export const bytesWriteFieldZ = baseWriteFieldZ.extend({
+  type: z.literal("bytes"),
+  /** value is the base64 text placed at the pointer. */
+  value: z.string(),
+});
+export interface BytesWriteField extends z.infer<typeof bytesWriteFieldZ> {}
+
+/**
+ * WriteField is an additional field of a write payload. The type selects a fixed value,
+ * or a value generated for each payload.
+ */
+export const writeFieldZ = z.discriminatedUnion("type", [
+  floatWriteFieldZ,
+  integerWriteFieldZ,
+  unsignedWriteFieldZ,
+  stringWriteFieldZ,
+  booleanWriteFieldZ,
+  jsonWriteFieldZ,
+  uuidWriteFieldZ,
+  timestampWriteFieldZ,
+  bytesWriteFieldZ,
+]);
+export type WriteField =
+  | FloatWriteField
+  | IntegerWriteField
+  | UnsignedWriteField
+  | StringWriteField
+  | BooleanWriteField
+  | JsonWriteField
+  | UuidWriteField
+  | TimestampWriteField
+  | BytesWriteField;
+
+export const WRITE_FIELD_SCHEMAS: {
+  [K in Kind]: z.ZodType<Extract<WriteField, { type: K }>>;
+} = {
+  float: floatWriteFieldZ,
+  integer: integerWriteFieldZ,
+  unsigned: unsignedWriteFieldZ,
+  string: stringWriteFieldZ,
+  boolean: booleanWriteFieldZ,
+  json: jsonWriteFieldZ,
+  uuid: uuidWriteFieldZ,
+  timestamp: timestampWriteFieldZ,
+  bytes: bytesWriteFieldZ,
+};

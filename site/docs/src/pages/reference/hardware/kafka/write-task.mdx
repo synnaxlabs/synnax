@@ -125,24 +125,25 @@ has no index, so its samples take the time at which the Core receives them.
 its own key, so Kafka keeps the samples of one channel in order. **None** sends records
 with no key.
 
-In code, `record.fields` adds the same fields to every record. A static field adds a
+In code, `record.fields` adds the same fields to every record. A fixed field adds a
 fixed value, and a generated field adds a new UUID or the current time. The Console does
 not show them.
 
 ```python
-from synnax import http, kafka
+from synnax import kafka
+from x import payload
 
 kafka.Record(
     channel_pointer="/channel",
     fields=[
-        http.StaticWriteField(pointer="/site", json_type="string", value="plant-1"),
-        http.GeneratedWriteField(pointer="/id", generator="uuid"),
+        payload.StringWriteField(pointer="/site", value="plant-1"),
+        payload.UuidWriteField(pointer="/id"),
     ],
 )
 ```
 
-The field types come from `synnax.http`. A generated timestamp field takes a
-`time_format`, and its default is `iso8601`.
+The field types come from `x.payload`. A timestamp field takes a `time_format`, and its
+default is `iso8601`.
 
 <Divider.Divider x />
 

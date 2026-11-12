@@ -17,9 +17,7 @@ from synnax.http.types import (
     WriteTask,
 )
 from synnax.http.types_gen import (
-    BaseWriteField,
     ChannelField,
-    GeneratedWriteField,
     Header,
     Method,
     QueryParam,
@@ -27,20 +25,16 @@ from synnax.http.types_gen import (
     ReadEndpoint,
     ReadField,
     ScanConfig,
-    StaticWriteField,
     WriteConfig,
     WriteEndpoint,
-    WriteField,
 )
 
 __all__ = [
     "MAKE",
     "MODEL",
-    "BaseWriteField",
     "ChannelField",
     "Device",
     "ExpectedResponse",
-    "GeneratedWriteField",
     "Header",
     "HealthCheck",
     "Method",
@@ -50,9 +44,7 @@ __all__ = [
     "ReadField",
     "ReadTask",
     "ScanConfig",
-    "StaticWriteField",
     "WriteConfig",
     "WriteEndpoint",
-    "WriteField",
     "WriteTask",
 ]

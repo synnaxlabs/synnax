@@ -15,7 +15,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payload "github.com/synnaxlabs/x/payload/versions/v1"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -41,6 +41,94 @@ func (bwc *BaseWriteChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		bwc.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Record) EncodeOrc(w *orc.Writer) error {
+	w.String(rv.ValuePointer)
+	if rv.ChannelPointer != nil {
+		w.Bool(true)
+		w.String(*rv.ChannelPointer)
+	} else {
+		w.Bool(false)
+	}
+	if rv.TimestampPointer != nil {
+		w.Bool(true)
+		w.String(*rv.TimestampPointer)
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(rv.TimeFormat))
+	w.Bool(rv.Fields != nil)
+	if rv.Fields != nil {
+		w.Uint32(uint32(len(rv.Fields)))
+		for i := range rv.Fields {
+			if err := rv.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Record) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rv.ValuePointer, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.ChannelPointer = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.TimestampPointer = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.TimeFormat = payload.TimeFormat(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.Fields = make([]payload.WriteField, n)
+			for i := range rv.Fields {
+				if err = rv.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

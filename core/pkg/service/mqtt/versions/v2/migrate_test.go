@@ -17,6 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payloadv1 "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -346,5 +347,38 @@ var _ = Describe("Migrate", func() {
 				Name:            "rpm_cmd",
 			}},
 		))
+	})
+
+	It("Should lift the additional fields of a plain target", func(ctx SpecContext) {
+		t := MustSucceed(v2.MigrateWriteTarget(ctx, v1.WriteTarget{
+			Variant: v1.PlainWriteTarget{
+				Topic: "plant/valve/set",
+				Fields: []v1.WriteField{
+					{Variant: v1.StaticWriteField{
+						BaseWriteField: v1.BaseWriteField{Key: "n", Pointer: "/n"},
+						JSONType:       payload.JSONTypeNumber,
+						Value:          3.0,
+					}},
+					{Variant: v1.GeneratedWriteField{
+						BaseWriteField: v1.BaseWriteField{Key: "t", Pointer: "/t"},
+						Generator:      payload.GeneratorTypeTimestamp,
+						TimeFormat:     new(payload.TimeFormatUnixNs),
+					}},
+					{Variant: v1.GeneratedWriteField{Generator: "id"}},
+				},
+			},
+		}))
+		plain, ok := t.Variant.(v2.PlainWriteTarget)
+		Expect(ok).To(BeTrue())
+		Expect(plain.Fields).To(Equal([]payloadv1.WriteField{
+			{Variant: payloadv1.IntegerWriteField{
+				BaseWriteField: payloadv1.BaseWriteField{Key: "n", Pointer: "/n"},
+				Value:          3,
+			}},
+			{Variant: payloadv1.TimestampWriteField{
+				BaseWriteField: payloadv1.BaseWriteField{Key: "t", Pointer: "/t"},
+				TimeFormat:     payloadv1.TimeFormatUnixNs,
+			}},
+		}))
 	})
 })

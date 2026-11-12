@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -152,33 +151,29 @@ var _ = Describe("Write task", func() {
 			index, data := createIndexed(ctx, telem.Uint8T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
-			iso := payload.TimeFormatISO8601
 			startTask(ctx, kafka.WriteConfig{
 				Device:    dev.Key,
 				Topic:     topic,
 				RecordKey: kafka.RecordKeyNone,
 				Record: kafka.Record{
 					ValuePointer: "/payload/state",
-					Fields: []http.WriteField{
-						{Variant: http.StaticWriteField{
-							BaseWriteField: http.BaseWriteField{
+					Fields: []payload.WriteField{
+						{Variant: payload.StringWriteField{
+							BaseWriteField: payload.BaseWriteField{
 								Key: "source", Pointer: "/meta/source",
 							},
-							JSONType: payload.JSONTypeString,
-							Value:    "synnax",
+							Value: "synnax",
 						}},
-						{Variant: http.GeneratedWriteField{
-							BaseWriteField: http.BaseWriteField{
+						{Variant: payload.UuidWriteField{
+							BaseWriteField: payload.BaseWriteField{
 								Key: "id", Pointer: "/id",
 							},
-							Generator: payload.GeneratorTypeUUID,
 						}},
-						{Variant: http.GeneratedWriteField{
-							BaseWriteField: http.BaseWriteField{
+						{Variant: payload.TimestampWriteField{
+							BaseWriteField: payload.BaseWriteField{
 								Key: "sent", Pointer: "/meta/sent",
 							},
-							Generator:  payload.GeneratorTypeTimestamp,
-							TimeFormat: &iso,
+							TimeFormat: payload.TimeFormatISO8601,
 						}},
 					},
 				},
@@ -204,7 +199,7 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
-	It("Should encode a generated timestamp field with no time format as ISO 8601",
+	It("Should encode a generated timestamp field in its time format",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
@@ -214,12 +209,12 @@ var _ = Describe("Write task", func() {
 				Topic:  topic,
 				Record: kafka.Record{
 					ValuePointer: "/value",
-					Fields: []http.WriteField{{Variant: http.GeneratedWriteField{
-						BaseWriteField: http.BaseWriteField{
+					Fields: []payload.WriteField{{Variant: payload.TimestampWriteField{
+						BaseWriteField: payload.BaseWriteField{
 							Key:     "sent",
 							Pointer: "/sent",
 						},
-						Generator: payload.GeneratorTypeTimestamp,
+						TimeFormat: payload.TimeFormatUnixMs,
 					}}},
 				},
 				Channels: []kafka.WriteChannel{
@@ -231,7 +226,7 @@ var _ = Describe("Write task", func() {
 				telem.NewSeriesV[float64](1.5),
 			)
 			recs := consume(ctx, topic, 1)
-			Expect(decode(recs[0])).To(HaveKeyWithValue("sent", "1970-01-01T00:00:20Z"))
+			Expect(decode(recs[0])).To(HaveKeyWithValue("sent", BeEquivalentTo(20000)))
 		},
 	)
 
@@ -467,13 +462,12 @@ var _ = Describe("Write task", func() {
 		Entry("a field pointer that contains the value pointer",
 			kafka.Record{
 				ValuePointer: "/meta/value",
-				Fields: []http.WriteField{{Variant: http.StaticWriteField{
-					BaseWriteField: http.BaseWriteField{
+				Fields: []payload.WriteField{{Variant: payload.StringWriteField{
+					BaseWriteField: payload.BaseWriteField{
 						Key:     "source",
 						Pointer: "/meta",
 					},
-					JSONType: payload.JSONTypeString,
-					Value:    "synnax",
+					Value: "synnax",
 				}}},
 			},
 			`record.value_pointer "/meta/value" and field "source" "/meta" `+
@@ -718,20 +712,18 @@ var _ = Describe("Write task", func() {
 				ChannelPointer:   new("/channel"),
 				TimestampPointer: new("/meta/sent"),
 				TimeFormat:       payload.TimeFormatUnixNs,
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
-						BaseWriteField: http.BaseWriteField{
+				Fields: []payload.WriteField{
+					{Variant: payload.StringWriteField{
+						BaseWriteField: payload.BaseWriteField{
 							Key: "unit", Pointer: "/payload/unit",
 						},
-						JSONType: payload.JSONTypeString,
-						Value:    "psi",
+						Value: "psi",
 					}},
-					{Variant: http.StaticWriteField{
-						BaseWriteField: http.BaseWriteField{
+					{Variant: payload.StringWriteField{
+						BaseWriteField: payload.BaseWriteField{
 							Key: "source", Pointer: "/meta/source",
 						},
-						JSONType: payload.JSONTypeString,
-						Value:    "synnax",
+						Value: "synnax",
 					}},
 				},
 			},
@@ -746,6 +738,53 @@ var _ = Describe("Write task", func() {
 		Expect(string(recs[0].Value)).To(Equal(
 			`{"payload":{"value":1.5,"unit":"psi"},"channel":"` + data.Name +
 				`","meta":{"sent":10000000000,"source":"synnax"}}`,
+		))
+	})
+
+	It("Should write each kind of fixed field exactly", func(ctx SpecContext) {
+		index, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := uniqueTopic()
+		field := func(key string) payload.BaseWriteField {
+			return payload.BaseWriteField{Key: key, Pointer: "/" + key}
+		}
+		startTask(ctx, kafka.WriteConfig{
+			Device:    dev.Key,
+			Topic:     topic,
+			RecordKey: kafka.RecordKeyNone,
+			Record: kafka.Record{
+				ValuePointer: "/value",
+				Fields: []payload.WriteField{
+					{Variant: payload.FloatWriteField{
+						BaseWriteField: field("f"), Value: 0.1,
+					}},
+					{Variant: payload.IntegerWriteField{
+						BaseWriteField: field("i"), Value: math.MinInt64,
+					}},
+					{Variant: payload.UnsignedWriteField{
+						BaseWriteField: field("u"), Value: math.MaxUint64,
+					}},
+					{Variant: payload.BooleanWriteField{
+						BaseWriteField: field("b"), Value: true,
+					}},
+					{Variant: payload.JsonWriteField{
+						BaseWriteField: field("j"), Value: `{ "a": [1, null] }`,
+					}},
+					{Variant: payload.BytesWriteField{
+						BaseWriteField: field("y"), Value: "AQI=",
+					}},
+				},
+			},
+			Channels: []kafka.WriteChannel{
+				writeAs(data.Key(), kafka.FloatWriteChannel{}),
+			},
+		})
+		writeFrame(ctx, index, data, []telem.TimeStamp{10 * telem.SecondTS},
+			telem.NewSeriesV[float64](2))
+		recs := consume(ctx, topic, 1)
+		Expect(string(recs[0].Value)).To(Equal(
+			`{"value":2,"f":0.1,"i":-9223372036854775808,` +
+				`"u":18446744073709551615,"b":true,"j":{"a":[1,null]},"y":"AQI="}`,
 		))
 	})
 

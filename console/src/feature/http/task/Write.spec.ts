@@ -103,26 +103,29 @@ describe("Write", () => {
     await screen.findByText("Enum mapping");
   });
 
-  it("should add a static field and reset its value when the JSON type changes", async () => {
+  it("should add a fixed field and reset its value when its type changes", async () => {
     await renderWrite();
     await addEndpoint();
     fireEvent.click(getHeaderIconButton("Additional fields", "add"));
-    await screen.findByText("static");
+    await screen.findByText("fixed");
     const value = screen.getByPlaceholderText<HTMLInputElement>("value");
     fireEvent.change(value, { target: { value: "on" } });
     fireEvent.blur(value);
     await screen.findByDisplayValue("on");
-    await selectFromDropdown("String", "Number");
+    await selectFromDropdown("String", "Integer");
     await waitFor(() => expect(screen.queryByDisplayValue("on")).toBeNull());
+    await screen.findByDisplayValue("0");
   });
 
-  it("should add a generated field and switch its generator to a timestamp", async () => {
+  it("should add a generated field and switch it to a timestamp", async () => {
     await renderWrite();
     await addEndpoint();
     fireEvent.click(getHeaderIconButton("Additional fields", "time"));
     await screen.findByText("generated");
-    await selectFromDropdown("UUID", "Timestamp (s)");
-    await findDialogTriggerByText("Timestamp (s)");
+    await selectFromDropdown("UUID", "Timestamp");
+    await selectFromDropdown("ISO 8601", "Unix (s)");
+    await findDialogTriggerByText("Unix (s)");
+    expect(screen.getByText("generated")).toBeTruthy();
   });
 
   it("should remove additional fields through a context menu without a duplicate option", async () => {
@@ -134,7 +137,7 @@ describe("Write", () => {
     await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
     fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => expect(screen.queryByText("static")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("fixed")).toBeNull());
   });
 
   it("should duplicate endpoints and rename the command channel via the context menu", async () => {

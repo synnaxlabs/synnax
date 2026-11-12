@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/payload"
@@ -110,17 +109,15 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 		Channels: channels,
 	}
 	if sc.fields {
-		cfg.Record.Fields = []http.WriteField{
-			{Variant: http.StaticWriteField{
-				BaseWriteField: http.BaseWriteField{
+		cfg.Record.Fields = []payload.WriteField{
+			{Variant: payload.StringWriteField{
+				BaseWriteField: payload.BaseWriteField{
 					Key: "source", Pointer: "/meta/source",
 				},
-				JSONType: payload.JSONTypeString,
-				Value:    "synnax",
+				Value: "synnax",
 			}},
-			{Variant: http.GeneratedWriteField{
-				BaseWriteField: http.BaseWriteField{Key: "id", Pointer: "/id"},
-				Generator:      payload.GeneratorTypeUUID,
+			{Variant: payload.UuidWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "id", Pointer: "/id"},
 			}},
 		}
 	}

@@ -11,115 +11,152 @@
 
 package versions
 
-import "github.com/synnaxlabs/x/payload/versions/v0"
+import "github.com/synnaxlabs/x/payload/versions/v1"
 
 // Float is a 64-bit float. It is a JSON number when finite, and the text "NaN",
 // "Infinity", or "-Infinity" when not.
-type Float = v0.Float
+type Float = v1.Float
 
 // Integer is a signed 64-bit integer. It is a JSON string of decimal digits, so it
 // keeps every digit.
-type Integer = v0.Integer
+type Integer = v1.Integer
 
 // Unsigned is an unsigned 64-bit integer. It is a JSON string of decimal digits, so it
 // keeps every digit.
-type Unsigned = v0.Unsigned
+type Unsigned = v1.Unsigned
 
 // Kind is the kind of value a payload field holds.
-type Kind = v0.Kind
+type Kind = v1.Kind
 
 const (
 	// KindFloat is a floating point number.
-	KindFloat Kind = v0.KindFloat
+	KindFloat Kind = v1.KindFloat
 	// KindInteger is a signed integer.
-	KindInteger Kind = v0.KindInteger
+	KindInteger Kind = v1.KindInteger
 	// KindUnsigned is an unsigned integer.
-	KindUnsigned Kind = v0.KindUnsigned
+	KindUnsigned Kind = v1.KindUnsigned
 	// KindString is a string.
-	KindString Kind = v0.KindString
+	KindString Kind = v1.KindString
 	// KindBoolean is a boolean.
-	KindBoolean Kind = v0.KindBoolean
+	KindBoolean Kind = v1.KindBoolean
 	// KindTimestamp is a timestamp in a TimeFormat.
-	KindTimestamp Kind = v0.KindTimestamp
+	KindTimestamp Kind = v1.KindTimestamp
 	// KindJSON is any JSON value.
-	KindJSON Kind = v0.KindJSON
+	KindJSON Kind = v1.KindJSON
 	// KindUUID is a UUID string.
-	KindUUID Kind = v0.KindUUID
+	KindUUID Kind = v1.KindUUID
 	// KindBytes is a byte string.
-	KindBytes Kind = v0.KindBytes
+	KindBytes Kind = v1.KindBytes
 )
 
 // TimeFormat is the encoding of a timestamp value within a payload.
-type TimeFormat = v0.TimeFormat
+type TimeFormat = v1.TimeFormat
 
 const (
 	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = v0.TimeFormatISO8601
+	TimeFormatISO8601 TimeFormat = v1.TimeFormatISO8601
 	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = v0.TimeFormatUnixSec
+	TimeFormatUnixSec TimeFormat = v1.TimeFormatUnixSec
 	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = v0.TimeFormatUnixMs
+	TimeFormatUnixMs TimeFormat = v1.TimeFormatUnixMs
 	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = v0.TimeFormatUnixUs
+	TimeFormatUnixUs TimeFormat = v1.TimeFormatUnixUs
 	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = v0.TimeFormatUnixNs
+	TimeFormatUnixNs TimeFormat = v1.TimeFormatUnixNs
 )
 
 // FloatEntry maps a payload label to a float channel value.
-type FloatEntry = v0.FloatEntry
+type FloatEntry = v1.FloatEntry
 
 // IntegerEntry maps a payload label to a signed integer channel value.
-type IntegerEntry = v0.IntegerEntry
+type IntegerEntry = v1.IntegerEntry
 
 // UnsignedEntry maps a payload label to an unsigned integer channel value.
-type UnsignedEntry = v0.UnsignedEntry
+type UnsignedEntry = v1.UnsignedEntry
 
 // StringEntry maps a payload label to a string channel value.
-type StringEntry = v0.StringEntry
+type StringEntry = v1.StringEntry
 
 // BooleanEntry maps a payload label to a boolean channel value.
-type BooleanEntry = v0.BooleanEntry
+type BooleanEntry = v1.BooleanEntry
 
 // FloatRead holds the options of a field that reads a float.
-type FloatRead = v0.FloatRead
+type FloatRead = v1.FloatRead
 
 // IntegerRead holds the options of a field that reads a signed integer.
-type IntegerRead = v0.IntegerRead
+type IntegerRead = v1.IntegerRead
 
 // UnsignedRead holds the options of a field that reads an unsigned integer.
-type UnsignedRead = v0.UnsignedRead
+type UnsignedRead = v1.UnsignedRead
 
 // StringRead holds the options of a field that reads a string.
-type StringRead = v0.StringRead
+type StringRead = v1.StringRead
 
 // BooleanRead holds the options of a field that reads a boolean.
-type BooleanRead = v0.BooleanRead
+type BooleanRead = v1.BooleanRead
 
 // TimestampRead holds the options of a field that reads a timestamp.
-type TimestampRead = v0.TimestampRead
+type TimestampRead = v1.TimestampRead
+
+// BaseWriteField carries the fields every write field shares.
+type BaseWriteField = v1.BaseWriteField
+
+// WriteField is an additional field of a write payload. The type selects a fixed value,
+// or a value generated for each payload.
+type WriteField = v1.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
+type WriteFieldVariant = v1.WriteFieldVariant
+
+// FloatWriteField places a JSON number in every payload.
+type FloatWriteField = v1.FloatWriteField
+
+// IntegerWriteField places a JSON number in every payload.
+type IntegerWriteField = v1.IntegerWriteField
+
+// UnsignedWriteField places a JSON number in every payload.
+type UnsignedWriteField = v1.UnsignedWriteField
+
+// StringWriteField places a JSON string in every payload.
+type StringWriteField = v1.StringWriteField
+
+// BooleanWriteField places a JSON boolean in every payload.
+type BooleanWriteField = v1.BooleanWriteField
+
+// JsonWriteField places a JSON value in every payload.
+type JsonWriteField = v1.JsonWriteField
+
+// UuidWriteField places a new UUID string in each payload.
+type UuidWriteField = v1.UuidWriteField
+
+// TimestampWriteField places the time of each payload.
+type TimestampWriteField = v1.TimestampWriteField
+
+// BytesWriteField places base64 text in every payload.
+type BytesWriteField = v1.BytesWriteField
 
 // EnumEntry maps a string label in a payload to a numeric channel value for enum-style
 // parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = v0.EnumEntry
+type EnumEntry = v1.EnumEntry
 
 // JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType = v0.JSONType
+type JSONType = v1.JSONType
 
 const (
 	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = v0.JSONTypeNumber
+	JSONTypeNumber JSONType = v1.JSONTypeNumber
 	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = v0.JSONTypeString
+	JSONTypeString JSONType = v1.JSONTypeString
 	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = v0.JSONTypeBoolean
+	JSONTypeBoolean JSONType = v1.JSONTypeBoolean
 )
 
 // GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = v0.GeneratorType
+type GeneratorType = v1.GeneratorType
 
 const (
 	// GeneratorTypeUUID produces a new UUID for each payload.
-	GeneratorTypeUUID GeneratorType = v0.GeneratorTypeUUID
+	GeneratorTypeUUID GeneratorType = v1.GeneratorTypeUUID
 	// GeneratorTypeTimestamp produces the time of the payload.
-	GeneratorTypeTimestamp GeneratorType = v0.GeneratorTypeTimestamp
+	GeneratorTypeTimestamp GeneratorType = v1.GeneratorTypeTimestamp
 )

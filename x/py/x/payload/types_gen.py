@@ -11,7 +11,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal, override as _override
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -154,6 +155,22 @@ class TimestampRead(BaseModel):
     )
 
 
+class BaseWriteField(BaseModel):
+    """Carries the fields every write field shares.
+
+    Attributes:
+        key: Uniquely identifies the field within its payload.
+        pointer: Is the JSON Pointer where the value is placed in the payload.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    pointer: str = ""
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class EnumEntry(BaseModel):
     """Maps a string label in a payload to a numeric channel value for enum-style
     parsing (e.g. "ON" -> 1, "OFF" -> 0).
@@ -233,3 +250,81 @@ class BooleanRead(BaseModel):
 
     enum_values: list[BooleanEntry] = Field(default_factory=list)
     fill: bool | None = None
+
+
+class FloatWriteField(BaseWriteField):
+    """Places a JSON number in every payload."""
+
+    type: Literal["float"] = "float"
+    value: Float
+
+
+class IntegerWriteField(BaseWriteField):
+    """Places a JSON number in every payload."""
+
+    type: Literal["integer"] = "integer"
+    value: Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedWriteField(BaseWriteField):
+    """Places a JSON number in every payload."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringWriteField(BaseWriteField):
+    """Places a JSON string in every payload."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanWriteField(BaseWriteField):
+    """Places a JSON boolean in every payload."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class JsonWriteField(BaseWriteField):
+    """Places a JSON value in every payload."""
+
+    type: Literal["json"] = "json"
+    value: str
+
+
+class UuidWriteField(BaseWriteField):
+    """Places a new UUID string in each payload."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class TimestampWriteField(BaseWriteField):
+    """Places the time of each payload."""
+
+    type: Literal["timestamp"] = "timestamp"
+    time_format: TimeFormat = "iso8601"
+
+
+class BytesWriteField(BaseWriteField):
+    """Places base64 text in every payload."""
+
+    type: Literal["bytes"] = "bytes"
+    value: str
+
+
+# Is an additional field of a write payload. The type selects a fixed value, or a
+# value generated for each payload.
+WriteField = Annotated[
+    FloatWriteField
+    | IntegerWriteField
+    | UnsignedWriteField
+    | StringWriteField
+    | BooleanWriteField
+    | JsonWriteField
+    | UuidWriteField
+    | TimestampWriteField
+    | BytesWriteField,
+    Field(discriminator="type"),
+]

@@ -40,7 +40,7 @@ func autoMigrateReadConfig(_ context.Context, old v1.ReadConfig) (ReadConfig, er
 
 func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
 	targets, err := lo.MapErr(old.Targets, func(v v1.WriteTarget, _ int) (WriteTarget, error) {
-		return autoMigrateWriteTarget(ctx, v)
+		return MigrateWriteTarget(ctx, v)
 	})
 	if err != nil {
 		return WriteConfig{}, err
@@ -52,17 +52,21 @@ func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfi
 	}, nil
 }
 
-func autoMigrateWriteTarget(_ context.Context, old v1.WriteTarget) (WriteTarget, error) {
+func autoMigrateWriteTarget(ctx context.Context, old v1.WriteTarget) (WriteTarget, error) {
 	switch variant := old.Variant.(type) {
 	case nil:
 		return WriteTarget{}, nil
 	case v1.PlainWriteTarget:
+		fields, err := migratePlainWriteTargetFields(ctx, variant.Fields)
+		if err != nil {
+			return WriteTarget{}, err
+		}
 		return WriteTarget{Variant: PlainWriteTarget{
 			BaseWriteTarget: variant.BaseWriteTarget,
 			Topic:           variant.Topic,
 			Qos:             variant.Qos,
 			Retained:        variant.Retained,
-			Fields:          variant.Fields,
+			Fields:          fields,
 		}}, nil
 	case v1.SparkplugWriteTarget:
 		return WriteTarget{Variant: SparkplugWriteTarget{

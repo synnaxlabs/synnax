@@ -80,6 +80,11 @@ func validateWriteConfig(cfg *WriteConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	for _, f := range cfg.Record.Fields {
+		if err := payload.ValidateWriteField(f); err != nil {
+			return errors.Wrapf(err, "record.fields: field %q", f.Base().Key)
+		}
+	}
 	for _, wc := range cfg.Channels {
 		if err := channelOf(wc).Validate(); err != nil {
 			return errors.Wrapf(err, "channel %q", wc.Base().Key)

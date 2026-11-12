@@ -129,33 +129,6 @@ type UuidChannelField = versions.UuidChannelField
 // BytesChannelField writes each sample of a bytes channel as a base64 JSON string.
 type BytesChannelField = versions.BytesChannelField
 
-// BaseWriteField carries the fields every write payload field shares.
-type BaseWriteField = versions.BaseWriteField
-
-// WriteField is an additional payload field on a plain write target. The type field
-// selects whether the value is fixed or generated per publish.
-type WriteField = versions.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = versions.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = versions.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the payload.
-	StaticWriteFieldType WriteFieldType = versions.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
-	// payload.
-	GeneratedWriteFieldType WriteFieldType = versions.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the payload.
-type StaticWriteField = versions.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
-type GeneratedWriteField = versions.GeneratedWriteField
-
 // BaseWriteTarget carries the fields every write target shares.
 type BaseWriteTarget = versions.BaseWriteTarget
 

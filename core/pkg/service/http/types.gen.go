@@ -56,32 +56,6 @@ type ReadConfig = versions.ReadConfig
 // ChannelField is the command channel value placed into a write endpoint's body.
 type ChannelField = versions.ChannelField
 
-// BaseWriteField carries the fields every write body field shares.
-type BaseWriteField = versions.BaseWriteField
-
-// WriteField is an additional body field on a write endpoint. The type field selects
-// whether the value is fixed or generated per request.
-type WriteField = versions.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = versions.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = versions.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the request body.
-	StaticWriteFieldType WriteFieldType = versions.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
-	GeneratedWriteFieldType WriteFieldType = versions.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the request body.
-type StaticWriteField = versions.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the body.
-type GeneratedWriteField = versions.GeneratedWriteField
-
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
 type WriteEndpoint = versions.WriteEndpoint
 

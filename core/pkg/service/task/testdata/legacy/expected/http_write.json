@@ -23,31 +23,27 @@
       "disabled": false,
       "fields": [
         {
-          "json_type": "string",
           "key": "wf-static-str",
           "pointer": "/command/sourceSystem",
-          "type": "static",
+          "type": "string",
           "value": "fixture-console"
         },
         {
-          "json_type": "number",
           "key": "wf-static-num",
           "pointer": "/command/priorityLevel",
-          "type": "static",
+          "type": "float",
           "value": 99.5
         },
         {
-          "generator": "timestamp",
           "key": "wf-gen-ts",
           "pointer": "/command/sentAtMs",
           "time_format": "unix_ms",
-          "type": "generated"
+          "type": "timestamp"
         },
         {
-          "generator": "uuid",
           "key": "wf-gen-uuid",
           "pointer": "/command/requestId",
-          "type": "generated"
+          "type": "uuid"
         }
       ],
       "headers": [

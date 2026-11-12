@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -100,13 +102,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_write",
+			Migrations:      versions.WriteMigrations,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ValidateEntry:   (*WriteConfig).Validate,
+			ValidateEntry:   validateWriteConfig,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
@@ -137,4 +140,24 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
+}
+
+// validateWriteConfig checks cfg and the value of each of its body fields.
+func validateWriteConfig(cfg *WriteConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	for _, ep := range cfg.Endpoints {
+		for _, f := range ep.Fields {
+			if err := payload.ValidateWriteField(f); err != nil {
+				return errors.Wrapf(
+					err,
+					"endpoint %q: field %q",
+					ep.Key,
+					f.Base().Key,
+				)
+			}
+		}
+	}
+	return nil
 }

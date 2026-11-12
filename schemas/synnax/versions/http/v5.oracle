@@ -1,0 +1,36 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v1"
+
+Method = v2.Method
+
+Header = v2.Header
+
+QueryParam = v2.QueryParam
+
+ReadField = v4.ReadField
+
+ReadEndpoint = v4.ReadEndpoint
+
+ReadConfig = v4.ReadConfig
+
+ChannelField = v4.ChannelField
+
+WriteEndpoint struct extends v4.WriteEndpoint {
+    fields payload.WriteField[] {
+        @doc value "contains additional fixed or generated body fields."
+    }
+}
+
+WriteConfig struct extends v4.WriteConfig {}
+
+ScanConfig = v2.ScanConfig

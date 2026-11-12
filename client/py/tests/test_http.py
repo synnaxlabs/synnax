@@ -12,6 +12,7 @@ import pytest
 import synnax as sy
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
+from x import payload
 from x.strings import random_name
 
 
@@ -445,7 +446,7 @@ class TestHTTPWriteTask:
                 },
             },
             {
-                "name": "endpoint_with_static_fields",
+                "name": "endpoint_with_fixed_fields",
                 "data": {
                     "device": "http-device-key",
                     "auto_start": False,
@@ -463,16 +464,20 @@ class TestHTTPWriteTask:
                                 {
                                     "key": "sf-1",
                                     "pointer": "/source",
-                                    "json_type": "string",
-                                    "type": "static",
-                                    "value": {"source": "python-client"},
+                                    "type": "string",
+                                    "value": "python-client",
                                 },
                                 {
                                     "key": "sf-2",
                                     "pointer": "/priority",
-                                    "json_type": "number",
-                                    "type": "static",
-                                    "value": {"priority": 1},
+                                    "type": "integer",
+                                    "value": "1",
+                                },
+                                {
+                                    "key": "sf-3",
+                                    "pointer": "/meta",
+                                    "type": "json",
+                                    "value": '{"source": "python-client"}',
                                 },
                             ],
                         },
@@ -495,18 +500,12 @@ class TestHTTPWriteTask:
                                 "channel": 1234,
                             },
                             "fields": [
-                                {
-                                    "key": "gf-1",
-                                    "pointer": "/id",
-                                    "type": "generated",
-                                    "generator": "uuid",
-                                },
+                                {"key": "gf-1", "pointer": "/id", "type": "uuid"},
                                 {
                                     "key": "gf-2",
                                     "pointer": "/timestamp",
-                                    "type": "generated",
-                                    "generator": "timestamp",
-                                    "time_format": "iso8601",
+                                    "type": "timestamp",
+                                    "time_format": "unix_ms",
                                 },
                             ],
                         },
@@ -558,11 +557,7 @@ class TestHTTPWriteTask:
                     path="/api/v1/control",
                     channel=sy.http.ChannelField(pointer="/value", channel=1),
                     fields=[
-                        sy.http.GeneratedWriteField(
-                            type="generated",
-                            pointer="/id",
-                            generator="uuid",
-                        ),
+                        payload.UuidWriteField(pointer="/id"),
                     ],
                 ),
             ],
@@ -593,24 +588,35 @@ class TestHTTPWriteTask:
         assert cf.name == ""
         assert cf.time_format is None
 
-    def test_static_field_type(self) -> None:
-        """Test that StaticWriteField carries the static discriminator."""
-        sf = sy.http.StaticWriteField(
-            type="static",
-            pointer="/source",
-            json_type="string",
-            value={"source": "test"},
+    def test_fields_keep_exact_values(self) -> None:
+        """Test that fixed fields keep 64-bit integers exact."""
+        ep = sy.http.WriteEndpoint.model_validate(
+            {
+                "fields": [
+                    {
+                        "type": "integer",
+                        "pointer": "/i",
+                        "value": "-9223372036854775808",
+                    },
+                    {
+                        "type": "unsigned",
+                        "pointer": "/u",
+                        "value": "18446744073709551615",
+                    },
+                    {"type": "timestamp", "pointer": "/t"},
+                ]
+            }
         )
-        assert sf.type == "static"
-        assert sf.value == {"source": "test"}
-
-    def test_generated_field_type(self) -> None:
-        """Test that GeneratedWriteField carries the generated discriminator."""
-        gf = sy.http.GeneratedWriteField(
-            type="generated", pointer="/id", generator="uuid"
-        )
-        assert gf.type == "generated"
-        assert gf.generator == "uuid"
+        i, u, t = ep.fields
+        assert isinstance(i, payload.IntegerWriteField)
+        assert i.value == -(2**63)
+        assert isinstance(u, payload.UnsignedWriteField)
+        assert u.value == 2**64 - 1
+        assert isinstance(t, payload.TimestampWriteField)
+        assert t.time_format == "iso8601"
+        dumped = ep.model_dump(mode="json")["fields"]
+        assert dumped[0]["value"] == "-9223372036854775808"
+        assert dumped[1]["value"] == "18446744073709551615"
 
     def test_write_task_none_excluded_from_serialization(self) -> None:
         """Test that None values are excluded from serialized config."""
@@ -677,12 +683,8 @@ class TestHTTPWriteTask:
                         name="Setpoint",
                     ),
                     fields=[
-                        sy.http.StaticWriteField(
-                            type="static",
-                            key="sf-1",
-                            pointer="/source",
-                            json_type="string",
-                            value={"source": "python"},
+                        payload.StringWriteField(
+                            key="sf-1", pointer="/source", value="python"
                         ),
                     ],
                 ),
@@ -704,6 +706,7 @@ class TestHTTPWriteTask:
         assert retr_ep.path == orig_ep.path
         assert retr_ep.channel.pointer == orig_ep.channel.pointer
         assert retr_ep.channel.channel == orig_ep.channel.channel
+        assert retr_ep.fields == orig_ep.fields
 
 
 @pytest.mark.http

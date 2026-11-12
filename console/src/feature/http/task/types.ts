@@ -83,21 +83,9 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   });
 };
 
-// The form edits primitive values; the stored shape accepts any JSON.
-const staticWriteFieldZ = http.staticWriteFieldZ.extend({
-  value: json.primitiveZ,
-});
-
-const writeFieldZ = z.discriminatedUnion("type", [
-  http.staticWriteFieldZ,
-  http.generatedWriteFieldZ,
-]);
-
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 
-export const writeEndpointZ = http.writeEndpointZ.extend({
-  fields: writeFieldZ.array().default(() => []),
-});
+export const writeEndpointZ = http.writeEndpointZ;
 
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
@@ -120,15 +108,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const pointers = new Set<string>();
   pointers.add(channel.pointer);
   for (const [i, field] of fields.entries()) {
-    if (field.pointer === "") {
-      ctx.issues.push({
-        code: "custom",
-        input: value,
-        message: "Additional field pointer cannot be empty",
-        path: ["fields", i, "pointer"],
-      });
-      continue;
-    }
+    if (field.pointer === "") continue;
     if (pointers.has(field.pointer))
       ctx.issues.push({
         code: "custom",
@@ -140,13 +120,6 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   }
 };
 
-const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  staticWriteFieldZ.extend({ pointer: deployPointerZ }),
-  http.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
-
 const deployWriteEndpointZ = writeEndpointZ
   .extend({
     method: writeMethodZ,
@@ -155,7 +128,7 @@ const deployWriteEndpointZ = writeEndpointZ
     channel: http.channelFieldZ
       .extend({ pointer: json.pointerZ })
       .check(validateEnumValues),
-    fields: deployWriteFieldZ.array(),
+    fields: Task.Payload.deployWriteFieldZ.array(),
   })
   .check(validateWriteEndpoint);
 

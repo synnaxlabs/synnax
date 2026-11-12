@@ -9,7 +9,6 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
-import "schemas/synnax/http"
 import "schemas/synnax/task"
 import "schemas/x/payload"
 import "schemas/x/telem"
@@ -196,12 +195,12 @@ Record struct {
     value_pointer     string = "/value" {
         @doc value "is the JSON Pointer where the sample value is placed."
     }
-    channel_pointer   string?            {
+    channel_pointer   string?              {
         @doc value """
             is the JSON Pointer where the channel name is placed. Absent omits the name.
         """
     }
-    timestamp_pointer string?            {
+    timestamp_pointer string?              {
         @doc value """
             is the JSON Pointer where the sample timestamp is placed. Absent omits the
             timestamp.
@@ -210,8 +209,8 @@ Record struct {
     time_format       payload.TimeFormat = unix_ns {
         @doc value "is the encoding of the sample timestamp."
     }
-    fields            http.WriteField[]  {
-        @doc value "contains additional static or generated record fields."
+    fields            payload.WriteField[] {
+        @doc value "contains additional fixed or generated record fields."
     }
 
     @doc value  "is the shape of every record a write task produces."

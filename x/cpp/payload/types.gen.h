@@ -13,6 +13,7 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -23,6 +24,7 @@ namespace x::payload {
 
 struct StringEntry;
 struct BooleanEntry;
+struct BaseWriteField;
 struct EnumEntry;
 struct StringRead;
 struct BooleanRead;
@@ -76,6 +78,17 @@ struct BooleanEntry {
     bool value = false;
 
     static BooleanEntry parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseWriteField carries the fields every write field shares.
+struct BaseWriteField {
+    /// @brief key uniquely identifies the field within its payload.
+    std::string key;
+    /// @brief pointer is the JSON Pointer where the value is placed in the payload.
+    std::string pointer = "";
+
+    static BaseWriteField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -156,6 +169,115 @@ struct TimestampRead {
     static TimestampRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief FloatWriteField places a JSON number in every payload.
+struct FloatWriteField : public BaseWriteField {
+    std::string type = KIND_FLOAT;
+    /// @brief value is the number placed at the pointer. It must be finite.
+    Float value = 0;
+
+    static FloatWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief IntegerWriteField places a JSON number in every payload.
+struct IntegerWriteField : public BaseWriteField {
+    std::string type = KIND_INTEGER;
+    /// @brief value is the number placed at the pointer.
+    Integer value = 0;
+
+    static IntegerWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UnsignedWriteField places a JSON number in every payload.
+struct UnsignedWriteField : public BaseWriteField {
+    std::string type = KIND_UNSIGNED;
+    /// @brief value is the number placed at the pointer.
+    Unsigned value = 0;
+
+    static UnsignedWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringWriteField places a JSON string in every payload.
+struct StringWriteField : public BaseWriteField {
+    std::string type = KIND_STRING;
+    /// @brief value is the string placed at the pointer.
+    std::string value;
+
+    static StringWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanWriteField places a JSON boolean in every payload.
+struct BooleanWriteField : public BaseWriteField {
+    std::string type = KIND_BOOLEAN;
+    /// @brief value is the boolean placed at the pointer.
+    bool value = false;
+
+    static BooleanWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief JsonWriteField places a JSON value in every payload.
+struct JsonWriteField : public BaseWriteField {
+    std::string type = KIND_JSON;
+    /// @brief value is the JSON text of the value placed at the pointer.
+    std::string value;
+
+    static JsonWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UuidWriteField places a new UUID string in each payload.
+struct UuidWriteField : public BaseWriteField {
+    std::string type = KIND_UUID;
+
+    static UuidWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TimestampWriteField places the time of each payload.
+struct TimestampWriteField : public BaseWriteField {
+    std::string type = KIND_TIMESTAMP;
+    /// @brief time_format is the encoding of the timestamp.
+    std::string time_format = TIME_FORMAT_ISO_8601;
+
+    static TimestampWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BytesWriteField places base64 text in every payload.
+struct BytesWriteField : public BaseWriteField {
+    std::string type = KIND_BYTES;
+    /// @brief value is the base64 text placed at the pointer.
+    std::string value;
+
+    static BytesWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteField is an additional field of a write payload. The type selects a
+/// fixed value, or a value generated for each payload.
+using WriteField = std::variant<
+    FloatWriteField,
+    IntegerWriteField,
+    UnsignedWriteField,
+    StringWriteField,
+    BooleanWriteField,
+    JsonWriteField,
+    UuidWriteField,
+    TimestampWriteField,
+    BytesWriteField>;
+
+WriteField parse_write_field(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteField &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteField &base(const WriteField &value) {
+    return std::visit([](const auto &v) -> const BaseWriteField & { return v; }, value);
+}
 
 /// @brief FloatRead holds the options of a field that reads a float.
 struct FloatRead {

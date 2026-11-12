@@ -249,18 +249,11 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   });
 };
 
-const deployPointerZ = json.pointerZ.min(1, "Additional field pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  mqtt.staticWriteFieldZ.extend({ pointer: deployPointerZ, value: json.primitiveZ }),
-  mqtt.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
-
 const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
   .extend({
     topic: deployTopicZ,
     channel: mqtt.channelFieldZ.check(validatePointer),
-    fields: deployWriteFieldZ.array().default(() => []),
+    fields: Task.Payload.deployWriteFieldZ.array().default(() => []),
   })
   .check(validateWriteTarget);
 

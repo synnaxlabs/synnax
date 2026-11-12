@@ -11,6 +11,7 @@ import synnax as sy
 from synnax import http
 from tests.driver.http_task import HTTPWriteTaskCase
 from tests.driver.task import create_channel, create_index
+from x import payload
 
 
 class HTTPWriteSetpoint(HTTPWriteTaskCase):
@@ -67,11 +68,7 @@ class HTTPWriteControl(HTTPWriteTaskCase):
                     data_type=sy.DataType.FLOAT64,
                 ),
                 fields=[
-                    http.StaticWriteField(
-                        pointer="/mode",
-                        json_type="string",
-                        value="AUTO",
-                    ),
+                    payload.StringWriteField(pointer="/mode", value="AUTO"),
                 ],
             ),
         ]

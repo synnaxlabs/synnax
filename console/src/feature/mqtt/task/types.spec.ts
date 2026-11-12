@@ -495,7 +495,7 @@ describe("MQTT Task Types", () => {
             key: "t2",
             topic: "",
             disabled: true,
-            fields: [{ key: "g1", type: "generated", pointer: "", generator: "uuid" }],
+            fields: [{ key: "g1", type: "uuid", pointer: "" }],
           },
           { type: "sparkplug", key: "s2", disabled: true },
         ),
@@ -556,15 +556,7 @@ describe("MQTT Task Types", () => {
         writeConfig({
           ...target,
           channel: { type: "float", pointer: "", channel: 1 },
-          fields: [
-            {
-              key: "s1",
-              type: "static",
-              pointer: "/unit",
-              jsonType: "string",
-              value: "C",
-            },
-          ],
+          fields: [{ key: "s1", type: "string", pointer: "/unit", value: "C" }],
         }),
       );
       expect(issuesOf(result)).toEqual([
@@ -587,12 +579,12 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          fields: [{ key: "g1", type: "generated", pointer: "", generator: "uuid" }],
+          fields: [{ key: "g1", type: "uuid", pointer: "" }],
         }),
       );
       expect(issuesOf(result)).toEqual([
         {
-          message: "Additional field pointer cannot be empty",
+          message: "Pointer cannot be empty",
           path: "targets.0.fields.0.pointer",
         },
       ]);
@@ -602,9 +594,7 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          fields: [
-            { key: "g1", type: "generated", pointer: "/value", generator: "uuid" },
-          ],
+          fields: [{ key: "g1", type: "uuid", pointer: "/value" }],
         }),
       );
       expect(issuesOf(result)).toEqual([
@@ -619,7 +609,7 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          fields: [{ key: "s1", type: "static", pointer: "/value/unit", value: "rpm" }],
+          fields: [{ key: "s1", type: "string", pointer: "/value/unit", value: "rpm" }],
         }),
       );
       expect(issuesOf(result)).toEqual([
@@ -635,8 +625,8 @@ describe("MQTT Task Types", () => {
         writeConfig({
           ...target,
           fields: [
-            { key: "s1", type: "static", pointer: "/meta/unit", value: "rpm" },
-            { key: "g1", type: "generated", pointer: "/meta", generator: "uuid" },
+            { key: "s1", type: "string", pointer: "/meta/unit", value: "rpm" },
+            { key: "g1", type: "uuid", pointer: "/meta" },
           ],
         }),
       );
@@ -688,19 +678,11 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject a static value that is not a JSON primitive", () => {
+    it("should reject a json field whose value is not JSON", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          fields: [
-            {
-              key: "s1",
-              type: "static",
-              pointer: "/meta",
-              jsonType: "string",
-              value: { nested: true },
-            },
-          ],
+          fields: [{ key: "s1", type: "json", pointer: "/meta", value: "{" }],
         }),
       );
       expect(issuesOf(result).map(({ path }) => path)).toEqual([

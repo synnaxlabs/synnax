@@ -91,15 +91,6 @@ export const baseChannelFieldZ = z.object({
 });
 export interface BaseChannelField extends z.infer<typeof baseChannelFieldZ> {}
 
-/** BaseWriteField carries the fields every write payload field shares. */
-export const baseWriteFieldZ = z.object({
-  /** key uniquely identifies the field within the target. */
-  key: z.string().default(id.create),
-  /** pointer is the JSON Pointer where the value is placed in the payload. */
-  pointer: z.string().default(""),
-});
-export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
-
 /** BaseWriteTarget carries the fields every write target shares. */
 export const baseWriteTargetZ = z.object({
   /** key uniquely identifies the target within the task. */
@@ -307,49 +298,6 @@ export const CHANNEL_FIELD_SCHEMAS: {
   bytes: bytesChannelFieldZ,
 };
 
-/** StaticWriteField places a fixed value in the payload. */
-export const staticWriteFieldZ = baseWriteFieldZ.extend({
-  type: z.literal("static"),
-  /** jsonType is the JSON type the value is serialized as. */
-  jsonType: payload.jsonTypeZ.default("number"),
-  /** value is the fixed JSON value placed at the pointer. */
-  value: z.unknown(),
-});
-export interface StaticWriteField extends z.infer<typeof staticWriteFieldZ> {}
-
-/** GeneratedWriteField places a freshly generated UUID or timestamp in the payload. */
-export const generatedWriteFieldZ = baseWriteFieldZ.extend({
-  type: z.literal("generated"),
-  /** generator is the generator that produces a fresh value per publish. */
-  generator: payload.generatorTypeZ.default("uuid"),
-  /**
-   * timeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-});
-export interface GeneratedWriteField extends z.infer<typeof generatedWriteFieldZ> {}
-
-export const WRITE_FIELD_TYPES = ["static", "generated"] as const;
-export const writeFieldTypeZ = z.enum(WRITE_FIELD_TYPES);
-export type WriteFieldType = z.infer<typeof writeFieldTypeZ>;
-
-/**
- * WriteField is an additional payload field on a plain write target. The type field
- * selects whether the value is fixed or generated per publish.
- */
-export const writeFieldZ = z.discriminatedUnion("type", [
-  staticWriteFieldZ,
-  generatedWriteFieldZ,
-]);
-export type WriteField = StaticWriteField | GeneratedWriteField;
-
-export const WRITE_FIELD_SCHEMAS: {
-  [K in WriteFieldType]: z.ZodType<Extract<WriteField, { type: K }>>;
-} = {
-  static: staticWriteFieldZ,
-  generated: generatedWriteFieldZ,
-};
-
 export const edgeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),
   group: z.string().default(""),
@@ -376,8 +324,8 @@ export const plainWriteTargetZ = baseWriteTargetZ.extend({
   retained: z.boolean().default(false),
   /** channel is the command channel whose writes trigger the publish. */
   channel: channelFieldZ.prefault({ type: "float" }),
-  /** fields contains additional static or generated payload fields. */
-  fields: writeFieldZ.array().default(() => []),
+  /** fields contains additional fixed or generated payload fields. */
+  fields: payload.writeFieldZ.array().default(() => []),
 });
 export interface PlainWriteTarget extends z.infer<typeof plainWriteTargetZ> {}
 

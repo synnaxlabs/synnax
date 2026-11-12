@@ -117,6 +117,7 @@ export const deployWriteConfigZ = kafka.writeConfigZ.extend({
   record: kafka.recordZ
     .extend({
       valuePointer: json.pointerZ.min(1, "Value pointer is required").default("/value"),
+      fields: Task.Payload.deployWriteFieldZ.array().default(() => []),
     })
     .prefault({}),
   channels: deployWriteChannelZ
