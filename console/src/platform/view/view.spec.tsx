@@ -331,12 +331,28 @@ describe("View permissions", () => {
     ).toBeNull();
   });
 
-  it("should leave a saved view read-only for a subject who cannot update views", async () => {
+  it("should let a subject who cannot update views search a saved view but not filter it", async () => {
+    const start = TimeStamp.now();
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+    const alpha = await client.ranges.create({
+      name: uniqueRangeName("alpha"),
+      timeRange,
+    });
+    const bravo = await client.ranges.create({
+      name: uniqueRangeName("bravo"),
+      timeRange,
+    });
     const saved = await createView();
     await renderHarness(await createSubject({}), { searchInViews: true });
     fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
-    expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+    const input =
+      await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
+    fireEvent.change(input, { target: { value: alpha.name } });
+    await waitFor(() => {
+      expect(screen.getByText(String(alpha.key))).toBeTruthy();
+      expect(screen.queryByText(String(bravo.key))).toBeNull();
+    });
     expect(queryIconButton(document.body, "filter")).toBeNull();
   });
 
