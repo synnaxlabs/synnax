@@ -12,11 +12,13 @@
 #pragma once
 
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace x::payload {
 
@@ -195,6 +197,20 @@ inline x::json::json TimestampRead::to_json() const {
     return j;
 }
 
+inline BaseWriteField BaseWriteField::parse(x::json::Parser parser) {
+    return BaseWriteField{
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .pointer = parser.field<std::string>("pointer", ""),
+    };
+}
+
+inline x::json::json BaseWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["pointer"] = this->pointer;
+    return j;
+}
+
 inline EnumEntry EnumEntry::parse(x::json::Parser parser) {
     return EnumEntry{
         .label = parser.field<std::string>("label", ""),
@@ -207,6 +223,176 @@ inline x::json::json EnumEntry::to_json() const {
     j["label"] = this->label;
     j["value"] = this->value;
     return j;
+}
+
+inline FloatWriteField FloatWriteField::parse(x::json::Parser parser) {
+    FloatWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<Float>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FloatWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline IntegerWriteField IntegerWriteField::parse(x::json::Parser parser) {
+    IntegerWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<Integer>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json IntegerWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnsignedWriteField UnsignedWriteField::parse(x::json::Parser parser) {
+    UnsignedWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<Unsigned>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnsignedWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringWriteField StringWriteField::parse(x::json::Parser parser) {
+    StringWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline BooleanWriteField BooleanWriteField::parse(x::json::Parser parser) {
+    BooleanWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<bool>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BooleanWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline JsonWriteField JsonWriteField::parse(x::json::Parser parser) {
+    JsonWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json JsonWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UuidWriteField UuidWriteField::parse(x::json::Parser parser) {
+    UuidWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UuidWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline TimestampWriteField TimestampWriteField::parse(x::json::Parser parser) {
+    TimestampWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.time_format = parser.field<std::string>("time_format", "iso8601");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json TimestampWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["time_format"] = this->time_format;
+    j["type"] = this->type;
+    return j;
+}
+
+inline BytesWriteField BytesWriteField::parse(x::json::Parser parser) {
+    BytesWriteField result;
+    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BytesWriteField::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline WriteField parse_write_field(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "float") return FloatWriteField::parse(parser);
+    if (discriminator == "integer") return IntegerWriteField::parse(parser);
+    if (discriminator == "unsigned") return UnsignedWriteField::parse(parser);
+    if (discriminator == "string") return StringWriteField::parse(parser);
+    if (discriminator == "boolean") return BooleanWriteField::parse(parser);
+    if (discriminator == "json") return JsonWriteField::parse(parser);
+    if (discriminator == "uuid") return UuidWriteField::parse(parser);
+    if (discriminator == "timestamp") return TimestampWriteField::parse(parser);
+    if (discriminator == "bytes") return BytesWriteField::parse(parser);
+    parser.field_err("type", "unknown WriteField type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteField &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

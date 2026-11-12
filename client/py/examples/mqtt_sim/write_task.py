@@ -27,6 +27,7 @@ Each command becomes this payload on plant/valve/set:
 
 import synnax as sy
 from synnax import mqtt
+from x import payload
 
 client = sy.Synnax()
 
@@ -58,10 +59,8 @@ tsk = mqtt.WriteTask(
                 data_type=sy.DataType.FLOAT64,
             ),
             fields=[
-                mqtt.StaticWriteField(
-                    pointer="/source", json_type="string", value="synnax"
-                ),
-                mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
+                payload.StringWriteField(pointer="/source", value="synnax"),
+                payload.UuidWriteField(pointer="/id"),
             ],
         ),
     ],

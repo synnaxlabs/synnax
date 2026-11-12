@@ -70,23 +70,17 @@ func ownKind(ch channel.Channel) string {
 	return string(k)
 }
 
-func staticField(pointer, jsonType string, value any) map[string]any {
+func fixedField(pointer, kind string, value any) map[string]any {
 	return map[string]any{
-		"key":       pointer,
-		"type":      "static",
-		"pointer":   pointer,
-		"json_type": jsonType,
-		"value":     value,
+		"key":     pointer,
+		"type":    kind,
+		"pointer": pointer,
+		"value":   value,
 	}
 }
 
-func generatedField(pointer, generator string) map[string]any {
-	return map[string]any{
-		"key":       pointer,
-		"type":      "generated",
-		"pointer":   pointer,
-		"generator": generator,
-	}
+func generatedField(pointer, kind string) map[string]any {
+	return map[string]any{"key": pointer, "type": kind, "pointer": pointer}
 }
 
 func writeConfig(dev device.Device, targets ...map[string]any) msgpack.EncodedJSON {
@@ -232,8 +226,8 @@ var _ = Describe("Write task", func() {
 				ch := createVirtual(ctx, telem.Int32T)
 				start(ctx, writeConfig(dev, plainTarget(
 					"plant/pump/set", ch, "/rpm", ownKind(ch),
-					staticField("/unit", "string", "rpm"),
-					staticField("/priority", "number", 3),
+					fixedField("/unit", "string", "rpm"),
+					fixedField("/priority", "integer", "3"),
 					generatedField("/id", "uuid"),
 				)))
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
@@ -260,8 +254,8 @@ var _ = Describe("Write task", func() {
 				ch := createVirtual(ctx, telem.Int32T)
 				start(ctx, writeConfig(dev, plainTarget(
 					"plant/order/set", ch, "/reading/value", ownKind(ch),
-					staticField("/source", "string", "plc"),
-					staticField("/reading/unit", "string", "rpm"),
+					fixedField("/source", "string", "plc"),
+					fixedField("/reading/unit", "string", "rpm"),
 				)))
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/order/set")).To(ContainElement(
@@ -532,7 +526,7 @@ var _ = Describe("Write task", func() {
 			Entry("extra fields next to a root pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/unit", "string", "rpm")
+					unit := fixedField("/unit", "string", "rpm")
 					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "", ownKind(ch), unit)
 					return writeConfig(dev, target),
@@ -540,19 +534,19 @@ var _ = Describe("Write task", func() {
 							`overlap`
 				},
 			),
-			Entry("a static value that is not of its JSON type",
+			Entry("a float field that is not finite",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
 					return writeConfig(dev, plainTarget(
 						"plant/x", ch, "/v", ownKind(ch),
-						staticField("/unit", "number", "rpm"),
-					)), "target plant/x: static value at /unit is not a number"
+						fixedField("/unit", "float", "Infinity"),
+					)), `target plant/x: field "/unit": value +Inf must be finite`
 				},
 			),
 			Entry("a field at the parent of the channel value",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/unit", "string", "rpm")
+					unit := fixedField("/unit", "string", "rpm")
 					unit["key"] = "unit"
 					target := plainTarget(
 						"plant/x",
@@ -569,7 +563,7 @@ var _ = Describe("Write task", func() {
 			Entry("a channel value at the parent of a field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					unit := staticField("/reading/unit", "string", "rpm")
+					unit := fixedField("/reading/unit", "string", "rpm")
 					unit["key"] = "unit"
 					target := plainTarget("plant/x", ch, "/reading", ownKind(ch), unit)
 					return writeConfig(dev, target),
@@ -580,8 +574,8 @@ var _ = Describe("Write task", func() {
 			Entry("two fields at one pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Float64T)
-					rpm := staticField("/unit", "string", "rpm")
-					rps := staticField("/unit", "string", "rps")
+					rpm := fixedField("/unit", "string", "rpm")
+					rps := fixedField("/unit", "string", "rps")
 					rpm["key"], rps["key"] = "rpm", "rps"
 					target := plainTarget("plant/x", ch, "/v", ownKind(ch), rpm, rps)
 					return writeConfig(dev, target),

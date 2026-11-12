@@ -170,39 +170,41 @@ describe("MQTT Write form", () => {
     });
   });
 
-  it("should add a static field and reset its value when the JSON type changes", async () => {
+  it("should add a fixed field and reset its value when its type changes", async () => {
     await renderWrite();
     await addTarget();
-    fireEvent.click(screen.getByRole("button", { name: "Static" }));
-    await screen.findByText("static");
+    fireEvent.click(screen.getByRole("button", { name: "Fixed" }));
+    await screen.findByText("fixed");
     const value = screen.getByPlaceholderText<HTMLInputElement>("value");
     fireEvent.change(value, { target: { value: "on" } });
     fireEvent.blur(value);
     await screen.findByDisplayValue("on");
-    await selectFromDropdown("String", "Number");
+    await selectFromDropdown("String", "JSON");
     await waitFor(() => expect(screen.queryByDisplayValue("on")).toBeNull());
+    await screen.findByDisplayValue("null");
   });
 
-  it("should add a generated field and switch its generator to a timestamp", async () => {
+  it("should add a generated field and switch it to a timestamp", async () => {
     await renderWrite();
     await addTarget();
     fireEvent.click(screen.getByRole("button", { name: "Generated" }));
     await screen.findByText("generated");
-    await selectFromDropdown("UUID", "Timestamp (s)");
-    await findDialogTriggerByText("Timestamp (s)");
+    await selectFromDropdown("UUID", "Timestamp");
+    await selectFromDropdown("ISO 8601", "Unix (s)");
+    await findDialogTriggerByText("Unix (s)");
   });
 
   it("should remove additional fields through a context menu without a duplicate option", async () => {
     await renderWrite();
     await addTarget();
-    fireEvent.click(screen.getByRole("button", { name: "Static" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fixed" }));
     const pointer = await screen.findByPlaceholderText("/field");
     fireEvent.contextMenu(pointer);
     await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
     expect(screen.queryByText("Disable")).toBeNull();
     fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => expect(screen.queryByText("static")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("fixed")).toBeNull());
   });
 
   it("should duplicate targets and rename the command channel via the context menu", async () => {

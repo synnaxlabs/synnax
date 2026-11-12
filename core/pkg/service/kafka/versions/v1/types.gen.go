@@ -22,7 +22,7 @@ import (
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -430,7 +430,69 @@ func (u *WriteChannel) SetBase(base BaseWriteChannel) {
 }
 
 // Record is the shape of every record a write task produces.
-type Record = v0.Record
+type Record struct {
+	// ValuePointer is the JSON Pointer where the sample value is placed.
+	ValuePointer string `json:"value_pointer" msgpack:"value_pointer"`
+	// ChannelPointer is the JSON Pointer where the channel name is placed. Absent omits
+	// the name.
+	ChannelPointer *string `json:"channel_pointer,omitzero" msgpack:"channel_pointer,omitempty"`
+	// TimestampPointer is the JSON Pointer where the sample timestamp is placed. Absent
+	// omits the timestamp.
+	TimestampPointer *string `json:"timestamp_pointer,omitzero" msgpack:"timestamp_pointer,omitempty"`
+	// TimeFormat is the encoding of the sample timestamp.
+	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
+	// Fields contains additional fixed or generated record fields.
+	Fields []payload.WriteField `json:"fields" msgpack:"fields"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *Record) ApplyDefaults() {
+	if r.ValuePointer == "" {
+		r.ValuePointer = "/value"
+	}
+	if r.TimeFormat == "" {
+		r.TimeFormat = payload.TimeFormatUnixNs
+	}
+	for i := range r.Fields {
+		r.Fields[i].ApplyDefaults()
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Record) SetDefaults() {
+	r.ValuePointer = "/value"
+	r.TimeFormat = payload.TimeFormatUnixNs
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Record) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Record
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Record) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Record
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Record) Validate() error {
+	v := validate.New("Record")
+	v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", r.TimeFormat)
+	for i := range r.Fields {
+		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.

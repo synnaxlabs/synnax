@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, http, task
+from synnax import channel as channel_, device as device_, task
 from x import payload, telem
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
@@ -114,14 +114,14 @@ class Record(BaseModel):
         timestamp_pointer: Is the JSON Pointer where the sample timestamp is placed.
             Absent omits the timestamp.
         time_format: Is the encoding of the sample timestamp.
-        fields: Contains additional static or generated record fields.
+        fields: Contains additional fixed or generated record fields.
     """
 
     value_pointer: str = "/value"
     channel_pointer: str | None = None
     timestamp_pointer: str | None = None
     time_format: payload.TimeFormat = "unix_ns"
-    fields: list[http.WriteField] = Field(default_factory=list)
+    fields: list[payload.WriteField] = Field(default_factory=list)
 
 
 class NoneSASL(BaseModel):

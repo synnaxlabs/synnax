@@ -265,6 +265,23 @@ var _ = Describe("Write channels", func() {
 				"unsigned", 0, entry("ON", "1"), entry("ON", "2"),
 			)))).Error().ToNot(HaveOccurred())
 		})
+
+		DescribeTable("Should reject a record field with no valid value",
+			func(ctx SpecContext, kind string, value any, msg string) {
+				cfg := config(writeChannel("float", 0))
+				cfg["record"] = map[string]any{"fields": []any{map[string]any{
+					"key": "f", "type": kind, "pointer": "/f", "value": value,
+				}}}
+				Expect(prepare(ctx, cfg)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(`record.fields: field "f": `+msg)),
+				))
+			},
+			Entry("a float that is not finite", "float", "NaN",
+				"value NaN must be finite"),
+			Entry("json that is not JSON", "json", "{", "value is not JSON"),
+			Entry("bytes that are not base64", "bytes", "AQ*", "value is not base64"),
+		)
 	})
 
 	Describe("Normalize", func() {

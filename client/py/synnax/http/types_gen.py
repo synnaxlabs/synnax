@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
+from typing import Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -128,22 +128,6 @@ class ChannelField(BaseModel):
     enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
 
-class BaseWriteField(BaseModel):
-    """Carries the fields every write body field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the endpoint.
-        pointer: Is the JSON Pointer where the value is placed in the body.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
@@ -181,28 +165,32 @@ class ReadEndpoint(BaseModel):
         return hash(self.key)
 
 
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the request body."""
+class WriteEndpoint(BaseModel):
+    """Is a single HTTP endpoint written to by a write task.
 
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
+    Attributes:
+        key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
+        method: Is the HTTP method used to send the request.
+        path: Is the URL path appended to the device's base URL.
+        headers: Contains additional headers merged into the request.
+        query_params: Contains query parameters appended to the request URL.
+        channel: Is the command channel whose writes trigger this endpoint.
+        fields: Contains additional fixed or generated body fields.
+    """
 
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    method: Method = "POST"
+    path: str = ""
+    headers: list[Header] = Field(default_factory=list)
+    query_params: list[QueryParam] = Field(default_factory=list)
+    channel: ChannelField = Field(default_factory=lambda: ChannelField())
+    fields: list[payload.WriteField] = Field(default_factory=list)
 
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the body."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
-
-
-# Is an additional body field on a write endpoint. The type field selects whether
-# the value is fixed or generated per request.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
-    Field(discriminator="type"),
-]
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class ReadConfig(task.PersistConfig):
@@ -222,34 +210,6 @@ class ReadConfig(task.PersistConfig):
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class WriteEndpoint(BaseModel):
-    """Is a single HTTP endpoint written to by a write task.
-
-    Attributes:
-        key: Uniquely identifies the endpoint within the task.
-        disabled: Is true when the endpoint is excluded from the task.
-        method: Is the HTTP method used to send the request.
-        path: Is the URL path appended to the device's base URL.
-        headers: Contains additional headers merged into the request.
-        query_params: Contains query parameters appended to the request URL.
-        channel: Is the command channel whose writes trigger this endpoint.
-        fields: Contains additional static or generated body fields.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    method: Method = "POST"
-    path: str = ""
-    headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] = Field(default_factory=list)
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
-    fields: list[WriteField] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

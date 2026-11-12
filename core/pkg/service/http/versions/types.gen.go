@@ -11,83 +11,57 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 
 // Method is the HTTP method used when requesting an endpoint.
-type Method = v4.Method
+type Method = v5.Method
 
 const (
 	// MethodGet reads a resource.
-	MethodGet Method = v4.MethodGet
+	MethodGet Method = v5.MethodGet
 	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = v4.MethodHead
+	MethodHead Method = v5.MethodHead
 	// MethodPost submits data to a resource.
-	MethodPost Method = v4.MethodPost
+	MethodPost Method = v5.MethodPost
 	// MethodPut replaces a resource.
-	MethodPut Method = v4.MethodPut
+	MethodPut Method = v5.MethodPut
 	// MethodDelete removes a resource.
-	MethodDelete Method = v4.MethodDelete
+	MethodDelete Method = v5.MethodDelete
 	// MethodPatch changes part of a resource.
-	MethodPatch Method = v4.MethodPatch
+	MethodPatch Method = v5.MethodPatch
 	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = v4.MethodOptions
+	MethodOptions Method = v5.MethodOptions
 	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = v4.MethodTrace
+	MethodTrace Method = v5.MethodTrace
 	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = v4.MethodConnect
+	MethodConnect Method = v5.MethodConnect
 )
 
 // Header is a single HTTP header sent with a request.
-type Header = v4.Header
+type Header = v5.Header
 
 // QueryParam is a single URL query parameter sent with a request.
-type QueryParam = v4.QueryParam
+type QueryParam = v5.QueryParam
 
 // ReadField is a single value extracted from an endpoint's JSON response.
-type ReadField = v4.ReadField
+type ReadField = v5.ReadField
 
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
-type ReadEndpoint = v4.ReadEndpoint
+type ReadEndpoint = v5.ReadEndpoint
 
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
-type ReadConfig = v4.ReadConfig
+type ReadConfig = v5.ReadConfig
 
 // ChannelField is the command channel value placed into a write endpoint's body.
-type ChannelField = v4.ChannelField
-
-// BaseWriteField carries the fields every write body field shares.
-type BaseWriteField = v4.BaseWriteField
-
-// WriteField is an additional body field on a write endpoint. The type field selects
-// whether the value is fixed or generated per request.
-type WriteField = v4.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v4.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v4.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the request body.
-	StaticWriteFieldType WriteFieldType = v4.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
-	GeneratedWriteFieldType WriteFieldType = v4.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the request body.
-type StaticWriteField = v4.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the body.
-type GeneratedWriteField = v4.GeneratedWriteField
+type ChannelField = v5.ChannelField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
-type WriteEndpoint = v4.WriteEndpoint
+type WriteEndpoint = v5.WriteEndpoint
 
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
-type WriteConfig = v4.WriteConfig
+type WriteConfig = v5.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
-type ScanConfig = v4.ScanConfig
+type ScanConfig = v5.ScanConfig

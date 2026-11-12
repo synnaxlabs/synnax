@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from tests.task_targets import TaskTargets
+from x import payload
 
 
 @pytest.mark.mqtt
@@ -188,28 +189,22 @@ class TestMQTTWriteTask:
         target = sy.mqtt.SparkplugWriteTarget(group="Plant", edge_node="Line7")
         assert target.tag_type == "double"
 
-    def test_parse_static_and_generated_fields(self) -> None:
+    def test_parse_fixed_and_generated_fields(self) -> None:
         """Should select the field variant from the type field."""
         target = sy.mqtt.PlainWriteTarget.model_validate(
             {
                 "topic": "plant/pump/set",
                 "channel": {"type": "integer", "channel": 7, "pointer": "/rpm"},
                 "fields": [
-                    {
-                        "type": "static",
-                        "pointer": "/unit",
-                        "json_type": "string",
-                        "value": "rpm",
-                    },
-                    {"type": "generated", "pointer": "/id", "generator": "uuid"},
+                    {"type": "string", "pointer": "/unit", "value": "rpm"},
+                    {"type": "uuid", "pointer": "/id"},
                 ],
             }
         )
-        static, generated = target.fields
-        assert isinstance(static, sy.mqtt.StaticWriteField)
-        assert static.value == "rpm"
-        assert isinstance(generated, sy.mqtt.GeneratedWriteField)
-        assert generated.generator == "uuid"
+        fixed, generated = target.fields
+        assert isinstance(fixed, payload.StringWriteField)
+        assert fixed.value == "rpm"
+        assert isinstance(generated, payload.UuidWriteField)
 
     def test_parse_channel_field_by_kind(self) -> None:
         """Should select each channel field's variant from its type."""
