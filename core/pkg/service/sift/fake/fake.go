@@ -86,6 +86,7 @@ type Server struct {
 	paused    chan struct{}
 	runs      []*runsv2.Run
 	runFails  []error
+	updFails  []error
 	cfgFails  []error
 }
 
@@ -210,6 +211,14 @@ func (s *Server) FailRuns(errs ...error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.runFails = append(s.runFails, errs...)
+}
+
+// FailRunUpdates makes each of the next calls to UpdateRun return one of errs, in
+// order.
+func (s *Server) FailRunUpdates(errs ...error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.updFails = append(s.updFails, errs...)
 }
 
 // FailConfigs makes each of the next calls to CreateIngestionConfig return one of
@@ -628,6 +637,11 @@ func (s *Server) UpdateRun(
 ) (*runsv2.UpdateRunResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if len(s.updFails) > 0 {
+		err := s.updFails[0]
+		s.updFails = s.updFails[1:]
+		return nil, err
+	}
 	if req.Run == nil || req.UpdateMask == nil {
 		return nil, status.Error(
 			codes.InvalidArgument,
