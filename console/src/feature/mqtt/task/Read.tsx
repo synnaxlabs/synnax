@@ -198,7 +198,7 @@ interface FieldPaneProps extends Task.Views.FieldProps<ReadField> {
 const createFieldOf = (
   field: ReadField,
   options: Task.Payload.ReadOptions,
-): ReadField => createReadField(options, readBaseOf(field));
+): ReadField => ({ ...readBaseOf(field), ...options });
 
 const ReadOptionsSection: FC<{ path: deep.Path<ReadField> }> = ({ path }) => {
   const type = PForm.useFieldValue(path.type);
@@ -378,10 +378,15 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 const matchChannel = (field: ReadField, ch: channel.Channel): ReadField =>
   matchDataType(field, ch.dataType.toString());
 
+// The form holds a field that is not yet valid, such as one with a half-typed enum
+// row, as it is, and the deploy check reports it.
 const matchBoundField = (
   field: Pick<ReadField, "key" | "pointer" | "channel">,
   ch: channel.Channel,
-): ReadField => matchChannel(mqtt.readFieldZ.parse(field), ch);
+): Pick<ReadField, "key" | "pointer" | "channel"> => {
+  const parsed = mqtt.readFieldZ.safeParse(field);
+  return parsed.success ? matchChannel(parsed.data, ch) : field;
+};
 
 // A field bound to an existing channel takes the kind of that channel.
 const matchChannels = async (
