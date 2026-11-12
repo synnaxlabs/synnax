@@ -97,17 +97,17 @@ Each selected product runs four stages:
    also emits the previous stable product tag; a candidate uses the same baseline, so
    its notes cover every change since the last stable.
 2. **Verify**: `ci.yaml` runs with `full` as a `workflow_call` job, once per run, and
-   the migration audit runs when its input is set. Both run in parallel with the Console
-   and Driver builds and gate only the publish (RFC 0111 §2). The Core build waits for
-   the Console and Driver publish jobs, so it starts after CI ends.
+   the migration audit runs when its input is set. Both run in parallel with the builds
+   and gate only the publish (RFC 0111 §2).
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
-   product, then clear the draft after Verify passes. The release creates the tag, so a
-   failed build or a failed Verify leaves only a draft and no tag. Concurrency group
-   `release` serializes releases.
+   product. One `publish` job clears the drafts of the run, the Core last, after Verify
+   and every build pass. The release creates the tag, so a failed build or a failed
+   Verify leaves only drafts and no tag. Concurrency group `release` serializes
+   releases.
 
 Assets per product:
 
@@ -116,18 +116,20 @@ Assets per product:
   files, and `latest.json`, which points at the updater artifacts. The DMG is for first
   installs only and carries no signature.
 - **Driver** (`driver/vX.Y.Z`): The four platform binaries and the NI install script.
-- **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
-  releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
+- **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries into
+  `core/pkg/console/dist/` and `core/pkg/driver/assets/`, from the drafts of the run or,
+  for a product the run does not release, from its published release. It then builds the
   binaries, Windows installer, and Docker image (`next` for a pre-release that no Core
   tag outranks, `latest` for a stable that no other stable Core tag outranks, so a
   hotfix on an old train never moves either one backwards). No workflow rebuilds another
   product. The notes name the embedded versions. The image pushes in its own job after
-  the Core publishes, and no job waits on it, so a failed push blocks only the image. It
-  reads the tags at push time, so a late rerun never moves a channel back.
+  the publish, and no job waits on it, so a failed push blocks only the image. It reads
+  the tags at push time, so a late rerun never moves a channel back.
 
-Console and Driver release in parallel. The Core embeds them, so it waits for both and
-never runs after one fails. A failed product leaves no tag and the rest stand; rerun
-with that product alone, and a Core rerun's defaults pick up the others.
+The Console and the Driver build in parallel. The Core embeds them, so its build waits
+for both builds and for the updater manifest, and never runs after one fails. A failed
+build publishes no product of the run. A rerun of the failed jobs keeps the drafts that
+the passed builds filled, and a new dispatch clears them and builds again.
 
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
