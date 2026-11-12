@@ -439,17 +439,34 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
-    const slave = await createSharedSlave();
+  it("should show the settings that DewesoftX holds for a channel of a slave it sets up", async () => {
+    const settings = createDewesoftXSettings(true);
+    settings.channels = settings.channels.map((input) => ({
+      ...input,
+      settings: input.settings.map((f) =>
+        f.index === MEASUREMENT.index && f.subIndex === MEASUREMENT.subIndex
+          ? { ...f, value: 6 }
+          : f,
+      ),
+    }));
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings,
+    });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
-      await screen.findByText("DewesoftX sets the settings of this device."),
+      await screen.findByText(
+        "DewesoftX sets these values. Synnax does not change them.",
+      ),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    const measurement = screen.getByRole("button", { name: /^Measurement.*Bridge/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
     expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
   });
 

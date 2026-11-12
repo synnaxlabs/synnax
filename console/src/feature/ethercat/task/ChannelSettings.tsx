@@ -66,8 +66,9 @@ export interface ChannelSettingsProps {
  * Edits the settings that the read task writes to the inputs that the channels read, as
  * the catalogs of their slaves describe them. Channels that read one input share its
  * settings. With several inputs, it edits the settings that every input shows, and a
- * setting that the inputs hold different values for shows as mixed. Renders nothing
- * when the catalogs describe none of the inputs.
+ * setting that the inputs hold different values for shows as mixed. When other software
+ * sets up every input, shows the values that the inputs held at the scan, and the user
+ * cannot change them. Renders nothing when the catalogs describe none of the inputs.
  */
 export const ChannelSettings = ({
   keys,
@@ -80,6 +81,7 @@ export const ChannelSettings = ({
     unique.unique(channels.map((c) => c.device).filter(primitive.isNonZero)),
   );
   const targets: Target[] = [];
+  const shared: Target[] = [];
   const readers = new Set<string>();
   for (const ch of channels) {
     const slave = slaves?.find((s) => s.key === ch.device);
@@ -87,43 +89,51 @@ export const ChannelSettings = ({
     if (slave == null || input == null) continue;
     const reader = setUpBy(slave.properties);
     if (reader != null) readers.add(reader);
-    else if (!targets.some((t) => t.device === ch.device && t.input === input))
-      targets.push({ device: ch.device, input });
+    const list = reader == null ? targets : shared;
+    if (!list.some((t) => t.device === ch.device && t.input === input))
+      list.push({ device: ch.device, input });
   }
-  if (targets.length === 0 && readers.size === 0) return null;
+  const disabled = targets.length === 0;
+  const shown = disabled ? shared : targets;
+  if (shown.length === 0) return null;
+  const valuesOf = (device: string) => (disabled ? [] : parametersOf(held, device));
   const [reader] = readers;
-  const note = reader != null && (
-    <Text.Text level="small" color={9}>
-      {caseconv.capitalize(reader)} sets the settings of{" "}
-      {targets.length === 0 ? "this device" : "some selected devices"}.
-    </Text.Text>
+  const note =
+    reader != null &&
+    (disabled ? (
+      <Text.Text level="small" color={9}>
+        {caseconv.capitalize(reader)} sets these values. Synnax does not change them.
+      </Text.Text>
+    ) : (
+      <Text.Text level="small" color={9}>
+        {caseconv.capitalize(reader)} sets the settings of some selected devices.
+      </Text.Text>
+    ));
+  const [lead, ...others] = shown;
+  const rows = visibleFields(lead.input.settings, valuesOf(lead.device)).flatMap(
+    (field) => {
+      const matches = others.map(({ input, device }) =>
+        visibleFields(input.settings, valuesOf(device)).find((f) =>
+          sameSetting(f, field),
+        ),
+      );
+      return matches.every((m) => m != null) ? [[field, ...matches]] : [];
+    },
   );
-  const [lead, ...others] = targets;
-  const rows =
-    lead == null
-      ? []
-      : visibleFields(lead.input.settings, parametersOf(held, lead.device)).flatMap(
-          (field) => {
-            const matches = others.map(({ input, device }) =>
-              visibleFields(input.settings, parametersOf(held, device)).find((f) =>
-                sameSetting(f, field),
-              ),
-            );
-            return matches.every((m) => m != null) ? [[field, ...matches]] : [];
-          },
-        );
   return (
     <PForm.Section title="Settings">
       {note}
       {rows.map((fields) => {
-        const values = targets.map(({ input, device }, i) =>
-          valueAt(input.settings, parametersOf(held, device), fields[i]),
+        const values = shown.map(({ input, device }, i) =>
+          valueAt(input.settings, valuesOf(device), fields[i]),
         );
-        const problem = targets
-          .map(({ input, device }, i) =>
-            problemAt(check(input, parametersOf(held, device)), fields[i]),
-          )
-          .find((p) => p != null);
+        const problem = disabled
+          ? undefined
+          : targets
+              .map(({ input, device }, i) =>
+                problemAt(check(input, parametersOf(held, device)), fields[i]),
+              )
+              .find((p) => p != null);
         const handleChange = (value: number) => {
           let next = held;
           targets.forEach(({ input, device }, i) => {
@@ -146,6 +156,7 @@ export const ChannelSettings = ({
             mixed={values.some((v) => v !== values[0])}
             problem={problem?.message}
             onChange={handleChange}
+            disabled={disabled}
           />
         );
       })}

@@ -913,16 +913,18 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         await screen.findByText("Only DewesoftX can use this device"),
       ).toBeTruthy();
       expect(findButton("Switch to Synnax")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
     });
 
-    it("should hide the settings and startup parameters of a card that DewesoftX sets up", async () => {
-      await setup({
-        settings: createDewesoftXSettings(true, 2),
-        inputs: [STRAIN_ENTRY],
-      });
+    it("should show the held settings of a card that DewesoftX sets up and hide its startup parameters", async () => {
+      const settings = createDewesoftXSettings(true, 2);
+      settings.device = settings.device.map((f) => ({ ...f, value: 12 }));
+      await setup({ settings, inputs: [STRAIN_ENTRY] });
       expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      const rate = screen.getByRole("button", { name: /^Sample rate.*1 kS\/s/ });
+      expect(rate.getAttribute("aria-disabled")).toBe("true");
+      expect(
+        screen.getByText("DewesoftX sets these values. Synnax does not change them."),
+      ).toBeTruthy();
       expect(screen.queryByText("Startup parameters")).toBeNull();
       expect(findButton("Switch to Synnax")).toBeTruthy();
     });

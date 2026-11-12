@@ -21,6 +21,8 @@ interface BaseProps {
   /** Whether the inputs that the field sets hold different values. */
   mixed?: boolean;
   problem?: string;
+  /** Shows the value as one that other software sets. */
+  disabled?: boolean;
 }
 
 interface RequiredProps extends BaseProps {
@@ -61,7 +63,7 @@ export type SettingInputProps = RequiredProps | OptionalProps;
  * shows "Mixed" until the user sets it.
  */
 export const SettingInput = (props: SettingInputProps): ReactElement => {
-  const { field, mixed = false, problem, onChange } = props;
+  const { field, mixed = false, problem, disabled, onChange } = props;
   const value = mixed ? undefined : props.value;
   const status = problem == null ? undefined : "error";
   const held = mixed ? "Mixed" : heldText(field);
@@ -82,6 +84,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
           status={status}
           placeholder={held}
           aria-label={field.name}
+          disabled={disabled}
         />
       ) : (
         <Select.Simple<number>
@@ -90,6 +93,7 @@ export const SettingInput = (props: SettingInputProps): ReactElement => {
             next == null ? clear?.() : onChange(next)
           }
           resourceName={inSentence(field.name)}
+          disabled={disabled}
           searchHidden
           allowNone={clear != null}
           triggerProps={held == null ? { status } : { status, placeholder: held }}
