@@ -22,7 +22,6 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import {
   Access,
@@ -36,7 +35,7 @@ import {
 import { type ReactElement, useEffect, useSyncExternalStore } from "react";
 
 import { Section } from "@/feature/range/next/overview/Section";
-import { ContextMenu as Base } from "@/platform/context-menu";
+import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
@@ -114,27 +113,20 @@ interface DocumentMenuProps {
 
 const DocumentMenu = ({ entry: { id, name } }: DocumentMenuProps): ReactElement => {
   const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
   const kind = KINDS[id.type];
   const confirm = Modals.useConfirmDelete({ type: kind.name, icon: kind.icon });
   const canDelete = Access.useDeleteGranted(id);
+  const params = { beforeUpdate: async () => await confirm({ name }) };
   // A hook cannot be picked by kind, so the menu holds the delete of each kind.
   const deletes: Record<string, (key: string) => void> = {
-    [lineplot.TYPE_RESOURCE_ID.type]: LinePlot.useDelete().update,
-    [schematic.TYPE_RESOURCE_ID.type]: Schematic.useDelete().update,
-    [table.TYPE_RESOURCE_ID.type]: Table.useDelete().update,
-    [log.TYPE_RESOURCE_ID.type]: Log.useDelete().update,
-    [task.TYPE_RESOURCE_ID.type]: Task.useDelete().update,
+    [lineplot.TYPE_RESOURCE_ID.type]: LinePlot.useDelete(params).update,
+    [schematic.TYPE_RESOURCE_ID.type]: Schematic.useDelete(params).update,
+    [table.TYPE_RESOURCE_ID.type]: Table.useDelete(params).update,
+    [log.TYPE_RESOURCE_ID.type]: Log.useDelete(params).update,
+    [task.TYPE_RESOURCE_ID.type]: Task.useDelete(params).update,
   };
-  const handleDelete = () =>
-    handleError(
-      async () => {
-        if (await confirm({ name })) deletes[id.type](id.key);
-      },
-      { message: `Failed to delete ${kind.name.toLowerCase()}`, name },
-    );
   return (
-    <Base.Menu>
+    <ContextMenu.Menu>
       <Menu.Item
         itemKey="open"
         onClick={() => openTab({ variant: "resource", resource: id })}
@@ -143,10 +135,10 @@ const DocumentMenu = ({ entry: { id, name } }: DocumentMenuProps): ReactElement 
         Open
       </Menu.Item>
       <Menu.Divider />
-      {canDelete && <Base.DeleteItem onClick={handleDelete} />}
+      {canDelete && <ContextMenu.DeleteItem onClick={() => deletes[id.type](id.key)} />}
       <Menu.Divider />
-      <Base.ReloadConsoleItem />
-    </Base.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
   );
 };
 
@@ -157,9 +149,9 @@ export const Documents = ({ documents }: { documents: Document[] }): ReactElemen
     const entry = documents.find(({ id }) => resource.idToString(id) === keys[0]);
     if (entry == null)
       return (
-        <Base.Menu>
-          <Base.ReloadConsoleItem />
-        </Base.Menu>
+        <ContextMenu.Menu>
+          <ContextMenu.ReloadConsoleItem />
+        </ContextMenu.Menu>
       );
     return <DocumentMenu entry={entry} />;
   };
