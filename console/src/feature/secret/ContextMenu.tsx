@@ -13,9 +13,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCreateModal } from "@/feature/secret/useCreateModal";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
+import { Secret as PlatformSecret } from "@/platform/secret";
 
 type Named = Pick<secret.Secret, "key" | "name">;
 
@@ -56,7 +56,7 @@ export const SecretMenu = ({
   const id = secret.resourceID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
-  const openReplace = useCreateModal();
+  const openReplace = PlatformSecret.useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
@@ -68,7 +68,10 @@ export const SecretMenu = ({
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
       {canUpdate && s.source === "stored" && (
-        <Menu.Item itemKey="replace" onClick={() => openReplace({ replace: s.key })}>
+        <Menu.Item
+          itemKey="replace"
+          onClick={() => void openReplace({ replace: s.key })}
+        >
           <Icon.Refresh />
           Replace value
         </Menu.Item>

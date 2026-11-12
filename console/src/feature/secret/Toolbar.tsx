@@ -15,21 +15,21 @@ import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Lists } from "@/feature/secret/Lists";
-import { useCreateModal } from "@/feature/secret/useCreateModal";
 import { useRetrievable } from "@/feature/secret/useLists";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
+import { Secret } from "@/platform/secret";
 import { Toolbar } from "@/platform/toolbar";
 
 const EmptyContent = (): ReactElement => {
-  const openCreate = useCreateModal();
+  const openCreate = Secret.useCreateModal();
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Empty.Action
       message="No credentials"
       action={canCreate ? "Create secret" : undefined}
-      onClick={() => openCreate()}
+      onClick={() => void openCreate()}
     />
   );
 };
@@ -37,7 +37,7 @@ const EmptyContent = (): ReactElement => {
 const EMPTY_CONTENT = <EmptyContent />;
 
 const Content = (): ReactElement => {
-  const openCreate = useCreateModal();
+  const openCreate = Secret.useCreateModal();
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
     <Toolbar.Content className={CSS.B("credentials")}>
@@ -50,7 +50,7 @@ const Content = (): ReactElement => {
           <Toolbar.Actions>
             <Toolbar.CreateAction
               tooltip="Create secret"
-              onClick={() => openCreate()}
+              onClick={() => void openCreate()}
             />
           </Toolbar.Actions>
         )}

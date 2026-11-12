@@ -33,11 +33,15 @@ const valueFormZ = formZ.pick({ value: true });
 const path = deep.path<z.infer<typeof formZ>>();
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
-  autoFocus: true,
   level: "h2",
   variant: "text",
   placeholder: "Secret name",
   "aria-label": "Secret name",
+};
+
+const FOCUSED_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  ...NAME_INPUT_PROPS,
+  autoFocus: true,
 };
 
 const VALUE_INPUT_PROPS: Partial<Input.TextProps> = {
@@ -46,9 +50,13 @@ const VALUE_INPUT_PROPS: Partial<Input.TextProps> = {
   autoComplete: "off",
 };
 
-const NEW_VALUE_INPUT_PROPS: Partial<Input.TextProps> = {
+const FOCUSED_VALUE_INPUT_PROPS: Partial<Input.TextProps> = {
   ...VALUE_INPUT_PROPS,
   autoFocus: true,
+};
+
+const NEW_VALUE_INPUT_PROPS: Partial<Input.TextProps> = {
+  ...FOCUSED_VALUE_INPUT_PROPS,
   placeholder: "New value",
 };
 
@@ -58,6 +66,8 @@ export interface CreateModalParams {
    * creates a secret.
    */
   replace?: secret.Key;
+  /** The name a created secret starts with. */
+  name?: string;
 }
 
 interface FooterProps {
@@ -95,17 +105,25 @@ const Footer = ({ label, variant, onCancel, onSave }: FooterProps): ReactElement
 };
 
 interface BodyProps {
-  close: () => void;
+  close: (key?: secret.Key) => void;
 }
 
-const Create = ({ close }: BodyProps): ReactElement => {
-  const form = Form.use({ values: { name: "", value: "" }, schema: formZ });
-  const { update, variant } = Secret.useCreate({ afterSuccess: () => close() });
+interface CreateProps extends BodyProps {
+  name: string;
+}
+
+const Create = ({ close, name: initialName }: CreateProps): ReactElement => {
+  const form = Form.use({ values: { name: initialName, value: "" }, schema: formZ });
+  const { update, variant } = Secret.useCreate({
+    afterSuccess: ({ data }) => close(data.key),
+  });
   const handleSave = () => {
     if (!form.validate()) return;
     const { name, value } = form.value();
     update({ name: name.trim(), source: "stored", value });
   };
+  // A given name moves focus to the value.
+  const named = initialName.length > 0;
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.Secret />}>Secret.Create</Modal.Header>
@@ -115,16 +133,21 @@ const Create = ({ close }: BodyProps): ReactElement => {
             path={path.name}
             showLabel={false}
             padHelpText={false}
-            inputProps={NAME_INPUT_PROPS}
+            inputProps={named ? NAME_INPUT_PROPS : FOCUSED_NAME_INPUT_PROPS}
           />
           <Form.TextField
             path={path.value}
             label="Value"
-            inputProps={VALUE_INPUT_PROPS}
+            inputProps={named ? FOCUSED_VALUE_INPUT_PROPS : VALUE_INPUT_PROPS}
           />
         </Form.Form>
       </Modal.Body>
-      <Footer label="Create" variant={variant} onCancel={close} onSave={handleSave} />
+      <Footer
+        label="Create"
+        variant={variant}
+        onCancel={() => close()}
+        onSave={handleSave}
+      />
     </Modal.Frame>
   );
 };
@@ -137,7 +160,9 @@ interface ReplaceProps extends BodyProps {
 const Replace = ({ close, secretKey }: ReplaceProps): ReactElement => {
   const { name } = Secret.use({ key: secretKey });
   const form = Form.use({ values: { value: "" }, schema: valueFormZ });
-  const { update, variant } = Secret.useCreate({ afterSuccess: () => close() });
+  const { update, variant } = Secret.useCreate({
+    afterSuccess: ({ data }) => close(data.key),
+  });
   const handleSave = () => {
     if (!form.validate()) return;
     update({ key: secretKey, name, source: "stored", value: form.value().value });
@@ -154,7 +179,12 @@ const Replace = ({ close, secretKey }: ReplaceProps): ReactElement => {
           />
         </Form.Form>
       </Modal.Body>
-      <Footer label="Replace" variant={variant} onCancel={close} onSave={handleSave} />
+      <Footer
+        label="Replace"
+        variant={variant}
+        onCancel={() => close()}
+        onSave={handleSave}
+      />
     </Modal.Frame>
   );
 };
@@ -162,11 +192,15 @@ const Replace = ({ close, secretKey }: ReplaceProps): ReactElement => {
 const Content = ({
   close,
   replace,
-}: Modals.ContentProps<CreateModalParams, void>): ReactElement =>
+  name = "",
+}: Modals.ContentProps<CreateModalParams, secret.Key>): ReactElement =>
   replace == null ? (
-    <Create close={() => close()} />
+    <Create close={close} name={name} />
   ) : (
-    <Replace close={() => close()} secretKey={replace} />
+    <Replace close={close} secretKey={replace} />
   );
 
-export const useCreateModal = Modals.create<CreateModalParams>(Content);
+/** Opens the modal. Resolves with the key of the saved secret, or null on cancel. */
+export const useCreateModal = Modals.createPrompt<secret.Key, CreateModalParams>(
+  Content,
+);
