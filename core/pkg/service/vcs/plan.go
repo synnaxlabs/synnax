@@ -10,8 +10,11 @@
 package vcs
 
 import (
+	"cmp"
 	"context"
+	"path"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -20,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -242,7 +246,8 @@ func (s *Service) resolvePull(p *planned) error {
 
 // replay commits the changes of each commit from base to head that waits for a push
 // onto onto, oldest first, and returns the new tip. It leaves out the resources in skip
-// and every commit that changes nothing.
+// and every commit that changes nothing. A waiting resource that would take the file of
+// an incoming one moves to a numbered name.
 func (s *Service) replay(
 	head, onto plumbing.Hash,
 	skip set.Set[resource.ID],
@@ -253,6 +258,7 @@ func (s *Service) replay(
 	}
 	slices.Reverse(waiting)
 	tip := onto
+	m := moves{}
 	for _, c := range waiting {
 		changes, err := s.repo.changesOf(c.Hash)
 		if err != nil {
@@ -276,7 +282,11 @@ func (s *Service) replay(
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
-		fs, err := patch(tipTree, commitTree, selected)
+		fs, err := patch(
+			tipTree,
+			relocate(tipTree, commitTree, selected, m),
+			selected,
+		)
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
@@ -292,6 +302,132 @@ func (s *Service) replay(
 		}
 	}
 	return tip, nil
+}
+
+// moves maps the paths of waiting commits to the free paths that replay gave them. A
+// key that ends in a slash moves a folder and the files in it.
+type moves map[string]string
+
+// to returns the path that p moved to, or p.
+func (m moves) to(p string) string {
+	if to, ok := m[p]; ok {
+		return to
+	}
+	from := ""
+	for k := range m {
+		if strings.HasSuffix(k, "/") && strings.HasPrefix(p, k) && len(k) > len(from) {
+			from = k
+		}
+	}
+	if from == "" {
+		return p
+	}
+	return m[from] + strings.TrimPrefix(p, from)
+}
+
+// relocate returns the selected resources of work at their paths in m. It first adds a
+// move to m for each one that would take a file of a resource that base keeps.
+func relocate(base, work *tree, selected []resource.ID, m moves) *tree {
+	chosen := set.New(selected...)
+	occupied := set.New[string]()
+	for id, it := range base.items {
+		if !chosen.Contains(id) {
+			for _, p := range it.paths {
+				occupied.Add(filename.Fold(p))
+			}
+		}
+	}
+	var items []*item
+	for _, id := range selected {
+		if it, ok := work.items[id]; ok {
+			items = append(items, it)
+		}
+	}
+	// A folder moves before the files in it.
+	slices.SortFunc(items, func(a, b *item) int {
+		_, aFolder := folderOf(a.main())
+		_, bFolder := folderOf(b.main())
+		if aFolder != bFolder {
+			return lo.Ternary(aFolder, -1, 1)
+		}
+		return cmp.Or(
+			cmp.Compare(strings.Count(a.main(), "/"), strings.Count(b.main(), "/")),
+			cmp.Compare(a.main(), b.main()),
+		)
+	})
+	out := newTree()
+	out.raw[readmePath] = work.raw[readmePath]
+	out.raw[manifestPath] = work.raw[manifestPath]
+	for _, it := range items {
+		if slices.ContainsFunc(it.paths, func(p string) bool {
+			return occupied.Contains(filename.Fold(m.to(p)))
+		}) {
+			m.move(it, occupied)
+		}
+		fs := files{}
+		for _, p := range it.paths {
+			to := m.to(p)
+			fs[to] = work.raw[p]
+			occupied.Add(filename.Fold(to))
+		}
+		out.add(it.id, it.name, fs)
+	}
+	return out
+}
+
+// move adds a move to m that gives it a numbered name that no path of occupied holds.
+// A project, group, or Arc directory moves with its folder.
+func (m moves) move(it *item, occupied set.Set[string]) {
+	main := m.to(it.main())
+	if dir, ok := folderOf(main); ok {
+		parent, name := path.Split(dir)
+		claimed := claim(entries(occupied, parent), name, "", []string{""})
+		m[path.Dir(it.main())+"/"] = parent + claimed + "/"
+		return
+	}
+	parent, name := path.Split(main)
+	ext := extOf(it.id, main)
+	exts := make([]string, len(it.paths))
+	for i, p := range it.paths {
+		exts[i] = extOf(it.id, p)
+	}
+	stem := strings.TrimSuffix(claim(entries(occupied, parent), name, ext, exts), ext)
+	for _, p := range it.paths {
+		m[p] = parent + stem + extOf(it.id, p)
+	}
+}
+
+// folderOf returns the folder of the resource whose own file sits at p, when the
+// resource is a folder.
+func folderOf(p string) (string, bool) {
+	switch path.Base(p) {
+	case projectFile, groupFile, directoryFile:
+		return path.Dir(p), true
+	}
+	return "", false
+}
+
+// extOf returns the extension of the file at p of a resource with id, such as
+// .schematic.json for a schematic.
+func extOf(id resource.ID, p string) string {
+	if slices.Contains(memberTypes, id.Type) {
+		return "." + string(id.Type) + jsonExt
+	}
+	return path.Ext(p)
+}
+
+// entries returns the folded names of the entries of the folder dir, which ends in a
+// slash, that the folded paths of occupied hold.
+func entries(occupied set.Set[string], dir string) set.Set[string] {
+	prefix := filename.Fold(dir)
+	out := set.New[string]()
+	for p := range occupied {
+		if rest, ok := strings.CutPrefix(p, prefix); ok {
+			first, _, _ := strings.Cut(rest, "/")
+			out.Add(first)
+		}
+	}
+	return out
 }
 
 func (s *Service) resolveRestore(p *planned) error {

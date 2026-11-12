@@ -1016,6 +1016,77 @@ var _ = Describe("VCS", func() {
 			},
 		)
 
+		DescribeTable(
+			"Should move a waiting resource to a numbered name when an incoming one "+
+				"takes its file",
+			func(ctx SpecContext, create func(SpecContext) string, file, moved string) {
+				connect(ctx, remoteURL)
+				away := remoteDir + ".away"
+				Expect(os.Rename(remoteDir, away)).To(Succeed())
+				key := create(ctx)
+				commit(ctx, "Add mine")
+				Expect(os.Rename(away, remoteDir)).To(Succeed())
+				var mine []byte
+				for _, f := range working(ctx) {
+					if f.Path == file {
+						mine = []byte(f.Content)
+					}
+				}
+				Expect(mine).ToNot(BeEmpty())
+				theirs := bytes.Replace(
+					mine,
+					[]byte(key),
+					[]byte(uuid.New().String()),
+					1,
+				)
+				pushElsewhere(func(dir string, wt *git.Worktree) {
+					p := filepath.Join(dir, file)
+					Expect(os.MkdirAll(filepath.Dir(p), 0o755)).To(Succeed())
+					Expect(os.WriteFile(p, theirs, 0o644)).To(Succeed())
+					MustSucceed(wt.Add(file))
+				})
+				MustSucceed(svc.Fetch(ctx))
+				MustSucceed(svc.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetPull},
+					nil,
+					svc.DefaultWrite,
+					allow,
+				))
+				Expect(MustSucceed(svc.Status(ctx)).Waiting).To(BeZero())
+				remote := MustSucceed(git.PlainOpen(remoteDir))
+				ref := MustSucceed(
+					remote.Reference(plumbing.NewBranchReferenceName("main"), true),
+				)
+				tree := MustSucceed(MustSucceed(remote.CommitObject(ref.Hash())).Tree())
+				read := func(p string) string {
+					return MustSucceed(MustSucceed(tree.File(p)).Contents())
+				}
+				Expect(read(file)).To(Equal(string(theirs)))
+				Expect(read(moved)).To(Equal(string(mine)))
+			},
+			Entry(
+				"a schematic",
+				func(ctx SpecContext) string {
+					return createSchematic(ctx, "Engine").Key.String()
+				},
+				"projects/Test Stand/Engine.schematic.json",
+				"projects/Test Stand/Engine (1).schematic.json",
+			),
+			Entry(
+				"a project, with its folder",
+				func(ctx SpecContext) string {
+					p := project.Project{Name: "Rig"}
+					tx(ctx, func(tx gorp.Tx) error {
+						return layer.Project.NewWriter(tx).Create(ctx, &p)
+					})
+					return p.Key.String()
+				},
+				"projects/Rig/_project.json",
+				"projects/Rig (1)/_project.json",
+			),
+		)
+
 		It(
 			"Should check a running task that it deletes before it stops it",
 			func(ctx SpecContext) {
