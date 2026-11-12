@@ -51,6 +51,8 @@ FILES = {
     "integration/tests/console/plot.py": (
         "import x\n\n\nclass Plot(TestCase):\n    pass\n"
     ),
+    "scripts/test_check.py": "def test_checks():\n    pass\n",
+    "scripts/runners/tests/test_scaler.py": "def test_scales():\n    pass\n",
 }
 
 # A scratch repo holding FILES, and the SHA of its only commit.
@@ -125,6 +127,12 @@ class TestEnumerateTests:
         root, sha = repo
         assert enumerate_tests(root, sha=sha, lang="go", dirs=["console"]) == []
 
+    def test_should_leave_out_the_tests_of_a_nested_job(self, repo: Repo) -> None:
+        root, sha = repo
+        assert enumerate_tests(root, sha=sha, lang="py", dirs=["scripts"]) == [
+            ("scripts/test_check.py", 1, "test_checks"),
+        ]
+
 
 class TestIntegrationSources:
     """Integration sources read at a commit."""
@@ -152,7 +160,24 @@ CASES = {
         "from framework.test_case import TestCase\n\n\n"
         "class TaskCase(TestCase):\n"
         "    def run(self):\n"
-        "        self.client.tasks.configure(self.tsk)\n"
+        "        self.client.tasks.configure(self.tsk)\n\n\n"
+        "class ReadTaskCase(TestCase, Generic[T]):\n    pass\n"
+    ),
+    "tests/hitl/crio_case.py": (
+        "from framework.test_case import TestCase\n\n\n"
+        "class CRIOCase(TestCase):\n    pass\n"
+    ),
+    "tests/hitl/crio_driver.py": (
+        "from tests.hitl.crio_case import CRIOCase\n\n\n"
+        "class CRIODriver(CRIOCase):\n    pass\n"
+    ),
+    "tests/hitl/ethercat.py": (
+        "from tests.driver.task import ReadTaskCase\n\n\n"
+        "class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):\n    pass\n"
+    ),
+    "tests/hitl/ethercat_perf.py": (
+        "from tests.hitl.ethercat import EtherCATRead\n\n\n"
+        "class EtherCATStartTime(EtherCATRead):\n    pass\n"
     ),
     "tests/console/plot.py": (
         "from console.case import ConsoleCase\n\n\n"
@@ -209,6 +234,14 @@ class TestCases:
         case = Cases(CASES).resolve("driver/ni", name="NIMissing")
         assert case.tags == ["headless", "driver", "not-windows"]
         assert case.skipped == {"windows": "DAQmx is installed"}
+
+    def test_should_tag_a_crio_case_as_using_the_driver(self) -> None:
+        case = Cases(CASES).resolve("hitl/crio_driver", name="crio_driver")
+        assert case.tags == ["headless", "driver"]
+
+    def test_should_resolve_a_case_through_a_generic_base(self) -> None:
+        case = Cases(CASES).resolve("hitl/ethercat_perf", name="ethercat_perf")
+        assert case.source == "integration/tests/hitl/ethercat_perf.py#L4"
 
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
@@ -379,13 +412,23 @@ class TestSuiteJobs:
             == {}
         )
 
-    def test_should_include_the_lint_rule_suite(self) -> None:
-        eslint = job("eslint-config / Test (ubuntu-latest)", runner="ubuntu-latest")
-        assert suite_jobs([eslint]) == {("eslint-config", "ubuntu"): eslint}
+    @pytest.mark.parametrize("key", ["eslint-config", "stylelint-config"])
+    def test_should_include_the_lint_rule_suites(self, key: str) -> None:
+        lint = job(f"{key} / Test (ubuntu-latest)", runner="ubuntu-latest")
+        assert suite_jobs([lint]) == {(key, "ubuntu"): lint}
 
     def test_should_leave_out_the_thread_sanitizer_rerun_of_driver_tests(self) -> None:
         tsan = job("driver-tsan / Test (ubuntu-build-bot)", runner="ubuntu-build-bot")
         assert suite_jobs([tsan]) == {}
+
+    def test_should_leave_out_the_oldest_dependency_rerun_of_client_tests(
+        self,
+    ) -> None:
+        lowest = job(
+            "client-py-lowest / Test (ubuntu-latest, Python oldest)",
+            runner="ubuntu-latest",
+        )
+        assert suite_jobs([lowest]) == {}
 
     def test_should_reject_a_job_with_no_entry(self) -> None:
         with pytest.raises(

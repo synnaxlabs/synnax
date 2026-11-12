@@ -76,7 +76,8 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 
 - `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page
   data from a CI run and uploads it to DigitalOcean Spaces. Redeploy the docs to publish
-  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`.
+  it. Needs `gh` auth, `DO_SPACES_KEY`, and `DO_SPACES_SECRET`. `--hitl <run-url>` adds
+  the tests of a `Test - HITL` run of the same code, which ran on real hardware.
   `--manual-pass <skip reason>` notes that the tests skipped for that reason were run by
   hand and passed; `--manual-note <text>` says why, on the page.
 
