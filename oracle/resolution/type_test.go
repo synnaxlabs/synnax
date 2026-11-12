@@ -277,6 +277,17 @@ var _ = Describe("ArraySize", func() {
 		add("List", resolution.AliasForm{Target: ref("Array")})
 		add("CycleA", resolution.AliasForm{Target: ref("t.CycleB")})
 		add("CycleB", resolution.AliasForm{Target: ref("t.CycleA")})
+		def := sized(2)
+		tp := resolution.TypeParam{Name: "T", Default: &def}
+		tpRef := resolution.TypeRef{TypeParam: &tp}
+		add("Wrap", resolution.AliasForm{
+			Target:     tpRef,
+			TypeParams: []resolution.TypeParam{tp},
+		})
+		add("Fixed", resolution.DistinctForm{
+			Base:       tpRef,
+			TypeParams: []resolution.TypeParam{tp},
+		})
 	})
 
 	DescribeTable(
@@ -299,6 +310,24 @@ var _ = Describe("ArraySize", func() {
 		Entry("type param default", func() resolution.TypeRef {
 			d := ref("t.Pair")
 			return param(&resolution.TypeParam{Default: &d})
+		}, int64(2)),
+		Entry("generic alias with a type argument", func() resolution.TypeRef {
+			return resolution.TypeRef{
+				Name:     "t.Wrap",
+				TypeArgs: []resolution.TypeRef{sized(3)},
+			}
+		}, int64(3)),
+		Entry("generic alias with its default", func() resolution.TypeRef {
+			return ref("t.Wrap")
+		}, int64(2)),
+		Entry("generic distinct with a type argument", func() resolution.TypeRef {
+			return resolution.TypeRef{
+				Name:     "t.Fixed",
+				TypeArgs: []resolution.TypeRef{sized(3)},
+			}
+		}, int64(3)),
+		Entry("generic distinct with its default", func() resolution.TypeRef {
+			return ref("t.Fixed")
 		}, int64(2)),
 	)
 

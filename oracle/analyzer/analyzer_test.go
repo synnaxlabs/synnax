@@ -4192,6 +4192,18 @@ Node union on variant {
 				"has an array of 2 elements, but its type holds exactly 3",
 			),
 			Entry(
+				"a generic distinct type with a type argument",
+				"Fixed<T = uint8[2]> T\n\n"+
+					"Item struct {\n\tf Fixed<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an element of a generic distinct type",
+				"Fixed<T = uint8[]> T\n\n"+
+					"Item struct {\n\tf Fixed<Pair[]> = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
 				"a generic alias with its default",
 				"Wrap<T = uint8[2]> = T\n\nItem struct {\n\tw Wrap = [1, 2, 3]\n}",
 				"has an array of 3 elements, but its type holds exactly 2",
@@ -4208,6 +4220,11 @@ Node union on variant {
 				"a struct",
 				"Box struct<T = uint8[2]> {\n\tv T\n}\n\n"+
 					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n",
+			),
+			Entry(
+				"a distinct type",
+				"Fixed<T = uint8[2]> T\n\n"+
+					"Item struct {\n\tf Fixed<uint8[3]> = [1, 2, 3]\n}\n",
 			),
 			Entry(
 				"an alias",

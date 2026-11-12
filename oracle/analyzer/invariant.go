@@ -179,11 +179,7 @@ func checkArraySizes(
 ) {
 	switch val.Kind {
 	case resolution.ValueKindArray:
-		sized := ref
-		if _, target, ok := resolution.Dealias(ref, c.table); ok {
-			sized = target
-		}
-		size, ok := resolution.ArraySize(sized, c.table)
+		size, ok := resolution.ArraySize(ref, c.table)
 		if ok && int64(len(val.Elements)) != size {
 			c.diag.Add(diagnostics.Errorf(
 				nil,
@@ -241,7 +237,8 @@ func checkArraySizes(
 }
 
 // arrayElement returns the element type of the array that ref resolves to through
-// type parameter constraints and defaults, aliases, and distinct bases.
+// type parameter constraints and defaults, aliases, and distinct bases, applying the
+// type arguments of a generic alias or distinct type.
 func arrayElement(
 	ref resolution.TypeRef,
 	table *resolution.Table,
@@ -280,7 +277,8 @@ func arrayElement(
 		if !ok {
 			return resolution.TypeRef{}, false
 		}
-		ref = distinct.Base
+		args := resolution.TypeArgMap(distinct.TypeParams, target.TypeArgs)
+		ref = resolution.SubstituteTypeRef(distinct.Base, args)
 	}
 	return resolution.TypeRef{}, false
 }
