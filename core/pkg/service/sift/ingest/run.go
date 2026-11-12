@@ -58,7 +58,10 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 		}
 		e.cfg.OnRetry(ctx, err)
 		if !brk.Wait() {
-			return "", ctx.Err()
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			return "", err
 		}
 	}
 }
