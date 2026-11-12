@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -211,6 +212,58 @@ var _ = Describe("VCS", func() {
 			Expect(os.WriteFile(filepath.Join(dir, to), edit(b), 0o644)).To(Succeed())
 			MustSucceed(wt.Add(to))
 		})
+	}
+
+	// createRunningTask creates a task on a new rack with a status that says it runs.
+	createRunningTask := func(ctx SpecContext) task.Task {
+		GinkgoHelper()
+		r := rack.Rack{Name: "Driver"}
+		t := task.Task{
+			Name:   "Alerts",
+			Type:   pagerduty.AlertTaskType,
+			Config: msgpack.EncodedJSON{"routing_key": "rk"},
+		}
+		tx(ctx, func(tx gorp.Tx) error {
+			if err := layer.Rack.NewWriter(tx).Create(ctx, &r); err != nil {
+				return err
+			}
+			t.Rack = r.Key
+			return layer.Task.NewWriter(tx).Create(ctx, &t)
+		})
+		running := task.Status{
+			Owner:   new(t.ResourceID()),
+			Variant: status.VariantSuccess,
+			Message: "Running",
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Running: true},
+		}
+		tx(ctx, func(tx gorp.Tx) error {
+			return layer.Status.NewWriter(tx).Set(ctx, &running)
+		})
+		return t
+	}
+
+	// streamCommands streams the frames of the task command channel until the spec
+	// ends.
+	streamCommands := func(ctx SpecContext) <-chan framer.StreamerResponse {
+		GinkgoHelper()
+		streamer := MustSucceed(
+			layer.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        channel.Keys{layer.Task.CommandChannelKey()},
+				SendOpenAck: true,
+			}),
+		)
+		requests, responses := confluence.Attach(streamer, 4)
+		sCtx, cancel := signal.Isolated()
+		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+		DeferCleanup(func() {
+			requests.Close()
+			confluence.Drain(responses)
+			Expect(closeStreamer.Close()).To(Succeed())
+		})
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		Eventually(responses.Outlet()).Should(Receive())
+		return responses.Outlet()
 	}
 
 	BeforeEach(func(ctx SpecContext) {
@@ -450,6 +503,51 @@ var _ = Describe("VCS", func() {
 				To(Equal("Start version control"))
 		})
 
+		DescribeTable(
+			"Should refuse a commit that takes the file of a resource it leaves out",
+			func(ctx SpecContext, rename string, key uuid.UUID, msg string) {
+				connect(ctx, "")
+				old := createSchematic(ctx, "Engine")
+				first := commit(ctx, "Add the engine")
+				if rename != "" {
+					renameSchematic(ctx, old.Key, rename)
+				}
+				next := schematic.Schematic{
+					Key:     key,
+					Name:    "Engine",
+					Project: &proj.Key,
+				}
+				tx(ctx, func(tx gorp.Tx) error {
+					return layer.Schematic.NewWriter(tx).Create(ctx, &next)
+				})
+				Expect(svc.Commit(ctx, vcs.CommitRequest{
+					Message:   "Add the new engine",
+					Resources: []string{next.ResourceID().String()},
+					Author:    ada,
+				}, allow)).Error().To(beInvalid(msg))
+				Expect(MustSucceed(svc.Status(ctx)).Head.Hash).To(Equal(first.Hash))
+				commit(
+					ctx,
+					"Replace the engine",
+					old.ResourceID().String(),
+					next.ResourceID().String(),
+				)
+				Expect(MustSucceed(svc.Status(ctx)).Changes).To(BeEmpty())
+			},
+			Entry(
+				"a renamed resource",
+				"Old engine",
+				uuid.Nil(),
+				"Commit Engine together with Old engine.",
+			),
+			Entry(
+				"a resource with the same name and a lower key",
+				"",
+				uuid.MustParse("00000000-0000-4000-8000-000000000001"),
+				"Commit both resources named Engine together.",
+			),
+		)
+
 		It("Should reject a resource with no change", func(ctx SpecContext) {
 			s := createSchematic(ctx, "A")
 			connect(ctx, "")
@@ -504,11 +602,11 @@ var _ = Describe("VCS", func() {
 				svc = openService(
 					ctx,
 					GinkgoT().TempDir(),
-					vcs.Config{GitHubAPI: gh.URL},
+					vcs.Config{GitHubAPI: gh.URL, GitHubHost: "localhost"},
 				)
 				MustSucceed(svc.Connect(ctx, vcs.ConnectRequest{
 					Configuration: "main",
-					RemoteURL:     remoteURL,
+					RemoteURL:     "file://localhost" + remoteDir,
 					Token:         "secret",
 					Author:        ada,
 				}))
@@ -539,6 +637,47 @@ var _ = Describe("VCS", func() {
 					URL:    "https://github.com/x/remote/pull/7",
 				}))
 				Expect(MustSucceed(svc.Configurations(ctx))).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should refuse a pull request on a remote outside GitHub",
+			func(ctx SpecContext) {
+				var called atomic.Bool
+				gh := httptest.NewServer(
+					http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+						called.Store(true)
+					}),
+				)
+				DeferCleanup(gh.Close)
+				svc = openService(
+					ctx,
+					GinkgoT().TempDir(),
+					vcs.Config{GitHubAPI: gh.URL},
+				)
+				MustSucceed(svc.Connect(ctx, vcs.ConnectRequest{
+					Configuration: "main",
+					RemoteURL:     remoteURL,
+					Token:         "secret",
+					Author:        ada,
+				}))
+				createSchematic(ctx, "Valves")
+				Expect(svc.Commit(ctx, vcs.CommitRequest{
+					Message:     "Add the valves",
+					PullRequest: true,
+					Author:      ada,
+				}, allow)).Error().To(beInvalid(
+					"A pull request needs a remote on github.com.",
+				))
+				Expect(called.Load()).To(BeFalse())
+				remote := MustSucceed(git.PlainOpen(remoteDir))
+				var branches []string
+				Expect(MustSucceed(remote.Branches()).ForEach(
+					func(ref *plumbing.Reference) error {
+						branches = append(branches, ref.Name().Short())
+						return nil
+					},
+				)).To(Succeed())
+				Expect(branches).To(Equal([]string{"main"}))
 			},
 		)
 	})
@@ -579,22 +718,22 @@ var _ = Describe("VCS", func() {
 			s := createSchematic(ctx, "Valves")
 			connect(ctx, "")
 			renameSchematic(ctx, s.Key, "Pumps")
-			inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite))
+			inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite, allow))
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
 			Expect(MustSucceed(svc.Status(ctx)).Changes).To(BeEmpty())
-			Expect(svc.Write(ctx, inv, svc.DefaultWrite)).To(Succeed())
+			Expect(svc.Write(ctx, inv, svc.DefaultWrite, allow)).To(Succeed())
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Pumps"))
 		})
 
 		It("Should delete an added resource on discard", func(ctx SpecContext) {
 			connect(ctx, "")
 			s := createSchematic(ctx, "Valves")
-			inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite))
+			inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite, allow))
 			Expect(inv.Files).To(HaveLen(1))
 			Expect(layer.Schematic.NewRetrieve().
 				Where(schematic.MatchKeys(s.Key)).
 				Exec(ctx, db)).To(MatchError(ContainSubstring("not found")))
-			Expect(svc.Write(ctx, inv, svc.DefaultWrite)).To(Succeed())
+			Expect(svc.Write(ctx, inv, svc.DefaultWrite, allow)).To(Succeed())
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
 		})
 	})
@@ -614,7 +753,7 @@ var _ = Describe("VCS", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(MustSucceed(svc.Status(ctx)).Changes).To(HaveLen(1))
 			}).Should(Succeed())
-			Expect(svc.Discard(ctx, []string{id}, svc.DefaultWrite)).
+			Expect(svc.Discard(ctx, []string{id}, svc.DefaultWrite, allow)).
 				Error().To(beInvalid(
 				"Version control never deletes channels, so it cannot discard " +
 					"the new channel vcs_new_time.",
@@ -645,7 +784,7 @@ var _ = Describe("VCS", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(MustSucceed(svc.Status(ctx)).Changes).To(HaveLen(1))
 			}).Should(Succeed())
-			MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite))
+			MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite, allow))
 			var got arc.Arc
 			Expect(layer.Arc.NewRetrieve().
 				Where(arc.MatchKeys(key)).
@@ -674,12 +813,12 @@ var _ = Describe("VCS", func() {
 			Expect(plan.Items).To(HaveLen(1))
 			Expect(plan.Items[0].Kind).To(Equal(vcs.PlanChange))
 			Expect(plan.Items[0].Conflict).To(BeFalse())
-			inv := MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite))
+			inv := MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite, allow))
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
 			st := MustSucceed(svc.Status(ctx))
 			Expect(st.Changes).To(HaveLen(1))
 			Expect(st.Changes[0].Kind).To(Equal(vcs.ChangeModified))
-			Expect(svc.Write(ctx, inv, svc.DefaultWrite)).To(Succeed())
+			Expect(svc.Write(ctx, inv, svc.DefaultWrite, allow)).To(Succeed())
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Pumps"))
 		})
 	})
@@ -729,12 +868,12 @@ var _ = Describe("VCS", func() {
 					}
 				}
 				Expect(conflicts).To(Equal(set.New(s.ResourceID().String())))
-				Expect(svc.Apply(ctx, target, nil, svc.DefaultWrite)).
+				Expect(svc.Apply(ctx, target, nil, svc.DefaultWrite, allow)).
 					Error().To(MatchError(vcs.ErrUnresolvedConflict))
 				MustSucceed(svc.Apply(ctx, target, []vcs.Choice{{
 					Resource: s.ResourceID().String(),
 					Choice:   vcs.ChoiceIncoming,
-				}}, svc.DefaultWrite))
+				}}, svc.DefaultWrite, allow))
 				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Remote"))
 				Expect(retrieveSchematic(ctx, other.Key).Name).To(Equal("Remote Pumps"))
 				st = MustSucceed(svc.Status(ctx))
@@ -821,6 +960,7 @@ var _ = Describe("VCS", func() {
 					vcs.Target{Kind: vcs.TargetPull},
 					nil,
 					svc.DefaultWrite,
+					allow,
 				)).Error().To(MatchError(os.ErrPermission))
 				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
 			},
@@ -829,50 +969,13 @@ var _ = Describe("VCS", func() {
 		It(
 			"Should start a stopped task again when the write fails",
 			func(ctx SpecContext) {
-				r := rack.Rack{Name: "Driver"}
-				t := task.Task{
-					Name:   "Alerts",
-					Type:   pagerduty.AlertTaskType,
-					Config: msgpack.EncodedJSON{"routing_key": "rk"},
-				}
-				tx(ctx, func(tx gorp.Tx) error {
-					if err := layer.Rack.NewWriter(tx).Create(ctx, &r); err != nil {
-						return err
-					}
-					t.Rack = r.Key
-					return layer.Task.NewWriter(tx).Create(ctx, &t)
-				})
-				running := task.Status{
-					Owner:   new(t.ResourceID()),
-					Variant: status.VariantSuccess,
-					Message: "Running",
-					Time:    telem.Now(),
-					Details: task.StatusDetails{Running: true},
-				}
-				tx(ctx, func(tx gorp.Tx) error {
-					return layer.Status.NewWriter(tx).Set(ctx, &running)
-				})
+				t := createRunningTask(ctx)
 				connect(ctx, remoteURL)
 				pushElsewhere(func(_ string, wt *git.Worktree) {
 					MustSucceed(wt.Remove("tasks/Alerts.json"))
 				})
 				MustSucceed(svc.Fetch(ctx))
-				streamer := MustSucceed(
-					layer.Framer.NewStreamer(ctx, framer.StreamerConfig{
-						Keys:        channel.Keys{layer.Task.CommandChannelKey()},
-						SendOpenAck: true,
-					}),
-				)
-				requests, responses := confluence.Attach(streamer, 4)
-				sCtx, cancel := signal.Isolated()
-				closeStreamer := signal.NewHardShutdown(sCtx, cancel)
-				DeferCleanup(func() {
-					requests.Close()
-					confluence.Drain(responses)
-					Expect(closeStreamer.Close()).To(Succeed())
-				})
-				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				Eventually(responses.Outlet()).Should(Receive())
+				commands := streamCommands(ctx)
 				stopper := MustSucceed(task.NewStopper(task.StopperConfig{
 					DB:      db,
 					Task:    layer.Task,
@@ -886,14 +989,20 @@ var _ = Describe("VCS", func() {
 					return errWrite
 				}
 				Expect(
-					quick.Apply(ctx, vcs.Target{Kind: vcs.TargetPull}, nil, failing),
+					quick.Apply(
+						ctx,
+						vcs.Target{Kind: vcs.TargetPull},
+						nil,
+						failing,
+						allow,
+					),
 				).
 					Error().
 					To(MatchError(errWrite))
 				var sent []string
 				Eventually(func(g Gomega) {
 					var res framer.StreamerResponse
-					g.Expect(responses.Outlet()).To(Receive(&res))
+					g.Expect(commands).To(Receive(&res))
 					cmds := MustSucceed(
 						res.Frame.SeriesAt(0).DecodeJSON[task.Command](),
 					)
@@ -904,6 +1013,40 @@ var _ = Describe("VCS", func() {
 					g.Expect(sent).To(ContainElement("start"))
 				}).Should(Succeed())
 				Expect(sent).To(Equal([]string{"stop", "start"}))
+			},
+		)
+
+		It(
+			"Should check a running task that it deletes before it stops it",
+			func(ctx SpecContext) {
+				t := createRunningTask(ctx)
+				connect(ctx, remoteURL)
+				pushElsewhere(func(_ string, wt *git.Worktree) {
+					MustSucceed(wt.Remove("tasks/Alerts.json"))
+				})
+				MustSucceed(svc.Fetch(ctx))
+				commands := streamCommands(ctx)
+				errDenied := errors.New("denied")
+				var checked []resource.ID
+				refuse := func(_ context.Context, ids []resource.ID) error {
+					checked = ids
+					return errDenied
+				}
+				Expect(svc.Apply(
+					ctx,
+					vcs.Target{Kind: vcs.TargetPull},
+					nil,
+					svc.DefaultWrite,
+					refuse,
+				)).Error().To(MatchError(errDenied))
+				Expect(checked).To(ConsistOf(t.ResourceID()))
+				Consistently(commands, 100*time.Millisecond).ShouldNot(Receive())
+				var kept task.Task
+				Expect(layer.Task.NewRetrieve().
+					Where(task.MatchKeys(t.Key)).
+					Entry(&kept).
+					Exec(ctx, db)).To(Succeed())
+				Expect(MustSucceed(svc.Status(ctx)).Incoming).To(HaveLen(1))
 			},
 		)
 
@@ -961,7 +1104,7 @@ var _ = Describe("VCS", func() {
 				Expect(plan.Target.Commit).To(Equal(st.Incoming[0].Hash))
 				rename("Pumps", "Remote pumps")
 				MustSucceed(svc.Fetch(ctx))
-				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite)).
+				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite, allow)).
 					Error().To(MatchError(vcs.ErrMoved))
 			},
 		)
@@ -1072,7 +1215,7 @@ var _ = Describe("VCS", func() {
 			MustSucceed(svc.Apply(ctx, target, []vcs.Choice{{
 				Resource: s.ResourceID().String(),
 				Choice:   vcs.ChoiceMine,
-			}}, svc.DefaultWrite))
+			}}, svc.DefaultWrite, allow))
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Mine"))
 			st := MustSucceed(svc.Status(ctx))
 			Expect(st.Changes).To(BeEmpty())
@@ -1100,7 +1243,7 @@ var _ = Describe("VCS", func() {
 			plan := MustSucceed(svc.Plan(ctx, target))
 			Expect(plan.Items).To(HaveLen(1))
 			Expect(plan.Items[0].Conflict).To(BeFalse())
-			MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite))
+			MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite, allow))
 			Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Valves"))
 			st = MustSucceed(svc.Status(ctx))
 			Expect(st.Configuration).To(Equal("main"))
@@ -1122,9 +1265,9 @@ var _ = Describe("VCS", func() {
 				renameSchematic(ctx, s.Key, "Stand 2 valves")
 				commit(ctx, "Rename for stand 2")
 				target := vcs.Target{Kind: vcs.TargetLoad, Configuration: "main"}
-				inv := MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite))
+				inv := MustSucceed(svc.Apply(ctx, target, nil, svc.DefaultWrite, allow))
 				Expect(inv.Configuration).To(Equal("stand-2"))
-				Expect(svc.Write(ctx, inv, svc.DefaultWrite)).To(Succeed())
+				Expect(svc.Write(ctx, inv, svc.DefaultWrite, allow)).To(Succeed())
 				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("Stand 2 valves"))
 				st := MustSucceed(svc.Status(ctx))
 				Expect(st.Configuration).To(Equal("stand-2"))
@@ -1140,6 +1283,7 @@ var _ = Describe("VCS", func() {
 					ctx,
 					vcs.Inverse{Configuration: "gone"},
 					svc.DefaultWrite,
+					allow,
 				)).To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -1167,7 +1311,7 @@ var _ = Describe("VCS", func() {
 				MustSucceed(svc.Clone(ctx, "stand-2"))
 				main := vcs.Target{Kind: vcs.TargetLoad, Configuration: "main"}
 				plan := MustSucceed(svc.Plan(ctx, main))
-				MustSucceed(svc.Apply(ctx, main, nil, svc.DefaultWrite))
+				MustSucceed(svc.Apply(ctx, main, nil, svc.DefaultWrite, allow))
 				renameSchematic(ctx, s.Key, "Main valves")
 				commit(ctx, "Rename on main")
 				MustSucceed(svc.Apply(
@@ -1175,8 +1319,9 @@ var _ = Describe("VCS", func() {
 					vcs.Target{Kind: vcs.TargetLoad, Configuration: "stand-2"},
 					nil,
 					svc.DefaultWrite,
+					allow,
 				))
-				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite)).
+				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite, allow)).
 					Error().To(MatchError(vcs.ErrMoved))
 			},
 		)
@@ -1388,7 +1533,7 @@ var _ = Describe("VCS", func() {
 			func(ctx SpecContext) {
 				before := working(ctx)
 				Expect(
-					svc.Write(ctx, vcs.Inverse{Files: before}, svc.DefaultWrite),
+					svc.Write(ctx, vcs.Inverse{Files: before}, svc.DefaultWrite, allow),
 				).To(Succeed())
 				Expect(working(ctx)).To(Equal(before))
 			},
@@ -1409,7 +1554,7 @@ var _ = Describe("VCS", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(MustSucceed(svc.Status(ctx)).Changes).To(HaveLen(2))
 				}).Should(Succeed())
-				inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite))
+				inv := MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite, allow))
 				Expect(inv.Files).To(BeEmpty())
 				Expect(inv.Removed).To(ConsistOf(
 					task.ResourceID(tsk.Key).String(),
@@ -1469,7 +1614,7 @@ var _ = Describe("VCS", func() {
 						)
 					}
 				}
-				Expect(svc.Write(ctx, vcs.Inverse{Files: fs}, svc.DefaultWrite)).
+				Expect(svc.Write(ctx, vcs.Inverse{Files: fs}, svc.DefaultWrite, allow)).
 					To(beInvalid("Channel vcs_pressure does not exist on this Core."))
 			},
 		)
@@ -1482,7 +1627,7 @@ var _ = Describe("VCS", func() {
 				}
 			}
 			Expect(
-				svc.Write(ctx, vcs.Inverse{Files: fs}, svc.DefaultWrite),
+				svc.Write(ctx, vcs.Inverse{Files: fs}, svc.DefaultWrite, allow),
 			).To(Succeed())
 			var a arc.Arc
 			Expect(layer.Arc.NewRetrieve().

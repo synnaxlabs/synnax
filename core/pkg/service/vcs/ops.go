@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -108,8 +109,7 @@ func (s *Service) Connect(ctx context.Context, req ConnectRequest) (Status, erro
 }
 
 // startTracking makes the first commit of the configuration when neither the Core nor
-// the
-// remote has one, and pushes what the remote lacks.
+// the remote has one, and pushes what the remote lacks.
 func (s *Service) startTracking(ctx context.Context, author Author) error {
 	_, hasLocal, err := s.repo.ref(branchRef(s.conn.Configuration))
 	if err != nil {
@@ -228,10 +228,11 @@ func (s *Service) Commit(
 	}
 	parent, base := head, headTree
 	if req.PullRequest {
-		if s.conn.RemoteURL == "" {
-			return Commit{}, "", errors.Wrap(
-				validate.ErrValidation,
-				"a pull request needs a remote",
+		// The token of another host must never reach the GitHub API.
+		if host(s.conn.RemoteURL) != s.cfg.GitHubHost {
+			return Commit{}, "", validate.Errorf(
+				"A pull request needs a remote on %s.",
+				s.cfg.GitHubHost,
 			)
 		}
 		origin, ok, err := s.repo.ref(remoteRef(s.conn.Configuration))
@@ -245,12 +246,11 @@ func (s *Service) Commit(
 			parent = origin
 		}
 	}
-	h, err := s.repo.commit(
-		patch(base, work, selected),
-		req.Message,
-		req.Author,
-		parent,
-	)
+	fs, err := patch(base, work, selected)
+	if err != nil {
+		return Commit{}, "", err
+	}
+	h, err := s.repo.commit(fs, req.Message, req.Author, parent)
 	if err != nil {
 		return Commit{}, "", err
 	}
@@ -318,27 +318,54 @@ func selectChanges(changes []Change, resources []string) ([]resource.ID, error) 
 }
 
 // patch returns the files of base with the selected resources as in work, and the
-// generated files of work.
-func patch(base, work *tree, selected []resource.ID) files {
+// generated files of work. It returns a validation error when a selected resource
+// takes the file of a resource that stays as in base.
+func patch(base, work *tree, selected []resource.ID) (files, error) {
 	out := maps.Clone(base.raw)
 	if out == nil {
 		out = files{}
 	}
-	for _, id := range selected {
-		if it, ok := base.items[id]; ok {
-			for _, p := range it.paths {
+	chosen := set.New(selected...)
+	owners := map[string]resource.ID{}
+	for id, it := range base.items {
+		for _, p := range it.paths {
+			if chosen.Contains(id) {
 				delete(out, p)
+			} else {
+				owners[filename.Fold(p)] = id
 			}
 		}
-		if it, ok := work.items[id]; ok {
-			for _, p := range it.paths {
-				out[p] = work.raw[p]
+	}
+	for _, id := range selected {
+		it, ok := work.items[id]
+		if !ok {
+			continue
+		}
+		for _, p := range it.paths {
+			if owner, ok := owners[filename.Fold(p)]; ok {
+				other := base.items[owner].name
+				if now, ok := work.items[owner]; ok {
+					other = now.name
+				}
+				if other == it.name {
+					return nil, validate.Errorf(
+						"Commit both resources named %s together. One takes the file "+
+							"that the other has in the last commit.",
+						it.name,
+					)
+				}
+				return nil, validate.Errorf(
+					"Commit %s together with %s. %s takes the file that %s has in "+
+						"the last commit.",
+					it.name, other, it.name, other,
+				)
 			}
+			out[p] = work.raw[p]
 		}
 	}
 	out[readmePath] = work.raw[readmePath]
 	out[manifestPath] = work.raw[manifestPath]
-	return out
+	return out, nil
 }
 
 // DefaultWrite runs apply in one transaction on the DB of the Service, with no access
@@ -353,10 +380,12 @@ func (s *Service) DefaultWrite(
 // Discard puts the selected resources back as the head holds them, through write. It
 // returns what undoes the discard. Empty resources discards every change. It returns a
 // validation error for a selected resource with no change, and for a new channel.
+// stop checks each running task that the discard deletes before it stops the task.
 func (s *Service) Discard(
 	ctx context.Context,
 	resources []string,
 	write Write,
+	stop Check,
 ) (Inverse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -389,7 +418,7 @@ func (s *Service) Discard(
 		}
 		steps = append(steps, st)
 	}
-	inv, err := s.applySteps(ctx, steps, work, write)
+	inv, err := s.applySteps(ctx, steps, work, write, stop)
 	if err != nil {
 		return Inverse{}, err
 	}
@@ -406,6 +435,7 @@ func (s *Service) applySteps(
 	steps []step,
 	live *tree,
 	write Write,
+	stop Check,
 ) (Inverse, error) {
 	restarts, err := s.restartsOf(ctx, steps, live)
 	if err != nil {
@@ -415,7 +445,7 @@ func (s *Service) applySteps(
 	if err != nil {
 		return Inverse{}, err
 	}
-	stopped, err := s.stopRemoved(ctx, steps, live)
+	stopped, err := s.stopRemoved(ctx, steps, live, stop)
 	if err != nil {
 		return Inverse{}, err
 	}
@@ -469,8 +499,14 @@ func (s *Service) restartsOf(
 
 // Write puts the files of inv on the live configuration and removes the resources it
 // names, through write, then tracks the configuration inv names. It undoes a Discard or
-// an Apply. It returns query.ErrNotFound when the configuration does not exist.
-func (s *Service) Write(ctx context.Context, inv Inverse, write Write) error {
+// an Apply. It returns query.ErrNotFound when the configuration does not exist. stop
+// checks each running task that the write deletes before it stops the task.
+func (s *Service) Write(
+	ctx context.Context,
+	inv Inverse,
+	write Write,
+	stop Check,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if inv.Configuration != "" {
@@ -481,7 +517,7 @@ func (s *Service) Write(ctx context.Context, inv Inverse, write Write) error {
 			return err
 		}
 	}
-	err := s.revert(ctx, inv, write)
+	err := s.revert(ctx, inv, write, stop)
 	if err != nil {
 		return err
 	}
@@ -496,7 +532,12 @@ func (s *Service) Write(ctx context.Context, inv Inverse, write Write) error {
 
 // revert puts the files of inv on the live configuration and removes the resources it
 // names, through write. The caller holds mu.
-func (s *Service) revert(ctx context.Context, inv Inverse, write Write) error {
+func (s *Service) revert(
+	ctx context.Context,
+	inv Inverse,
+	write Write,
+	stop Check,
+) error {
 	t, err := treeOfFiles(inv.Files)
 	if err != nil {
 		return err
@@ -518,7 +559,7 @@ func (s *Service) revert(ctx context.Context, inv Inverse, write Write) error {
 			steps = append(steps, step{id: id})
 		}
 	}
-	_, err = s.applySteps(ctx, steps, work, write)
+	_, err = s.applySteps(ctx, steps, work, write, stop)
 	return err
 }
 

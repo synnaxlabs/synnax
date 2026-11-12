@@ -128,6 +128,12 @@ func (s *Service) retrieve(ctx context.Context, ids []resource.ID) error {
 	return s.enforceOn(ctx, access.ActionRetrieve, ids)
 }
 
+// stop checks that the subject can delete each task of ids, before a write that deletes
+// the running tasks stops them.
+func (s *Service) stop(ctx context.Context, ids []resource.ID) error {
+	return s.enforceOn(ctx, access.ActionDelete, ids)
+}
+
 // write runs apply in a transaction that checks access on each change, as bind.Write
 // does.
 func (s *Service) write(
@@ -348,7 +354,7 @@ func (s *Service) Discard(
 	if err := s.enforce(ctx, access.ActionUpdate); err != nil {
 		return vcs.Inverse{}, err
 	}
-	return s.cfg.VCS.Discard(ctx, req.Resources, s.write)
+	return s.cfg.VCS.Discard(ctx, req.Resources, s.write, s.stop)
 }
 
 // Write undoes a discard or an apply. It needs update, and access to each resource it
@@ -357,7 +363,7 @@ func (s *Service) Write(ctx context.Context, req vcs.Inverse) (struct{}, error) 
 	if err := s.enforce(ctx, access.ActionUpdate); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.cfg.VCS.Write(ctx, req, s.write)
+	return struct{}{}, s.cfg.VCS.Write(ctx, req, s.write, s.stop)
 }
 
 // Plan returns what applying a target changes. It needs retrieve.
@@ -373,7 +379,7 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) (vcs.Inverse, err
 	if err := s.enforce(ctx, access.ActionUpdate); err != nil {
 		return vcs.Inverse{}, err
 	}
-	return s.cfg.VCS.Apply(ctx, req.Target, req.Choices, s.write)
+	return s.cfg.VCS.Apply(ctx, req.Target, req.Choices, s.write, s.stop)
 }
 
 // Files returns the files of a resource in a revision. It needs retrieve, on the

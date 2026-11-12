@@ -137,6 +137,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to http.DefaultClient.
 	HTTPClient *http.Client
+	// GitHubHost is the host of the remotes that open pull requests through GitHubAPI.
+	//
+	// [OPTIONAL] - Defaults to github.com.
+	GitHubHost string
 	// GitHubAPI is the base URL of the GitHub API.
 	//
 	// [OPTIONAL] - Defaults to https://api.github.com.
@@ -151,6 +155,7 @@ var (
 		StatusDebounce: 300 * time.Millisecond,
 		RestartTimeout: 5 * time.Second,
 		HTTPClient:     http.DefaultClient,
+		GitHubHost:     "github.com",
 		GitHubAPI:      "https://api.github.com",
 	}
 )
@@ -178,6 +183,7 @@ func (c Config) Override(other Config) Config {
 	c.StatusDebounce = override.Numeric(c.StatusDebounce, other.StatusDebounce)
 	c.RestartTimeout = override.Numeric(c.RestartTimeout, other.RestartTimeout)
 	c.HTTPClient = override.Nil(c.HTTPClient, other.HTTPClient)
+	c.GitHubHost = override.String(c.GitHubHost, other.GitHubHost)
 	c.GitHubAPI = override.String(c.GitHubAPI, other.GitHubAPI)
 	return c
 }
@@ -203,6 +209,7 @@ func (c Config) Validate() error {
 	v.Positive("status_debounce", c.StatusDebounce)
 	v.Positive("restart_timeout", c.RestartTimeout)
 	v.NotNil("http_client", c.HTTPClient)
+	v.NotEmptyString("github_host", c.GitHubHost)
 	v.NotEmptyString("github_api", c.GitHubAPI)
 	return v.Error()
 }
@@ -211,8 +218,9 @@ func (c Config) Validate() error {
 // checks access on what the transaction changed.
 type Write func(ctx context.Context, apply func(context.Context, gorp.Tx) error) error
 
-// Check returns an error when the caller may not send the resources of ids to the
-// remote. The API passes a Check that enforces retrieve on each resource.
+// Check returns an error when the caller may not act on the resources of ids. The API
+// passes a Check that enforces retrieve before a commit or snapshot sends resources,
+// and one that enforces delete before a write stops a running task that it deletes.
 type Check func(ctx context.Context, ids []resource.ID) error
 
 // Service keeps the configuration of the Core in a Git repository. It is safe for

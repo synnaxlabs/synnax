@@ -52,11 +52,13 @@ func (s *Service) Plan(ctx context.Context, target Target) (Plan, error) {
 // them. A load tracks the loaded configuration, and its undo tracks the previous one
 // again. A restore leaves its changes uncommitted. It returns ErrUnresolvedConflict
 // when a conflict has no choice, and ErrMoved when the target moved since the plan.
+// stop checks each running task that the apply deletes before it stops the task.
 func (s *Service) Apply(
 	ctx context.Context,
 	target Target,
 	choices []Choice,
 	write Write,
+	stop Check,
 ) (Inverse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,7 +96,7 @@ func (s *Service) Apply(
 		}
 		steps = append(steps, p.steps[id])
 	}
-	inv, err := s.applySteps(ctx, steps, p.live, write)
+	inv, err := s.applySteps(ctx, steps, p.live, write, stop)
 	if err != nil {
 		return Inverse{}, err
 	}
@@ -104,7 +106,7 @@ func (s *Service) Apply(
 	if p.finish != nil {
 		if err = p.finish(ctx, incoming); err != nil {
 			// The repository did not follow the live configuration, so it goes back.
-			return Inverse{}, errors.Combine(err, s.revert(ctx, inv, write))
+			return Inverse{}, errors.Combine(err, s.revert(ctx, inv, write, stop))
 		}
 	}
 	_, err = s.recompute(ctx)
@@ -274,7 +276,10 @@ func (s *Service) replay(
 		if err != nil {
 			return plumbing.ZeroHash, err
 		}
-		fs := patch(tipTree, commitTree, selected)
+		fs, err := patch(tipTree, commitTree, selected)
+		if err != nil {
+			return plumbing.ZeroHash, err
+		}
 		same, err := s.repo.sameTree(tip, fs)
 		if err != nil {
 			return plumbing.ZeroHash, err
@@ -463,6 +468,7 @@ func (s *Service) stopRemoved(
 	ctx context.Context,
 	steps []step,
 	live *tree,
+	stop Check,
 ) ([]task.Task, error) {
 	var keys []task.Key
 	for _, st := range steps {
@@ -491,6 +497,13 @@ func (s *Service) stopRemoved(
 	}
 	running, err := s.running(ctx, keys)
 	if err != nil || len(running) == 0 {
+		return nil, err
+	}
+	ids := make([]resource.ID, len(running))
+	for i, k := range running {
+		ids[i] = task.ResourceID(k)
+	}
+	if err = stop(ctx, ids); err != nil {
 		return nil, err
 	}
 	var stopped []task.Task

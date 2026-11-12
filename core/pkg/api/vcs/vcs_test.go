@@ -22,9 +22,15 @@ import (
 	apivcs "github.com/synnaxlabs/synnax/pkg/api/vcs"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/vcs"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -266,6 +272,45 @@ var _ = Describe("Access", func() {
 				req := apivcs.CommitRequest{Message: "Add the pumps"}
 				Expect(e.api.Commit(AuthedCtx(ctx, u), req)).Error().
 					To(denied(u, access.ActionRetrieve, fresh.ResourceID()))
+			},
+		)
+
+		It(
+			"Should check delete on a running task before a discard stops it",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "Driver"}
+				t := task.Task{
+					Name:   "Alerts",
+					Type:   pagerduty.AlertTaskType,
+					Config: msgpack.EncodedJSON{"routing_key": "rk"},
+				}
+				running := task.Status{
+					Variant: svcstatus.VariantSuccess,
+					Message: "Running",
+					Time:    telem.Now(),
+					Details: task.StatusDetails{Running: true},
+				}
+				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := e.layer.Rack.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					if err := e.layer.Task.NewWriter(tx).Create(ctx, &t); err != nil {
+						return err
+					}
+					running.Owner = new(t.ResourceID())
+					return e.layer.Status.NewWriter(tx).Set(ctx, &running)
+				})).To(Succeed())
+				u := e.createUser(ctx)
+				e.grant(ctx, u, access.ActionUpdate, vcs.ResourceID)
+				req := apivcs.DiscardRequest{
+					Resources: []string{t.ResourceID().String()},
+				}
+				Expect(e.api.Discard(AuthedCtx(ctx, u), req)).Error().
+					To(denied(u, access.ActionDelete, t.ResourceID()))
+				Expect(e.layer.Task.NewRetrieve().
+					Where(task.MatchKeys(t.Key)).
+					Exec(ctx, e.db)).To(Succeed())
 			},
 		)
 
