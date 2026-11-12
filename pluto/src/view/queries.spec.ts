@@ -59,6 +59,29 @@ describe("View queries", () => {
       });
     });
   });
+  describe("useResult", () => {
+    it("should follow a field that another client sets", async () => {
+      const created = await client.views.create({
+        name: "sorted-view",
+        type: "range",
+        sort: "newest",
+      });
+      const { result } = renderHook(() => View.useResult({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data).toMatchObject({ sort: "newest" }),
+      );
+      const remote = createTestClient();
+      await remote.views.retrieve(created.key);
+      await remote.views.dispatch(
+        created.key,
+        view.set({ path: ["sort"], value: "name" }),
+      );
+      await waitFor(() => expect(result.current.data).toMatchObject({ sort: "name" }));
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a single view", async () => {
       const view = await client.views.create({

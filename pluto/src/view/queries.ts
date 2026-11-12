@@ -17,6 +17,18 @@ import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "view";
 
+export type RetrieveQuery = {
+  key: view.Key;
+};
+
+export const { useResult } = Flux.createRetrieve<RetrieveQuery, view.View>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.views.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) => client.views.watch(key).getCached(),
+});
+
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
