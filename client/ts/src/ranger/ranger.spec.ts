@@ -272,6 +272,36 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved.map((r) => r.key)).toContain(range.key);
     });
+    it("should page ranges by end time", async () => {
+      const parent = await client.ranges.create({
+        name: "End Order Parent",
+        timeRange: TimeStamp.seconds(1).spanRange(TimeSpan.seconds(100)),
+      });
+      const child = async (start: number, end: number) =>
+        await client.ranges.create({
+          name: `${start}-${end}`,
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+          parent: parent.key,
+        });
+      const late = await child(1, 50);
+      const early = await child(20, 25);
+      const middle = await child(30, 35);
+      const order: ranger.Order = { field: "time_range_end", descending: false };
+      const first = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        limit: 2,
+      });
+      expect(first.map((r) => r.key)).toEqual([early.key, middle.key]);
+      const last = first[1];
+      const rest = await client.ranges.retrieve({
+        where: { parents: [parent.key] },
+        order,
+        after: { key: last.key, timeRangeEnd: last.timeRange.end },
+      });
+      expect(rest.map((r) => r.key)).toEqual([late.key]);
+    });
+
     it("should retrieve ranges by search term", async () => {
       const prefix = `searchable-range-${id.create()}`;
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
