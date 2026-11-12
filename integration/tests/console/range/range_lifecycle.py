@@ -638,8 +638,8 @@ class RangeLifecycle(ConsoleCase):
         )
 
     def test_stop_child_range(self) -> None:
-        """Test stopping a running child range from the parent overview, which
-        moves it to Completed by ending it now."""
+        """Test stopping a running child range from the parent overview, which moves it
+        to Completed by ending it now."""
         assert self.staged_range_name is not None
         assert self.child_range_name is not None
         self.log("Testing: Stop child range")

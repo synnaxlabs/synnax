@@ -306,22 +306,22 @@ class Overview(Surface):
     # ── Sections ─────────────────────────────────────────────────────────
 
     def _section(self, title: str) -> Locator:
-        """Get the section with the title. A section with nothing in it does not
-        render: an add line stands in for it."""
+        """Get the section with the title. A section with nothing in it does not render:
+        an add line stands in for it."""
         return (
             self.layout.page.locator(self.SECTION_SELECTOR)
             .filter(has=self.layout.page.get_by_text(title, exact=True))
-            .first
+            .visible.first
         )
 
     def _add(self, title: str, add_line: str) -> None:
         """Click the add button of a section, or its add line when it is empty."""
         section = self._section(title)
-        add_btn = section.locator("button:has(svg.lyra-icon--add)").first
+        add_btn = section.locator("button:has(svg.lyra-icon--add)").visible.first
         line = self.layout.page.locator(self.ADD_LINE_SELECTOR).filter(
             has_text=re.compile(rf"^{re.escape(add_line)}$")
         )
-        add_btn.or_(line).first.click(timeout=5000)
+        add_btn.or_(line).visible.first.click(timeout=5000)
 
     # ── Metadata ─────────────────────────────────────────────────────────
 
@@ -444,8 +444,8 @@ class Overview(Surface):
         return self._section("Child ranges")
 
     def get_child_range(self, name: str) -> Locator:
-        """Get a child range from the Child ranges section by name, as a tree item or
-        a timeline lane.
+        """Get a child range from the Child ranges section by name, as a tree item or a
+        timeline lane.
 
         :param name: The name of the child range.
         :returns: The Locator for the child range item.
