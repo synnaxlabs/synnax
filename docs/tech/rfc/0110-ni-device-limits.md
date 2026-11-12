@@ -97,8 +97,8 @@ The DAQmx text gives the message:
 - `Value Must Be Greater Than` and `Less Than`, or `Minimum Value` and `Maximum Value`,
   give "Must be between A and B". One limit gives "Must be greater than A" or "Must be
   less than B".
-- `Possible Values` gives "Must be one of A, B", with the `DAQmx_Val_` prefix removed so
-  that the values match the config values.
+- `Possible Values` gives "Must be one of A, B", with each DAQmx value as its config
+  value: `DAQmx_Val_RSE` reads `RSE`, and `DAQmx_Val_BuiltIn` reads `built_in`.
 - Other errors use the first sentence of the DAQmx text.
 
 An error with no property in the table stays a plain error, and the description holds
@@ -110,28 +110,32 @@ An error while the Driver adds a channel belongs to that channel. An error at Ve
 often names only the device. When a channel property fails Verify and the text has no
 `Channel Name:` line, the Driver verifies each channel alone in a scratch task. The
 error goes on the first channel that fails on the same property. When no channel fails
-alone, the error stays as DAQmx gave it. An error from making or clearing a scratch task
-fails the start. This runs only after a failure, so a good start costs one Verify.
+alone, the error stays as DAQmx gave it. When a scratch task fails to create or clear,
+the error stays as DAQmx gave it, with the scratch task error added. This runs only
+after a failure, so a good start costs one Verify.
 
 ### 3.4 Sample rate read back
 
 After Verify, a hardware-timed read task reads back `DAQmx_SampClk_Rate`. A device makes
 its sample clock by dividing a timebase by a whole number, so many rates are not exact.
-The tolerance is one step of that division: rate² / `DAQmx_SampClk_Timebase_Rate`. If
-the read back differs from the configured rate by more, the start fails with a
-`sample_rate` field error that gives the rate the device would use. This check replaces
-the Driver minimum rate check (`driver/ni/read_task.h:196-225`) and the Console rate
-checks.
+The tolerance is one step of that division, rate² / `DAQmx_SampClk_Timebase_Rate`, but
+at most 0.1 % of the rate. If the read back differs from the configured rate by more,
+the start fails with a `sample_rate` field error that gives the rate the device would
+use. This check replaces the Driver minimum rate check (`driver/ni/read_task.h:196-225`)
+and the Console rate checks.
 
 | Device       | Timebase   | Configured | Read back       | Result |
 | ------------ | ---------- | ---------- | --------------- | ------ |
 | PXIe-4303    | 16.384 MHz | 1000 Hz    | 1000.0000003 Hz | Passes |
 | NI 9229      | 12.8 MHz   | 1000 Hz    | 1612.9 Hz       | Fails  |
 | X Series DAQ | 100 MHz    | 30000 Hz   | 30003.0003 Hz   | Passes |
+| X Series DAQ | 100 MHz    | 1004000 Hz | 1010101.01 Hz   | Fails  |
 
-The first two rows are from simulated devices on the test station. The X Series row is
-100 MHz / 3333. A fixed tolerance of 0.01 % fails that device, though 30003.0003 Hz is
-the nearest rate it can make.
+The first two rows are from simulated devices on the test station. The X Series rows are
+100 MHz divided by 3333 and by 99. A tolerance of 0.01 % fails the 30 kHz device, though
+30003.0003 Hz is the nearest rate it can make. One step with no cap passes the 1 MHz
+device at 0.6 % off. The skew correction of the sample clock, on by default, steers the
+timestamps back to the system clock. With it off, they drift by at most 3.6 s an hour.
 
 ### 3.5 Console
 
