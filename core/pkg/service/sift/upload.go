@@ -90,6 +90,9 @@ func queueUpload(
 	if dev.Rack != rk {
 		return "", validate.Errorf("device %s belongs to another rack", dev.Name)
 	}
+	if err := ingest.Validate(ctx, cfg.DB, cfg.Channel, args.Channels); err != nil {
+		return "", err
+	}
 	var rng ranger.Range
 	if err := cfg.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(args.Range)).
