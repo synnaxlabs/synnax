@@ -99,10 +99,6 @@
       ]
     },
     {
-      "sequence_name": "user_drag",
-      "tests": [{ "case": "console/user/drag_to_role" }]
-    },
-    {
       "sequence_name": "cluster",
       "sequence_order": "asynchronous",
       "pool_size": 3,

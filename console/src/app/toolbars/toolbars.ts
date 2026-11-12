@@ -16,6 +16,7 @@ import { Range } from "@/feature/range";
 import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
+import { FLAGS } from "@/flags";
 import { type Nav } from "@/platform/nav";
 
 export const DEFAULT_SIZE = 200;
@@ -28,7 +29,8 @@ export const LEFT: Nav.Toolbar[] = [
   Task.TOOLBAR,
   Arc.TOOLBAR,
   Status.TOOLBAR,
-  ...(DESKTOP ? [] : [User.TOOLBAR]),
+  // Settings holds the users when its flag is on.
+  ...(DESKTOP || FLAGS.settings ? [] : [User.TOOLBAR]),
 ];
 
 export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;

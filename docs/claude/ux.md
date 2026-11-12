@@ -304,6 +304,8 @@ bound, a log precision, or the line plot X channel.
   description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
+- A role select shows each role's icon (`Access.Role.icon`) beside its name, in the
+  dropdown and on the closed select.
 - A select that shows only its icon is a square button, never a wide box.
 - A device select shows the selected device's status as a badge at the end of the
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
@@ -345,6 +347,8 @@ bound, a log precision, or the line plot X channel.
 
 - A task's channel list is a record table: one item per channel, built from
   `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- The Users page of Settings is a record table: one item per user, with the name, a role
+  select in place, and a menu button. A "You" badge follows the current user's name.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

@@ -69,7 +69,7 @@ const Member = ({ onOpenMenu, ...props }: MemberProps): ReactElement | null => {
     <List.Item {...props} className={CSS.BE("user-members", "item")}>
       <List.Cells>
         <List.Cell>
-          <Flex.Box x align="center" gap="small" empty>
+          <Flex.Box x align="center" gap="small">
             <Text.MaybeEditable
               id={nameID(item.key)}
               value={item.name}

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { access, type Synnax, user } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, User } from "@synnaxlabs/pluto";
 
@@ -61,21 +60,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const ROLE_ICONS: Record<string, Icon.ReactElement> = {
-  Owner: <Icon.Settings />,
-  Engineer: <Icon.Safety />,
-  Operator: <Icon.Control />,
-  Viewer: <Icon.Visible />,
-  Driver: <Icon.Rack />,
-};
-
 /** Lists the top level of the role tree: every role. */
 export const listTreeRoot = (client: Synnax): Tree.Source[] => [
   Tree.createSource(client.access.roles, {}, Tree.toResource("role")),
 ];
 
 const TreeItem = Tree.createItem({
-  icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
+  icon: Access.Role.icon,
   ContextMenu: TreeContextMenu,
   children: ({ client, id }) => [
     Tree.createSource(client.users, { roles: [id.key] }, Tree.toResource("user")),
