@@ -254,6 +254,11 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				stored := createStored(ctx)
 				Expect(tx.Commit(ctx)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Delete(ctx, stored.Key)
+					})).To(Succeed())
+				})
 				rec := &Recorder[symbol.Key, symbol.Action]{}
 				DeferCleanup(svc.Actions().OnChange(rec.Record))
 				replaceTx := DeferClose(db.OpenTx())
