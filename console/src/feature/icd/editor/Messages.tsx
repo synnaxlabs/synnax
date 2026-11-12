@@ -19,6 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { type ReactElement } from "react";
 
 import { formatHex } from "@/feature/icd/editor/FormattedField";
@@ -39,8 +40,10 @@ const createMessage = (messages: icd.Message[]): icd.Message => ({
   payload: { format: "binary", fields: [] },
 });
 
-const count = (n: number, noun: string): string =>
-  `${n} ${n === 1 ? noun : Text.plural(noun)}`;
+const FORMAT_ICONS: Record<icd.PayloadType, ReactElement> = {
+  binary: <Icon.Binary />,
+  text: <Icon.Text />,
+};
 
 const describeMatch = ({ payload }: icd.Message): string | null => {
   if (payload.format === "text") return payload.prefix === "" ? null : payload.prefix;
@@ -58,7 +61,7 @@ const describeMatch = ({ payload }: icd.Message): string | null => {
 
 /** @returns a one-line summary of how frames match a message and what it holds. */
 const describe = (message: icd.Message): string => {
-  const fields = count(message.payload.fields.length, "field");
+  const fields = pluralize("field", message.payload.fields.length, true);
   const match = describeMatch(message);
   return match == null ? fields : `${match} · ${fields}`;
 };
@@ -71,7 +74,7 @@ const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
   return (
     <Select.Item {...props} justify="between" align="center" gap="small">
       <Flex.Box x align="center" gap="small" className={CSS.BE("icd-message", "label")}>
-        <Icon.Binary />
+        {FORMAT_ICONS[message.payload.format]}
         <Flex.Box y gap="tiny" className={CSS.BE("icd-message", "text")}>
           <Text.Text weight={500} overflow="fade">
             {message.name}
@@ -121,6 +124,7 @@ export interface MessagesProps {
 export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
   const messages = Form.useFieldList(PATH);
   const { data, push, remove } = messages;
+  const { mode } = Form.useContext();
   const menuProps = Menu.useContextMenu();
   const handleAdd = () => {
     const message = createMessage(messages.value());
@@ -168,9 +172,11 @@ export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement =>
           {status.message}
         </Input.HelpText>
       )}
-      <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
-        Add message
-      </PlatformButton.CreateListItem>
+      {mode !== "preview" && (
+        <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
+          Add message
+        </PlatformButton.CreateListItem>
+      )}
     </Flex.Box>
   );
 };

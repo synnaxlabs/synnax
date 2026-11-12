@@ -119,7 +119,12 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
           gap="medium"
           className={CSS.BE("icd-editor", "header")}
         >
-          <Form.Field path={ICD.formPath.name} showLabel={false} padHelpText={false}>
+          <Form.Field
+            path={ICD.formPath.name}
+            showLabel={false}
+            padHelpText={false}
+            className={CSS.BE("icd-editor", "name")}
+          >
             {(p) => (
               <Input.Text
                 variant="text"

@@ -41,7 +41,7 @@ const create = (
     case "can":
       return { type, id: 0, extended: false, fd: false, bitrateSwitched: false };
     case "field":
-      return { type, field: fields[0].key, value: 0 };
+      return { type, field: fields[0]?.key ?? "", value: 0 };
   }
 };
 
@@ -77,29 +77,31 @@ const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
   );
 };
 
-const CANFields = ({ path }: { path: deep.Path<icd.CanIdentifier> }): ReactElement => {
+interface CANFieldsProps {
+  path: deep.Path<icd.CanIdentifier>;
+}
+
+const CANFields = ({ path }: CANFieldsProps): ReactElement => {
   const fd = Form.useFieldValue(path.fd);
   return (
     <>
-      <FormattedField<number>
-        path={path.id}
-        label="ID"
-        format={formatHex}
-        parse={parseInteger}
-      />
-      <FormattedField<number>
-        path={path.mask}
-        label="Mask"
-        placeholder="Exact match"
-        optional
-        format={formatHex}
-        parse={parseInteger}
-      />
-      <Input.Item
-        label="Frame type"
-        padHelpText
-        className={CSS.BE("icd-editor", "wide")}
-      >
+      <Flex.Box x>
+        <FormattedField<number>
+          path={path.id}
+          label="ID"
+          format={formatHex}
+          parse={parseInteger}
+        />
+        <FormattedField<number>
+          path={path.mask}
+          label="Mask"
+          placeholder="Exact match"
+          optional
+          format={formatHex}
+          parse={parseInteger}
+        />
+      </Flex.Box>
+      <Input.Item label="Frame type" padHelpText>
         <Flex.Box x wrap align="center" className={CSS.BE("icd-editor", "flags")}>
           <Flag path={path.extended} label="Extended ID" />
           <Flag
@@ -129,7 +131,7 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
     case "field": {
       const field = deep.variant(path, "type", "field");
       return (
-        <>
+        <Flex.Box x>
           <Form.Field path={field.field} label="Field">
             {(p) => (
               <Select.Simple<string> resourceName="field" variant="floating" {...p}>
@@ -142,7 +144,7 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
             )}
           </Form.Field>
           <Form.NumericField path={field.value} label="Value" />
-        </>
+        </Flex.Box>
       );
     }
   }
@@ -155,15 +157,15 @@ export interface IdentifierProps {
 
 /** Picks how a binary message selects the frames that belong to it. */
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const type = Form.useFieldValue(deep.present(path.identifier).type, {
     optional: true,
   });
   const fields = Form.useFieldValue(path.fields);
   const handleChange = (next: Type) =>
     set(path.identifier, next === "none" ? undefined : create(next, fields));
-  // A field value identifier needs a field to read.
-  const types = TYPES.filter((t) => t !== "field" || fields.length > 0);
+  // A field identifier must name a field, so it needs one to pick.
+  const types = TYPES.filter((t) => t !== "field" || fields.length > 0 || t === type);
   return (
     <Input.Item label="Identifier" padHelpText>
       <Select.Simple<Type>
@@ -171,6 +173,7 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
         value={type ?? "none"}
         onChange={handleChange}
         variant="floating"
+        preview={mode === "preview"}
       >
         {types.map((t) => (
           <Select.Item key={t} itemKey={t}>

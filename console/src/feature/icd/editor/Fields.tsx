@@ -15,6 +15,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
+
 type Field = icd.BinaryField | icd.TextField;
 type Encoding = "binary" | icd.TextFieldType;
 type FieldOf<E extends Encoding> = E extends "binary"
@@ -48,7 +50,7 @@ const name = <F extends Field>(): Column<F> => ({
 const scale = <F extends Field>(): Column<F> => ({
   name: "Scale",
   render: "number",
-  width: 10,
+  width: 11,
   get: ({ scale }) => scale,
   set: (f, cell) => ({ ...f, scale: Number(cell) }),
 });
@@ -56,7 +58,7 @@ const scale = <F extends Field>(): Column<F> => ({
 const offset = <F extends Field>(): Column<F> => ({
   name: "Offset",
   render: "number",
-  width: 10,
+  width: 11,
   get: ({ offset }) => offset,
   set: (f, cell) => ({ ...f, offset: Number(cell) }),
 });
@@ -64,7 +66,7 @@ const offset = <F extends Field>(): Column<F> => ({
 const units = <F extends Field>(): Column<F> => ({
   name: "Units",
   render: "text",
-  width: 10,
+  width: 11,
   get: ({ units }) => units,
   set: (f, cell) => ({ ...f, units: String(cell) }),
 });
@@ -87,7 +89,7 @@ const parseIntegers = (text: string): number[] =>
 const multiplexValues = <F extends Field>(): Column<F> => ({
   name: "Multiplex values",
   render: "text",
-  width: 16,
+  width: 21,
   get: ({ multiplexValues }) => multiplexValues.join(", "),
   set: (f, cell) => ({ ...f, multiplexValues: parseIntegers(String(cell)) }),
 });
@@ -102,7 +104,10 @@ const VALUE_TYPE_NAMES: Record<ValueType, string> = {
   float: "Float",
 };
 
-const VALUE_TYPES = Object.keys(VALUE_TYPE_NAMES) as ValueType[];
+const BYTE_ORDER_NAMES: Record<icd.ByteOrder, string> = {
+  little_endian: "Little endian",
+  big_endian: "Big endian",
+};
 
 const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
   if (float) return "float";
@@ -115,14 +120,14 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Start bit",
       render: "number",
-      width: 11,
+      width: 14,
       get: ({ startBit }) => startBit,
       set: (f, cell) => ({ ...f, startBit: Number(cell) }),
     },
     {
       name: "Bit length",
       render: "number",
-      width: 11,
+      width: 14,
       get: ({ bitLength }) => bitLength,
       set: (f, cell) => ({ ...f, bitLength: Number(cell) }),
     },
@@ -149,7 +154,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Position",
       render: "number",
-      width: 11,
+      width: 13,
       get: ({ position }) => position,
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
@@ -205,10 +210,10 @@ const endBit = ({ startBit, bitLength, byteOrder }: icd.BinaryField): number => 
 const nextStartBit = (fields: Field[]): number =>
   fields.reduce((bit, f) => ("startBit" in f ? Math.max(bit, endBit(f)) : bit), 0);
 
-const uniqueFieldName = (fields: Field[]): string => {
-  const names = new Set(fields.map(({ name }) => name));
-  let i = fields.length + 1;
-  while (names.has(`Field ${i}`)) i++;
+const uniqueFieldName = (names: string[]): string => {
+  const taken = new Set(names);
+  let i = names.length + 1;
+  while (taken.has(`Field ${i}`)) i++;
   return `Field ${i}`;
 };
 
@@ -240,6 +245,32 @@ const mergeFields = (all: Field[], encoding: Encoding, updated: Field[]): Field[
   return [...merged, ...updated.slice(i)];
 };
 
+const selectColumn = (
+  { name, width }: Column<Field>,
+  index: number,
+  resourceName: string,
+  names: Record<string, string>,
+): ReactElement<Input.TableColumnProps> => (
+  <Input.TableColumn key={index} name={name} width={width} type="string">
+    {({ value, onChange, preview, variant, "aria-label": ariaLabel }) => (
+      <Select.Simple<string>
+        resourceName={resourceName}
+        value={value}
+        onChange={onChange}
+        preview={preview}
+        variant="floating"
+        triggerProps={{ variant, "aria-label": ariaLabel }}
+      >
+        {Object.entries(names).map(([key, label]) => (
+          <Select.Item key={key} itemKey={key}>
+            {label}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    )}
+  </Input.TableColumn>
+);
+
 const renderColumn = (
   column: Column<Field>,
   index: number,
@@ -252,63 +283,14 @@ const renderColumn = (
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
     case "type":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="type"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              {VALUE_TYPES.map((type) => (
-                <Select.Item key={type} itemKey={type}>
-                  {VALUE_TYPE_NAMES[type]}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "type", VALUE_TYPE_NAMES);
     case "byteOrder":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="byte order"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              <Select.Item itemKey="little_endian">Little endian</Select.Item>
-              <Select.Item itemKey="big_endian">Big endian</Select.Item>
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "byte order", BYTE_ORDER_NAMES);
     case "multiplexor":
-      return (
-        <Input.TableColumn key={index} name={name} width={width} type="string">
-          {({ value, onChange, preview }) => (
-            <Select.Simple<string>
-              resourceName="multiplexor"
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              variant="floating"
-            >
-              <Select.Item itemKey={NONE}>None</Select.Item>
-              {fields.map(({ key, name }) => (
-                <Select.Item key={key} itemKey={key}>
-                  {name}
-                </Select.Item>
-              ))}
-            </Select.Simple>
-          )}
-        </Input.TableColumn>
-      );
+      return selectColumn(column, index, "multiplexor", {
+        [NONE]: "None",
+        ...Object.fromEntries(fields.map(({ key, name }) => [key, name])),
+      });
   }
 };
 
@@ -326,7 +308,7 @@ export interface FieldsProps {
 
 /** Edits the fields of one encoding in a message payload as a grid. */
 export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const fields = Form.useFieldValue(path);
   const status = Form.useStatuses(path).find(({ key }) =>
     fields.some((f) => encodingOf(f) === encoding && matchOwnField(key, path, f)),
@@ -344,8 +326,14 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
       path,
       fields.filter(({ key }) => key !== own[index].key),
     );
+  // A paste adds several rows before any is stored. Each grid's first column is the
+  // name.
   const createRow = (prevRows: Input.TableCell[][]) => {
-    const field = createField(encoding, uniqueFieldName(fields));
+    const added = prevRows.slice(own.length).map(([name]) => String(name));
+    const field = createField(
+      encoding,
+      uniqueFieldName([...fields.map((f) => f.name), ...added]),
+    );
     if ("startBit" in field)
       field.startBit = nextStartBit(fieldsFromRows(encoding, columns, own, prevRows));
     return columns.map((c) => c.get(field));
@@ -354,13 +342,14 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Flex.Box y gap="small">
+    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "fields")}>
       <Input.Table
         value={rows}
         onChange={handleChange}
         onRemove={handleRemove}
         createRow={createRow}
         rowLabel={(i) => (i + 1).toString()}
+        preview={mode === "preview"}
       >
         {columns.map((column, i) => renderColumn(column, i, fields))}
       </Input.Table>

@@ -21,11 +21,11 @@
 .console-icd-editor__header {
     flex-shrink: 0;
     padding: 3rem 0 2rem;
+}
 
-    & > .pluto-input__item {
-        min-width: 0;
-        flex: 1 1 0;
-    }
+.console-icd-editor__name {
+    min-width: 0;
+    flex: 1 1 0;
 }
 
 .console-icd-editor__body {
@@ -34,10 +34,6 @@
     overflow: hidden;
     background: var(--pluto-gray-l1);
     border-color: var(--pluto-gray-l6);
-
-    .pluto-header {
-        background: var(--pluto-gray-l2);
-    }
 }
 
 .console-icd-editor__tasks {
@@ -57,55 +53,17 @@
 .console-icd-editor__message {
     min-height: 0;
     overflow-y: auto;
-    container-type: inline-size;
 }
 
-/* Two label and control pairs fit on a line. A paired section fills both; elsewhere a
-   control spans both. */
 .console-icd-editor__details {
     padding: var(--console-details-padding);
-    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+}
 
-    /* Sticky grid cells paint the card's surface. */
-    --pluto-input-table-bg: var(--pluto-gray-l1);
-
-    & .pluto-input__item > :not(.pluto-input-label) {
-        grid-column: 2 / -1;
-    }
-
-    &
-        .console-icd-editor__pairs
-        .pluto-input__item:not(.console-icd-editor__wide):has(> .pluto-input-label)
-        > :not(.pluto-input-label) {
-        grid-column: auto;
-    }
-
-    /* A wide field starts its own line. */
-    & .console-icd-editor__wide > .pluto-input-label {
-        grid-column: 1;
-    }
+/* The fields table scrolls inside the pane instead of widening the form grid. */
+.console-icd-editor__fields {
+    contain: inline-size;
 }
 
 .console-icd-editor__flags {
     gap: 0 3rem;
-}
-
-@container (width < 600px) {
-    .console-icd-editor__details {
-        grid-template-columns: max-content minmax(0, 1fr);
-    }
-}
-
-/* Too narrow for a label column: each label sits above its control. */
-@container (width < 420px) {
-    .console-icd-editor__details .pluto-form-section__body > .pluto-input__item {
-        display: flex;
-        flex-direction: column;
-        grid-column: 1 / -1;
-        gap: 0.5rem;
-
-        & > .pluto-input-label {
-            height: auto;
-        }
-    }
 }

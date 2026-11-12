@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { icd, type Synnax } from "@synnaxlabs/client";
+import { createTestClientWithRole } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -27,8 +28,8 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const renderEditor = async (ic: icd.ICD): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
   await renderSuspended(
@@ -107,7 +108,7 @@ describe("ICD editor", () => {
     const ic = await createICD([createMessage([], "Message 1")]);
     await renderEditor(ic);
     await findMessageItem("Message 1");
-    fireEvent.click(screen.getByRole("button", { name: "Add message" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
     await findMessageItem("Message 2");
     await save();
     await waitFor(async () =>
@@ -279,7 +280,7 @@ describe("ICD editor", () => {
     const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
     await renderEditor(ic);
     fireEvent.click(await screen.findByRole("button", { name: "Text" }));
-    const delimiter = await screen.findByLabelText("Delimiter");
+    const delimiter = await screen.findByLabelText(/^Delimiter/);
     fireEvent.change(delimiter, { target: { value: ";" } });
     await save();
     await waitFor(async () => {
@@ -291,6 +292,17 @@ describe("ICD editor", () => {
         fields: [],
       });
     });
+  });
+
+  it("should show a viewer the ICD without the controls that edit it", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Mode", 0)])]);
+    await renderEditor(ic, await createTestClientWithRole(client, "Viewer"));
+    expect(await screen.findByText("Mode")).toBeTruthy();
+    expect(screen.getByText("Binary")).toBeTruthy();
+    expect(screen.queryByText("Text")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+    expect(screen.queryByText("Add message")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
 
   it("should show a Core validation error on the field it names", async () => {
