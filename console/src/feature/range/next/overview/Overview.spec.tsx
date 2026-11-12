@@ -136,7 +136,7 @@ describe("range/next/overview", () => {
       await screen.findByDisplayValue("ada");
       fireEvent.click(screen.getByRole("button", { name: "Remove" }));
       await waitFor(() => expect(screen.queryByDisplayValue("ada")).toBeNull());
-      expect(await rng.kv.list()).toEqual({});
+      await waitFor(async () => expect(await rng.kv.list()).toEqual({}));
     });
 
     it("should show a value that another client sets", async () => {
@@ -164,7 +164,9 @@ describe("range/next/overview", () => {
       fireEvent.change(alias, { target: { value: "thrust" } });
       fireEvent.keyDown(alias, { key: "Enter" });
       await screen.findByDisplayValue("thrust");
-      expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" });
+      await waitFor(async () =>
+        expect(await rng.listAliases()).toEqual({ [ch.key]: "thrust" }),
+      );
     });
 
     it("should note an alias that the parent range sets as inherited", async () => {
