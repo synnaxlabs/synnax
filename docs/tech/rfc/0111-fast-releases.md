@@ -70,14 +70,15 @@ dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
 Desktop builds from the commit of its run, so it can ship a change before the Core or
 the Driver releases it, or with build flags of its own:
 
-- **Driver**: The Driver build of the run when the run also releases the Driver, since
-  the commit and the binary are the same. Otherwise Desktop builds the Driver from
-  source at `HEAD` on a build bot (§3.3), as today but with a warm cache.
+- **Driver**: The Driver build of the run when the run releases both the Driver and the
+  Core, since the commit and the minor are the same. Otherwise Desktop builds the Driver
+  from source at `HEAD` on a build bot (§3.3), as today but with a warm cache.
 - **Core**: Built from source at `HEAD`, as today. The released Core is 250 MB to 308
   MB, since it embeds the Console and its installers, and the Desktop installer is 45 MB
   to 70 MB. The Go build takes 3 to 4 minutes on a bot.
-- **Version stamp**: The Core and clients inside Desktop carry the Core version of the
-  run. A run that releases no Core takes the newest stable Core tag reachable from
+- **Version stamp**: The Core, the clients, and a Driver built from source carry one
+  version, so the compatibility check passes (`client/cpp/connection/checker.cpp:36`).
+  It is the Core version of the run, or else the newest stable Core tag reachable from
   `HEAD`, as today (`release.desktop.yaml:104-116`).
 
 ### 3.1 Job graph
