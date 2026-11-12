@@ -182,6 +182,28 @@ var _ = Describe("Plugin", func() {
 			)
 		})
 
+		It(
+			"Should give a type-parameter field the array shape of its default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Box struct<T = uint8[]> {
+						value T
+					}
+
+					Pair struct<T = uint8[2]> {
+						value T
+					}
+				`, "thing", loader, p)
+				ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+					"message Box {\n  repeated uint32 value = 1;\n}",
+					"message Pair {\n  bytes value = 1;\n}",
+				)
+			},
+		)
+
 		It("Should fail on a list map value", func(ctx SpecContext) {
 			req := MustGenerateRequest(ctx, `
 				@go output "core/pkg/service/thing"
