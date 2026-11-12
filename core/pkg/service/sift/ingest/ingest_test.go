@@ -432,6 +432,22 @@ var _ = Describe("Engine", func() {
 				Expect(server.IngestionConfigs()).To(HaveLen(1))
 			})
 
+		It("Should retry when Sift reports an ingestion config that it does not list",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				write(ctx, idx, []telem.TimeStamp{at(1)},
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+				server.FailConfigs(status.Error(codes.AlreadyExists, "exists"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				Expect(e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(2)}, nil)).
+					To(Succeed())
+				Expect(server.Points("stand", ch.Name)).To(HaveLen(1))
+				Expect(rec.retryErrors()).To(HaveExactElements(MatchError(
+					"Sift reported an ingestion config that it does not list",
+				)))
+			})
+
 		It("Should retry a temporary failure from the confirmed positions",
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)

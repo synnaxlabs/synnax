@@ -586,6 +586,11 @@ func (e *Engine) ingestionConfig(ctx context.Context) (string, error) {
 			if cfg, err = find(); err != nil {
 				return "", err
 			}
+			if cfg == nil {
+				return "", errors.New(
+					"Sift reported an ingestion config that it does not list",
+				)
+			}
 		case err != nil:
 			return "", err
 		default:
