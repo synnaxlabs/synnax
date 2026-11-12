@@ -314,6 +314,17 @@ var _ = Describe("Channel", func() {
 			Expect(changes).To(HaveLen(1))
 		})
 
+		It("should keep a known time format when it converts to a timestamp", func() {
+			c, _ := payload.Channel{
+				Kind:       payload.KindString,
+				TimeFormat: payload.TimeFormatUnixMs,
+			}.Reconcile(telem.TimestampT)
+			Expect(c).To(Equal(payload.Channel{
+				Kind:       payload.KindTimestamp,
+				TimeFormat: payload.TimeFormatUnixMs,
+			}))
+		})
+
 		It("should keep a channel of an unknown data type", func() {
 			c := payload.Channel{Kind: payload.KindFloat}
 			Expect(c.Reconcile(telem.UnknownT)).To(Equal(c))

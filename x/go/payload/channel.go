@@ -308,7 +308,7 @@ func (c Channel) convert(kind Kind, changes *[]string) Channel {
 			*changes = append(*changes, "dropped the enum entries")
 		}
 		if kind == KindTimestamp {
-			out.TimeFormat = TimeFormatISO8601
+			out.TimeFormat = lo.CoalesceOrEmpty(c.TimeFormat, TimeFormatISO8601)
 		}
 	}
 	return out

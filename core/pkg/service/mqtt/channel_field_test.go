@@ -302,6 +302,7 @@ var _ = Describe("Stored write configs", func() {
 				})).To(Succeed())
 				return ch.Key()
 			}
+			unixMs := payload.TimeFormatUnixMs
 			plain := func(key string, f v1.ChannelField) v1.WriteTarget {
 				return v1.WriteTarget{Variant: v1.PlainWriteTarget{
 					BaseWriteTarget: v1.BaseWriteTarget{Key: key},
@@ -324,6 +325,11 @@ var _ = Describe("Stored write configs", func() {
 					DataType: telem.Int32T,
 					JSONType: payload.JSONTypeNumber,
 				}),
+				plain("d", v1.ChannelField{
+					Channel:    create(telem.TimestampT),
+					JSONType:   payload.JSONTypeString,
+					TimeFormat: &unixMs,
+				}),
 			}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())
@@ -341,7 +347,7 @@ var _ = Describe("Stored write configs", func() {
 				return t.(map[string]any)["channel"]
 			}
 			targets := data["targets"].([]any)
-			Expect(targets).To(HaveLen(3))
+			Expect(targets).To(HaveLen(4))
 			Expect(field(targets[0])).To(SatisfyAll(
 				HaveKeyWithValue("type", "unsigned"),
 				Not(HaveKey("data_type")),
@@ -356,6 +362,10 @@ var _ = Describe("Stored write configs", func() {
 			Expect(field(targets[2])).To(SatisfyAll(
 				HaveKeyWithValue("type", "integer"),
 				HaveKeyWithValue("data_type", "int32"),
+			))
+			Expect(field(targets[3])).To(SatisfyAll(
+				HaveKeyWithValue("type", "timestamp"),
+				HaveKeyWithValue("time_format", "unix_ms"),
 			))
 		},
 	)
