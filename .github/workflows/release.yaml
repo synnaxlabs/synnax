@@ -632,8 +632,8 @@ jobs:
           fi
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
-  # and never runs after one fails. A skipped publish job still waits for CI, so the Core
-  # draft starts after CI ends, even in a run with only the Core.
+  # and never runs after one fails. A skipped publish job still waits for CI, so the
+  # Core draft starts after CI ends, even in a run with only the Core.
   draft-core:
     name: Draft Core
     needs: [resolve, publish-console, publish-driver]
