@@ -146,13 +146,13 @@ type CheckResponse struct {
 }
 
 // Check returns every problem in an ICD without storing it. The subject needs retrieve
-// on all ICDs.
+// on that ICD.
 func (s *Service) Check(
 	_ context.Context,
 	snap bind.Snapshot,
 	req CheckRequest,
 ) (CheckResponse, error) {
-	if err := snap.Enforce(resource.ID{Type: resource.TypeICD}); err != nil {
+	if err := snap.Enforce(req.ICD.ResourceID()); err != nil {
 		return CheckResponse{}, err
 	}
 	return CheckResponse{Problems: icd.Check(req.ICD)}, nil

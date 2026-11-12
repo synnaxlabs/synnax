@@ -13,6 +13,8 @@ import { type UseHandler } from "@/platform/link/types";
 import { Panel } from "@/platform/panel";
 
 /** Creates a handler that opens the linked resource of the given type in a tab. */
+// Marked pure, so a bundler drops a handler that nothing uses.
+/* #__NO_SIDE_EFFECTS__ */
 export const createUseOpenResourceTab = (type: resource.Type): UseHandler => {
   const useOpenResourceTab: UseHandler = () => {
     const openTab = Panel.useOpenTab();

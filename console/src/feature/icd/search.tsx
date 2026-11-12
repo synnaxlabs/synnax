@@ -12,8 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { FLAGS } from "@/flags";
 import { Search } from "@/platform/search";
 
-const SearchListItem = Search.createListItem({ icon: <Icon.Library /> });
-
 export const SEARCH_LIST_ITEMS: Search.ListItems = FLAGS.icd
-  ? { icd: SearchListItem }
+  ? { icd: Search.createListItem({ icon: <Icon.Library /> }) }
   : {};

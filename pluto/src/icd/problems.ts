@@ -9,16 +9,15 @@
 
 import { type icd } from "@synnaxlabs/client";
 import { type Form } from "@synnaxlabs/lyra/form";
-import { caseconv, deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 
 /**
- * Rewrites a dotted path from the Core, such as "messages.2.bit_length", into the form
- * path of the value it names: camel case parts, and element keys in place of array
- * indexes.
+ * Rewrites a dotted problem path, such as "messages.2.bitLength", into the form path of
+ * the value it names, with element keys in place of array indexes.
  */
 const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
   deep
-    .resolvePath(caseconv.snakeToCamel(path.split(".")).join("."), value)
+    .resolvePath(path, value)
     .split(".")
     .reduce<deep.Path<unknown>>((target, part) => target[part], deep.path<unknown>());
 

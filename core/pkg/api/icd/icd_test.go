@@ -130,6 +130,27 @@ var _ = Describe("ICD", func() {
 			Expect(res.Problems).To(BeEmpty())
 		})
 
+		It("Should check an ICD that the subject can retrieve", func(ctx SpecContext) {
+			ic := createICD(ctx, "Bus")
+			u := createUser(ctx)
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ic.ResourceID())
+			ic.Name = ""
+			res := MustSucceed(check(AuthedCtx(ctx, u), apiicd.CheckRequest{ICD: ic}))
+			Expect(res.Problems).To(Equal(validate.Problems{
+				{Path: "name", Message: "name is required"},
+			}))
+		})
+
+		It("Should reject a check of an ICD it cannot retrieve", func(ctx SpecContext) {
+			granted := createICD(ctx, "Granted")
+			u := createUser(ctx)
+			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, granted.ResourceID())
+			Expect(check(
+				AuthedCtx(ctx, u),
+				apiicd.CheckRequest{ICD: createICD(ctx, "Hidden")},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
 		It("Should reject a check that is not granted", func(ctx SpecContext) {
 			Expect(check(
 				AuthedCtx(ctx, createUser(ctx)),

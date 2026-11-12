@@ -190,7 +190,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   /**
    * Checks an ICD for problems, such as two fields that use the same bits. The Core
    * stores an ICD that has problems.
-   * @returns Every problem in the ICD, or an empty array when it has none. An ICD that
+   * @returns Every problem in the ICD, or an empty array when it has none. Each path is
+   * dotted and camel case, such as "messages.0.payload.fields.1.bitLength". An ICD that
    * breaks a rule of its schema returns only those problems, as the Core cannot read
    * it.
    */
@@ -207,7 +208,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
       checkReqZ,
       checkResZ,
     );
-    return res.problems;
+    return res.problems.map((p) => ({
+      ...p,
+      path: caseconv
+        .snakeToCamelPath(p.path.split("."), { schema: icdZ })
+        .path.join("."),
+    }));
   }
 
   /**

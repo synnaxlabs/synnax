@@ -40,7 +40,7 @@
       "project": ["src/**/*.ts!"]
     },
     "console": {
-      "entry": ["src/flags.ts!"],
+      "entry": ["src/flags/external.ts!"],
       "project": ["src/**/*.{ts,tsx}!"],
       "ignoreIssues": {
         "src/app/nav/{bar,drawer}/{Bottom,Left,Top}.tsx": ["exports"],

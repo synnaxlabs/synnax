@@ -209,6 +209,33 @@ describe("icd", () => {
       ]);
     });
 
+    it("should return a problem from the Core with a camel case path", async () => {
+      const problems = await client.icds.check({
+        name: "ICD",
+        messages: [
+          {
+            name: "Frame",
+            payload: {
+              format: "binary",
+              identifier: {
+                type: "can",
+                id: 1,
+                extended: false,
+                fd: false,
+                bitrateSwitched: true,
+              },
+            },
+          },
+        ],
+      });
+      expect(problems).toEqual([
+        {
+          path: "messages.0.payload.identifier.bitrateSwitched",
+          message: "only a CAN FD frame can switch bitrates",
+        },
+      ]);
+    });
+
     it("should return the problems with the pointers of a JSON message", async () => {
       const problems = await client.icds.check({
         name: "ICD",

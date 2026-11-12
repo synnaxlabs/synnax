@@ -14,12 +14,14 @@ import { useCreate } from "@/feature/icd/useCreate";
 import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-const CreateCommand = Command.create({
-  key: "create_icd",
-  name: "Create ICD",
-  icon: <ICD.CreateIcon />,
-  useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
-  useOnSelect: useCreate,
-});
-
-export const COMMANDS = FLAGS.icd ? [CreateCommand] : [];
+export const COMMANDS = FLAGS.icd
+  ? [
+      Command.create({
+        key: "create_icd",
+        name: "Create ICD",
+        icon: <ICD.CreateIcon />,
+        useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
+        useOnSelect: useCreate,
+      }),
+    ]
+  : [];

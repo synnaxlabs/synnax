@@ -110,11 +110,11 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` is on only where its expression says. To ship in Desktop, its
-expression names `DESKTOP`, so it is on in Desktop builds and off in the Console build.
-A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the owner,
-the Linear umbrella issue, and the release that removes it. A flag past that release is
-a bug: promote or delete.
+`console/src/flags/external.ts` is on only where its expression says. To ship in
+Desktop, its expression names `DESKTOP`, so it is on in Desktop builds and off in the
+Console build. A flag for work that does not run yet leaves out `DESKTOP`. Its entry
+names the owner, the Linear umbrella issue, and the release that removes it. A flag past
+that release is a bug: promote or delete.
 
 1. **Land dark** in `review/human` PRs. The reviewer confirms the Console build
    tree-shakes the code out.
