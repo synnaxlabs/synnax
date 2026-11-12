@@ -267,6 +267,20 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		It("Should make a run of a range that ended while the task was stopped",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				send(ctx, 1)
+				Eventually(values).Should(ConsistOf(1.0))
+				Expect(dt.Stop(false)).To(Succeed())
+				rng := endedRange(ctx, l.Key)
+				Expect(server.Runs()).To(BeEmpty())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
 		It("Should update the tags of a run when its range gets a label",
 			func(ctx SpecContext) {
 				cold := label.Label{Name: "cold"}
