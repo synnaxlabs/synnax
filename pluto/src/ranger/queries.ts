@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
+import { type channel, label, ranger } from "@synnaxlabs/client";
 import { color, deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -21,6 +21,7 @@ const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PARENT_RESOURCE_NAME = "parent range";
+const PLURAL_ALIAS_RESOURCE_NAME = "channel aliases";
 
 export type RetrieveQuery = {
   key: ranger.Key;
@@ -160,6 +161,24 @@ export const { useResult: useResultMetaData } = Flux.createRetrieve<
     client.ranges.kv.watch(rangeKey).onChange(handler),
   getCached: ({ client, query: { rangeKey } }) =>
     client.ranges.kv.watch(rangeKey).getCached(),
+});
+
+export type AliasesQuery = {
+  rangeKey: ranger.Key;
+};
+
+/** The channel aliases of a range: its own and those of the ranges above it. */
+export const { useResult: useResultAliases } = Flux.createRetrieve<
+  AliasesQuery,
+  Record<channel.Key, string>
+>({
+  name: PLURAL_ALIAS_RESOURCE_NAME,
+  retrieve: async ({ client, query: { rangeKey } }) =>
+    await client.ranges.resolvedAliases.retrieve(rangeKey),
+  onChange: ({ client, query: { rangeKey } }, handler) =>
+    client.ranges.resolvedAliases.watch(rangeKey).onChange(handler),
+  getCached: ({ client, query: { rangeKey } }) =>
+    client.ranges.resolvedAliases.watch(rangeKey).getCached(),
 });
 
 export const kvPairFormSchema = ranger.kv.pairZ.extend({

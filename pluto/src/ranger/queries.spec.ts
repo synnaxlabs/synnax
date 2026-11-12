@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
+import { DataType, label, ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -99,6 +99,32 @@ describe("queries", () => {
         expect(result.current.data).toEqual([
           { key: "key", value: "value", range: rng.key },
         ]),
+      );
+    });
+  });
+
+  describe("useResultAliases", () => {
+    it("should follow an alias set on a range above", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const parent = await client.ranges.create({ name: "parent", timeRange });
+      const child = await client.ranges.create({
+        name: "child",
+        timeRange,
+        parent: parent.key,
+      });
+      const { result } = renderHook(
+        () => Ranger.useResultAliases({ rangeKey: child.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.data).toEqual({}));
+      await client.ranges.setAlias(parent.key, ch.key, "inherited");
+      await waitFor(() =>
+        expect(result.current.data).toEqual({ [ch.key]: "inherited" }),
       );
     });
   });
