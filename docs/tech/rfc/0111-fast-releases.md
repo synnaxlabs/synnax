@@ -60,9 +60,14 @@ UTC. Six release runs did the work:
 is deleted. Desktop gains two inputs in `release.yaml`: `desktop` and `desktop_bump`.
 
 A release runs from `main` or from `release/X.Y`. One branch per train replaces
-`release/<console|core|driver>-X.Y`. `resolve_version.sh:81` already reads only the
-`X.Y` of the branch name, so the product in the name carries no meaning. Desktop patches
-keep `release/desktop-X.Y`, since the Desktop version line is apart from the train.
+`release/<console|core|driver>-X.Y`. `resolve_version.sh:81` requires a product in the
+name but uses only the `X.Y`, so the product carries no meaning. The docs deploy also
+reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
+
+Desktop joins a run with the other products only on `main`. A Desktop patch is its own
+dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set. It
+bundles the newest stable Core reachable from `HEAD` and the Driver of that Core, as
+today (`release.desktop.yaml:106-116`).
 
 ### 3.1 Job graph
 
@@ -85,15 +90,17 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   A run that does not release a product downloads its newest release on the train, as
   today (`release.yaml:211-238`).
 - **Desktop takes binaries**: The Desktop build downloads the Core and the Driver of the
-  run, or the newest releases on the train. It compiles only the Tauri app.
+  run, or the releases that §3.0 names. It compiles only the Tauri app.
 - **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
   upload move to the publish stage.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
   pushes the image, stages npm, and uploads to PyPI. The Core publishes first, since it
-  holds the Latest badge. A failed build leaves only drafts, which
-  `clear_release_drafts.sh` removes.
-- **Docs**: One deploy per run, after the publish. Download links already resolve at
-  request time (`site/docs/src/util/releases.ts:144`), so the deploy gates nothing.
+  holds the Latest badge. A failed build leaves only drafts, which the next run clears
+  (`draft-release/action.yaml:55`).
+- **Docs**: One deploy per run, after the publish. The docs pages are prerendered, so
+  the deploy sets the download links and the dates of the release notes.
+- **Release notes date**: `Release.astro` reads the publish date of `core/vX.Y.0` from
+  the releases listing. The `date` prop is deleted, so no pull request dates a release.
 
 ### 3.2 Verify
 
@@ -102,25 +109,23 @@ run. Nightly runs and earlier release runs both count. When none exists, `verify
 `ci.yaml` itself, in parallel with the builds. A retry of a failed release finds the
 green run and skips CI.
 
-The lookup is a new script, `.github/scripts/green_run.sh`. It follows
-`check_artifact_cache.sh`, which finds an earlier run through the same API. The full run
-records itself with a check run named `Full CI` on the commit, so the lookup reads one
-check and not the job list of each run.
+The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
+`nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
+passed. It follows `check_artifact_cache.sh`, which finds an earlier run the same way.
 
-### 3.3 Signed macOS builds on the build bots
+### 3.3 macOS builds on the build bots, signing on hosted runners
 
-`generate_os_matrix.sh` and the Tauri matrix (`build.synnax.yaml:283-288`) select
-`macos-build-bot` for signed builds too. The bots keep a warm Bazel output base:
-`driver / Test (macos-build-bot)` takes 1 to 2 minutes. `import_apple_certificate.sh`
-already makes one keychain per runner, so two bots sign at the same time. PR #2034 moved
-signed builds to hosted runners with no stated reason. The phase runs a signed build on
-a bot through `build.synnax.yaml` before it merges.
+The Driver and the Core build unsigned on `macos-build-bot`, which keeps a warm Bazel
+output base: `driver / Test (macos-build-bot)` takes 1 to 2 minutes. A job on
+`macos-latest` then downloads the binaries, signs them, and notarizes them. The signing
+key never reaches a bot, since the bots also run pull request jobs. The Tauri apps stay
+on hosted runners: they sign inside the build and take 12 to 18 minutes.
 
 ### 3.4 Retries
 
 - **CI**: §3.2 reuses the green run.
-- **Builds**: A rerun of failed jobs keeps the passed builds. A new dispatch on the same
-  commit finds the drafts of the failed run and builds only the assets they lack.
+- **Builds**: A rerun of failed jobs keeps the passed builds. A new dispatch builds
+  again, which costs about 20 minutes.
 - **Go caches**: Every shard of a full run saves its cache, on `main` and on
   `release/**`. Today only shard 1 on `main` saves (`test.go.yaml:395`).
 
@@ -144,7 +149,8 @@ a bot through `build.synnax.yaml` before it merges.
 | Publish and docs                            | 5       |
 
 `verify` takes 0 minutes after a green run and about 21 minutes with warm Go caches, in
-parallel. The optimized macOS Driver build on a bot is not measured yet.
+parallel. The optimized macOS Driver build on a bot is not measured yet. Signing adds
+about 2 minutes.
 
 ## 5 What this RFC does not cover
 
@@ -157,21 +163,21 @@ parallel. The optimized macOS Driver build on a bot is not measured yet.
 Phases 1 to 4 remove about 80% of the time. Each phase leaves `release.yaml` able to
 release. Phase 10 saves 3 to 4 minutes per Windows build.
 
-| Phase | Scope                                                      | Touches                                                                                     | Depends on |
-| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Gate the release publish jobs on CI, not the builds        | `.github/workflows/release.yaml`, `.github/workflows/release.desktop.yaml`                  | -          |
-| 2     | Reuse a green full CI run of the commit in a release       | `.github/scripts/green_run.sh`, `.github/workflows/ci.yaml`, `release.yaml`                 | 1          |
-| 3     | Build signed macOS binaries on the Mac build bots          | `.github/scripts/generate_os_matrix.sh`, `.github/workflows/build.synnax.yaml`              | -          |
-| 4     | Build the Core from drafts and publish all products last   | `.github/workflows/release.yaml`, `.github/workflows/build.synnax.yaml`                     | 1          |
-| 5     | Build the packages at dispatch and publish them last       | `.github/workflows/release.yaml`                                                            | 4          |
-| 6     | Release Synnax Desktop in the release workflow             | `.github/workflows/release.yaml`, `.github/workflows/build.tauri.yaml`                      | 4          |
-| 7     | Release each train from one `release/X.Y` branch           | `.github/scripts/resolve_version.sh`, `AGENTS.md`, `docs/tech/rfc/0058-release-workflow.md` | -          |
-| 8     | Skip release assets that a draft of the commit holds       | `.github/workflows/build.synnax.yaml`, `.github/actions/draft-release`                      | 4          |
-| 9     | Save the Go cache from every shard and on release branches | `.github/workflows/test.go.yaml`, `.github/workflows/warm.go.yaml`                          | -          |
-| 10    | Cache `trusted-signing-cli` on the Windows builds          | `.github/workflows/build.tauri.yaml`, `.github/workflows/build.synnax.yaml`                 | -          |
-| 11    | Cancel a merge group when a job is cancelled               | `.github/workflows/ci.yaml`                                                                 | -          |
-| 12    | Report every Sedosaur finding in one review                | `.sedosaur/prompt.md`                                                                       | -          |
-| 13    | Skip queue jobs that passed on the same tree               | `.github/workflows/ci.yaml`, `.github/scripts/changed_jobs.py`                              | -          |
+| Phase | Scope                                                      | Touches                                                                                                                                                                                                                           | Depends on |
+| ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Gate the release publish jobs on CI, not the builds        | `.github/workflows/release.yaml`, `.github/workflows/release.desktop.yaml`                                                                                                                                                        | -          |
+| 2     | Reuse a green full CI run of the commit in a release       | `.github/scripts/green_run.sh`, `.github/workflows/release.yaml`                                                                                                                                                                  | 1          |
+| 3     | Build macOS binaries on the bots and sign them on hosted   | `.github/scripts/generate_os_matrix.sh`, `.github/workflows/build.synnax.yaml`                                                                                                                                                    | -          |
+| 4     | Build the Core from drafts and publish all products last   | `.github/workflows/release.yaml`, `.github/workflows/build.synnax.yaml`                                                                                                                                                           | 1          |
+| 5     | Build the packages at dispatch and publish them last       | `.github/workflows/release.yaml`                                                                                                                                                                                                  | 4          |
+| 6     | Release Synnax Desktop in the release workflow             | `.github/workflows/release.yaml`, `.github/workflows/build.tauri.yaml`, `.github/scripts/resolve_version.sh`                                                                                                                      | 4          |
+| 7     | Release each train from one `release/X.Y` branch           | `.github/scripts/resolve_version.sh`, `.github/actions/resolve-version`, `site/docs/src/util/deploy/plan.ts`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/tech/git.md`, `site/docs/README.md`, `docs/tech/rfc/0058-release-workflow.md` | -          |
+| 8     | Read the release notes date from the Core release          | `site/docs/src/components/releases/Release.astro`, `site/docs/src/releases`                                                                                                                                                       | -          |
+| 9     | Save the Go cache from every shard and on release branches | `.github/workflows/test.go.yaml`, `.github/workflows/warm.go.yaml`                                                                                                                                                                | -          |
+| 10    | Cache `trusted-signing-cli` on the Windows builds          | `.github/workflows/build.tauri.yaml`, `.github/workflows/build.synnax.yaml`                                                                                                                                                       | -          |
+| 11    | Cancel a merge group when a job is cancelled               | `.github/workflows/ci.yaml`                                                                                                                                                                                                       | -          |
+| 12    | Report every Sedosaur finding in one review                | `.sedosaur/prompt.md`                                                                                                                                                                                                             | -          |
+| 13    | Skip queue jobs that passed on the same tree               | `.github/workflows/ci.yaml`, `.github/scripts/changed_jobs.py`                                                                                                                                                                    | -          |
 
 ## 7 Resolved decisions
 
@@ -182,9 +188,10 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
 2. **Lookup before a full run on every merge**: A full run per merge costs about 10
    runner-hours each, over 100 times a day. The lookup takes the nightly run when it
    matches and pays for one run otherwise.
-3. **Mac bots before a public Bazel cache**: A cache that hosted runners can reach needs
-   authentication and a public endpoint. The bots already hold the cache and the
-   keychain script. Rejected for now, not forever: two bots limit two macOS builds at a
+3. **Build on the bots, sign on hosted runners**: Signing on the bots was rejected: the
+   keychain stays on a machine that runs pull request jobs. A Bazel cache that hosted
+   runners can reach was rejected for now: it needs a public endpoint with
+   authentication. The trade is real: two bots limit a run to two macOS builds at a
    time.
 4. **One publish stage**: A publish per product let the Driver and Console go out before
    a Core build failed. One stage keeps a failed run invisible. The cost is that no
@@ -194,8 +201,11 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
    decision 5 states.
 6. **One branch per train**: Three branches at one commit gave three dispatches. This
    reverses the branch names of RFC 0058 §2.0 and keeps its version rules.
-7. **Docs deploy stays**: RFC 0058 §4 decision 7 holds. The deploy moves the root when a
-   train opens. It runs once per run and gates nothing.
+7. **Docs deploy stays**: The pages are prerendered, so the deploy sets the links. It
+   runs once per run, after the publish.
+8. **No draft reuse across dispatches**: The version does not change after a failed run,
+   so a draft under the same tag can come from an older commit. A rebuild costs 20
+   minutes and carries no such risk.
 
 ## 8 Open questions
 
@@ -204,4 +214,4 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
 2. **Queue skip and the Core tests**: The pull request runs the Core tests cached in one
    job, and the queue runs three uncached shards (`ci.yaml:428`). Phase 13 skips them
    only if the pull request runs the same job.
-3. **Third Mac bot**: Needed if two signed macOS builds per run wait on each other.
+3. **Third Mac bot**: Needed if the macOS builds of a run wait on each other.
