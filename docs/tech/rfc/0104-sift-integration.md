@@ -156,10 +156,10 @@ the Core only when auto start is on.
 ### 4.5 Runs
 
 Data goes to the asset with no `run_id`. A range becomes a Sift ad hoc run
-(`CreateAdhocRun`) over the same span. Its `client_key` is the range key, so the task
-finds an existing run and updates it. Range labels become run tags. An existing run
-keeps its assets, so a second upload of the range to another asset does not add that
-asset to the run.
+(`CreateAdhocRun`) over the same span on each asset that it goes to. The run's
+`client_key` is a UUID v5 of the asset name under the range key, so the task finds an
+existing run and updates it. `UpdateRun` cannot change a run's assets, so each asset
+gets its own run. Range labels become run tags.
 
 - **Upload**: Makes the run after the last checkpoint. A plain time span makes no run.
 - **Streaming**: Listens to `ranger.Service.OnAction`
@@ -249,7 +249,10 @@ stack, which made secrets grant-only.
    is real: virtual channels cannot catch up after an outage.
 3. **Data on the asset, ad hoc runs**: Rejected a `run_id` on each request. A second
    upload of a range would make a second run with a second copy, and nested ranges could
-   not share data. Cost: no run during a live test.
+   not share data. Cost: no run during a live test. Rejected one run for each range with
+   the range key as its `client_key`: a second asset would update the first asset's run
+   and get none of its own. Rejected an error for a second asset, because Sift cannot
+   delete a run, so an upload to the wrong asset could never be corrected.
 4. **One uploader per rack**: Rejected a task per upload, which fills the task list and
    would be the only task on `main` that deletes itself. Rejected a task per device,
    because nothing on `main` creates tasks with devices. Results show on the range,
