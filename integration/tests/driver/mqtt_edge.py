@@ -134,9 +134,7 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase[mqtt.EdgeTask]):
             targets=[
                 mqtt.PlainWriteTarget(
                     topic=f"{MIRROR}/setpoint/set",
-                    channel=mqtt.ChannelField(
-                        pointer="", json_type="number", channel=set_ch.key
-                    ),
+                    channel=mqtt.FloatChannelField(pointer="", channel=set_ch.key),
                 )
             ],
         )

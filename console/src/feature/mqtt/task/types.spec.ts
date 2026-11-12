@@ -428,7 +428,7 @@ describe("MQTT Task Types", () => {
     type: "plain",
     key: "t1",
     topic: "plant/valve/set",
-    channel: { pointer: "/value", channel: 1 },
+    channel: { type: "float", pointer: "/value", channel: 1 },
   };
   const tagTarget = { type: "sparkplug", key: "s1", ...tagID };
   const writeConfig = (...targets: object[]) => ({ device: "dev-001", targets });
@@ -555,7 +555,7 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          channel: { pointer: "", channel: 1 },
+          channel: { type: "float", pointer: "", channel: 1 },
           fields: [
             {
               key: "s1",
@@ -578,7 +578,7 @@ describe("MQTT Task Types", () => {
 
     it("should allow the channel value as the whole payload with no other fields", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({ ...target, channel: { pointer: "", channel: 1 } }),
+        writeConfig({ ...target, channel: { type: "float", pointer: "", channel: 1 } }),
       );
       expect(issuesOf(result)).toEqual([]);
     });
@@ -648,55 +648,44 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject enum values on a JSON type other than string", () => {
+    it("should reject a channel field with no kind", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: {
-            ...target.channel,
-            jsonType: "number",
-            enumValues: [{ label: "ON", value: 1 }],
-          },
-        }),
+        writeConfig({ ...target, channel: { pointer: "/value", channel: 1 } }),
       );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Enum values require the string JSON type",
-          path: "targets.0.channel.jsonType",
-        },
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "targets.0.channel.type",
       ]);
     });
 
-    it("should reject a channel value that two enum labels map", () => {
+    it("should reject a channel pointer that is not a JSON pointer", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: {
-            ...target.channel,
-            jsonType: "string",
-            enumValues: [
-              { label: "ON", value: 1 },
-              { label: "OPEN", value: 1 },
-            ],
-          },
-        }),
+        writeConfig({ ...target, channel: { ...target.channel, pointer: "value" } }),
       );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Duplicate enum value 1",
-          path: "targets.0.channel.enumValues.1.value",
-        },
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "targets.0.channel.pointer",
       ]);
     });
 
-    it("should accept a timestamp channel with no time format", () => {
+    it("should accept a new channel with a data type", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig({
           ...target,
-          channel: { ...target.channel, dataType: "timestamp" },
+          channel: { ...target.channel, channel: 0, dataType: "uint8" },
         }),
       );
       expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should require the time format of a timestamp channel field", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({
+          ...target,
+          channel: { ...target.channel, type: "timestamp" },
+        }),
+      );
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "targets.0.channel.timeFormat",
+      ]);
     });
 
     it("should reject a static value that is not a JSON primitive", () => {

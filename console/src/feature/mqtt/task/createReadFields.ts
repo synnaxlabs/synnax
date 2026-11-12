@@ -34,12 +34,18 @@ export const createReadFields = (scalars: BrowsedField[]): ReadField[] => {
   return fields.map((f) => ({ ...f, disabled: isVariable(f) }));
 };
 
+const KINDS: Record<payload.JSONType, payload.Kind> = {
+  number: "float",
+  boolean: "boolean",
+  string: "string",
+};
+
 /**
- * @returns the JSON type of the sample that a field came from.
+ * @returns the kind that writes a sample of the JSON type that a field came from.
  * @throws {Error} if no JSON sample gives a field of its data type.
  */
-export const jsonTypeOf = ({ dataType }: ReadField): payload.JSONType => {
+export const kindOf = ({ dataType }: ReadField): payload.Kind => {
   const type = payload.JSON_TYPES.find((t) => DATA_TYPES[t] === dataType);
   if (type == null) throw new Error(`No JSON sample gives a ${dataType} field`);
-  return type;
+  return KINDS[type];
 };

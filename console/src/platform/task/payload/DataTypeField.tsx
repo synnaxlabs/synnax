@@ -79,3 +79,16 @@ const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
 };
 
 const NO_CHANGE = () => {};
+
+/**
+ * Returns the data type of channel, or dataType when channel is 0 or no longer exists.
+ * It returns undefined while the channel loads.
+ */
+export const useDataType = (
+  channel: channel.Key,
+  dataType: string | undefined,
+): string | undefined => {
+  const result = Channel.useResultDataType(channel === 0 ? null : { key: channel });
+  if (channel === 0 || isMissing(result)) return dataType;
+  return result.data?.toString();
+};

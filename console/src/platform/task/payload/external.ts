@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/payload/AdditionalFields";
+export * from "@/platform/task/payload/ChannelKind";
 export * from "@/platform/task/payload/ChannelSections";
 export * from "@/platform/task/payload/DataTypeField";
 export * from "@/platform/task/payload/EnumMappingSection";

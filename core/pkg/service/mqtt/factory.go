@@ -485,7 +485,7 @@ func (f *Factory) configureRead(
 func enabledTarget(v WriteTargetVariant) (key channel.Key, name string, ok bool) {
 	switch t := v.(type) {
 	case PlainWriteTarget:
-		return t.Channel.Channel, t.Topic, !t.Disabled
+		return t.Channel.Base().Channel, t.Topic, !t.Disabled
 	case SparkplugWriteTarget:
 		return t.Channel, t.Tag, !t.Disabled
 	default:

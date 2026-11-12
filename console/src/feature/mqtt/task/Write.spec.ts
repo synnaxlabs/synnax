@@ -11,7 +11,7 @@ import { channel, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -53,7 +53,12 @@ const createWriteTarget = (
   ...mqtt.plainWriteTargetZ.parse({ type: "plain" }),
   key,
   topic,
-  channel: { ...mqtt.channelFieldZ.parse({}), pointer: "/value", ...channel },
+  channel: mqtt.channelFieldZ.parse({
+    type: "float",
+    dataType: "float64",
+    pointer: "/value",
+    ...channel,
+  }),
 });
 
 const createTagTarget = (
@@ -126,31 +131,42 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
-  it("should show the enum mapping editor when the channel JSON type is string", async () => {
+  it("should show the enum mapping editor of the channel kind", async () => {
     await renderWrite();
     await addTarget();
-    expect(screen.queryByText("Enum mapping")).toBeNull();
-    await selectFromDropdown("Number", "String");
     await screen.findByText("Enum mapping");
+    await selectFromDropdown("Number", "String");
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    await screen.findByPlaceholderText("Text");
   });
 
-  it("should drop the enum values when the JSON type leaves string", async () => {
+  it("should drop the enum values when the kind changes", async () => {
     const { draft } = await renderWrite([
       createWriteTarget("t1", "plant/valve/set", {
-        jsonType: "string",
-        enumValues: [{ label: "OPEN", value: 1 }],
+        type: "string",
+        enumValues: [{ label: "OPEN", value: "1" }],
       }),
     ]);
     await screen.findByDisplayValue("OPEN");
-    await selectFromDropdown("String", "Number");
+    await selectFromDropdown("String", "Boolean");
     await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: MQTT.Task.WRITE_SCHEMAS,
-      });
-      const [target] = saved.config.targets;
+      const [target] = await retrieveTargets(draft.key);
       if (target.type !== "plain") throw new Error("expected a plain target");
-      expect(target.channel).toMatchObject({ jsonType: "number", enumValues: [] });
+      expect(target.channel).toMatchObject({ type: "boolean", enumValues: [] });
+    });
+  });
+
+  it("should set the kind of a data type that allows only one", async () => {
+    const { draft } = await renderWrite([createWriteTarget("t1", "plant/clock/set")]);
+    await selectFromDropdown("float64", "Timestamp");
+    await waitFor(async () => {
+      const [target] = await retrieveTargets(draft.key);
+      if (target.type !== "plain") throw new Error("expected a plain target");
+      expect(target.channel).toMatchObject({
+        type: "timestamp",
+        timeFormat: "iso8601",
+        dataType: "timestamp",
+      });
     });
   });
 
@@ -204,6 +220,94 @@ describe("MQTT Write form", () => {
     await screen.findByText("my_cmd_channel");
   });
 
+  it("should give a copy of a bound target the data type of its channel", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "int32",
+      virtual: true,
+    });
+    const { draft } = await renderWrite([
+      createWriteTarget("t1", "plant/cmd", {
+        type: "integer",
+        channel: ch.key,
+        dataType: undefined,
+      }),
+    ]);
+    fireEvent.contextMenu(await screen.findByText(ch.name));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(async () => {
+      const targets = await retrieveTargets(draft.key);
+      expect(targets).toHaveLength(2);
+      expect(targets[1]).toMatchObject({
+        channel: { type: "integer", channel: 0, dataType: "int32" },
+      });
+    });
+  });
+
+  it("should keep a data type picked for a copy before its channel is read", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "int32",
+      virtual: true,
+    });
+    const { draft } = await renderWrite([
+      createWriteTarget("t1", "plant/cmd", {
+        type: "integer",
+        channel: ch.key,
+        dataType: undefined,
+      }),
+    ]);
+    const retrieve = client.channels.retrieve.bind(client.channels);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const spy = vi
+      .spyOn(client.channels, "retrieve")
+      .mockImplementation(async (...args: Parameters<typeof retrieve>) => {
+        await held;
+        return await retrieve(...args);
+      });
+    try {
+      fireEvent.contextMenu(await screen.findByText(ch.name));
+      fireEvent.click(await screen.findByText("Duplicate"));
+      await selectFromDropdown("Select data type", "int16");
+      release();
+      await waitFor(async () => {
+        const targets = await retrieveTargets(draft.key);
+        expect(targets).toHaveLength(2);
+        expect(targets[1]).toMatchObject({ channel: { dataType: "int16" } });
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("should take the kinds of a bound channel over a stored data type", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "timestamp",
+      virtual: true,
+    });
+    const { draft } = await renderWrite([
+      {
+        ...createWriteTarget("t1", "plant/clock/set", {
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          channel: ch.key,
+          dataType: "float64",
+        }),
+        disabled: true,
+      },
+    ]);
+    await screen.findByText("Time format");
+    await screen.findByText(ch.name);
+    const [target] = await retrieveTargets(draft.key);
+    expect(target).toMatchObject({
+      channel: { type: "timestamp", timeFormat: "unix_ms" },
+    });
+  });
+
   it("should mark a new command channel, unless its target is disabled", async () => {
     const { dev } = await renderWrite([
       createWriteTarget("t1", "plant/valve/set"),
@@ -235,19 +339,27 @@ describe("MQTT Write form", () => {
 
   // Waits on the channel name so the negative case asserts against a settled lookup
   // rather than one still in flight.
-  const renderWithCommandChannel = async (dataType: string) => {
+  const renderWithCommandChannel = async (
+    dataType: string,
+    field: Partial<MQTT.Task.ChannelField>,
+  ) => {
     const ch = await client.channels.create({
       name: uniqueName("mqtt_cmd"),
       dataType,
       virtual: true,
     });
-    await renderWrite([createWriteTarget("t1", "plant/cmd", { channel: ch.key })]);
-    await screen.findByText("JSON type");
+    await renderWrite([
+      createWriteTarget("t1", "plant/cmd", { ...field, channel: ch.key }),
+    ]);
+    await screen.findByText("Pointer");
     await screen.findByText(ch.name);
   };
 
   it("should show the time format field for a timestamp command channel", async () => {
-    await renderWithCommandChannel("timestamp");
+    await renderWithCommandChannel("timestamp", {
+      type: "timestamp",
+      timeFormat: "unix_ms",
+    });
     await screen.findByText("Time format");
   });
 
@@ -285,7 +397,7 @@ describe("MQTT Write form", () => {
   });
 
   it("should hide the time format field for a numeric command channel", async () => {
-    await renderWithCommandChannel("float64");
+    await renderWithCommandChannel("float64", { type: "float" });
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
@@ -420,13 +532,13 @@ describe("MQTT Write form", () => {
         expect(targets).toHaveLength(3);
         expect(byIdentity(targets)).toMatchObject({
           "plant/valve": {
-            channel: { pointer: "/open", jsonType: "boolean", dataType: "uint8" },
+            channel: { pointer: "/open", type: "boolean", dataType: "uint8" },
           },
           "plant/speed": {
-            channel: { pointer: "/rpm", jsonType: "number", dataType: "float64" },
+            channel: { pointer: "/rpm", type: "float", dataType: "float64" },
           },
           "plant/mode": {
-            channel: { pointer: "", jsonType: "string", dataType: "string" },
+            channel: { pointer: "", type: "string", dataType: "string" },
           },
         });
       });
@@ -454,7 +566,7 @@ describe("MQTT Write form", () => {
         expect(await retrieveTargets(draft.key)).toMatchObject([
           {
             topic: "plant/oven",
-            channel: { pointer: "/mode", jsonType: "string", dataType: "string" },
+            channel: { pointer: "/mode", type: "string", dataType: "string" },
           },
         ]),
       );
@@ -698,7 +810,7 @@ describe("MQTT Write form", () => {
 
     it("should put the deploy errors on the fields they belong to", async () => {
       const { container } = await renderWrite([createWriteTarget("t1", "plant/#")]);
-      await screen.findByText("JSON type");
+      await screen.findByText("Pointer");
       await clickDeploy(container);
       await screen.findByText("Topic must not hold the wildcards + or #");
     });
@@ -706,8 +818,12 @@ describe("MQTT Write form", () => {
     it("should create command channels, virtual when variable, and persist them to the device", async () => {
       const virtualName = uniqueName("mqtt_cmd");
       const { container, dev, draft } = await renderWrite([
-        createWriteTarget("t1", "plant/valve/set", { dataType: "uint8" }),
+        createWriteTarget("t1", "plant/valve/set", {
+          type: "unsigned",
+          dataType: "uint8",
+        }),
         createWriteTarget("t2", "plant/mode/set", {
+          type: "string",
           dataType: "string",
           name: virtualName,
         }),
@@ -764,8 +880,14 @@ describe("MQTT Write form", () => {
         MQTT.Device.SCHEMAS,
       );
       const config = createWriteConfig(dev.key, [
-        createWriteTarget("t1", "plant/cmd", { channel: configuredCh.key }),
-        createWriteTarget("t2", "plant/stored"),
+        createWriteTarget("t1", "plant/cmd", {
+          type: "string",
+          channel: configuredCh.key,
+        }),
+        createWriteTarget("t2", "plant/stored", {
+          type: "string",
+          dataType: undefined,
+        }),
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderTaskFormTab(MQTT.Task.Write, {

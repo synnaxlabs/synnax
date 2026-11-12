@@ -155,7 +155,8 @@ class TestMQTTWriteTask:
         assert target.type == "plain"
         assert target.qos == "at_least_once"
         assert target.retained is False
-        assert target.channel.json_type == "number"
+        assert isinstance(target.channel, sy.mqtt.FloatChannelField)
+        assert target.channel.enum_values == []
         assert target.fields == []
 
     def test_parse_sparkplug_target(self) -> None:
@@ -192,7 +193,7 @@ class TestMQTTWriteTask:
         target = sy.mqtt.PlainWriteTarget.model_validate(
             {
                 "topic": "plant/pump/set",
-                "channel": {"channel": 7, "pointer": "/rpm"},
+                "channel": {"type": "integer", "channel": 7, "pointer": "/rpm"},
                 "fields": [
                     {
                         "type": "static",
@@ -210,6 +211,54 @@ class TestMQTTWriteTask:
         assert isinstance(generated, sy.mqtt.GeneratedWriteField)
         assert generated.generator == "uuid"
 
+    def test_parse_channel_field_by_kind(self) -> None:
+        """Should select each channel field's variant from its type."""
+        cfg = sy.mqtt.WriteConfig.model_validate(
+            {
+                "targets": [
+                    {"type": "plain", "channel": {"type": "unsigned", "channel": 1}},
+                    {
+                        "type": "plain",
+                        "channel": {
+                            "type": "timestamp",
+                            "channel": 2,
+                            "time_format": "unix_ms",
+                        },
+                    },
+                    {"type": "plain", "channel": {"type": "json", "channel": 3}},
+                ]
+            }
+        )
+        unsigned, ts, json = (t.channel for t in cfg.targets)
+        assert isinstance(unsigned, sy.mqtt.UnsignedChannelField)
+        assert isinstance(ts, sy.mqtt.TimestampChannelField)
+        assert ts.time_format == "unix_ms"
+        assert isinstance(json, sy.mqtt.JsonChannelField)
+
+    def test_keep_unsigned_entries_exact(self) -> None:
+        """Should keep an unsigned entry past 2^53 and write it as decimal text."""
+        field = sy.mqtt.UnsignedChannelField.model_validate(
+            {"enum_values": [{"label": "HIGH", "value": "18446744073709551615"}]}
+        )
+        assert field.enum_values[0].value == 18446744073709551615
+        dumped = field.model_dump(mode="json")
+        assert dumped["enum_values"] == [
+            {"label": "HIGH", "value": "18446744073709551615"}
+        ]
+
+    def test_new_channel_data_type(self) -> None:
+        """Should keep the data type of a channel that configure creates."""
+        field = sy.mqtt.StringChannelField(data_type=sy.DataType.UINT8)
+        assert field.data_type == "uint8"
+        assert sy.mqtt.FloatChannelField().data_type is None
+
+    def test_reject_unknown_kind(self) -> None:
+        """Should reject a channel field whose type is not a kind."""
+        with pytest.raises(ValidationError):
+            sy.mqtt.PlainWriteTarget.model_validate(
+                {"channel": {"type": "number", "channel": 1}}
+            )
+
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
         assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
@@ -224,9 +273,7 @@ class TestMQTTWriteTask:
                 sy.mqtt.PlainWriteTarget(
                     topic="plant/valve/set",
                     retained=True,
-                    channel=sy.mqtt.ChannelField(
-                        channel=4321, pointer="/state", json_type="boolean"
-                    ),
+                    channel=sy.mqtt.BooleanChannelField(channel=4321, pointer="/state"),
                 )
             ],
         )
@@ -239,7 +286,7 @@ class TestMQTTWriteTask:
         target = sy.mqtt.WriteTask(created).config.targets[0]
         assert isinstance(target, sy.mqtt.PlainWriteTarget)
         assert target.retained is True
-        assert target.channel.json_type == "boolean"
+        assert isinstance(target.channel, sy.mqtt.BooleanChannelField)
 
 
 @pytest.mark.mqtt
@@ -404,7 +451,7 @@ class TestMQTTTaskRack:
             targets=[
                 sy.mqtt.PlainWriteTarget(
                     topic="plant/rack/set",
-                    channel=sy.mqtt.ChannelField(channel=ch.key, pointer="/v"),
+                    channel=sy.mqtt.FloatChannelField(channel=ch.key, pointer="/v"),
                 )
             ],
         )

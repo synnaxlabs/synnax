@@ -52,9 +52,8 @@ tsk = mqtt.WriteTask(
         mqtt.PlainWriteTarget(
             topic="plant/valve/set",
             qos="at_least_once",
-            channel=mqtt.ChannelField(
+            channel=mqtt.FloatChannelField(
                 pointer="/position",
-                json_type="number",
                 channel=cmd.key,
                 data_type=sy.DataType.FLOAT64,
             ),

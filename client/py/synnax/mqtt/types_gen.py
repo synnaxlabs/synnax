@@ -118,30 +118,22 @@ class BaseReadEntry(BaseModel):
         return hash(self.key)
 
 
-class ChannelField(BaseModel):
-    """Is the command channel value placed into the payload of a target.
+class BaseChannelField(BaseModel):
+    """Carries the fields every command channel field shares.
 
     Attributes:
         pointer: Is the JSON Pointer where the channel value is placed in the payload.
             An empty pointer sends the bare value as the entire payload, in which case
             the target may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
         channel: Is the Synnax command channel that triggers the publish.
         name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
+        data_type: Is the data type of a new channel. Absent for an existing one.
     """
 
     pointer: str = ""
-    json_type: payload.JSONType = "number"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
+    data_type: telem.DataType | None = None
 
 
 class BaseWriteField(BaseModel):
@@ -245,6 +237,83 @@ ReadEntry = Annotated[
 ]
 
 
+class FloatChannelField(BaseChannelField):
+    """Writes each sample as a JSON number."""
+
+    type: Literal["float"] = "float"
+    enum_values: list[payload.FloatEntry] = Field(default_factory=list)
+
+
+class IntegerChannelField(BaseChannelField):
+    """Writes each sample as a JSON number."""
+
+    type: Literal["integer"] = "integer"
+    enum_values: list[payload.IntegerEntry] = Field(default_factory=list)
+
+
+class UnsignedChannelField(BaseChannelField):
+    """Writes each sample as a JSON number."""
+
+    type: Literal["unsigned"] = "unsigned"
+    enum_values: list[payload.UnsignedEntry] = Field(default_factory=list)
+
+
+class StringChannelField(BaseChannelField):
+    """Writes each sample as a JSON string."""
+
+    type: Literal["string"] = "string"
+    enum_values: list[payload.StringEntry] = Field(default_factory=list)
+
+
+class BooleanChannelField(BaseChannelField):
+    """Writes each sample as a JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    enum_values: list[payload.BooleanEntry] = Field(default_factory=list)
+
+
+class TimestampChannelField(BaseChannelField):
+    """Writes each sample of a timestamp channel in a time format."""
+
+    type: Literal["timestamp"] = "timestamp"
+    time_format: payload.TimeFormat
+
+
+class JsonChannelField(BaseChannelField):
+    """Writes each sample of a JSON channel as its JSON value."""
+
+    type: Literal["json"] = "json"
+
+
+class UuidChannelField(BaseChannelField):
+    """Writes each sample of a UUID channel as a JSON string."""
+
+    type: Literal["uuid"] = "uuid"
+
+
+class BytesChannelField(BaseChannelField):
+    """Writes each sample of a bytes channel as a base64 JSON string."""
+
+    type: Literal["bytes"] = "bytes"
+
+
+# Is the command channel value placed into the payload of a target. The type
+# selects the JSON value of each sample. A sample that matches an entry of
+# enum_values is written as the entry's label.
+ChannelField = Annotated[
+    FloatChannelField
+    | IntegerChannelField
+    | UnsignedChannelField
+    | StringChannelField
+    | BooleanChannelField
+    | TimestampChannelField
+    | JsonChannelField
+    | UuidChannelField
+    | BytesChannelField,
+    Field(discriminator="type"),
+]
+
+
 class StaticWriteField(BaseWriteField):
     """Places a fixed value in the payload."""
 
@@ -317,7 +386,9 @@ class PlainWriteTarget(BaseWriteTarget):
     topic: str = ""
     qos: QoS = "at_least_once"
     retained: bool = False
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
+    channel: ChannelField = Field(
+        default_factory=lambda: FloatChannelField(type="float")
+    )
     fields: list[WriteField] = Field(default_factory=list)
 
 
