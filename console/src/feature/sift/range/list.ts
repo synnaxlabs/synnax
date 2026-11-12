@@ -12,14 +12,12 @@ import { Flux, Status as PStatus } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { INTEGRATION } from "@/feature/sift/device/types";
+import { KEY_PREFIX } from "@/feature/sift/range/types";
 import {
   LIST_UPLOADS_COMMAND_TYPE,
   SCAN_SCHEMAS,
   SCAN_TYPE,
 } from "@/feature/sift/task/types";
-
-/** Starts the key of the status of every Sift upload. */
-export const KEY_PREFIX = "sift_upload:";
 
 const LIST_TIMEOUT = TimeSpan.seconds(15);
 
