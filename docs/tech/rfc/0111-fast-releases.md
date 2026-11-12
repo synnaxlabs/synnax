@@ -67,13 +67,12 @@ reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
 Desktop joins a run with the other products only on `main`. A Desktop patch is its own
 dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
 
-Desktop bundles the released Driver and builds its own Core:
+Desktop builds from the commit of its run, so it can ship a change before the Core or
+the Driver releases it, or with build flags of its own:
 
-- **Driver**: The Driver of the run, or the newest stable Driver on the train of the
-  newest stable Core tag reachable from `HEAD` (`latest_version.sh`). It is the same
-  binary that the Driver release ships. This changes behavior: today Desktop builds the
-  Driver from source at `HEAD` (`release.desktop.yaml:142-158`), so a Driver fix on
-  `release/desktop-X.Y` now needs a Driver release first.
+- **Driver**: The Driver build of the run when the run also releases the Driver, since
+  the commit and the binary are the same. Otherwise Desktop builds the Driver from
+  source at `HEAD` on a build bot (§3.3), as today but with a warm cache.
 - **Core**: Built from source at `HEAD`, as today. The released Core is 250 MB to 308
   MB, since it embeds the Console and its installers, and the Desktop installer is 45 MB
   to 70 MB. The Go build takes 3 to 4 minutes on a bot.
@@ -98,8 +97,8 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   Core build downloads the Driver and the Console web bundle from the drafts of the run.
   A run that does not release a product downloads its newest release on the train, as
   today (`release.yaml:211-238`).
-- **Desktop**: The Desktop build downloads the Driver that §3.0 names, builds its Core
-  on a bot, and compiles the Tauri app. It needs no other build of the run.
+- **Desktop**: The Desktop build takes the Driver that §3.0 names, builds its Core on a
+  bot, and compiles the Tauri app.
 - **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
   upload move to the publish stage.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
@@ -218,10 +217,10 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
 4. **One publish stage**: A publish per product let the Driver and Console go out before
    a Core build failed. One stage keeps a failed run invisible. The cost is that no
    product ships until the slowest build ends.
-5. **Desktop in the same workflow, with the released Driver**: A second workflow
-   repeated CI and the 2-hour Driver build. The released Core was rejected for Desktop:
-   it is four times the size of the installer. Desktop keeps its own version line and
-   its `bump`, as RFC 0058 §4 decision 5 states.
+5. **Desktop in the same workflow, from source**: A second workflow repeated CI and the
+   2-hour Driver build. Released binaries for Desktop were rejected: Desktop could not
+   ship a change ahead of a Core or Driver release, and the released Core is four times
+   the size of the installer. The build bots remove the cost, not the bundling.
 6. **One branch per train**: Three branches at one commit gave three dispatches. This
    reverses the branch names of RFC 0058 §2.0 and keeps its version rules.
 7. **Docs deploy stays**: The pages are prerendered, so the deploy sets the links. It
