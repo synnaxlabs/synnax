@@ -259,6 +259,40 @@ var _ = Describe("Engine", func() {
 			})
 	})
 
+	Describe("Validate", func() {
+		It("Should accept stored channels", func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(Succeed())
+		})
+
+		It("Should reject a channel that New rejects", func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     "virtual_" + uuid.New().String()[:8],
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("channel "+ch.Name+" is virtual")),
+				))
+		})
+
+		It("Should return not found for a channel that does not exist",
+			func(ctx SpecContext) {
+				Expect(ingest.Validate(
+					ctx,
+					db,
+					channelSvc,
+					channel.Keys{channel.Key(1<<16 | 60000)},
+				)).To(MatchError(query.ErrNotFound))
+			})
+	})
+
 	Describe("Indexes", func() {
 		It("Should return the index of each channel in key order",
 			func(ctx SpecContext) {

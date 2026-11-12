@@ -11,6 +11,7 @@ package sift
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -106,7 +108,12 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg FactoryConfig
+	mu  sync.Mutex
+	// uploaders holds the scan task that runs the uploads of each rack.
+	uploaders map[rack.Key]task.Key
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -116,7 +123,7 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{cfg: cfg, uploaders: make(map[rack.Key]task.Key)}, nil
 }
 
 // Name implements driver.Factory.
@@ -141,6 +148,9 @@ func (f *factory) ConfigureTask(
 		return nil, driver.ErrTaskNotHandled
 	}
 	st, autoStart, err := f.configureScan(t)
+	if err == nil {
+		err = f.claim(t)
+	}
 	if err != nil {
 		driver.ConfigReporter{
 			DB:              f.cfg.DB,
@@ -151,10 +161,35 @@ func (f *factory) ConfigureTask(
 	}
 	if autoStart {
 		if err = st.Start(ctx, driver.NoCommand); err != nil {
+			f.release(t)
 			return nil, err
 		}
 	}
-	return scanTask{ScanTask: st, uploads: openUploader(f.cfg, t.Rack)}, nil
+	return scanTask{
+		ScanTask: st,
+		uploads:  openUploader(f.cfg, t.Rack),
+		release:  func() { f.release(t) },
+	}, nil
+}
+
+// claim makes t the scan task that runs the uploads of its rack. It fails when another
+// scan task runs them, since two would send each upload twice.
+func (f *factory) claim(t task.Task) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if key, ok := f.uploaders[t.Rack]; ok && key != t.Key {
+		return validate.Errorf("the rack already has a Sift scan task")
+	}
+	f.uploaders[t.Rack] = t.Key
+	return nil
+}
+
+func (f *factory) release(t task.Task) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.uploaders[t.Rack] == t.Key {
+		delete(f.uploaders, t.Rack)
+	}
 }
 
 // scanTask is the sift_scan task. Besides checking devices, it runs the uploads of
@@ -162,10 +197,12 @@ func (f *factory) ConfigureTask(
 type scanTask struct {
 	*driver.ScanTask
 	uploads *uploader
+	release func()
 }
 
 // Stop implements driver.Task.
 func (t scanTask) Stop(sendStatus bool) error {
+	defer t.release()
 	return errors.Combine(t.uploads.Close(), t.ScanTask.Stop(sendStatus))
 }
 
