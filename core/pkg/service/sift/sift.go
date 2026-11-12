@@ -156,7 +156,9 @@ func failure(uri string, err error) error {
 			reason = "Sift did not answer in time"
 		case strings.Contains(reason, "produced zero addresses"):
 			reason = "the host was not found"
-		case strings.Contains(reason, "connection refused"):
+		// Windows says that the target machine actively refused the connection.
+		case strings.Contains(reason, "connection refused"),
+			strings.Contains(reason, "actively refused"):
 			reason = "the connection was refused"
 		}
 		return driver.Failure{
