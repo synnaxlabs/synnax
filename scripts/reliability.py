@@ -122,21 +122,8 @@ HITL_ARTIFACT = "test-results-hitl"
 # The test conductor runs of the job, one per test tier.
 HITL_RUNS = {"tc_hitl", "tc_hitl_perf"}
 
-# Files outside the JOBS folders that shipped code builds with.
-SHIPPED_FILES = [
-    "integration",
-    "vendor",
-    ".bazeliskrc",
-    ".bazelrc",
-    "BUILD.bazel",
-    "MODULE.bazel",
-    "MODULE.bazel.lock",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "pyproject.toml",
-    "uv.lock",
-]
+# Folders that hold no shipped code, besides the Toolchain JOBS folders.
+UNSHIPPED = ["site", "studio", "docs", ".github"]
 
 # language -> (pathspec globs, declaration pattern). The first group is the name.
 LANGS = {
@@ -524,11 +511,20 @@ def case_rows(
 
 
 def shipped_changes(root: Path, *, base: str, head: str) -> list[str]:
-    """Lists the files of shipped code, its dependencies, and integration tests that
-    differ between two commits. Toolchain folders and the docs do not count."""
-    shipped = [d for p, _, dirs in JOBS.values() if p != "toolchain" for d in dirs]
+    """Lists the files that differ between two commits, except in folders that hold no
+    shipped code: the Toolchain folders, the websites and docs, and CI config."""
+    toolchain = [d for p, _, dirs in JOBS.values() if p == "toolchain" for d in dirs]
     return subprocess.run(
-        ["git", "diff", "--name-only", base, head, "--", *shipped, *SHIPPED_FILES],
+        [
+            "git",
+            "diff",
+            "--name-only",
+            base,
+            head,
+            "--",
+            ".",
+            *[f":(exclude){d}" for d in toolchain + UNSHIPPED],
+        ],
         cwd=root,
         check=True,
         capture_output=True,
@@ -573,8 +569,8 @@ def hardware(
     url: str, *, sha: str, cases: Cases, first: int
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[list[Any]]]:
     """Reads a Test - HITL run. Returns the run, a suite for each test conductor run in
-    it, and their test rows, which index the suites from first. Exits if the run tested
-    shipped code or integration tests that differ from sha's."""
+    it, and their test rows, which index the suites from first. Exits if the run's
+    commit differs from sha outside the folders that hold no shipped code."""
     rid = run_id_of(url)
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
     head = run["head_sha"]
