@@ -18,8 +18,8 @@ made before the hooks, run `pnpm prepare` once. Hooks in `.git/hooks` no longer 
 
 `main` is the only long-lived branch and is always releasable. A branch is named after
 its Linear issue (`sy-4892-review-tiers`) and returns to `main` by pull request. A
-hotfix lands on `main` first, then a cherry-pick PR targets `release/<product>-X.Y`. A
-person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
+hotfix lands on `main` first, then a cherry-pick PR targets `release/X.Y`. A person
+dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
 
 - Title: `SY-####: Sentence case description`, or a prefix such as `[docs]` with no
   issue.
