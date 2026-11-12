@@ -54,7 +54,7 @@ func MatchStages(stages ...Stage) Filter {
 }
 
 // MatchRecent returns a filter for ranges that overlap the span of time that ends when
-// the query opened.
+// the query opened. A negative span starts when the query opened and reaches forward.
 func MatchRecent(span telem.TimeSpan) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Range] {
 		return MatchOverlaps(r.now.Add(-span).Range(r.now))(r)

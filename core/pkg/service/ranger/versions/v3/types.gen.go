@@ -101,7 +101,8 @@ type Where struct {
 	Labeled *bool `json:"labeled,omitzero" msgpack:"labeled,omitempty"`
 	// Stages matches ranges in any of the given stages at the Core's clock.
 	Stages []Stage `json:"stages,omitzero" msgpack:"stages,omitempty"`
-	// Recent matches ranges that overlap the given span of time that ends now.
+	// Recent matches ranges that overlap the span ending now, or starting now if
+	// negative.
 	Recent *telem.TimeSpan `json:"recent,omitzero" msgpack:"recent,omitempty"`
 }
 
