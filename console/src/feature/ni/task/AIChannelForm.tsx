@@ -17,7 +17,11 @@ import { type FC } from "react";
 import { Select } from "@/feature/ni/device/Select";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
-import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import {
+  DeviceRangeFields,
+  type DeviceRangeFieldsProps,
+  MinMaxValueFields,
+} from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
 import { accepts, ANALOG_INPUT } from "@/feature/ni/task/ports";
 import {
@@ -103,6 +107,15 @@ const TerminalConfigField = ({
       inputProps={{ children: terminalConfigItems(port, current) }}
     />
   );
+};
+
+interface AIRangeFieldsProps extends Omit<DeviceRangeFieldsProps, "device" | "path"> {
+  path: deep.Path<Variant<"ai_voltage" | "ai_current">>;
+}
+
+const AIRangeFields = ({ path, ...rest }: AIRangeFieldsProps) => {
+  const device = useChannelDevice(path);
+  return <DeviceRangeFields path={path} device={device} {...rest} />;
 };
 
 const ACCEL_UNITS_NAMES = {
@@ -581,7 +594,7 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_current: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
+      <AIRangeFields path={path} list="aiCurrentRanges" units="A" />
       <ShuntResistorLocField path={path.shuntResistorLoc} />
       <Form.NumericField path={path.extShuntResistorVal} label="Shunt resistance" />
     </>
@@ -947,7 +960,7 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
   ai_voltage: ({ path }) => (
     <>
       <TerminalConfigField path={path} />
-      <MinMaxValueFields path={path} />
+      <AIRangeFields path={path} list="aiVoltageRanges" units="V" />
     </>
   ),
   ai_voltage_rms: ({ path }) => (
