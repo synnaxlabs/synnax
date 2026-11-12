@@ -94,6 +94,9 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		Exec(ctx, t.factoryCfg.DB); err != nil {
 		return nil, err
 	}
+	if dev.Rack != t.task.Rack {
+		return nil, validate.Errorf("device %s belongs to another rack", dev.Name)
+	}
 	props, err := decodeProperties(dev)
 	if err != nil {
 		return nil, err
