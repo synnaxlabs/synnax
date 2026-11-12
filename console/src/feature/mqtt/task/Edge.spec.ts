@@ -40,7 +40,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {
   config: MQTT.Task.EDGE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.EdgePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.EdgeConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.EDGE_SCHEMAS);
 
 const createTag = (
@@ -61,7 +61,7 @@ const retrieveTags = async (key: task.Key) =>
 const createEdgeConfig = (
   device: string,
   tags: MQTT.Task.EdgeTag[],
-): MQTT.Task.EdgePayload["config"] => ({
+): mqtt.EdgeConfig => ({
   ...MQTT.Task.EDGE_SCHEMAS.config.parse({}),
   device,
   group: "plant",

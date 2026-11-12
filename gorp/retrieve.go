@@ -23,13 +23,13 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// RawFilter is a predicate that operates on the raw encoded bytes of an entry
+// rawFilter is a predicate that operates on the raw encoded bytes of an entry
 // before it is decoded. The filter receives both the pebble key and the
 // encoded value, so callers can filter on key-shaped data without ever
 // touching the value (or vice versa). Returning false skips the entry without
 // allocating a decoded value. Returning true allows normal decode + filter
 // processing.
-type RawFilter func(key, value []byte) (bool, error)
+type rawFilter func(key, value []byte) (bool, error)
 
 // Validator is a batch check that runs on the final result set after Exec
 // populates entries. A non-nil error from any validator causes Exec to return
@@ -135,7 +135,7 @@ func (r Retrieve[K, E]) SkipMissingKeys() Retrieve[K, E] {
 // allocating a decoded value, so a key-shaped predicate can drop most rows
 // without paying decode cost. Use in tandem with WherePrefix when the
 // keyspace itself can be narrowed.
-func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
+func (r Retrieve[K, E]) WhereRaw(filter rawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
 
