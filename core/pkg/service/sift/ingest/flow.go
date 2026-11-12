@@ -100,6 +100,10 @@ func buildFlows(channels, indexes []channel.Channel) ([]flow, error) {
 		if len(f.channels) == 0 {
 			continue
 		}
+		// Sift names each flow after its index.
+		if err := validateName(f.index); err != nil {
+			return nil, err
+		}
 		slices.SortFunc(f.channels, func(a, b channel.Channel) int {
 			return cmp.Compare(a.Key(), b.Key())
 		})
@@ -126,15 +130,21 @@ func validateChannel(ch channel.Channel) error {
 		reason = "has no index, so its samples have no timestamps"
 	case !storable:
 		reason = fmt.Sprintf("has data type %s, which Sift cannot store", ch.DataType)
-	case len(ch.Name) > maxNameLength:
-		reason = fmt.Sprintf(
-			"has a name longer than the %d characters Sift allows",
-			maxNameLength,
-		)
 	default:
-		return nil
+		return validateName(ch)
 	}
 	return validate.Errorf("channel %s %s", ch.Name, reason)
+}
+
+func validateName(ch channel.Channel) error {
+	if len(ch.Name) <= maxNameLength {
+		return nil
+	}
+	return validate.Errorf(
+		"channel %s has a name longer than the %d characters Sift allows",
+		ch.Name,
+		maxNameLength,
+	)
 }
 
 // clientKey returns the ingestion config key for flows on asset. Equal flows on the
