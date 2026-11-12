@@ -62,6 +62,8 @@ public:
     bool fails_together = false;
     /// @brief whether CreateTask fails while another task is open.
     bool scratch_fails = false;
+    /// @brief whether ClearTask fails.
+    bool clear_fails = false;
     /// @brief the error text that CreateAIVoltageChan returns, when not empty.
     std::string create_error;
     /// @brief the minimum value of each channel in each open task, by channel name.
@@ -77,6 +79,7 @@ public:
 
     int32 ClearTask(TaskHandle task) override {
         this->tasks.erase(task);
+        if (this->clear_fails) return this->fail(SCRATCH_ERROR);
         return 0;
     }
 
@@ -276,9 +279,9 @@ TEST(VerifyTest, MessageStatesOneLimit) {
     );
 }
 
-/// @brief it should list the values that DAQmx takes, with no DAQmx prefix.
+/// @brief it should list the values that DAQmx takes as config values.
 TEST(VerifyTest, MessageListsPossibleValues) {
-    EXPECT_EQ(field_message(CJC_ERROR), "Must be one of ConstVal, Chan");
+    EXPECT_EQ(field_message(CJC_ERROR), "Must be one of const_val, chan");
 }
 
 /// @brief it should use the first sentence of DAQmx text that gives no limit or value.
@@ -299,13 +302,30 @@ TEST(VerifyTest, KeepsErrorWhenNoChannelFailsAlone) {
     EXPECT_EQ(api->tasks.size(), 1);
 }
 
-/// @brief it should return the error from a scratch task that DAQmx cannot create.
-TEST(VerifyTest, ReturnsScratchTaskError) {
+/// @brief it should keep the Verify error and add the error from a scratch task that
+/// DAQmx cannot create.
+TEST(VerifyTest, KeepsErrorWhenScratchTaskFails) {
     const auto [err, _] = run_verify(voltage_channels({-20}), [](FakeAPI &api) {
         api.scratch_fails = true;
     });
     EXPECT_FALSE(err.matches(x::errors::VALIDATION));
-    EXPECT_EQ(err.data, SCRATCH_ERROR);
+    EXPECT_EQ(
+        err.data,
+        RANGE_ERROR + "\n\nFailed to find the channel: " + SCRATCH_ERROR
+    );
+}
+
+/// @brief it should keep the Verify error and add the error from a scratch task that
+/// DAQmx cannot clear.
+TEST(VerifyTest, KeepsErrorWhenScratchClearFails) {
+    const auto [err, _] = run_verify(voltage_channels({-20}), [](FakeAPI &api) {
+        api.clear_fails = true;
+    });
+    EXPECT_FALSE(err.matches(x::errors::VALIDATION));
+    EXPECT_EQ(
+        err.data,
+        RANGE_ERROR + "\n\nFailed to find the channel: " + SCRATCH_ERROR
+    );
 }
 
 /// @brief it should lead a range error with the DAQmx channel name when the channel
