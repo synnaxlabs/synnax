@@ -306,7 +306,8 @@ var _ = Describe("Upload", func() {
 		func(ctx SpecContext) {
 			server.Pause()
 			key := upload(ctx)
-			statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
+			// The stop waits for Sift to confirm only what the upload sent.
+			Eventually(server.Streams).Should(Equal(1))
 			last := dt
 			stopped := make(chan error, 1)
 			go func() { stopped <- last.Stop(false) }()
