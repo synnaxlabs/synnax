@@ -67,6 +67,39 @@ var _ = Describe("UnitsIncompatible", func() {
 	)
 })
 
+var _ = Describe("CommonUnit", func() {
+	ms := &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+
+	DescribeTable("unit of a sum",
+		func(a, b, want *types.Unit) {
+			Expect(types.CommonUnit(a, b)).To(BeIdenticalTo(want))
+		},
+		Entry("the smaller unit first", ms, s, ms),
+		Entry("the smaller unit second", s, ms, ms),
+		Entry("the same unit", s, s, s),
+		Entry("no unit on the left", (*types.Unit)(nil), s, s),
+		Entry("no unit on the right", s, (*types.Unit)(nil), s),
+		Entry("no unit", (*types.Unit)(nil), (*types.Unit)(nil), (*types.Unit)(nil)),
+	)
+})
+
+var _ = Describe("ProductUnit", func() {
+	ms := &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+
+	DescribeTable("unit of a product",
+		func(a, b, want *types.Unit) {
+			Expect(types.ProductUnit(a, b)).To(BeIdenticalTo(want))
+		},
+		Entry("two units", s, ms, (*types.Unit)(nil)),
+		Entry("the same unit twice", s, s, (*types.Unit)(nil)),
+		Entry("no unit on the left", (*types.Unit)(nil), s, s),
+		Entry("no unit on the right", s, (*types.Unit)(nil), s),
+		Entry("no unit", (*types.Unit)(nil), (*types.Unit)(nil), (*types.Unit)(nil)),
+	)
+})
+
 var _ = Describe("UnitFactor", func() {
 	unit := func(scale float64) *types.Unit {
 		return &types.Unit{Dimensions: types.DimLength, Scale: scale}

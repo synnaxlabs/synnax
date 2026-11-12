@@ -259,6 +259,7 @@ func validateType[T, N antlr.ParserRuleContext](
 			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
 				return
 			}
+			warnOperandTruncation(ctx, firstType, nextType)
 		}
 
 		if firstType.Kind == basetypes.KindVariable ||

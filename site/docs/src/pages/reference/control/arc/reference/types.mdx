@@ -232,7 +232,7 @@ written to. With `x := 400.0`, `x > 300psi` compares `400.0` with `300.0`.
 | Operation              | Rule                                                   | Error                                                                                   |
 | ---------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | `+`, `-`, `%`, compare | Units must have the same dimension, or one has no unit | `incompatible dimensions: length^1 vs time^1`                                           |
-| `*`, `/`               | Allowed, unitless                                      |                                                                                         |
+| `*`, `/`               | Always allowed                                         |                                                                                         |
 | `^`                    | A value with a unit needs a literal integer exponent   | `power operation with dimensioned base requires a literal integer exponent: dimensions` |
 | `^`                    | The exponent has no unit                               | `exponent in power operation must be dimensionless, got time^1: dimensions`             |
 
@@ -266,3 +266,6 @@ the smaller unit. A variable, an input, and a function result use their own unit
 | `90s -> d`             | `d` is `1`, with a warning that the integer truncates           |
 | `t := 90s`, `t -> d`   | `d` is `1`, with a warning that the integer truncates           |
 | `p := 5psi`, `p -> d`  | Error, `incompatible dimensions: cannot write psi to 'd' (min)` |
+| `q i64 Pa := 5psi`     | `q` is `34473`, with a warning that the integer truncates       |
+| `[1s, 500ms]`          | `[1000, 500]`, in `ms`                                          |
+| `ys = xs`              | Error, `'ys' is a series in ms and cannot take a series in s`   |

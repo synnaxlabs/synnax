@@ -5684,6 +5684,23 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf20ms(ctx, h)
 		})
 
+		It("Waits for a duration held in a computed variable in another unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				d := 10ms * 2
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
 		// expectWaitOf checks that "done" is logged after span and not before it.
 		expectWaitOf := func(ctx SpecContext, h *runtimeHarness, span telem.TimeSpan) {
 			GinkgoHelper()
@@ -6138,6 +6155,51 @@ var _ = Describe("Sequence", func() {
 				`b = f(b)`,
 				"b=2001 c=0 n=0 p=1",
 			),
+			Entry("a literal sum declared in a larger unit",
+				"func f() i64 s {\nx i64 s := 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a literal sum assigned to a larger unit",
+				"func f() i64 s {\nx i64 s := 0s\nx = 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a literal sum added to a larger unit",
+				"func f() i64 s {\nx i64 s := 1s\nx += 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=3 n=0 p=1"),
+			Entry("a literal sum as an argument in a larger unit",
+				"func g(y i64 s) i64 s {\nreturn y\n}\n"+
+					"func f() i64 s {\nreturn g(1500ms + 500ms)\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a computed variable as a function input in another unit",
+				"func f(x i64 ms) i64 ms {\nreturn x\n}",
+				"d := raw * 2s\nraw -> f(x=d) -> b", "b=2000 c=0 n=0 p=1"),
+			Entry("a variable computed from a variable as a function input",
+				"func f(x i64 ms) i64 ms {\nreturn x\n}",
+				"d := a * 2\nraw -> f(x=d) -> b", "b=4000 c=0 n=0 p=1"),
+			Entry("a series literal with elements in two units",
+				"func f() i64 ms {\nxs := [1s, 500ms]\nreturn xs[0] + xs[1]\n}",
+				`b = f()`, "b=1500 c=0 n=0 p=1"),
+			Entry(
+				"a series literal with variables in two units",
+				"func f(x i64 s, y i64 ms) i64 ms {\nxs := [y, x]\nreturn xs[0] + xs[1]\n}",
+				`b = f(a, b)`,
+				"b=2001 c=0 n=0 p=1",
+			),
+			Entry("a series literal with a variable declared in another unit",
+				"func f(x i64 s) i64 ms {\nxs series i64 ms := [x, 1s]\n"+
+					"return xs[0] + xs[1]\n}",
+				`b = f(a)`, "b=3000 c=0 n=0 p=1"),
+			Entry("an integer literal by a factor that is not whole",
+				"func f() i64 {\ny i64 Pa := 5psi\nif y == 34473Pa {\nreturn 1\n}\n"+
+					"return 0\n}",
+				`n = f()`, "b=1 c=0 n=1 p=1"),
+			Entry(
+				"a series element assigned a value in another unit",
+				"func f(x i64 s) i64 ms {\nys := [1ms, 2ms]\nys[0] = x\nreturn ys[0]\n}",
+				`b = f(a)`,
+				"b=2000 c=0 n=0 p=1",
+			),
+			Entry("a series added a value in another unit",
+				"func f(x i64 s) i64 ms {\nys := [1ms, 2ms]\nys += x\nreturn ys[1]\n}",
+				`b = f(a)`, "b=2002 c=0 n=0 p=1"),
 			Entry("an assigned literal in another unit",
 				"", `c = 3000ms`, "b=1 c=3 n=0 p=1"),
 			Entry("a flow calculation assigned to a smaller unit",

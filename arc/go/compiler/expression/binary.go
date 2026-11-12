@@ -27,12 +27,17 @@ func firstOperandHint[N, T antlr.ParserRuleContext](
 	if !literalOnly(ctx, operands[0]) {
 		return ctx.Hint
 	}
-	if lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(ctx, op) }) {
+	resolved, ok := ctx.TypeMap[ctx.AST]
+	if !ok {
 		return ctx.Hint
 	}
-	resolved, ok := ctx.TypeMap[ctx.AST]
-	if !ok || resolved.Kind == types.KindVariable {
-		return ctx.Hint
+	if resolved.Kind == types.KindVariable ||
+		lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(ctx, op) }) {
+		hint := ctx.Hint
+		if hint.IsNumeric() {
+			hint.Unit = resolved.Unit
+		}
+		return hint
 	}
 	return resolved
 }

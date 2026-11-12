@@ -194,8 +194,9 @@ func parseNumericWithUnit(
 			return ParsedValue{}, err
 		}
 		value, valueUnit = numericValue*factor, targetType.Unit
-		// An integer in a larger unit does not hold a part of that unit.
-		if targetType.IsInteger() && factor < 1 && !IsExactInteger(value) {
+		// An integer does not hold a part of a unit.
+		if targetType.IsInteger() && factor != math.Trunc(factor) &&
+			!IsExactInteger(value) {
 			value, truncated = math.Trunc(value), true
 		}
 	}

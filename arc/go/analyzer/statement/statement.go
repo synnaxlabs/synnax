@@ -306,12 +306,9 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 				if value := varType.Unwrap(); value.IsNumeric() && value.Unit == nil {
 					varType = expression.WithUnit(varType, exprType.Unwrap().Unit)
 				}
-				expression.CheckUnits(ctx, expression.Write{
-					AST:    ctx.AST,
-					Expr:   expr,
-					Source: exprType,
-					Target: varType,
-				})
+				if _, ok := checkUnits(ctx, name, expr, exprType, varType); !ok {
+					return types.Type{}
+				}
 				// Check magnitude safety for unit conversions (warnings only)
 				if varType.Unit != nil && exprType.Unit != nil {
 					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
@@ -1147,6 +1144,9 @@ func analyzeIndexedAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
+	if _, ok := checkUnits(ctx, varScope.Name, valueExpr, exprType, elemType); !ok {
+		return
+	}
 
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
@@ -1233,6 +1233,9 @@ func analyzeIndexedCompoundAssignment(
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
+	if _, ok := checkUnits(ctx, varScope.Name, expr, exprType, elemType); !ok {
+		return
+	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST,
@@ -1289,6 +1292,9 @@ func analyzeSeriesCompoundAssignment(
 
 	exprType := atypes.InferFromExpression(ctx.Child(expr))
 	if !exprType.IsValid() || !elemType.IsValid() {
+		return
+	}
+	if _, ok := checkUnits(ctx, varScope.Name, expr, exprType, varScope.Type); !ok {
 		return
 	}
 
@@ -1381,6 +1387,9 @@ func analyzeCompoundAssignment(
 	if !exprType.IsValid() || !varType.IsValid() {
 		return
 	}
+	if _, ok := checkUnits(ctx, varScope.Name, expr, exprType, varType); !ok {
+		return
+	}
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(
 			ctx.Constraints,
@@ -1402,6 +1411,22 @@ func analyzeCompoundAssignment(
 		exprType,
 		varType,
 	))
+}
+
+// checkUnits applies the unit rules to a write of expr to the variable name.
+func checkUnits[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	name string,
+	expr parser.IExpressionContext,
+	source, target types.Type,
+) (converts, ok bool) {
+	return expression.CheckUnits(ctx, expression.Write{
+		AST:     ctx.AST,
+		Expr:    expr,
+		Source:  source,
+		Target:  target,
+		Subject: "'" + name + "'",
+	})
 }
 
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
@@ -1476,13 +1501,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
-	converted, ok := expression.CheckUnits(ctx, expression.Write{
-		AST:     ctx.AST,
-		Expr:    expr,
-		Source:  exprType,
-		Target:  varType,
-		Subject: "'" + name + "'",
-	})
+	converted, ok := checkUnits(ctx, name, expr, exprType, varType)
 	if !ok {
 		return
 	}

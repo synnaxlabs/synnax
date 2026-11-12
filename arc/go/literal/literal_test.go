@@ -293,6 +293,34 @@ var _ = Describe("Literal Parser", func() {
 			})
 		})
 
+		Context("With an integer target in another unit", func() {
+			DescribeTable("Should drop the part of a unit that the target cannot hold",
+				func(text, unit string, expected any, truncated bool) {
+					target := types.I64()
+					target.Unit = MustBeOk(units.Resolve(unit))
+					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
+					Expect(parsed.Value).To(Equal(expected))
+					Expect(parsed.Truncated).To(Equal(truncated))
+				},
+				Entry("a larger unit with a remainder",
+					"90s", "min", telem.TimeSpan(1), true),
+				Entry("a larger unit with no remainder",
+					"120s", "min", telem.TimeSpan(2), false),
+				Entry("a factor that is not whole", "5psi", "Pa", int64(34473), true),
+				Entry("a whole factor", "5s", "ms", telem.TimeSpan(5000), false),
+				Entry("a float that a whole factor makes whole",
+					"1.5s", "ms", telem.TimeSpan(1500), false),
+			)
+
+			It("Should return an error for a float that a whole factor leaves in parts",
+				func() {
+					target := types.I64()
+					target.Unit = MustBeOk(units.Resolve("ms"))
+					Expect(literal.Parse(getLiteral("1.0005s"), target)).
+						Error().To(MatchError(ContainSubstring("fractional part")))
+				})
+		})
+
 		Context(
 			"ParseNumeric Go-like constant semantics (error on fractional)",
 			func() {

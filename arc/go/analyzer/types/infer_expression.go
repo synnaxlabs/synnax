@@ -449,6 +449,7 @@ func inferSeriesLiteralType(
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
+	unit := elemType.Unit
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
@@ -459,6 +460,11 @@ func inferSeriesLiteralType(
 			compatible = literalsCompatible(elemType, nextType)
 		} else {
 			allLiterals = false
+		}
+		if types.UnitsIncompatible(unit, nextType.Unit) {
+			compatible = false
+		} else {
+			unit = types.CommonUnit(unit, nextType.Unit)
 		}
 		if !compatible {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -489,6 +495,7 @@ func inferSeriesLiteralType(
 			elemType = nextType
 		}
 	}
+	elemType.Unit = unit
 
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t

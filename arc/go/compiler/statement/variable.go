@@ -183,10 +183,16 @@ func compileIndexedAssignment(
 	}
 
 	// Step 3: Compile and push value expression
-	if _, err := expression.Compile(
+	exprType, err := expression.Compile(
 		ctx.Child(ctx.AST.Expression()).WithHint(elemType),
-	); err != nil {
+	)
+	if err != nil {
 		return errors.Wrap(err, "failed to compile value expression")
+	}
+	if !types.Equal(elemType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
+			return err
+		}
 	}
 
 	// Stack is now: [series_handle, index, value]
@@ -283,6 +289,11 @@ func compileSeriesCompoundAssignment(
 	}
 
 	isScalar := exprType.Kind != types.KindSeries
+	if isScalar && !types.Equal(elemType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
+			return err
+		}
+	}
 	if err = ctx.Resolver.EmitSeriesArithmetic(
 		ctx.Writer,
 		ctx.WriterID,

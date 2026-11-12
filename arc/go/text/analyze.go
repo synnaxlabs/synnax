@@ -2266,17 +2266,21 @@ func extractInputValues(
 		if head, tail := parser.ExpressionNameParts(expr); head != "" {
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
-				convertible := types.UnitsConvertible(sym.Type.Unit, paramType.Unit)
+				t := sym.Type.UnwrapChan()
+				convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
 				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-					t := sym.Type.UnwrapChan()
 					ref := types.VarRef(t, rn.Key)
+					value := varValue(sym)
 					if !convertible {
-						return varValue(sym), ref, true
+						return value, ref, true
 					}
-					parsed, err := literal.ParseConst(sym.Initializer(), paramType)
-					if err != nil {
-						ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-						return nil, paramType, false
+					if sym.DefaultValue != nil {
+						parsed, err := literal.ParseConst(sym.Initializer(), paramType)
+						if err != nil {
+							ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+							return nil, paramType, false
+						}
+						value = parsed.Value
 					}
 					expression.CheckUnits(ctx, expression.Write{
 						AST: expr, Source: sym.Type, Target: paramType,
@@ -2286,13 +2290,13 @@ func extractInputValues(
 					if fnSym.Exec != symbol.ExecFlow {
 						scale := buildScaleNode(ref, paramType, kg)
 						args = append(args, scale.node)
-						return parsed.Value, types.VarRef(
+						return value, types.VarRef(
 							paramType,
 							scale.node.Key,
 						), true
 					}
 					ref.Unit = paramType.Unit
-					return parsed.Value, ref, true
+					return value, ref, true
 				}
 				if !sym.Reassigned && sym.DefaultValue != nil {
 					if !convertible {

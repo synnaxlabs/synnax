@@ -655,6 +655,23 @@ var _ = Describe("Text", func() {
 			Entry("a calculation as an input",
 				"d := 90s\nfunc hold(x i64 min) i64 min {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d * 2) -> count_ch", 1),
+			Entry("a smaller unit by a factor that is not whole",
+				"func f(x i64 psi) i64 Pa {\nreturn x\n}", 1),
+			Entry("a literal by a factor that is not whole",
+				"func f() i64 Pa {\ny i64 Pa := 5psi\nreturn y\n}", 1),
+			Entry("a calculation by a factor that is not whole",
+				"func f(x i64 psi, y i64 Pa) i64 Pa {\nreturn x + y\n}", 1),
+			Entry("a calculation by a whole factor",
+				"func f(x i64 s, y i64 ms) i64 ms {\nreturn x + y\n}", 0),
+			Entry("a series literal declared in a larger unit",
+				"func f() i64 s {\nys series i64 s := [1500ms]\nreturn ys[0]\n}", 1),
+			Entry("a compound assignment in a function",
+				"func f(x i64 s) i64 min {\ny i64 min := 0min\ny += x\nreturn y\n}", 1),
+			Entry(
+				"a series element in a function",
+				"func f(x i64 s) i64 min {\nys := [1min]\nys[0] = x\nreturn ys[0]\n}",
+				1,
+			),
 		)
 
 		DescribeTable("Should reject a value with a unit for a name with no unit",
@@ -711,6 +728,14 @@ var _ = Describe("Text", func() {
 				"func f() i64 {\nreturn 5ms\n}",
 				"the result of 'f' has no unit and cannot take a value in ms",
 				"hint: declare the result of 'f' in ms"),
+			Entry("a compound assignment",
+				"func f() i64 {\ntotal i64 := 0\ntotal += 5ms\nreturn total\n}",
+				"'total' has no unit and cannot take a value in ms",
+				"hint: declare 'total' in ms"),
+			Entry("a series element",
+				"func f(x i64 ms) i64 {\nys := [1, 2]\nys[0] = x\nreturn ys[0]\n}",
+				"'ys' has no unit and cannot take a value in ms",
+				"hint: declare 'ys' in ms"),
 		)
 
 		DescribeTable("Should accept a value with a unit where the unit has a place",
@@ -732,6 +757,71 @@ var _ = Describe("Text", func() {
 			Entry("a channel with no unit",
 				"sequence main {\nstage s1 {\n5s -> count_ch\n}\n}"),
 		)
+
+		DescribeTable("Should reject a series written to a series in another unit",
+			func(ctx SpecContext, source, message string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+				Expect(diagnostics.Errors()[0].Message).To(Equal(message))
+			},
+			Entry("an assignment",
+				"func f() i64 ms {\nxs := [1s, 2s]\nys := [1ms, 2ms]\nys = xs\n"+
+					"return ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+			Entry("a declaration",
+				"func f() i64 ms {\nxs := [1s, 2s]\nys series i64 ms := xs\n"+
+					"return ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+			Entry("a result",
+				"func f() series i64 ms {\nxs := [1s, 2s]\nreturn xs\n}",
+				"the result of 'f' is a series in ms and cannot take a series in s"),
+			Entry("an argument",
+				"func g(v series i64 ms) i64 ms {\nreturn v[0]\n}\n"+
+					"func f() i64 ms {\nxs := [1s, 2s]\nreturn g(xs)\n}",
+				"parameter 'v' of 'g' is a series in ms and cannot take a series in s"),
+			Entry("a compound assignment",
+				"func f() i64 ms {\nxs := [1s]\nys := [1ms]\nys += xs\nreturn ys[0]\n}",
+				"'ys' is a series in ms and cannot take a series in s"),
+		)
+
+		It("Should reject series elements of different dimensions", func(
+			ctx SpecContext,
+		) {
+			parsedText := MustSucceed(text.Parse(text.Text{
+				Raw: "func f() i64 s {\nxs := [1s, 5psi]\nreturn xs[0]\n}",
+			}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring(
+				"series element 2 has incompatible type",
+			))
+		})
+
+		It("Should give one error for a value with a unit declared as a string", func(
+			ctx SpecContext,
+		) {
+			parsedText := MustSucceed(text.Parse(text.Text{
+				Raw: "func f() i64 {\nx str := 5ms\nreturn 0\n}",
+			}))
+			_, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, varResolver...),
+			)
+			Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring(
+				"integer is not compatible with str",
+			))
+		})
 
 		DescribeTable(
 			"Should reject a write between untyped variables of different kinds",
