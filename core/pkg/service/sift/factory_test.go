@@ -349,6 +349,13 @@ var _ = Describe("Factory", func() {
 				stat := exec(ctx, "list_uploads", map[string]any{"range": uuid.NewV7()})
 				Expect(stat.Details.Data).To(HaveKeyWithValue("uploads", BeEmpty()))
 			})
+
+			It("Should reject a command without a range", func(ctx SpecContext) {
+				record(ctx, uuid.Nil())
+				stat := exec(ctx, "list_uploads", map[string]any{})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("range: required"))
+			})
 		})
 	})
 })
