@@ -84,6 +84,51 @@ describe("Sift stream form", () => {
     });
   });
 
+  it("should start a new task at the last asset of its device", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({
+      task: { ...ZERO_DRAFT, config: { ...ZERO_DRAFT.config, device: dev.key } },
+    });
+    await answered;
+    expect(await findDialogTriggerByText("stand")).toBeTruthy();
+  });
+
+  it("should keep the saved asset of a task", async () => {
+    const rack = await createRunningRack(client, "sift");
+    const scan = await rack.createTask({
+      name: uniqueName("sift_scan"),
+      type: Sift.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createSiftDevice(client, { rack: rack.key });
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "rig" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const { answered } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["rig", "stand"], last: "stand" },
+    });
+    await renderStream({ taskKey: t.key });
+    await answered;
+    fireEvent.click(await findDialogTriggerByText("rig"));
+    expect(await screen.findByText("stand")).toBeTruthy();
+    expect(await findDialogTriggerByText("rig")).toBeTruthy();
+  });
+
   it("should keep the asset when another client changes the device", async () => {
     const rack = await createRunningRack(client, "sift");
     const scan = await rack.createTask({
