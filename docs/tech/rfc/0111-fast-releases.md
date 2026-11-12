@@ -70,9 +70,9 @@ dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
 Desktop bundles the released Driver and builds its own Core:
 
 - **Driver**: The Driver of the run, or the newest stable Driver on the train of the
-  newest Core tag reachable from `HEAD` (`latest_version.sh`). It is the same binary
-  that the Driver release ships. This changes behavior: today Desktop builds the Driver
-  from source at `HEAD` (`release.desktop.yaml:142-158`), so a Driver fix on
+  newest stable Core tag reachable from `HEAD` (`latest_version.sh`). It is the same
+  binary that the Driver release ships. This changes behavior: today Desktop builds the
+  Driver from source at `HEAD` (`release.desktop.yaml:142-158`), so a Driver fix on
   `release/desktop-X.Y` now needs a Driver release first.
 - **Core**: Built from source at `HEAD`, as today. The released Core is 250 MB to 308
   MB, since it embeds the Console and its installers, and the Desktop installer is 45 MB
@@ -152,9 +152,11 @@ on hosted runners: they sign inside the build and take 12 to 18 minutes.
   equals the tree of the pull request head, a queue job passes at once if the same job
   passed on that head. Jobs that only the queue runs, such as integration, still run.
 
-- **A run with no failed job reruns itself**: A GitHub outage on 2026-11-11 failed 22
-  runs in which no job failed: jobs never got a runner, or `OK` saw `abandoned` needs
-  (run 43090120253). The shepherd reruns such a run once.
+- **An outage run reruns itself**: A GitHub outage on 2026-11-11 failed 22 runs in which
+  no job other than `OK` failed: jobs never got a runner, or `OK` saw `abandoned` needs
+  (run 43090120253). Such a run can end before `OK` wakes the shepherd, so the sweep
+  (`relay.sweep.yaml`) finds the failed `CI` runs of open pull requests and reruns each
+  once.
 - **External links warn on a pull request**: A 404 from `datatracker.ietf.org` failed
   `docs-site` on 4 runs. A broken external link fails only the nightly run.
 
@@ -196,7 +198,7 @@ release. Phase 10 saves 3 to 4 minutes per Windows build.
 | 11    | Cancel a merge group when a job is cancelled               | `.github/workflows/ci.yaml`                                                                                                                                                                                                       | -          |
 | 12    | Report every Sedosaur finding in one review                | `.sedosaur/prompt.md`                                                                                                                                                                                                             | -          |
 | 13    | Skip queue jobs that passed on the same tree               | `.github/workflows/ci.yaml`, `.github/scripts/changed_jobs.py`                                                                                                                                                                    | -          |
-| 14    | Rerun a failed run that has no failed job                  | `.github/workflows/agent.shepherd.yaml`, `.github/scripts/shepherd_work.sh`                                                                                                                                                       | -          |
+| 14    | Rerun a failed CI run in which only `OK` failed            | `.github/workflows/relay.sweep.yaml`                                                                                                                                                                                              | -          |
 | 15    | Fail external docs links only in the nightly run           | `site/docs/src/util/checks`, `.github/workflows/test.docs.yaml`                                                                                                                                                                   | -          |
 
 ## 7 Resolved decisions
