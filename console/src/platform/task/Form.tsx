@@ -21,9 +21,9 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
-import { type FC, useRef } from "react";
-import { type z } from "zod";
+import { caseconv, deep, narrow, primitive } from "@synnaxlabs/x";
+import { type FC, useEffect, useRef } from "react";
+import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -32,6 +32,7 @@ import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
+import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -111,6 +112,37 @@ const Header = () => (
   </>
 );
 
+const fieldErrorsZ = z.object({
+  errors: z.array(z.object({ path: z.string(), message: z.string() })),
+});
+
+/**
+ * Shows each field error in the task status on its config field. The Driver names a
+ * field by its snake_case config path, with list indexes.
+ */
+const useFieldErrors = <Z extends z.ZodType>(
+  form: PForm.ContextValue<Z>,
+  configZ: z.ZodType,
+) => {
+  const status = useStatus(form);
+  useEffect(() => {
+    const data = status?.details.data;
+    if (!narrow.isObject(data) || !("errors" in data)) return;
+    const values = form.value();
+    fieldErrorsZ.parse(data).errors.forEach(({ path, message }) => {
+      const converted = caseconv.snakeToCamelPath(path.split(deep.SEPARATOR), {
+        schema: configZ,
+      });
+      const raw = [String(formPath.config), ...converted.path].join(deep.SEPARATOR);
+      const target = deep
+        .resolvePath(raw, values)
+        .split(deep.SEPARATOR)
+        .reduce<deep.Path<unknown>>((p, part) => p[part], deep.path<unknown>());
+      form.setStatus(target, { variant: "error", message });
+    });
+  }, [status, form, configZ]);
+};
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -127,6 +159,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
     const { form, flush } = useForm({ query: { key: taskKey } });
+    useFieldErrors<PTask.FormSchema<S>>(form, schemas.config);
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.

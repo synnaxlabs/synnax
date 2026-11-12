@@ -674,6 +674,71 @@ describe("wrapForm", () => {
   });
 });
 
+describe("Driver field errors", () => {
+  const readSchemas = {
+    type: z.literal("opc_read"),
+    config: z.object({
+      sampleRate: z.number().default(50),
+      channels: z.array(z.object({ key: z.string(), nodeId: z.string() })).default([]),
+    }),
+    statusData: z.unknown(),
+  };
+  const readPath = deep.path<Task.Values<typeof readSchemas>>();
+
+  const ReadForm: FC = () => (
+    <>
+      <PForm.NumericField path={readPath.config.sampleRate} />
+      <PForm.TextField path={readPath.config.channels.second.nodeId} />
+    </>
+  );
+  ReadForm.displayName = "ReadForm";
+
+  const Renderer = Task.wrapForm<typeof readSchemas>({
+    Form: ReadForm,
+    schemas: readSchemas,
+    deployConfigZ: readSchemas.config,
+    type: "opc_read",
+    onConfigure: async (_client, config) => [config, 0],
+  });
+
+  it("should show each field error of the task status on its field", async () => {
+    const client = createTestClient();
+    const tsk = await client.tasks.create({
+      name: "Read Task",
+      type: "opc_read",
+      config: {
+        sampleRate: 10,
+        channels: [
+          { key: "first", nodeId: "ns=2;i=1" },
+          { key: "second", nodeId: "ns=2;i=2" },
+        ],
+      },
+    });
+    await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+    await waitFor(() => expect(screen.getByText("Sample rate")).toBeTruthy());
+    await client.statuses.set({
+      owner: task.resourceID(tsk.key),
+      name: "Read Task",
+      variant: "error",
+      message: "Failed to start task",
+      time: TimeStamp.now(),
+      details: {
+        running: false,
+        data: {
+          errors: [
+            { path: "sample_rate", message: "Device would run at 1612.9 Hz" },
+            { path: "channels.1.node_id", message: "Node not found" },
+          ],
+        },
+      },
+    });
+    await waitFor(() =>
+      expect(screen.getByText("Device would run at 1612.9 Hz")).toBeTruthy(),
+    );
+    expect(screen.getByText("Node not found")).toBeTruthy();
+  });
+});
+
 describe("useIsSnapshot", () => {
   it("should return the value of the snapshot field", async () => {
     const { result } = await renderTaskFormHook({ snapshot: true }, (ctx) =>
