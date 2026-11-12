@@ -61,10 +61,10 @@ export const uploadDetailsZ = z.object({
   /** device is the key of the Sift device the upload sends to. */
   device: device.keyZ,
   /**
-   * range is the key of the range whose data the upload sends, or zero for an upload of
-   * a plain time span.
+   * range is the key of the range whose data the upload sends. An upload of a plain
+   * time span has none.
    */
-  range: ranger.keyZ,
+  range: ranger.keyZ.optional(),
   /** timeRange is the span of data the upload sends. */
   timeRange: telem.timeRangeZ,
   /** channels are the channels the upload sends. */
