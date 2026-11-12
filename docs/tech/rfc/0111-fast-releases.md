@@ -106,9 +106,9 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
 - **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
   upload move to the publish stage.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
-  pushes the image, stages npm, and uploads to PyPI. The Core publishes first, since it
-  holds the Latest badge. A failed build leaves only drafts, which the next run clears
-  (`draft-release/action.yaml:55`).
+  pushes the image, stages npm, and uploads to PyPI. The Core publishes last, so a
+  public Core never embeds a release that is still a draft. A failed build leaves only
+  drafts, which the next run clears (`draft-release/action.yaml:55`).
 - **Docs**: One deploy per run, after the publish. The docs pages are prerendered, so
   the deploy sets the download links and the dates of the release notes.
 - **Release notes date**: For 0.59 and later, `Release.astro` reads the publish date of

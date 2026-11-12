@@ -212,7 +212,8 @@ jobs:
           core: ${{ steps.core.outputs.version }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
-      # product this run releases, else the newest on the minor.
+      # product this run releases, else the newest on the minor. A release from another
+      # run must have its tag, since a draft that a failed run left has none.
       - name: Resolve embedded versions
         id: embed
         if: inputs.core
@@ -221,13 +222,14 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease }}
           CONSOLE: ${{ inputs.console_version || steps.console.outputs.version }}
           DRIVER: ${{ inputs.driver_version || steps.driver.outputs.version }}
+          RUN_CONSOLE: ${{ steps.console.outputs.version }}
+          RUN_DRIVER: ${{ steps.driver.outputs.version }}
         run: |
           latest() { .github/scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
           CONSOLE=${CONSOLE:-$(latest console)}
           DRIVER=${DRIVER:-$(latest driver)}
-          for pair in "console=$CONSOLE" "driver=$DRIVER"; do
-            product=${pair%%=*}
-            version=${pair#*=}
+          for row in "console $CONSOLE $RUN_CONSOLE" "driver $DRIVER $RUN_DRIVER"; do
+            read -r product version run <<< "$row"
             if [ -z "$version" ]; then
               echo "no $product release exists on train $MINOR" >&2
               exit 1
@@ -239,6 +241,12 @@ jobs:
                 exit 1
                 ;;
             esac
+            tag="refs/tags/$product/v$version"
+            published() { git rev-parse -q --verify "$tag" > /dev/null; }
+            if [ "$version" != "$run" ] && ! published; then
+              echo "$product $version is not published" >&2
+              exit 1
+            fi
             echo "${product}_version=$version" >> "$GITHUB_OUTPUT"
           done
 
@@ -759,16 +767,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The repo has one Latest badge, and a publish takes it by default. It belongs to
-      # the newest stable Core, so the Core goes first, and a Console, Driver, or
-      # Desktop publish declines it.
-      - name: Publish Core
-        if: inputs.core
-        env:
-          TAG: ${{ needs.resolve.outputs.core_tag }}
-          LATEST:
-            ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
-        run: gh release edit "$TAG" --draft=false --latest="$LATEST"
-
+      # the newest stable Core, so a Console, Driver, or Desktop publish declines it.
       - name: Publish Driver
         if: inputs.driver
         env:
@@ -780,6 +779,16 @@ jobs:
         env:
           TAG: ${{ needs.resolve.outputs.console_tag }}
         run: gh release edit "$TAG" --draft=false --latest=false
+
+      # The Core goes last, so a public Core never embeds a release that is still a
+      # draft.
+      - name: Publish Core
+        if: inputs.core
+        env:
+          TAG: ${{ needs.resolve.outputs.core_tag }}
+          LATEST:
+            ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
+        run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
   # The image builds and pushes in one step, so it follows the publish. No job needs the
   # image, so a failed push blocks only the image. A rerun of this job alone has every

@@ -102,7 +102,7 @@ Each selected product runs four stages:
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
-   product. One `publish` job clears the drafts of the run, the Core first, after Verify
+   product. One `publish` job clears the drafts of the run, the Core last, after Verify
    and every build pass. The release creates the tag, so a failed build or a failed
    Verify leaves only drafts and no tag. Concurrency group `release` serializes
    releases.
