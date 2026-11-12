@@ -244,8 +244,8 @@ func (p *progress) setRunsThrough(ctx context.Context, ts telem.TimeStamp) {
 func (p *progress) write(ctx context.Context) {
 	p.status.Message = "Sent to Sift"
 	p.status.Description = fmt.Sprintf(
-		"Sent %s samples to asset %s since the task started.",
-		group(p.samples),
+		"Sent %s to asset %s since the task started.",
+		sampleCount(p.samples),
 		p.asset,
 	)
 	p.status.Time = telem.Now()
