@@ -442,8 +442,9 @@ export class Client extends query.Retriever<
       compose: (records) => records,
       matches: (pair, query) => pair.range === query,
     });
-    // Only the newest fetch of a range writes, so a late answer cannot replace it.
-    const newest = new Map<Key, object>();
+    // Orders the fetches in flight for each range by start, so an answer lands only
+    // over an older one.
+    const inFlight = new Map<Key, { started: number; landed: number; open: number }>();
     this.resolvedAliases = cache.queries<
       Key,
       Record<channel.Key, string>,
@@ -453,12 +454,18 @@ export class Client extends query.Retriever<
       name: "range aliases",
       table: resolvedAliases,
       fetch: async (range) => {
-        const token = {};
-        newest.set(range, token);
-        const aliases = await this.listAliases(range);
-        if (newest.get(range) === token) {
-          newest.delete(range);
-          resolvedAliases.set(range, { range, aliases });
+        const fetches = inFlight.get(range) ?? { started: 0, landed: 0, open: 0 };
+        inFlight.set(range, fetches);
+        const order = ++fetches.started;
+        fetches.open++;
+        try {
+          const aliases = await this.listAliases(range);
+          if (order > fetches.landed) {
+            fetches.landed = order;
+            resolvedAliases.set(range, { range, aliases });
+          }
+        } finally {
+          if (--fetches.open === 0) inFlight.delete(range);
         }
         return [range];
       },

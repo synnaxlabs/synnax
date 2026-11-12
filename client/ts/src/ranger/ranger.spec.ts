@@ -18,7 +18,7 @@ import {
   TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -27,7 +27,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
-  holdFirstResponse,
+  holdEachResponse,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -1302,18 +1302,54 @@ describe("cached reads", () => {
       const off = watched.onChange(vi.fn());
       try {
         expect(await local.ranges.resolvedAliases.retrieve(rng.key)).toEqual({});
-        const { responded, release } = holdFirstResponse(local, "/range/alias/list");
+        const { held } = holdEachResponse(local, "/range/alias/list");
         await rng.setAlias(ch.key, "old");
-        await responded;
+        const older = await held(0);
         await rng.setAlias(ch.key, "new");
+        (await held(1)).release();
         await expect.poll(() => watched.getCached()).toEqual({ [ch.key]: "new" });
-        release();
+        older.release();
         // A timer runs only after the late answer's microtasks.
         await sleep.sleep(TimeSpan.ZERO);
         expect(watched.getCached()).toEqual({ [ch.key]: "new" });
       } finally {
         off();
       }
+    });
+
+    /**
+     * Starts the first read of the aliases on a fresh client, then holds it while the
+     * change stream comes live and refetches the answer.
+     */
+    const overtakeFirstRead = async (rng: ranger.Range) => {
+      const local = createTestClient();
+      const { held } = holdEachResponse(local, "/range/alias/list");
+      const off = local.ranges.resolvedAliases.watch(rng.key).onChange(vi.fn());
+      onTestFinished(off);
+      const read = local.ranges.resolvedAliases.retrieve(rng.key);
+      const first = await held(0);
+      await waitForStreamLive(local.connection);
+      return { read, first, refetch: await held(1) };
+    };
+
+    it("should answer the first read when a refetch overtakes it", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      await rng.setAlias(ch.key, "first");
+      const { read, first, refetch } = await overtakeFirstRead(rng);
+      first.release();
+      await expect(read).resolves.toEqual({ [ch.key]: "first" });
+      refetch.release();
+    });
+
+    it("should answer the first read when the refetch that overtakes it fails", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      await rng.setAlias(ch.key, "first");
+      const { read, first, refetch } = await overtakeFirstRead(rng);
+      refetch.fail(new Error("refetch failed"));
+      first.release();
+      await expect(read).resolves.toEqual({ [ch.key]: "first" });
     });
   });
 });
