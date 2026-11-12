@@ -147,6 +147,24 @@ TEST(PropertiesParse, ParsesBasicProperties) {
     ASSERT_TRUE(props.config.enabled);
 }
 
+/// @brief it should read back the settings that a scan wrote for a slave.
+TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    auto parser = x::json::Parser(
+        Properties{.name = "6xSTG", .settings = settings}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).settings, settings);
+}
+
+/// @brief it should leave the settings empty for a slave that the catalog does not
+/// describe.
+TEST(PropertiesParse, LeavesMissingSettingsEmpty) {
+    auto parser = x::json::Parser(Properties{.name = "EL3102"}.to_json());
+    EXPECT_FALSE(Properties::parse(parser).settings.has_value());
+}
+
 TEST(PropertiesParse, ParsesWithPdos) {
     nlohmann::json j = {
         {"serial", 0},

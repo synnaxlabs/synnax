@@ -22,10 +22,10 @@ import (
 type Kind int
 
 const (
-	// KindEquality requires exact type equality after substitution.
-	KindEquality Kind = iota
-	// KindCompatible allows numeric type promotion between compatible types.
-	KindCompatible
+	// kindEquality requires exact type equality after substitution.
+	kindEquality Kind = iota
+	// kindCompatible allows numeric type promotion between compatible types.
+	kindCompatible
 )
 
 // TypeOrigin tracks where a type was inferred for error reporting.
@@ -110,7 +110,7 @@ func (s *System) AddEquality(
 ) error {
 	s.recordTypeVars(left, right)
 	constraint := Constraint{
-		Kind:   KindEquality,
+		Kind:   kindEquality,
 		Left:   left,
 		Right:  right,
 		Source: source,
@@ -134,7 +134,7 @@ func (s *System) AddCompatible(
 ) error {
 	s.recordTypeVars(left, right)
 	constraint := Constraint{
-		Kind:   KindCompatible,
+		Kind:   kindCompatible,
 		Left:   left,
 		Right:  right,
 		Source: source,

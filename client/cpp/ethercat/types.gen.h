@@ -107,6 +107,9 @@ struct EntryReadChannel : public BaseReadChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief calibrated is true when the Driver turns the raw counts of the entry into
+    /// physical values, with the gain and offset that the slave stores for the entry.
+    bool calibrated = false;
     /// @brief scale is the scale applied to raw samples after acquisition. A scaled
     /// channel writes to a float Synnax channel.
     ::synnax::task::Scale scale = ::synnax::task::NoneScale{};

@@ -10,13 +10,19 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
-import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  check,
+  fill,
+  findInput,
+  sameAddress,
+} from "@/feature/ethercat/device/settings";
+import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  type SlaveProperties,
 } from "@/feature/ethercat/device/types";
 import {
   addressKey,
@@ -29,6 +35,7 @@ import {
   mappedChannels,
   type PDOType,
   type ReadChannel,
+  usableEntries,
   type WriteChannel,
 } from "@/feature/ethercat/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -47,6 +54,14 @@ const entryWidth = (bitLength: number): number => {
   if (bitLength <= 16) return 2;
   if (bitLength <= 32) return 4;
   return 8;
+};
+
+/** @returns what the user must do before Synnax can read an entry of the slave. */
+const onlyReaderStep = (props: SlaveProperties): string => {
+  if (of(props).kind === "switched") return "Restart the power of the slave.";
+  return canSwitch(props)
+    ? "In Configure, switch the slave to Synnax."
+    : "Pick another entry.";
 };
 
 const validateEntries = <C extends Channel>(
@@ -76,7 +91,7 @@ const validateEntries = <C extends Channel>(
       if (reader != null)
         throw new Error(
           `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-            "reads. Open the device settings of the slave to change its setup.",
+            `reads. ${onlyReaderStep(slave.properties)}`,
         );
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
@@ -98,6 +113,31 @@ const validateEntries = <C extends Channel>(
       used.add(key);
       return ch;
     });
+};
+
+/**
+ * @returns a channel from create for each usable entry on the side of the slave with
+ * the key, or the empty channel on the slave when it has none. When the catalog of the
+ * slave describes some of its entries, only those can get a channel, so status entries
+ * stay out of the task.
+ */
+export const createSlaveChannels = async <C extends Channel>(
+  client: Synnax,
+  key: string,
+  pdoType: PDOType,
+  create: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C,
+  empty: C,
+): Promise<C[]> => {
+  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
+  const { properties } = slave;
+  const described = (entry: ethercat.PDOEntry) =>
+    findInput(properties.settings, entry) != null;
+  const usable = usableEntries(properties, pdoType);
+  const entries = properties.pdos[pdoType].some(described)
+    ? usable.filter(described)
+    : usable;
+  if (entries.length === 0) return [{ ...empty, device: key }];
+  return entries.map((entry) => create(slave, entry));
 };
 
 /**

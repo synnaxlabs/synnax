@@ -23,6 +23,7 @@ import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createCalibratedDescription,
   createDewesoftXSettings,
   createIdentifier,
   createPDOs,
@@ -44,7 +45,7 @@ import {
   findChannelListItem,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -124,6 +125,15 @@ const createStrainSlave = async () =>
     settings: createSettingsDescription(),
   });
 
+/** Creates a slave whose catalog calibrates the samples of {@link STRAIN_ENTRY}. */
+const createCalibratedSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+    settings: createCalibratedDescription(),
+  });
+
 /** Creates a slave that DewesoftX sets up and that sends no data only it reads. */
 const createSharedSlave = async () =>
   await createSlaveDevice(client, testRack.key, {
@@ -163,7 +173,7 @@ describe("Read", () => {
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, inputs[1])],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6010:01/ }));
-    await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Device")).toBeTruthy());
     expect(await screen.findByText("Channel 2 › Input · 0x6010:01")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Entry/ })).toBeTruthy();
     expect(screen.getByText("Data type")).toBeTruthy();
@@ -264,6 +274,61 @@ describe("Read", () => {
     });
   });
 
+  it("should calibrate a picked entry that the Driver calibrates", async () => {
+    const slave = await createCalibratedSlave();
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
+    expect(await screen.findByText("Data type")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /^Entry/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Channel 1 › Value/ }));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        index: 0x6030,
+        subIndex: 1,
+        calibrated: true,
+      });
+    });
+    expect(screen.queryByText("Data type")).toBeNull();
+  });
+
+  it("should stop calibrating a channel moved to a slave that does not calibrate it", async () => {
+    const calibrating = await createCalibratedSlave();
+    const plain = await createStrainSlave();
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(calibrating.key, STRAIN_ENTRY),
+          calibrated: true,
+        },
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(await findDialogTriggerByText(calibrating.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: plain.name },
+    });
+    fireEvent.click(await screen.findByText(plain.name));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        device: plain.key,
+        calibrated: false,
+      });
+    });
+    expect(await screen.findByText("Data type")).toBeTruthy();
+  });
+
   it("should save the setting picked for an entry that the catalog describes", async () => {
     const slave = await createStrainSlave();
     const { draft } = await renderRead({
@@ -296,15 +361,29 @@ describe("Read", () => {
     });
   });
 
-  it("should show no settings for a channel of a slave that DewesoftX sets up", async () => {
+  it("should name a channel in the list by its entry, then its address", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    expect(
+      await screen.findByRole("option", { name: /^Value 0x6030:01/ }),
+    ).toBeTruthy();
+  });
+
+  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
     const slave = await createSharedSlave();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
-    expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
+    expect(
+      await screen.findByText("DewesoftX sets the settings of this device."),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -393,7 +472,7 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
     fireEvent.click(await screen.findByText("Select entry"));
-    expect(await screen.findByText("Select a slave device first.")).toBeTruthy();
+    expect(await screen.findByText("Select a device first.")).toBeTruthy();
   });
 
   it("should ask for a scan when the slave has no input entries", async () => {
@@ -410,9 +489,42 @@ describe("Read", () => {
     fireEvent.click(await screen.findByText("Select entry"));
     expect(
       await screen.findByText(
-        "This slave has no input entries. Scan the network again.",
+        "This device has no input entries. Scan the network again.",
       ),
     ).toBeTruthy();
+  });
+
+  describe("a slave whose inputs only DewesoftX reads", () => {
+    const renderChannel = async (shared: boolean) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: { inputs: [STRAIN_SAMPLE_ENTRY], outputs: [] },
+        settings: createDewesoftXSettings(shared),
+      });
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
+      });
+      fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
+    };
+
+    it("should show the setup note and the switch to Synnax in the task", async () => {
+      await renderChannel(true);
+      expect(
+        await screen.findByText("Only DewesoftX can use this device"),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
+    });
+
+    it("should say who sets up the slave in an empty picker", async () => {
+      await renderChannel(false);
+      fireEvent.click(await screen.findByText("Select entry"));
+      expect(
+        await screen.findByText("Only DewesoftX can use this device."),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Switch to Synnax" })).toBeNull();
+    });
   });
 
   it("should add a channel for every unused input of a slave from the context menu", async () => {
@@ -526,8 +638,20 @@ describe("Read", () => {
     });
     expect(updated.properties.readIndex).not.toBe(0);
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: status.channel },
-      { index: 0x6000, subIndex: 2, scaled: false, channel: named.channel },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: false,
+        calibrated: false,
+        channel: status.channel,
+      },
+      {
+        index: 0x6000,
+        subIndex: 2,
+        scaled: false,
+        calibrated: false,
+        channel: named.channel,
+      },
     ]);
     const index = await client.channels.retrieve(updated.properties.readIndex);
     expect(index.name).toBe(`${identifier}_time`);
@@ -563,6 +687,7 @@ describe("Read", () => {
         index: e.index,
         subIndex: 1,
         scaled: false,
+        calibrated: false,
         channel: keys[i],
       }),
     );
@@ -1063,6 +1188,31 @@ describe("Read", () => {
     );
   });
 
+  it("should give a calibrated entry a float64 channel", async () => {
+    const slave = await createCalibratedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          calibrated: true,
+        },
+      ],
+    });
+    const created = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(created.dataType.toString()).toBe("float64");
+  });
+
+  it("should keep the raw data type of an uncalibrated channel on a calibrated entry", async () => {
+    const slave = await createCalibratedSlave();
+    const deployed = await deployRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const created = await client.channels.retrieve(deployed.config.channels[0].channel);
+    expect(created.dataType.toString()).toBe("int32");
+  });
+
   it("should give a scaled entry a float64 channel apart from its raw channel", async () => {
     const identifier = createIdentifier();
     const slave = await createSlaveDevice(client, testRack.key, {
@@ -1104,8 +1254,62 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: rawKey },
-      { index: 0x6000, subIndex: 1, scaled: true, channel: scaledKey },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: rawKey },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: true,
+        calibrated: false,
+        channel: scaledKey,
+      },
+    ]);
+  });
+
+  it("should give a calibrated scaled channel its own channel and name", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const scaled = (calibrated: boolean): ethercat.EntryReadChannel => ({
+      ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+      scale: { type: "linear", slope: 2, offset: 0 },
+      calibrated,
+    });
+    const deploy = async (ch: ethercat.EntryReadChannel) => {
+      const { container, draft, unmount } = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [ch],
+      });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const rawKey = await deploy(scaled(false));
+    const calibratedKey = await deploy(scaled(true));
+    expect(calibratedKey).not.toBe(rawKey);
+    const [raw, calibrated] = await client.channels.retrieve([rawKey, calibratedKey]);
+    expect(raw.name).toBe(`${identifier}_Status_scaled`);
+    expect(calibrated.name).toBe(`${identifier}_Status_scaled_calibrated`);
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: true, calibrated: false, channel: rawKey },
+      {
+        index: 0x6000,
+        subIndex: 1,
+        scaled: true,
+        calibrated: true,
+        channel: calibratedKey,
+      },
     ]);
   });
 
@@ -1330,7 +1534,7 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: first },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: first },
     ]);
   });
 
@@ -1374,8 +1578,20 @@ describe("Read", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: first },
-        { index: 0x6000, subIndex: 1, scaled: false, channel: typed },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: first,
+        },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: typed,
+        },
       ]);
       expect(await deploy(["uint16"])).toEqual([first]);
     });
@@ -1402,7 +1618,13 @@ describe("Read", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: second },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: second,
+        },
       ]);
     });
 
@@ -1478,26 +1700,34 @@ describe("Read", () => {
     });
   });
 
-  it("should reject a channel of an input that only DewesoftX reads", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
-      settings: createDewesoftXSettings(true),
-    });
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
-          "reads\\. Open the device settings of the slave to change its setup\\.$",
-      ),
-    );
-  });
+  it.each([
+    ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
+    ["switched but not restarted", false, "Restart the power of the slave"],
+  ])(
+    "should reject a channel of an input that only DewesoftX reads on a slave %s",
+    async (_, shared, step) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+        settings: createDewesoftXSettings(shared),
+      });
+      const { container, statuses } = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+        ],
+      });
+      await clickDeploy(container);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+            `reads\\. ${step}\\.$`,
+        ),
+      );
+    },
+  );
 
   describe("a slave with the identifier of a deleted slave", () => {
     const deploySlave = async (
@@ -1571,7 +1801,13 @@ describe("Read", () => {
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
       expect(second.slave.properties.read.channels).toEqual([
-        { index: 0x6000, subIndex: 1, scaled: false, channel: first.channel },
+        {
+          index: 0x6000,
+          subIndex: 1,
+          scaled: false,
+          calibrated: false,
+          channel: first.channel,
+        },
       ]);
     });
 
@@ -1751,6 +1987,51 @@ describe("Read", () => {
         subIndex,
       })),
     );
+  });
+
+  it("should create the task from a slave with a channel for each input of its catalog", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, STRAIN_ENTRY], outputs: [] },
+      settings: createSettingsDescription(),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(
+      tsk.config.channels.map((ch) => ch.type === "entry" && [ch.index, ch.subIndex]),
+    ).toEqual([[STRAIN_ENTRY.index, STRAIN_ENTRY.subIndex]]);
+  });
+
+  it("should calibrate the inputs of a slave that the task starts from", async () => {
+    const slave = await createCalibratedSlave();
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(
+      tsk.config.channels.map((ch) => ch.type === "entry" && ch.calibrated),
+    ).toEqual([true, false]);
+  });
+
+  it("should create the task from a slave in DewesoftX mode with no entry", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STATUS_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    });
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+      { deviceKey: slave.key },
+    );
+    expect(tsk.config.channels.map(EtherCAT.Task.hasEntry)).toEqual([false]);
+    expect(tsk.config.channels[0].device).toEqual(slave.key);
   });
 
   it("should create the task from a slave without inputs with one channel on it", async () => {

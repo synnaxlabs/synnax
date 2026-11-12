@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -50,6 +51,7 @@ import (
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -232,6 +234,20 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
+	// SECRET
+	SecretSet      freighter.UnaryServer[secret.SetRequest, secret.SetResponse]
+	SecretRetrieve freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
+	SecretDelete   freighter.UnaryServer[secret.DeleteRequest, struct{}]
+	// SecretDispatch applies path actions to a secret.
+	SecretDispatch    freighter.UnaryServer[secret.DispatchRequest, struct{}]
+	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
+	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
+	// CERTIFICATE
+	CertificateSet      freighter.UnaryServer[certificate.SetRequest, certificate.SetResponse]
+	CertificateRetrieve freighter.UnaryServer[certificate.RetrieveRequest, certificate.RetrieveResponse]
+	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
+	// CertificateDispatch applies path actions to a certificate.
+	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -262,6 +278,8 @@ type Layer struct {
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
+	Secret       *secret.Service
+	Certificate  *certificate.Service
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
@@ -481,6 +499,20 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 		t.ViewDispatch,
+
+		// SECRET
+		t.SecretSet,
+		t.SecretRetrieve,
+		t.SecretDelete,
+		t.SecretDispatch,
+		t.SecretGrantCreate,
+		t.SecretResolve,
+
+		// CERTIFICATE
+		t.CertificateSet,
+		t.CertificateRetrieve,
+		t.CertificateDelete,
+		t.CertificateDispatch,
 
 		// ARC
 		t.ArcCreate,
@@ -709,6 +741,22 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewDelete.BindHandler(bind.Write(l.binder, l.View.Delete))
 	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
+	// SECRET
+	t.SecretSet.BindHandler(bind.Write(l.binder, l.Secret.Set))
+	t.SecretRetrieve.BindHandler(bind.Read(l.binder, l.Secret.Retrieve))
+	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
+	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
+	t.SecretGrantCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Secret.CreateGrant),
+	)
+	t.SecretResolve.BindHandler(l.Secret.Resolve)
+
+	// CERTIFICATE
+	t.CertificateSet.BindHandler(bind.Write(l.binder, l.Certificate.Set))
+	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
+	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
+	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
+
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
 	t.ArcDelete.BindHandler(
@@ -921,6 +969,17 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.View, err = view.NewService(view.ServiceConfig{
 		View: cfg.Service.View,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Secret, err = secret.NewService(secret.ServiceConfig{
+		Secret: cfg.Service.Secret,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Certificate, err = certificate.NewService(certificate.ServiceConfig{
+		Certificate: cfg.Service.Certificate,
 	}); err != nil {
 		return nil, err
 	}

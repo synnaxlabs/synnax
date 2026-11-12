@@ -42,7 +42,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.WriteSchemas> = {
   config: MQTT.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.WritePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.WriteConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.WRITE_SCHEMAS);
 
 const createWriteTarget = (
@@ -76,7 +76,7 @@ const retrieveTargets = async (key: task.Key) =>
 const createWriteConfig = (
   device: string,
   targets: MQTT.Task.WriteTarget[],
-): MQTT.Task.WritePayload["config"] => ({
+): mqtt.WriteConfig => ({
   ...MQTT.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   targets,

@@ -14,8 +14,12 @@ export const LATEST = "latest";
 /** Requests the train before the newest one. */
 export const PREVIOUS = "previous";
 
-// 0.60 shipped while `main` held the docs, so its docs build from a branch of `main`.
-const DOCS_BRANCHES = new Map([["0.60", "release/docs-0.60"]]);
+// These trains shipped while `main` held their docs, so their docs build from a branch
+// of `main`.
+const DOCS_BRANCHES = new Map([
+  ["0.60", "release/docs-0.60"],
+  ["0.61", "release/docs-0.61"],
+]);
 
 /** A deployment of one docs version. */
 export interface Deployment {
@@ -46,8 +50,8 @@ export interface Lookups {
 /**
  * Plans the deployments of docs versions. `next` builds from `main`. A train builds
  * from its newest stable Core tag, or from its release branch if the branch holds that
- * tag. A patch released from `main` leaves the branch behind its newest tag. 0.60
- * builds from `release/docs-0.60`.
+ * tag. A patch released from `main` leaves the branch behind its newest tag. 0.60 and
+ * 0.61 build from their `release/docs-X.Y` branches.
  * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
  * @throws {Error} if no train has a site, if a version is neither `next` nor a train

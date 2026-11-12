@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createCalibratedDescription,
   createDewesoftXSettings,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
@@ -51,6 +53,29 @@ describe("usableEntries", () => {
       "inputs",
     );
     expect(entries).toEqual([STRAIN_ENTRY]);
+  });
+});
+
+describe("isCalibrated", () => {
+  const props = (entry: ethercat.PDOEntry): EtherCAT.Device.SlaveProperties => ({
+    ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+    pdos: { inputs: [entry], outputs: [] },
+    settings: createCalibratedDescription(),
+  });
+
+  it("should calibrate an entry that sends integers", () => {
+    expect(EtherCAT.Task.isCalibrated(props(STRAIN_ENTRY), STRAIN_ENTRY)).toBe(true);
+  });
+
+  it("should not calibrate an entry that sends floats, as newer firmware does", () => {
+    const float = { ...STRAIN_ENTRY, dataType: "float32" };
+    expect(EtherCAT.Task.isCalibrated(props(float), float)).toBe(false);
+  });
+
+  it("should not calibrate an entry that the catalog does not calibrate", () => {
+    expect(
+      EtherCAT.Task.isCalibrated(props(STRAIN_SAMPLE_ENTRY), STRAIN_SAMPLE_ENTRY),
+    ).toBe(false);
   });
 });
 

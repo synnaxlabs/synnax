@@ -147,6 +147,7 @@ cc_test(
     deps = [
         ":soem",
         ":soem_mock_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/esi:settings",

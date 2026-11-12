@@ -772,25 +772,22 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should adopt an orphaned index when re-creating a calculated channel",
+				"Should adopt an orphaned index when creating a calculated channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
-					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+					// A Core older than 0.61 left the index of a deleted calculated
+					// channel behind.
+					orphan := channel.Channel{
+						Name:        name + "_time",
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).Create(ctx, &orphan)
 					})).To(Succeed())
-					originalIndex := calcCh.LocalIndex
-
-					// Deleting the calculated channel leaves its auto-created index
-					// behind; re-creating a calculated channel with the same name must
-					// reuse it rather than duplicating the index name.
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Delete(ctx, calcCh.Key(), false)
-					})).To(Succeed())
+					originalIndex := orphan.LocalKey
 					recreated := channel.Channel{
 						Name:       name,
 						DataType:   telem.Float64T,

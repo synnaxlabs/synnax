@@ -64,11 +64,10 @@ cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persi
 in registry.json so a removed runner keeps reporting -1.
 
 Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (1 min), or --windows-idle-cooldown (15 min) for the
-Windows pools, whose cold start costs each merge group minutes. An offline runner on
-an instance up longer than --boot-grace (2 min) counts as idle. --scale sets the
-start state (enabled); runner_scaler_cmd switches it at runtime,
-runner_scaler_enabled beats the state, runner_scaler_log carries its log.
+runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
+than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
+runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
+runner_scaler_log carries its log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -77,8 +76,8 @@ runner_gh_global_set and runner_gh_log as above.
 Both write commands at authority 254 for the instant of a write, so the Console
 (255) always wins.
 
-Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit),
-runner_controller_log (every line logged here).
+Own channels: runner_controller_heartbeat (true every 5 s, false on clean exit and
+while the last 3 polls all failed), runner_controller_log (every line logged here).
 
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
@@ -129,7 +128,7 @@ from jobs import Jobs
 from log import Log
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
-from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, WINDOWS_POOLS, Scaler
+from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -139,6 +138,7 @@ EC2_INDEX = "ec2_time"
 HEARTBEAT = "runner_controller_heartbeat"
 LOG = "runner_controller_log"
 WEBHOOK_PORT = 9091
+FAILED_POLLS = 3
 
 # A runtime switch: what a command channel enables, its heartbeat, its log name.
 Toggle = tuple[Scaler | Gate, Heartbeat, str]
@@ -322,6 +322,20 @@ class Controller:
         self.reset()
 
 
+class Health:
+    """Whether the polls work: false once FAILED_POLLS fail in a row, until one
+    succeeds."""
+
+    def __init__(self) -> None:
+        self.failures = 0
+
+    def record(self, *, failed: bool) -> None:
+        self.failures = self.failures + 1 if failed else 0
+
+    def healthy(self) -> bool:
+        return self.failures < FAILED_POLLS
+
+
 def wait_for_cmds(
     commands: Subscription, *, remaining: sy.TimeSpan, toggles: dict[str, Toggle]
 ) -> None:
@@ -366,14 +380,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--idle-cooldown",
         type=seconds,
-        default=1 * sy.TimeSpan.MINUTE,
+        default=3 * sy.TimeSpan.MINUTE,
         help="idle seconds before the scaler stops a runner",
-    )
-    p.add_argument(
-        "--windows-idle-cooldown",
-        type=seconds,
-        default=15 * sy.TimeSpan.MINUTE,
-        help="idle seconds before the scaler stops a Windows build or test runner",
     )
     p.add_argument(
         "--boot-grace",
@@ -403,7 +411,10 @@ def main() -> None:
     client = connect(args, store=store)
     channels = Channels(client=client, enabled=args.create_channels)
     log = Log(client=client, channels=channels, channel=LOG)
-    alive = Heartbeat(client=client, channels=channels, name=HEARTBEAT)
+    health = Health()
+    alive = Heartbeat(
+        client=client, channels=channels, name=HEARTBEAT, value=health.healthy
+    )
     channels.virtual(SCALER_CMD, data_type=sy.DataType.BOOLEAN)
     channels.data(
         index=channels.index(f"{GATE_CMD}_time"),
@@ -415,7 +426,6 @@ def main() -> None:
         boot_grace=args.boot_grace,
         log=Log(client=client, channels=channels, channel=SCALER_LOG),
         enabled=args.scale == "enabled",
-        pool_cooldowns=dict.fromkeys(WINDOWS_POOLS, args.windows_idle_cooldown),
     )
     gate = Gate(
         client=client,
@@ -482,6 +492,9 @@ def main() -> None:
             except Exception as e:
                 log.error("poll", e)
                 controller.reset()
+                health.record(failed=True)
+            else:
+                health.record(failed=False)
             wait_for_cmds(
                 controller.commands,
                 remaining=args.interval - timer.elapsed(),
