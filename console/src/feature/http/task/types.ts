@@ -51,15 +51,10 @@ export const deployReadConfigZ = http.readConfigZ.extend({
   endpoints: deployReadEndpointZ.array(),
 });
 
-const readStatusDataZ = z
-  .object({ running: z.boolean(), message: z.string() })
-  .nullish()
-  .optional();
-
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
   config: readConfigZ,
-  statusData: readStatusDataZ,
+  statusData: Task.fieldErrorsZ.nullish(),
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;

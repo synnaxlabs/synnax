@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type Synnax, task } from "@synnaxlabs/client";
+import { device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -28,7 +28,7 @@ import {
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { getLabeledInput, uniqueName } from "@/testutil";
 
 const path = deep.path<Task.Values<typeof schemas>>();
 
@@ -681,7 +681,7 @@ describe("Driver field errors", () => {
       sampleRate: z.number().default(50),
       channels: z.array(z.object({ key: z.string(), nodeId: z.string() })).default([]),
     }),
-    statusData: z.unknown(),
+    statusData: Task.fieldErrorsZ.nullish(),
   };
   const readPath = deep.path<Task.Values<typeof readSchemas>>();
 
@@ -693,17 +693,19 @@ describe("Driver field errors", () => {
   );
   ReadForm.displayName = "ReadForm";
 
-  const Renderer = Task.wrapForm<typeof readSchemas>({
-    Form: ReadForm,
-    schemas: readSchemas,
-    deployConfigZ: readSchemas.config,
-    type: "opc_read",
-    onConfigure: async (_client, config) => [config, 0],
-  });
+  const createReadRenderer = (rackKey: rack.Key = 0) =>
+    Task.wrapForm<typeof readSchemas>({
+      Form: ReadForm,
+      schemas: readSchemas,
+      deployConfigZ: readSchemas.config,
+      type: "opc_read",
+      onConfigure: async (_client, config) => [config, rackKey],
+    });
 
-  it("should show each field error of the task status on its field", async () => {
-    const client = createTestClient();
-    const tsk = await client.tasks.create({
+  const RATE_ERROR = "Device would run at 1612.9 Hz";
+
+  const createReadTask = async (client: Synnax) =>
+    await client.tasks.create({
       name: "Read Task",
       type: "opc_read",
       config: {
@@ -714,28 +716,74 @@ describe("Driver field errors", () => {
         ],
       },
     });
-    await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
-    await waitFor(() => expect(screen.getByText("Sample rate")).toBeTruthy());
+
+  const setStatus = async (
+    client: Synnax,
+    key: task.Key,
+    errors?: { path: string; message: string }[],
+  ) =>
     await client.statuses.set({
-      owner: task.resourceID(tsk.key),
+      owner: task.resourceID(key),
       name: "Read Task",
-      variant: "error",
-      message: "Failed to start task",
+      variant: errors == null ? "success" : "error",
+      message: errors == null ? "Started task" : "Failed to start task",
       time: TimeStamp.now(),
-      details: {
-        running: false,
-        data: {
-          errors: [
-            { path: "sample_rate", message: "Device would run at 1612.9 Hz" },
-            { path: "channels.1.node_id", message: "Node not found" },
-          ],
-        },
-      },
+      details: { running: errors == null, data: errors == null ? null : { errors } },
     });
-    await waitFor(() =>
-      expect(screen.getByText("Device would run at 1612.9 Hz")).toBeTruthy(),
-    );
+
+  const renderWithRateError = async (
+    client: Synnax,
+    Renderer = createReadRenderer(),
+  ) => {
+    const tsk = await createReadTask(client);
+    const rendered = await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+    await screen.findByText("Sample rate");
+    await setStatus(client, tsk.key, [{ path: "sample_rate", message: RATE_ERROR }]);
+    await screen.findByText(RATE_ERROR);
+    return { ...rendered, tsk };
+  };
+
+  it("should show each field error of the task status on its field", async () => {
+    const client = createTestClient();
+    const tsk = await createReadTask(client);
+    await renderTaskFormTab(createReadRenderer(), { client, taskKey: tsk.key });
+    await screen.findByText("Sample rate");
+    await setStatus(client, tsk.key, [
+      { path: "sample_rate", message: RATE_ERROR },
+      { path: "channels.1.node_id", message: "Node not found" },
+    ]);
+    expect(await screen.findByText(RATE_ERROR)).toBeTruthy();
     expect(screen.getByText("Node not found")).toBeTruthy();
+  });
+
+  it("should clear the field errors when a later status has none", async () => {
+    const client = createTestClient();
+    const { tsk } = await renderWithRateError(client);
+    await setStatus(client, tsk.key);
+    await waitFor(() => expect(screen.queryByText(RATE_ERROR)).toBeNull());
+  });
+
+  it("should clear a field error when the user edits its field", async () => {
+    const client = createTestClient();
+    await renderWithRateError(client);
+    commitFieldInput(getLabeledInput("Sample rate"), "20");
+    await waitFor(() => expect(screen.queryByText(RATE_ERROR)).toBeNull());
+  });
+
+  it("should start a task whose status holds field errors", async () => {
+    const client = createTestClient();
+    const rck = await client.racks.create({ name: uniqueName("rack") });
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      const { container, tsk } = await renderWithRateError(
+        client,
+        createReadRenderer(rck.key),
+      );
+      await clickDeploy(container);
+      expect((await awaitCommand(streamer, tsk.key)).type).toBe("start");
+    } finally {
+      streamer.close();
+    }
   });
 });
 

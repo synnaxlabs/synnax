@@ -303,19 +303,10 @@ export const deployReadConfigZ = modbus.readConfigZ
   })
   .check(Task.validateStreamRate);
 
-const readStatusDataZ = z
-  .object({
-    running: z.boolean(),
-    message: z.string(),
-    errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
-  })
-  .nullish()
-  .optional();
-
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
   config: readConfigZ,
-  statusData: readStatusDataZ,
+  statusData: Task.fieldErrorsZ.nullish(),
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
@@ -329,19 +320,10 @@ export const deployWriteConfigZ = modbus.writeConfigZ.extend({
   channels: modbus.writeConfigZ.shape.channels.check(validateWriteChannels),
 });
 
-const writeStatusDataZ = z
-  .object({
-    running: z.boolean(),
-    message: z.string(),
-    errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
-  })
-  .nullish()
-  .optional();
-
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
-  statusData: writeStatusDataZ,
+  statusData: Task.fieldErrorsZ.nullish(),
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;

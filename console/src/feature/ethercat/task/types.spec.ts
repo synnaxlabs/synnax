@@ -301,10 +301,8 @@ describe("EtherCAT Task statusData", () => {
     it("should accept undefined", () => {
       expect(z.validate(EtherCAT.Task.READ_SCHEMAS.statusData, undefined)).toBe(true);
     });
-    it("should accept a valid status object", () => {
+    it("should accept field errors", () => {
       const result = EtherCAT.Task.READ_SCHEMAS.statusData.safeParse({
-        running: true,
-        message: "ok",
         errors: [{ message: "err", path: "/dev" }],
       });
       expect(result.success).toBe(true);
@@ -318,10 +316,8 @@ describe("EtherCAT Task statusData", () => {
     it("should accept undefined", () => {
       expect(z.validate(EtherCAT.Task.WRITE_SCHEMAS.statusData, undefined)).toBe(true);
     });
-    it("should accept a valid status object", () => {
+    it("should accept field errors", () => {
       const result = EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse({
-        running: false,
-        message: "ok",
         errors: [{ message: "err", path: "/dev" }],
       });
       expect(result.success).toBe(true);

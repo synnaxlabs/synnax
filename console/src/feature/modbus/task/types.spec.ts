@@ -144,11 +144,10 @@ describe("Modbus Write Task Types", () => {
     expect(z.validate(Modbus.Task.WRITE_SCHEMAS.statusData, null)).toBe(true);
   });
 
-  it("should accept a populated statusData", () => {
+  it("should accept field errors as statusData", () => {
     expect(
       z.validate(Modbus.Task.WRITE_SCHEMAS.statusData, {
-        running: true,
-        message: "ok",
+        errors: [{ path: "channels.0.address", message: "Address is out of range" }],
       }),
     ).toBe(true);
   });
