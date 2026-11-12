@@ -144,8 +144,8 @@ That status is the saved command:
 `sift_stream` is a user task with a device, an asset, channels, and run labels. It runs
 on `driver.Runner` (`core/pkg/service/driver/runner.go`), because `driver.WriteTask`
 only streams and cannot catch up. It keeps its position in a second status,
-`sift_stream:<task key>`, that reads "Sent to Sift through <time>". The task status
-cannot hold it: `StatusHandler.Send` clears `Details.Data`
+`sift_stream:<task key>`, that says how many samples Sift confirmed since the task
+started. The task status cannot hold it: `StatusHandler.Send` clears `Details.Data`
 (`core/pkg/service/driver/status.go:75`). A new task, or one whose position status was
 deleted, starts at the current time. Like every task, it starts again with the Core only
 when auto start is on.
@@ -162,10 +162,12 @@ asset to the run.
 - **Streaming**: Listens to `ranger.Service.OnAction`
   (`core/pkg/service/ranger/service.go:156`). After each checkpoint, the task makes the
   run of each range that has one of its labels (`ranger.MatchLabels`) and ends before
-  the position. The checks resume from a time saved in the position status, so ranges
-  that ended while the task was stopped get runs too. A rename or time edit updates the
-  run. A label change fires no range action, so it does not update the tags. A deleted
-  range leaves its Sift run.
+  the position. While the task catches up, the position is the earliest of its index
+  positions. Once it sends live samples, it is the latest, so an index with no new
+  samples does not hold runs back. The checks resume from a time saved in the position
+  status, so ranges that ended while the task was stopped get runs too. A rename or time
+  edit updates the run. A label change fires no range action, so it does not update the
+  tags. A deleted range leaves its Sift run.
 
 Sift cannot make an ad hoc run over a live stream, so a run appears after its range
 ends.
