@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type secret } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -18,26 +18,6 @@ import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Secret } from "@/secret";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
-
-// A self-signed P-256 certificate valid until 2126 and its key.
-const PEM = `-----BEGIN CERTIFICATE-----
-MIIBnDCCAUKgAwIBAgIUTlojETDboAh4nmfahlzAemoZ4g4wCgYIKoZIzj0EAwIw
-MzEbMBkGA1UEAwwSU3lubmF4IFRlc3QgQ2xpZW50MRQwEgYDVQQKDAtTeW5uYXgg
-TGFiczAgFw0yNjExMDQwMjUyMTBaGA8yMTI2MTAxMTAyNTIxMFowMzEbMBkGA1UE
-AwwSU3lubmF4IFRlc3QgQ2xpZW50MRQwEgYDVQQKDAtTeW5uYXggTGFiczBZMBMG
-ByqGSM49AgEGCCqGSM49AwEHA0IABAttV7/ZZaP/ck5ZSEibyz8Bq/FOha2BqRFx
-KcHLLjh+GByF19Xf9tZdf+9TfDlOPwyGPp+zArW6WOjeHdzzPv6jMjAwMB0GA1Ud
-DgQWBBQnJ8GnAtkFwtBOUq0b4+pWyuXWQTAPBgNVHRMBAf8EBTADAQH/MAoGCCqG
-SM49BAMCA0gAMEUCIQDucqkUixw8A44mdBmPFZIhYtq3tzNMzPF5zPD9ONNZPwIg
-I3WFxQbCO86E+bgOOHH1NSjmhCFtORY5jSOGw6yL3m4=
------END CERTIFICATE-----
-`;
-const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgjJtOV99NCzRnmMoB
-wui9Lv+9a8aqZ+LwPX2PyGfVEa+hRANCAAQLbVe/2WWj/3JOWUhIm8s/AavxToWt
-gakRcSnByy44fhgchdfV3/bWXX/vU3w5Tj8Mhj6fswK1uljo3h3c8z7+
------END PRIVATE KEY-----
-`;
 
 const client = createTestClient();
 
@@ -111,8 +91,8 @@ describe("queries", () => {
       const cert = await client.certificates.set({
         name: "Uses certificate",
         source: "stored",
-        pem: PEM,
-        privateKeyPem: PRIVATE_KEY,
+        pem: CERTIFICATE.pem,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
       });
       assert(cert.source === "stored" && cert.privateKey != null);
       const { privateKey } = cert;
