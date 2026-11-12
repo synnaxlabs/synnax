@@ -59,6 +59,10 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		dt = ch.DataType
 	}
 	kind, known := payload.KindOf(dt)
+	if !known {
+		kind = payload.KindFloat
+		note("unknown data type %q became the float kind", dt)
+	}
 	switch {
 	case ch == nil && old.TimeFormat != nil && dt == telem.Float64T &&
 		len(old.EnumValues) == 0:
@@ -70,9 +74,6 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 			*old.TimeFormat,
 			kind,
 		)
-	case !known:
-		kind = payload.KindFloat
-		note("unknown data type %q became the float kind", dt)
 	}
 	r := payload.Read{Kind: kind}
 	drop := func(e payload.EnumEntry, why string) {
