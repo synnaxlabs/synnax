@@ -461,6 +461,20 @@ func fromPositions(positions []Position) ingest.Positions {
 	return p
 }
 
+// retrieveUploads returns the statuses of every upload, oldest first.
+func retrieveUploads(
+	ctx context.Context,
+	db *gorp.DB,
+	statuses *status.Service,
+) ([]UploadStatus, error) {
+	var uploads []UploadStatus
+	err := statuses.NewRetrieve[UploadDetails]().
+		WherePrefix(uploadKeyPrefix).
+		Entries(&uploads).
+		Exec(ctx, db)
+	return uploads, err
+}
+
 // lastAsset returns the asset of the newest upload from dev, or "" when there is none.
 func lastAsset(
 	ctx context.Context,
@@ -468,11 +482,8 @@ func lastAsset(
 	statuses *status.Service,
 	dev device.Key,
 ) (string, error) {
-	var uploads []UploadStatus
-	if err := statuses.NewRetrieve[UploadDetails]().
-		WherePrefix(uploadKeyPrefix).
-		Entries(&uploads).
-		Exec(ctx, db); err != nil {
+	uploads, err := retrieveUploads(ctx, db, statuses)
+	if err != nil {
 		return "", err
 	}
 	for _, s := range slices.Backward(uploads) {
@@ -481,4 +492,24 @@ func lastAsset(
 		}
 	}
 	return "", nil
+}
+
+// rangeUploads returns the keys of the uploads of rng, newest first.
+func rangeUploads(
+	ctx context.Context,
+	db *gorp.DB,
+	statuses *status.Service,
+	rng ranger.Key,
+) ([]status.Key, error) {
+	uploads, err := retrieveUploads(ctx, db, statuses)
+	if err != nil {
+		return nil, err
+	}
+	keys := []status.Key{}
+	for _, s := range slices.Backward(uploads) {
+		if s.Details.Range == rng {
+			keys = append(keys, s.Key)
+		}
+	}
+	return keys, nil
 }
