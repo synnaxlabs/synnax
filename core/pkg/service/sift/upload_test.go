@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
@@ -29,6 +31,8 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // at returns the timestamp s seconds after the epoch.
@@ -123,6 +127,21 @@ var _ = Describe("Upload", func() {
 		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", uuid.Nil()))
 	})
 
+	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
+		l := label.Label{Name: "hotfire"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := labelSvc.NewWriter(tx).Create(ctx, &l); err != nil {
+				return err
+			}
+			return rangerSvc.NewWriter(tx).AddLabels(ctx, rng.Key, []label.Key{l.Key})
+		})).To(Succeed())
+		key := upload(ctx)
+		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+		Expect(server.Runs()).To(HaveExactElements(
+			HaveField("Tags", ConsistOf("hotfire")),
+		))
+	})
+
 	It("Should count a single sample in the singular", func(ctx SpecContext) {
 		idx := createIndex(ctx)
 		ch = createData(ctx, idx)
@@ -182,6 +201,55 @@ var _ = Describe("Upload", func() {
 		}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
 		Expect(server.Runs()).To(BeEmpty())
 	})
+
+	It("Should not start a waiting upload whose status is deleted",
+		func(ctx SpecContext) {
+			server.Pause()
+			first := upload(ctx)
+			statusOf(ctx, first).Should(HaveField("Message", "Uploading to Sift"))
+			second := upload(ctx)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Delete(ctx, second)
+			})).To(Succeed())
+			server.Resume()
+			statusOf(ctx, first).Should(HaveField("Variant", status.VariantSuccess))
+			Consistently(func() error {
+				_, err := uploadStatus(ctx, second)
+				return err
+			}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+		})
+
+	It("Should warn while it retries a temporary Sift failure", func(ctx SpecContext) {
+		server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+		key := upload(ctx)
+		statusOf(ctx, key).Should(SatisfyAll(
+			HaveField("Variant", status.VariantWarning),
+			HaveField("Message", "Retrying upload to Sift"),
+			HaveField("Description", ContainSubstring("Sift is down")),
+		))
+		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+	})
+
+	It("Should send the data written so far of a range that has not ended",
+		func(ctx SpecContext) {
+			rng = createRange(ctx, telem.TimeRange{
+				Start: at(1),
+				End:   telem.Now().Add(telem.Hour),
+			})
+			before := telem.Now()
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+			Expect(uploadStatus(ctx, key)).To(HaveField(
+				"Details.TimeRange.End",
+				SatisfyAll(
+					BeNumerically(">=", before),
+					BeNumerically("<=", telem.Now()),
+				),
+			))
+		})
 
 	It("Should resume an upload after the task restarts", func(ctx SpecContext) {
 		server.Pause()
@@ -276,6 +344,25 @@ var _ = Describe("Upload", func() {
 				"asset":    "stand",
 			}
 		}, "is virtual, and the Core stores no data for virtual channels"),
+		Entry("a device on another rack", func() map[string]any {
+			ctx := context.Background()
+			other := rack.Rack{Name: "other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			moved := dev
+			moved.Key = uuid.New().String()
+			moved.Rack = other.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &moved)
+			})).To(Succeed())
+			return map[string]any{
+				"device":   moved.Key,
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "belongs to another rack"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),
