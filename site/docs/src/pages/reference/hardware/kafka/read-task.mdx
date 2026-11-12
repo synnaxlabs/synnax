@@ -31,7 +31,7 @@ such as `/temperature`, and recorded in one channel.
   the task claims, records with no key included.
 - **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
-  text labels to numbers.
+  text labels to channel values.
 
 The Console has no topic browser. Type the topic, the record keys, and the pointers.
 
@@ -83,7 +83,7 @@ task = client.tasks.create(
             kafka.ReadRecord(
                 record_key="oven",
                 fields=[
-                    kafka.ReadField(
+                    kafka.FloatReadField(
                         pointer="/temperature", channel=temperature.key
                     )
                 ],
@@ -129,7 +129,7 @@ const task = await client.tasks.create({
     records: [
       {
         recordKey: "oven",
-        fields: [{ pointer: "/temperature", channel: temperature.key }],
+        fields: [{ type: "float", pointer: "/temperature", channel: temperature.key }],
       },
     ],
   }),
@@ -212,13 +212,19 @@ A record has these settings:
 
 A field has these settings:
 
-| Setting                                   | Default   | Notes                                           |
-| ----------------------------------------- | --------- | ----------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value. Cannot be empty. |
-| Data type <small>`data_type`</small>      | `float64` | Must match the data type of the channel.        |
-| Time format <small>`time_format`</small>  | None      | Required for a `timestamp` channel.             |
-| Channel <small>`channel`</small>          |           | The channel that records the value.             |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the record to numbers.      |
+| Setting                                   | Default   | Notes                                                    |
+| ----------------------------------------- | --------- | -------------------------------------------------------- |
+| Type <small>`type`</small>                |           | The kind of value, which must match the channel.         |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value. Cannot be empty.          |
+| Channel <small>`channel`</small>          |           | The channel that records the value.                      |
+| Data type <small>`data_type`</small>      | Per type  | The data type of a new channel. Numeric types only.      |
+| Time format <small>`time_format`</small>  | `iso8601` | The encoding of a `timestamp` value.                     |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the record to channel values.        |
+| Fill <small>`fill`</small>                | None      | The value an absent field writes. None skips the record. |
+
+The type is `float`, `integer`, `unsigned`, `string`, `boolean`, `timestamp`, `json`,
+`uuid`, or `bytes`. In Python, each type has its own class, such as
+`kafka.FloatReadField`.
 
 All fields of a record write to channels on one index channel, and one index channel
 belongs to one record.
