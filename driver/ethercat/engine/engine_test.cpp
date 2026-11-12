@@ -25,6 +25,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/thread/rt/rt.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
@@ -2095,6 +2096,21 @@ TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
         this->engine->configure(io_slave(0), STANDALONE),
         errors::STARTUP_PARAMETER_ERROR
     );
+}
+
+/// @brief it should read an object of a slave while a task runs the bus.
+TEST_F(EngineTest, ReadsAnObjectWhileTheBusRuns) {
+    this->master->set_object(0, 0x8040, 0x1c, 0x40a00000);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->read_times(*reader, 1);
+    EXPECT_EQ(ASSERT_NIL_P(this->engine->read(0, 0x8040, 0x1c)), 0x40a00000);
+}
+
+/// @brief it should return the abort of an object that the slave does not have.
+TEST_F(EngineTest, ReadReturnsTheAbortOfAMissingObject) {
+    ASSERT_OCCURRED_AS_P(this->engine->read(0, 0x8040, 0x1d), coe::OBJECT_MISSING);
 }
 
 /// @brief it should create an engine for an interface on the first discovery.

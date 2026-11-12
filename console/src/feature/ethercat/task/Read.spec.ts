@@ -341,14 +341,16 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should show no settings or setup note for a channel of a slave that DewesoftX sets up", async () => {
+  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
     const slave = await createSharedSlave();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
-    expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
+    expect(
+      await screen.findByText("DewesoftX sets the settings of this device."),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
     expect(screen.queryByText("DewesoftX sets up this device")).toBeNull();
   });
