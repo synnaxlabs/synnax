@@ -11,6 +11,7 @@ import { type secret } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "secret";
 const PLURAL_RESOURCE_NAME = "secrets";
@@ -44,6 +45,16 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, secret.Secret>({
   onChange: ({ client, query }, handler) =>
     client.secrets.watch(query).onChange(handler),
   getCached: ({ client, query }) => client.secrets.watch(query).getCached(),
+});
+
+export type RetrieveMultipleQuery = secret.RetrieveMultipleParams;
+
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  secret.Secret[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.secrets.watch(query)),
 });
 
 /** Creates a secret, or replaces the secret whose key exists. */

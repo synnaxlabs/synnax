@@ -17,12 +17,21 @@ import {
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Access } from "@synnaxlabs/pluto";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { Secret } from "@/feature/secret";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { Tree } from "@/platform/tree";
 import {
   assertDefined,
   awaitGranted,
@@ -85,14 +94,18 @@ const createCertificate = async () => {
 const renderToolbar = async (as: Client = client) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   let statuses: Status.NotificationSpec[] = [];
-  render(
-    <>
-      {Secret.TOOLBAR.content}
-      <Modals.Stack />
-      <CaptureStatuses onStatuses={(s) => (statuses = s)} />
-    </>,
-    { wrapper },
-  );
+  // A list the client already holds renders its secrets at once, and each one
+  // suspends to read its uses.
+  await act(async () => {
+    render(
+      <Tree.Provider items={Secret.TREE_ITEMS}>
+        {Secret.TOOLBAR.content}
+        <Modals.Stack />
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </Tree.Provider>,
+      { wrapper },
+    );
+  });
   return { statuses: () => statuses };
 };
 
@@ -106,11 +119,30 @@ const confirmDelete = async (name: string): Promise<void> => {
   fireEvent.click(findButton("Delete"));
 };
 
+// A secret suspends while its uses load, which only an awaited act waits out.
+const openMenu = async (name: string): Promise<void> => {
+  const target = await screen.findByText(name);
+  await act(async () => {
+    fireEvent.contextMenu(target);
+  });
+};
+
+const getOption = (name: string): HTMLElement => {
+  const option = screen
+    .getAllByRole("option")
+    .find((o) => within(o).queryByText(name) != null);
+  if (option == null) throw new Error(`no option for ${name}`);
+  return option;
+};
+
 describe("secret/Toolbar", () => {
   it("creates a secret from the header action", async () => {
     await renderToolbar();
-    await waitFor(() => getIconButton(document.body, "add"));
-    fireEvent.click(getIconButton(document.body, "add"));
+    const add = await waitFor(() => getIconButton(document.body, "add"));
+    // Secrets left on the Core can still be reading their uses.
+    await act(async () => {
+      fireEvent.click(add);
+    });
     const name = uniqueName("created");
     fireEvent.change(await screen.findByLabelText("Secret name"), {
       target: { value: name },
@@ -185,7 +217,7 @@ describe("secret/Toolbar", () => {
       update: [secret.TYPE_RESOURCE_ID],
     });
     await renderToolbar(editor);
-    await openContextMenu(s.name);
+    await openMenu(s.name);
     await screen.findByText("Replace value");
   });
 
@@ -228,6 +260,47 @@ describe("secret/Toolbar", () => {
         "uses it as its private_key: validation error",
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
+  });
+
+  it("lists the users of a secret and selects a certificate from them", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    // Other specs can leave used secrets on the Core, so read the count of this key.
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.click(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByText(c.name));
+    await waitFor(() =>
+      expect(getOption(c.name).getAttribute("aria-selected")).toBe("true"),
+    );
+  });
+
+  it("opens the users of a secret from the context menu", async () => {
+    const s = await createSecret();
+    await renderToolbar();
+    await openMenu(s.name);
+    await clickAndSettle("Used by");
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Nothing uses this secret.");
+  });
+
+  it("opens the users on hover and closes them after the pointer leaves", async () => {
+    const { certificate: c, privateKey } = await createCertificate();
+    await renderToolbar();
+    const count = await waitFor(() =>
+      within(getOption(privateKey.name)).getByText("Used by 1"),
+    );
+    await act(async () => {
+      fireEvent.pointerEnter(count);
+    });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(c.name);
+    fireEvent.pointerLeave(count);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("renames a certificate through the inline editor", async () => {

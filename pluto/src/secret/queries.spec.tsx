@@ -147,6 +147,93 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should retrieve the uses of several secrets in one read", async () => {
+      const cert = await client.certificates.set({
+        name: "Multiple uses certificate",
+        source: "stored",
+        pem: CERTIFICATE.pem,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
+      });
+      assert(cert.source === "stored" && cert.privateKey != null);
+      const unused = await createSecret("multiple unused");
+      const keys = [cert.privateKey, unused.key];
+      const { result } = await renderHookSuspended(
+        () => Secret.useMultiple({ key: keys, includeUses: true }),
+        { wrapper },
+      );
+      const uses = new Map(result.current.map(({ key, uses }) => [key, uses]));
+      expect(uses).toEqual(
+        new Map([
+          [cert.privateKey, [{ type: "certificate", key: cert.key }]],
+          [unused.key, []],
+        ]),
+      );
+    });
+
+    it("should keep the uses of a secret when it is renamed", async () => {
+      const first = await createSecret("multiple before rename");
+      const second = await createSecret("multiple untouched");
+      const { result } = await renderHookSuspended(
+        () => Secret.useMultiple({ key: [first.key, second.key], includeUses: true }),
+        { wrapper },
+      );
+      await act(async () => {
+        await client.secrets.rename(first.key, "multiple after rename");
+      });
+      await waitFor(() =>
+        expect(result.current.map(({ name }) => name).sort()).toEqual([
+          "multiple after rename",
+          "multiple untouched",
+        ]),
+      );
+      expect(result.current.map(({ uses }) => uses)).toEqual([[], []]);
+    });
+
+    it("should drop a secret from the read when it is deleted", async () => {
+      const kept = await createSecret("multiple kept");
+      const deleted = await createSecret("multiple deleted");
+      const { result } = await renderHookSuspended(
+        () => Secret.useMultiple({ key: [kept.key, deleted.key], includeUses: true }),
+        { wrapper },
+      );
+      await act(async () => {
+        await client.secrets.delete(deleted.key);
+      });
+      await waitFor(() =>
+        expect(result.current.map(({ key }) => key)).toEqual([kept.key]),
+      );
+    });
+  });
+
+  describe("useMultiple without keys", () => {
+    it("should read the uses of every secret and track additions and deletions", async () => {
+      const cert = await client.certificates.set({
+        name: "All uses certificate",
+        source: "stored",
+        pem: CERTIFICATE.pem,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
+      });
+      assert(cert.source === "stored" && cert.privateKey != null);
+      const deleted = await createSecret("all uses deleted");
+      const { result } = await renderHookSuspended(
+        () => Secret.useMultiple({ includeUses: true }),
+        { wrapper },
+      );
+      const usesOf = (key: string) => result.current.find((s) => s.key === key)?.uses;
+      expect(usesOf(cert.privateKey)).toEqual([{ type: "certificate", key: cert.key }]);
+      expect(usesOf(deleted.key)).toEqual([]);
+      const added = await act(async () => {
+        await client.secrets.delete(deleted.key);
+        return await createSecret("all uses added");
+      });
+      await waitFor(() => {
+        expect(usesOf(deleted.key)).toBeUndefined();
+        expect(usesOf(added.key)).toEqual([]);
+      });
+    });
+  });
+
   describe("useCreate", () => {
     it("should create a stored secret", async () => {
       let created: secret.Secret | undefined;

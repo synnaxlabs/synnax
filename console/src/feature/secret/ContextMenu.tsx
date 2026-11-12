@@ -44,10 +44,15 @@ const useDeleteCertificate = (): ((c: Named) => void) => {
 
 export interface SecretMenuProps {
   secret: secret.Secret;
+  onUsedBy: (key: secret.Key) => void;
   onRename: (key: secret.Key) => void;
 }
 
-export const SecretMenu = ({ secret: s, onRename }: SecretMenuProps): ReactElement => {
+export const SecretMenu = ({
+  secret: s,
+  onUsedBy,
+  onRename,
+}: SecretMenuProps): ReactElement => {
   const id = secret.resourceID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
@@ -55,6 +60,11 @@ export const SecretMenu = ({ secret: s, onRename }: SecretMenuProps): ReactEleme
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
+      <Menu.Item itemKey="usedBy" onClick={() => onUsedBy(s.key)}>
+        <Icon.Link />
+        Used by
+      </Menu.Item>
+      <Menu.Divider />
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
       {canUpdate && s.source === "stored" && (
