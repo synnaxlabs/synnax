@@ -699,7 +699,14 @@ func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
 			a.ends[key] = next
 		}
 	}
-	if gap > a.sent[key] {
+	gapped := gap > a.sent[key]
+	// A later value of a marked channel would move the attempt past its earlier ones.
+	if gapped || a.carriesMarked(f, fr) {
+		if err := a.sendMarked(ctx, f); err != nil {
+			return err
+		}
+	}
+	if gapped {
 		if err := a.engine.read(
 			ctx,
 			f,
@@ -711,6 +718,16 @@ func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
 		}
 	}
 	return a.send(ctx, f, fr)
+}
+
+// carriesMarked reports whether fr holds a value of a marked channel of f.
+func (a *attempt) carriesMarked(f flow, fr framer.Frame) bool {
+	for key := range a.unindexed[f.index.Key()] {
+		if len(fr.Get(key).Series) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // markUnindexed records the data channels of f in a live frame without the index of f.
@@ -727,30 +744,38 @@ func (a *attempt) markUnindexed(f flow, fr framer.Frame) {
 	}
 }
 
-// sendUnindexed sends the stored values of each channel that arrived without its index,
-// from its last value sent to the index position. It sends no other channel, so Sift
-// gets no value twice.
+// sendUnindexed sends the stored values of the marked channels of every flow.
 func (a *attempt) sendUnindexed(ctx context.Context) error {
 	for _, f := range a.engine.flows {
-		keys := a.unindexed[f.index.Key()]
-		end := a.sent[f.index.Key()]
-		for _, ch := range f.channels {
-			start := a.values[ch.Key()]
-			if !keys.Contains(ch.Key()) || start >= end {
-				continue
-			}
-			if err := a.engine.read(
-				ctx,
-				f,
-				[]channel.Channel{ch},
-				telem.TimeRange{Start: start, End: end},
-				func(fr framer.Frame) error {
-					_, err := a.encode(ctx, f, fr, start)
-					return err
-				},
-			); err != nil {
+		if err := a.sendMarked(ctx, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sendMarked sends the stored values of each channel of f that arrived without its
+// index, from its last value sent to the index position. It sends no other channel, so
+// Sift gets no value twice.
+func (a *attempt) sendMarked(ctx context.Context, f flow) error {
+	keys := a.unindexed[f.index.Key()]
+	end := a.sent[f.index.Key()]
+	for _, ch := range f.channels {
+		start := a.values[ch.Key()]
+		if !keys.Contains(ch.Key()) || start >= end {
+			continue
+		}
+		if err := a.engine.read(
+			ctx,
+			f,
+			[]channel.Channel{ch},
+			telem.TimeRange{Start: start, End: end},
+			func(fr framer.Frame) error {
+				_, err := a.encode(ctx, f, fr, start)
 				return err
-			}
+			},
+		); err != nil {
+			return err
 		}
 	}
 	return nil
