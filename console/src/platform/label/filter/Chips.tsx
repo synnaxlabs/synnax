@@ -23,24 +23,30 @@ import { View } from "@/platform/view";
 
 const path = deep.path<{ where?: { labels?: label.Key[] } }>();
 
-/** @returns the names, or a count when there are more than two. */
+/** @returns one or two names, or else a count. */
 const summarize = (names: string[]): string =>
-  names.length > 2 ? `${names.length} labels` : names.join(", ");
+  names.length > 0 && names.length <= 2 ? names.join(", ") : `${names.length} labels`;
 
-interface ValueProps {
+interface ConditionProps {
   keys: label.Key[];
 }
 
-const Value = ({ keys }: ValueProps): ReactElement => {
+const Condition = ({ keys }: ConditionProps): ReactElement => {
+  // A filter can keep the key of a deleted label, so count the labels that resolve.
   const labels = Label.useMultiple({ keys });
   return (
     <>
-      <Flex.Box x empty className={CSS.BE("label-filter", "dots")}>
-        {labels.map(({ key, color }) => (
-          <Icon.Circle key={key} color={color} />
-        ))}
-      </Flex.Box>
-      {summarize(labels.map(({ name }) => name))}
+      <View.FilterChipOperator>
+        {labels.length === 1 ? "has" : "has any of"}
+      </View.FilterChipOperator>
+      <View.FilterChipValue>
+        <Flex.Box x empty className={CSS.BE("label-filter", "dots")}>
+          {labels.map(({ key, color }) => (
+            <Icon.Circle key={key} color={color} />
+          ))}
+        </Flex.Box>
+        {summarize(labels.map(({ name }) => name))}
+      </View.FilterChipValue>
     </>
   );
 };
@@ -56,14 +62,9 @@ export const Chips = (): ReactElement | null => {
   return (
     <View.FilterChip>
       <View.FilterChipName icon={Icon.Label}>Labels</View.FilterChipName>
-      <View.FilterChipOperator>
-        {labels.length === 1 ? "has" : "has any of"}
-      </View.FilterChipOperator>
-      <View.FilterChipValue>
-        <Errors.SuspenseBoundary loading={null}>
-          <Value keys={labels} />
-        </Errors.SuspenseBoundary>
-      </View.FilterChipValue>
+      <Errors.SuspenseBoundary loading={null}>
+        <Condition keys={labels} />
+      </Errors.SuspenseBoundary>
       {editable && (
         <View.FilterChipRemove
           name="Labels"
