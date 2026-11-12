@@ -13,6 +13,7 @@ import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -20,7 +21,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { binary, location } from "@synnaxlabs/x";
+import { binary, location, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/next/ContextMenu";
@@ -205,6 +206,8 @@ const NO_RANGES = <NoRanges />;
 
 const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 
+const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
+
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
  * saves a change to it. A static view holds it here.
@@ -231,11 +234,14 @@ const useViewField = <F extends "sort" | "layout">(
 const Internal = (): ReactElement => {
   const { getInitialView, searchTerm } = View.useContext();
   const [where, setWhere] = useState(() => getInitialView().where);
+  // The term that the list reads. The query follows it, so the list never reads a
+  // search page without the term, or the term without a search page.
+  const [term, setTerm] = useState("");
   const [sort, setSort] = useViewField("sort");
   const [layout, setLayout] = useViewField("layout");
   const flat = layout === "list";
   // A search in a tree shows its first matches only, so the tree holds still.
-  const searching = (searchTerm !== "" || !isEmpty(where)) && !flat;
+  const searching = (term !== "" || !isEmpty(where)) && !flat;
   const scoped: ranger.Where | undefined =
     flat || searching
       ? where
@@ -248,7 +254,16 @@ const Internal = (): ReactElement => {
     initialSize: searching ? MATCH_LIMIT + 1 : undefined,
     // A search in a tree reads its first page only.
     eager: searching,
+    searchDebounce: 0,
   });
+  const handleSearch = useDebouncedCallback(
+    (next: string) => {
+      setTerm(next);
+      root.search(next);
+    },
+    SEARCH_DEBOUNCE,
+    [root.search],
+  );
   // The list shows its last answer until a new search lands, so the tree follows the
   // term that the shown ranges answer.
   const capped = (root.searchTerm !== "" || !isEmpty(where)) && !flat;
@@ -297,7 +312,7 @@ const Internal = (): ReactElement => {
       subscribe={root.subscribe}
       answered={answered}
       more={root.more}
-      search={root.search}
+      search={handleSearch}
       onWhereChange={setWhere}
       itemHeight={itemHeight(layout)}
     >

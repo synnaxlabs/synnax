@@ -66,13 +66,18 @@ const createLabeled = async (): Promise<{
   return { label, labeled, other };
 };
 
-const search = (term: string): void => {
-  const input = screen.getByPlaceholderText<HTMLInputElement>("Search ranges...");
+const search = async (term: string): Promise<void> => {
+  const input =
+    await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
   fireEvent.change(input, { target: { value: term } });
 };
 
 /** @returns the list item of the named range. */
 const itemOf = (name: string): HTMLElement => screen.getByRole("listitem", { name });
+
+/** Waits for the list item of the named range. A search tints its term in names. */
+const findItem = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("listitem", { name });
 
 const SWAP = "console-range-filter__picker--swap";
 
@@ -240,11 +245,10 @@ describe("range/next/Explorer", () => {
         parent: parent.key,
       });
       await renderExplorer();
-      search(token);
-      await screen.findByText(match.name);
-      await waitFor(() =>
-        within(itemOf(parent.name)).getByRole("button", { name: "Collapse" }),
-      );
+      await search(token);
+      await findItem(match.name);
+      // The list reads no page for the tree until it reads the term.
+      within(itemOf(parent.name)).getByRole("button", { name: "Collapse" });
       expect(screen.queryByText(sibling.name)).toBeNull();
     });
 
@@ -258,7 +262,7 @@ describe("range/next/Explorer", () => {
         })),
       );
       await renderExplorer();
-      search(token);
+      await search(token);
       await screen.findByText(/Showing the first 100 matches\./);
     });
   });
