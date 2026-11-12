@@ -13,7 +13,7 @@ import {
   channel,
   DisconnectedError,
   type ranger,
-  status,
+  type status,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -27,6 +27,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
+import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
@@ -71,9 +72,15 @@ const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 interface UploadButtonProps extends UploadModalParams {
   onUploaded: () => void;
+  onRejected: (reply: status.Status) => void;
 }
 
-const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) => {
+const UploadButton = ({
+  rangeKey,
+  rangeName,
+  onUploaded,
+  onRejected,
+}: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
@@ -96,7 +103,8 @@ const UploadButton = ({ rangeKey, rangeName, onUploaded }: UploadButtonProps) =>
           timeout: UPLOAD_TIMEOUT,
           args: { device, range: rangeKey, channels, asset },
         });
-        if (res.variant === "error") throw status.toError(res);
+        // The reply of the scan task notifies a rejection on its own.
+        if (res.variant === "error") return onRejected(res);
         addStatus({
           variant: "success",
           name: rangeName,
@@ -128,6 +136,7 @@ const Upload = ({
     schema: formSchema,
     values: { rack: 0, config: { device: "", asset: "", channels: [] } },
   });
+  const [rejection, setRejection] = useState<status.Status | null>(null);
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
@@ -157,11 +166,20 @@ const Upload = ({
           </Form.Field>
         </Modal.Body>
         <Modal.Footer>
+          {rejection != null && (
+            <Nav.Bar.Start>
+              <Status.Summary
+                variant="error"
+                message={rejection.description ?? rejection.message}
+              />
+            </Nav.Bar.Start>
+          )}
           <Nav.Bar.End x align="center">
             <UploadButton
               rangeKey={rangeKey}
               rangeName={rangeName}
               onUploaded={close}
+              onRejected={setRejection}
             />
           </Nav.Bar.End>
         </Modal.Footer>
