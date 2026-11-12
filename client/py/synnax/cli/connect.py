@@ -28,7 +28,7 @@ from synnax.exceptions import AuthError
 from synnax.options import Options
 
 
-def prompt_client_options(ctx: Context) -> Options:
+def _prompt_client_options(ctx: Context) -> Options:
     """Prompts the user for the parameters to connect to a Synnax server.
 
     :param ctx: The context of the current flow.
@@ -74,20 +74,20 @@ def from_clusters(
     if cluster is None:
         opts = load_desktop_options(desktop_file)
         if opts is None:
-            return from_context(ctx, opts=prompt_client_options(ctx))
+            return _from_context(ctx, opts=_prompt_client_options(ctx))
         ctx.console.info("Using Synnax Desktop.")
-        return from_context(ctx, opts=opts, unreachable=DESKTOP_NOT_RUNNING_MSG)
+        return _from_context(ctx, opts=opts, unreachable=DESKTOP_NOT_RUNNING_MSG)
     ctx.console.info("Using saved credentials.")
-    client = from_context(ctx, opts=cluster.options)
+    client = _from_context(ctx, opts=cluster.options)
     if client is not None and not cluster.options.api_key:
         try:
-            save_api_key(client, opts=cluster.options, clusters=clusters)
+            _save_api_key(client, opts=cluster.options, clusters=clusters)
         except (OSError, KeyringError, AuthError, Unreachable) as e:
             ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
     return client
 
 
-def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
+def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
     """Creates an API key for the logged-in user and saves it with opts in place of
     the username and password. Deletes the key when it is not saved, and, once the new
     one is saved, deletes the key it replaces when the same account on the same Core
@@ -126,7 +126,7 @@ def save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
         client.auth.delete_keys(previous_key)
 
 
-def from_context(
+def _from_context(
     ctx: Context, *, opts: Options, unreachable: str | None = None
 ) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
@@ -157,3 +157,23 @@ def from_context(
         raise e
     ctx.console.success("Connection successful!")
     return client
+
+
+def login(ctx: Context, clusters: Clusters) -> None:
+    """Prompts for connection parameters, connects, and saves an API key for the
+    logged-in user to clusters.
+    """
+    options = _prompt_client_options(ctx)
+    synnax = _from_context(ctx, opts=options)
+    if synnax is None:
+        return
+    _save_api_key(synnax, opts=options, clusters=clusters)
+    ctx.console.info(_SUCCESSFUL_LOGIN)
+
+
+_SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client
+without having to log in. To connect the cluster in a Python shell, use the following:
+
+from synnax import Synnax
+client = Synnax()
+"""

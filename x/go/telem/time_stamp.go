@@ -36,9 +36,6 @@ const (
 	DayTS TimeStamp = versions.DayTS
 )
 
-// Now returns the current time as a TimeStamp.
-func Now() TimeStamp { return NewTimeStamp(time.Now()) }
-
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 

@@ -98,6 +98,10 @@ class Master {
 public:
     virtual ~Master() = default;
 
+    /// @brief returns the name that messages to the user give the network, such as
+    /// "Ethernet 2" for a Windows adapter.
+    [[nodiscard]] virtual std::string name() const = 0;
+
     /// @brief opens the master and discovers the slaves on the bus. Returns the slaves
     /// it found without a new discovery until deactivate().
     [[nodiscard]]
@@ -156,6 +160,13 @@ public:
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
     ) = 0;
+
+    /// @brief reads an object of at most four bytes from the slave at position, as an
+    /// unsigned value. Safe to call from one thread while another runs receive() and
+    /// send(). Valid between scan() and deactivate().
+    /// @returns coe::read_error() when the read fails.
+    [[nodiscard]] virtual std::pair<uint32_t, x::errors::Error>
+    read(uint16_t position, uint16_t index, uint8_t sub_index) = 0;
 };
 
 /// @brief abstract interface for discovering and creating EtherCAT masters.

@@ -90,7 +90,7 @@ value for instrumentation fields or function arguments.
 """
 
 
-class Traceable(Protocol):
+class _Traceable(Protocol):
     """
     A protocol for classes whose methods can be traced using the trace decorator.
     """
@@ -98,27 +98,27 @@ class Traceable(Protocol):
     instrumentation: Instrumentation
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
-T = TypeVar("T", bound=Traceable)
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+_T = TypeVar("_T", bound=_Traceable)
 
 
 class _Decorator(Protocol):
     @overload
     def __call__(
-        self, f: Callable[Concatenate[T, P], Coroutine[object, object, R]], /
-    ) -> Callable[Concatenate[T, P], Coroutine[object, object, R]]: ...
+        self, f: Callable[Concatenate[_T, _P], Coroutine[object, object, _R]], /
+    ) -> Callable[Concatenate[_T, _P], Coroutine[object, object, _R]]: ...
 
     @overload
     def __call__(
-        self, f: Callable[Concatenate[T, P], R], /
-    ) -> Callable[Concatenate[T, P], R]: ...
+        self, f: Callable[Concatenate[_T, _P], _R], /
+    ) -> Callable[Concatenate[_T, _P], _R]: ...
 
 
 def trace(env: Environment, *, key: str | None = None) -> _Decorator:
     """
-    Trace the given method on the class. This method can only be used on a class that
-    implements the Traceable protocol. Supports both sync and async methods. An
+    Trace the given method on the class. The class must have an `instrumentation`
+    attribute of type Instrumentation. Supports both sync and async methods. An
     exception raised by the method is recorded on the span and then re-raised.
 
     :param key: The key of the span. Defaults to the name of the method.
@@ -128,23 +128,23 @@ def trace(env: Environment, *, key: str | None = None) -> _Decorator:
 
     @overload
     def decorator(
-        f: Callable[Concatenate[T, P], Coroutine[object, object, R]],
-    ) -> Callable[Concatenate[T, P], Coroutine[object, object, R]]: ...
+        f: Callable[Concatenate[_T, _P], Coroutine[object, object, _R]],
+    ) -> Callable[Concatenate[_T, _P], Coroutine[object, object, _R]]: ...
 
     @overload
     def decorator(
-        f: Callable[Concatenate[T, P], R],
-    ) -> Callable[Concatenate[T, P], R]: ...
+        f: Callable[Concatenate[_T, _P], _R],
+    ) -> Callable[Concatenate[_T, _P], _R]: ...
 
     def decorator(
-        f: Callable[Concatenate[T, P], object],
-    ) -> Callable[Concatenate[T, P], object]:
+        f: Callable[Concatenate[_T, _P], object],
+    ) -> Callable[Concatenate[_T, _P], object]:
         span_key = f.__name__ if key is None else key
         if inspect.iscoroutinefunction(f):
 
             @functools.wraps(f)
             async def async_wrapper(
-                self: T, /, *args: P.args, **kwargs: P.kwargs
+                self: _T, /, *args: _P.args, **kwargs: _P.kwargs
             ) -> object:
                 with self.instrumentation.T.trace(span_key, env=env) as span:
                     try:
@@ -156,7 +156,7 @@ def trace(env: Environment, *, key: str | None = None) -> _Decorator:
             return async_wrapper
 
         @functools.wraps(f)
-        def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> object:
+        def wrapper(self: _T, /, *args: _P.args, **kwargs: _P.kwargs) -> object:
             with self.instrumentation.T.trace(span_key, env=env) as span:
                 try:
                     return f(self, *args, **kwargs)

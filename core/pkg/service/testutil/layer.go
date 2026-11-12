@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 )
 
 const keyID = "test"
@@ -81,6 +82,8 @@ func OpenLayer(
 			Key:     signer.Sign(NewLicense()),
 			Anchors: signer.Anchors,
 		},
+		// A fixed key lets a test reopen a layer on the same node.
+		SecretsKey: secret.EncryptionKey{1},
 	}
 	return service.OpenLayer(ctx, append([]service.LayerConfig{base}, cfgs...)...)
 }

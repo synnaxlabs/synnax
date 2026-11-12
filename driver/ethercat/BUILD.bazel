@@ -93,6 +93,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ethercat",
+        "//driver/ethercat/coe",
         "//driver/ethercat/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/testutil",

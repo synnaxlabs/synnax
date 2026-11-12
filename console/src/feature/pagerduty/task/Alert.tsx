@@ -144,12 +144,13 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   const isNotDefined = status == null;
   return (
     <Select.Item {...props} justify="between" align="center" x>
-      <Flex.Box x align="center" gap={1}>
+      <Flex.Box x align="center" gap={1} className={CSS.BE("pagerduty-alert", "label")}>
         <Base.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
           level="p"
           weight={500}
           status={isNotDefined ? "disabled" : undefined}
+          overflow="fade"
         >
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>

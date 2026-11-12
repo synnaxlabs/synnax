@@ -224,6 +224,7 @@ site_common: &site_common
 
 docs:
   - *arc_ts
+  - arc/go/analyzer/codes/codes.gen.json
   - *client_ts
   - *lyra
   - *site_common

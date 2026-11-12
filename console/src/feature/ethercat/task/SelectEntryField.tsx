@@ -16,6 +16,7 @@ import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   addressKey,
   type Channel,
@@ -24,6 +25,7 @@ import {
   getEntryLabel,
   getUnresolvedMessage,
   hasEntry,
+  isCalibrated,
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
@@ -44,9 +46,17 @@ export const SelectEntryField = ({
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
-  const emptyContent = primitive.isZero(ch.device)
-    ? "Select a slave device first."
-    : `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
+  const used = new Set(entries.map(addressKey));
+  const reader =
+    slave == null
+      ? null
+      : (slave.properties.pdos[pdoType]
+          .filter((e) => !used.has(addressKey(e)))
+          .map((e) => onlyReaderOf(slave.properties, e))
+          .find((r) => r != null) ?? null);
+  let emptyContent = `This device has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
+  if (primitive.isZero(ch.device)) emptyContent = "Select a device first.";
+  else if (reader != null) emptyContent = `Only ${reader} can use this device.`;
   const unresolvedProps =
     ch.type === "unresolved"
       ? {
@@ -64,8 +74,19 @@ export const SelectEntryField = ({
             const entry = entries.find((e) => addressKey(e) === key);
             if (entry == null) throw new Error(`No entry has the key ${key}`);
             const { index, subIndex, dataType } = entry;
+            const calibrated =
+              slave != null &&
+              pdoType === "inputs" &&
+              isCalibrated(slave.properties, entry);
             onChange(
-              schema.parse({ ...value, type: "entry", index, subIndex, dataType }),
+              schema.parse({
+                ...value,
+                type: "entry",
+                index,
+                subIndex,
+                dataType,
+                calibrated,
+              }),
             );
           }}
           resourceName="entry"
