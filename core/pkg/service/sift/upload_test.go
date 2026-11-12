@@ -186,7 +186,7 @@ var _ = Describe("Upload", func() {
 			stat := execCommand(ctx, dt, t, "upload", args())
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to upload to Sift"))
-			Expect(stat.Description).To(ContainSubstring(msg))
+			Expect(stat.Description).To(HaveSuffix(msg))
 		},
 		Entry("no asset", func() map[string]any {
 			return map[string]any{
@@ -201,7 +201,7 @@ var _ = Describe("Upload", func() {
 				"range":  rng.Key,
 				"asset":  "stand",
 			}
-		}, "channels"),
+		}, "channels: must be non-empty"),
 		Entry("a range that has not started", func() map[string]any {
 			future := createRange(context.Background(), telem.TimeRange{
 				Start: telem.Now().Add(telem.Hour),
