@@ -456,6 +456,11 @@ func (p *Plugin) processField(
 	number int,
 	data *templateData,
 ) (fieldData, error) {
+	// A type-parameter field takes the shape of its default, as typeToProto does.
+	for field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
+		field.Type.TypeParam.HasDefault() {
+		field.Type = *field.Type.TypeParam.Default
+	}
 	if arrays.IsFixedSizeUint8(field.Type, data.table) {
 		return fieldData{
 			Name:       casing.FieldSnake(field.Name),
