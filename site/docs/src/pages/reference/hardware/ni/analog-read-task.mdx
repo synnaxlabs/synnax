@@ -906,15 +906,17 @@ and **Scaled units** (`scaled_units`).
 
 <Problem.List>
 
-<Problem.Item message={"configured sample rate ... is below device minimum ..."}>
+<Problem.Item message={"Device would run at ... Hz"}>
 <Problem.Cause>
 
-The device cannot sample that slowly.
+The device cannot sample at the **Sample rate**. It would run at the rate in the
+message, and Synnax would give the samples wrong timestamps.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Raise the **Sample rate** to at least the minimum in the description.
+Set the **Sample rate** to the rate in the message, or to another rate that the device
+takes.
 
 </Problem.Fix>
 </Problem.Item>
