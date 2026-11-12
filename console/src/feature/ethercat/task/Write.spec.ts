@@ -164,7 +164,7 @@ describe("Write", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      /'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
+      /'Output' matches more than one output entry on module .+\. Pick an entry\.$/,
     );
   });
 
@@ -182,7 +182,7 @@ describe("Write", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `More than one channel uses entry 0x7030:01 on slave ${slave.name}\\. ` +
+        `More than one channel uses entry 0x7030:01 on module ${slave.name}\\. ` +
           "Pick a different entry for one of them\\.$",
       ),
     );
@@ -201,7 +201,7 @@ describe("Write", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
+      new RegExp(`A channel on module ${slave.name} has no entry\\. Pick an entry\\.$`),
     );
   });
 
@@ -557,7 +557,7 @@ describe("Write", () => {
     });
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /All slaves must be on the same network/);
+    await awaitStatus(statuses, /All modules must be on the same network/);
   });
 
   it("should surface an error when no slave has a valid network", async () => {

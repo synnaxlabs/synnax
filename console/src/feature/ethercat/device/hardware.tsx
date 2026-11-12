@@ -18,7 +18,7 @@ export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "EtherCAT",
   title: "EtherCAT network",
-  description: "Slaves on an EtherCAT network adapter.",
+  description: "Modules on an EtherCAT network adapter.",
   icon: <Icon.Logo.EtherCAT />,
   make: MAKE,
   scanType: SCAN_TYPE,
@@ -26,6 +26,6 @@ export const HARDWARE: Device.Hardware = {
   Configure,
   checks: [
     "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
-    "The slaves have power and a cable to that adapter.",
+    "The modules have power and a cable to that adapter.",
   ],
 };

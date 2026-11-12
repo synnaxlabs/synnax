@@ -484,7 +484,7 @@ describe("Read", () => {
     ).join(", ");
     expect(
       await screen.findByText(
-        `'Input' matches more than one input entry on slave ${slave.name}: ` +
+        `'Input' matches more than one input entry on module ${slave.name}: ` +
           `${addresses}. Pick an entry.`,
       ),
     ).toBeTruthy();
@@ -774,7 +774,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `More than one channel uses entry 0x6030:01 on slave ${slave.name}\\. ` +
+        `More than one channel uses entry 0x6030:01 on module ${slave.name}\\. ` +
           "Pick a different entry for one of them\\.$",
       ),
     );
@@ -796,7 +796,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${slave.name} has no input entry at 0x6030:01\\. Pick an entry\\.$`,
+        `Module ${slave.name} has no input entry at 0x6030:01\\. Pick an entry\\.$`,
       ),
     );
     const updated = await client.devices.retrieve({
@@ -939,7 +939,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `^Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+        `^Entry 0x6030:01 on module ${slave.name}: A bridge needs an excitation ` +
           "voltage above 0 V\\.$",
       ),
     );
@@ -975,7 +975,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      /'Input' matches more than one input entry on slave .+\. Pick an entry\.$/,
+      /'Input' matches more than one input entry on module .+\. Pick an entry\.$/,
     );
   });
 
@@ -988,7 +988,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
+      new RegExp(`A channel on module ${slave.name} has no entry\\. Pick an entry\\.$`),
     );
   });
 
@@ -1094,7 +1094,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
+        `Module ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -1167,7 +1167,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
+        `Module ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
           "identifier",
       ),
     );
@@ -1218,7 +1218,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
+        `Module ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -1768,8 +1768,8 @@ describe("Read", () => {
   });
 
   it.each([
-    ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
-    ["switched but not restarted", false, "Restart the power of the slave"],
+    ["in DewesoftX mode", true, "In Configure, switch the module to Synnax"],
+    ["switched but not restarted", false, "Restart the power of the module"],
   ])(
     "should reject a channel of an input that only DewesoftX reads on a slave %s",
     async (_, shared, step) => {
@@ -1789,7 +1789,7 @@ describe("Read", () => {
       await awaitStatus(
         statuses,
         new RegExp(
-          `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+          `^Entry 0x6040:01 on module ${slave.name} sends data that only DewesoftX ` +
             `reads\\. ${step}\\.$`,
         ),
       );
@@ -1947,7 +1947,7 @@ describe("Read", () => {
         statuses,
         new RegExp(
           `A channel named ${taken.name} already exists and is not an index\\. ` +
-            `Change the identifier of slave ${slave.name}\\.`,
+            `Change the identifier of module ${slave.name}\\.`,
         ),
       );
     });
@@ -1987,7 +1987,7 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(
       statuses,
-      /Data type float64 does not fit entry 0x6000:01 on slave .+, which holds 16 bits\. Pick a 2 byte number type\./,
+      /Data type float64 does not fit entry 0x6000:01 on module .+, which holds 16 bits\. Pick a 2 byte number type\./,
     );
     const updated = await client.devices.retrieve({
       key: slave.key,

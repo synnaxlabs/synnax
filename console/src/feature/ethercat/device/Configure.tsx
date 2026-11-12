@@ -277,7 +277,7 @@ const beforeSave = async ({
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "EtherCAT slave",
+  placeholder: "EtherCAT module",
   "aria-label": "Name",
 } as const;
 

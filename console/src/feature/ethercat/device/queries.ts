@@ -150,7 +150,7 @@ export interface SetStandaloneParams {
  * switch fails, starts the tasks again.
  */
 export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
-  name: "EtherCAT slave",
+  name: "EtherCAT module",
   verbs: SWITCH,
   update: async ({ client, data }) => {
     const { rack, key, properties } = data.slave;
