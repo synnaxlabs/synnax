@@ -97,7 +97,7 @@ class TestRequest:
     def test_should_ignore_a_review_against_another_base(
         self, harness: Harness
     ) -> None:
-        harness.reviews(review(BEFORE, key="7:release/core-0.57"))
+        harness.reviews(review(BEFORE, key="7:release/0.57"))
         assert not harness.run()
 
     def test_should_ignore_a_check_run_of_another_app(self, harness: Harness) -> None:
