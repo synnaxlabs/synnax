@@ -97,7 +97,7 @@ func plainTargets(
 
 // validateWriteConfig checks the rules of cfg that need no channel: the entries of a
 // channel field have unique values, so two NaN entries, or 0 and -0, collide, and each
-// additional field holds a valid value.
+// additional field of an enabled target holds a valid value.
 func validateWriteConfig(cfg *WriteConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -107,8 +107,11 @@ func validateWriteConfig(cfg *WriteConfig) error {
 			return errors.Wrapf(validate.ErrValidation, "%s.type: required", path)
 		}
 		for _, f := range t.Fields {
+			if t.Disabled {
+				break
+			}
 			if err := payload.ValidateWriteField(f); err != nil {
-				return errors.Wrapf(err, "field %q", f.Base().Key)
+				return errors.Wrapf(err, "target %s: field %q", t.Topic, f.Base().Key)
 			}
 		}
 		return errors.Wrap(channelOf(t.Channel).Validate(), path)
