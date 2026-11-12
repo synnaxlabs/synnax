@@ -629,6 +629,7 @@ def main() -> None:
         help="why the --manual-pass tests were run by hand, shown on the page",
     )
     args = parser.parse_args()
+    key_name = spaces_key(args.version)
     rid = run_id_of(args.run_url)
 
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
@@ -769,7 +770,6 @@ def main() -> None:
         args.out.write_text(body)
         dest = str(args.out)
     else:
-        key_name = spaces_key(args.version)
         upload(body, key_name=key_name)
         dest = f"s3://{SPACES_BUCKET}/{key_name}"
     counts: dict[str, int] = {}

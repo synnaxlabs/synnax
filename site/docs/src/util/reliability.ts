@@ -118,7 +118,8 @@ interface Raw {
 
 // The release train whose data this page reads. `scripts/reliability.py` uploads each
 // train's data to its own key, so an older docs branch keeps the data its page code
-// understands. A refresh for a new release moves this to that release's train.
+// understands. A refresh for a new release uploads its data first, then moves this to
+// that release's train, since the build fails while the key is missing.
 const TRAIN = "0.61";
 
 // Pages that read the data are prerendered, so only the docs build fetches it. The
