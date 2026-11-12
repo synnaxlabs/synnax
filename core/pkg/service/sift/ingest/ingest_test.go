@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
@@ -107,6 +108,7 @@ var _ = Describe("Engine", func() {
 	) *ingest.Engine {
 		GinkgoHelper()
 		return MustSucceed(ingest.New(ctx, append([]ingest.Config{{
+			DB:           db,
 			Framer:       framerSvc,
 			Channel:      channelSvc,
 			Conn:         conn,
@@ -124,6 +126,7 @@ var _ = Describe("Engine", func() {
 	Describe("New", func() {
 		It("Should reject a config without an asset", func(ctx SpecContext) {
 			Expect(ingest.New(ctx, ingest.Config{
+				DB:           db,
 				Framer:       framerSvc,
 				Channel:      channelSvc,
 				Conn:         conn,
@@ -138,8 +141,11 @@ var _ = Describe("Engine", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			Expect(ingest.New(ctx, ingest.Config{
+				DB:           db,
 				Framer:       framerSvc,
 				Channel:      channelSvc,
 				Conn:         conn,
@@ -155,6 +161,7 @@ var _ = Describe("Engine", func() {
 		It("Should reject a set of only index channels", func(ctx SpecContext) {
 			idx := createIndex(ctx)
 			Expect(ingest.New(ctx, ingest.Config{
+				DB:           db,
 				Framer:       framerSvc,
 				Channel:      channelSvc,
 				Conn:         conn,
@@ -172,6 +179,7 @@ var _ = Describe("Engine", func() {
 		It("Should return not found for a channel that does not exist",
 			func(ctx SpecContext) {
 				Expect(ingest.New(ctx, ingest.Config{
+					DB:           db,
 					Framer:       framerSvc,
 					Channel:      channelSvc,
 					Conn:         conn,
