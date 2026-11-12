@@ -88,11 +88,7 @@ func queueUpload(
 		return "", err
 	}
 	if dev.Rack != rk {
-		return "", errors.Wrapf(
-			validate.ErrValidation,
-			"device %s belongs to another rack",
-			dev.Name,
-		)
+		return "", validate.Errorf("device %s belongs to another rack", dev.Name)
 	}
 	var rng ranger.Range
 	if err := cfg.Ranger.NewRetrieve().
@@ -104,19 +100,14 @@ func queueUpload(
 	// A range that has not ended sends the data written so far.
 	tr, now := rng.TimeRange, telem.Now()
 	if tr.Start > now {
-		return "", errors.Wrapf(
-			validate.ErrValidation,
+		return "", validate.Errorf(
 			"range %s starts in the future, so it has no data yet",
 			rng.Name,
 		)
 	}
 	tr.End = min(tr.End, now)
 	if tr.Span() <= 0 {
-		return "", errors.Wrapf(
-			validate.ErrValidation,
-			"range %s has no time span to upload",
-			rng.Name,
-		)
+		return "", validate.Errorf("range %s has no time span to upload", rng.Name)
 	}
 	s := UploadStatus{
 		Key:     uploadKeyPrefix + uuid.NewV7().String(),
