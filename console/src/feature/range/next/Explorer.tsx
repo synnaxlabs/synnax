@@ -208,23 +208,24 @@ const NO_RANGES = <NoRanges />;
 
 const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 
-/** The sort or the layout of the open view, saved to the view when it is stored. */
+/**
+ * The sort or the layout of the open view. A stored view reads it from the view and
+ * saves a change to it. A static view holds it here.
+ */
 const useViewField = <F extends "sort" | "layout">(
   field: F,
 ): [view.RangeView[F], (next: view.RangeView[F]) => void] => {
   const { selected, staticViews, editable, getInitialView } = View.useContext();
-  const initial = getInitialView() as view.RangeView;
-  const [value, setValue] = useState(initial[field]);
-  PView.useSetSynchronizer((next) => {
-    if (next.key === selected && next.type === "range") setValue(next[field]);
-  });
-  const { update } = PView.useSetFields();
   const stored = !staticViews.includes(selected);
+  const [local, setLocal] = useState(() => (getInitialView() as view.RangeView)[field]);
+  const live = PView.useResult(stored ? { key: selected } : null).data;
+  const { update } = PView.useSetFields();
+  if (!stored) return [local, setLocal];
+  const value = live?.type === "range" ? live[field] : local;
   return [
     value,
     (next) => {
-      setValue(next);
-      if (stored && editable)
+      if (editable)
         update({ key: selected, actions: view.set({ path: [field], value: next }) });
     },
   ];
