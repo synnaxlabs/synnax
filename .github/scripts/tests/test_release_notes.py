@@ -145,13 +145,30 @@ class TestReleaseNotes:
         notes = Harness(path=tmp_path, body=body).run("driver/v0.1.1", "abc", "c.yml")
         assert len(notes) <= 125_000
         assert notes.startswith("## What's Changed\n### Driver\n* Fix read number 0 ")
-        assert "cut short" in notes
+        assert "\n* " in notes.split("_The list is cut short")[0][-200:]
+        assert "\n\n\n" not in notes
         assert notes.endswith(f"{changelog}\n")
         assert all(
             re.fullmatch(rf"\* Fix read number (\d+) by @someone in {PULL}/\1", line)
             for line in notes.splitlines()
             if line.startswith("* ")
         )
+
+    def test_ends_a_cut_list_with_an_entry(self, tmp_path: Path) -> None:
+        changelog = (
+            "**Full Changelog**: https://github.com/synnaxlabs/synnax/compare/a...b"
+        )
+        endings = set()
+        for width in range(10, 60):
+            category = f"### {'C' * width}\n* Fix a read by @someone in {PULL}/1\n"
+            body = f"## What's Changed\n{category * 3000}\n{changelog}\n"
+            path = tmp_path / str(width)
+            path.mkdir()
+            notes = Harness(path=path, body=body).run("driver/v0.1.1", "abc", "c.yml")
+            kept = notes.split("\n\n_The list is cut short")[0].splitlines()
+            assert kept[-1].startswith("* ")
+            endings.add(kept[-2][:3])
+        assert endings == {"###"}
 
     def test_fails_in_a_shallow_clone(self, harness: Harness, tmp_path: Path) -> None:
         harness.commit("more")

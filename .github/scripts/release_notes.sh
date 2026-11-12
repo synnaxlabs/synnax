@@ -222,9 +222,10 @@ cap() {
             budget = limit - length(link) - length(note) - 4
             for (i = 1; i <= last; i++) {
                 if (used + length(lines[i]) + 1 > budget) break
-                print lines[i]
                 used += length(lines[i]) + 1
+                if (lines[i] ~ /^\* /) keep = i
             }
+            for (i = 1; i <= keep; i++) print lines[i]
             print ""
             print note
             if (link != "") { print ""; print link }
