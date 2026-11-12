@@ -669,17 +669,16 @@ class Overview(Surface):
         return [names.nth(i).inner_text().strip() for i in range(names.count())]
 
     def delete_snapshot(self, name: str) -> None:
-        """Delete a snapshot from the Snapshots section in the range overview.
+        """Delete a snapshot from the Attached section through its context menu.
 
         :param name: The name of the snapshot to delete.
         """
         item = self.get_snapshot(name)
         item.wait_for(state="visible", timeout=5000)
-        item.get_by_role("button", name=f"Delete {name}", exact=True).click()
-        self.layout.confirm_delete()
+        self.layout.delete_with_confirmation(item)
 
     def wait_for_snapshot_removed(self, name: str) -> None:
-        """Wait for a snapshot to be removed from the Snapshots section.
+        """Wait for a snapshot to be removed from the Attached section.
 
         :param name: The name of the snapshot that should be removed.
         """

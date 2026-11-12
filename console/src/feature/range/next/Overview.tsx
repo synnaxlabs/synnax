@@ -16,7 +16,7 @@ import {
   log,
   query,
   ranger,
-  type resource,
+  resource,
   schematic,
   table,
   task,
@@ -30,7 +30,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import {
@@ -38,9 +40,14 @@ import {
   Channel,
   Flux,
   Label as PLabel,
+  LinePlot,
+  Log,
   Panel as PlutoPanel,
   Ranger,
+  Schematic,
   Synnax,
+  Table,
+  Task,
 } from "@synnaxlabs/pluto";
 import { link, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -61,10 +68,12 @@ import {
 } from "@/feature/range/next/Explorer";
 import { useOpen } from "@/feature/range/next/Item";
 import { childrenQuery, useExpanded, useTree } from "@/feature/range/next/tree";
+import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Section as PSection } from "@/platform/section";
@@ -780,15 +789,16 @@ interface Document {
 
 interface Kind {
   name: string;
-  icon: ReactElement;
+  /** The path of the kind's icon in the icon registry. */
+  icon: string;
 }
 
 const KINDS: Record<string, Kind> = {
-  [lineplot.TYPE_RESOURCE_ID.type]: { name: "Line plot", icon: <Icon.LinePlot /> },
-  [schematic.TYPE_RESOURCE_ID.type]: { name: "Schematic", icon: <Icon.Schematic /> },
-  [table.TYPE_RESOURCE_ID.type]: { name: "Table", icon: <Icon.Table /> },
-  [log.TYPE_RESOURCE_ID.type]: { name: "Log", icon: <Icon.Log /> },
-  [task.TYPE_RESOURCE_ID.type]: { name: "Task", icon: <Icon.Task /> },
+  [lineplot.TYPE_RESOURCE_ID.type]: { name: "Line plot", icon: "LinePlot" },
+  [schematic.TYPE_RESOURCE_ID.type]: { name: "Schematic", icon: "Schematic" },
+  [table.TYPE_RESOURCE_ID.type]: { name: "Table", icon: "Table" },
+  [log.TYPE_RESOURCE_ID.type]: { name: "Log", icon: "Log" },
+  [task.TYPE_RESOURCE_ID.type]: { name: "Task", icon: "Task" },
 };
 
 interface Owned {
@@ -838,49 +848,114 @@ const useDocuments = (rangeKey: ranger.Key): Document[] => {
   );
 };
 
+interface DocumentMenuProps {
+  entry: Document;
+}
+
+const DocumentMenu = ({ entry: { id, name } }: DocumentMenuProps): ReactElement => {
+  const openTab = Panel.useOpenTab();
+  const handleError = Status.useErrorHandler();
+  const kind = KINDS[id.type];
+  const confirm = Modals.useConfirmDelete({ type: kind.name, icon: kind.icon });
+  const canDelete = Access.useDeleteGranted(id);
+  // A hook cannot be picked by kind, so the menu holds the delete of each kind.
+  const deletes: Record<string, (key: string) => void> = {
+    [lineplot.TYPE_RESOURCE_ID.type]: LinePlot.useDelete().update,
+    [schematic.TYPE_RESOURCE_ID.type]: Schematic.useDelete().update,
+    [table.TYPE_RESOURCE_ID.type]: Table.useDelete().update,
+    [log.TYPE_RESOURCE_ID.type]: Log.useDelete().update,
+    [task.TYPE_RESOURCE_ID.type]: Task.useDelete().update,
+  };
+  const handleDelete = () =>
+    handleError(
+      async () => {
+        if (await confirm({ name })) deletes[id.type](id.key);
+      },
+      { message: `Failed to delete ${kind.name.toLowerCase()}`, name },
+    );
+  return (
+    <Base.Menu>
+      <Menu.Item
+        itemKey="open"
+        onClick={() => openTab({ variant: "resource", resource: id })}
+      >
+        {Icon.resolve(kind.icon)}
+        Open
+      </Menu.Item>
+      <Menu.Divider />
+      {canDelete && <Base.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
+      <Base.ReloadConsoleItem />
+    </Base.Menu>
+  );
+};
+
 const Documents = ({ documents }: { documents: Document[] }): ReactElement => {
   const openTab = Panel.useOpenTab();
+  const menuProps = Menu.useContextMenu();
+  const menu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+    const entry = documents.find(({ id }) => resource.idToString(id) === keys[0]);
+    if (entry == null)
+      return (
+        <Base.Menu>
+          <Base.ReloadConsoleItem />
+        </Base.Menu>
+      );
+    return <DocumentMenu entry={entry} />;
+  };
   return (
     <Section title="Attached" icon={<Icon.Attachment />}>
-      <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
-        {documents.map(({ id, name, snapshot }) => {
-          const kind = KINDS[id.type];
-          return (
-            <Button.Button
-              key={`${id.type}:${id.key}`}
-              variant="text"
-              gap="medium"
-              justify="start"
-              className={CSS.BE("range-overview", "document")}
-              onClick={() => openTab({ variant: "resource", resource: id })}
-            >
-              <Text.Text
-                el="span"
-                color={9}
-                className={CSS.BE("range-overview", "document-icon")}
+      <Menu.ContextMenu menu={menu} {...menuProps}>
+        <Flex.Box
+          y
+          empty
+          className={CSS.BE("range-overview", "fields")}
+          onContextMenu={menuProps.open}
+        >
+          {documents.map(({ id, name, snapshot }) => {
+            const kind = KINDS[id.type];
+            const key = resource.idToString(id);
+            return (
+              <Button.Button
+                key={key}
+                variant="text"
+                gap="medium"
+                justify="start"
+                className={CSS.cls(
+                  CSS.BE("range-overview", "document"),
+                  Menu.CONTEXT_TARGET,
+                )}
+                data-menu-key={key}
+                onClick={() => openTab({ variant: "resource", resource: id })}
               >
-                {kind.icon}
-              </Text.Text>
-              <Text.Text
-                el="span"
-                overflow="fade"
-                className={CSS.BE("range-overview", "document-name")}
-              >
-                {name}
-              </Text.Text>
-              {snapshot && <Badge.Badge>Snapshot</Badge.Badge>}
-              <Text.Text
-                el="span"
-                level="small"
-                color={8}
-                className={CSS.BE("range-overview", "document-kind")}
-              >
-                {kind.name}
-              </Text.Text>
-            </Button.Button>
-          );
-        })}
-      </Flex.Box>
+                <Text.Text
+                  el="span"
+                  color={9}
+                  className={CSS.BE("range-overview", "document-icon")}
+                >
+                  {Icon.resolve(kind.icon)}
+                </Text.Text>
+                <Text.Text
+                  el="span"
+                  overflow="fade"
+                  className={CSS.BE("range-overview", "document-name")}
+                >
+                  {name}
+                </Text.Text>
+                {snapshot && <Badge.Badge>Snapshot</Badge.Badge>}
+                <Text.Text
+                  el="span"
+                  level="small"
+                  color={8}
+                  className={CSS.BE("range-overview", "document-kind")}
+                >
+                  {kind.name}
+                </Text.Text>
+              </Button.Button>
+            );
+          })}
+        </Flex.Box>
+      </Menu.ContextMenu>
     </Section>
   );
 };
