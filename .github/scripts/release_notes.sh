@@ -206,18 +206,46 @@ done
 ARGS=(-f tag_name="$TAG" -f target_commitish="$SHA")
 ARGS+=(-f configuration_file_path="$CONFIG")
 if [ -n "$PREVIOUS_TAG" ]; then ARGS+=(-f previous_tag_name="$PREVIOUS_TAG"); fi
-if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
-gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${ARGS[@]}" --jq .body \
-    | awk -v shipped="$SHIPPED" '
-        BEGIN { split(shipped, prs, " "); for (i in prs) drop["/pull/" prs[i]] = 1 }
-        /^## New Contributors/ { skip = 1 }
-        /^\*\*Full Changelog\*\*/ { skip = 0 }
-        skip { next }
-        /^\* / && match($0, /\/pull\/[0-9]+$/) && substr($0, RSTART) in drop { next }
-        # A section or category whose PRs all shipped earlier is left out.
-        /^## / { section = $0; category = ""; next }
-        /^### / { category = $0; next }
-        /^$/ && section category != "" { next }
-        /^\* / && section != "" { print section }
-        /^\* / && category != "" { print category }
-        { section = ""; category = ""; print }'
+# GitHub rejects a release body over 125,000 characters. A longer body is cut at a line,
+# and keeps its Full Changelog link. awk may count bytes, which only cuts sooner.
+cap() {
+    awk -v limit=125000 '
+        { lines[NR] = $0; total += length($0) + 1 }
+        /^\*\*Full Changelog\*\*/ { link = $0; last = NR - 1 }
+        END {
+            if (total <= limit) {
+                for (i = 1; i <= NR; i++) print lines[i]
+                exit
+            }
+            if (link == "") last = NR
+            note = "_The list is cut short to fit the size limit of a GitHub release._"
+            budget = limit - length(link) - length(note) - 4
+            for (i = 1; i <= last; i++) {
+                if (used + length(lines[i]) + 1 > budget) break
+                used += length(lines[i]) + 1
+                if (lines[i] ~ /^\* /) keep = i
+            }
+            for (i = 1; i <= keep; i++) print lines[i]
+            print ""
+            print note
+            if (link != "") { print ""; print link }
+        }'
+}
+
+{
+    if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
+    gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" "${ARGS[@]}" --jq .body \
+        | awk -v shipped="$SHIPPED" '
+            BEGIN { split(shipped, prs, " "); for (i in prs) drop["/pull/" prs[i]] = 1 }
+            /^## New Contributors/ { skip = 1 }
+            /^\*\*Full Changelog\*\*/ { skip = 0 }
+            skip { next }
+            /^\* / && match($0, /\/pull\/[0-9]+$/) && substr($0, RSTART) in drop { next }
+            # A section or category whose PRs all shipped earlier is left out.
+            /^## / { section = $0; category = ""; next }
+            /^### / { category = $0; next }
+            /^$/ && section category != "" { next }
+            /^\* / && section != "" { print section }
+            /^\* / && category != "" { print category }
+            { section = ""; category = ""; print }'
+} | cap
