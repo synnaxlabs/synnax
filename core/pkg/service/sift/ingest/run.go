@@ -14,10 +14,13 @@ import (
 	"fmt"
 	"slices"
 	"time"
+	"uuid"
 
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/breaker"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	xuuid "github.com/synnaxlabs/x/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -25,7 +28,8 @@ import (
 
 // Run is a span of the data of an asset that Sift groups and names.
 type Run struct {
-	// Key identifies the run across calls to SetRun.
+	// Key is the key of the range of the run, as a UUID. SetRun keeps one run of each
+	// asset for each key.
 	Key string
 	// Name is the name of the run in Sift.
 	Name string
@@ -35,17 +39,22 @@ type Run struct {
 	Tags []string
 }
 
-// SetRun makes r an ad hoc run of the asset in Sift and returns its ID. When a run
-// with the key of r exists, SetRun updates its name, span, and tags to match r. SetRun
-// retries temporary failures as Upload does. It is safe to call while Upload or Stream
-// runs.
+// SetRun makes r an ad hoc run of the asset in Sift and returns its ID. When the asset
+// has a run with the key of r, SetRun updates its name, span, and tags to match r.
+// SetRun retries temporary failures as Upload does, and fails at once when the key of r
+// is not a UUID. It is safe to call while Upload or Stream runs.
 func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
+	rng, err := uuid.Parse(r.Key)
+	if err != nil {
+		return "", errors.Wrapf(err, "run key %q is not a UUID", r.Key)
+	}
+	key := xuuid.NewV5(rng, e.cfg.Asset).String()
 	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
 	if err != nil {
 		return "", err
 	}
 	for {
-		id, err := e.setRun(ctx, r)
+		id, err := e.setRun(ctx, r, key)
 		if err == nil {
 			return id, nil
 		}
@@ -66,10 +75,10 @@ func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 	}
 }
 
-func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
+func (e *Engine) setRun(ctx context.Context, r Run, key string) (string, error) {
 	res, err := e.runs.ListRuns(ctx, &runsv2.ListRunsRequest{
 		PageSize: 1,
-		Filter:   fmt.Sprintf("client_key == %q", r.Key),
+		Filter:   fmt.Sprintf("client_key == %q", key),
 	})
 	if err != nil {
 		return "", err
@@ -87,7 +96,7 @@ func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 			) {
 			return existing.RunId, nil
 		}
-		_, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+		if _, err = e.runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
 			Run: &runsv2.Run{
 				RunId:     existing.RunId,
 				Name:      r.Name,
@@ -98,8 +107,10 @@ func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 			UpdateMask: &fieldmaskpb.FieldMask{
 				Paths: []string{"name", "start_time", "stop_time", "tags"},
 			},
-		})
-		return existing.RunId, err
+		}); err != nil {
+			return "", err
+		}
+		return existing.RunId, nil
 	}
 	assetID, err := e.asset(ctx)
 	if err != nil {
@@ -111,7 +122,7 @@ func (e *Engine) setRun(ctx context.Context, r Run) (string, error) {
 		StopTime:  stop,
 		AssetIds:  []string{assetID},
 		Tags:      r.Tags,
-		ClientKey: &r.Key,
+		ClientKey: &key,
 	})
 	if err != nil {
 		return "", err
