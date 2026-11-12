@@ -31,7 +31,8 @@ func fieldPath(rec, fld int, rest ...string) []string {
 }
 
 // validateReadConfig checks the rules of c that need no channel: each field's labels
-// are unique, and the data type of a new channel matches the field's kind.
+// are unique, and the data type of a new channel matches the field's kind and holds
+// each entry and the fill.
 func validateReadConfig(c *ReadConfig) error {
 	if err := c.Validate(); err != nil {
 		return err
@@ -54,6 +55,19 @@ func validateReadConfig(c *ReadConfig) error {
 						validate.ErrValidation,
 						"%s is not a data type of kind %s", *dt, fld.Type(),
 					), fieldPath(i, j, "data_type")...)
+				}
+				for k, e := range opts.entries {
+					if _, err := convert(e.value, *dt); err != nil {
+						return validate.PathedError(
+							err,
+							fieldPath(i, j, "enum_values", strconv.Itoa(k), "value")...,
+						)
+					}
+				}
+				if opts.fill != nil {
+					if _, err := convert(opts.fill, *dt); err != nil {
+						return validate.PathedError(err, fieldPath(i, j, "fill")...)
+					}
 				}
 			}
 		}
