@@ -119,6 +119,36 @@ describe("Sift.Range.useUploadModal", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("should start again at the last asset of a new device", async () => {
+    const { rack, scan } = await createScanTask();
+    const first = await createSiftDevice(client, { rack: rack.key });
+    const second = await createSiftDevice(client, { rack: rack.key });
+    const rng = await createRange();
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ rangeKey: rng.key, rangeName: rng.name }],
+      { client },
+    );
+    const { answered: listedFirst } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["stand"], last: "stand" },
+    });
+    await selectDevice(first.name);
+    await listedFirst;
+    expect(await screen.findByText("stand")).toBeTruthy();
+    const { answered: listedSecond } = await answerNextCommand(client, scan, {
+      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      data: { assets: ["pad"], last: "" },
+    });
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
+      target: { value: second.name },
+    });
+    fireEvent.click(await screen.findByText(second.name));
+    await listedSecond;
+    await waitFor(() => expect(screen.queryByText("stand")).toBeNull());
+  });
+
   it("should name a new asset only through New asset", async () => {
     const { rack, scan } = await createScanTask();
     const dev = await createSiftDevice(client, { rack: rack.key });
