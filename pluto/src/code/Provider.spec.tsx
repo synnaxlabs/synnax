@@ -18,7 +18,20 @@ const { initialize } = vi.hoisted(() => ({ initialize: vi.fn() }));
 
 // The real runtime does not load in jsdom, so each module the bootstrap imports is a
 // stub, and initialize records the start.
-vi.mock("@codingame/monaco-vscode-api", () => ({ initialize }));
+vi.mock("@codingame/monaco-vscode-api", () => ({
+  initialize,
+  ILogService: "logService",
+}));
+vi.mock("@codingame/monaco-vscode-api/vscode/vs/platform/log/common/log", () => ({
+  ConsoleLogger: class {},
+  LogLevel: {},
+}));
+vi.mock(
+  "@codingame/monaco-vscode-api/vscode/vs/platform/log/common/logService",
+  () => ({
+    LogService: class {},
+  }),
+);
 vi.mock("@codingame/monaco-vscode-api/extensions", () => ({
   ExtensionHostKind: { LocalProcess: 1 },
   registerExtension: () => ({ registerFileUrl: () => {} }),

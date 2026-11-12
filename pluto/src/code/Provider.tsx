@@ -77,13 +77,17 @@ const doInitialize = async (languages: Language[]): Promise<Monaco> => {
   // permanently unavailable (the LSP client and token theming both depend on it).
   const [
     ,
-    { initialize },
+    { initialize, ILogService },
+    { ConsoleLogger, LogLevel },
+    { LogService },
     { default: getTextMateServiceOverride },
     { default: getThemeServiceOverride },
     { default: getLanguagesServiceOverride },
   ] = await Promise.all([
     import("@codingame/monaco-vscode-theme-defaults-default-extension"),
     import("@codingame/monaco-vscode-api"),
+    import("@codingame/monaco-vscode-api/vscode/vs/platform/log/common/log"),
+    import("@codingame/monaco-vscode-api/vscode/vs/platform/log/common/logService"),
     import("@codingame/monaco-vscode-textmate-service-override"),
     import("@codingame/monaco-vscode-theme-service-override"),
     import("@codingame/monaco-vscode-languages-service-override"),
@@ -93,6 +97,8 @@ const doInitialize = async (languages: Language[]): Promise<Monaco> => {
     ...getTextMateServiceOverride(),
     ...getThemeServiceOverride(),
     ...getLanguagesServiceOverride(),
+    // Monaco warns on each slow startup step, so log only its errors.
+    [ILogService.toString()]: new LogService(new ConsoleLogger(LogLevel.Error)),
   });
   const monaco = await import("@codingame/monaco-vscode-editor-api");
   for (const language of languages) await registerLanguage(language);
