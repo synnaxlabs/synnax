@@ -268,11 +268,29 @@ class TestSkip:
     def test_should_keep_a_filter_that_a_remaining_job_reads_outside_its_condition(
         self,
     ) -> None:
-        filters = {**CORE_CHANGE, "driver": "true"}
+        filters = {**NONE, "driver": "true", "core_image": "true"}
         jobs = {**PASSED, "driver / Test (ubuntu-build-bot)": "skipped"}
-        got, ci = skipped(filters, [], jobs)
+        got, ci = skipped(filters, ["client-py"], jobs)
         assert got == {**NONE, "driver": "true"}
-        assert ci == ["core", "core-image", "driver", "integration"]
+        assert ci == ["core-image", "driver"]
+
+    def test_should_run_a_job_that_reads_a_kept_filter(self) -> None:
+        filters = {"driver": "true", "core_image": "true"}
+        jobs = {
+            **JOBS,
+            "driver-tsan": {"if": "needs.changes.outputs.driver == 'true'"},
+        }
+        found = {
+            "driver / Test": "skipped",
+            "driver-tsan / Test": "success",
+            "core-image / Build - Docker": "success",
+        }
+        assert skip(filters, [], jobs=jobs, conclusions=found) == (filters, [])
+
+    def test_should_not_let_an_ungated_job_keep_the_jobs_it_needs(self) -> None:
+        got, ci = skipped(CORE_CHANGE, sorted(JOBS))
+        assert got == NONE
+        assert ci == ["core", "docs", "integration"]
 
     def test_should_change_nothing_when_no_job_passed(self) -> None:
         filters = {**NONE, "docs": "true"}

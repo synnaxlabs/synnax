@@ -118,6 +118,11 @@ def _filters(value: Any) -> set[str]:
     return set(FILTER_REF.findall(str(value)))
 
 
+def _needs(block: dict[str, Any]) -> set[str]:
+    needs = block.get("needs", [])
+    return {needs} if isinstance(needs, str) else set(needs)
+
+
 def skip(
     filters: dict[str, str],
     ci: list[str],
@@ -125,39 +130,43 @@ def skip(
     jobs: dict[str, Any],
     conclusions: dict[str, str],
 ) -> tuple[dict[str, str], list[str]]:
-    """Returns the filters and the ci list with the jobs that passed left out. A job
-    that a remaining job needs runs too. A filter that a remaining job reads outside
-    its condition keeps its value."""
+    """Returns the filters and the ci list with the jobs that passed left out. Only a
+    job whose condition reads the change outputs can skip. A job that a remaining job
+    needs runs too. A filter that a remaining job reads outside its condition keeps
+    its value, and so does each job that reads it."""
     selected = {
         j
         for j, block in jobs.items()
-        if j in ci or any(filters.get(f) == "true" for f in _filters(block.get("if")))
+        if (reads := _filters(block.get("if")))
+        and (j in ci or any(filters.get(f) == "true" for f in reads))
     }
-    proven = {
+    remaining = {
         j
         for j in selected
-        if not EVENT_REF.search(str(jobs[j]))
-        and passed(jobs[j].get("name", j), conclusions)
+        if EVENT_REF.search(str(jobs[j]))
+        or not passed(jobs[j].get("name", j), conclusions)
     }
-    if not proven:
+    while True:
+        pinned = {
+            f
+            for j in remaining
+            for f in _filters({k: v for k, v in jobs[j].items() if k != "if"})
+            if filters.get(f) == "true"
+        }
+        more = {
+            j
+            for j in selected - remaining
+            if _filters(jobs[j].get("if")) & pinned
+            or any(j in _needs(jobs[r]) for r in remaining)
+        }
+        if not more:
+            break
+        remaining |= more
+    if remaining == selected:
         return filters, ci
-    pending = list(selected - proven)
-    while pending:
-        needs = jobs[pending.pop()].get("needs", [])
-        for j in {needs} if isinstance(needs, str) else set(needs):
-            if j in proven:
-                proven.remove(j)
-                pending.append(j)
-    remaining = selected - proven
-    pinned = set().union(
-        *(_filters({k: v for k, v in jobs[j].items() if k != "if"}) for j in remaining)
-    )
-    print(f"Skipped: {' '.join(sorted(proven))}", file=sys.stderr)
+    print(f"Skipped: {' '.join(sorted(selected - remaining))}", file=sys.stderr)
     print(f"Still run: {' '.join(sorted(remaining))}", file=sys.stderr)
-    return (
-        {f: str(v == "true" and f in pinned).lower() for f, v in filters.items()},
-        sorted(remaining),
-    )
+    return {f: str(f in pinned).lower() for f in filters}, sorted(remaining)
 
 
 def main(request: Request | None = None) -> None:
