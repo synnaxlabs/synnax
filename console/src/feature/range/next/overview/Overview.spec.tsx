@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Overview } from "@/feature/range/next/overview/Overview";
@@ -101,7 +101,40 @@ const createDocument = async (rng: ranger.Range): Promise<schematic.Schematic> =
   });
 };
 
+/** Creates a range under the parent that starts at the start and runs one second. */
+const createChildAt = async (
+  parent: ranger.Range,
+  start: TimeStamp,
+): Promise<ranger.Range> =>
+  await client.ranges.create({
+    name: uniqueRangeName("child"),
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
+    parent: parent.key,
+  });
+
 describe("range/next/overview", () => {
+  describe("child ranges", () => {
+    it("should list the children of an open child newest first in the tree", async () => {
+      const end = TimeStamp.now();
+      const parent = await client.ranges.create({
+        name: uniqueRangeName("campaign"),
+        timeRange: new TimeRange(end.sub(TimeSpan.days(2)), end),
+      });
+      const child = await createChildAt(parent, end.sub(TimeSpan.hours(2)));
+      const older = await createChildAt(child, end.sub(TimeSpan.hours(2)));
+      const newer = await createChildAt(child, end.sub(TimeSpan.hours(1)));
+      // A fresh client reads that the parent has children.
+      await renderOverview(parent.key, createTestClient());
+      const item = await screen.findByRole("listitem", { name: child.name });
+      fireEvent.click(await within(item).findByRole("button", { name: "Expand" }));
+      await screen.findByRole("listitem", { name: older.name });
+      const names = screen
+        .getAllByRole("listitem")
+        .map((el) => el.getAttribute("aria-label"));
+      expect(names).toEqual([child.name, newer.name, older.name]);
+    });
+  });
+
   describe("metadata", () => {
     it("should add a pair from the add line of the empty section", async () => {
       const rng = await createTestRange(client);

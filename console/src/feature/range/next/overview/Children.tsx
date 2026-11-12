@@ -50,14 +50,15 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
   const openedAt = useNow(() => null);
   const [chosenLayout, setLayout] = useState<view.RangeLayout | null>(null);
   const layout = chosenLayout ?? defaultLayout(range, openedAt);
+  const order = childOrder(layout);
   const list = Flux.useList((client) => client.ranges, {
     name: "ranges",
-    query: childrenQuery(range.key, childOrder(layout)),
+    query: childrenQuery(range.key, order),
     pageSize: 100,
   });
   const [expanded, toggle] = useExpanded();
   const [selected, setSelected] = useState<ranger.Key[]>([]);
-  const tree = useTree({ roots: list.data, expanded });
+  const tree = useTree({ roots: list.data, expanded, order });
   return (
     <Section
       title="Child ranges"
