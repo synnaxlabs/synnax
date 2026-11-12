@@ -442,6 +442,8 @@ export class Client extends query.Retriever<
       compose: (records) => records,
       matches: (pair, query) => pair.range === query,
     });
+    // Only the newest fetch of a range writes, so a late answer cannot replace it.
+    const newest = new Map<Key, object>();
     this.resolvedAliases = cache.queries<
       Key,
       Record<channel.Key, string>,
@@ -451,7 +453,13 @@ export class Client extends query.Retriever<
       name: "range aliases",
       table: resolvedAliases,
       fetch: async (range) => {
-        resolvedAliases.set(range, { range, aliases: await this.listAliases(range) });
+        const token = {};
+        newest.set(range, token);
+        const aliases = await this.listAliases(range);
+        if (newest.get(range) === token) {
+          newest.delete(range);
+          resolvedAliases.set(range, { range, aliases });
+        }
         return [range];
       },
       compose: ([resolved]) => resolved.aliases,

@@ -12,6 +12,7 @@ import {
   DataType,
   id,
   math,
+  sleep,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -26,6 +27,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdFirstResponse,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -1255,6 +1257,30 @@ describe("cached reads", () => {
         await expect
           .poll(() => client.ranges.resolvedAliases.watch(child.key).getCached())
           .toEqual({ [ch.key]: "far" });
+      } finally {
+        off();
+      }
+    });
+
+    it("should keep the newer aliases when an older read lands late", async () => {
+      const ch = await createChannel();
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const watched = local.ranges.resolvedAliases.watch(rng.key);
+      const off = watched.onChange(vi.fn());
+      try {
+        expect(await local.ranges.resolvedAliases.retrieve(rng.key)).toEqual({});
+        const { responded, release } = holdFirstResponse(local, "/range/alias/list");
+        await rng.setAlias(ch.key, "old");
+        await responded;
+        await rng.setAlias(ch.key, "new");
+        await expect.poll(() => watched.getCached()).toEqual({ [ch.key]: "new" });
+        release();
+        // A timer runs only after the late answer's microtasks.
+        await sleep.sleep(TimeSpan.ZERO);
+        expect(watched.getCached()).toEqual({ [ch.key]: "new" });
       } finally {
         off();
       }
