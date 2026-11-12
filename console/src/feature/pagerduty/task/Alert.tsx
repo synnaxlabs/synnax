@@ -39,30 +39,33 @@ import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Secret } from "@/platform/secret";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<AlertSchemas>>();
 
-const Properties = () => (
-  <Flex.Box x grow>
-    <PForm.TextField
-      inputProps={ROUTING_KEY_INPUT_PROPS}
-      path={path.config.routingKey}
+const RoutingKeyField = () => {
+  const name = PForm.useFieldValue(path.name);
+  return (
+    <Secret.Field
+      path={deep.present(path.config.routingKey)}
       label="Routing key"
+      defaultName={`${name} routing key`}
       grow
       className={CSS.B("pagerduty-routing-key")}
     />
+  );
+};
+
+const Properties = () => (
+  <Flex.Box x grow>
+    <RoutingKeyField />
     <PForm.Field path={path.rack} label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
   </Flex.Box>
 );
-
-const ROUTING_KEY_INPUT_PROPS = {
-  type: "password",
-  placeholder: "R022XIJR9M266DX570EVE6EXP1AFBN6D",
-};
 
 const selectRackRenderProp = Component.renderProp(
   (p: Omit<Rack.SelectSingleProps, "variant">) => (

@@ -68,10 +68,8 @@ func (s *Service) Resolve(
 		return nil, err
 	}
 	readable := set.New(g.Secrets...)
-	values := make(map[Key][]byte, len(secrets))
 	for _, sec := range secrets {
-		base := sec.Base()
-		if !readable.Contains(base.Key) {
+		if base := sec.Base(); !readable.Contains(base.Key) {
 			return nil, errors.Wrapf(
 				access.ErrDenied,
 				"%s cannot read secret %q",
@@ -79,6 +77,32 @@ func (s *Service) Resolve(
 				base.Name,
 			)
 		}
+	}
+	return s.open(secrets)
+}
+
+// Reveal returns the plain text value of each stored secret with the given keys, with
+// no access check. It is for Core code that connects with a secret itself, which must
+// never send the values to a client. Reveal returns query.ErrNotFound when a secret
+// does not exist, and a validation error for a file secret.
+func (s *Service) Reveal(ctx context.Context, snap gorp.Snapshot, keys ...Key) (
+	map[Key][]byte,
+	error,
+) {
+	var secrets []Secret
+	if err := s.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&secrets).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	return s.open(secrets)
+}
+
+func (s *Service) open(secrets []Secret) (map[Key][]byte, error) {
+	values := make(map[Key][]byte, len(secrets))
+	for _, sec := range secrets {
+		base := sec.Base()
 		stored, ok := sec.Variant.(StoredSecret)
 		if !ok {
 			return nil, errors.Wrapf(
@@ -87,14 +111,11 @@ func (s *Service) Resolve(
 				base.Name,
 			)
 		}
-		if values[base.Key], err = s.aead.Open(
-			nil,
-			nil,
-			stored.Value,
-			base.Key[:],
-		); err != nil {
+		value, err := s.aead.Open(nil, nil, stored.Value, base.Key[:])
+		if err != nil {
 			return nil, errors.Wrapf(err, "decrypt secret %q", base.Name)
 		}
+		values[base.Key] = value
 	}
 	return values, nil
 }
