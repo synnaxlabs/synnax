@@ -38,21 +38,21 @@ const (
 	WriterCommandWrite WriterCommand = iota + 1
 	// WriterCommandCommit represents a call to Writer.Commit.
 	WriterCommandCommit
-	// WriterCommandSetAuthority represents a call to Writer.SetAuthority.
-	WriterCommandSetAuthority
-	// WriterCommandEndDomain represents a call to Writer.EndDomain.
-	WriterCommandEndDomain
+	// writerCommandSetAuthority represents a call to Writer.SetAuthority.
+	writerCommandSetAuthority
+	// writerCommandEndDomain represents a call to Writer.EndDomain.
+	writerCommandEndDomain
 )
 
 var validateWriterCommand = validate.NewInclusiveBoundsChecker(
 	WriterCommandWrite,
-	WriterCommandEndDomain,
+	writerCommandEndDomain,
 )
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterCommandSetAuthority, and its
-	// Channels name the indexes in WriterCommandEndDomain. Once the request has been
+	// Config is used for updating the parameters in writerCommandSetAuthority, and its
+	// Channels name the indexes in writerCommandEndDomain. Once the request has been
 	// sent, ownership of Config (including the underlying arrays of Config.Channels and
 	// Config.Authorities) transfers to the streamWriter, which may mutate them in
 	// place; callers must not retain or share those slices.
@@ -80,7 +80,7 @@ type WriterResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
 	// Authorized flags whether the operation was authorized. It is only valid during
-	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain. A
+	// calls to WriterCommandWrite, WriterCommandCommit, and writerCommandEndDomain. A
 	// commit is not authorized if the writer lacks control, or if a write since the
 	// last commit was refused for no control.
 	Authorized bool
@@ -180,9 +180,9 @@ func (w *streamWriter) process(
 	switch req.Command {
 	case WriterCommandCommit:
 		return w.commit(ctx)
-	case WriterCommandSetAuthority:
+	case writerCommandSetAuthority:
 		err = w.setAuthority(ctx, req.Config)
-	case WriterCommandEndDomain:
+	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
 	default:
 		err = w.write(ctx, req)

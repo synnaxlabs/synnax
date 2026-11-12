@@ -15,7 +15,8 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from x.params import RequiresNamedParams, deprecate_positional, require_named_params
+from x.exceptions import Error
+from x.params import deprecate_positional, require_named_params
 from x.telem import Density, MultiSeries, Rate, Series, Size, TimeRange, TimeSpan
 from x.telem.telem import convert_time_units
 from x.timing import Loop, poll, sleep
@@ -34,15 +35,16 @@ class TestRequireNamedParams:
         def greet() -> str:
             return "hello"
 
-        with pytest.raises(RequiresNamedParams, match="only accepts named"):
+        with pytest.raises(TypeError, match="only accepts named") as exc:
             greet("a", "b")  # type: ignore[call-arg]
+        assert isinstance(exc.value, Error)
 
     def test_with_example_params(self) -> None:
         @require_named_params(example_params=("user_id", "12345"))
         def lookup() -> str:
             return ""
 
-        with pytest.raises(RequiresNamedParams, match="user_id='12345'"):
+        with pytest.raises(TypeError, match="user_id='12345'"):
             lookup("a", "b")  # type: ignore[call-arg]
 
     def test_non_positional_type_error_propagates(self) -> None:

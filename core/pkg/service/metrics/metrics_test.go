@@ -231,6 +231,20 @@ var _ = Describe("Metrics", func() {
 			},
 		)
 
+		It(
+			"Should create its index channels in the Metrics group",
+			func(ctx SpecContext) {
+				DeferCleanup(open(ctx).Close)
+				metricsGroup := MustSucceed(
+					groupSvc.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel),
+				)
+				names := getNames(dist.Identity.HostKey)
+				for _, name := range []string{names[0], names[3] + "_time"} {
+					Expect(retrieve(ctx, name).Group).To(Equal(&metricsGroup.Key), name)
+				}
+			},
+		)
+
 		It("Should keep a channel in the group it was moved to", func(ctx SpecContext) {
 			names := getNames(dist.Identity.HostKey)
 			svc := open(ctx)
