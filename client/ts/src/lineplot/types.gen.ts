@@ -13,8 +13,10 @@ import { color, filter, spatial, text, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { project } from "@/project";
 import { ranger } from "@/ranger";
+import { resource } from "@/resource";
 
 export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
 export const axisKeyZ = z.enum(AXIS_KEYS);
@@ -35,6 +37,10 @@ export type Aggregation = z.infer<typeof aggregationZ>;
 export const DETAILS = ["low", "medium", "high"] as const;
 export const detailZ = z.enum(DETAILS);
 export type Detail = z.infer<typeof detailZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 export const X_AXIS_KEYS = ["x1", "x2"] as const;
 export const xAxisKeyZ = z.enum(X_AXIS_KEYS);
@@ -161,6 +167,15 @@ export const ruleZ = z.object({
 });
 export interface Rule extends z.infer<typeof ruleZ> {}
 
+/** Order is a sort of line plots. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -198,6 +213,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
+  projects?: project.Key[];
+  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -214,7 +233,27 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the line plots in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the line plots in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
+  /** projects matches the line plots owned by any of the given projects. */
+  projects: zod.nullToUndefined(project.keyZ.array()),
+  /** ranges matches the line plots owned by any of the given ranges. */
+  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of line plots: the sort value and the key of a line
+ * plot.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the line plot at the position. */
+  key: keyZ,
+  /** name is the name of the line plot at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /** Axes bundles configuration for all six fixed plot axes. */
 export const axesZ = z.object({
@@ -239,10 +278,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the line plots that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the line plots. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the line plots strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most line plots to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching line plots to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -275,6 +316,18 @@ export const linePlotZ = z.object({
   lines: lineZ.array().default(() => []),
   /** rules holds annotation rules drawn over the plot. */
   rules: ruleZ.array().default(() => []),
+  /** group is the group the line plot sits in, if any. */
+  group: group.keyZ.optional(),
+  /**
+   * project is the project that owns the line plot, if any. Exactly one of project and
+   * range is set.
+   */
+  project: project.keyZ.optional(),
+  /**
+   * range is the range that owns the line plot, if any. Exactly one of project and
+   * range is set.
+   */
+  range: ranger.keyZ.optional(),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
 export interface New extends z.input<typeof linePlotZ> {}
@@ -286,5 +339,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("lineplot");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("lineplot");
+export const TYPE_RESOURCE_ID = resourceID("");

@@ -11,10 +11,10 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
@@ -29,6 +29,30 @@
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
+
+inline std::pair<::api::ranger::pb::OrderField, x::errors::Error>
+order_field_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::api::ranger::pb::OrderField> kMap = {
+        {ORDER_FIELD_NAME, ::api::ranger::pb::ORDER_FIELD_NAME},
+        {ORDER_FIELD_TIME_RANGE_START, ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_START},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OrderField value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+order_field_from_pb(::api::ranger::pb::OrderField pb) {
+    switch (pb) {
+        case ::api::ranger::pb::ORDER_FIELD_NAME:
+            return {ORDER_FIELD_NAME, x::errors::NIL};
+        case ::api::ranger::pb::ORDER_FIELD_TIME_RANGE_START:
+            return {ORDER_FIELD_TIME_RANGE_START, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized OrderField protobuf value")};
+    }
+}
 
 inline std::pair<::service::ranger::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
@@ -82,19 +106,10 @@ Range::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
-    if (this->labels.has_value()) {
-        auto *wrapper = pb.mutable_labels();
-        for (const auto &item: *this->labels) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->labels) {
+        pb.add_labels(item.to_string());
     }
-    if (this->parent.has_value()) {
-        auto [v, err] = this->parent->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_parent() = v;
-    }
+    if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
     return {pb, x::errors::NIL};
 }
 
@@ -117,16 +132,13 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (pb.has_labels()) {
-        cpp.labels.emplace();
-        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-                *cpp.labels,
-                pb.labels().values()
-            ))
-            return {{}, err};
+    for (const auto &item: pb.labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.labels.push_back(v);
     }
-    if (pb.has_parent()) {
-        auto [v, err] = Range::from_proto(pb.parent());
+    if (!pb.parent().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.parent());
         if (err) return {{}, err};
         cpp.parent = v;
     }
@@ -178,6 +190,12 @@ Where::to_proto() const {
             wrapper->add_values(item.to_string());
         }
     }
+    if (this->parents.has_value()) {
+        auto *wrapper = pb.mutable_parents();
+        for (const auto &item: *this->parents) {
+            wrapper->add_values(item.to_string());
+        }
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -222,6 +240,60 @@ Where::from_proto(const ::service::ranger::pb::Where &pb) {
             cpp.labels->push_back(v);
         }
     }
+    if (pb.has_parents()) {
+        cpp.parents.emplace();
+        for (const auto &item: pb.parents().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.parents->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::ranger::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
+    ::api::ranger::pb::Cursor pb;
+    pb.set_key(this->key.to_string());
+    if (this->name.has_value()) pb.set_name(*this->name);
+    if (this->time_range_start.has_value())
+        pb.set_time_range_start(this->time_range_start->to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Cursor, x::errors::Error>
+Cursor::from_proto(const ::api::ranger::pb::Cursor &pb) {
+    Cursor cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) cpp.name = pb.name();
+    if (pb.has_time_range_start())
+        cpp.time_range_start = ::x::telem::TimeStamp::from_proto(pb.time_range_start());
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::ranger::pb::Order, x::errors::Error> Order::to_proto() const {
+    ::api::ranger::pb::Order pb;
+    {
+        auto [v, err] = order_field_to_pb(this->field);
+        if (err) return {{}, err};
+        pb.set_field(v);
+    }
+    pb.set_descending(this->descending);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Order, x::errors::Error>
+Order::from_proto(const ::api::ranger::pb::Order &pb) {
+    Order cpp;
+    {
+        auto [v, err] = order_field_from_pb(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.descending = pb.descending();
     return {cpp, x::errors::NIL};
 }
 
@@ -234,10 +306,17 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_where() = v;
     }
     pb.set_search_term(this->search_term);
+    if (this->order.has_value()) {
+        auto [v, err] = this->order->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_order() = v;
+    }
+    if (this->after.has_value()) {
+        auto [v, err] = this->after->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_after() = v;
+    }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    pb.set_offset(this->offset);
-    pb.set_include_labels(this->include_labels);
-    pb.set_include_parent(this->include_parent);
     return {pb, x::errors::NIL};
 }
 
@@ -250,10 +329,17 @@ RetrieveRequest::from_proto(const ::api::ranger::pb::RetrieveRequest &pb) {
         cpp.where = v;
     }
     cpp.search_term = pb.search_term();
+    if (pb.has_order()) {
+        auto [v, err] = Order::from_proto(pb.order());
+        if (err) return {{}, err};
+        cpp.order = v;
+    }
+    if (pb.has_after()) {
+        auto [v, err] = Cursor::from_proto(pb.after());
+        if (err) return {{}, err};
+        cpp.after = v;
+    }
     if (pb.has_limit()) cpp.limit = pb.limit();
-    cpp.offset = pb.offset();
-    cpp.include_labels = pb.include_labels();
-    cpp.include_parent = pb.include_parent();
     return {cpp, x::errors::NIL};
 }
 

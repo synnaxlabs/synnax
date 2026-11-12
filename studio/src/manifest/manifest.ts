@@ -12,8 +12,9 @@ import { z } from "zod";
 /**
  * The manifest maps docs media ids to the scripts that produce them. For a video, the
  * id is the same string the docs site passes to its Video component: the CDN serves
- * `docs/<id>-light.mp4` and `docs/<id>-dark.mp4`. For stills, the CDN serves
- * `docs/<id>/<version>/<name>-<theme>.webp` for each still the script saves.
+ * `docs/<id>/<version>-light.mp4` and `docs/<id>/<version>-dark.mp4`. For stills, the
+ * CDN serves `docs/<id>/<version>/<name>-<theme>.webp` for each still the script saves.
+ * A version hashes the files, so an upload never replaces a file a docs site serves.
  */
 
 export const entryZ = z.object({
@@ -96,8 +97,11 @@ export const stillsDir = (id: string): string => `stills/${id}`;
 export const stillKey = (id: string, file: string): string => `docs/${id}/${file}`;
 
 /**
- * cdnKey returns the object key the docs CDN serves the video under. An
- * unthemed entry takes the bare key, which is the one its page requests.
+ * videoKey returns the object key the docs CDN serves a version of a video under. An
+ * unthemed entry takes the key without a theme, which is the one its page requests.
  */
-export const cdnKey = (id: string, theme: "light" | "dark" | null): string =>
-  theme == null ? `docs/${id}.mp4` : `docs/${id}-${theme}.mp4`;
+export const videoKey = (
+  id: string,
+  version: string,
+  theme: "light" | "dark" | null,
+): string => `docs/${id}/${version}${theme == null ? "" : `-${theme}`}.mp4`;

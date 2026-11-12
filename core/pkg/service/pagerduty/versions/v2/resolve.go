@@ -23,34 +23,32 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// CreateSecret creates a stored secret with the given name and value through tx, and
-// returns its key.
+// CreateSecret creates a stored secret with the given key, name, and value through tx.
 type CreateSecret func(
 	ctx context.Context,
 	tx gorp.Tx,
+	key secret.Key,
 	name string,
 	value []byte,
-) (secret.Key, error)
+) error
 
-// ResolveTaskConfig moves the plain routing key of cfg into a new secret named
-// "<name> routing key", created through tx, and points RoutingKey at it. name is the
-// name of the task that owns cfg. A config without a plain routing key is unchanged.
+// ResolveTaskConfig points RoutingKey at a new secret that holds the plain routing key
+// of cfg, and clears the plain key. It returns the write that creates the secret,
+// named "<name> routing key", where name is the name of the task that owns cfg. It
+// returns nil for a config without a plain routing key.
 func ResolveTaskConfig(
-	ctx context.Context,
-	tx gorp.Tx,
 	create CreateSecret,
 	name string,
 	cfg *TaskConfig,
-) error {
+) func(context.Context, gorp.Tx) error {
 	if cfg.PlainRoutingKey == nil {
 		return nil
 	}
-	key, err := create(ctx, tx, name+" routing key", []byte(*cfg.PlainRoutingKey))
-	if err != nil {
-		return err
-	}
+	key, value := uuid.New(), []byte(*cfg.PlainRoutingKey)
 	cfg.RoutingKey, cfg.PlainRoutingKey = &key, nil
-	return nil
+	return func(ctx context.Context, tx gorp.Tx) error {
+		return create(ctx, tx, key, name+" routing key", value)
+	}
 }
 
 // NewMigration returns the migration that lifts stored v1 configs to v2 and moves each
@@ -86,14 +84,14 @@ func NewMigration(create CreateSecret) gorp.Migration {
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
-				if err = ResolveTaskConfig(
-					ctx,
-					tx,
+				if write := ResolveTaskConfig(
 					create,
 					names[old.Key],
 					&cfg,
-				); err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
+				); write != nil {
+					if err = write(ctx, tx); err != nil {
+						return errors.Wrapf(err, "config %s", old.Key)
+					}
 				}
 				news[i] = cfg
 			}

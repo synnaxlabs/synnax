@@ -14,6 +14,7 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
@@ -43,6 +45,12 @@ func (p *PDOAddress) ApplyDefaults() {
 	if p.DataType == "" {
 		p.DataType = "uint16"
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PDOAddress) SetDefaults() {
+	p.BitLength = 16
+	p.DataType = "uint16"
 }
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
@@ -91,6 +99,11 @@ type ManualReadChannel struct {
 }
 
 func (ManualReadChannel) isReadChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualReadChannel) SetDefaults() {
+	m.PDOAddress.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualReadChannel) ApplyDefaults() {
@@ -157,6 +170,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			ManualReadChannel
 		}
+		v.ManualReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -270,6 +284,11 @@ type ManualWriteChannel struct {
 
 func (ManualWriteChannel) isWriteChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualWriteChannel) SetDefaults() {
+	m.PDOAddress.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualWriteChannel) ApplyDefaults() {
 	m.PDOAddress.ApplyDefaults()
@@ -335,6 +354,7 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteChannelType `json:"type"`
 			ManualWriteChannel
 		}
+		v.ManualWriteChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -411,6 +431,38 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
+	return v.Error()
+}
+
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
@@ -436,6 +488,31 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 25
+	w.ExecutionRate = 1000
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig struct {
 	task.ScanConfig
@@ -444,4 +521,36 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

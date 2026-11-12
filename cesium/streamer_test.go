@@ -372,7 +372,7 @@ var _ = Describe("Streamer Behavior", func() {
 							[]cesium.ChannelKey{idx},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						)))
-						MustSucceed(idxW.Commit())
+						MustCommit(idxW)
 						Expect(idxW.Close()).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{data},

@@ -24,8 +24,8 @@ Many fixes end with a Driver restart. How you restart it depends on where it run
 
 - **Synnax Desktop** -> run the "Restart Synnax" command.
 - **The embedded Driver of a Core** -> restart the Core.
-- **A standalone Driver** -> run `sudo synnax-driver restart` on Linux, or see
-  [install the Driver](/reference/enterprise/driver/install).
+- **The Driver service** -> run `synnax-driver restart` with admin rights. See the
+  [CLI reference](/reference/enterprise/driver/cli-reference).
 
 <Divider.Divider x />
 
@@ -55,6 +55,29 @@ the Core. See [install the Driver](/reference/enterprise/driver/install).
 
 </Problem.Fix>
 </Problem.Body>
+
+### `Driver ... cannot work with Core ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver and the Core run different minor versions, such as Driver 0.60.2 and Core
+0.61.0. The Driver shows this error in the devices toolbar and starts no tasks. When you
+start a task, it shows "Failed to configure task", with this text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install the Driver release that matches the version of the Core. See
+   [install the Driver](/reference/enterprise/driver/install).
+2. [Restart the Driver](#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
 
 ### `No response to the start command`
 
@@ -157,7 +180,8 @@ Update the Driver to the version of the Core, then start the task again.
 <Problem.Cause>
 
 The Driver skips the device, cannot use it, or does not look for it. A task with no
-device to select shows "No devices connected" in its device list.
+device to select shows a message such as "No NI devices connected", with **Connect NI
+hardware** under it. Click it to connect the device and select it.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -280,6 +304,22 @@ The task keeps its old configuration until you redeploy it.
 
 Redeploy the task. See
 [apply edits to a running task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Config changed`
+
+<Problem.Body>
+<Problem.Cause>
+
+Another user changed the task after you last saw it, so the Driver refused your start.
+If the task was running, it keeps running with its old configuration.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Review the task in the task tab, then start it again.
 
 </Problem.Fix>
 </Problem.Body>

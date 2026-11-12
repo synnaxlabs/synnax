@@ -11,15 +11,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import ontology
-from synnax.ontology.payload import ID
+from synnax import resource
+from synnax.resource import ID
 from x import filter, telem
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 SOURCE_STORED: Literal["stored"] = "stored"
 
@@ -31,13 +35,25 @@ Source = Literal["stored", "file"]
 Key: TypeAlias = UUID
 
 
+class Order(BaseModel):
+    """Is a sort of secrets.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Base(BaseModel):
     """Carries the fields shared by every secret.
 
     Attributes:
         key: Is the unique identifier for this secret.
         name: Is a human-readable name for the secret.
-        updated: Is when the value or path of the secret last changed.
+        updated: Is when the value or file name of the secret last changed.
         uses: Are the resources that use the secret and that the caller can read, filled
             only when a retrieve request asks for them.
     """
@@ -45,7 +61,7 @@ class Base(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     updated: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
-    uses: list[ontology.ID] | None = None
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -60,6 +76,7 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        name: Selects by name.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -68,6 +85,7 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    name: filter.String | None = None
 
 
 # WhereInput is a Where written as a partial record.
@@ -79,9 +97,22 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "name": filter.StringInput,
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of secrets: the sort value and the key of a secret.
+
+    Attributes:
+        key: Is the key of the secret at the position.
+        name: Is the name of the secret at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class StoredSecret(Base):
@@ -91,10 +122,12 @@ class StoredSecret(Base):
 
 
 class FileSecret(Base):
-    """Is a secret whose value is a file on the computer that uses it."""
+    """Is a secret whose value is a file in the secrets folder that an admin sets on the
+    rack that uses it.
+    """
 
     source: Literal["file"] = "file"
-    path: str
+    file_name: str
 
 
 # Is a hidden value that a device or task uses to connect, such as a password, a
@@ -111,8 +144,9 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the secrets to retrieve. An absent where selects all of them.
         search_term: Keeps the secrets that match the term, closest match first.
+        order: Sorts the secrets. An absent order sorts them by key.
+        after: Starts the secrets strictly past this position in their order.
         limit: Is the most secrets to return.
-        offset: Is the number of matching secrets to skip.
         include_uses: Includes the uses of each record.
     """
 
@@ -120,8 +154,9 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_uses: bool = False
 
 
@@ -138,8 +173,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="secret")
+TYPE_RESOURCE_ID = ID(type="secret")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="secret", key=str(key))

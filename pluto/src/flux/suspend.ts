@@ -66,7 +66,7 @@ const SETTLED_CAP = 256;
  * unbounded map leaks across a long session's distinct queries. An evicted entry
  * costs a refetch on the next read, never correctness.
  */
-export const setSettled = <Data>(
+const setSettled = <Data>(
   local: LocalCache<Data>,
   hash: string,
   entry: Settled<Data>,
@@ -100,15 +100,20 @@ export const subscribeReader = <Data>(
   };
 };
 
-/**
- * Discards a query's settled answer and its in-flight fetch, so the next read fetches
- * again and the older fetch's answer is dropped when it lands.
- */
-export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
-  local.settled.delete(hash);
+// The discarded fetch's answer is dropped when it lands.
+const discardFetch = <Data>(local: LocalCache<Data>, hash: string): void => {
   local.inFlight.delete(hash);
   if (local.fetches.has(hash))
     local.generations.set(hash, generationOf(local, hash) + 1);
+};
+
+/**
+ * Discards a query's settled answer and its in-flight fetch, so the next read fetches
+ * again.
+ */
+export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
+  local.settled.delete(hash);
+  discardFetch(local, hash);
 };
 
 const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => void) => {
@@ -193,17 +198,18 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
 ): Promise<Data> => {
   const { name, retrieve, getCached, onFetchError, local } = fetchParams;
   const hash = query.hash(params.query);
-  // A reader waiting on a fetch that invalidate discarded gets the answer that replaced
-  // it, starting a fetch when no other reader has.
+  // A reader waiting on a discarded fetch gets the answer that replaced it, starting a
+  // fetch when no other reader has. A refresh keeps the settled answer while its fetch
+  // runs, so the running fetch comes first.
   const follow = async (): Promise<Data> => {
+    if (local.inFlight.has(hash)) return await ensureFetch(params, fetchParams);
     const settled = local.settled.get(hash);
     if (settled != null) {
       if ("error" in settled) throw settled.error;
       return settled.data;
     }
     const cached = getCached?.(params);
-    if (local.inFlight.has(hash) || !query.isLive(cached))
-      return await ensureFetch(params, fetchParams);
+    if (!query.isLive(cached)) return await ensureFetch(params, fetchParams);
     return cached;
   };
   let promise = local.inFlight.get(hash);
@@ -242,6 +248,19 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
     local.inFlight.set(hash, promise);
   }
   return promise;
+};
+
+/**
+ * Fetches the query again. Readers keep the settled answer until the new one replaces
+ * it, and the answer of a fetch already running is dropped.
+ */
+export const refresh = <Query extends query.Params, Data extends query.Data>(
+  params: RetrieveParams<Query>,
+  fetchParams: EnsureFetchParams<Query, Data>,
+): void => {
+  discardFetch(fetchParams.local, query.hash(params.query));
+  // A failure settles, and the readers show it.
+  ensureFetch(params, fetchParams).catch(() => {});
 };
 
 export interface PendingFetch<Data> {

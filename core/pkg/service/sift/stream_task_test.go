@@ -12,10 +12,10 @@ package sift_test
 import (
 	"context"
 	"time"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -49,12 +49,7 @@ var _ = Describe("Stream task", func() {
 		})
 		idx = createIndex(ctx)
 		ch = createData(ctx, idx)
-		t = task.Task{
-			Key:  uuid.New(),
-			Rack: rackSvc.EmbeddedKey,
-			Name: "stream",
-			Type: sift.StreamTaskType,
-		}
+		t = newTask(ctx, sift.StreamTaskType, nil)
 	})
 
 	streamConfig := func(labels ...label.Key) map[string]any {
@@ -97,7 +92,7 @@ var _ = Describe("Stream task", func() {
 		err := statusSvc.NewRetrieve[sift.StreamDetails]().
 			Where(status.MatchKeys[sift.StreamDetails](sift.ProgressKey(t.Key))).
 			Entry(&s).
-			Exec(ctx, nil)
+			Exec(ctx, db)
 		return s, err
 	}
 
@@ -129,8 +124,9 @@ var _ = Describe("Stream task", func() {
 			send(ctx, 1)
 			Eventually(values).Should(HaveExactElements(1.0))
 			Expect(dt.Stop(false)).To(Succeed())
-			Expect(statusSvc.NewWriter(nil).Delete(ctx, sift.ProgressKey(t.Key))).
-				To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Delete(ctx, sift.ProgressKey(t.Key))
+			})).To(Succeed())
 			send(ctx, 2)
 			start(ctx, streamConfig())
 			send(ctx, 3)
@@ -154,7 +150,9 @@ var _ = Describe("Stream task", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			l = label.Label{Name: "hotfire"}
-			Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
 		})
 
 		// endedRange creates a range that ends before the next sample, and sends that
@@ -165,11 +163,9 @@ var _ = Describe("Stream task", func() {
 			send(ctx, 1)
 			rng := createRange(ctx, telem.TimeRange{Start: now, End: now.Add(1)})
 			if len(labels) > 0 {
-				Expect(labelSvc.NewWriter(nil).Label(
-					ctx,
-					ranger.OntologyID(rng.Key),
-					labels,
-				)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).AddLabels(ctx, rng.Key, labels)
+				})).To(Succeed())
 			}
 			send(ctx, 2)
 			return rng
@@ -190,8 +186,13 @@ var _ = Describe("Stream task", func() {
 			start(ctx, streamConfig(l.Key))
 			rng := endedRange(ctx, l.Key)
 			Eventually(server.Runs).Should(HaveLen(1))
-			rng.Name = "renamed"
-			Expect(rangerSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+			rename := ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"name"},
+				Value: "renamed",
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+			})).To(Succeed())
 			Eventually(server.Runs).Should(HaveExactElements(
 				HaveField("Name", "renamed"),
 			))

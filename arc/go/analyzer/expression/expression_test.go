@@ -12,10 +12,12 @@ package expression_test
 import (
 	stdcontext "context"
 	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
@@ -23,6 +25,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -746,6 +749,15 @@ var _ = Describe("Expressions", func() {
 					result := identity(identity(identity(5)))
 				}
 			`),
+			Entry("a call added to a literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + identity(5.0)
+				}
+			`),
 		)
 
 		DescribeTable(
@@ -866,6 +878,49 @@ var _ = Describe("Expressions", func() {
 					return x()
 				}
 			`, "cannot call non-function"),
+			Entry("calling an integer literal", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := 1 + 2(identity(5))
+				}
+			`, "cannot call non-function 2"),
+			Entry("calling a float literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + 1.0(identity(5.0))
+				}
+			`, "cannot call non-function 1.0"),
+			Entry("calling a parenthesized expression", `
+				func testFunc() {
+					result := (1 + 2)(3)
+				}
+			`, "cannot call non-function (1+2)"),
+			Entry("calling a type cast", `
+				func testFunc() {
+					result := f32(1)(2)
+				}
+			`, "cannot call non-function f32(1)"),
+			Entry("calling the result of a call", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := identity(1)(2)
+				}
+			`, "cannot call non-function identity(1)"),
+			Entry("calling an indexed value", `
+				func testFunc() {
+					s series i32 := [1, 2, 3]
+					result := s[0](2)
+				}
+			`, "cannot call non-function s[0]"),
 		)
 
 		It(
@@ -949,6 +1004,48 @@ var _ = Describe("Expressions", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
 				Expect(fn.Channels.Read).ToNot(BeEmpty())
+			},
+		)
+
+		It("Should record a channel read in a series literal element", func(
+			specCtx SpecContext,
+		) {
+			ast := MustSucceed(parser.Parse(`
+			func f() f32 {
+				y := [ch + 1.0]
+				return y[0]
+			}`))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   10,
+			}))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+			Expect(fn.Channels.Read).To(HaveKey(uint32(10)))
+		})
+
+		It(
+			"Should record a call in a series literal element",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+			func g() f32 {
+				return 1.0
+			}
+			func f() f32 {
+				y := [g()]
+				return y[0]
+			}`))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				var calls []string
+				for _, edge := range *ctx.CallEdges {
+					calls = append(calls, edge.Caller.Name+"->"+edge.Callee.Name)
+				}
+				Expect(calls).To(ContainElement("f->g"))
 			},
 		)
 
@@ -1119,6 +1216,49 @@ var _ = Describe("Expressions", func() {
 					x := arr[1:3]
 				}
 			`),
+			Entry("index with an i64 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx i64 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with a u8 variable", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx u8 := 1
+					x := arr[idx]
+				}
+			`),
+			Entry("index with len", `
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					x := arr[len(arr) - 1]
+				}
+			`),
+		)
+
+		DescribeTable("should reject a non-integer index or slice bound",
+			func(ctx SpecContext, index, got string) {
+				expectFailure(ctx, fmt.Sprintf(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					f f64 := 1.0
+					g f32 := 1.0
+					b bool := true
+					s str := "a"
+					x := arr[%s]
+				}
+			`, index), nil, "series index must be an integer type, got "+got)
+			},
+			Entry("f64 variable", "f", "f64"),
+			Entry("f32 variable", "g", "f32"),
+			Entry("fractional literal", "1.5", ""),
+			Entry("integer-valued float literal", "1.0", ""),
+			Entry("bool", "b", "bool"),
+			Entry("string", "s", "str"),
+			Entry("slice start", "f:2", "f64"),
+			Entry("slice end", "0:g", "f32"),
 		)
 
 		It("Should reject index with undefined variable", func(ctx SpecContext) {
@@ -1371,6 +1511,23 @@ var _ = Describe("Expressions", func() {
 					z := x^y
 				}
 			`),
+		)
+
+		DescribeTable("Should reject a non-numeric power operand",
+			func(ctx SpecContext, expr, message string) {
+				expectFailure(
+					ctx,
+					"func f() {n f64} {\n    flags := [true]\n    words := [\"a\"]\n"+
+						"    y := "+expr+"\n}",
+					nil,
+					message,
+				)
+			},
+			Entry("a bool base", "true ^ 2", "cannot use bool in ^ operation"),
+			Entry("a bool exponent", "n ^ false", "cannot use bool in ^ operation"),
+			Entry("a string base", `"a" ^ 2`, "cannot use str in ^ operation"),
+			Entry("a bool series", "flags ^ flags", "cannot use bool in ^ operation"),
+			Entry("a string series", "words ^ 2", "cannot use str in ^ operation"),
 		)
 
 		DescribeTable("invalid power expressions",
@@ -1913,6 +2070,155 @@ var _ = Describe("Expressions", func() {
 					(*ctx.Diagnostics)[0].Message,
 				).To(ContainSubstring("dimensionless"))
 			},
+		)
+	})
+
+	Describe("Empty series operands", func() {
+		It("Should bind empty series to an arithmetic operator", func(ctx SpecContext) {
+			expectSuccess(ctx, "func f() {\na := []\nb := []\nz := a * b\n}", nil)
+		})
+
+		It("Should reject an empty series with a bool series", func(ctx SpecContext) {
+			expectFailure(
+				ctx,
+				"func f() {\nflags series bool := [true]\nz := [] * flags\n}",
+				nil,
+				"cannot use bool",
+			)
+		})
+	})
+
+	Describe("NaN and infinity", func() {
+		extras := []symbol.Symbol{
+			{Name: "nan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			{Name: "inf", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+		}
+		body := func(statement string) string {
+			return "import math\nfunc f() {v f64, w f32, n i32} {\n" +
+				"used := math.is_nan(v)\n" + statement + "\n}"
+		}
+
+		DescribeTable("Should accept",
+			func(ctx SpecContext, statement string) {
+				expectSuccess(ctx, body(statement), extras)
+			},
+			Entry("is_nan f64", "a := math.is_nan(v)"),
+			Entry("is_infinite f32", "a := math.is_infinite(w)"),
+			Entry("is_finite of a channel", "a := math.is_finite(nan)"),
+			Entry("is_nan in a boolean", "a := not math.is_nan(v) and v > 1.0"),
+			Entry("integer literal", "a := math.is_nan(3)"),
+			Entry("negated integer literal", "a := math.is_finite(-3)"),
+			Entry("integer arithmetic", "a := math.is_infinite(1 + 2)"),
+			Entry("f32 constant", "a f32 := math.inf"),
+			Entry("f64 constant", "a f64 := -math.inf"),
+			Entry("default f64", "a := math.nan\nb f64 := a"),
+			Entry("f32 and f64 uses", "a := w < math.inf and v < math.inf"),
+			Entry("f32 and f64 checks", "a := math.is_nan(w) and math.is_nan(v)"),
+			Entry("channels named nan and inf", "a := nan > 1.0 and inf < 2.0"),
+		)
+
+		DescribeTable("Should reject",
+			func(ctx SpecContext, statement, message string) {
+				expectFailure(ctx, body(statement), extras, message)
+			},
+			Entry("i32 argument", "a := math.is_nan(n)", "is not compatible"),
+			Entry("bool argument", "a := math.is_infinite(true)", "is not compatible"),
+			Entry("series argument",
+				"a := math.is_finite([1.5, 2.5])", "is not compatible"),
+			Entry("two arguments", "a := math.is_nan(v, v)", "too many arguments"),
+			Entry("i32 constant", "a i32 := math.inf", "not compatible with i32"),
+			Entry("i64 constant", "a i64 := -math.nan", "not compatible with i64"),
+			Entry("i32 comparison", "a := n < math.inf", "not compatible with i32"),
+			Entry("a call", "a := math.inf()", "cannot call non-function"),
+			Entry(
+				"an i32 cast",
+				"a := i32(math.nan)",
+				"cannot cast math.nan to i32: NaN and infinity have no integer value",
+			),
+			Entry("a negated i64 cast", "a := i64(-math.inf)", "no integer value"),
+			Entry("a member that does not exist", "a := math.nope", "undefined symbol"),
+		)
+
+		DescribeTable(
+			"Should reject a comparison with math.nan",
+			func(ctx SpecContext, expr, message string) {
+				ast := MustSucceed(parser.Parse(body("a := " + expr)))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(extras))
+				analyzer.AnalyzeProgram(aCtx)
+				diags := aCtx.Diagnostics
+				if message == "" {
+					Expect(diags.Ok()).To(BeTrue(), diags.String())
+					return
+				}
+				Expect(*diags).To(HaveLen(1), diags.String())
+				d := (*diags)[0]
+				Expect(d.Code).To(Equal(codes.NaNComparison))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
+				Expect(d.Message).To(ContainSubstring(message))
+				Expect(d.Message).To(ContainSubstring("math.is_nan"))
+			},
+			Entry("==", "v == math.nan", "== with math.nan is always false"),
+			Entry(
+				"!=",
+				"v != math.nan",
+				"!= with math.nan is always true, use not math.is_nan instead",
+			),
+			Entry("<", "v < math.nan", "< with math.nan is always false"),
+			Entry(">", "math.nan > v", "> with math.nan is always false"),
+			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
+			Entry(">=", "w >= f32(math.nan)", ">= with math.nan is always false"),
+			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
+			Entry("left side", "math.nan == w", "always false"),
+			Entry("parentheses on the left", "(math.nan) == v", "always false"),
+			Entry("parentheses on the right", "v == (math.nan)", "always false"),
+			Entry("nested parentheses", "v != ((math.nan))", "always true"),
+			Entry("negated", "v == -math.nan", "always false"),
+			Entry("negated in parentheses", "(-(math.nan)) == v", "always false"),
+			Entry("an f32 cast", "w == f32(math.nan)", "always false"),
+			Entry("an f64 cast", "f64(-math.nan) != v", "always true"),
+			Entry("an f64 cast with a unit", "v == f64 psi(math.nan)", "always false"),
+			Entry("not on is_nan", "math.is_nan(v)", ""),
+			Entry(
+				"the operator the compiler runs",
+				"v != math.nan == v",
+				"always false",
+			),
+			Entry("not on an operand the compiler skips", "v == 1.0 == math.nan", ""),
+			Entry("not on math.inf", "v == math.inf", ""),
+			Entry("not on -math.inf", "(v) == -(math.inf)", ""),
+			Entry("not on a channel named nan", "v == nan", ""),
+			Entry("not on v != v", "v != v", ""),
+		)
+
+		DescribeTable("Should name the module the code wrote",
+			func(ctx SpecContext, source, message string) {
+				custom := symbol.Symbol{Name: "custom", Kind: symbol.KindModule}
+				custom.AddChild(&symbol.Symbol{
+					Name:         "missing",
+					Kind:         symbol.KindConstant,
+					Type:         types.F64(),
+					DefaultValue: math.NaN(),
+				})
+				ast := MustSucceed(parser.Parse(source))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(
+					[]symbol.Symbol{custom},
+				))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				Expect((*aCtx.Diagnostics)[0].Code).To(Equal(codes.NaNComparison))
+				Expect((*aCtx.Diagnostics)[0].Message).To(Equal(message))
+			},
+			Entry(
+				"an import alias",
+				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
+				"== with m.nan is always false, use m.is_nan instead",
+			),
+			Entry(
+				"a module without is_nan",
+				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
+				"!= with custom.missing is always true, "+
+					"use not is_nan from the math module instead",
+			),
 		)
 	})
 

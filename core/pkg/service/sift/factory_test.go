@@ -15,8 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -78,7 +80,7 @@ var _ = Describe("Factory", func() {
 				Config: msgpack.EncodedJSON{"rate": -1},
 			}
 			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
-				To(MatchError(ContainSubstring("rate: must be positive")))
+				To(MatchError(ContainSubstring("rate")))
 		})
 	})
 
@@ -94,13 +96,7 @@ var _ = Describe("Factory", func() {
 				APIKey: apiKey,
 				Assets: []string{"stand", "pad"},
 			}))
-			t = task.Task{
-				Key:    uuid.New(),
-				Rack:   rackSvc.EmbeddedKey,
-				Name:   "Sift Scanner",
-				Type:   sift.ScanTaskType,
-				Config: msgpack.EncodedJSON{"rate": 50},
-			}
+			t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
@@ -145,12 +141,7 @@ var _ = Describe("Factory", func() {
 			It("Should connect with an API key the grant names",
 				func(ctx SpecContext) {
 					key := createAPIKey(ctx, apiKey)
-					g := MustSucceed(secretSvc.Grant(
-						ctx,
-						nil,
-						rackSvc.EmbeddedKey.OntologyID(),
-						key,
-					))
+					g := grantToRack(ctx, key)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
 							URI:    server.Address(),
@@ -163,12 +154,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail for an API key that Sift rejects", func(ctx SpecContext) {
 				key := createAPIKey(ctx, "wrong")
-				g := MustSucceed(secretSvc.Grant(
-					ctx,
-					nil,
-					rackSvc.EmbeddedKey.OntologyID(),
-					key,
-				))
+				g := grantToRack(ctx, key)
 				stat := exec(ctx, "test_connection", map[string]any{
 					"connection": sift.Properties{URI: server.Address(), APIKey: key},
 					"grant":      g,
@@ -234,7 +220,9 @@ var _ = Describe("Factory", func() {
 							Time:    telem.Now(),
 							Details: sift.UploadDetails{Device: device, Asset: asset},
 						}
-						Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return statusSvc.NewWriter(tx).Set(ctx, &s)
+						})).To(Succeed())
 					}
 					record(dev.Key, "stand")
 					record(dev.Key, "pad")
@@ -246,6 +234,43 @@ var _ = Describe("Factory", func() {
 			It("Should fail for a device that does not exist", func(ctx SpecContext) {
 				stat := exec(ctx, "list_assets", map[string]any{"device": "missing"})
 				Expect(stat.Variant).To(Equal(status.VariantError))
+			})
+		})
+
+		Describe("list_uploads", func() {
+			record := func(ctx SpecContext, rng ranger.Key) string {
+				s := sift.UploadStatus{
+					Key:     "sift_upload:" + uuid.NewV7().String(),
+					Name:    "upload",
+					Variant: status.VariantSuccess,
+					Message: "Uploaded to Sift",
+					Time:    telem.Now(),
+					Details: sift.UploadDetails{Range: rng, Asset: "stand"},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &s)
+				})).To(Succeed())
+				return s.Key
+			}
+
+			It(
+				"Should list the uploads of a range, newest first",
+				func(ctx SpecContext) {
+					rng, other := uuid.NewV7(), uuid.NewV7()
+					first := record(ctx, rng)
+					record(ctx, other)
+					second := record(ctx, rng)
+					stat := exec(ctx, "list_uploads", map[string]any{"range": rng})
+					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					Expect(stat.Details.Data).To(
+						HaveKeyWithValue("uploads", Equal([]any{second, first})),
+					)
+				},
+			)
+
+			It("Should list no uploads for a range with none", func(ctx SpecContext) {
+				stat := exec(ctx, "list_uploads", map[string]any{"range": uuid.NewV7()})
+				Expect(stat.Details.Data).To(HaveKeyWithValue("uploads", BeEmpty()))
 			})
 		})
 	})

@@ -1,0 +1,132 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Dewesoft devices"
+description:
+  "Connect Dewesoft IOLITE, KRYPTON, and SIRIUS devices to the Driver over EtherCAT."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Dewesoft IOLITE, KRYPTON, and SIRIUS devices with an EtherCAT port connect to the Driver
+as EtherCAT modules. Each module shows in the devices toolbar, and read and write tasks
+use its PDOs as they use the PDOs of other modules. To connect the network, see
+[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device).
+
+In dual mode, DewesoftX sets the amplifiers of a device, such as the range and the
+excitation. In standalone mode, Synnax can set them. See
+[Set up a module in Synnax](#set-up-a-module-in-synnax).
+
+<Divider.Divider x />
+
+## Connect the device
+
+A Dewesoft device runs in one of two setups. Each module stores its setup.
+
+- **Standalone** -> Only Synnax gets the data. Connect the port of the Driver to
+  **EtherCAT bus 1 IN** on an IOLITE, or to **EtherCAT IN** on a SIRIUS.
+- **Dual** -> DewesoftX and Synnax both get the data. On an IOLITE, connect DewesoftX to
+  **EtherCAT bus 1 IN** and the Driver to **EtherCAT bus 2 IN**. On a SIRIUS, connect
+  DewesoftX to the USB port and the Driver to **EtherCAT IN**.
+
+If the Driver connects to bus 2 of a standalone IOLITE, the Console shows **Connect
+Synnax to EtherCAT bus 1 IN** on the module.
+
+In dual mode, DewesoftX drives the digital outputs of an IOLITE 32xDO or 8xDI-4xDO. To
+drive them from Synnax, run the device in standalone mode.
+
+In dual mode, one converter gives the data to both systems, and DewesoftX sets its
+sample rate. The data on the Driver's bus gets no added anti-aliasing filter, so a
+network that cycles slower than the sample rate can show aliases.
+
+<Divider.Divider x />
+
+## Set up the device in DewesoftX
+
+1. Connect the device to DewesoftX and set its amplifiers and sample rate.
+2. Set the setup and the sync mode of each module. The
+   [Dewesoft manual for third-party EtherCAT masters](https://downloads.dewesoft.com/manuals/dewesoft-3rd-party-ethercat-masters-manual.pdf)
+   gives the settings of each model.
+3. Store the settings in the device with **Set power on default**, then disconnect
+   DewesoftX and turn the power of the device off and on again.
+
+The device loads the stored settings each time it starts.
+
+<Divider.Divider x />
+
+## Set up a module in Synnax
+
+For most IOLITE, IOLITEi, KRYPTON, and KRYPTONi modules in the Dewesoft manual, the
+Console shows the settings of the module by name:
+
+- **Configure** dialog of the module -> the settings of the whole module, such as the
+  state of the outputs on connection loss.
+- **Settings** of a read channel -> the settings of its input, such as the range and the
+  filter.
+
+The Driver writes each setting as a startup parameter when the task starts.
+
+If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
+settings:
+
+- **DewesoftX sets up this device** -> Synnax uses the device, and DewesoftX sets its
+  settings.
+- **Only DewesoftX can use this device** -> Synnax gets no data from the device.
+
+To give the module to Synnax, click **Switch to Synnax**, then restart the power of the
+device.
+
+<Divider.Divider x />
+
+## Physical values
+
+The SIRIUS, the IOLITE 8xLA, 8xLV, and 8xSTGS, the IOLITEi 1xACC, and the KRYPTON 3xSTG
+and 6xSTG can send raw counts. The Console marks a channel on one of these inputs as
+calibrated when you pick its entry. When a read task starts, the Driver reads the gain
+and offset that the module stores for each calibrated channel, and records physical
+values. A scale on the channel applies to the physical values. In code, set
+`calibrated=True` and use a `float32` or `float64` channel.
+
+<Divider.Divider x />
+
+## Match the sync mode
+
+Each module runs the sync mode that it stores, SM sync or DC sync. The Driver must run
+the module in the same mode. If the modes are different, the module can stay in PRE-OP,
+for example with
+["Invalid DC SYNC configuration"](/reference/hardware/ethercat/troubleshooting#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+
+For most modules with settings in Synnax, the Driver reads the stored mode and runs the
+same sync mode, with the cycles from the Dewesoft manual. **Sync mode** shows this mode
+with an **Auto** badge. For other modules, the Driver runs SM sync when the module lists
+an SM sync mode.
+
+In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV, 8xRTD,
+8xSTGS, and 8xTH can also run SM sync on bus 1. To set the sync mode yourself:
+
+1. In the devices toolbar, right-click the module and select **Configure**.
+2. Under
+   [**Sync mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode),
+   select the DC sync mode of the module.
+3. Enter the **SYNC0 cycle** and **SYNC1 cycle**, in µs, from the table of the model in
+   the Dewesoft manual. For example, a standalone 6xSTG in DC sync uses a SYNC0 cycle of
+   1 µs and a SYNC1 cycle of 1 s.
+4. Click **Save**, then stop every task on the port and start them again.
+
+Some modules list one DC sync mode for each bus, such as **DC-bus1** and **DC-bus2** on
+the IOLITE GATE. Select the mode for the bus that the Driver connects to. A mode for the
+other bus refuses SAFE-OP with "Invalid DC SYNC configuration".
+
+<Divider.Divider x />
+
+## Run DewesoftX and Synnax on one computer
+
+With an IOLITE, connect DewesoftX and the Driver to different Ethernet ports. A SIRIUS
+connects DewesoftX through USB, so the Driver needs only one Ethernet port.
+
+DewesoftX adds a network filter to each Ethernet port. The filter blocks the Driver,
+also when DewesoftX is closed.
+[Turn off the filter](/reference/hardware/ethercat/troubleshooting#no-modules-show-on-a-computer-with-dewesoftx)
+on the port of the Driver. If DewesoftX uses an Ethernet port, keep the filter on that
+port.

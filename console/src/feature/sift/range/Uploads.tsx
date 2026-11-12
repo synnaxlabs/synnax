@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger, sift } from "@synnaxlabs/client";
+import { type ranger, sift, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,24 +16,17 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import {
-  Device as PDevice,
-  Ontology,
-  Ranger,
-  Status as PStatus,
-} from "@synnaxlabs/pluto";
+import { Device as PDevice, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/sift/device/types";
+import { useList as useUploadKeys } from "@/feature/sift/range/list";
 import { progress } from "@/feature/sift/range/progress";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 
-const UPLOAD_KEY_PREFIX = "sift_upload:";
-
 const { useResult: useUpload } = PStatus.createRetrieve(sift.uploadDetailsZ);
 
-const UploadListItem = (props: List.ItemProps<string>) => {
-  const entry = List.useItem<string, ontology.Resource>(props.itemKey);
-  const upload = useUpload(entry == null ? null : { key: entry.id.key }).data;
+const UploadListItem = (props: List.ItemProps<status.Key>) => {
+  const upload = useUpload({ key: props.itemKey }).data;
   const { update: del } = PStatus.useDelete();
   if (upload == null) return null;
   const { variant, message, description } = upload;
@@ -85,11 +78,7 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
   const devices = PDevice.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
   const open = useUploadModal();
-  const { data, getItem, subscribe, retrieve } = Ontology.useListChildren({
-    query: { id: ranger.ontologyID(rangeKey) },
-    filter: ({ id }) => id.type === "status" && id.key.startsWith(UPLOAD_KEY_PREFIX),
-  });
-  const { fetchMore } = List.usePager({ retrieve });
+  const data = useUploadKeys(rangeKey);
   if (data.length === 0 && devices.length === 0) return null;
   return (
     <Flex.Box y>
@@ -109,12 +98,7 @@ export const Uploads = ({ rangeKey }: UploadsProps) => {
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      <List.Frame
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={fetchMore}
-      >
+      <List.Frame data={data}>
         <List.Scroll>
           <List.Items>{uploadListItem}</List.Items>
         </List.Scroll>

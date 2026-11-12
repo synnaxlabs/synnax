@@ -69,8 +69,8 @@ class Device(device.Device):
 
     Sift tasks run inside the Core. Create the device on the rack of the Core::
 
-        rack = client.racks.retrieve(integrations=sy.sift.INTEGRATION)[0]
-        key = client.secrets.create(name="Sift API key", value="...").key
+        rack = client.racks.retrieve(embedded=True, integrations=sy.sift.INTEGRATION)[0]
+        key = client.secrets.set(name="Sift API key", value="...").key
         dev = sy.sift.Device(
             uri="grpc-api.siftstack.com:443", api_key=key, rack=rack.key, name="Sift"
         )
@@ -115,10 +115,9 @@ def upload(
     range_key: ranger.Key | None = None,
     time_range: TimeRange | None = None,
     timeout: CrudeTimeSpan = 15,
-) -> None:
+) -> str:
     """Queues an upload of stored data to a Sift asset. The upload runs in the Core,
-    which reports its progress in a status that is a child of the range. Deleting the
-    status cancels the upload.
+    which reports its progress in a status. Deleting the status cancels the upload.
 
     :param tasks: The task client of the Synnax client.
     :param dev: The Sift device to upload to.
@@ -128,6 +127,7 @@ def upload(
         Sift run.
     :param time_range: A time span to upload in place of a range. It makes no run.
     :param timeout: The maximum time, in seconds, to wait for the Core to queue it.
+    :returns: The key of the status of the upload.
     :raises RuntimeError: If the Core does not queue the upload, such as when neither
         or both of range_key and time_range are set.
     """
@@ -147,3 +147,7 @@ def upload(
     status = scan.execute_command_sync(UPLOAD_COMMAND_TYPE, args=args, timeout=timeout)
     if status.variant == VARIANT_ERROR:
         raise RuntimeError(f"{status.message}: {status.description}")
+    data = status.details.data if status.details is not None else None
+    if data is None:
+        raise RuntimeError("The Core queued the upload without naming its status")
+    return str(data["status"])

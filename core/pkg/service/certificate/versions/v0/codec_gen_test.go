@@ -74,7 +74,7 @@ var _ = Describe("Codec", func() {
 			Entry("file variant", v0.Certificate{Variant: v0.FileCertificate{
 				Base:            fullyPopulatedBase,
 				CertificatePath: "test_1",
-				PrivateKeyPath:  new(string("test_2")),
+				PrivateKeyFile:  new(string("test_2")),
 				Details: new(v0.Details{
 					Subject:   "test_4",
 					Issuer:    "test_5",
@@ -251,7 +251,7 @@ func FuzzDecodeCertificate(f *testing.F) {
 		seed := v0.Certificate{Variant: v0.FileCertificate{
 			Base:            fullyPopulatedBase,
 			CertificatePath: "test_1",
-			PrivateKeyPath:  new(string("test_2")),
+			PrivateKeyFile:  new(string("test_2")),
 			Details: new(v0.Details{
 				Subject:   "test_4",
 				Issuer:    "test_5",

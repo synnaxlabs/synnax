@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -32,6 +34,8 @@ const (
 	listAssetsCommand = "list_assets"
 	// uploadCommand queues an upload of the data of a range.
 	uploadCommand = "upload"
+	// listUploadsCommand lists the uploads of a range.
+	listUploadsCommand = "list_uploads"
 )
 
 type testConnectionArgs struct {
@@ -51,6 +55,16 @@ type listAssetsResult struct {
 	Assets []string `json:"assets"`
 	// Last is the asset of the newest upload from the device, or empty.
 	Last string `json:"last"`
+}
+
+type listUploadsArgs struct {
+	// Range is the key of the range to list the uploads of.
+	Range ranger.Key `json:"range"`
+}
+
+type listUploadsResult struct {
+	// Uploads are the keys of the statuses of the uploads, newest first.
+	Uploads []status.Key `json:"uploads"`
 }
 
 // listAssetsPageSize is the most assets Sift returns in one page.
@@ -97,6 +111,16 @@ func (s scanner) Exec(
 			return nil, err
 		}
 		return msgpack.NewEncodedJSON(uploadResult{Status: key})
+	case listUploadsCommand:
+		var args listUploadsArgs
+		if err := cmd.Args.Unmarshal(&args); err != nil {
+			return nil, errors.Wrap(err, "invalid arguments")
+		}
+		keys, err := rangeUploads(ctx, s.cfg.DB, s.cfg.Status, args.Range)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(listUploadsResult{Uploads: keys})
 	default:
 		return nil, driver.ErrUnsupportedCommand
 	}
@@ -114,8 +138,7 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	defer cancel()
 	values, err := s.cfg.Secret.Resolve(
 		ctx,
-		nil,
-		s.rack.OntologyID(),
+		s.rack.ResourceID(),
 		args.Grant,
 		args.Connection.APIKey,
 	)
@@ -142,7 +165,7 @@ func (s scanner) listAssets(
 	if err := s.cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(args.Device)).
 		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, s.cfg.DB); err != nil {
 		return nil, err
 	}
 	res := listAssetsResult{Assets: []string{}}
@@ -170,7 +193,7 @@ func (s scanner) listAssets(
 		return nil, err
 	}
 	var err error
-	if res.Last, err = lastAsset(ctx, s.cfg.Status, dev.Key); err != nil {
+	if res.Last, err = lastAsset(ctx, s.cfg.DB, s.cfg.Status, dev.Key); err != nil {
 		return nil, err
 	}
 	return msgpack.NewEncodedJSON(res)
@@ -189,7 +212,7 @@ func (s scanner) withDevice(
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	conn, err := connect(ctx, s.cfg.Secret, props)
+	conn, err := connect(ctx, s.cfg.Secret, s.cfg.DB, props)
 	if err != nil {
 		return err
 	}

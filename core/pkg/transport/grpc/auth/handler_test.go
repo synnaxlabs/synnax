@@ -20,8 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -107,16 +106,16 @@ func matchAPIKey(k auth.APIKey) types.GomegaMatcher {
 }
 
 var (
-	bob    = user.User{Key: uuid.New()}
+	bob    = auth.User{Key: uuid.New()}
 	apiKey = auth.APIKey{
 		Key:     uuid.New(),
-		Subject: bob.OntologyID(),
+		Subject: bob.ResourceID(),
 		Name:    "ci",
 		Created: telem.TimeStamp(9),
 	}
 	session = svcauth.Session{
 		Key:        uuid.New(),
-		Subject:    bob.OntologyID(),
+		Subject:    bob.ResourceID(),
 		Credential: uuid.New(),
 		LastActive: telem.TimeStamp(42),
 	}
@@ -283,20 +282,20 @@ var _ = Describe("Auth", func() {
 
 	Describe("SessionRetrieveRequest", func() {
 		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(retrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{
 					{Type: string(id.Type), Key: id.Key},
 				}},
-			)).Subjects).To(Equal([]ontology.ID{id}))
+			)).Subjects).To(Equal([]resource.ID{id}))
 		})
 		It("Should read a missing subject as the zero ID", func(ctx SpecContext) {
 			res := MustSucceed(retrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{nil}},
 			))
-			Expect(res.Subjects).To(Equal([]ontology.ID{{}}))
+			Expect(res.Subjects).To(Equal([]resource.ID{{}}))
 		})
 	})
 
@@ -328,7 +327,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("KeyCreateRequest", func() {
 		It("Should translate the subject and name", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(keyCreate.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.KeyCreateRequest{
@@ -352,13 +351,13 @@ var _ = Describe("Auth", func() {
 
 	Describe("KeyRetrieveRequest", func() {
 		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(keyRetrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.KeyRetrieveRequest{Subjects: []*grpcauth.Subject{
 					{Type: string(id.Type), Key: id.Key},
 				}},
-			)).Subjects).To(Equal([]ontology.ID{id}))
+			)).Subjects).To(Equal([]resource.ID{id}))
 		})
 	})
 

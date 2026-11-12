@@ -21,6 +21,194 @@ import (
 
 var _ = Describe("Formatter", func() {
 	DescribeTable(
+		"Declaration hoisting",
+		func(input, expected string) {
+			Expect(formatter.HoistDeclarations(input)).To(Equal(expected))
+		},
+		Entry(
+			"keeps leading declarations where they are",
+			"sequence main {\n    a := 1\n    b $= 2\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b $= 2\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves one declaration above the first stage",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"keeps the order of declarations interlaced with steps",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n    c $= 3\n}",
+			"sequence main {\n    a := 1\n    b := 2\n    c $= 3\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"places late declarations after the leading ones",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    b := 2\n    c := 3\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b := 2\n    c := 3\n    stage s {\n        true => next\n    }\n    stage t {\n        true => next\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"treats an assignment as a step",
+			"sequence main {\n    a := 1\n    a = 2\n    b := 3\n    stage s {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    b := 3\n    a = 2\n    stage s {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a declaration above a flow in a stage",
+			"stage main {\n    wait(1s) -> done\n    x := 1\n    x -> out\n    y := 2\n}",
+			"stage main {\n    x := 1\n    y := 2\n    wait(1s) -> done\n    x -> out\n}",
+		),
+		Entry(
+			"hoists inside a nested sequence without leaving it",
+			"sequence main {\n    sequence inner {\n        stage s {\n            true => next\n        }\n        a := 1\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    sequence inner {\n        a := 1\n        stage s {\n            true => next\n        }\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"hoists an outer declaration past a nested sequence that also hoists",
+			"sequence main {\n    sequence inner {\n        stage s {\n            true => next\n        }\n        a := 1\n        stage t {\n            wait(1s)\n        }\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    b := 2\n    sequence inner {\n        a := 1\n        stage s {\n            true => next\n        }\n        stage t {\n            wait(1s)\n        }\n    }\n    stage u {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"hoists in a stage nested in a sequence and in the sequence itself",
+			"sequence main {\n    stage s {\n        wait(1s) -> done\n        x := 1\n    }\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        x := 1\n        wait(1s) -> done\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 // start\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 // start\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a leading comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    // start time\n    a := 1\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    // start time\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing block comment over two lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       time */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       time */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing block comment over three lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       time */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       of the\n       time */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a trailing block comment over four lines with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       first\n       stage */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 /* start\n       of the\n       first\n       stage */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a multi-line declaration with its trailing block comment",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 +\n        2 /* sum\n       of both */\n    stage t {\n        wait(1s)\n    }\n}",
+			"sequence main {\n    a := 1 +\n        2 /* sum\n       of both */\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}",
+		),
+		Entry(
+			"moves a leading block comment with its declaration",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    /* start\n       time */\n    a := 1\n}",
+			"sequence main {\n    /* start\n       time */\n    a := 1\n    stage s {\n        true => next\n    }\n}",
+		),
+		Entry(
+			"places declarations above the first step's leading comment",
+			"sequence main {\n    // first\n    stage s {\n        true => next\n    }\n    a := 1\n}",
+			"sequence main {\n    a := 1\n    // first\n    stage s {\n        true => next\n    }\n}",
+		),
+		Entry(
+			"leaves a comment above a blank line in place",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    // section\n\n    a := 1\n}",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    // section\n\n}",
+		),
+		Entry(
+			"leaves the previous step's trailing comment in place",
+			"stage main {\n    wait(1s) -> done // first\n    x := 1\n}",
+			"stage main {\n    x := 1\n    wait(1s) -> done // first\n}",
+		),
+		Entry(
+			"leaves the previous step's trailing block comment in place",
+			"stage main {\n    wait(1s) -> done /* first\n       step */\n    x := 1\n}",
+			"stage main {\n    x := 1\n    wait(1s) -> done /* first\n       step */\n}",
+		),
+		Entry(
+			"leaves a declaration on the line a block comment ends alone",
+			"stage main {\n    wait(1s) -> done /* first\n       step */ x := 1\n}",
+			"stage main {\n    wait(1s) -> done /* first\n       step */ x := 1\n}",
+		),
+		Entry(
+			"leaves top-level declarations alone",
+			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
+			"stage main {\n    wait(1s)\n}\ntrue => main\na := 1",
+		),
+		Entry(
+			"leaves content that does not parse alone",
+			"sequence main {\n    stage s {\n    a := 1",
+			"sequence main {\n    stage s {\n    a := 1",
+		),
+		Entry(
+			"leaves a body written on one line alone",
+			"sequence main { 1 -> out, x := 1, y := 2 }",
+			"sequence main { 1 -> out, x := 1, y := 2 }",
+		),
+		Entry(
+			"leaves a declaration that shares a line with a brace alone",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 }",
+		),
+	)
+
+	It("hoists a body written on one line after expanding it", func() {
+		Expect(formatter.Format("sequence main { 1 -> out, x := 1, y := 2 }")).To(Equal(
+			"sequence main {\n    x := 1\n    y := 2\n    1 -> out\n}\n",
+		))
+	})
+
+	DescribeTable(
+		"DeclarationHoists",
+		func(input string, expected []formatter.LineMove) {
+			Expect(formatter.DeclarationHoists(input)).To(Equal(expected))
+		},
+		Entry(
+			"one move per late declaration, anchored at the first step",
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    b := 2\n    stage t {\n        wait(1s)\n    }\n    c $= 3\n}",
+			[]formatter.LineMove{
+				{Start: 5, End: 6, Anchor: 2},
+				{Start: 9, End: 10, Anchor: 2},
+			},
+		),
+		Entry(
+			"a multi-line declaration moves as a block",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 +\n        2\n    stage t {\n        wait(1s)\n    }\n}",
+			[]formatter.LineMove{{Start: 4, End: 6, Anchor: 1}},
+		),
+		Entry(
+			"a declaration's leading comment moves with it",
+			"sequence main {\n    // first\n    stage s {\n        true => next\n    }\n    // start\n    a := 1\n}",
+			[]formatter.LineMove{{Start: 5, End: 7, Anchor: 1}},
+		),
+		Entry(
+			"a declaration's trailing block comment moves with it",
+			"sequence main {\n    stage s {\n        true => next\n    }\n    a := 1 /* start\n       of the\n       time */\n}",
+			[]formatter.LineMove{{Start: 4, End: 7, Anchor: 1}},
+		),
+		Entry(
+			"no late declaration",
+			"sequence main {\n    a := 1\n    stage s {\n        wait(1s)\n    }\n}",
+			nil,
+		),
+		Entry("a body on one line", "sequence main { 1 -> out, x := 1, y := 2 }", nil),
+		Entry("unparsable content", "sequence main {\n    a := 1", nil),
+	)
+
+	It("hoists once and then holds", func() {
+		input := "sequence main {\n    stage s {\n        true => next\n    }\n    a := 1\n    stage t {\n        true => next\n    }\n    b := 2\n    stage u {\n        wait(1s)\n    }\n}"
+		once := formatter.HoistDeclarations(input)
+		Expect(formatter.HoistDeclarations(once)).To(Equal(once))
+	})
+
+	It("hoists as part of Format", func() {
+		input := "sequence main {\nstage s {\ntrue => next\n}\na:=1\nstage t {\nwait(1s)\n}\n}\n"
+		Expect(formatter.Format(input)).To(Equal(
+			"sequence main {\n    a := 1\n    stage s {\n        true => next\n    }\n    stage t {\n        wait(1s)\n    }\n}\n",
+		))
+	})
+
+	DescribeTable(
 		"Binary Operators",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
@@ -704,6 +892,7 @@ var _ = Describe("Formatter", func() {
 		Entry("unclosed if", "if x > 0 { return 1", "if x > 0"),
 		Entry("extra bracket", "x := [1, 2]]", "x := [1, 2]"),
 		Entry("extra paren", "x := foo(1))", "x := foo(1)"),
+		Entry("extra paren before a comma in a stage", "stage s { x)), y }", "x))"),
 	)
 
 	DescribeTable(
@@ -780,6 +969,11 @@ var _ = Describe("Formatter", func() {
 			"for-loop body is not treated as input values (pair binding)",
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n",
+		),
+		Entry(
+			"module constants and float checks keep their dots",
+			"func f() {x f64} bool {\n    return  math.is_nan( x ) or x<-math.inf\n}",
+			"func f() {x f64} bool {\n    return math.is_nan(x) or x < -math.inf\n}\n",
 		),
 		Entry(
 			"long call in a func body stays on its line",
@@ -940,6 +1134,14 @@ var _ = Describe("Formatter", func() {
 		Entry("stage with nested if block, no trailing comma",
 			"stage check {\n    if x > 0 {\n        next success\n    }\n}",
 			"stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
+		Entry(
+			"call inputs keep their commas",
+			"sequence s { stage a { control.set_authority(value=220, channel=press_vlv_cmd) } }",
+			"sequence s {\n    stage a {\n        control.set_authority(value=220, channel=press_vlv_cmd)\n    }\n}\n",
+		),
+		Entry("flow call inputs keep their commas",
+			"stage s { x -> f(a=1, b=2) -> y }",
+			"stage s {\n    x -> f(a=1, b=2) -> y\n}\n"),
 	)
 
 	DescribeTable("Reactive Body Round-Trip",
@@ -967,6 +1169,65 @@ var _ = Describe("Formatter", func() {
 		Entry(
 			"transitions in stage",
 			"sequence seq {\n    stage hold {\n        cond1 => next\n        cond2 => next\n    }\n}",
+		),
+		Entry(
+			"call inputs in a stage",
+			"sequence s { stage a { control.set_authority(value=220, channel=press_vlv_cmd) } }",
+		),
+		Entry("flow call inputs in a stage",
+			"stage s { x -> f(a=1, b=2) -> y }"),
+		Entry("call inputs in a stageless sequence",
+			"sequence s { x -> f(a=1, b=2) -> y }"),
+		Entry("series literal in a stage", "stage s { x := [1, 2, 3] }"),
+		Entry(
+			"bang-bang control docs example",
+			`import time
+
+func bang_bang(
+    low f64,
+    high f64,
+) {value f64} u8 {
+    on $= false
+    if value < low {
+        on = true
+    } else if value > high {
+        on = false
+    }
+    return u8(on)
+}
+
+sequence soak {
+    stage heat {
+        tank_temp -> bang_bang(low=48.0, high=52.0) -> heater_cmd
+        tank_temp > 80 => next
+        time.wait(duration=10min) => next
+    }
+    0 -> heater_cmd
+}
+
+start_cmd == 1 => soak
+`,
+		),
+		Entry(
+			"set_authority docs example",
+			`import control
+
+authority 100
+
+sequence fill {
+    stage pressurize {
+        control.set_authority(value=220, channel=press_vlv_cmd)
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    stage hold {
+        control.set_authority(value=100)
+        0 -> press_vlv_cmd
+    }
+}
+
+start_cmd == 1 => fill
+`,
 		),
 	)
 

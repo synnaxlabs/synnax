@@ -69,15 +69,16 @@ The error reads: "Data was last opened by Core 0.60.1. Run Core 0.60.1 or newer,
 the update with `synnax update undo`."
 
 The Core writes the file and an `UPDATING` marker right after the backup, before any
-migration runs, so an older Core refuses the half-migrated data. Once the Core serves,
-it commits the update by removing the marker. The commit also needs the license to cover
-the new version when it covered the old one
+migration runs, so an older Core refuses the half-migrated data. Once the Core opens the
+data, and before it serves clients, it commits the update by removing the marker. The
+commit also needs the license to cover the new version when it covered the old one
 (`core/pkg/service/license/service.go:426-471`). A failure before the commit restores
 the backup (§3.1) and exits with: "Update to Core 0.61.0 failed: no space left on
 device. The data is back at Core 0.60.1. Run Core 0.60.1, or fix the cause and run
 `synnax update retry`." No client writes before the commit, so the undo loses nothing. A
-start that finds the marker treats the earlier start as failed, as Mender does after a
-reboot before its commit.
+stop request before the commit restores the backup and records no failure, so the next
+start updates the data again. A start that finds the marker after a crash treats the
+earlier start as failed, as Mender does after a reboot before its commit.
 
 After an undo, the Core records the failed version in `<data>/UPDATE_FAILED`. A later
 start of that version refuses at once, with no backup and no migration, so a Docker,
@@ -104,14 +105,16 @@ The downgrade check still runs.
 
 `synnax update undo` runs with the Core stopped. It puts back the newest backup, or the
 one it names, writes its version to `VERSION`, and prints the Core version to run. With
-no name, it refuses when `VERSION` already holds the newest backup's version: the last
-update is already undone. Data with no `VERSION` file gives a backup named
-`<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the Core to run,
-and a second undo sees the missing file as `unknown` and refuses.
-`synnax update history` lists the backups. An undo writes a marker first and removes it
-last. While the marker exists, the Core does not start and tells the user to run the
-undo again. It moves aside the Cesium directory of each channel that has no `meta.json`
-in the backup. The channel key counter lives in `kv/`
+no name, when `VERSION` already holds the newest backup's version, the last update is
+already undone and the undo restores no data. In that case, it puts back `<binary>.old`
+(§3.2) when that binary is the backup's version, or, for a backup with no version, when
+it is older than `<binary>`. If not, it refuses. Data with no `VERSION` file gives a
+backup named `<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the
+Core to run. A second undo sees the missing file as `unknown`, so the update reads as
+already undone. `synnax update history` lists the backups. An undo writes a marker first
+and removes it last. While the marker exists, the Core does not start and tells the user
+to run the undo again. It moves aside the Cesium directory of each channel that has no
+`meta.json` in the backup. The channel key counter lives in `kv/`
 (`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
 and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
 known channels after the backup stays.
@@ -125,10 +128,14 @@ admin rights on the host, which is the access control for a Core update.
 1. Stops the Core service. A Core that runs in a terminal must be stopped by hand first.
 2. Keeps the old binary as `<binary>.old` and puts the new one in its place.
 3. Starts the Core, which backs up, migrates, and commits or undoes the update (§3.0).
-4. Waits for the commit. If the Core undoes the update, puts the old binary back and
-   starts the old Core.
+4. Waits for the commit, up to `--timeout` (10 minutes by default). If the Core undoes
+   the update, puts the old binary back and starts the old Core. At the timeout, it
+   leaves the new Core to finish and exits non-zero. The message tells the admin to run
+   `synnax update undo` if the Core undoes the update later.
 
-`synnax update undo` also puts `<binary>.old` back when it exists.
+`synnax update undo` also puts `<binary>.old` back when it is the version of the
+restored backup or, for a backup with no version, when it is older than `<binary>`. When
+the Core already undid the update, the undo only puts the binary back (§3.1).
 
 Linux gets `synnax service install|uninstall|start|stop|status`, a systemd unit shaped
 after `core/cmd/service/service_windows.go`. The Windows installer runs the same update
@@ -188,12 +195,17 @@ The rack gains a `version` field (`schemas/synnax/rack.oracle:40`), which the Dr
 writes with the rack record at each connect (`driver/rack/remote.cpp:116`). The Console
 shows it on the rack.
 
-The Core serves the Driver release that it embeds (`core/pkg/driver/enabled_unix.go:16`)
-for every platform at `<core>/driver/update/<platform>`. It downloads a platform it does
-not hold from `driver/vX.Y.Z` when a Driver first asks, checks the signature, and keeps
-it in `<data>/drivers/`, which backups skip. A start flag turns the download off. Each
-Core release also uploads one bundle per OS: the Core binary and the four Driver
-binaries (about 310 MB together). `synnax update --file` loads the Drivers from it.
+CI writes the Driver version into each Core at build time, as it does the Core version.
+The Core serves that Driver release for every platform at
+`<core>/driver/update/<platform>`. It downloads a platform it does not embed
+(`core/pkg/driver/enabled_unix.go:16`) from `driver/vX.Y.Z` when a Driver first asks,
+checks the signature, and keeps it in `<data>/drivers/`, which backups skip. Each
+platform downloads once, and the file moves into place only after its signature checks.
+A Core built without the `driver` tag downloads every platform. A build with no Driver
+version, such as a source build, reports Driver `0.0.0` and serves no Driver update. The
+`--no-driver-download` start flag turns the download off. Each Core release also uploads
+one bundle per OS: the Core binary and the four Driver binaries (about 310 MB together).
+`synnax update --file` loads the Drivers from it.
 
 At each connect, a Driver on another minor than the Core's Driver, or on an older patch,
 downloads the Core's Driver, checks the signature, and replaces itself, as the Console
@@ -210,12 +222,29 @@ update run at that connect, before any task starts again.
 | macOS       | A new launchd service with `KeepAlive` restarts it.           |
 | `start -s`  | No self-update; the rack status names the version to install. |
 
-On Linux, the binary moves to a path that the `synnax` service user owns, because today
-root owns `/usr/local/bin/synnax-driver` (`driver/daemon/common.cpp:26`).
+On Linux, the binary moves to `/var/lib/synnax-driver/bin/synnax-driver`. The `synnax`
+service user owns its folder, because today root owns `/usr/local/bin/synnax-driver`
+(`driver/daemon/common.cpp:26`). `install` creates the folder and makes
+`/usr/local/bin/synnax-driver` a link to the new binary, so the commands on `PATH` run
+the binary that the service runs. The unit lists the folder in `StateDirectory`. An
+admin who runs `sudo synnax-driver` then runs a file that the `synnax` user can write,
+so code that takes over the Driver process can get root at the next such command. That
+risk is accepted: the Driver must replace itself without root, and that code already
+controls the hardware and the Core login of the Driver. On macOS and Windows, the
+service runs as root or LocalSystem, so `install` copies the binary to a folder that
+only admins can change, and the Driver replaces it there. The NI Linux RT init script
+runs the Driver as root (`driver/daemon/daemon_nilinuxrt.cpp:110-112`), so its binary
+stays in `/usr/local/bin/synnax-driver`.
 
 Today an early shutdown exits 0 (`driver/cmd/start.cpp:64`), so systemd does not restart
 it; that changes to a non-zero exit. Release builds sign the Core and Driver binaries
-with minisign, the format that the Console updater already checks.
+with the minisign key that the Console updater already checks. The signer puts the file
+name in the trusted comment, and each Core and Driver check requires the name of the
+file it asked for, so a signed file of another product, platform, or version fails. The
+Console updater checks only the signature. On an `--insecure` link, an attacker in the
+middle can serve a signed Core or Driver binary as the Console installer, and the update
+fails or breaks the Console. That attacker can already send commands, so the risk is
+accepted (§3.3).
 
 A Driver on another patch that cannot update keeps its tasks running. A Driver on
 another minor starts no tasks until it updates. Its rack status says "Driver 0.59.3
@@ -302,11 +331,9 @@ manual update to a release with phase 10.
 13. **A failed version is not retried by itself**: A retry at each start was rejected.
     Restart policies would loop, and each pass would push a good backup out of the 3
     kept. snapd also skips a revision that it reverted.
-
-## 7 Open questions
-
-- How long `synnax update` waits for the commit, and the name of the start flag that
-  turns off Driver downloads.
-- Whether Driver and Core signatures reuse the Console's minisign key.
-- The Linux path that the `synnax` service user owns for the Driver binary.
-- How a Core built without the `driver` tag learns its Driver version.
+14. **The Core and Driver reuse the Console's signing key**: A key per product was
+    rejected. All the keys would live in the same CI secrets, so one leak would expose
+    all of them. The file name check in §3.5 stops one product's file from passing as
+    another's in the Core and Driver checks.
+15. **The Driver version is set at build time**: Reading it from the embedded binary was
+    rejected; a Core built without the `driver` tag has no binary to read.

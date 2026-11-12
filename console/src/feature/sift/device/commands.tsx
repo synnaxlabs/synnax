@@ -14,7 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { useConnectModal } from "@/feature/sift/device/useConnectModal";
 import { Command } from "@/platform/command";
 
-const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(device.TYPE_RESOURCE_ID);
 
 const ConnectCommand = Command.create({
   key: "sift_connect",

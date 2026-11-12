@@ -12,10 +12,12 @@ package format
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -24,77 +26,119 @@ import (
 // license header template, with `{{YEAR}}` as the year placeholder.
 const licenseTemplatePath = "licenses/headers/template.txt"
 
-// License is a Formatter that prepends a per-extension license header.
-// The header is read once from licenses/headers/template.txt at
-// construction, year-substituted with time.Now().Year(), and rendered
-// into the comment style appropriate to each file extension.
+// headerYear matches the year in a Synnax license header.
+var headerYear = regexp.MustCompile(`Copyright (\d{4}) Synnax Labs`)
+
+// License is a formatter that prepends a per-extension license header rendered from
+// licenses/headers/template.txt.
 //
-// Format is idempotent: if the file already starts with a header that
-// matches the rendered template (any year, any whitespace following),
-// the content is returned unchanged. Files with no header get the
-// header prepended; files with a stale (different-year) header get the
-// stale header replaced.
+// The header keeps the year of the file on disk at the formatted path when that file
+// starts with a valid header. Otherwise the header uses the year passed to NewLicense.
+// Format replaces any other Synnax header on content and leaves a valid one unchanged.
 type License struct {
-	// headersByExt is the rendered header (including trailing blank
-	// line) for each supported extension.
-	headersByExt map[string]string
+	template string
+	year     string
+	prior    map[string]string
 }
 
-// NewLicense reads the template at <repoRoot>/licenses/headers/template.txt,
-// substitutes the current year, and returns a License formatter ready to
-// apply that header to files of any of the supported extensions.
-func NewLicense(repoRoot string) (*License, error) {
+// NewLicense reads the template at <repoRoot>/licenses/headers/template.txt and
+// returns a License formatter that gives new files the header for year. It reads the
+// header years of the absolute paths in prior now, so Format keeps them after a tool
+// such as buf rewrites those files without a header.
+func NewLicense(repoRoot string, year int, prior []string) (*License, error) {
 	tmplPath := filepath.Join(repoRoot, licenseTemplatePath)
 	raw, err := os.ReadFile(tmplPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read license template %s", tmplPath)
 	}
-	body := strings.ReplaceAll(string(raw), "{{YEAR}}", time.Now().Format("2006"))
-	body = strings.TrimRight(body, "\n")
-	lineHash := renderLineComment(body, "#", 2)
-	lineSlash := renderLineComment(body, "//", 1)
-	block := renderBlockComment(body)
-	return &License{
-		headersByExt: map[string]string{
-			".go":     lineSlash,
-			".ts":     lineSlash,
-			".tsx":    lineSlash,
-			".js":     lineSlash,
-			".jsx":    lineSlash,
-			".cpp":    lineSlash,
-			".cc":     lineSlash,
-			".cxx":    lineSlash,
-			".h":      lineSlash,
-			".hpp":    lineSlash,
-			".proto":  lineSlash,
-			".oracle": lineSlash,
-			".py":     lineHash,
-			".css":    block,
-		},
-	}, nil
+	l := &License{
+		template: strings.TrimRight(string(raw), "\n"),
+		year:     strconv.Itoa(year),
+		prior:    make(map[string]string, len(prior)),
+	}
+	for _, p := range prior {
+		ext := filepath.Ext(p)
+		if _, ok := renderers[ext]; !ok {
+			continue
+		}
+		if l.prior[p], err = l.diskYear(p, ext); err != nil {
+			return nil, err
+		}
+	}
+	return l, nil
 }
 
-// Format prepends or refreshes the license header on content. Files
-// with extensions outside the supported set pass through unchanged.
-// The context is unused; License is in-process and pure CPU.
+// Format prepends or refreshes the license header on content. Files with extensions
+// outside the supported set pass through unchanged. Format reads the file at absPath,
+// if one exists and NewLicense did not read it, to find the year to keep.
 func (l *License) Format(
 	_ context.Context,
 	content []byte,
 	absPath string,
 ) ([]byte, error) {
-	header, ok := l.headersByExt[filepath.Ext(absPath)]
-	if !ok {
+	ext := filepath.Ext(absPath)
+	if _, ok := renderers[ext]; !ok {
 		return content, nil
 	}
+	year, ok := l.prior[absPath]
+	if !ok {
+		var err error
+		if year, err = l.diskYear(absPath, ext); err != nil {
+			return nil, err
+		}
+	}
+	header := l.render(ext, year)
 	if bytes.HasPrefix(content, []byte(header)) {
 		return content, nil
 	}
-	stripped := stripExistingLicenseHeader(content, filepath.Ext(absPath))
+	stripped := stripExistingLicenseHeader(content, ext)
 	out := make([]byte, 0, len(header)+len(stripped))
 	out = append(out, header...)
 	out = append(out, stripped...)
 	return out, nil
 }
+
+// diskYear returns the year of the valid header at the start of the file at absPath,
+// or l.year when the file does not exist or has no valid header.
+func (l *License) diskYear(absPath, ext string) (string, error) {
+	existing, err := os.ReadFile(absPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return l.year, nil
+	}
+	if err != nil {
+		return "", errors.Wrapf(err, "read %s", absPath)
+	}
+	m := headerYear.FindSubmatch(existing)
+	if m == nil || !bytes.HasPrefix(existing, []byte(l.render(ext, string(m[1])))) {
+		return l.year, nil
+	}
+	return string(m[1]), nil
+}
+
+func (l *License) render(ext, year string) string {
+	return renderers[ext](strings.ReplaceAll(l.template, "{{YEAR}}", year))
+}
+
+var (
+	lineSlash = func(body string) string { return renderLineComment(body, "//", 1) }
+	lineHash  = func(body string) string { return renderLineComment(body, "#", 2) }
+	renderers = map[string]func(string) string{
+		".go":     lineSlash,
+		".ts":     lineSlash,
+		".tsx":    lineSlash,
+		".js":     lineSlash,
+		".jsx":    lineSlash,
+		".cpp":    lineSlash,
+		".cc":     lineSlash,
+		".cxx":    lineSlash,
+		".h":      lineSlash,
+		".hpp":    lineSlash,
+		".proto":  lineSlash,
+		".oracle": lineSlash,
+		".py":     lineHash,
+		".css":    renderBlockComment,
+	}
+)
 
 // renderLineComment renders body as a sequence of single-line comments
 // using prefix and `pad` spaces between the prefix and the line text.
