@@ -107,20 +107,21 @@ var _ = Describe("Migrate", func() {
 				Pointer:    "/v",
 				Channel:    7,
 				Name:       "cmd",
-				DataType:   new(telem.Float64T),
+				DataType:   new(telem.TimestampT),
 				TimeFormat: payload.TimeFormatUnixMs,
 			}),
-		Entry("a time format on a bound string field as a string",
+		Entry("a string with a time format and no entries as a timestamp",
 			v1.ChannelField{
 				Channel:    7,
 				JSONType:   payload.JSONTypeString,
 				TimeFormat: &unixMs,
 			},
-			v2.StringChannelField{
-				Pointer:  "/v",
-				Channel:  7,
-				Name:     "cmd",
-				DataType: new(telem.Float64T),
+			v2.TimestampChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.TimestampT),
+				TimeFormat: payload.TimeFormatUnixMs,
 			}),
 		Entry("a number on a bound field as a float, for its channel to reconcile",
 			v1.ChannelField{
