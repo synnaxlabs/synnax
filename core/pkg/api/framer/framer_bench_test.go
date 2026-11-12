@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 	xtestutil "github.com/synnaxlabs/x/testutil"
@@ -53,6 +54,7 @@ func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 		Security:        sec,
 		Storage:         node.Storage,
 		RootCredentials: auth.Credentials{Username: "bench-root", Password: "p"},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
 	b.Cleanup(func() {
 		if err := layer.Close(); err != nil {

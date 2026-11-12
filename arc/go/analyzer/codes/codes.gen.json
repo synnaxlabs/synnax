@@ -8,10 +8,14 @@
     "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
   },
   "ARC2006": {
+    "severity": "warning",
+    "message": "bool to %s is experimental; a future release may only allow bool to u8"
+  },
+  "ARC2007": {
     "severity": "error",
     "message": "%s has no unit and cannot take a value in %s"
   },
-  "ARC2007": {
+  "ARC2008": {
     "severity": "warning",
     "message": "unit conversion from %s to %s truncates an integer toward zero"
   },

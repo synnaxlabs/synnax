@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <cctype>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "absl/log/log.h"
@@ -78,7 +78,7 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
         if (!health.startup_error.empty())
-            status.description = health.startup_error;
+            status.description = errors::sentence(health.startup_error);
         else if (!health.al_status.empty())
             status.description = health.al_status;
         else
@@ -104,11 +104,7 @@ void set_invalid_properties_status(
 
 /// @brief describes a PDO discovery error and what the user can do about it.
 std::string pdo_error_description(const std::string &error) {
-    auto sentence = error;
-    sentence[0] = static_cast<char>(
-        std::toupper(static_cast<unsigned char>(sentence[0]))
-    );
-    return sentence + ". " + get_pdo_error_guidance(error);
+    return errors::sentence(error) + " " + get_pdo_error_guidance(error);
 }
 
 /// @brief returns the program that alone reads an input entry of the slave, or an empty
@@ -127,30 +123,34 @@ std::string only_reader(const slave::Properties &props) {
     return "";
 }
 
-/// @brief sets status to the warning for a slave with settings that sends data that
-/// only reader reads.
-void set_mode_status(
-    const std::string &reader,
-    const x::json::json &settings,
-    synnax::device::Status &status
-) {
+/// @brief sets status to a warning when other software sets up the slave in a way that
+/// keeps Synnax from using it, or when Synnax is on the wrong bus of the slave. Returns
+/// whether it set one.
+bool set_setup_status(const slave::Properties &props, synnax::device::Status &status) {
+    const auto none = x::json::json::object();
+    const auto &mode = props.settings && props.settings->contains("mode")
+                         ? props.settings->at("mode")
+                         : none;
+    const auto bus = mode.value("bus", 0);
+    auto reader = only_reader(props);
+    const bool switched = !reader.empty() && mode.contains("switch") &&
+                          mode.at("switch").empty();
+    if (reader.empty()) reader = mode.value("only_read_by", "");
+    if (switched) {
+        status.message = "Restart the power of the device";
+        if (bus == 2)
+            status.description = "First, connect Synnax to EtherCAT bus 1 IN.";
+    } else if (!reader.empty()) {
+        status.message = "Set up for " + reader;
+        status.description = "Synnax cannot read its data.";
+        if (!mode.empty())
+            status.description += " In Configure, switch the device to Synnax.";
+    } else if (bus == 2 && !mode.value("shared", false)) {
+        status.message = "Connect Synnax to EtherCAT bus 1 IN";
+    } else
+        return false;
     status.variant = synnax::status::VARIANT_WARNING;
-    const auto mode = settings.find("mode");
-    if (mode != settings.end() && mode->at("switch").empty()) {
-        status.message = "Waiting for a power restart";
-        status.description = "The device runs Synnax only after a power restart. Until "
-                             "then, it sends data that only " +
-                             reader + " reads.";
-        return;
-    }
-    status.message = "Set up for " + reader;
-    status.description = "On this port, the device sends data that only " + reader +
-                         " reads. ";
-    status.description += mode == settings.end()
-                            ? "Connect"
-                            : "In the device settings, switch the device to Synnax "
-                              "only, or connect";
-    status.description += " Synnax to the port that " + reader + " does not use.";
+    return true;
 }
 
 /// @brief adds a failed settings read to the description of status as a warning.
@@ -160,6 +160,16 @@ void add_settings_error(const std::string &error, synnax::device::Status &status
     status.description += "Failed to read the settings: " + error +
                           ". The Driver tries again while no task uses the port.";
     status.variant = synnax::status::VARIANT_WARNING;
+}
+
+/// @brief whether the Core holds a device that a scan found on the network.
+bool holds_devices_on(const common::ScannerContext &ctx, const std::string &network) {
+    if (ctx.devices == nullptr) return false;
+    return std::ranges::any_of(*ctx.devices, [&network](const auto &entry) {
+        const auto &props = entry.second.properties;
+        const auto it = props.find("network");
+        return it != props.end() && it->second == network;
+    });
 }
 
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
@@ -192,14 +202,18 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
 
     std::set<std::string> failures;
+    std::vector<std::pair<std::string, std::string>> blocked;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
     for (const auto &master_info: masters) {
         const auto &key = master_info.key;
         if (const auto it = this->next_probes.find(key);
-            it != this->next_probes.end() && scan_ctx.count < it->second)
+            it != this->next_probes.end() && scan_ctx.count < it->second.due) {
+            if (!it->second.failure.empty())
+                blocked.emplace_back(key, it->second.failure);
             continue;
+        }
         const auto due = this->next_rediscoveries.find(key);
         const bool scheduled = due != this->next_rediscoveries.end();
         const bool rediscover = scheduled && scan_ctx.count >= due->second;
@@ -209,7 +223,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         // all IgH devices), so the other masters fail the same way.
         if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
         if (err.matches(errors::NO_SLAVES_FOUND)) {
-            this->next_probes[key] = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            auto &probe = this->next_probes[key];
+            probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
+            probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data : "";
+            if (!probe.failure.empty()) blocked.emplace_back(key, probe.failure);
             continue;
         }
         this->next_probes.erase(key);
@@ -237,10 +254,15 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             this->next_rediscoveries[key] = scan_ctx.count + PDO_REDISCOVERY_INTERVAL;
     }
 
+    // A filter on an adapter with no devices can hide a bus only when no adapter shows
+    // a device, or when the Core holds devices from the adapter.
+    for (const auto &[key, failure]: blocked)
+        if (devices.empty() || holds_devices_on(scan_ctx, key))
+            failures.insert(failure);
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
-        desc += (desc.empty() ? "" : "; ") + failure;
+        desc += (desc.empty() ? "" : " ") + errors::sentence(failure);
     return {devices, x::errors::Error(common::PARTIAL_SCAN_ERROR, desc)};
 }
 
@@ -306,10 +328,9 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (const auto reader = only_reader(props); !reader.empty()) {
-        set_mode_status(reader, props.settings.value(), status);
+    else if (set_setup_status(props, status))
         add_settings_error(sts.settings_error, status);
-    } else if (
+    else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
@@ -412,12 +433,14 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->pool->discover(args.interface);
+    auto [engine, err] = this->pool->acquire(args.interface);
+    std::vector<slave::DiscoveryResult> slaves;
+    if (!err) std::tie(slaves, err) = engine->discover();
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
         task_status.message = "Failed to probe interface";
-        task_status.description = err.data;
+        task_status.description = errors::sentence(err.data);
         this->ctx->set_status(task_status);
         return;
     }
@@ -426,7 +449,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
             << " slaves on " << args.interface;
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Found " + std::to_string(slaves.size()) + " slaves on " +
-                          args.interface;
+                          engine->name();
     this->ctx->set_status(task_status);
 }
 
@@ -446,7 +469,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     };
     const auto fail = [&](const std::string &description) {
         task_status.message = "Failed to switch the device";
-        task_status.description = description;
+        task_status.description = errors::sentence(description);
         this->ctx->set_status(task_status);
     };
     if (!parser.ok()) {
@@ -480,7 +503,9 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         return generate_slave_key(s.properties, network) == key;
     });
     if (slave == slaves.end()) {
-        fail("The device is not on " + network + ". Check its power and cabling.");
+        fail(
+            "The device is not on " + engine->name() + ". Check its power and cabling."
+        );
         return;
     }
     const auto &props = slave->properties;

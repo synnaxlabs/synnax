@@ -51,16 +51,22 @@ SlaveStartupParameters struct {
 
 ReadChannel union on type extends v1.BaseReadChannel {
     entry {
-        index     uint16         {
+        index      uint16         {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index uint8          {
+        sub_index  uint8          {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type telem.DataType {
+        data_type  telem.DataType {
             @doc value "is the data type of the PDO entry."
         }
-        scale     task.Scale = none {
+        calibrated bool = false {
+            @doc value """
+                is true when the Driver turns the raw counts of the entry into physical
+                values, with the gain and offset that the slave stores for the entry.
+            """
+        }
+        scale      task.Scale = none {
             @doc value """
                 is the scale applied to raw samples after acquisition. A scaled channel
                 writes to a float Synnax channel.

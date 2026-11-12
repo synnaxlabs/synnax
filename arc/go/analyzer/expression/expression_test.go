@@ -1734,6 +1734,10 @@ var _ = Describe("Expressions", func() {
 				Expect(warnings).To(HaveLen(warningCount))
 				for _, w := range warnings {
 					Expect(w.Message).To(ContainSubstring("is experimental"))
+					Expect(w.Code).To(Equal(codes.BoolCast.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits[0].NewText).To(Equal("u8(x)"))
 				}
 			},
 			Entry("u8 is the blessed target", "u8", 0),
@@ -1744,6 +1748,18 @@ var _ = Describe("Expressions", func() {
 			Entry("f32", "f32", 1),
 			Entry("f64", "f64", 1),
 		)
+
+		It("Should give no warning for a bool cast through u8", func(ctx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x bool := true
+					y := i32(u8(x))
+				}
+			`))
+			aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
+			analyzer.AnalyzeProgram(aCtx)
+			Expect(*aCtx.Diagnostics).To(BeEmpty(), aCtx.Diagnostics.String())
+		})
 
 		DescribeTable("rejected boolean conversions",
 			func(ctx SpecContext, code string) {

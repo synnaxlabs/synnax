@@ -257,9 +257,8 @@ struct Properties {
     /// @brief the settings the user chose. to_json leaves out the startup parameters,
     /// so a scan keeps them.
     Config config;
-    /// @brief the settings that the ESI catalog describes for the slave, as
-    /// esi::read_settings returns them, or nullopt when it describes none. Only a scan
-    /// sets it.
+    /// @brief the settings that the ESI catalog describes for the slave at the last
+    /// scan, as esi::read_settings returns them, or nullopt when it describes none.
     std::optional<nlohmann::json> settings;
 
     /// @brief returns the entry at the given address in one direction, or nullopt when
@@ -312,6 +311,8 @@ struct Properties {
             parser.iter("startup_parameters", [&params](x::json::Parser &param) {
                 params.push_back(StartupParameter::parse(param));
             });
+        if (parser.has("settings"))
+            props.settings = parser.field<x::json::json>("settings");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
@@ -369,19 +370,12 @@ struct Status {
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
 /// message about one or more such slaves ends with it once.
 inline constexpr std::string_view DC_SYNC_ADVICE =
-    "A slave that reports \"Invalid DC SYNC configuration\" expects a synchronization "
-    "mode that the Driver did not set up. Set the DC mode of the slave in its device "
-    "settings. With no setting, the Driver uses the mode that the catalog gives for "
-    "the slave, else SM sync when the slave lists an SM mode, and its first DC mode "
-    "when it lists only DC modes. If the slave does not "
-    "list the mode it expects, change its mode with the configuration tool of its "
-    "vendor.";
+    "To fix \"Invalid DC SYNC configuration\", right-click the device, select "
+    "Configure, and pick another sync mode.";
 
 /// @brief advice for a slave that reports an invalid input or output configuration.
-inline constexpr std::string_view MODE_RESTART_ADVICE =
-    "After a change to its mode, such as a switch to Synnax only, a device can refuse "
-    "to start until its power restarts. If its mode changed, restart the power of the "
-    "device.";
+inline constexpr std::string_view
+    MODE_RESTART_ADVICE = "If the mode of the device changed, restart its power.";
 
 /// @brief why the bus started without a slave that refused a state.
 struct Refusal {

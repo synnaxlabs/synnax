@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import status as status_, task
+from synnax import secret, status as status_, task
 
 
 class Alert(BaseModel):
@@ -52,11 +52,11 @@ class TaskConfig(task.StartConfig):
     PagerDuty as events.
 
     Attributes:
-        routing_key: Is the PagerDuty Events API v2 routing key.
+        routing_key: Is the secret that holds the PagerDuty Events API v2 routing key.
         alerts: Are the alerts the task evaluates.
     """
 
-    routing_key: str = ""
+    routing_key: secret.Key | None = None
     alerts: list[Alert] = Field(default_factory=list)
 
     @_override

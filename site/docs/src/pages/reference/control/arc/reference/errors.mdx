@@ -54,9 +54,16 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item {...Arc.diagnostic("ARC2006", ["<T>"])}>
+  <Problem.Cause>
+    A cast converts a `bool` to a number type other than `u8`, such as `i32(b)`.
+  </Problem.Cause>
+  <Problem.Fix>Cast the `bool` to `u8` first, such as `i32(u8(b))`.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item
   {...Arc.diagnostic(
-    "ARC2006",
+    "ARC2007",
     ["'<v>'", "<unit>"],
     ["parameter '<p>' of '<f>'", "<unit>"],
     ["the result of '<f>'", "<unit>"],
@@ -71,7 +78,7 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC2007", ["<unit>", "<unit>"])}>
+<Problem.Item {...Arc.diagnostic("ARC2008", ["<unit>", "<unit>"])}>
   <Problem.Cause>
     An integer converts to another unit, such as `s` to `min`, and loses its fraction.
   </Problem.Cause>

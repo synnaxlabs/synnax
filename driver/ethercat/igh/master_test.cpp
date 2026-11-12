@@ -17,6 +17,7 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
@@ -657,6 +658,28 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
+}
+
+/// @brief it should name the master by its index.
+TEST_F(IGHMasterTest, NameIsTheIndexOfTheMaster) {
+    EXPECT_EQ(this->master.name(), "igh:0");
+}
+
+/// @brief it should read the value that a slave holds in an object, counting positions
+/// from 1.
+TEST_F(IGHMasterTest, ReadReturnsTheValueOfAnObject) {
+    this->api->add_slave();
+    this->api->add_slave().objects[{0x8040, 0x15}] = 0x40000000;
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(ASSERT_NIL_P(this->master.read(2, 0x8040, 0x15)), 0x40000000);
+}
+
+/// @brief it should return the abort of a read of an object that the slave does not
+/// have.
+TEST_F(IGHMasterTest, ReadReturnsTheAbortOfAMissingObject) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_OCCURRED_AS_P(this->master.read(1, 0x8040, 0x15), coe::OBJECT_MISSING);
 }
 
 /// @brief it should accept a value that the slave holds on the running bus, and write

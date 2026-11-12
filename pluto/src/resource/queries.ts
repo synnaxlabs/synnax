@@ -32,3 +32,20 @@ export const useList = (
     name: "resources",
     itemQuery: resource.parseID,
   });
+
+export type RetrieveMultipleQuery = { ids: resource.ID[] };
+
+/**
+ * Retrieves the resources that the IDs name, in the order of the IDs, leaving out each
+ * ID that names no resource. The answer stays current while it is mounted.
+ */
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  resource.Resource[]
+>({
+  name: "resources",
+  retrieve: async ({ client, query: { ids } }) => await client.resources.retrieve(ids),
+  onChange: ({ client, query: { ids } }, handler) =>
+    client.resources.watch(ids).onChange(handler),
+  getCached: ({ client, query: { ids } }) => client.resources.watch(ids).getCached(),
+});

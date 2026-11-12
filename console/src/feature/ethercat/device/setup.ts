@@ -13,13 +13,18 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
 /**
  * How the scan found a slave set up:
  * - synnax: Synnax alone sets it up, or its catalog describes no mode.
- * - other: on this port, it sends data that only reader reads.
+ * - other: it sends data that only reader reads.
+ * - shared: reader sets it up, and Synnax uses its data.
+ * - bus: it runs Synnax only, which uses bus 1 IN, but Synnax is on bus 2 IN.
  * - switched: it holds Synnax only, but it sends data that only reader reads until its
  *   power restarts.
- * - shared: reader also sets it up, and it sends data that Synnax reads on this port.
  */
 export type Setup =
-  { kind: "synnax" } | { kind: "other" | "switched" | "shared"; reader: string };
+  | { kind: "synnax" }
+  | { kind: "bus" }
+  | { kind: "other"; reader: string }
+  | { kind: "shared"; reader: string }
+  | { kind: "switched"; reader: string };
 
 interface Marked {
   address: Address;
@@ -34,30 +39,52 @@ const markedEntries = (props: SlaveProperties): Marked[] =>
     ),
   );
 
-/** @returns the one program that reads the entry at the address, or null for none. */
+/**
+ * @returns the one program that reads the input entry at the address, or null when
+ * Synnax can read it.
+ */
 export const onlyReaderOf = (props: SlaveProperties, address: Address): string | null =>
-  markedEntries(props).find((m) => sameAddress(m.address, address))?.reader ?? null;
+  markedEntries(props).find((m) => sameAddress(m.address, address))?.reader ??
+  props.settings?.mode?.onlyReadBy ??
+  null;
 
 /** @returns whether other software sets up the slave, so Synnax writes no settings. */
 export const isShared = (props: SlaveProperties): boolean =>
   props.settings?.mode?.shared === true;
 
+/** @returns the software that sets up the slave, or null when Synnax does. */
+export const setUpBy = (props: SlaveProperties): string | null => {
+  const mode = props.settings?.mode;
+  if (mode?.shared !== true) return null;
+  // A Driver before the bus and the software were in the mode names neither.
+  return (
+    mode.sharedWith ??
+    mode.onlyReadBy ??
+    markedEntries(props)[0]?.reader ??
+    "other software"
+  );
+};
+
 /** @returns whether the Driver can switch the slave to Synnax only. */
 export const canSwitch = (props: SlaveProperties): boolean =>
   (props.settings?.mode?.switch.length ?? 0) > 0;
 
+/** @returns whether a scan can tell that a switch to Synnax took effect. */
+export const confirmsSwitch = (props: SlaveProperties): boolean =>
+  markedEntries(props).length > 0;
+
 /** @returns how the scan found the slave set up. */
 export const of = (props: SlaveProperties): Setup => {
-  const marked = markedEntries(props);
-  const sent = marked.find((m) =>
+  const mode = props.settings?.mode;
+  const sent = markedEntries(props).find((m) =>
     props.pdos.inputs.some((e) => sameAddress(e, m.address)),
   );
-  if (sent != null)
-    return {
-      kind: props.settings?.mode?.switch.length === 0 ? "switched" : "other",
-      reader: sent.reader,
-    };
-  if (isShared(props))
-    return { kind: "shared", reader: marked[0]?.reader ?? "other software" };
+  if (sent != null && mode?.switch.length === 0)
+    return { kind: "switched", reader: sent.reader };
+  const onlyReader = sent?.reader ?? mode?.onlyReadBy;
+  if (onlyReader != null) return { kind: "other", reader: onlyReader };
+  const reader = setUpBy(props);
+  if (reader != null) return { kind: "shared", reader };
+  if (mode?.bus === 2) return { kind: "bus" };
   return { kind: "synnax" };
 };

@@ -72,6 +72,7 @@ cc_test(
     deps = [
         ":igh",
         ":mock_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/esi:settings",

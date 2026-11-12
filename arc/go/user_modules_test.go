@@ -10,6 +10,10 @@
 package arc_test
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -399,6 +403,195 @@ export sequence s {
 			Expect(
 				last(frames[1], seqOut).Unmarshal[uint8](),
 			).To(ContainElement(uint8(1)))
+		})
+
+		Describe("Calls that read channels", func() {
+			const (
+				a    uint32 = 110
+				b    uint32 = 111
+				c    uint32 = 112
+				done uint32 = 113
+				sum  uint32 = 114
+			)
+			const turbo = `
+limit f32 := 15
+
+export func stopped() bool {
+    return a < limit and b < limit and c < limit
+}
+
+export func total() f32 {
+    return a + b + c
+}`
+			const cooldown = `
+sequence s {
+    stage cool {
+        %s => next
+    }
+    stage evacuate {
+        u8(1) -> done
+        trig == 2 => cool
+    }
+}
+
+trig == 1 => s
+`
+			newHarness := func(
+				ctx SpecContext,
+				source string,
+				modules map[string]string,
+			) *runtimeHarness {
+				GinkgoHelper()
+				return newModuleRuntimeHarness(
+					ctx,
+					source,
+					modules,
+					slices.Concat(resolver, channelSymbols(map[string]channelDef{
+						"a":    {types.F32(), int(a)},
+						"b":    {types.F32(), int(b)},
+						"c":    {types.F32(), int(c)},
+						"done": {types.U8(), int(done)},
+						"sum":  {types.F32(), int(sum)},
+					})),
+					slices.Concat(digests, []channels.Digest{
+						{Key: done, DataType: telem.Uint8T},
+						{Key: sum, DataType: telem.Float32T},
+					})...,
+				)
+			}
+			// set ingests v on key, settles the program, and returns what it wrote.
+			set := func(
+				ctx SpecContext,
+				h *runtimeHarness,
+				key uint32,
+				v float32,
+			) telem.Frame[uint32] {
+				GinkgoHelper()
+				h.Ingest(key, telem.NewSeriesV(v))
+				for t := range 3 {
+					h.Tick(ctx, telem.TimeSpan(t+1)*telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				return out
+			}
+			// SY-5483 will make a call wait for a value. Until then, an empty channel
+			// reads as 0, so every channel gets a value before the sequence starts.
+			start := func(ctx SpecContext, h *runtimeHarness) {
+				GinkgoHelper()
+				for _, key := range []uint32{a, b, c} {
+					set(ctx, h, key, 20)
+				}
+				Expect(pulses(ctx, h, 1)[0].Get(done).Series).To(BeEmpty())
+			}
+			// drop lowers each channel below the limit in order and returns what the
+			// last drop wrote. The earlier drops must write nothing.
+			drop := func(
+				ctx SpecContext,
+				h *runtimeHarness,
+				order ...uint32,
+			) telem.Frame[uint32] {
+				GinkgoHelper()
+				for _, key := range order[:len(order)-1] {
+					Expect(set(ctx, h, key, 10).Get(done).Series).To(BeEmpty())
+				}
+				return set(ctx, h, order[len(order)-1], 10)
+			}
+			modules := map[string]string{"turbo": turbo}
+			module := "import turbo\n" + fmt.Sprintf(cooldown, "turbo.stopped()")
+
+			DescribeTable(
+				"Should transition when the last channel a function reads updates",
+				func(ctx SpecContext, order ...uint32) {
+					h := newHarness(ctx, module, modules)
+					defer h.Close(ctx)
+					start(ctx, h)
+					Expect(last(drop(ctx, h, order...), done).Unmarshal[uint8]()).
+						To(Equal([]uint8{1}))
+				},
+				Entry("a updates last", b, c, a),
+				Entry("b updates last", a, c, b),
+				Entry("c updates last", a, b, c),
+			)
+
+			It("Should not transition on a channel that rose again", func(
+				ctx SpecContext,
+			) {
+				h := newHarness(ctx, module, modules)
+				defer h.Close(ctx)
+				start(ctx, h)
+				Expect(set(ctx, h, a, 10).Get(done).Series).To(BeEmpty())
+				Expect(set(ctx, h, a, 20).Get(done).Series).To(BeEmpty())
+				Expect(drop(ctx, h, b, c).Get(done).Series).To(BeEmpty())
+				Expect(last(set(ctx, h, a, 10), done).Unmarshal[uint8]()).
+					To(Equal([]uint8{1}))
+			})
+
+			DescribeTable(
+				"Should transition on a function defined",
+				func(ctx SpecContext, source string, modules map[string]string) {
+					h := newHarness(ctx, source, modules)
+					defer h.Close(ctx)
+					start(ctx, h)
+					Expect(last(drop(ctx, h, a, b, c), done).Unmarshal[uint8]()).
+						To(Equal([]uint8{1}))
+				},
+				Entry(
+					"in the automation",
+					strings.ReplaceAll(turbo, "export ", "")+
+						fmt.Sprintf(cooldown, "stopped()"),
+					nil,
+				),
+				Entry(
+					"in a module that imports a module",
+					"import lib.turbo\n"+fmt.Sprintf(cooldown, "turbo.stopped()"),
+					map[string]string{
+						"lib.limits": "export limit f32 := 15",
+						"lib.turbo": `
+import lib.limits
+
+export func stopped() bool {
+    return a < limits.limit and b < limits.limit and c < limits.limit
+}`,
+					},
+				),
+			)
+
+			It("Should transition again after the stage is re-entered", func(
+				ctx SpecContext,
+			) {
+				h := newHarness(ctx, module, modules)
+				defer h.Close(ctx)
+				start(ctx, h)
+				Expect(last(drop(ctx, h, a, b, c), done).Unmarshal[uint8]()).
+					To(Equal([]uint8{1}))
+				for _, key := range []uint32{a, b, c} {
+					set(ctx, h, key, 20)
+				}
+				Expect(pulses(ctx, h, 2)[0].Get(done).Series).To(BeEmpty())
+				Expect(last(drop(ctx, h, b, c, a), done).Unmarshal[uint8]()).
+					To(Equal([]uint8{1}))
+			})
+
+			It("Should write a function's result when any channel it reads updates",
+				func(ctx SpecContext) {
+					h := newHarness(
+						ctx,
+						"import turbo\n\nturbo.total() -> sum",
+						modules,
+					)
+					defer h.Close(ctx)
+					for _, key := range []uint32{a, b, c} {
+						set(ctx, h, key, 1)
+					}
+					var sums []float32
+					for _, key := range []uint32{a, b, c} {
+						vals := last(set(ctx, h, key, 2), sum).Unmarshal[float32]()
+						sums = append(sums, vals[len(vals)-1])
+					}
+					Expect(sums).To(Equal([]float32{4, 5, 6}))
+				},
+			)
 		})
 	})
 

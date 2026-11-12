@@ -756,9 +756,8 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				if sourceType.Kind == basetypes.KindBool &&
 					targetType.IsNumeric() &&
 					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
-						"bool to %s is experimental; a future release may only "+
-							"allow bool to u8", targetType))
+					ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
+						WithFix(expr, "u8("+sourceText(expr)+")"))
 				}
 			}
 		}
