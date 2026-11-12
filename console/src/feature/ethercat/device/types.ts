@@ -60,6 +60,12 @@ const modeZ = z.object({
   value: z.number(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),
+  /** The software that sets up the slave while Synnax still reads its data. */
+  sharedWith: z.string().optional(),
+  /** The software that sets up the slave and alone reads the data that it sends. */
+  onlyReadBy: z.string().optional(),
+  /** The EtherCAT bus of the slave that Synnax is on, when the slave has two. */
+  bus: z.union([z.literal(1), z.literal(2)]).optional(),
   /** The sync mode that the mode needs. */
   opMode: opModeChoiceZ.optional(),
   /** The writes that make the slave standalone. Empty when it is. */
@@ -72,6 +78,8 @@ const readBindingZ = z.object({
   subIndex: z.number(),
   /** The channel holds the scaled samples of the entry. */
   scaled: z.boolean().default(false),
+  /** The channel holds the calibrated samples of the entry. */
+  calibrated: z.boolean().default(false),
   channel: z.number(),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
@@ -111,7 +119,7 @@ const readBindingsZ = z
   .array(readBindingZ)
   .or(
     bindingMapZ<ReadBinding>("scaled", (bindings, address, scaled, channel) =>
-      bindings.push({ ...address, scaled, channel }),
+      bindings.push({ ...address, scaled, calibrated: false, channel }),
     ),
   );
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query, type Synnax } from "@synnaxlabs/client";
+import { type channel, type ethercat, query } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -26,9 +26,11 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
+  createSlaveChannels,
   fillStartupParameters,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
+import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindReadChannel,
   createEntryReadChannel,
@@ -37,8 +39,8 @@ import {
   deployReadConfigZ,
   entryAt,
   type EntryReadChannel,
-  getPortLabel,
   hasEntry,
+  isCalibrated,
   mappedChannels,
   READ_SCHEMAS,
   READ_TYPE,
@@ -48,7 +50,6 @@ import {
   readDataType,
   readNameSuffix,
   type ReadSchemas,
-  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -101,7 +102,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
-      port={getPortLabel(ch)}
+      port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
@@ -110,7 +111,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}
-      portMaxChars={10}
+      portMaxChars={20}
     />
   );
 };
@@ -121,13 +122,22 @@ const detailsTitle = Component.renderProp(ReadDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
+/** @returns a channel on the entry, calibrated when the Driver calibrates the entry. */
+const createSlaveReadChannel = (
+  { key, properties }: SlaveDevice,
+  entry: ethercat.PDOEntry,
+): EntryReadChannel => ({
+  ...createEntryReadChannel(key, entry),
+  calibrated: isCalibrated(properties, entry),
+});
+
 const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
   <>
     <AddSlaveEntriesItem
       {...props}
       path={path.config.channels}
       pdoType="inputs"
-      createChannel={createEntryReadChannel}
+      createChannel={createSlaveReadChannel}
     />
     {Task.readChannelContextMenuItem(props)}
   </>
@@ -156,17 +166,6 @@ const Form: FC = () => {
   );
 };
 
-/** @returns a channel for each input of the slave, or one empty channel without any. */
-const createSlaveChannels = async (
-  client: Synnax,
-  key: string,
-): Promise<ReadChannel[]> => {
-  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const inputs = usableEntries(slave.properties, "inputs");
-  if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
-  return inputs.map((entry) => createEntryReadChannel(key, entry));
-};
-
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
   client,
   deviceKey,
@@ -177,7 +176,13 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
     cfg.channels =
       deviceKey == null
         ? [createReadChannel([])]
-        : await createSlaveChannels(client, deviceKey);
+        : await createSlaveChannels(
+            client,
+            deviceKey,
+            "inputs",
+            createSlaveReadChannel,
+            createReadChannel([]),
+          );
   return { name: "EtherCAT read task", type: READ_TYPE, config: cfg };
 };
 

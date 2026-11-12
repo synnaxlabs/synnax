@@ -33,7 +33,7 @@ func (m Member) stringWithPrefix(prefix string) string {
 	case m.NodeKey != nil:
 		return fmt.Sprintf("%s\n", *m.NodeKey)
 	case m.Scope != nil:
-		return m.Scope.StringWithPrefix(prefix)
+		return m.Scope.stringWithPrefix(prefix)
 	default:
 		return "(empty member)\n"
 	}

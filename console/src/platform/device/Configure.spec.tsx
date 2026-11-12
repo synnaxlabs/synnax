@@ -30,7 +30,7 @@ const client = createTestClient();
 
 const HINT = /A short prefix for every channel/;
 
-const onCreateTask = vi.fn();
+const onCreateReadTask = vi.fn();
 const onBack = vi.fn();
 
 const HARDWARE: Device.Hardware = {
@@ -59,7 +59,7 @@ const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
     <Configure
       deviceKey={deviceKey}
       close={close}
-      onCreateTask={onCreateTask}
+      onCreateReadTask={onCreateReadTask}
       onBack={onBack}
     />
   ),
@@ -99,7 +99,7 @@ const save = async (label = "Save") => {
 
 describe("device Configure", () => {
   beforeEach(() => {
-    onCreateTask.mockClear();
+    onCreateReadTask.mockClear();
     onBack.mockClear();
   });
 
@@ -198,7 +198,7 @@ describe("device Configure", () => {
       const { dev } = await setup(useConfigureWithActionsModal);
       fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
       await save("Save and create read task");
-      await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(dev.key));
+      await waitFor(() => expect(onCreateReadTask).toHaveBeenCalledWith(dev.key));
       const updated = await client.devices.retrieve(dev.key);
       expect(updated.configured).toBe(true);
     });
@@ -208,7 +208,7 @@ describe("device Configure", () => {
       fireEvent.change(identifierInput(), { target: { value: "1x" } });
       await save("Save and create read task");
       expect(screen.getByText(HINT)).toBeTruthy();
-      expect(onCreateTask).not.toHaveBeenCalled();
+      expect(onCreateReadTask).not.toHaveBeenCalled();
     });
 
     it("should go back without saving", async () => {

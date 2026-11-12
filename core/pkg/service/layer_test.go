@@ -18,7 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
@@ -581,4 +583,16 @@ var _ = Describe("Group moves", Ordered, func() {
 			Expect(owners(ctx)).To(HaveEach(Equal(&dest.Key)))
 		},
 	)
+})
+
+var _ = Describe("LayerConfig", func() {
+	It("Should require a secrets key", func() {
+		cfg := service.LayerConfig{
+			Distribution: &distribution.Layer{},
+			Security: MustSucceed(security.NewProvider(security.ProviderConfig{
+				Insecure: new(true),
+			})),
+		}
+		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
+	})
 })

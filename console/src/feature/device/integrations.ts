@@ -35,6 +35,8 @@ export interface Network extends PlatformDevice.Network, Menus {}
 
 export interface Hardware extends PlatformDevice.Hardware, Menus {
   useCreateRead: Task.UseCreate;
+  /** Creates a write task, for an integration whose devices can have outputs. */
+  useCreateWrite?: Task.UseCreate;
 }
 
 export type Integration = Network | Hardware;
@@ -67,6 +69,7 @@ export const HARDWARE: Hardware[] = [
     ...EtherCAT.Device.HARDWARE,
     ContextMenuItems: EtherCAT.Device.ContextMenuItems,
     useCreateRead: EtherCAT.Task.useCreateRead,
+    useCreateWrite: EtherCAT.Task.useCreateWrite,
   },
 ];
 

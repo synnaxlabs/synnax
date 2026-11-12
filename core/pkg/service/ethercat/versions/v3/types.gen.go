@@ -78,6 +78,9 @@ type EntryReadChannel struct {
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
 	// DataType is the data type of the PDO entry.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Calibrated is true when the Driver turns the raw counts of the entry into
+	// physical values, with the gain and offset that the slave stores for the entry.
+	Calibrated bool `json:"calibrated" msgpack:"calibrated"`
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
 	Scale taskv2.Scale `json:"scale" msgpack:"scale"`

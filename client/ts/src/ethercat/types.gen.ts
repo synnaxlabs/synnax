@@ -83,6 +83,11 @@ export const entryReadChannelZ = baseReadChannelZ.extend({
   /** dataType is the data type of the PDO entry. */
   dataType: z.string(),
   /**
+   * calibrated is true when the Driver turns the raw counts of the entry into physical
+   * values, with the gain and offset that the slave stores for the entry.
+   */
+  calibrated: z.boolean().default(false),
+  /**
    * scale is the scale applied to raw samples after acquisition. A scaled channel
    * writes to a float Synnax channel.
    */

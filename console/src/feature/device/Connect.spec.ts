@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
-import { createSlaveDevice } from "@/feature/ethercat/testutil";
+import { createSlaveDevice, STATUS_ENTRY } from "@/feature/ethercat/testutil";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -86,7 +86,11 @@ describe("Device.useConnectModal", () => {
       const found = await createSlaveDevice(
         client,
         rack.key,
-        { name: uniqueName("slave"), network: "eth0" },
+        {
+          name: uniqueName("slave"),
+          network: "eth0",
+          pdos: { inputs: [STATUS_ENTRY], outputs: [] },
+        },
         false,
       );
       await open({ integration: EtherCAT.Device.HARDWARE.key, rack: rack.key });

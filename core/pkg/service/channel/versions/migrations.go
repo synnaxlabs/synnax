@@ -21,4 +21,5 @@ var Migrations = []gorp.Migration{
 	v0.Migration,
 	v1.Migration,
 	v1.MembersMigration,
+	v1.IndexGroupMigration,
 }
