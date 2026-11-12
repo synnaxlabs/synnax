@@ -106,7 +106,7 @@ describe("useSetDataSaving", () => {
     const alertTask = await rack.createTask({
       name: "alert-task",
       type: PagerDuty.Task.ALERT_TYPE,
-      config: { routingKey: "a".repeat(32) },
+      config: {},
     });
 
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });

@@ -9,10 +9,12 @@
 
 import { group, label, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Resource } from "@/resource";
+import { renderHookSuspended } from "@/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -102,6 +104,31 @@ describe("Resource Queries", () => {
       await waitFor(() => expect(result.current.getItem(key)?.name).toEqual("renamed"));
       expect(callback).toHaveBeenCalled();
       release();
+    });
+  });
+
+  describe("useMultiple", () => {
+    it("should suspend until it returns the resources with the IDs", async () => {
+      const first = await createGroup(randomToken());
+      const second = await createLabel(randomToken());
+      const ids = [first, second];
+      const { result } = await renderHookSuspended(
+        () => Resource.useMultiple({ ids }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.map((r) => r.id)).toEqual([first, second]),
+      );
+    });
+
+    it("should leave out an ID that names no resource", async () => {
+      const g = await createGroup(randomToken());
+      const ids = [g, group.resourceID(uuid.create())];
+      const { result } = await renderHookSuspended(
+        () => Resource.useMultiple({ ids }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.map((r) => r.id)).toEqual([g]));
     });
   });
 });
