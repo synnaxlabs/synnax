@@ -288,6 +288,26 @@ var _ = Describe("Channel", func() {
 			))
 		})
 
+		It(
+			"should keep the entries of a number on a boolean channel as unsigned",
+			func() {
+				c, _ := payload.Channel{
+					Kind: payload.KindFloat,
+					Float: []payload.FloatEntry{
+						{Label: "OFF", Value: 0},
+						{Label: "ON", Value: 1},
+					},
+				}.Reconcile(telem.BooleanT)
+				Expect(c).To(Equal(payload.Channel{
+					Kind: payload.KindUnsigned,
+					Unsigned: []payload.UnsignedEntry{
+						{Label: "OFF", Value: 0},
+						{Label: "ON", Value: 1},
+					},
+				}))
+			},
+		)
+
 		It("should drop entries on a kind with no numeric entries", func() {
 			c, changes := payload.Channel{
 				Kind:  payload.KindFloat,
