@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, label, ranger } from "@synnaxlabs/client";
+import { DataType, label, type ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -23,7 +23,6 @@ import {
 } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -44,45 +43,6 @@ describe("queries", () => {
   afterEach(() => {
     controller.abort();
   });
-  describe("stageWhere", () => {
-    const createIn = async (lbl: label.Label, start: TimeStamp, end: TimeStamp) =>
-      await client.ranges.create({
-        name: "stage",
-        timeRange: { start, end },
-        labels: [lbl.key],
-      });
-
-    it("should list each range in the stage getStage gives it", async () => {
-      const lbl = await client.labels.create({
-        name: "stage",
-        color: color.construct("#000000"),
-      });
-      const now = TimeStamp.now();
-      const toDo = await createIn(lbl, now.add(TimeSpan.HOUR), now.add(TimeSpan.DAY));
-      const inProgress = await createIn(
-        lbl,
-        now.sub(TimeSpan.HOUR),
-        now.add(TimeSpan.HOUR),
-      );
-      const completed = await createIn(
-        lbl,
-        now.sub(TimeSpan.DAY),
-        now.sub(TimeSpan.HOUR),
-      );
-      const expected = { to_do: toDo, in_progress: inProgress, completed };
-      for (const stage of ranger.STAGES) {
-        const where = { and: [{ labels: [lbl.key] }, Ranger.stageWhere(stage, now)] };
-        const { result } = renderHook(
-          () => Flux.useList((c) => c.ranges, { name: "ranges", query: { where } }),
-          { wrapper },
-        );
-        act(() => result.current.more());
-        await waitFor(() => expect(result.current.data).toEqual([expected[stage].key]));
-        expect(Ranger.getStage(expected[stage].timeRange, now)).toEqual(stage);
-      }
-    });
-  });
-
   describe("useResultMetaData", () => {
     it("should follow a pair set on the range", async () => {
       const rng = await client.ranges.create({

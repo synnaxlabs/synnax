@@ -45,7 +45,7 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
-export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
+export const { useResult: useResultParent } = Flux.createRetrieve<
   RetrieveQuery,
   ranger.Range | null
 >({
