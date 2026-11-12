@@ -51,8 +51,8 @@ To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
 
 To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
 `0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
-its newest stable Core tag, or from its `release/core-X.Y` branch if the branch holds
-that tag. 0.60 and 0.61 shipped while `main` held the docs, so they build from
+its newest stable Core tag, or from its `release/X.Y` branch if the branch holds that
+tag. 0.60 and 0.61 shipped while `main` held the docs, so they build from
 `release/docs-0.60` and `release/docs-0.61`. 0.60 starts at the `main` of 2026-11-08,
 and 0.61 at the `core/v0.61.0` tag. Set `ref` to build one version from another ref. A
 push to `main` deploys `next`. A stable release deploys `next`, `latest`, `previous`,
