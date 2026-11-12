@@ -116,9 +116,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
+				_ string,
 				e *WriteConfig,
-			) error {
-				return resolveWriteConfig(ctx, snap, cfg.Channel, e)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, resolveWriteConfig(ctx, snap, cfg.Channel, e)
 			},
 			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, e *WriteConfig) error {
 				return reconcileWriteConfig(
