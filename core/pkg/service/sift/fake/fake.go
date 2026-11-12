@@ -77,6 +77,7 @@ type Server struct {
 	invalid   []*ingestv1.IngestWithConfigDataStreamRequest
 	confirmed int
 	received  int
+	streams   int
 	failures  []error
 	paused    chan struct{}
 }
@@ -170,6 +171,13 @@ func (s *Server) Received() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.received
+}
+
+// Streams returns how many ingest streams clients have opened.
+func (s *Server) Streams() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.streams
 }
 
 // Fail makes each of the next ingest streams end with one of errs, in order. A failed
@@ -332,6 +340,9 @@ func (s *Server) ListAssets(
 func (s *Server) IngestWithConfigDataStream(
 	stream ingestv1.IngestService_IngestWithConfigDataStreamServer,
 ) error {
+	s.mu.Lock()
+	s.streams++
+	s.mu.Unlock()
 	var received []*ingestv1.IngestWithConfigDataStreamRequest
 	for {
 		if err := s.waitResumed(stream.Context()); err != nil {

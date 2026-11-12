@@ -52,7 +52,8 @@ type Checkpoint struct {
 	// sample.
 	Positions Positions
 	// Through is the earliest of Positions. Once Stream sends live samples, it is the
-	// latest instead, so an index that gets no samples does not hold it back.
+	// latest of Positions and the last time Stream had sent every sample it received,
+	// so an idle index or an idle stream does not hold it back.
 	Through telem.TimeStamp
 	// Samples is the number of values Sift confirmed since the previous checkpoint.
 	Samples int64
@@ -244,7 +245,7 @@ func (e *Engine) Upload(ctx context.Context, tr telem.TimeRange, from Positions)
 			}
 			if err := e.read(
 				ctx,
-				f.keys(),
+				f,
 				telem.TimeRange{Start: a.sent[key], End: tr.End},
 				func(fr framer.Frame) error {
 					if err := a.send(ctx, f, fr); err != nil {
@@ -301,6 +302,9 @@ func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if len(l.frames) == 0 {
+				a.idle = telem.Now()
+			}
 			if err = a.checkpoint(ctx, false); err != nil {
 				return err
 			}
@@ -337,7 +341,7 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
 	for _, f := range e.flows {
 		if err := e.read(
 			ctx,
-			f.keys(),
+			f,
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
 				if err := a.send(ctx, f, fr); err != nil {
@@ -352,27 +356,57 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt) error {
 	return nil
 }
 
+// read calls fn with the stored samples of f in tr, one chunk of the index at a time.
+// Each frame holds every data sample in the time span of its chunk, so a data sample
+// always arrives with its index sample.
 func (e *Engine) read(
 	ctx context.Context,
-	keys channel.Keys,
+	f flow,
 	tr telem.TimeRange,
-	f func(framer.Frame) error,
-) error {
-	it, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   keys,
+	fn func(framer.Frame) error,
+) (err error) {
+	idx, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.Keys{f.index.Key()},
 		Bounds: tr,
 	})
 	if err != nil {
 		return err
 	}
-	if it.SeekFirst() {
-		for it.Next(framer.IteratorAutoSpan) {
-			if err = f(it.Value()); err != nil {
-				break
-			}
+	defer func() { err = errors.Combine(err, idx.Close()) }()
+	data, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.KeysFromChannels(f.channels),
+		Bounds: tr,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, data.Close()) }()
+	if !idx.SeekFirst() {
+		return nil
+	}
+	for idx.Next(framer.IteratorAutoSpan) {
+		fr := idx.Value()
+		span := timeRange(fr.Get(f.index.Key()).Series)
+		data.SetBounds(span)
+		if data.SeekFirst() && data.Next(span.Span()) {
+			fr = fr.Extend(data.Value())
+		} else if err = data.Error(); err != nil {
+			return err
+		}
+		if err = fn(fr); err != nil {
+			return err
 		}
 	}
-	return errors.Combine(err, it.Close())
+	return nil
+}
+
+// timeRange returns the time range from the first to just after the last timestamp in
+// series.
+func timeRange(series []telem.Series) telem.TimeRange {
+	return telem.TimeRange{
+		Start: series[0].ValueAt[telem.TimeStamp](0),
+		End:   series[len(series)-1].ValueAt[telem.TimeStamp](-1) + 1,
+	}
 }
 
 // retry runs attempts until one succeeds, ctx is cancelled, or one fails with an error
@@ -427,7 +461,10 @@ func (e *Engine) retry(
 		}
 		e.cfg.OnRetry(ctx, err)
 		if !brk.Wait() {
-			return ctx.Err()
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
 		}
 	}
 }
@@ -493,10 +530,15 @@ type attempt struct {
 	// pending counts the values sent since the last checkpoint.
 	pending int64
 	last    time.Time
-	// failed is set once a send fails, after which Sift confirms nothing more.
+	// failed is set once a send or a confirm fails, after which Sift confirms nothing
+	// more.
 	failed bool
 	// live is set once the attempt sends live samples.
 	live bool
+	// idle is the last time a live attempt had sent every sample it received.
+	idle telem.TimeStamp
+	// reported is the Through of the last checkpoint.
+	reported telem.TimeStamp
 }
 
 func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
@@ -541,26 +583,30 @@ func (a *attempt) maybeCheckpoint(ctx context.Context) error {
 func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	a.last = time.Now()
 	if err := a.sender.confirm(); err != nil {
+		a.failed = true
 		return err
 	}
-	if !always && a.pending == 0 && maps.Equal(a.sent, a.confirmed) {
+	through := a.through()
+	if !always && a.pending == 0 && maps.Equal(a.sent, a.confirmed) &&
+		through == a.reported {
 		return nil
 	}
 	maps.Copy(a.confirmed, a.sent)
 	a.engine.confirms++
 	cp := Checkpoint{
 		Positions: maps.Clone(a.confirmed),
-		Through:   a.through(),
+		Through:   through,
 		Samples:   a.pending,
 	}
 	a.pending = 0
+	a.reported = through
 	return a.engine.cfg.OnCheckpoint(ctx, cp)
 }
 
 func (a *attempt) through() telem.TimeStamp {
-	positions := slices.Collect(maps.Values(a.confirmed))
+	positions := slices.Collect(maps.Values(a.sent))
 	if a.live {
-		return slices.Max(positions)
+		return max(slices.Max(positions), a.idle)
 	}
 	return slices.Min(positions)
 }
