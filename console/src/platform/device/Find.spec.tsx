@@ -34,6 +34,27 @@ const createHardware = (): Device.Hardware => ({
   Configure: Device.createConfigure({ icon: <Icon.Device />, zeroProperties: {} }),
 });
 
+/** Creates a scanner on a running rack of the hardware, with a warning status. */
+const createWarningScanner = async (hardware: Device.Hardware): Promise<task.Task> => {
+  const rack = await createRunningRack(client, hardware.key);
+  const scanner = await rack.createTask({
+    name: uniqueName("scanner"),
+    type: hardware.scanType,
+    config: {},
+    internal: true,
+  });
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(scanner.key),
+      variant: "warning",
+      message: "Failed to scan for devices",
+      description: "Cannot open en1 for raw Ethernet access.",
+      details: { running: true, rack: rack.key },
+    }),
+  );
+  return scanner;
+};
+
 describe("Device.useFindModal", () => {
   it("should resolve with the device the user configures", async () => {
     const hardware = createHardware();
@@ -58,25 +79,21 @@ describe("Device.useFindModal", () => {
   it("should show a warning from the scanner", async () => {
     // The Core creates only the task types it knows.
     const hardware = { ...createHardware(), scanType: "ethercat_scan" };
-    const rack = await createRunningRack(client, hardware.key);
-    const scanner = await rack.createTask({
-      name: uniqueName("scanner"),
-      type: hardware.scanType,
-      config: {},
-      internal: true,
-    });
-    await client.statuses.set(
-      createTaskStatus({
-        owner: task.resourceID(scanner.key),
-        variant: "warning",
-        message: "Failed to scan for devices",
-        description: "Cannot open en1 for raw Ethernet access.",
-        details: { running: true, rack: rack.key },
-      }),
-    );
+    await createWarningScanner(hardware);
     await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
     expect(await screen.findByText("Failed to scan for devices")).toBeTruthy();
     expect(screen.getByText("Cannot open en1 for raw Ethernet access.")).toBeTruthy();
+  });
+
+  it("should show the scan action beside a scanner warning", async () => {
+    const hardware: Device.Hardware = {
+      ...createHardware(),
+      scanType: "ethercat_scan",
+      ScanAction: ({ scanner }) => <span>{`Fix ${scanner.name}`}</span>,
+    };
+    const scanner = await createWarningScanner(hardware);
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    expect(await screen.findByText(`Fix ${scanner.name}`)).toBeTruthy();
   });
 
   it("should turn on a disabled scanner", async () => {

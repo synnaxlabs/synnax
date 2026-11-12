@@ -441,6 +441,8 @@ TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to turn off the DewesoftX filter");
     EXPECT_EQ(status.description, this->disable_err.data);
+    EXPECT_EQ(status.details.data, this->scanner->status_data());
+    EXPECT_NE(status.details.data, std::nullopt);
 }
 
 /// @brief it should change nothing when the last scan reported no filter.

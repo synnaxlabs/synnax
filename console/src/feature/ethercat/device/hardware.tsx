@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Configure } from "@/feature/ethercat/device/Configure";
+import { ScanAction } from "@/feature/ethercat/device/ScanAction";
 import { INTEGRATION_KEY, MAKE } from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
@@ -24,6 +25,7 @@ export const HARDWARE: Device.Hardware = {
   scanType: SCAN_TYPE,
   location: { shape: "slot" },
   Configure,
+  ScanAction,
   checks: [
     "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
     "The modules have power and a cable to that adapter.",

@@ -28,12 +28,13 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ComponentType, type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
+import { type ScanActionProps } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -77,12 +78,14 @@ interface ScannerStateProps {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   name: string;
+  ScanAction?: ComponentType<ScanActionProps>;
 }
 
 const ScannerState = ({
   rack: r,
   scanner,
   name,
+  ScanAction,
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -131,6 +134,7 @@ const ScannerState = ({
         variant={scanStatus.variant}
         message={scanStatus.message}
         description={scanStatus.description}
+        action={ScanAction != null && <ScanAction scanner={scanner} />}
       />
     );
   return null;
@@ -183,6 +187,7 @@ interface RackCardProps {
   scanner: task.Task | undefined;
   devices: device.Device[];
   name: string;
+  ScanAction?: ComponentType<ScanActionProps>;
   onConfigure: (key: device.Key) => void;
 }
 
@@ -191,6 +196,7 @@ const RackCard = ({
   scanner,
   devices,
   name,
+  ScanAction,
   onConfigure,
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
@@ -208,7 +214,7 @@ const RackCard = ({
         <Rack.StatusIndicator status={r.status} />
       </Header.Actions>
     </Pane.Header>
-    <ScannerState rack={r} scanner={scanner} name={name} />
+    <ScannerState rack={r} scanner={scanner} name={name} ScanAction={ScanAction} />
     {devices.map((d) => (
       <DeviceItem key={d.key} device={d} onConfigure={onConfigure} />
     ))}
@@ -256,7 +262,7 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks },
+  hardware: { key, name, title, icon, make, scanType, checks, ScanAction },
   rack: rackKey,
   filter,
   onBack,
@@ -330,6 +336,7 @@ export const Find = ({
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
+            ScanAction={ScanAction}
             onConfigure={onConfigure}
           />
         ))}

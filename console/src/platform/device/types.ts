@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device, type rack } from "@synnaxlabs/client";
+import { channel, type device, type rack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { type Tree } from "@/platform/tree";
@@ -16,6 +16,11 @@ import { type Session } from "@/session";
 /** Configure-modal params; the key is required since it edits an existing device. */
 export interface ConfigureParams {
   deviceKey: device.Key;
+}
+
+/** Props of an action beside the status of a scan task that warns or fails. */
+export interface ScanActionProps {
+  scanner: task.Task;
 }
 
 /** Props of the form that names a device the Driver found and sets it up. */

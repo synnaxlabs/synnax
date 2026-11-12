@@ -333,9 +333,10 @@ void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) const {
     }
     if (interfaces.empty())
         task_status.description = "The DewesoftX filter blocks no adapter.";
-    else if (const auto err = this->disable_filter(interfaces))
+    else if (const auto err = this->disable_filter(interfaces)) {
         task_status.description = err.data;
-    else {
+        task_status.details.data = this->status_data();
+    } else {
         task_status.variant = synnax::status::VARIANT_SUCCESS;
         task_status.message = "Turned off the DewesoftX filter";
         task_status.description = "Synnax looks for modules on the adapter again "

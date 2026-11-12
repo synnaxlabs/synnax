@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -51,6 +52,13 @@ name of the adapter.
 </Problem.Cause>
 <Problem.Fix>
 
+In the devices toolbar of the Console, click <Icon.Add /> and select **EtherCAT
+network**. Next to the error, click **Turn off the filter**. If the Driver does not run
+as administrator, Windows asks for administrator access. The modules show in the devices
+toolbar in 30 seconds or less. You do not need to restart the Driver.
+
+If the Console cannot turn off the filter, do it in Windows:
+
 1. In Windows Settings, go to **Network & internet** > **Advanced network settings** >
    **More network adapter options**. You can also press Windows + R and enter
    `ncpa.cpl`.
@@ -58,9 +66,8 @@ name of the adapter.
    Windows asks for administrator access.
 3. Clear **EthercatDAQ Filter**, then select **OK**.
 
-The modules show in the devices toolbar in 30 seconds or less. You do not need to
-restart the Driver. From an administrator PowerShell, this command does the same, with
-the name of the port from step 2:
+From an administrator PowerShell, this command does the same, with the name of the port
+from step 2:
 
 ```powershell
 Disable-NetAdapterBinding -Name "Ethernet 2" -ComponentID DW_EthcatDAQ

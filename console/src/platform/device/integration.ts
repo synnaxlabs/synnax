@@ -11,7 +11,11 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type Device } from "@synnaxlabs/pluto";
 import { type ComponentType } from "react";
 
-import { type ConfigureProps, type ConnectProps } from "@/platform/device/types";
+import {
+  type ConfigureProps,
+  type ConnectProps,
+  type ScanActionProps,
+} from "@/platform/device/types";
 
 export interface Integration {
   /** The name a rack lists in its integrations when its Driver runs this one. */
@@ -44,4 +48,9 @@ export interface Hardware extends Integration {
   checks: string[];
   /** The form that names a found device and sets it up. */
   Configure: ComponentType<ConfigureProps>;
+  /**
+   * An action beside the status of a scan task that warns or fails, such as one that
+   * fixes the problem. It renders nothing when it does not apply.
+   */
+  ScanAction?: ComponentType<ScanActionProps>;
 }

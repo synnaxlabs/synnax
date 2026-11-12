@@ -155,7 +155,8 @@ private:
     /// @brief handles the set_standalone command.
     void set_standalone(const synnax::task::Command &cmd) const;
 
-    /// @brief handles the disable_dewesoft_filter command.
+    /// @brief handles the disable_dewesoft_filter command. A failed reply keeps the
+    /// filtered interfaces in its data, so the user can try again.
     void disable_dewesoft_filter(const synnax::task::Command &cmd) const;
 
     /// @brief returns an error status that answers cmd.
