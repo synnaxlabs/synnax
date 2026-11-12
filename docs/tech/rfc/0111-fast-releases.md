@@ -141,8 +141,9 @@ on hosted runners: they sign inside the build and take 12 to 18 minutes.
 - **CI**: §3.2 reuses the green run.
 - **Builds**: A rerun of failed jobs keeps the passed builds. A new dispatch builds
   again, which costs about 20 minutes.
-- **Go caches**: Every shard of a full run saves its cache, on `main` and on
-  `release/**`. Today only shard 1 on `main` saves (`test.go.yaml:395`).
+- **Go caches**: Every shard of a full run saves its cache under a key of its own and
+  restores from that key, on `main` and on `release/**`. Today the shards share one key
+  and only shard 1 on `main` saves (`test.go.yaml:392-395`).
 
 ### 3.5 Development loop
 
