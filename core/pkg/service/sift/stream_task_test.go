@@ -12,6 +12,7 @@ package sift_test
 import (
 	"context"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
@@ -303,6 +305,25 @@ var _ = Describe("Stream task", func() {
 			HaveField("Variant", status.VariantError),
 			HaveField("Message", "Failed to run task"),
 			HaveField("Description", ContainSubstring("Sift rejected the API key")),
+		))
+	})
+
+	It("Should fail when the device belongs to another rack", func(ctx SpecContext) {
+		other := rack.Rack{Name: "other"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackSvc.NewWriter(tx).Create(ctx, &other)
+		})).To(Succeed())
+		dev.Key = uuid.New().String()
+		dev.Rack = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+		})).To(Succeed())
+		t.Config = toJSON(streamConfig())
+		msg := "device " + dev.Name + " belongs to another rack"
+		Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().To(MatchError(msg))
+		Expect(taskStatus(ctx, t)).To(SatisfyAll(
+			HaveField("Variant", status.VariantError),
+			HaveField("Description", msg),
 		))
 	})
 
