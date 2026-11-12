@@ -378,6 +378,40 @@ var _ = Describe("Engine", func() {
 			Expect(e.Upload(cancelCtx, telem.TimeRange{Start: at(0), End: at(2)}, nil)).
 				To(MatchError(context.Canceled))
 		})
+
+		It("Should stop sending and confirm what it sent when cancelled",
+			func(ctx SpecContext) {
+				const count = 200_000
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				stamps := make([]telem.TimeStamp, count)
+				values := make([]float64, count)
+				for i := range count {
+					stamps[i] = at(1) + telem.TimeStamp(i)
+					values[i] = float64(i)
+				}
+				write(ctx, idx, stamps,
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeries(values)})
+				e := open(ctx, channel.Keys{ch.Key()})
+				cancelCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() {
+					done <- e.Upload(
+						cancelCtx,
+						telem.TimeRange{Start: at(0), End: at(2)},
+						nil,
+					)
+				}()
+				Eventually(server.Received).Should(BeNumerically(">", 1000))
+				cancel()
+				Eventually(done).Should(Receive(MatchError(context.Canceled)))
+				points := server.Points("stand", ch.Name)
+				Expect(len(points)).To(BeNumerically("<", count))
+				Expect(rec.samples()).To(BeEquivalentTo(len(points)))
+				Expect(rec.last().Positions).To(Equal(ingest.Positions{
+					idx.Key(): stamps[len(points)-1] + 1,
+				}))
+			})
 	})
 
 	Describe("Stream", func() {
