@@ -73,8 +73,15 @@ for ATTEMPT in 1 2 3; do
     sleep 10
 done
 ID=$(jq -r .id <<< "$SUBMISSION")
-# A second upload would start again at the end of the queue, so one wait covers it.
-RESULT=$(xcrun notarytool wait "$ID" "${NOTARY[@]}" --timeout 20m)
+# A second upload would start again at the end of the queue, so a wait that fails or
+# takes too long polls the same submission again.
+for ATTEMPT in 1 2 3; do
+    echo "Notarization wait attempt $ATTEMPT of 3"
+    if RESULT=$(xcrun notarytool wait "$ID" "${NOTARY[@]}" --timeout 6m); then
+        break
+    fi
+    echo "$RESULT"
+done
 echo "$RESULT"
 if [ "$(jq -r .status <<< "$RESULT")" != "Accepted" ]; then
     echo "Notarization of submission $ID did not pass" >&2
