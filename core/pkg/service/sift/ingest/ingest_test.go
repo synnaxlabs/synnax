@@ -679,7 +679,8 @@ var _ = Describe("Engine", func() {
 				cancel()
 				server.Resume()
 				Eventually(done).Should(Receive())
-				Expect(rec.last().Positions).To(BeEmpty())
+				// An idle tick may report the start, but never the unconfirmed sample.
+				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
 				Expect(server.Points("stand", ch.Name)).To(BeEmpty())
 			})
 
