@@ -269,29 +269,44 @@ var _ = Describe("Validate", func() {
 			})
 		})
 
-		Describe("NaN", func() {
-			nan := math.NaN()
-			DescribeTable("Should reject NaN in every numeric comparison",
-				func(check func() bool) {
-					Expect(check()).To(BeTrue())
-					Expect(v.Error()).To(MatchError(ContainSubstring("field: must")))
+		Describe("Non-finite values", func() {
+			DescribeTable("Should reject non-finite values in every numeric comparison",
+				func(check func(value float64) bool) {
+					for _, value := range []float64{
+						math.NaN(),
+						math.Inf(1),
+						math.Inf(-1),
+					} {
+						v = validate.New("test")
+						Expect(check(value)).To(BeTrue(), "value %v", value)
+						Expect(
+							v.Error(),
+						).To(MatchError(ContainSubstring("field: must")))
+					}
 				},
-				Entry("Positive", func() bool {
-					return v.Positive("field", nan)
+				Entry("Positive", func(value float64) bool {
+					return v.Positive("field", value)
 				}),
-				Entry("InBounds", func() bool {
-					return v.InBounds("field", nan, 0, 1)
+				Entry("InBounds", func(value float64) bool {
+					return v.InBounds("field", value, math.Inf(-1), math.Inf(1))
 				}),
-				Entry("GreaterThan", func() bool {
-					return v.GreaterThan("field", nan, 0)
+				Entry("GreaterThan", func(value float64) bool {
+					return v.GreaterThan("field", value, math.Inf(-1))
 				}),
-				Entry("GreaterThanEq", func() bool {
-					return v.GreaterThanEq("field", nan, 0)
+				Entry("GreaterThanEq", func(value float64) bool {
+					return v.GreaterThanEq("field", value, math.Inf(-1))
 				}),
-				Entry("LessThanEq", func() bool {
-					return v.LessThanEq("field", nan, 0)
+				Entry("LessThanEq", func(value float64) bool {
+					return v.LessThanEq("field", value, math.Inf(1))
 				}),
 			)
+
+			It("Should accept the integer extremes", func() {
+				Expect(v.GreaterThanEq("field", int64(math.MaxInt64), 0)).To(BeFalse())
+				Expect(v.LessThanEq("field", uint64(math.MaxUint64), math.MaxUint64)).
+					To(BeFalse())
+				Expect(v.Error()).ToNot(HaveOccurred())
+			})
 		})
 
 		Describe("Collection Validations", func() {

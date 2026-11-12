@@ -463,7 +463,39 @@ var _ = Describe("Python Types Plugin", func() {
 					`cycles: int = Field(gt=0, le=2147483647)`,
 				))
 				Expect(content).To(ContainSubstring(
-					`frequency: float = Field(gt=0.500000)`,
+					`frequency: float = Field(gt=0.500000, allow_inf_nan=False)`,
+				))
+			},
+		)
+
+		It(
+			"Should reject infinity and NaN on a float with a numeric rule",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Range struct {
+					lower     float32 @validate min 0
+					upper     float64 @validate max 10
+					unchecked float64
+					count     int32 @validate min 0
+				}
+			`
+				table, diag := Analyze(ctx, source, "range", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(
+					&plugin.Request{Resolutions: table},
+				))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`lower: float = Field(ge=0, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`upper: float = Field(le=10, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring("unchecked: float\n"))
+				Expect(content).To(ContainSubstring(
+					`count: int = Field(ge=0, le=2147483647)`,
 				))
 			},
 		)
