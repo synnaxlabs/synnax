@@ -1580,7 +1580,9 @@ var _ = Describe("Declaration order", func() {
 			}
 			true => main`)
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.DeclarationAfterStep))
+			Expect(
+				(*ctx.Diagnostics)[0].Code,
+			).To(Equal(codes.DeclarationAfterStep.Code))
 			Expect((*ctx.Diagnostics)[0].Severity).To(
 				Equal(protocol.DiagnosticSeverityWarning),
 			)
@@ -1596,7 +1598,7 @@ var _ = Describe("Declaration order", func() {
 			}
 			true => main`)
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
-		Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.DeclarationAfterStep))
+		Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.DeclarationAfterStep.Code))
 	})
 
 	It("Should warn once per late declaration", func(bCtx SpecContext) {
@@ -1621,7 +1623,7 @@ var _ = Describe("Declaration order", func() {
 			true => main`)
 		Expect(*ctx.Diagnostics).To(HaveLen(3))
 		for _, d := range *ctx.Diagnostics {
-			Expect(d.Code).To(Equal(codes.DeclarationAfterStep))
+			Expect(d.Code).To(Equal(codes.DeclarationAfterStep.Code))
 		}
 	})
 
