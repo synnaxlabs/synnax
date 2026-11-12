@@ -46,24 +46,39 @@ var _ = Describe("Migrate", func() {
 				BaseWriteChannel: base,
 				EnumValues:       []payload.FloatEntry{},
 			}),
-		Entry("a string with entries as a float that keeps them",
+		Entry("a string with entries as a string with text entries",
 			v0.WriteChannel{JSONType: payload.JSONTypeString, EnumValues: onOff},
+			v1.StringWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
+					{Label: "ON", Value: "1"},
+				},
+			}),
+		Entry("each entry value as its decimal text",
+			v0.WriteChannel{
+				JSONType: payload.JSONTypeString,
+				EnumValues: []payload.EnumEntry{
+					{Label: "HALF", Value: 0.5},
+					{Label: "BIG", Value: 1e21},
+					{Label: "HIGH", Value: math.Inf(1)},
+				},
+			},
+			v1.StringWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues: []payload.StringEntry{
+					{Label: "HALF", Value: "0.5"},
+					{Label: "BIG", Value: "1000000000000000000000"},
+					{Label: "HIGH", Value: "+Inf"},
+				},
+			}),
+		Entry("a number with entries as a float that keeps them",
+			v0.WriteChannel{JSONType: payload.JSONTypeNumber, EnumValues: onOff},
 			v1.FloatWriteChannel{
 				BaseWriteChannel: base,
 				EnumValues: []payload.FloatEntry{
 					{Label: "OFF", Value: 0},
 					{Label: "ON", Value: 1},
-				},
-			}),
-		Entry("a non-finite entry as it is",
-			v0.WriteChannel{
-				JSONType:   payload.JSONTypeString,
-				EnumValues: []payload.EnumEntry{{Label: "HIGH", Value: math.Inf(1)}},
-			},
-			v1.FloatWriteChannel{
-				BaseWriteChannel: base,
-				EnumValues: []payload.FloatEntry{
-					{Label: "HIGH", Value: payload.Float(math.Inf(1))},
 				},
 			}),
 		Entry("an unknown JSON type as a float",
@@ -74,7 +89,10 @@ var _ = Describe("Migrate", func() {
 			}),
 		Entry("a string with no entries as a string",
 			v0.WriteChannel{JSONType: payload.JSONTypeString},
-			v1.StringWriteChannel{BaseWriteChannel: base}),
+			v1.StringWriteChannel{
+				BaseWriteChannel: base,
+				EnumValues:       []payload.StringEntry{},
+			}),
 		Entry("a boolean as a boolean",
 			v0.WriteChannel{JSONType: payload.JSONTypeBoolean, EnumValues: onOff},
 			v1.BooleanWriteChannel{BaseWriteChannel: base}),
@@ -84,17 +102,17 @@ var _ = Describe("Migrate", func() {
 				BaseWriteChannel: base,
 				TimeFormat:       payload.TimeFormatUnixMs,
 			}),
-		Entry("a string with entries and a stale time format as a float",
+		Entry("a string with entries and a stale time format as a string",
 			v0.WriteChannel{
 				JSONType:   payload.JSONTypeString,
 				TimeFormat: &unixMs,
 				EnumValues: onOff,
 			},
-			v1.FloatWriteChannel{
+			v1.StringWriteChannel{
 				BaseWriteChannel: base,
-				EnumValues: []payload.FloatEntry{
-					{Label: "OFF", Value: 0},
-					{Label: "ON", Value: 1},
+				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
+					{Label: "ON", Value: "1"},
 				},
 			}),
 	)
