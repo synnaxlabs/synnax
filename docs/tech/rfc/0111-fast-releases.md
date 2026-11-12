@@ -118,15 +118,18 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
 
 ### 3.2 Verify
 
-`verify` looks for a successful run of `ci.yaml` with `full: true` on the commit of the
-run. Nightly runs and earlier release runs both count. When none exists, `verify` calls
-`ci.yaml` itself, in parallel with the builds. A retry of a failed release finds the
-green run and skips CI.
+The `green-run` job looks for a successful run of `ci.yaml` with `full: true` on the
+commit of the run. Nightly runs and earlier release runs both count. When none exists,
+the `ci` job calls `ci.yaml`, in parallel with the builds. The `verify` job passes when
+a green run exists or `ci` passed, and every publish needs it. A retry of a failed
+release finds the green run and skips CI.
 
 The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
-`nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
-passed. A full run has about 185 jobs, so the script pages the job list. It follows
-`check_artifact_cache.sh`, which finds an earlier run through the same API.
+`nightly.yaml`, `release.yaml`, and `release.desktop.yaml` on the commit and accepts one
+whose `CI / OK` job passed in any attempt, so a rerun of all jobs finds the first
+attempt of its own run. A full run has about 185 jobs, so the script pages the job list,
+50 jobs per page: a page of 100 at times gets an HTTP 502. An API error counts as no
+green run, and CI runs.
 
 ### 3.3 macOS builds on the build bots, signing on hosted runners
 
