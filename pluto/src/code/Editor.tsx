@@ -209,6 +209,34 @@ const focusNextFrame: EditorExtension = (editor) => {
   return { dispose: () => cancelAnimationFrame(frame) };
 };
 
+// Monaco's hover gives a marker row no severity, only the text `source(code)`. A row
+// with no code counts as an error. The most severe row colors every row.
+const tagHoverSeverity =
+  (mon: Pick<typeof Monaco, "editor" | "MarkerSeverity">): EditorExtension =>
+  (editor) => {
+    const widgets = editor.getDomNode()?.querySelector(".overflowingContentWidgets");
+    if (widgets == null) throw new Error("monaco hover container not found");
+    const tag = () => {
+      const model = editor.getModel();
+      const rows = widgets.querySelectorAll<HTMLElement>(".marker.hover-contents");
+      if (model == null || rows.length === 0) return;
+      const markers = mon.editor.getModelMarkers({ resource: model.uri });
+      const severities = Array.from(rows, (row) => {
+        const detail = row.children[1]?.textContent;
+        const marker = markers.find(
+          ({ source = "", code }) =>
+            typeof code === "string" && `${source}(${code})` === detail,
+        );
+        return marker?.severity ?? mon.MarkerSeverity.Error;
+      });
+      const severity = mon.MarkerSeverity[Math.max(...severities)].toLowerCase();
+      rows.forEach((row) => (row.dataset.severity = severity));
+    };
+    const observer = new MutationObserver(tag);
+    observer.observe(widgets, { childList: true, subtree: true });
+    return { dispose: () => observer.disconnect() };
+  };
+
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
@@ -430,7 +458,7 @@ const use = ({
       }),
     );
 
-    const builtins: EditorExtension[] = [];
+    const builtins: EditorExtension[] = [tagHoverSeverity(monaco)];
     if (placeholderRef.current != null)
       builtins.push(renderPlaceholder(placeholderRef.current, monaco));
     if (autoFocusRef.current) builtins.push(focusNextFrame);
