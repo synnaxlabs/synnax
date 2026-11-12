@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
+from collections.abc import Callable
 from typing import Any, assert_type
 from uuid import UUID, uuid4
 
@@ -79,18 +80,21 @@ class TestTaskClient:
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
-    def test_rename(self, client: sy.Synnax) -> None:
+    def test_rename(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should rename a task and keep its config."""
+        routing_key = str(create_routing_key())
         task = client.tasks.create(
             name="Before Rename",
             type="pagerduty_alert",
-            config={"routing_key": "abc"},
+            config={"routing_key": routing_key},
         )
         client.tasks.rename(task.key, "After Rename")
         renamed = client.tasks.retrieve(key=task.key)
         assert renamed.name == "After Rename"
         assert renamed.config == task.config
-        assert renamed.config["routing_key"] == "abc"
+        assert renamed.config["routing_key"] == routing_key
 
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         name = str(uuid4())
@@ -569,22 +573,26 @@ class TestTaskClient:
                     break
             assert matches[0]["args"] == {"target": str(target)}
 
-    def test_create_converts_dict_config_to_json(self, client: sy.Synnax) -> None:
+    def test_create_converts_dict_config_to_json(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a UUID in a dict config as a string."""
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config={"routing_key": ref}
         )
         res = client.tasks.retrieve(key=task.key)
         assert res.config["routing_key"] == str(ref)
 
-    def test_create_converts_model_config_by_alias(self, client: sy.Synnax) -> None:
+    def test_create_converts_model_config_by_alias(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should store a model config by its field aliases."""
 
         class Config(BaseModel):
             ref: UUID = Field(alias="routing_key")
 
-        ref = uuid4()
+        ref = create_routing_key()
         task = client.tasks.create(
             name="test", type="pagerduty_alert", config=Config(routing_key=ref)
         )
@@ -603,30 +611,38 @@ class TestTaskClient:
         tsk.config = {"ref": ref}
         assert tsk.to_payload().config == {"ref": str(ref)}
 
-    def test_task_configure_saves_without_ack(self, client: sy.Synnax) -> None:
+    def test_task_configure_saves_without_ack(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should save the task without waiting for a driver acknowledgement."""
+        routing_key = str(create_routing_key())
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-50"}
+            name="test", type="pagerduty_alert", config={"routing_key": routing_key}
         )
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.key == tsk.key
         assert res.rack != 0
-        assert res.config["routing_key"] == "rk-50"
+        assert res.config["routing_key"] == routing_key
 
-    def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
+    def test_task_configure_updates_config(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should set the name and config of a task that exists, and take its new
         config hash."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
+        routing_key = str(create_routing_key())
         tsk.name = "renamed"
-        tsk.config = {"routing_key": "rk-2"}
+        tsk.config = {"routing_key": routing_key}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.name == "renamed"
-        assert res.config["routing_key"] == "rk-2"
+        assert res.config["routing_key"] == routing_key
         assert tsk.config_hash == res.config_hash
 
     def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
@@ -699,12 +715,14 @@ class TestTaskClient:
             client.tasks.configure(tsk)
 
     def test_configure_puts_task_without_device_on_embedded_rack(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should configure a task whose config names no device onto the embedded
         rack."""
         tsk = sy.Task(
-            name="test", type="pagerduty_alert", config={"routing_key": "rk-e"}
+            name="test",
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
         assert tsk.rack == client.racks.retrieve_embedded_rack().key
@@ -757,7 +775,7 @@ class TestTaskClient:
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_keeps_rack_of_task_without_device(
-        self, client: sy.Synnax
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
     ) -> None:
         """Should keep the rack of a configured task whose config names no device."""
         rack = client.racks.create(name=str(uuid4()))
@@ -765,7 +783,7 @@ class TestTaskClient:
             name="test",
             type="pagerduty_alert",
             rack=rack.key,
-            config={"routing_key": "rk-r"},
+            config={"routing_key": str(create_routing_key())},
         )
         client.tasks.configure(tsk)
         client.tasks.configure(tsk)
@@ -793,12 +811,16 @@ class TestTaskClient:
         assert task1.key in task_keys
         assert task2.key in task_keys
 
-    def test_copy_task(self, client: sy.Synnax) -> None:
+    def test_copy_task(
+        self, client: sy.Synnax, create_routing_key: Callable[[], UUID]
+    ) -> None:
         """Should copy a task with a new name."""
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="pagerduty_alert", config={"routing_key": "rk-c"}
+            name=original_name,
+            type="pagerduty_alert",
+            config={"routing_key": str(create_routing_key())},
         )
 
         # Copy the task

@@ -383,7 +383,7 @@ var _ = Describe("Service", func() {
 		It("Should reject an unresolved channel on a slave with malformed PDOs", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":   "unresolved",
 					"key":    "a",
@@ -441,7 +441,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},
@@ -452,7 +452,7 @@ var _ = Describe("Service", func() {
 	DescribeTable(
 		"Should reject a read config with an invalid rate",
 		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"sample_rate": sampleRate,
 				"stream_rate": streamRate,
 			})).Error().To(MatchError(ContainSubstring(msg)))
@@ -475,7 +475,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a write config whose state rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"state_rate": rate,
 			})).Error().To(MatchError(ContainSubstring("state_rate: must be greater than 0")))
 		},
@@ -485,7 +485,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a write config whose execution rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"execution_rate": rate,
 			})).Error().To(MatchError(ContainSubstring("execution_rate: must be greater than 0")))
 		},

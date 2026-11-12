@@ -242,7 +242,7 @@ const Credentials = ({
   const [passwordChanged, setPasswordChanged] = useState(false);
   return (
     <Modal.Frame className={CSS.B("credential")}>
-      <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
+      <Modal.Header icon={<Icon.Lock />}>{title ?? "Sign-in"}</Modal.Header>
       <Modal.Body>
         <Flex.Box y gap="large">
           <Keys subject={subject} />
