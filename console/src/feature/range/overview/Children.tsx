@@ -11,6 +11,7 @@ import { type ranger, type view } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
@@ -49,8 +50,12 @@ export const Children = ({ range, onCreate }: ChildrenProps): ReactElement => {
     query: Tree.childrenQuery(range.key, childOrder(layout)),
     pageSize: 100,
   });
-  // The list renders again on each change to a child, so this read stays current.
-  const caretless = list.getItem(list.data).every((child) => !child.hasChildren);
+  const children = Store.useItems({
+    keys: list.data,
+    subscribe: list.subscribe,
+    getItem: list.getItem,
+  });
+  const caretless = children.every((child) => !child.hasChildren);
   const [expanded, toggle] = Tree.useExpanded();
   const [selected, setSelected] = useState<ranger.Key[]>([]);
   const tree = Tree.use({ roots: list.data, expanded });
