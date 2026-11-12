@@ -14,7 +14,7 @@ import { Session } from "@/session";
 
 export interface FavoriteButtonProps extends Omit<
   Button.FavoriteProps,
-  "isFavorite" | "onFavorite"
+  "isFavorite" | "onFavorite" | "tooltip"
 > {
   range: ranger.Range;
 }
@@ -29,6 +29,11 @@ export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
     else dispatch(Session.Range.remove({ keys: [range.key] }));
   };
   return (
-    <Button.Favorite {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />
+    <Button.Favorite
+      {...rest}
+      isFavorite={isFavorite}
+      onFavorite={handleFavorite}
+      tooltip={isFavorite ? "Unpin" : "Pin"}
+    />
   );
 };

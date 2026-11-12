@@ -220,7 +220,7 @@ describe("range/Toolbar", () => {
       const rng = created;
       const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
-      fireEvent.click(await screen.findByText("Unfavorite"));
+      fireEvent.click(await screen.findByText("Unpin"));
       await waitFor(() =>
         expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
       );
