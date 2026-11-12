@@ -162,7 +162,9 @@ export const { useResult: useResultMetaData } = Flux.createRetrieve<
     client.ranges.kv.watch(rangeKey).getCached(),
 });
 
-export const kvPairFormSchema = ranger.kv.pairZ;
+export const kvPairFormSchema = ranger.kv.pairZ.extend({
+  key: z.string().trim().min(1, "Key is required"),
+});
 
 export const kvPairFormPath = deep.path<z.infer<typeof kvPairFormSchema>>();
 

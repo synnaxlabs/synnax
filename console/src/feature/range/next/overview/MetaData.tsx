@@ -10,17 +10,19 @@
 import { type ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Ranger } from "@synnaxlabs/pluto";
 import { link } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useState } from "react";
+import { type KeyboardEvent, type ReactElement } from "react";
 
 import {
   AddButton,
   Field,
   FieldName,
   RemoveButton,
+  SaveButton,
   Section,
 } from "@/feature/range/next/overview/Section";
 import { CSS } from "@/platform/css";
@@ -82,18 +84,23 @@ const Pair = ({ rangeKey, pair }: PairProps): ReactElement => {
 };
 
 interface DraftProps extends RangeKeyProps {
-  onDone: () => void;
+  onClose: () => void;
 }
 
-const PairDraft = ({ rangeKey, onDone }: DraftProps): ReactElement => {
-  const [key, setKey] = useState("");
-  const [value, setValue] = useState("");
-  const { update } = Ranger.useUpdateKV();
+const pairPath = Ranger.kvPairFormPath;
+
+/** A new pair. It closes once the pair saves, so a failed save keeps the text. */
+const PairDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
+  const { form, save } = Ranger.useCreateKVPairForm({
+    query: null,
+    initialValues: { key: "", value: "", range: rangeKey },
+    afterSave: onClose,
+  });
+  const key = Form.useField<string>(pairPath.key, { ctx: form });
+  const value = Form.useField<string>(pairPath.value, { ctx: form });
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") onDone();
-    if (e.key !== "Enter" || key.trim() === "") return;
-    update({ rangeKey, range: rangeKey, key: key.trim(), value });
-    onDone();
+    if (e.key === "Escape") onClose();
+    if (e.key === "Enter") save();
   };
   return (
     <Field
@@ -102,19 +109,24 @@ const PairDraft = ({ rangeKey, onDone }: DraftProps): ReactElement => {
           autoFocus
           variant="shadow"
           placeholder="Key"
-          value={key}
-          onChange={setKey}
+          value={key.value}
+          onChange={key.onChange}
           onKeyDown={handleKeyDown}
           className={CSS.BE("range-overview", "field-input")}
         />
       }
-      actions={<RemoveButton onClick={onDone} />}
+      actions={
+        <>
+          <SaveButton onClick={() => save()} />
+          <RemoveButton onClick={onClose} />
+        </>
+      }
     >
       <Input.Text
         variant="shadow"
         placeholder="Value"
-        value={value}
-        onChange={setValue}
+        value={value.value}
+        onChange={value.onChange}
         onKeyDown={handleKeyDown}
         className={CSS.BE("range-overview", "field-value")}
       />
@@ -145,7 +157,9 @@ export const MetaData = ({
       {pairs.toSorted(byKey).map((pair) => (
         <Pair key={pair.key} rangeKey={rangeKey} pair={pair} />
       ))}
-      {adding && <PairDraft rangeKey={rangeKey} onDone={() => onAddingChange(false)} />}
+      {adding && (
+        <PairDraft rangeKey={rangeKey} onClose={() => onAddingChange(false)} />
+      )}
     </Flex.Box>
   </Section>
 );

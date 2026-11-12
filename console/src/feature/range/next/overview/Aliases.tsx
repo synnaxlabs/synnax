@@ -20,6 +20,7 @@ import {
   Field,
   FieldName,
   RemoveButton,
+  SaveButton,
   Section,
 } from "@/feature/range/next/overview/Section";
 import { CSS } from "@/platform/css";
@@ -29,7 +30,7 @@ interface RangeKeyProps {
 }
 
 interface DraftProps extends RangeKeyProps {
-  onDone: () => void;
+  onClose: () => void;
 }
 
 const NO_ALIASES: Record<channel.Key, string> = {};
@@ -132,15 +133,18 @@ const Alias = ({ rangeKey, channel, alias, inherited }: AliasProps): ReactElemen
   );
 };
 
-const AliasDraft = ({ rangeKey, onDone }: DraftProps): ReactElement => {
+/** A new alias. It closes once the alias saves, so a failed save keeps the text. */
+const AliasDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
   const [channel, setChannel] = useState<channel.Key | undefined>(undefined);
   const [alias, setAlias] = useState("");
-  const { update } = Channel.useUpdateAlias();
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") onDone();
-    if (e.key !== "Enter" || channel == null || alias.trim() === "") return;
+  const { update } = Channel.useUpdateAlias({ afterSuccess: onClose });
+  const save = () => {
+    if (channel == null || alias.trim() === "") return;
     update({ range: rangeKey, channel, alias: alias.trim() });
-    onDone();
+  };
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+    if (e.key === "Enter") save();
   };
   return (
     <Field
@@ -153,7 +157,12 @@ const AliasDraft = ({ rangeKey, onDone }: DraftProps): ReactElement => {
           className={CSS.BE("range-overview", "field-input")}
         />
       }
-      actions={<RemoveButton onClick={onDone} />}
+      actions={
+        <>
+          <SaveButton onClick={save} />
+          <RemoveButton onClick={onClose} />
+        </>
+      }
     >
       <Input.Text
         variant="shadow"
@@ -197,7 +206,7 @@ export const Aliases = ({
           />
         ))}
       {adding && (
-        <AliasDraft rangeKey={rangeKey} onDone={() => onAddingChange(false)} />
+        <AliasDraft rangeKey={rangeKey} onClose={() => onAddingChange(false)} />
       )}
     </Flex.Box>
   </Section>

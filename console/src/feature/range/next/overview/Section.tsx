@@ -152,11 +152,23 @@ export const FieldName = ({ children }: { children: ReactNode }): ReactElement =
   </Text.Text>
 );
 
-interface RemoveButtonProps {
+interface ActionButtonProps {
   onClick: () => void;
 }
 
-export const RemoveButton = ({ onClick }: RemoveButtonProps): ReactElement => (
+export const SaveButton = ({ onClick }: ActionButtonProps): ReactElement => (
+  <Button.Button
+    variant="text"
+    size="small"
+    textColor={9}
+    tooltip="Save"
+    onClick={onClick}
+  >
+    <Icon.Check />
+  </Button.Button>
+);
+
+export const RemoveButton = ({ onClick }: ActionButtonProps): ReactElement => (
   <Button.Button
     variant="text"
     size="small"
