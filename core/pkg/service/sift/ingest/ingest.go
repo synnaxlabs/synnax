@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -51,6 +52,9 @@ type Checkpoint struct {
 	// Positions holds, for each index, the time before which Sift confirmed every
 	// sample.
 	Positions Positions
+	// Through is the earliest of Positions. Once Stream sends live samples, it is the
+	// latest instead, so an index that gets no samples does not hold it back.
+	Through telem.TimeStamp
 	// Samples is the number of values Sift confirmed since the previous checkpoint.
 	Samples int64
 }
@@ -295,6 +299,7 @@ func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
 	if err = e.catchUp(ctx, a); err != nil {
 		return err
 	}
+	a.live = true
 	ticker := time.NewTicker(e.cfg.CheckpointInterval.Duration())
 	defer ticker.Stop()
 	for {
@@ -509,6 +514,8 @@ type attempt struct {
 	last    time.Time
 	// failed is set once a send fails, after which Sift confirms nothing more.
 	failed bool
+	// live is set once the attempt sends live samples.
+	live bool
 }
 
 func (a *attempt) send(ctx context.Context, f flow, fr framer.Frame) error {
@@ -560,9 +567,21 @@ func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	}
 	maps.Copy(a.confirmed, a.sent)
 	a.engine.confirms++
-	cp := Checkpoint{Positions: maps.Clone(a.confirmed), Samples: a.pending}
+	cp := Checkpoint{
+		Positions: maps.Clone(a.confirmed),
+		Through:   a.through(),
+		Samples:   a.pending,
+	}
 	a.pending = 0
 	return a.engine.cfg.OnCheckpoint(ctx, cp)
+}
+
+func (a *attempt) through() telem.TimeStamp {
+	positions := slices.Collect(maps.Values(a.confirmed))
+	if a.live {
+		return slices.Max(positions)
+	}
+	return slices.Min(positions)
 }
 
 // live holds the frames a streamer receives until the engine sends them. It never
