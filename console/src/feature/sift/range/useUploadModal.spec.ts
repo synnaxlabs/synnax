@@ -149,7 +149,8 @@ describe("Sift.Range.useUploadModal", () => {
       { client },
     );
     expect(await screen.findByText("Upload Hotfire plot to Sift")).toBeTruthy();
-    expect(screen.getByText(tr.toPrettyString())).toBeTruthy();
+    const start = tr.start.toString("dateTime", "local");
+    expect(screen.getByText(start, { exact: false })).toBeTruthy();
     const cmd = await fillAndUpload(scan, dev, data);
     expect(cmd.args).toEqual({
       device: dev.key,

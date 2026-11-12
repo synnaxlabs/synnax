@@ -25,6 +25,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
@@ -153,7 +154,7 @@ const Upload = ({
               Upload {name} to Sift
             </Text.Text>
             {typeof source !== "string" && (
-              <Text.Text color={9}>{new TimeRange(source).toPrettyString()}</Text.Text>
+              <Telem.Text.TimeRange>{source}</Telem.Text.TimeRange>
             )}
           </Flex.Box>
           <Flex.Box x gap="large">
