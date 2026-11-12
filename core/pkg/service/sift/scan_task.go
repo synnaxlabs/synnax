@@ -124,7 +124,7 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 		return err
 	}
 	_, err = pingv1.NewPingServiceClient(conn).Ping(ctx, &pingv1.PingRequest{})
-	return errors.Combine(err, conn.Close())
+	return errors.Combine(failure(args.Connection.URI, err), conn.Close())
 }
 
 func (s scanner) listAssets(
@@ -191,5 +191,5 @@ func (s scanner) withDevice(
 			s.cfg.L.Warn("failed to close connection", zap.Error(err))
 		}
 	}()
-	return f(ctx, conn)
+	return failure(props.URI, f(ctx, conn))
 }

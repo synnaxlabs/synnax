@@ -11,6 +11,7 @@ package sift_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,7 +130,10 @@ var _ = Describe("Factory", func() {
 					}).Should(SatisfyAll(
 						HaveField("Variant", status.VariantWarning),
 						HaveField("Message", "Failed to connect to Sift"),
-						HaveField("Description", ContainSubstring("invalid API key")),
+						HaveField(
+							"Description",
+							ContainSubstring("rejected the API key"),
+						),
 					))
 				})
 		})
@@ -157,8 +161,41 @@ var _ = Describe("Factory", func() {
 					"grant":      g,
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("invalid API key"))
+				Expect(stat.Message).To(Equal("Authentication failed"))
+				Expect(stat.Description).To(ContainSubstring("rejected the API key"))
 			})
+
+			DescribeTable("Should connect through a URI copied from a browser",
+				func(ctx SpecContext, format string) {
+					key := createAPIKey(ctx, apiKey)
+					stat := exec(ctx, "test_connection", map[string]any{
+						"connection": sift.Properties{
+							URI:    fmt.Sprintf(format, server.Address()),
+							APIKey: key,
+						},
+						"grant": grantToRack(ctx, key),
+					})
+					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				},
+				Entry("https", "https://%s"),
+				Entry("http with a trailing slash", "http://%s/"),
+				Entry("an upper case scheme", "HTTPS://%s"),
+			)
+
+			It("Should say that a closed port refused the connection",
+				func(ctx SpecContext) {
+					key := createAPIKey(ctx, apiKey)
+					stat := exec(ctx, "test_connection", map[string]any{
+						"connection": sift.Properties{URI: "127.0.0.1:1", APIKey: key},
+						"grant":      grantToRack(ctx, key),
+					})
+					Expect(stat.Variant).To(Equal(status.VariantError))
+					Expect(stat.Message).To(Equal("Failed to reach Sift"))
+					Expect(stat.Description).To(Equal(
+						"Could not reach 127.0.0.1:1: the connection was refused. Check " +
+							"the URI, and that the network of the Core can reach Sift.",
+					))
+				})
 
 			It("Should fail without a grant, even for the key of a saved device",
 				func(ctx SpecContext) {
