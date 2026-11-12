@@ -283,11 +283,14 @@ func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
 	return defaultStalenessTimeout
 }
 
+// maxOnClickDelay is the longest delay, in milliseconds, that a browser timer waits.
+const maxOnClickDelay = math.MaxInt32
+
 func migrateOnClickDelay(ms float64) telem.TimeSpan {
 	if math.IsNaN(ms) || ms <= 0 {
 		return 0
 	}
-	return migrateSpan(ms, telem.Millisecond)
+	return migrateSpan(min(ms, maxOnClickDelay), telem.Millisecond)
 }
 
 // maxSpan is the largest span a JavaScript number holds exactly, so a client can send
@@ -328,7 +331,8 @@ func MigrateLabeledConfig(
 }
 
 // MigrateToggleConfig lifts a v11 toggle config into v12. It converts the click delay
-// from milliseconds to a span. A NaN or negative delay becomes 0.
+// from milliseconds to a span. A NaN or negative delay becomes 0. A delay longer than
+// 2^31 - 1 ms, the longest that a browser timer waits, takes that length.
 func MigrateToggleConfig(
 	ctx context.Context,
 	old v11.ToggleConfig,

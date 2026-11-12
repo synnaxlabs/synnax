@@ -596,7 +596,8 @@ var _ = Describe("MigrateToggleConfig", func() {
 		Entry("zero", 0.0, telem.TimeSpan(0)),
 		Entry("negative", -10.0, telem.TimeSpan(0)),
 		Entry("NaN", math.NaN(), telem.TimeSpan(0)),
-		Entry("too large", 1e15, maxSpan),
+		Entry("too large", 1e15, math.MaxInt32*telem.Millisecond),
+		Entry("infinite", math.Inf(1), math.MaxInt32*telem.Millisecond),
 	)
 })
 
