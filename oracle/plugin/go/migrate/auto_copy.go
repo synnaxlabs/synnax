@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -56,9 +55,6 @@ func generateAutoCopy(
 	}
 	c := newCollector(nil)
 	data := c.collect(types)
-	if err := errors.Join(c.errs...); err != nil {
-		return nil, err
-	}
 	if len(data.Funcs) == 0 {
 		return nil, nil
 	}
@@ -289,8 +285,6 @@ type collector struct {
 	usesLo bool
 	// aliases forces the alias of each import path it holds.
 	aliases map[string]string
-	// errs collects the fields no generated or hand-written step can carry.
-	errs []error
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
