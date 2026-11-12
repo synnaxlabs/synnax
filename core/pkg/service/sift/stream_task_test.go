@@ -101,7 +101,11 @@ var _ = Describe("Stream task", func() {
 		send(ctx, 1)
 		Eventually(values).Should(HaveExactElements(1.0))
 		Eventually(progressOf).WithArguments(ctx).Should(SatisfyAll(
-			HaveField("Message", HavePrefix("Sent to Sift through ")),
+			HaveField("Message", "Sent to Sift"),
+			HaveField(
+				"Description",
+				"Sent 1 sample to asset stand since the task started.",
+			),
 			HaveField("Details.Positions", HaveExactElements(
 				HaveField("Index", idx.Key()),
 			)),
@@ -180,6 +184,19 @@ var _ = Describe("Stream task", func() {
 					HaveField("ClientKey", HaveValue(Equal(rng.Key.String()))),
 					HaveField("Tags", ConsistOf("hotfire")),
 				)))
+			})
+
+		It("Should make a run when one index of the task gets no samples",
+			func(ctx SpecContext) {
+				idleIdx := createIndex(ctx)
+				idle := createData(ctx, idleIdx)
+				cfg := streamConfig(l.Key)
+				cfg["channels"] = []channel.Key{ch.Key(), idle.Key()}
+				start(ctx, cfg)
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
 			})
 
 		It("Should update the run of a range that changes", func(ctx SpecContext) {
