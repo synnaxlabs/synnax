@@ -91,6 +91,9 @@ func queueUpload(
 	if dev.Rack != rk {
 		return "", validate.Errorf("device %s belongs to another rack", dev.Name)
 	}
+	if err := ingest.Validate(ctx, cfg.DB, cfg.Channel, args.Channels); err != nil {
+		return "", err
+	}
 	var rng ranger.Range
 	if err := cfg.Ranger.NewRetrieve().
 		Where(ranger.MatchKeys(args.Range)).
@@ -224,6 +227,10 @@ func (u *uploader) run(ctx context.Context) error {
 
 // schedule starts the oldest pending upload of each idle device on the rack.
 func (u *uploader) schedule(ctx context.Context) error {
+	// Reading under u.mu keeps an upload that finishes or is deleted meanwhile from
+	// starting again.
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	var pending []UploadStatus
 	if err := u.cfg.Status.NewRetrieve[UploadDetails]().
 		WherePrefix(uploadKeyPrefix).
@@ -250,8 +257,6 @@ func (u *uploader) schedule(ctx context.Context) error {
 	slices.SortFunc(pending, func(a, b UploadStatus) int {
 		return cmp.Compare(a.Key, b.Key)
 	})
-	u.mu.Lock()
-	defer u.mu.Unlock()
 	for _, s := range pending {
 		dev := s.Details.Device
 		if _, busy := u.running[dev]; busy {
