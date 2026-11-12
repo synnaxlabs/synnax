@@ -493,30 +493,15 @@ class Overview(Surface):
         modal.wait_for(state="visible", timeout=5000)
         self.fill_create_modal(name)
 
-    def set_child_range_stage(self, name: str, stage: str) -> None:
-        """Change the stage of a child range in the Child Ranges section.
+    def stop_child_range(self, name: str) -> None:
+        """Stop a running child range through its context menu in the Child ranges
+        section, which ends it now.
 
         :param name: The name of the child range.
-        :param stage: The stage to set ("To do", "In progress", "Completed").
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        stage_button = (
-            item.locator("button")
-            .filter(has=self.layout.page.locator("svg.lyra-icon--to-do"))
-            .or_(
-                item.locator("button").filter(
-                    has=self.layout.page.locator("svg.lyra-icon--in-progress")
-                )
-            )
-            .or_(
-                item.locator("button").filter(
-                    has=self.layout.page.locator("svg.lyra-icon--completed")
-                )
-            )
-            .first
-        )
-        self._pick_stage_from_dropdown(stage_button, stage)
+        self.ctx_menu.action(item, "Stop")
 
     def favorite_child_range(self, name: str) -> None:
         """Favorite a child range from the Child Ranges section via context

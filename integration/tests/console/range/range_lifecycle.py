@@ -116,7 +116,7 @@ class RangeLifecycle(ConsoleCase):
         # Child Ranges
         self.test_navigate_to_child_range()
         self.test_create_child_range_from_overview()
-        self.test_change_child_range_stage()
+        self.test_stop_child_range()
 
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
@@ -349,6 +349,15 @@ class RangeLifecycle(ConsoleCase):
         now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
+
+    def assert_range_ended(self, name: str) -> None:
+        """Poll until the range's end is in the past."""
+
+        def ended(rng: sy.Range) -> bool:
+            return rng.time_range.end < int(sy.TimeStamp.now())
+
+        rng = self.wait_for_range(name, done=ended)
+        assert ended(rng), f"'{name}' end should be in the past"
 
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
@@ -628,15 +637,15 @@ class RangeLifecycle(ConsoleCase):
             "New child range should appear in explorer"
         )
 
-    def test_change_child_range_stage(self) -> None:
-        """Test changing the stage of a child range from the parent overview."""
+    def test_stop_child_range(self) -> None:
+        """Test stopping a running child range from the parent overview, which
+        moves it to Completed by ending it now."""
         assert self.staged_range_name is not None
         assert self.child_range_name is not None
-        self.log("Testing: Change child range stage")
+        self.log("Testing: Stop child range")
         self.console.ranges.overview.open(self.staged_range_name)
         self.console.ranges.overview.wait_for(self.staged_range_name)
-
-        self.console.ranges.overview.set_child_range_stage(
-            self.child_range_name, "In progress"
-        )
         self.assert_range_spans_now(self.child_range_name)
+
+        self.console.ranges.overview.stop_child_range(self.child_range_name)
+        self.assert_range_ended(self.child_range_name)
