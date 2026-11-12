@@ -36,17 +36,6 @@ const EMPTY_STATE: Range.SliceState = {
   staticKeysRewritten: false,
 };
 
-const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState => ({
-  version: 0,
-  selected,
-  ranges,
-  staticKeysRewritten: false,
-});
-
-const storeWith = (ranges: Range.State[], selected?: string): Range.StoreState => ({
-  [Range.SLICE_NAME]: stateWith(ranges, selected),
-});
-
 const createStore = (initial: Range.SliceState = EMPTY_STATE) =>
   createMinimalStore({
     reducer: { [Range.SLICE_NAME]: Range.reducer },
@@ -64,44 +53,7 @@ const createWrapper = (
 };
 
 describe("range selectors", () => {
-  describe("raw selectors", () => {
-    describe("selectState", () => {
-      it("should resolve a range by explicit key", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC]), STATIC.key)).toEqual(
-          STATIC,
-        );
-      });
-
-      it("should fall back to the selected range when no key is given", () => {
-        expect(Range.selectState(storeWith([STATIC, DYNAMIC], STATIC.key))).toEqual(
-          STATIC,
-        );
-      });
-
-      it("should return undefined when no range matches", () => {
-        expect(Range.selectState(storeWith([STATIC]), "missing")).toBeUndefined();
-      });
-    });
-  });
-
   describe("getters", () => {
-    it("should read the current selected key on demand across dispatches", () => {
-      const store = createStore(stateWith([STATIC, DYNAMIC]));
-      const { result } = renderHook(() => Range.useGetSelectedKey(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBeUndefined();
-      act(() => {
-        store.dispatch(Range.select(STATIC.key));
-      });
-      expect(get()).toEqual(STATIC.key);
-      act(() => {
-        store.dispatch(Range.select(DYNAMIC.key));
-      });
-      expect(get()).toEqual(DYNAMIC.key);
-    });
-
     it("should resolve a range by key and fall back to the selection on demand", () => {
       const store = createStore();
       const { result } = renderHook(() => Range.useGetState(), {
@@ -117,6 +69,22 @@ describe("range selectors", () => {
         store.dispatch(Range.select(DYNAMIC.key));
       });
       expect(get()).toEqual(DYNAMIC);
+      expect(get("missing")).toBeUndefined();
+    });
+
+    // Callers fall back to the recent range when nothing is selected, so it has to be
+    // there whatever the session has stored.
+    it("should offer the rolling ranges whatever the session holds", () => {
+      const store = createStore();
+      const { result } = renderHook(() => Range.useGetState(), {
+        wrapper: createWrapper(store),
+      });
+      const get = result.current;
+      expect(Range.BUILT_IN.every(({ key }) => get(key) != null)).toBe(true);
+      act(() => {
+        store.dispatch(Range.remove({ keys: [Range.RECENT_KEY] }));
+      });
+      expect(get(Range.RECENT_KEY)).toBeDefined();
     });
   });
 });

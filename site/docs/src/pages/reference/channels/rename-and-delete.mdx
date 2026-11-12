@@ -152,8 +152,8 @@ again.
 - **Arc and calculated channels** -> Synnax does not check Arc automations or calculated
   channels before a delete. After the delete, they fail or show an error, so update them
   first.
-- **Calculated channels** -> when you delete a calculated channel, its `<name>_time`
-  index stays. Delete the index too.
+- **Calculated channels** -> when you delete a calculated channel, Synnax also deletes
+  its `<name>_time` index, unless another channel uses that index.
 
 To delete the data in a time range and keep the channel, see
 [delete data](/reference/client/delete-data).
