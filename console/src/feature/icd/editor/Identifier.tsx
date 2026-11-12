@@ -41,7 +41,7 @@ const create = (
     case "can":
       return { type, id: 0, extended: false, fd: false, bitrateSwitched: false };
     case "field":
-      return { type, field: fields[0]?.key ?? "", value: 0 };
+      return { type, field: fields[0].key, value: 0 };
   }
 };
 
@@ -162,6 +162,8 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
   const fields = Form.useFieldValue(path.fields);
   const handleChange = (next: Type) =>
     set(path.identifier, next === "none" ? undefined : create(next, fields));
+  // A field value identifier needs a field to read.
+  const types = TYPES.filter((t) => t !== "field" || fields.length > 0);
   return (
     <Input.Item label="Identifier" padHelpText>
       <Select.Simple<Type>
@@ -170,7 +172,7 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
         onChange={handleChange}
         variant="floating"
       >
-        {TYPES.map((t) => (
+        {types.map((t) => (
           <Select.Item key={t} itemKey={t}>
             {NAMES[t]}
           </Select.Item>

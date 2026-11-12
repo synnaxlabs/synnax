@@ -11,15 +11,17 @@ import { icd } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Editor } from "@/feature/icd/editor/Editor";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
+import { selectFromDropdown } from "@/platform/task/testutil";
 import {
   createConsoleWrapper,
   fakePickedFile,
+  findDialogTriggerByText,
   interceptFilePicker,
   renderSuspended,
   uniqueName,
@@ -176,6 +178,51 @@ describe("ICD editor", () => {
       );
       expect(payload.fields[1]).toMatchObject({ name: "Temp", startBit: 16 });
     });
+  });
+
+  it.each([
+    {
+      order: "little-endian",
+      last: { ...createBinaryField("Count", 8), bitLength: 32 },
+      next: "40",
+    },
+    {
+      order: "big-endian",
+      last: {
+        ...createBinaryField("Temp", 15),
+        bitLength: 16,
+        byteOrder: "big_endian" as const,
+      },
+      next: "24",
+    },
+  ])("should start a new field after a $order last field", async ({ last, next }) => {
+    const ic = await createICD([createMessage([createBinaryField("Type", 0), last])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: "Add row" }));
+    await waitFor(() => expect(cell("Start bit", 3).value).toBe(next));
+  });
+
+  it("should not offer a field value identifier without fields", async () => {
+    const ic = await createICD([createMessage([])]);
+    await renderEditor(ic);
+    fireEvent.click(await findDialogTriggerByText("None"));
+    const dialogs = await screen.findAllByRole("dialog");
+    const options = within(dialogs[dialogs.length - 1]);
+    await options.findByText("CAN");
+    expect(options.queryByText("Field value")).toBeNull();
+  });
+
+  it("should identify a message by the value of its first field", async () => {
+    const fields = [createBinaryField("Type", 0), createBinaryField("Count", 8)];
+    const ic = await createICD([createMessage(fields)]);
+    await renderEditor(ic);
+    await selectFromDropdown("None", "Field value");
+    await save();
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { type: "field", field: fields[0].key, value: 0 },
+      }),
+    );
   });
 
   it("should keep the keys of the fields a removal leaves", async () => {

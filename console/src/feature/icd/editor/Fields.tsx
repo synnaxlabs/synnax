@@ -194,6 +194,17 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
   }
 };
 
+/** @returns the payload bit just past the field. */
+const endBit = ({ startBit, bitLength, byteOrder }: icd.BinaryField): number => {
+  if (byteOrder === "little_endian") return startBit + bitLength;
+  // A big-endian field runs down from its start bit, then into the bytes after it.
+  const rest = Math.max(0, bitLength - (startBit % 8) - 1);
+  return (Math.floor(startBit / 8) + Math.ceil(rest / 8) + 1) * 8;
+};
+
+const nextStartBit = (fields: Field[]): number =>
+  fields.reduce((bit, f) => ("startBit" in f ? Math.max(bit, endBit(f)) : bit), 0);
+
 const uniqueFieldName = (fields: Field[]): string => {
   const names = new Set(fields.map(({ name }) => name));
   let i = fields.length + 1;
@@ -333,8 +344,12 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
       path,
       fields.filter(({ key }) => key !== own[index].key),
     );
-  const createRow = () =>
-    columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
+  const createRow = (prevRows: Input.TableCell[][]) => {
+    const field = createField(encoding, uniqueFieldName(fields));
+    if ("startBit" in field)
+      field.startBit = nextStartBit(fieldsFromRows(encoding, columns, own, prevRows));
+    return columns.map((c) => c.get(field));
+  };
   const failing = own.findIndex((f) => matchOwnField(status?.key, path, f));
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
