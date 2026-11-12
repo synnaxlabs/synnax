@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status } from "@synnaxlabs/client";
+import { device, type rack, status, type Synnax, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import {
   SCAN_TYPE,
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
+import { Task } from "@/platform/task";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
@@ -93,6 +94,33 @@ const channelDevicesZ = z.object({
   channels: z.array(z.object({ device: z.string() })).default(() => []),
 });
 
+/** @returns the EtherCAT read and write tasks that run on the network of the rack. */
+const retrieveRunningOnNetwork = async (
+  client: Synnax,
+  rackKey: rack.Key,
+  network: string,
+): Promise<task.Task[]> => {
+  const running = (
+    await client.tasks.retrieve({ rack: rackKey, includeStatus: true })
+  ).filter(
+    (t) =>
+      (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
+      t.status?.details.running === true,
+  );
+  const devicesOf = (config: unknown): string[] =>
+    channelDevicesZ.parse(config).channels.map((ch) => ch.device);
+  const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
+  const onNetwork = new Set(
+    (keys.length === 0
+      ? []
+      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
+    )
+      .filter((s) => s.properties.network === network)
+      .map((s) => s.key),
+  );
+  return running.filter((t) => devicesOf(t.config).some((k) => onNetwork.has(k)));
+};
+
 export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
@@ -107,33 +135,8 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
   verbs: SWITCH,
   update: async ({ client, data }) => {
     const { rack, key, properties } = data.slave;
-    const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
-      (t) =>
-        (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
-        t.status?.details.running === true,
-    );
-    const devicesOf = (config: unknown): string[] =>
-      channelDevicesZ.parse(config).channels.map((ch) => ch.device);
-    const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
-    const onNetwork = new Set(
-      (keys.length === 0
-        ? []
-        : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
-      )
-        .filter((s) => s.properties.network === properties.network)
-        .map((s) => s.key),
-    );
-    const tasks = running.filter((t) =>
-      devicesOf(t.config).some((k) => onNetwork.has(k)),
-    );
-    let switched = false;
-    try {
-      await Promise.all(
-        tasks.map(async (t) => {
-          const res = await t.executeCommandSync({ type: "stop" });
-          if (res.variant === "error") throw status.toError(res);
-        }),
-      );
+    const tasks = await retrieveRunningOnNetwork(client, rack, properties.network);
+    await Task.whileStopped({ tasks, keepStopped: true }, async () => {
       const scanTask = await client.tasks.retrieve({
         type: SCAN_TYPE,
         rack,
@@ -145,14 +148,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
         timeout: TimeSpan.seconds(30),
       });
       if (res.variant === "error") throw status.toError(res);
-      switched = true;
-    } finally {
-      // A task that fails to start shows its own error.
-      if (!switched)
-        await Promise.allSettled(
-          tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
-        );
-    }
+    });
     return data;
   },
 });

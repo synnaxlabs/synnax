@@ -44,5 +44,6 @@ export * from "@/platform/task/useSkipped";
 export * from "@/platform/task/useStatus";
 export * from "@/platform/task/UtilityButtons";
 export * from "@/platform/task/views";
+export * from "@/platform/task/whileStopped";
 export * from "@/platform/task/WriteChannelContextMenuItems";
 export * from "@/platform/task/WriteChannelNames";
