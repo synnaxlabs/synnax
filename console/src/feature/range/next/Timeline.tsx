@@ -9,9 +9,15 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useNow } from "@synnaxlabs/lyra/hooks";
+import {
+  useCombinedRefs,
+  useNow,
+  useResize,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,7 +26,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access } from "@synnaxlabs/pluto";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { box, color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEvent,
@@ -193,8 +199,8 @@ const grid = (marks: Tick[], w: Window): string =>
     .join(", ") || "none";
 
 interface ContextValue {
-  window: Window;
-  now: number;
+  /** The time that bar positions count from, in milliseconds since the epoch. */
+  origin: number;
   onZoom: (to: Window) => void;
 }
 
@@ -206,27 +212,37 @@ const [Context, useContext] = context.create<ContextValue>({
 const percent = (ms: number, w: Window): number =>
   ((ms - w.start) / (w.end - w.start)) * 100;
 
+interface RunningForProps {
+  start: TimeStamp;
+}
+
+const RunningFor = ({ start }: RunningForProps): ReactElement => {
+  const elapsed = Telem.Text.useTimeSpanSince(start);
+  return (
+    <Text.Text level="small" color={9}>
+      Running for {elapsed.toString("semantic")}
+    </Text.Text>
+  );
+};
+
 interface BarProps {
   range: ranger.Range;
 }
 
-const Bar = ({ range }: BarProps): ReactElement | null => {
-  const { window: w, now, onZoom } = useContext("Range.Bar");
-  const s = span(range, now);
-  if (s.end < w.start || s.start > w.end) return null;
-  const left = Math.max(percent(s.start, w), 0);
-  const right = Math.min(percent(s.end, w), 100);
+/** A bar places itself from the window on the timeline root, so a pan renders none. */
+const Bar = ({ range }: BarProps): ReactElement => {
+  const { origin, onZoom } = useContext("Range.Bar");
   const open = range.timeRange.end.equals(TimeStamp.MAX);
+  const { start, end } = range.timeRange.makeValid();
   const hue = range.color == null ? undefined : color.hex(range.color);
   const style = {
-    left: `${left}%`,
-    width: `${right - left}%`,
+    "--console-range-bar-start": toMS(start) - origin,
+    ...(!open && { "--console-range-bar-end": toMS(end) - origin }),
     ...(hue != null && { "--console-range-color": hue }),
   } as CSSProperties;
-  const { start, end } = range.timeRange.makeValid();
   const handleClick = (e: MouseEvent) => {
     e.stopPropagation();
-    onZoom(pad(s, 0.1));
+    onZoom(pad(span(range, toMS(TimeStamp.now())), 0.1));
   };
   return (
     <Tooltip.Dialog location="top">
@@ -237,19 +253,19 @@ const Bar = ({ range }: BarProps): ReactElement | null => {
         <Telem.Text.TimeRange level="small" color={9}>
           {range.timeRange}
         </Telem.Text.TimeRange>
-        <Text.Text level="small" color={9}>
-          {open
-            ? `Running for ${start.span(TimeStamp.now()).toString("semantic")}`
-            : start.span(end).toString("semantic")}
-        </Text.Text>
+        {open ? (
+          <RunningFor start={start} />
+        ) : (
+          <Text.Text level="small" color={9}>
+            {start.span(end).toString("semantic")}
+          </Text.Text>
+        )}
       </Flex.Box>
       <div
         className={CSS.cls(
           CSS.BE("range-timeline", "bar"),
           hue == null && CSS.BEM("range-timeline", "bar", "plain"),
           open && CSS.BEM("range-timeline", "bar", "open"),
-          percent(s.start, w) < 0 && CSS.BEM("range-timeline", "bar", "cut-start"),
-          percent(s.end, w) > 100 && CSS.BEM("range-timeline", "bar", "cut-end"),
         )}
         style={style}
         onClick={handleClick}
@@ -263,7 +279,7 @@ const Bar = ({ range }: BarProps): ReactElement | null => {
  * One range of a timeline: its caret, color, and name at its depth in the tree, then
  * its bar over the shared axis.
  */
-export const Lane = ({
+const Lane = ({
   className,
   ...rest
 }: List.ItemProps<ranger.Key>): ReactElement | null => {
@@ -302,28 +318,29 @@ export interface TimelineProps {
   nodes: Node[];
   /** The window to fit, such as the span of a parent. Defaults to the ranges. */
   bounds?: { start: TimeStamp; end: TimeStamp };
-  children: List.ItemRenderProp<ranger.Key>;
   emptyContent?: ReactNode;
   /** Shows after the last lane. */
   footer?: ReactNode;
   onContextMenu?: List.ScrollProps["onContextMenu"];
 }
 
-const nextSecond = (now: TimeStamp) => now.add(TimeSpan.SECOND.mult(15));
+const nextTick = (now: TimeStamp) => now.add(TimeSpan.seconds(15));
 
-/**
- * Lays ranges out as lanes over one time axis. Pinch or Cmd and scroll to zoom, scroll
- * sideways or drag the axis to pan, and click a bar to zoom to it.
- */
-export const Timeline = ({
+const lane = Component.renderProp(Lane);
+
+interface FrameProps extends Omit<TimelineProps, "emptyContent"> {
+  lanes: ReactNode;
+}
+
+/** Holds the window. The lanes come in built, so a pan renders the axis and no lane. */
+const Frame = ({
   nodes,
   bounds,
-  children,
-  emptyContent,
+  lanes,
   footer,
   onContextMenu,
-}: TimelineProps): ReactElement => {
-  const now = toMS(useNow(nextSecond));
+}: FrameProps): ReactElement => {
+  const now = toMS(useNow(nextTick));
   const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null || subscribe == null)
     throw new Error("Range.Timeline must be inside a list of ranges");
@@ -343,17 +360,13 @@ export const Timeline = ({
           end: bounds.end.equals(TimeStamp.MAX) ? now : toMS(bounds.end),
         });
   const [view, setView] = useState<Window | null>(null);
+  const [ctx] = useState<ContextValue>(() => ({ origin: now, onZoom: setView }));
   const w = view ?? fitted ?? { start: now - DAY, end: now };
   const axisRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
-  useEffect(() => {
-    const el = axisRef.current;
-    if (el == null) return;
-    const obs = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+  const resizeRef = useResize<HTMLDivElement>((b) => setWidth(box.width(b)));
+  const axisRefs = useCombinedRefs(axisRef, resizeRef);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const geometry = () => axisRef.current?.getBoundingClientRect();
   /** Zooms by the factor and holds the time at the same place on the axis. */
   const zoomAround = (at: number, factor: number) => {
@@ -380,23 +393,24 @@ export const Timeline = ({
     const shift = (px / rect.width) * (w.end - w.start);
     setView({ start: w.start + shift, end: w.end + shift });
   };
+  const wheelRef = useSyncedRef((e: WheelEvent) => {
+    const rect = geometry();
+    if (rect == null || e.clientX < rect.left) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      zoomAt(e.clientX, Math.exp(e.deltaY * 0.01));
+    } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+      e.preventDefault();
+      panBy(e.shiftKey ? e.deltaY : e.deltaX);
+    }
+  });
   useEffect(() => {
     const el = scrollRef.current;
     if (el == null) return;
-    const handleWheel = (e: WheelEvent) => {
-      const rect = geometry();
-      if (rect == null || e.clientX < rect.left) return;
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        zoomAt(e.clientX, Math.exp(e.deltaY * 0.01));
-      } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
-        e.preventDefault();
-        panBy(e.shiftKey ? e.deltaY : e.deltaX);
-      }
-    };
+    const handleWheel = (e: WheelEvent) => wheelRef.current(e);
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
-  });
+  }, [wheelRef]);
   const drag = useRef<number | null>(null);
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = e.clientX;
@@ -411,12 +425,11 @@ export const Timeline = ({
     drag.current = null;
   };
   const marks = ticks(w, width);
-  const nowPercent = percent(now, w);
-  const ctx = { window: w, now, onZoom: setView };
   const style = {
+    "--console-range-timeline-start": w.start - ctx.origin,
+    "--console-range-timeline-end": w.end - ctx.origin,
+    "--console-range-timeline-now": now - ctx.origin,
     "--console-range-timeline-grid": grid(marks, w),
-    "--console-range-timeline-now":
-      nowPercent >= 0 && nowPercent <= 100 ? `${nowPercent}%` : "-10px",
   } as CSSProperties;
   return (
     <Context value={ctx}>
@@ -476,7 +489,7 @@ export const Timeline = ({
             </Flex.Box>
           </Flex.Box>
           <div
-            ref={axisRef}
+            ref={axisRefs}
             className={CSS.BE("range-timeline", "axis")}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -500,13 +513,26 @@ export const Timeline = ({
             })}
           </div>
         </div>
-        {nodes.length === 0 ? (
-          emptyContent
-        ) : (
-          <List.Items<ranger.Key>>{children}</List.Items>
-        )}
+        {lanes}
         {footer}
       </List.Scroll>
     </Context>
   );
 };
+
+/**
+ * Lays ranges out as lanes over one time axis. Pinch or Cmd and scroll to zoom, scroll
+ * sideways or drag the axis to pan, and click a bar to zoom to it.
+ */
+export const Timeline = ({ emptyContent, ...rest }: TimelineProps): ReactElement => (
+  <Frame
+    {...rest}
+    lanes={
+      rest.nodes.length === 0 ? (
+        emptyContent
+      ) : (
+        <List.Items<ranger.Key>>{lane}</List.Items>
+      )
+    }
+  />
+);

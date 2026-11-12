@@ -27,7 +27,7 @@ import { ContextMenu } from "@/feature/range/next/ContextMenu";
 import { Chips, isEmpty, MenuItems } from "@/feature/range/next/Filter";
 import { FlatItem, HighlightContext, TreeItem } from "@/feature/range/next/Item";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/next/searchTree";
-import { Lane, Timeline } from "@/feature/range/next/Timeline";
+import { Timeline } from "@/feature/range/next/Timeline";
 import {
   type Node,
   NodeProvider,
@@ -53,7 +53,6 @@ export const itemHeight = (layout: view.RangeLayout): number =>
 const contextMenu = Component.renderProp(ContextMenu);
 const treeItem = Component.renderProp(TreeItem);
 const flatItem = Component.renderProp(FlatItem);
-const lane = Component.renderProp(Lane);
 
 interface SortSelectProps {
   value: view.RangeSort;
@@ -164,9 +163,7 @@ export const TreeLayout = ({
         emptyContent={emptyContent}
         footer={footer}
         onContextMenu={menuProps.open}
-      >
-        {lane}
-      </Timeline>
+      />
     ) : (
       <List.Scroll
         grow

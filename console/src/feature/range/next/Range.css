@@ -182,6 +182,11 @@
 }
 
 .console-range-timeline__track {
+    /* The root sets the window and now in milliseconds after the timeline origin. */
+    --console-range-timeline-ms: calc(
+        100% / (var(--console-range-timeline-end) - var(--console-range-timeline-start))
+    );
+
     position: relative;
     flex: 1 1 0;
     align-self: stretch;
@@ -190,10 +195,18 @@
     background: var(--console-range-timeline-grid, none);
 
     &::after {
+        --console-range-timeline-at: calc(
+            var(--console-range-timeline-now) - var(--console-range-timeline-start)
+        );
+
         position: absolute;
         top: 0;
         bottom: 0;
-        left: var(--console-range-timeline-now, -10px);
+        left: clamp(
+            -1px,
+            var(--console-range-timeline-at) * var(--console-range-timeline-ms),
+            100%
+        );
         width: 1px;
         background: var(--pluto-primary-z);
         content: "";
@@ -203,9 +216,35 @@
 
 .console-range-timeline__bar {
     --console-range-bar: var(--console-range-color, var(--pluto-gray-l8));
+    --console-range-bar-from: calc(
+        var(--console-range-bar-start) - var(--console-range-timeline-start)
+    );
+
+    /* An open bar ends at now. */
+    --console-range-bar-stop: var(
+        --console-range-bar-end,
+        max(var(--console-range-timeline-now), var(--console-range-bar-start))
+    );
+    --console-range-bar-to: calc(
+        var(--console-range-bar-stop) - var(--console-range-timeline-start)
+    );
+
+    /* An end past the window stops 3rem outside it, so the track hides that edge. */
+    --console-range-bar-left: clamp(
+        -3rem,
+        var(--console-range-bar-from) * var(--console-range-timeline-ms),
+        100% + 3rem
+    );
+    --console-range-bar-right: clamp(
+        -3rem,
+        var(--console-range-bar-to) * var(--console-range-timeline-ms),
+        100% + 3rem
+    );
 
     position: absolute;
     top: 50%;
+    left: var(--console-range-bar-left);
+    width: calc(var(--console-range-bar-right) - var(--console-range-bar-left));
     height: 2.5rem;
     min-width: 2.5rem;
     transform: translateY(-50%);
@@ -237,18 +276,6 @@
         #000 max(50%, calc(100% - 3rem)),
         transparent
     );
-}
-
-.console-range-timeline__bar--cut-start {
-    border-left: none;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-}
-
-.console-range-timeline__bar--cut-end {
-    border-right: none;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
 }
 
 .console-range-overview__scroll {
