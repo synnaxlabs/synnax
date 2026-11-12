@@ -174,8 +174,8 @@ tag push fails after a stage, push the tag at the run's commit by hand and rerun
 A merge publishes nothing. Both publish through OIDC trusted publishing with
 `id-token: write`, so no registry token lives in the repo's secrets. The registries
 trust `release.yaml` by name, so the publish jobs live in it, not in a called workflow.
-Only the publish jobs hold `id-token: write` and `contents: write`. Packages have no
-candidate channel: a candidate run never publishes them.
+Of the package jobs, only the publish jobs hold `id-token: write` and `contents: write`.
+Packages have no candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 
