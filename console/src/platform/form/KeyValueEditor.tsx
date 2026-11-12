@@ -12,23 +12,37 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { caseconv, type deep, type xy } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
-export type Entry<K extends string, V extends string | number> = {
+export type Entry<K extends string, V extends string | number | boolean> = {
   [k in K]: string;
 } & { value: V };
 
-export interface KeyValueEditorProps<K extends string, V extends string | number>
+type ValueType<V> = V extends boolean
+  ? "boolean"
+  : V extends number
+    ? "number"
+    : "string";
+
+export interface KeyValueEditorProps<
+  K extends string,
+  V extends string | number | boolean,
+>
   extends Input.ItemProps {
   path: deep.Target<Entry<K, V>[]>;
   keyField: K;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
-  valueType?: V extends number ? "number" : "string";
+  valueType?: ValueType<V>;
   valueFirst?: boolean;
   /** Names one entry in the add and remove buttons ("header"). */
   resourceName?: string;
 }
 
-export const KeyValueEditor = <K extends string, V extends string | number>({
+const parseBoolean = (text: string): string | null => {
+  const t = text.trim().toLowerCase();
+  return t === "true" || t === "false" ? t : null;
+};
+
+export const KeyValueEditor = <K extends string, V extends string | number | boolean>({
   path,
   keyField,
   keyPlaceholder = "Key",
@@ -38,7 +52,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   resourceName,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
-  const vt = valueType ?? "string";
+  const vt: "number" | "string" | "boolean" = valueType ?? "string";
   const { set, mode } = Form.useContext();
   const preview = mode === "preview" ? true : undefined;
   const value = Form.useFieldValue(path);
@@ -64,7 +78,8 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const rows = entries.map((entry) => {
     const row: Input.TableCell[] = [];
     row[keyIndex] = entry[keyField];
-    row[valueIndex] = entry.value;
+    row[valueIndex] =
+      typeof entry.value === "boolean" ? String(entry.value) : entry.value;
     return row;
   });
 
@@ -80,7 +95,10 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
       next.length > 0
         ? next.map(
             (row) =>
-              ({ [keyField]: row[keyIndex], value: row[valueIndex] }) as Entry<K, V>,
+              ({
+                [keyField]: row[keyIndex],
+                value: vt === "boolean" ? row[valueIndex] === "true" : row[valueIndex],
+              }) as Entry<K, V>,
           )
         : [],
     );
@@ -93,6 +111,16 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const valueColumn =
     vt === "number" ? (
       <Input.TableColumn key="value" name="Value" />
+    ) : vt === "boolean" ? (
+      <Input.TableColumn key="value" name="Value" type="string" parse={parseBoolean}>
+        {({ value, onChange, ...p }) => (
+          <Input.Checkbox
+            {...p}
+            value={value === "true"}
+            onChange={(v) => onChange(String(v))}
+          />
+        )}
+      </Input.TableColumn>
     ) : (
       <Input.TableColumn key="value" name="Value" type="string">
         {(p) => <Input.Text {...p} placeholder={valuePlaceholder} />}

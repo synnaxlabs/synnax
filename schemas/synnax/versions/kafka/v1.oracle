@@ -1,0 +1,130 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v1"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v0"
+
+StartOffset = v0.StartOffset
+
+RecordKey = v0.RecordKey
+
+ScanConfig = v0.ScanConfig
+
+ReadField = v0.ReadField
+
+ReadRecord = v0.ReadRecord
+
+ReadConfig = v0.ReadConfig
+
+BaseWriteChannel struct {
+    key      string = create {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel whose samples are produced."
+    }
+
+    @doc value  "carries the fields every Kafka write channel shares."
+    @go marshal
+}
+
+WriteChannel union on type payload.Kind extends BaseWriteChannel {
+    float {
+        enum_values payload.FloatEntry[] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    integer {
+        enum_values payload.IntegerEntry[] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    unsigned {
+        enum_values payload.UnsignedEntry[] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    string {
+        enum_values payload.StringEntry[] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON string."
+    }
+    boolean {
+        enum_values payload.BooleanEntry[] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON boolean."
+    }
+    timestamp {
+        time_format payload.TimeFormat {
+            @doc value "is the encoding of each sample."
+        }
+
+        @doc value "writes each sample of a timestamp channel in a time format."
+    }
+    json {
+        @doc value "writes each sample of a JSON channel as its JSON value."
+    }
+    uuid {
+        @doc value "writes each sample of a UUID channel as a JSON string."
+    }
+    bytes {
+        @doc value "writes each sample of a bytes channel as a base64 JSON string."
+    }
+
+    @doc value  """
+        is a channel whose samples a write task produces as records. The type selects
+        the JSON value of each sample. A sample that matches an entry of enum_values is
+        written as the entry's label.
+    """
+    @go marshal
+}
+
+Record = v0.Record
+
+WriteConfig struct extends task.StartConfig {
+    device     device.Key = "" {
+        @doc value "is the key of the Kafka cluster device to produce to."
+    }
+    topic      string = "" {
+        @doc value "is the topic the task produces to."
+    }
+    record_key RecordKey = channel_name {
+        @doc value "is the source of the key placed on every record."
+    }
+    record     Record = {} {
+        @doc value "is the shape of every record."
+    }
+    channels   WriteChannel[] {
+        @doc value "contains the channels whose samples are produced."
+    }
+
+    @doc value  """
+        configures a Kafka write task, which produces one record per sample of each
+        channel to a topic.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}

@@ -20,7 +20,7 @@ import { getIconButton, renderWithConsole } from "@/testutil";
 
 const PATH = "headers";
 
-const root = deep.path<{ [PATH]: Form.Entry<string, string | number>[] }>();
+const root = deep.path<{ [PATH]: Form.Entry<string, string | number | boolean>[] }>();
 const named = deep.path<{ [PATH]: Form.Entry<"name", string | number>[] }>();
 
 type Row = Record<string, unknown>;
@@ -30,7 +30,7 @@ interface HarnessProps {
   onChange?: OnChange;
   initialHeaders?: unknown;
   keyField?: string;
-  valueType?: "string" | "number";
+  valueType?: "string" | "number" | "boolean";
   valueFirst?: boolean;
 }
 
@@ -102,6 +102,30 @@ describe("KeyValueEditor", () => {
     fireEvent.change(valueInput, { target: { value: "Bearer" } });
     await waitFor(() =>
       expect(lastHeaders(onChange)).toEqual([{ name: "X", value: "Bearer" }]),
+    );
+  });
+
+  it("should store a boolean value when its checkbox toggles", async () => {
+    const onChange = vi.fn();
+    await renderWithConsole(
+      <Harness
+        onChange={onChange}
+        valueType="boolean"
+        initialHeaders={[{ name: "ON", value: false }]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Value 1" }));
+    await waitFor(() =>
+      expect(lastHeaders(onChange)).toEqual([{ name: "ON", value: true }]),
+    );
+  });
+
+  it("should append a false row for a boolean value", async () => {
+    const onChange = vi.fn();
+    await renderWithConsole(<Harness onChange={onChange} valueType="boolean" />);
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() =>
+      expect(lastHeaders(onChange)).toEqual([{ name: "", value: false }]),
     );
   });
 

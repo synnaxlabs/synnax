@@ -98,16 +98,95 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
-					if v1.Channel != 0 {
-						targets = append(targets, v1.Channel)
+					switch v2 := v1.Variant.(type) {
+					case FloatWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case IntegerWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case UnsignedWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case StringWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case BooleanWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case TimestampWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case JsonWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case UuidWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
+					case BytesWriteChannel:
+						if v2.Channel != 0 {
+							targets = append(targets, v2.Channel)
+						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
-				for i2 := range e.Channels {
-					if e.Channels[i2].Channel == t {
-						e.Channels[i2].Channel = 0
+				for i3 := range e.Channels {
+					switch v4 := e.Channels[i3].Variant.(type) {
+					case FloatWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case IntegerWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case UnsignedWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case StringWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case BooleanWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case TimestampWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case JsonWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case UuidWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
+					case BytesWriteChannel:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Channels[i3].Variant = v4
 					}
 				}
 			},

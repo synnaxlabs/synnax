@@ -44,7 +44,7 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Kafka.Task.WRITE_SCHEMAS);
 
 describe("Write", () => {
-  it("should add a channel and reveal the enum mapping for a string JSON type", async () => {
+  it("should add a channel that writes numbers with an enum mapping", async () => {
     const dev = await createKafkaDevice(client);
     const draft = await createDraft(client, {
       ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
@@ -53,10 +53,44 @@ describe("Write", () => {
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(container, "add"));
-    await screen.findByText("JSON type");
-    expect(screen.queryByText("Enum mapping")).toBeNull();
-    await selectFromDropdown("Number", "String");
     await screen.findByText("Enum mapping");
+  });
+
+  it("should offer the kinds a float channel can be written as", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      channels: [
+        { ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1", channel: ch.key },
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click((await screen.findAllByText(ch.name))[0]);
+    await screen.findByText("Write as");
+    await selectFromDropdown("Number", "Boolean");
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    fireEvent.change(await screen.findByPlaceholderText("String (e.g. ON)"), {
+      target: { value: "ON" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Value 1" }));
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels[0]).toMatchObject({
+      type: "boolean",
+      enumValues: [{ label: "ON", value: true }],
+    });
   });
 
   it("should show the channel name in the list once a channel is selected", async () => {
@@ -69,7 +103,9 @@ describe("Write", () => {
     const draft = await createDraft(client, {
       ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
+      channels: [
+        { ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1", channel: ch.key },
+      ],
     });
     await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
@@ -88,7 +124,9 @@ describe("Write", () => {
       device: dev.key,
       topic: "samples",
       record: { ...kafka.recordZ.parse({}), channelPointer: "", timestampPointer: "" },
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
+      channels: [
+        { ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1", channel: ch.key },
+      ],
     });
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
@@ -110,7 +148,7 @@ describe("Write", () => {
     const draft = await createDraft(client, {
       ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1" }],
+      channels: [{ ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1" }],
     });
     await renderWrite({ client, taskKey: draft.key });
     const item = await findChannelListItem("No channel");
@@ -130,9 +168,9 @@ describe("Write", () => {
       device: dev.key,
       topic: "samples",
       channels: [
-        { ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key },
+        { ...kafka.writeChannelZ.parse({ type: "float" }), key: "c1", channel: ch.key },
         {
-          ...kafka.writeChannelZ.parse({}),
+          ...kafka.writeChannelZ.parse({ type: "float" }),
           key: "c2",
           channel: 0,
           disabled: true,
@@ -150,7 +188,9 @@ describe("Write", () => {
     expect(created.config.channels.map((c) => c.channel)).toEqual([ch.key, 0]);
   });
 
-  it("should send a string channel as a string on deploy", async () => {
+  // A disabled row skips the Core's kind check, so its stored kind can disagree with
+  // the channel until the row is enabled.
+  it("should write a string channel as a string", async () => {
     const dev = await createKafkaDevice(client);
     const ch = await client.channels.create({
       name: uniqueName("kafka_out"),
@@ -161,24 +201,35 @@ describe("Write", () => {
       ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
       device: dev.key,
       topic: "samples",
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
+      channels: [
+        kafka.writeChannelZ.parse({
+          type: "float",
+          key: "c1",
+          channel: ch.key,
+          disabled: true,
+        }),
+      ],
     });
     const { container } = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(dev.name);
     fireEvent.click((await screen.findAllByText(ch.name))[0]);
     // The section title and the field label, once the details render.
     await waitFor(() => expect(screen.getAllByText("Channel")).toHaveLength(2));
-    await waitFor(() => expect(screen.queryByText("JSON type")).toBeNull());
+    expect(screen.queryByText("Write as")).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
     const created = await deployAndAwaitTask(
       client,
       container,
       draft.key,
       Kafka.Task.WRITE_SCHEMAS,
     );
-    expect(created.config.channels[0].jsonType).toBe("string");
+    expect(created.config.channels[0]).toMatchObject({
+      type: "string",
+      disabled: false,
+    });
   });
 
-  it("should encode a timestamp channel by its time format on deploy", async () => {
+  it("should write a timestamp channel in a time format", async () => {
     const dev = await createKafkaDevice(client);
     const ch = await client.channels.create({
       name: uniqueName("kafka_time"),
@@ -190,14 +241,13 @@ describe("Write", () => {
       device: dev.key,
       topic: "samples",
       channels: [
-        {
-          ...kafka.writeChannelZ.parse({}),
+        kafka.writeChannelZ.parse({
+          type: "float",
           key: "c1",
           channel: ch.key,
-          jsonType: "string",
-          timeFormat: "unix_ns",
+          disabled: true,
           enumValues: [{ label: "ON", value: 1 }],
-        },
+        }),
       ],
     });
     const { container } = await renderWrite({ client, taskKey: draft.key });
@@ -205,15 +255,18 @@ describe("Write", () => {
     fireEvent.click((await screen.findAllByText(ch.name))[0]);
     // The record's time format and the channel's, once the details render.
     await waitFor(() => expect(screen.getAllByText("Time format")).toHaveLength(2));
-    expect(screen.queryByText("JSON type")).toBeNull();
     expect(screen.queryByText("Enum mapping")).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
     const created = await deployAndAwaitTask(
       client,
       container,
       draft.key,
       Kafka.Task.WRITE_SCHEMAS,
     );
-    expect(created.config.channels[0].jsonType).toBe("number");
-    expect(created.config.channels[0].enumValues).toEqual([]);
+    expect(created.config.channels[0]).toMatchObject({
+      type: "timestamp",
+      timeFormat: "iso8601",
+      disabled: false,
+    });
   });
 });

@@ -52,3 +52,30 @@ var _ = Describe("KindOf", func() {
 		Entry("unlisted", telem.DataType("complex128")),
 	)
 })
+
+var _ = Describe("ChannelKinds", func() {
+	DescribeTable(
+		"should list the kinds a channel field writes a data type as",
+		func(dt telem.DataType, expected []payload.Kind) {
+			Expect(payload.ChannelKinds(dt)).To(Equal(expected))
+		},
+		Entry("float64", telem.Float64T, []payload.Kind{
+			payload.KindFloat, payload.KindString, payload.KindBoolean,
+		}),
+		Entry("int32", telem.Int32T, []payload.Kind{
+			payload.KindInteger, payload.KindString, payload.KindBoolean,
+		}),
+		Entry("uint8", telem.Uint8T, []payload.Kind{
+			payload.KindUnsigned, payload.KindString, payload.KindBoolean,
+		}),
+		Entry("boolean", telem.BooleanT, []payload.Kind{
+			payload.KindBoolean, payload.KindUnsigned, payload.KindString,
+		}),
+		Entry("string", telem.StringT, []payload.Kind{payload.KindString}),
+		Entry("timestamp", telem.TimestampT, []payload.Kind{payload.KindTimestamp}),
+		Entry("json", telem.JSONT, []payload.Kind{payload.KindJSON}),
+		Entry("uuid", telem.UUIDT, []payload.Kind{payload.KindUUID}),
+		Entry("bytes", telem.BytesT, []payload.Kind{payload.KindBytes}),
+		Entry("an unknown data type", telem.UnknownT, nil),
+	)
+})

@@ -141,7 +141,11 @@ describe("Kafka Task Types", () => {
   });
 
   describe("deployWriteConfigZ", () => {
-    const valid = { device: "dev", topic: "t", channels: [{ key: "c1", channel: 1 }] };
+    const valid = {
+      device: "dev",
+      topic: "t",
+      channels: [{ type: "float", key: "c1", channel: 1 }],
+    };
 
     it("should accept a complete config and fill the record shape", () => {
       const result = Kafka.Task.deployWriteConfigZ.parse(valid);
@@ -153,7 +157,7 @@ describe("Kafka Task Types", () => {
     it("should reject a channel that is not selected", () => {
       const result = Kafka.Task.deployWriteConfigZ.safeParse({
         ...valid,
-        channels: [{ key: "c1", channel: 0 }],
+        channels: [{ type: "float", key: "c1", channel: 0 }],
       });
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe("Channel is required");
@@ -162,7 +166,10 @@ describe("Kafka Task Types", () => {
     it("should accept a disabled channel that is not selected", () => {
       const result = Kafka.Task.deployWriteConfigZ.safeParse({
         ...valid,
-        channels: [...valid.channels, { key: "c2", channel: 0, disabled: true }],
+        channels: [
+          ...valid.channels,
+          { type: "float", key: "c2", channel: 0, disabled: true },
+        ],
       });
       expect(result.success).toBe(true);
     });
