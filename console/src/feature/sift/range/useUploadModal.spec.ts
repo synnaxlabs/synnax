@@ -8,18 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import {
+  access,
   type channel,
   DataType,
-  type device,
+  device,
   type task,
   TimeRange,
   TimeStamp,
+  user,
 } from "@synnaxlabs/client";
-import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  newIndexedPair,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
@@ -86,6 +92,33 @@ const fillAndUpload = async (
 };
 
 describe("Sift.Range.useUploadModal", () => {
+  // The dialog picks the only Sift device on its own, so two keep the pick empty.
+  beforeAll(async () => {
+    await createSiftDevice(client);
+    await createSiftDevice(client);
+  });
+
+  it("should pick the device when it is the only one the user can see", async () => {
+    const dev = await createSiftDevice(client);
+    const rng = await createRange();
+    const restricted = await createTestClientWithPolicy(client, {
+      name: uniqueName("policy"),
+      objects: [
+        device.resourceID(dev.key),
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    });
+    await renderModalOpener(
+      Sift.Range.useUploadModal,
+      [{ name: rng.name, source: rng.key }],
+      { client: restricted },
+    );
+    expect(await findDialogTriggerByText(dev.name)).toBeTruthy();
+  });
+
   it("should require a device, an asset, and channels", async () => {
     const rng = await createRange();
     await renderModalOpener(
