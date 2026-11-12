@@ -285,6 +285,7 @@ class Range(Payload):
         color: color_.Crude | None = None,
         labels: Sequence[label.Key] = (),
         parent: Key | Payload | None = None,
+        has_children: bool = False,
         _frame_client: framer.Client | None = None,
         _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
@@ -308,6 +309,8 @@ class Range(Payload):
         :param color: An optional display color. None means the range has no color.
         :param labels: The keys of the labels to attach to the range.
         :param parent: The parent range, or its key. None means the range has no parent.
+        :param has_children: Whether other ranges are nested in the range. The cluster
+            sets it on each retrieve, and it is never stored.
         :param _frame_client: The backing client for reading and writing data to
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
@@ -322,6 +325,7 @@ class Range(Payload):
             color=None if color is None else color_.Color(color),
             labels=list(labels),
             parent=parent.key if isinstance(parent, Payload) else parent,
+            has_children=has_children,
         )
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
