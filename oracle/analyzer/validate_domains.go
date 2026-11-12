@@ -455,3 +455,26 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 		}
 	}
 }
+
+// validatePatternRules errors on a pattern rule on a field whose type already sets one,
+// since one value cannot carry both patterns.
+func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			if validation.Parse(f.Domains["validate"]).Pattern == nil {
+				continue
+			}
+			typeRules := validation.FieldRules(resolution.Field{Type: f.Type}, table)
+			if typeRules.Pattern != nil {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s.%s has a pattern rule, but its type already sets one",
+					t.QualifiedName, f.Name,
+				))
+			}
+		}
+	}
+}

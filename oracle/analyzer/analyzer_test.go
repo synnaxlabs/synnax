@@ -1104,6 +1104,22 @@ Node union on variant {
 			`),
 		)
 
+		It(
+			"Should reject a pattern rule on a field whose type sets one",
+			func(ctx SpecContext) {
+				_, diag := Analyze(ctx, `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Entry struct {
+					value Name { @validate pattern "^[a-c]+$" }
+				}
+			`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry.value has a pattern rule, but its type already sets one",
+				))
+			},
+		)
+
 		DescribeTable(
 			"Should accept a length rule on a string field",
 			func(ctx SpecContext, source string) {

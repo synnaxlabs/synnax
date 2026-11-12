@@ -696,6 +696,108 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should apply the rules of a field's alias type", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Cfg struct {
+					size Decimal
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.GreaterThanEq("size", c.Size, 0)`,
+				`v.LessThanEq("size", c.Size, 1)`,
+			)
+		})
+
+		It(
+			"Should apply the rules of each type in a distinct and alias chain",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Hz = Rate {
+					@validate max 100
+				}
+
+				Cfg struct {
+					rate Hz
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.GreaterThanEq("rate", c.Rate, 0)`,
+					`v.LessThanEq("rate", c.Rate, 100)`,
+				)
+			},
+		)
+
+		It(
+			"Should merge a field's rules with its type's rules",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Cfg struct {
+					size Decimal {
+						@validate gt 0
+					}
+					loose Decimal {
+						@validate max 5
+					}
+					tight Decimal {
+						@validate max 0.5
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.GreaterThanEq("size", c.Size, 0)`,
+					`v.GreaterThan("size", c.Size, 0)`,
+					`v.LessThanEq("size", c.Size, 1)`,
+					`v.LessThanEq("loose", c.Loose, 1)`,
+					`v.LessThanEq("tight", c.Tight, 0.5)`,
+				).ToNotContain(
+					`v.LessThanEq("loose", c.Loose, 5)`,
+					`v.LessThanEq("tight", c.Tight, 1)`,
+				)
+			},
+		)
+
+		It("Should require a field whose type is required", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Name = string {
+					@validate required
+				}
+
+				Cfg struct {
+					name     Name
+					nickname Name?
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`v.NotEmptyString("name", c.Name)`).
+				ToNotContain(`v.NotEmptyString("nickname"`)
+		})
+
 		It("Should emit GreaterThan for a numeric gt", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"

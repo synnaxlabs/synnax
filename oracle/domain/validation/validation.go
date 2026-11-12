@@ -12,7 +12,10 @@
 // defaults.
 package validation
 
-import "github.com/synnaxlabs/oracle/resolution"
+import (
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
+)
 
 // Rules contains the parsed validation constraints from a @validate domain.
 type Rules struct {
@@ -79,6 +82,76 @@ func Parse(domain resolution.Domain) *Rules {
 		}
 	}
 	return rules
+}
+
+// FieldRules returns the rules that apply to field: the rules of each type in its alias
+// and distinct chain, merged with the field's own. Merged rules keep the tighter bound,
+// so a field rule can only add constraints. Skip comes from the field alone.
+func FieldRules(field resolution.Field, table *resolution.Table) *Rules {
+	rules := Parse(field.Domains["validate"])
+	ref := field.Type
+	visited := set.New[string]()
+	for !ref.IsTypeParam() && !resolution.IsPrimitive(ref.Name) &&
+		!visited.Contains(ref.Name) {
+		visited.Add(ref.Name)
+		t, ok := table.Get(ref.Name)
+		if !ok {
+			break
+		}
+		if domain, ok := t.Domains["validate"]; ok {
+			typeRules := Parse(domain)
+			typeRules.Skip = false
+			rules = merge(rules, typeRules)
+		}
+		switch form := t.Form.(type) {
+		case resolution.AliasForm:
+			ref = form.Target
+		case resolution.DistinctForm:
+			ref = form.Base
+		default:
+			return rules
+		}
+	}
+	return rules
+}
+
+// merge returns the rules that hold when both a and b hold. The analyzer rejects a
+// field pattern whose type sets one, so at most one of a and b sets a pattern.
+func merge(a, b *Rules) *Rules {
+	out := *a
+	out.Required = a.Required || b.Required
+	out.Skip = a.Skip || b.Skip
+	out.MinLength = tighterLength(a.MinLength, b.MinLength, true)
+	out.MaxLength = tighterLength(a.MaxLength, b.MaxLength, false)
+	out.Min = tighterNumber(a.Min, b.Min, true)
+	out.GT = tighterNumber(a.GT, b.GT, true)
+	out.Max = tighterNumber(a.Max, b.Max, false)
+	if out.Pattern == nil {
+		out.Pattern, out.PatternMessage = b.Pattern, b.PatternMessage
+	}
+	return &out
+}
+
+func tighterLength(a, b *int64, lower bool) *int64 {
+	if a == nil || (b != nil && (*b > *a) == lower && *b != *a) {
+		return b
+	}
+	return a
+}
+
+func tighterNumber(a, b *Number, lower bool) *Number {
+	if a == nil || (b != nil && (b.value() > a.value()) == lower &&
+		b.value() != a.value()) {
+		return b
+	}
+	return a
+}
+
+func (n Number) value() float64 {
+	if n.IsInt {
+		return float64(n.Int)
+	}
+	return n.Float
 }
 
 // IsEmpty returns true if the rules have no validation constraints set.

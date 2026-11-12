@@ -697,19 +697,15 @@ type constraintCheckData struct {
 	Deref bool
 }
 
-// goConstraintChecks returns the @validate constraint assertions for a field,
-// classified against the field type's underlying primitive so a distinct numeric type
-// (e.g. a Key over uint32) validates as a number. An optional field is checked only
-// when present, and never for being required.
+// goConstraintChecks returns the @validate constraint assertions for a field and its
+// type chain, classified against the field type's underlying primitive so a distinct
+// numeric type (e.g. a Key over uint32) validates as a number. An optional field is
+// checked only when present, and never for being required.
 func goConstraintChecks(
 	field resolution.Field,
 	data *templateData,
 ) []constraintCheckData {
-	domain, ok := field.Domains["validate"]
-	if !ok {
-		return nil
-	}
-	rules := validation.Parse(domain)
+	rules := validation.FieldRules(field, data.table)
 	if validation.IsEmpty(rules) {
 		return nil
 	}

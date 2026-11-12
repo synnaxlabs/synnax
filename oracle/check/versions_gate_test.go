@@ -1077,6 +1077,37 @@ Channel struct {
 			Expect(report.Findings).To(BeEmpty())
 		})
 
+		It("Should fail a live type rule that the frozen definer lacks", func() {
+			const named = `
+Channel struct {
+	key uuid @key
+	name Name
+
+	@go marshal
+}
+`
+			write("schemas/synnax/versions/channel/v0.oracle", "Name = string\n"+named)
+			write("schemas/synnax/versions/channel/v1.oracle", "Name = v0.Name\n"+named)
+			report := run(analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Name = string {
+	@validate required
+}
+
+Channel struct {
+	key uuid @key
+	name Name
+}
+`))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(report.Findings).To(ContainElement(HaveField(
+				"Message",
+				"schemas/synnax/channel v1 aliases Name from v0, but the live "+
+					"@validate on Name does not match v0's",
+			)))
+		})
+
 		// channel v1 aliases v0's Entry, which pins label v0, which pins tone v0.
 		writeDependencies := func(labelRules, toneRules string) {
 			GinkgoHelper()
