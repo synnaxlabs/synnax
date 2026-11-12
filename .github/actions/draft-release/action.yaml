@@ -39,7 +39,8 @@ runs:
   using: composite
   steps:
     # A failed earlier run can leave a draft under the same tag, and GitHub lets a
-    # second release take a tag that another holds, so clear the tag first.
+    # second release take a tag that another holds, so clear the tag first. The notes go
+    # in a file, since a long body passes the size limit of one argument.
     - name: Draft release
       shell: bash
       env:
@@ -52,8 +53,9 @@ runs:
         CONFIG: ${{ inputs.config }}
       run: |
         .github/scripts/clear_release_drafts.sh "$TAG"
-        BODY=$(.github/scripts/release_notes.sh "$TAG" "$GITHUB_SHA" "$CONFIG" \
-          "$PREVIOUS_TAG" "$NOTES")
-        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --notes "$BODY")
+        BODY=$(mktemp)
+        .github/scripts/release_notes.sh "$TAG" "$GITHUB_SHA" "$CONFIG" \
+          "$PREVIOUS_TAG" "$NOTES" > "$BODY"
+        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --notes-file "$BODY")
         if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
         gh release create "$TAG" "${ARGS[@]}"
