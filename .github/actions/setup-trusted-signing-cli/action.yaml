@@ -1,0 +1,62 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Set up trusted-signing-cli
+description: Puts trusted-signing-cli on the PATH of a Windows runner
+
+inputs:
+  version:
+    description: The trusted-signing-cli release to install
+    required: false
+    default: 0.11.0
+
+outputs:
+  cache-hit:
+    description: Whether the binary came from the Actions cache
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    # The compression method is part of the cache version, so a runner without zstd
+    # cannot read an entry that a runner with zstd saved.
+    - name: Set up zstd
+      uses: ./.github/actions/setup-zstd
+
+    # A cache holds paths relative to the workspace, which is on another drive on a
+    # build bot, so an entry from a hosted runner unpacks to the wrong place there.
+    - name: Restore trusted-signing-cli
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ runner.temp }}/trusted-signing-cli/bin
+        key:
+          trusted-signing-cli-${{ runner.environment }}-${{ runner.os }}-${{ runner.arch
+          }}-${{ inputs.version }}
+
+    - name: Build trusted-signing-cli
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        cargo install trusted-signing-cli --version "$VERSION" --locked \
+          --root "$RUNNER_TEMP/trusted-signing-cli"
+
+    # Merge queue caches are unreachable from later runs, so the queue never saves.
+    - name: Save trusted-signing-cli
+      if: steps.cache.outputs.cache-hit != 'true' && github.event_name != 'merge_group'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ runner.temp }}/trusted-signing-cli/bin
+        key: ${{ steps.cache.outputs.cache-primary-key }}
+
+    - name: Add trusted-signing-cli to the PATH
+      shell: bash
+      run: cygpath -w "$RUNNER_TEMP/trusted-signing-cli/bin" >> "$GITHUB_PATH"
