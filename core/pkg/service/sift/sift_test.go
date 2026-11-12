@@ -49,6 +49,24 @@ var _ = Describe("APIKeyReference", func() {
 		Expect(secretSvc.Uses(ctx, db, key)).To(BeEmpty())
 	})
 
+	It("Should ignore a Sift device whose properties do not parse",
+		func(ctx SpecContext) {
+			key := createAPIKey(ctx, apiKey)
+			dev := device.Device{
+				Key:        uuid.New().String(),
+				Rack:       rackSvc.EmbeddedKey,
+				Location:   "sift",
+				Make:       sift.Make,
+				Model:      "sift",
+				Name:       "sift",
+				Properties: msgpack.EncodedJSON{"uri": 5, "api_key": key.String()},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
+			Expect(secretSvc.Uses(ctx, db, key)).To(BeEmpty())
+		})
+
 	It("Should keep a secret from being deleted while a device uses it",
 		func(ctx SpecContext) {
 			key := createAPIKey(ctx, apiKey)
