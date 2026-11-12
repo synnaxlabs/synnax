@@ -252,6 +252,24 @@ describe("range/next/Explorer", () => {
       expect(screen.queryByText(sibling.name)).toBeNull();
     });
 
+    it("should drop a deleted range that holds matches", async () => {
+      const token = uniqueToken();
+      const holder = await createRange(uniqueRangeName("holder"));
+      const other = await createRange(uniqueRangeName("other"));
+      const gone = await createRange(`${token} gone`, { parent: holder.key });
+      const kept = await createRange(`${token} kept`, { parent: other.key });
+      await renderExplorer();
+      await search(token);
+      await findItem(gone.name);
+      within(itemOf(holder.name)).getByRole("button", { name: "Collapse" });
+      await findItem(kept.name);
+      await client.ranges.delete([gone.key, holder.key]);
+      await waitFor(() =>
+        expect(screen.queryByRole("listitem", { name: holder.name })).toBeNull(),
+      );
+      expect(itemOf(kept.name)).toBeTruthy();
+    });
+
     it("should show the first 100 matches and say so", async () => {
       const token = uniqueToken();
       const start = TimeStamp.now();
