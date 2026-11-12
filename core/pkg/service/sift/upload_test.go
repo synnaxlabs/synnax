@@ -113,7 +113,8 @@ var _ = Describe("Upload", func() {
 		}
 		write(ctx, idx, ch, stamps, telem.NewSeries(make([]float64, len(stamps))))
 		rng = createRange(ctx, telem.TimeRange{Start: at(10), End: at(12)})
-		statusOf(ctx, upload(ctx)).Should(
+		key := upload(ctx)
+		statusOf(ctx, key).Should(
 			HaveField("Description", "Sent 1,234 samples to asset stand."),
 		)
 	})
