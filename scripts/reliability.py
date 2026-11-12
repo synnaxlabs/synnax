@@ -14,15 +14,18 @@
 """Builds the reliability page data from a CI, Nightly, or Release run and uploads it.
 
 Usage: uv run scripts/reliability.py <run-url> --version 0.59.0 [--out path]
-    [--manual-pass <skip reason>]... [--manual-note <why they were run by hand>]
+    [--hitl <run-url>] [--manual-pass <skip reason>]...
+    [--manual-note <why they were run by hand>]
 
-The data goes to DigitalOcean Spaces, where the docs build reads it; redeploy the docs
-to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY
+The data goes to DigitalOcean Spaces under the release's train, as in
+docs/reliability/0.61/run.json, where the docs build reads it; redeploy the docs to
+publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY
 and DO_SPACES_SECRET in the environment.
 
-Integration results come from the run's `test-results-*` artifacts. Unit suites write no
-per-test report yet, so their tests are enumerated from source at the run's commit and
-take their job's conclusion.
+Integration results come from the run's `test-results-*` artifacts. --hitl adds the
+tests of a Test - HITL run, which ran on real hardware. It must have tested the same
+shipped code and integration tests. Unit suites write no per-test report yet, so their
+tests are enumerated from source at the run's commit and take their job's conclusion.
 """
 
 import argparse
@@ -41,7 +44,9 @@ REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
 SPACES_ENDPOINT = "https://nyc3.digitaloceanspaces.com"
 SPACES_BUCKET = "synnax"
-SPACES_KEY = "docs/reliability/run.json"
+# Each train's data has its own key, so a docs branch keeps reading the data its page
+# code understands.
+SPACES_KEY = "docs/reliability/{train}/run.json"
 
 PRODUCTS = [
     ("core", "Core"),
@@ -86,14 +91,21 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "docs": ("toolchain", "ts", ["site/docs"]),
     "vite-plugin": ("toolchain", "ts", ["configs/vite"]),
     "eslint-config": ("toolchain", "ts", ["configs/eslint"]),
+    "stylelint-config": ("toolchain", "ts", ["configs/stylelint"]),
     "scripts": ("toolchain", "py", ["scripts"]),
+    "runners": ("toolchain", "py", ["scripts/runners"]),
     "ci-scripts": ("toolchain", "py", [".github/scripts"]),
 }
 
 # CI test jobs left off the page: lint and schema checks, websites outside the release,
-# grammar snapshots that declare no named tests, and sanitizer reruns of listed tests.
+# grammar snapshots that declare no named tests, and sanitizer and oldest-dependency
+# reruns of listed tests.
 UNLISTED = {
+    "alamos-py-lowest",
+    "client-py-lowest",
     "driver-tsan",
+    "freighter-py-lowest",
+    "x-py-lowest",
     "foundation",
     "lint-integration",
     "oracle-language",
@@ -105,6 +117,16 @@ UNLISTED = {
 
 # Integration matrix target -> product.
 TARGETS = {"console": "console", "driver": "driver", "arc": "arc"}
+
+# The hardware run's test job, on the Windows station that holds the hardware.
+HITL_JOB = "Test (synnax-server-1)"
+HITL_OS = "windows"
+HITL_ARTIFACT = "test-results-hitl"
+# The test conductor runs of the job, one per test tier.
+HITL_RUNS = {"tc_hitl", "tc_hitl_perf"}
+
+# Folders that hold no shipped code, besides the Toolchain JOBS folders.
+UNSHIPPED = ["site", "studio", "docs", ".github"]
 
 # language -> (pathspec globs, declaration pattern). The first group is the name.
 LANGS = {
@@ -196,9 +218,16 @@ def suite_jobs(
 def enumerate_tests(
     root: Path, *, sha: str, lang: str, dirs: list[str]
 ) -> list[tuple[str, int, str]]:
-    """Lists (path, line, name) for each test declared under dirs at sha."""
+    """Lists (path, line, name) for each test declared under dirs at sha, leaving out
+    the directories of other JOBS entries nested in dirs."""
     globs, pattern = LANGS[lang]
     specs = [f"{d}/**/{g}" for d in dirs for g in globs]
+    nested = [
+        n
+        for _, _, others in JOBS.values()
+        for n in others
+        if any(n.startswith(f"{d}/") for d in dirs)
+    ]
     out = subprocess.run(
         [
             "git",
@@ -210,6 +239,7 @@ def enumerate_tests(
             sha,
             "--",
             *[f":(glob){s}" for s in specs],
+            *[f":(exclude){n}" for n in nested],
         ],
         cwd=root,
         capture_output=True,
@@ -321,6 +351,9 @@ class Cases:
     def _ancestry(self, path: str, cls: ast.ClassDef) -> list[tuple[str, ast.ClassDef]]:
         chain = [(path, cls)]
         for base in cls.bases:
+            # A generic base, as in ReadTaskCase[T], names its class before the [.
+            if isinstance(base, ast.Subscript):
+                base = base.value
             if isinstance(base, ast.Name):
                 hit = self._find(path, base.id)
                 if hit is not None:
@@ -360,10 +393,11 @@ class Cases:
                             skipped.setdefault(os_name, reason)
         tags = [
             "playwright" if "ConsoleCase" in names else "headless",
-            # Simulated devices connect through the Driver, and a configured task
-            # runs on it.
+            # Simulated devices connect through the Driver, a cRIO case starts one on
+            # the cRIO, and a configured task runs on one.
             "driver"
-            if "SimulatorCase" in names or any(p in self.configures for p, _ in chain)
+            if {"SimulatorCase", "CRIOCase"} & names
+            or any(p in self.configures for p, _ in chain)
             else "no-driver",
         ]
         runs = set(PLATFORMS) - set(skipped)
@@ -407,7 +441,15 @@ def platform_skip(node: ast.If, *, system: str) -> str | None:
     return None
 
 
-def upload(body: str) -> None:
+def spaces_key(version: str) -> str:
+    """Returns the key of a release's data, as in docs/reliability/0.61/run.json."""
+    m = re.fullmatch(r"(\d+\.\d+)\.\d+", version)
+    if m is None:
+        sys.exit(f"--version must be a release such as 0.61.0, not {version}")
+    return SPACES_KEY.format(train=m.group(1))
+
+
+def upload(body: str, *, key_name: str) -> None:
     key = os.environ.get("DO_SPACES_KEY")
     secret = os.environ.get("DO_SPACES_SECRET")
     if key is None or secret is None:
@@ -423,7 +465,7 @@ def upload(body: str) -> None:
         aws_secret_access_key=secret,
     ).put_object(
         Bucket=SPACES_BUCKET,
-        Key=SPACES_KEY,
+        Key=key_name,
         Body=body.encode(),
         ACL="public-read",
         ContentType="application/json",
@@ -432,11 +474,149 @@ def upload(body: str) -> None:
     )
 
 
+def run_id_of(url: str) -> str:
+    m = re.search(r"/runs/(\d+)", url)
+    if m is None:
+        sys.exit(f"not a workflow run URL: {url}")
+    return m.group(1)
+
+
+def run_jobs(rid: str) -> list[dict[str, Any]]:
+    # GitHub returns HTTP 502 for pages of 50 or more jobs on a full release run.
+    return [
+        json.loads(line)
+        for line in gh(
+            "api",
+            "--paginate",
+            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=30",
+            "-q",
+            ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
+        ).splitlines()
+    ]
+
+
+def case_rows(
+    summary: dict[str, Any], *, suite: int, runner_os: str, cases: Cases
+) -> list[list[Any]]:
+    """Returns a test row for each case in a test conductor summary."""
+    rows = []
+    for t in summary["tests"]:
+        case = cases.resolve(t["case"], name=t["name"])
+        state = TC_STATES[t["status"]]
+        message = t.get("skip_reason" if state == "skipped" else "error_message")
+        # Runs before SKIPPED existed report an auto-passed case as PASSED.
+        if state == "passed" and runner_os in case.skipped:
+            state, message = "skipped", case.skipped[runner_os]
+        rows.append(
+            [
+                suite,
+                f"{t['case']} › {t['name']}",
+                state,
+                message,
+                t.get("duration_s"),
+                case.source,
+                case.tags,
+            ]
+        )
+    return rows
+
+
+def shipped_changes(root: Path, *, base: str, head: str) -> list[str]:
+    """Lists the files that differ between two commits, except in folders that hold no
+    shipped code: the Toolchain folders, the websites and docs, and CI config."""
+    toolchain = [d for p, _, dirs in JOBS.values() if p == "toolchain" for d in dirs]
+    return subprocess.run(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            base,
+            head,
+            "--",
+            ".",
+            *[f":(exclude){d}" for d in toolchain + UNSHIPPED],
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+
+
+def hardware_suites(
+    summaries: list[dict[str, Any]], *, job: dict[str, Any], cases: Cases, first: int
+) -> tuple[list[dict[str, Any]], list[list[Any]]]:
+    """Returns a suite for each test conductor run of a hardware run, and their test
+    rows, which index the suites from first. Of runs with the same name, as in
+    run-<time>-tc_hitl, the last one in summaries wins. Exits if a run of HITL_RUNS has
+    no summary, as when a timeout or a cancel stopped it."""
+    latest = {summary["run"]["name"]: summary for summary in summaries}
+    missing = HITL_RUNS - set(latest)
+    if missing:
+        sys.exit(f"hardware run has no summary for {sorted(missing)}")
+    suites = []
+    rows = []
+    for name, summary in latest.items():
+        suites.append(
+            {
+                "job": name.removeprefix("tc_").replace("_", "-"),
+                "product": "driver",
+                "lang": "py",
+                "kind": "system",
+                "tags": ["e2e", "hardware"],
+                "os": HITL_OS,
+                "conclusion": job["conclusion"],
+                "url": job["html_url"],
+                "count": len(summary["tests"]),
+            }
+        )
+        rows += case_rows(
+            summary, suite=first + len(suites) - 1, runner_os=HITL_OS, cases=cases
+        )
+    return suites, rows
+
+
+def hardware(
+    url: str, *, sha: str, cases: Cases, first: int
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[list[Any]]]:
+    """Reads a Test - HITL run. Returns the run, a suite for each test conductor run in
+    it, and their test rows, which index the suites from first. Exits if the run's
+    commit differs from sha outside the folders that hold no shipped code."""
+    rid = run_id_of(url)
+    run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
+    head = run["head_sha"]
+    subprocess.run(["git", "fetch", "-q", "origin", head], cwd=ROOT, check=True)
+    changed = shipped_changes(ROOT, base=sha, head=head)
+    if changed:
+        sys.exit(f"run {rid} tested other code than {sha}: {changed}")
+    (job,) = [j for j in run_jobs(rid) if j["name"] == HITL_JOB]
+    with tempfile.TemporaryDirectory() as tmp:
+        gh("run", "download", rid, "-R", REPO, "-n", HITL_ARTIFACT, "-D", tmp)
+        summaries = [
+            json.loads(path.read_text())
+            for path in sorted(Path(tmp).glob("run-*/summary.json"))
+        ]
+    suites, rows = hardware_suites(summaries, job=job, cases=cases, first=first)
+    info = {
+        "id": int(rid),
+        "url": run["html_url"],
+        "sha": head,
+        "started_at": job["started_at"],
+        "ended_at": job["completed_at"],
+    }
+    return info, suites, rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_url")
     parser.add_argument("--version", required=True, help="release the run tested")
     parser.add_argument("--out", type=Path, help="write here instead of uploading")
+    parser.add_argument(
+        "--hitl",
+        metavar="RUN_URL",
+        help="Test - HITL run of the same code, whose tests ran on real hardware",
+    )
     parser.add_argument(
         "--manual-pass",
         action="append",
@@ -449,26 +629,13 @@ def main() -> None:
         help="why the --manual-pass tests were run by hand, shown on the page",
     )
     args = parser.parse_args()
-    run_id = re.search(r"/runs/(\d+)", args.run_url)
-    if run_id is None:
-        sys.exit(f"not a workflow run URL: {args.run_url}")
-    rid = run_id.group(1)
+    key_name = spaces_key(args.version)
+    rid = run_id_of(args.run_url)
 
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
     sha = run["head_sha"]
     subprocess.run(["git", "fetch", "-q", "origin", sha], cwd=ROOT, check=True)
-    # GitHub returns HTTP 502 for pages of 50 or more jobs on a full release run.
-    run_jobs = [
-        json.loads(line)
-        for line in gh(
-            "api",
-            "--paginate",
-            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=30",
-            "-q",
-            ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
-        ).splitlines()
-    ]
-    jobs = ci_jobs(run["path"], jobs=run_jobs)
+    jobs = ci_jobs(run["path"], jobs=run_jobs(rid))
     if not jobs:
         sys.exit(f"{run['path']} does not run CI")
 
@@ -544,7 +711,9 @@ def main() -> None:
             job = tc_jobs[(runner_os, m["job"])]
             suites.append(
                 {
-                    "job": f"integration-{m['job']}",
+                    # Shards share their target's key, so a test's runs on each OS
+                    # group into one test.
+                    "job": f"integration-{m['target']}",
                     "product": TARGETS[m["target"]],
                     "lang": "py",
                     "kind": "system",
@@ -555,27 +724,17 @@ def main() -> None:
                     "count": len(summary["tests"]),
                 }
             )
-            s = len(suites) - 1
-            for t in summary["tests"]:
-                case = cases.resolve(t["case"], name=t["name"])
-                state = TC_STATES[t["status"]]
-                message = t.get(
-                    "skip_reason" if state == "skipped" else "error_message"
-                )
-                # Runs before SKIPPED existed report an auto-passed case as PASSED.
-                if state == "passed" and runner_os in case.skipped:
-                    state, message = "skipped", case.skipped[runner_os]
-                tests.append(
-                    [
-                        s,
-                        f"{t['case']} › {t['name']}",
-                        state,
-                        message,
-                        t.get("duration_s"),
-                        case.source,
-                        case.tags,
-                    ]
-                )
+            tests += case_rows(
+                summary, suite=len(suites) - 1, runner_os=runner_os, cases=cases
+            )
+
+    hitl = None
+    if args.hitl is not None:
+        hitl, hitl_suites, hitl_tests = hardware(
+            args.hitl, sha=sha, cases=cases, first=len(suites)
+        )
+        suites += hitl_suites
+        tests += hitl_tests
 
     if bool(args.manual_pass) != (args.manual_note is not None):
         sys.exit("--manual-pass and --manual-note go together")
@@ -601,6 +760,7 @@ def main() -> None:
             "manual_note": args.manual_note,
             "jobs": len(jobs),
         },
+        "hardware": hitl,
         "products": [{"key": k, "name": n} for k, n in PRODUCTS],
         "suites": suites,
         "tests": tests,
@@ -610,8 +770,8 @@ def main() -> None:
         args.out.write_text(body)
         dest = str(args.out)
     else:
-        upload(body)
-        dest = f"s3://{SPACES_BUCKET}/{SPACES_KEY}"
+        upload(body, key_name=key_name)
+        dest = f"s3://{SPACES_BUCKET}/{key_name}"
     counts: dict[str, int] = {}
     for t in tests:
         counts[t[2]] = counts.get(t[2], 0) + 1
