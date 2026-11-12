@@ -33,6 +33,14 @@ describe("Bounds", () => {
     it("should show other bounds as a span", () => {
       expect(Bounds.format({ lower: 0, upper: 0.2 })).toBe("0 to 0.2");
     });
+
+    it("should show reversed symmetric bounds with a positive number", () => {
+      expect(Bounds.format({ lower: 10, upper: -10 })).toBe("±10");
+    });
+
+    it("should add no space for empty units", () => {
+      expect(Bounds.format({ lower: -10, upper: 10 }, "")).toBe("±10");
+    });
   });
 
   describe("Select", () => {
@@ -59,6 +67,19 @@ describe("Bounds", () => {
       );
       expect(c.getByText("Input range")).toBeTruthy();
       expect(c.queryByText("±10")).toBeNull();
+    });
+
+    it("should pick nothing for a value with reversed ends", () => {
+      const c = render(
+        <Bounds.Select
+          data={RANGES}
+          value={{ lower: 5, upper: -5 }}
+          onChange={vi.fn()}
+          resourceName="input range"
+        />,
+      );
+      expect(c.getByText("Input range")).toBeTruthy();
+      expect(c.queryByText("±5")).toBeNull();
     });
 
     it("should call onChange with the bounds that the user picks", () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
+import { type bounds, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Item } from "@/select/Item";
@@ -20,7 +20,7 @@ export interface SelectProps extends Omit<
 > {
   /** The bounds to pick from. */
   data: bounds.Bounds[];
-  /** The picked bounds. A value equal to none of `data` picks nothing. */
+  /** The picked bounds. A value whose ends match none of `data` picks nothing. */
   value: bounds.Bounds;
   onChange: (next: bounds.Bounds) => void;
   /** Shown after the numbers, such as a unit. */
@@ -33,8 +33,8 @@ const toKey = ({ lower, upper }: bounds.Bounds): string => `${lower}:${upper}`;
 
 /** @returns "±10 V" for bounds symmetric about zero, and "0 to 5 V" for others. */
 export const format = ({ lower, upper }: bounds.Bounds, units?: string): string => {
-  const text = lower === -upper ? `±${upper}` : `${lower} to ${upper}`;
-  return units == null ? text : `${text} ${units}`;
+  const text = lower === -upper ? `±${Math.abs(upper)}` : `${lower} to ${upper}`;
+  return primitive.isNonZero(units) ? `${text} ${units}` : text;
 };
 
 /**
@@ -53,7 +53,7 @@ export const Select = ({
   ...rest
 }: SelectProps): ReactElement => {
   const options = [...new Map(data.map((b) => [toKey(b), b])).values()];
-  const picked = options.find((b) => bounds.equals(b, value));
+  const picked = options.find((b) => toKey(b) === toKey(value));
   const handleChange = (key: string | null) => {
     const next = options.find((b) => toKey(b) === key);
     if (next != null) onChange(next);
