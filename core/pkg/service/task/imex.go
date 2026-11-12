@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -25,15 +25,22 @@ import (
 
 var _ imex.Exporter = (*Service)(nil)
 
-// Export retrieves the task identified by id and serializes it as an imex.Envelope. The
-// task's type-specific config is merged flat into the envelope body — the driver reads
-// a task file directly as its config, so the config is not nested under a `config`
-// field; version, the fine-grained task type (e.g. "opc_read"), and name are stamped on
-// top. The version is the config type's own number line, taken from its config store.
-// Routing to this exporter still happens under the coarse "task" ontology type via
-// Type. It returns query.ErrNotFound if no task exists for id.Key, and a validation
-// error if the task's type has no file form.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+// Type implements imex.Exporter.
+func (s *Service) Type() resource.Type { return resource.TypeTask }
+
+// Export retrieves the task identified by id from snap and serializes it as an
+// imex.Envelope. The task's type-specific config is merged flat into the envelope body
+// — the driver reads a task file directly as its config, so the config is not nested
+// under a `config` field; version, the fine-grained task type (e.g. "opc_read"), and
+// name are stamped on top. The version is the config type's own number line, taken from
+// its config store. Routing to this exporter still happens under the coarse "task"
+// resource type via Type. It returns query.ErrNotFound if no task exists for id.Key,
+// and a validation error if the task's type has no file form.
+func (s *Service) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	id resource.ID,
+) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -42,7 +49,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	if err = s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&t).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
 	if slices.Contains(s.cfg.ImExExcluded, t.Type) {
@@ -79,47 +86,52 @@ var retiredTypes = set.New("sequence", "heartbeat", "opcScanner", "Rack State")
 // body is never a task.
 func (*Service) Match(map[string]any) bool { return false }
 
-// Import decodes env as a task file — the flat body is the task's config with the
-// type, name, and version headers stamped on top — and creates the task as a draft on
-// no rack. The version dispatches through the type's config store: legacy versions
+// Decode decodes env as a task file — the flat body is the task's config with the type,
+// name, and version headers stamped on top — that its Write creates as a draft on no
+// rack. The version dispatches through the type's config store: legacy versions
 // upgrade through the same rewrites as the boot migration, and a version newer than
 // the store's returns a validation error. A file with no version header is a legacy
 // Console export at version zero.
 //
-// opts.Parent is ignored: a task always parents under its config record and the task
-// group. The API layer still enforces update access on the parent the caller declared.
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-	_ imex.ImportOptions,
-) (ontology.ID, error) {
+// The Write ignores opts: a task always parents under its config record and the task
+// group.
+func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
 		if retiredTypes.Contains(env.Type) {
-			return ontology.ID{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"task type %q was removed and can no longer be imported", env.Type,
 			)
 		}
-		return ontology.ID{}, errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
 	body, err := env.Decode[map[string]any](ctx)
 	if err != nil {
-		return ontology.ID{}, err
+		return nil, err
 	}
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	config, err := store.Normalize(ctx, env.Version, msgpack.EncodedJSON(body))
+	decoded, err := store.Decode(ctx, env.Version, msgpack.EncodedJSON(body))
 	if err != nil {
-		return ontology.ID{}, err
+		return nil, err
 	}
-	t := Task{Name: env.Name, Type: env.Type, Config: config}
-	if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
-		return ontology.ID{}, err
-	}
-	return OntologyID(t.Key), nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		_ imex.ImportOptions,
+	) (resource.ID, error) {
+		config, err := decoded.Normalize(ctx, tx)
+		if err != nil {
+			return resource.ID{}, err
+		}
+		t := Task{Name: env.Name, Type: env.Type, Config: config}
+		if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
+			return resource.ID{}, err
+		}
+		return ResourceID(t.Key), nil
+	}, nil
 }

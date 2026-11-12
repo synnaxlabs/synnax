@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
 import { createTestClient, waitForStreamLive } from "@/testutil";
+import { view } from "@/view";
 
 describe("View", () => {
   describe("create", () => {
@@ -175,6 +176,21 @@ describe("View", () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should apply the action to the view", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({
+        name: "view-dispatch",
+        type: "status",
+        where: { variant: { eq: "error" } },
+      });
+      const where = { variant: { eq: "warning" } };
+      await client.views.dispatch(v.key, view.set({ path: ["where"], value: where }));
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored.where).toEqual(where);
+    });
+  });
+
   describe("delete", () => {
     it("should delete a single view", async () => {
       const client = createTestClient();
@@ -194,7 +210,7 @@ describe("View", () => {
       ]);
       const keys = views.map((v) => v.key);
       await client.views.delete(keys);
-      expect(await client.views.retrieve({ where: { key: { in: keys } } })).toEqual([]);
+      expect(await client.views.retrieve({ key: keys })).toEqual([]);
     });
   });
 });

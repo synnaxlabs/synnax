@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -90,7 +91,7 @@ type readTask struct {
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
 	groups map[string]*readGroup
-	// writer writes every group's channels, nil while stopped.
+	// writer writes every group's channels, nil once the consumer exits.
 	writer *framer.Writer
 	// client is the consumer, nil while stopped.
 	client *kgo.Client
@@ -119,17 +120,21 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
-	groups, err := buildReadGroups(ctx, f.cfg.Channel, cfg)
+	groups, err := buildReadGroups(ctx, f.cfg.DB, f.cfg.Channel, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +152,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 // validates that each group writes one even frame per record.
 func buildReadGroups(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *channel.Service,
 	cfg ReadConfig,
 ) (map[string]*readGroup, error) {
@@ -176,7 +182,7 @@ func buildReadGroups(
 			validate.ErrValidation, "records: at least one field must be enabled",
 		)
 	}
-	channels, err := retrieveChannels(ctx, svc, keys)
+	channels, err := retrieveChannels(ctx, db, svc, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -304,27 +310,39 @@ func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
 func enums(entries []http.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
-		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+		out[i] = xjson.NewEnum(e.Label, e.Value)
 	}
 	return out
 }
 
-// Exec implements driver.Task. Every command it handles ends in a status carrying the
-// command key, so a caller waiting on the command always resolves.
+// Exec implements driver.Task. Start and stop answer the command with a status,
+// failures included, so Exec returns an error only when that status was not written.
 func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
+	var err, answerErr error
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx, cmd.Key)
+		err, answerErr = t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx, cmd.Key, true)
+		err, answerErr = t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
+	if answerErr != nil {
+		return errors.Combine(err, answerErr)
+	}
+	if err != nil {
+		t.factoryCfg.L.Error("failed to execute command",
+			zap.Stringer("task", t.task.Key),
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
+	return nil
 }
 
 // Stop implements driver.Task.
 func (t *readTask) Stop(sendStatus bool) error {
-	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
 }
 
 // isRunning reports whether the consumer is up. A consumer that failed on its own sets
@@ -340,10 +358,11 @@ func (t *readTask) release() error {
 	return err
 }
 
-func (t *readTask) start(ctx context.Context, cmdKey string) error {
+// start returns the error that kept the consumer from starting, and the error of the
+// status write that answers cmdKey.
+func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
 	if t.isRunning() {
-		t.ackCurrent(ctx, cmdKey, true)
-		return nil
+		return nil, t.status.Ack(ctx, cmdKey, true)
 	}
 	if t.closer != nil {
 		if err := t.release(); err != nil {
@@ -353,8 +372,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 			)
 		}
 	}
-	if err := t.open(ctx); err != nil {
-		t.setStatus(
+	if err = t.open(ctx); err != nil {
+		return err, t.status.Send(
 			ctx,
 			cmdKey,
 			status.VariantError,
@@ -362,38 +381,49 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 			"Failed to start task",
 			err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
+	if answerErr = t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
+	); answerErr != nil {
+		// The caller sees the start fail, so the consumer must not outlive it. The
+		// consumer never ran, so the start closes the writer itself.
+		return errors.Combine(t.release(), t.closeWriter()), answerErr
+	}
 	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
-	return nil
+	t.sCtx.Go(
+		t.consume,
+		signal.RecoverWithErrOnPanic(),
+		signal.CancelOnFail(),
+		signal.DeferErr(t.closeWriter),
+	)
+	return nil, nil
 }
 
-func (t *readTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+// stop returns the error that ended the consumer, and the error of the status write
+// that answers cmdKey.
+func (t *readTask) stop(
+	ctx context.Context,
+	cmdKey string,
+	sendStatus bool,
+) (err, answerErr error) {
 	if t.closer == nil {
 		if sendStatus {
-			t.ackCurrent(ctx, cmdKey, false)
+			return nil, t.status.Ack(ctx, cmdKey, false)
 		}
-		return nil
+		return nil, nil
 	}
-	err := t.release()
+	err = t.release()
 	if !sendStatus {
-		return err
+		return err, nil
 	}
 	if err != nil {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to stop task",
-			err.Error(),
+		return err, t.status.Send(
+			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
-	return nil
+	return nil, t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
+	)
 }
 
 // resetOffset maps the configured start offset onto the consumer's reset offset. A
@@ -420,7 +450,12 @@ func (t *readTask) group() string {
 // open connects the consumer. It writes no statuses and does not start the fetch loop:
 // start owns both.
 func (t *readTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
 	if err != nil {
 		return err
 	}
@@ -469,8 +504,11 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
-	// The writer outlives the start command, so it opens in the consumer's context.
-	if t.writer, err = t.openWriter(sCtx); err != nil {
+	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
+	// consumer must finish its write. The consumer closes it on exit.
+	wCtx, cancelWriter := context.WithCancel(context.Background())
+	if t.writer, err = t.openWriter(wCtx); err != nil {
+		cancelWriter()
 		cancel()
 		return err
 	}
@@ -479,9 +517,13 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.failed.Store(false)
 	t.skips = driver.NewSkips("record")
 	t.disconnected = false
+	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
-		signal.NewHardShutdown(sCtx, cancel),
+		xio.CloserFunc(func() error {
+			defer cancelWriter()
+			return stopConsumer.Close()
+		}),
 	}
 	return nil
 }
@@ -514,7 +556,15 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeClient commits the marked offsets, closes the consumer, and closes the writers.
+// closeWriter releases the task's channels. It runs as the consumer exits, for any
+// reason, once no write is in progress.
+func (t *readTask) closeWriter() error {
+	err := t.writer.Close()
+	t.writer = nil
+	return err
+}
+
+// closeClient commits the marked offsets and closes the consumer.
 func (t *readTask) closeClient() (err error) {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -522,8 +572,6 @@ func (t *readTask) closeClient() (err error) {
 	defer cancel()
 	err = t.client.CommitMarkedOffsets(ctx)
 	t.client.Close()
-	err = errors.Join(err, t.writer.Close())
-	t.writer = nil
 	return err
 }
 
@@ -781,9 +829,9 @@ func (t *readTask) convert(rec *kgo.Record) {
 	g.rows = append(g.rows, r)
 }
 
-// keep sorts the group's rows by timestamp and drops the replay. A body-stamped
-// regression is dropped with a status. Kafka timestamps only count milliseconds, so a
-// regression of one moves to a nanosecond past the last written stamp.
+// keep sorts the group's rows by timestamp and drops the replay. An indexed group drops
+// a regression with a status. Kafka timestamps only count milliseconds, so a row in the
+// millisecond of the last Kafka stamp moves to a nanosecond past the last written one.
 func (t *readTask) keep(g *readGroup) {
 	slices.SortStableFunc(g.rows, func(a, b row) int { return cmp.Compare(a.ts, b.ts) })
 	kept := g.rows[:0]
@@ -792,7 +840,9 @@ func (t *readTask) keep(g *readGroup) {
 			if g.replaying {
 				continue
 			}
-			if g.stamp != -1 {
+			tie := g.stamp == -1 &&
+				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
+			if g.index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for key %q",
 					r.ts, g.last, g.key,
@@ -886,18 +936,6 @@ func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
 	if err != nil {
 		t.factoryCfg.L.Error("failed to write task warning",
 			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
-}
-
-// ackCurrent answers cmdKey with the task's current status, for a command that needs
-// no work.
-func (t *readTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
-		t.factoryCfg.L.Error("failed to acknowledge command",
-			zap.Stringer("task", t.task.Key),
-			zap.String("cmd", cmdKey),
 			zap.Error(err),
 		)
 	}

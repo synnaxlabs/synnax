@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"os"
@@ -19,15 +20,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -44,8 +44,10 @@ import (
 // stack is a task service over an in-memory database, holding the PagerDuty config
 // store and its own ImEx registry, plus a rack to create tasks on.
 type stack struct {
+	db     *gorp.DB
 	task   *task.Service
 	imex   *imex.Service
+	status *status.Service
 	secret *secret.Service
 	rack   *rack.Rack
 }
@@ -54,38 +56,26 @@ type stack struct {
 func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: db,
+	}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
-		Ontology:            otg,
-		Group:               groupSvc,
-		HostProvider:        testutil.NewStaticHostProvider(1),
+		HostKey:             1,
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		DriverRole: MustSucceed(
+			racktestutil.CreateDriverRole(ctx, db, roleSvc),
+		),
 	}))
-	secretSvc := secrettestutil.OpenService(
-		ctx,
-		db,
-		otg,
-		groupSvc,
-		pagerduty.FindSecretUses,
-	)
+	secretSvc := secrettestutil.OpenService(ctx, db)
+	createRoutingKeys(ctx, db, secretSvc, routingKey1)
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 		DB:     db,
 		Secret: secretSvc,
@@ -93,8 +83,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:           db,
-		Ontology:     otg,
-		Group:        groupSvc,
 		Rack:         rackSvc,
 		Status:       statusSvc,
 		ImEx:         imexSvc,
@@ -102,21 +90,36 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		ImExExcluded: excluded,
 	}))
 	r := &rack.Rack{Name: rackName}
-	Expect(rackSvc.NewWriter(nil).Create(ctx, r)).To(Succeed())
-	return stack{task: taskSvc, imex: imexSvc, secret: secretSvc, rack: r}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, r)
+	})).To(Succeed())
+	return stack{
+		db:     db,
+		task:   taskSvc,
+		imex:   imexSvc,
+		status: statusSvc,
+		secret: secretSvc,
+		rack:   r,
+	}
 }
+
+// stampedRoutingKey is the routing key in testdata/import_typed_stamped.json.
+const stampedRoutingKey = "5a3c0e7d-91b4-4f2e-8d6a-3b7f0c1e2d48"
 
 var _ = Describe("ImEx", Ordered, func() {
 	var (
+		db        *gorp.DB
 		svc       *task.Service
 		testRack  *rack.Rack
 		imexSvc   *imex.Service
+		statusSvc *status.Service
 		secretSvc *secret.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		s := openStack(ctx, "Test Rack")
-		svc, imexSvc, secretSvc, testRack = s.task, s.imex, s.secret, s.rack
+		db, svc, imexSvc, statusSvc, secretSvc, testRack = s.db, s.task, s.imex,
+			s.status, s.secret, s.rack
 	})
 
 	Describe("Export", func() {
@@ -132,9 +135,11 @@ var _ = Describe("ImEx", Ordered, func() {
 						"auto_start":  true,
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
 
-				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
+				env := MustSucceed(svc.Export(ctx, db, t.ResourceID()))
 				Expect(env.Version).To(Equal(pdversions.Latest))
 				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
@@ -155,8 +160,8 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := task.OntologyID(uuid.New())
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			id := task.ResourceID(uuid.New())
+			Expect(svc.Export(ctx, db, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -165,14 +170,16 @@ var _ = Describe("ImEx", Ordered, func() {
 			GinkgoHelper()
 			var env imex.Envelope
 			Expect(json.Unmarshal(raw, &env)).To(Succeed())
-			id := MustSucceed(imexSvc.Import(
-				ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
-			))
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
+				return err
+			})).To(Succeed())
 			var imported task.Task
 			Expect(svc.NewRetrieve().
 				Where(task.MatchKeys(uuid.MustParse(id.Key))).
 				Entry(&imported).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			return imported
 		}
 
@@ -188,13 +195,14 @@ var _ = Describe("ImEx", Ordered, func() {
 						"auto_start":  true,
 						"alerts": []any{map[string]any{
 							"key":      "a1",
-							"status":   "critical",
 							"disabled": true,
 						}},
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, db, t.ResourceID()))
 				imported := reimport(ctx, MustSucceed(json.Marshal(env)))
 
 				Expect(imported.Key).ToNot(Equal(t.Key))
@@ -231,7 +239,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(secretSvc.NewRetrieve().
 					Where(secret.MatchKeys(routingKey)).
 					Entry(&s).
-					Exec(ctx, nil)).To(Succeed())
+					Exec(ctx, db)).To(Succeed())
 				Expect(s.Base().Name).To(Equal("Legacy PD Task routing key"))
 				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
 				alerts, ok := imported.Config["alerts"].([]any)
@@ -242,8 +250,51 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It(
+			"Should migrate a legacy config while another transaction is open",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{
+					"type": "pagerduty_alert",
+					"name": "Locked PD Task",
+					"routingKey": "rk-locked"
+				}`), &env)).To(Succeed())
+				tx := db.OpenTx()
+				DeferCleanup(tx.Close)
+				writes := make(chan imex.Write, 1)
+				go func() {
+					defer GinkgoRecover()
+					writes <- MustSucceed(imexSvc.Decode(ctx, env, ""))
+				}()
+				var write imex.Write
+				Eventually(writes).Should(Receive(&write))
+				id := MustSucceed(write(ctx, tx, imex.ImportOptions{}))
+				var imported task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(uuid.MustParse(id.Key))).
+					Entry(&imported).
+					Exec(ctx, tx)).To(Succeed())
+				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				var s secret.Secret
+				Expect(secretSvc.NewRetrieve().
+					Where(secret.MatchKeys(routingKey)).
+					Entry(&s).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("Locked PD Task routing key"))
+			},
+		)
+
+		It(
 			"Should import a file stamped at the current version without rewriting",
 			func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     "stamped_status_channel",
+						Name:    "Stamped",
+						Variant: status.VariantInfo,
+						Time:    telem.Now(),
+					})
+				})).To(Succeed())
+				createRoutingKeys(ctx, db, secretSvc, stampedRoutingKey)
 				raw := MustSucceed(os.ReadFile(
 					filepath.Join("testdata", "import_typed_stamped.json"),
 				))
@@ -263,6 +314,37 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It(
+			"Should drop a routing key that names no secret on import",
+			func(ctx SpecContext) {
+				raw := bytes.ReplaceAll(
+					MustSucceed(os.ReadFile(
+						filepath.Join("testdata", "import_typed_stamped.json"),
+					)),
+					[]byte(stampedRoutingKey),
+					[]byte(uuid.New().String()),
+				)
+				Expect(reimport(ctx, raw).Config).ToNot(HaveKey("routing_key"))
+			},
+		)
+
+		It(
+			"Should drop a status that does not exist from an imported config",
+			func(ctx SpecContext) {
+				imported := reimport(ctx, []byte(`{
+					"version": 1,
+					"type": "pagerduty_alert",
+					"name": "Foreign Task",
+					"routing_key": "rk-foreign",
+					"alerts": [{"key": "a1", "status": "foreign", "component": "c"}]
+				}`))
+				Expect(imported.Config["alerts"]).To(HaveExactElements(SatisfyAll(
+					HaveKeyWithValue("status", ""),
+					HaveKeyWithValue("component", "c"),
+				)))
+			},
+		)
+
+		It(
 			"Should reject a file version newer than the type's",
 			func(ctx SpecContext) {
 				raw := MustSucceed(os.ReadFile(
@@ -270,9 +352,10 @@ var _ = Describe("ImEx", Ordered, func() {
 				))
 				var env imex.Envelope
 				Expect(json.Unmarshal(raw, &env)).To(Succeed())
-				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
-				)).Error().To(MatchError(ContainSubstring("newer than this Core supports")))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
+					return err
+				})).To(MatchError(ContainSubstring("newer than this Core supports")))
 			},
 		)
 
@@ -284,9 +367,10 @@ var _ = Describe("ImEx", Ordered, func() {
 					[]byte(`{"type": "not_a_task", "name": "mystery"}`),
 					&env,
 				)).To(Succeed())
-				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
-				)).Error().To(MatchError(ContainSubstring("no importer registered")))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
+					return err
+				})).To(MatchError(ContainSubstring("no importer registered")))
 			},
 		)
 
@@ -298,9 +382,10 @@ var _ = Describe("ImEx", Ordered, func() {
 					[]byte(`{"type": "sequence", "name": "old sequence"}`),
 					&env,
 				)).To(Succeed())
-				Expect(imexSvc.Import(
-					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
-				)).Error().To(SatisfyAll(
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
+					return err
+				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("was removed")),
 				))
@@ -315,10 +400,15 @@ var _ = Describe("ImEx", Ordered, func() {
 			excluded = openStack(ctx, "Excluded Rack", pagerduty.AlertTaskType)
 		})
 
-		It("Should register no importer for an excluded type", func() {
-			Expect(excluded.imex.ImporterType(pagerduty.AlertTaskType)).
-				Error().
-				To(MatchError(ContainSubstring("no importer registered")))
+		It("Should register no importer for an excluded type", func(ctx SpecContext) {
+			Expect(excluded.db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := excluded.imex.Import(ctx, tx, imex.Envelope{
+					Version: 1,
+					Type:    pagerduty.AlertTaskType,
+					Name:    "Excluded Task",
+				}, imex.ImportOptions{})
+				return err
+			})).To(MatchError(ContainSubstring("no importer registered")))
 		})
 
 		It("Should refuse to export a task of an excluded type", func(ctx SpecContext) {
@@ -328,11 +418,16 @@ var _ = Describe("ImEx", Ordered, func() {
 				Type:   pagerduty.AlertTaskType,
 				Config: msgpack.EncodedJSON{"routing_key": routingKey1},
 			}
-			Expect(excluded.task.NewWriter(nil).Create(ctx, t)).To(Succeed())
-			Expect(excluded.task.Export(ctx, t.OntologyID())).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("have no file form")),
-			))
+			Expect(excluded.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return excluded.task.NewWriter(tx).Create(ctx, t)
+			})).To(Succeed())
+			Expect(
+				excluded.task.Export(ctx, excluded.db, t.ResourceID()),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("have no file form")),
+				))
 		})
 	})
 })

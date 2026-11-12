@@ -11,7 +11,7 @@ package v0
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ gorp.Entry[Key] = Secret{}
@@ -22,7 +22,7 @@ func (s Secret) GorpKey() Key { return s.Base().Key }
 // SetOptions returns no additional storage options.
 func (Secret) SetOptions() []any { return nil }
 
-// OntologyID returns the secret's ontology identifier.
-func (s Secret) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeSecret, Key: s.Base().Key.String()}
+// ResourceID returns the secret's resource identifier.
+func (s Secret) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeSecret, Key: s.Base().Key.String()}
 }

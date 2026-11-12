@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
@@ -15,6 +15,7 @@ import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
+  createEmptyRole,
   createTestClient,
   createTestClientWithPolicy,
   expectDeleted,
@@ -24,34 +25,39 @@ import { user } from "@/user";
 
 const client = createTestClient();
 
+// The role that holds every policy these specs create.
+let owner: role.Role;
+beforeAll(async () => {
+  owner = await client.access.roles.create({ name: `policy-spec-${id.create()}` });
+});
+
 describe("policy", () => {
   describe("retrieve", () => {
     it("should retrieve the policies of a subject's roles", async () => {
-      const [held, other] = await client.access.policies.create([
-        { name: "held", objects: [], actions: ["retrieve"] },
-        { name: "other", objects: [], actions: ["retrieve"] },
-      ]);
       const r = await client.access.roles.create({ name: "holder", description: "" });
-      await client.ontology.addChildren(
-        role.ontologyID(r.key),
-        policy.ontologyID(held.key),
-      );
-      const u = await client.users.create({ username: id.create(), password: "test" });
-      await client.access.roles.assign({ user: u.key, role: r.key });
-      const subjects = [user.ontologyID(u.key)];
-      const key = { in: [held.key, other.key] };
-      const matched = await client.access.policies.retrieve({
-        where: { subjects, key },
+      const [held, other] = await client.access.policies.create([
+        { role: r.key, name: "held", objects: [], actions: ["retrieve"] },
+        { role: owner.key, name: "other", objects: [], actions: ["retrieve"] },
+      ]);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        role: r.key,
       });
+      const subjects = [user.resourceID(u.key)];
+      const key = { in: [held.key, other.key] };
+      const matched = await client.access.policies.retrieve({ subjects, key });
       expect(matched.map((p) => p.key)).toEqual([held.key]);
       const unmatched = await client.access.policies.retrieve({
-        where: { not: { subjects }, key },
+        not: { subjects },
+        key,
       });
       expect(unmatched.map((p) => p.key)).toEqual([other.key]);
     });
 
     it("should filter by internal flag when retrieving policies", async () => {
       const created = await client.access.policies.create({
+        role: owner.key,
         name: "test-non-internal",
         objects: [],
         actions: ["retrieve"],
@@ -59,17 +65,64 @@ describe("policy", () => {
 
       // Retrieve only internal policies (built-in system policies)
       const internalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: true } },
+        internal: true,
       });
       expect(internalPolicies.length).toBeGreaterThan(0);
       expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
       expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
 
       const nonInternalPolicies = await client.access.policies.retrieve({
-        where: { internal: { eq: false } },
+        internal: false,
       });
       expect(nonInternalPolicies.every((p) => p.internal !== true)).toBe(true);
       expect(nonInternalPolicies.find((p) => p.key === created.key)).toBeDefined();
+    });
+  });
+
+  describe("roles", () => {
+    it("should retrieve the policies of a role", async () => {
+      const r = await client.access.roles.create({ name: `role-${id.create()}` });
+      const held = await client.access.policies.create({
+        role: r.key,
+        name: "held",
+        objects: [],
+        actions: ["retrieve"],
+      });
+      const res = await client.access.policies.retrieve({ roles: [r.key] });
+      expect(res.map((p) => p.key)).toEqual([held.key]);
+    });
+
+    it("should refuse a policy whose role does not exist", async () => {
+      await expect(
+        client.access.policies.create({
+          role: uuid.create(),
+          name: "orphan",
+          objects: [],
+          actions: ["retrieve"],
+        }),
+      ).rejects.toThrow("does not exist");
+    });
+  });
+
+  describe("rename", () => {
+    it("should rename the policy", async () => {
+      const p = await createPolicy();
+      const name = `renamed-${id.create()}`;
+      await client.access.policies.rename(p.key, name);
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the policy", async () => {
+      const p = await createPolicy();
+      await client.access.policies.dispatch(
+        p.key,
+        policy.set({ path: ["actions"], value: ["retrieve", "update"] }),
+      );
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.actions).toEqual(["retrieve", "update"]);
     });
   });
 
@@ -82,6 +135,7 @@ describe("policy", () => {
         actions: [],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -94,10 +148,11 @@ describe("policy", () => {
     it("should allow the caller to retrieve policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -109,13 +164,13 @@ describe("policy", () => {
       expect(retrieved.actions).toEqual(randomPolicy.actions);
     });
 
-    it("should allow the caller to create policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.ontologyID("")],
-        actions: ["create"],
-      });
+    it("should allow the caller to create policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "test", objects: [policy.resourceID("")], actions: ["create"] },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       await userClient.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -126,11 +181,12 @@ describe("policy", () => {
       // Create a user with no create policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       await expect(
         userClient.access.policies.create({
+          role: owner.key,
           name: "test",
           objects: [],
           actions: ["retrieve"],
@@ -138,13 +194,17 @@ describe("policy", () => {
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
-    it("should allow the caller to delete policies with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [policy.ontologyID("")],
-        actions: ["delete"],
-      });
+    it("should allow the caller to delete policies on a role it can update", async () => {
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [policy.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
+      ]);
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -159,10 +219,11 @@ describe("policy", () => {
       // Create a user with no delete policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [policy.ontologyID("")],
+        objects: [policy.resourceID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
+        role: owner.key,
         name: "test",
         objects: [],
         actions: ["retrieve"],
@@ -180,6 +241,7 @@ const remote = createTestClient();
 
 const createPolicy = async (c = client) =>
   await c.access.policies.create({
+    role: owner.key,
     name: `qry-${id.create()}`,
     objects: [],
     actions: ["retrieve"],
@@ -197,7 +259,7 @@ describe("cached reads", () => {
       const first = await client.access.policies.retrieve(p.key);
       expect(first.name).toEqual(p.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.policies.create({ ...p, name: renamed });
+      await remote.access.policies.rename(p.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -217,7 +279,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const p = await createPolicy();
-      const cached = expectLive(client.access.policies.getCached(p.key));
+      const cached = expectLive(client.access.policies.watch(p.key).getCached());
       expect(cached.name).toEqual(p.name);
     });
   });
@@ -226,14 +288,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const p = await createPolicy();
       const handler = vi.fn();
-      const off = client.access.policies.onChange(p.key, handler);
+      const off = client.access.policies.watch(p.key).onChange(handler);
       try {
         await client.access.policies.retrieve(p.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.policies.create({ ...p, name: renamed });
+        await remote.access.policies.rename(p.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.access.policies.getCached(p.key);
+            const cached = client.access.policies.watch(p.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -243,15 +305,39 @@ describe("cached reads", () => {
       }
     });
 
+    it("refetches the policies of a user whose role changes", async () => {
+      const p = await createPolicy();
+      const empty = await createEmptyRole(client);
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        role: empty.key,
+      });
+      const subject = user.resourceID(u.key);
+      const list = client.access.policies.watch({ where: { subjects: [subject] } });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        await remote.users.setRole(u.key, owner.key);
+        await expect
+          .poll(() => list.getCached()?.records.some(({ key }) => key === p.key))
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const p = await createPolicy();
       const results: Array<query.Cached<policy.Policy> | undefined> = [];
-      const off = client.access.policies.onChange(p.key, (r) => results.push(r));
+      const off = client.access.policies.watch(p.key).onChange((r) => results.push(r));
       try {
         await client.access.policies.retrieve(p.key);
         await remote.access.policies.delete(p.key);
         await expect
-          .poll(() => query.Deleted.matches(client.access.policies.getCached(p.key)))
+          .poll(() =>
+            query.Deleted.matches(client.access.policies.watch(p.key).getCached()),
+          )
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(p.name);

@@ -55,40 +55,39 @@ class TestPanel:
         assert isinstance(p.root.last.tabs[0], panel.ViewTab)
         assert panel.Panel.model_validate_json(p.model_dump_json()) == p
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a panel."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a panel."""
         key = uuid4()
-        assert panel.ontology_id(key).type == panel.ONTOLOGY_TYPE.type
-        assert panel.ontology_id(key).key == str(key)
+        assert panel.resource_id(key).type == panel.TYPE_RESOURCE_ID.type
+        assert panel.resource_id(key).key == str(key)
         p = panel.Panel(name="Ops")
         assert hash(p) == hash(p.key)
 
 
 @pytest.fixture
-def parent(client: sy.Synnax) -> sy.ontology.ID:
+def project(client: sy.Synnax) -> sy.project.Key:
     """Creates a project to own the panels of a test."""
-    proj = client.projects.create(name="Panel Parent")
-    return sy.project.ontology_id(proj.key)
+    return client.projects.create(name="Panel Project").key
 
 
 @pytest.mark.panel
 class TestClient:
-    def test_create(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_create(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should create a single panel with an empty root leaf."""
-        p = client.panels.create(name="Test Panel", parent=parent)
+        p = client.panels.create(name="Test Panel", project=project)
         assert p.name == "Test Panel"
         assert isinstance(p.root, sy.panel.LeafNode)
         assert p.root.tabs == []
 
     def test_create_from_object(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
         """Should create a panel from a Panel object and keep its tree."""
         tab = sy.panel.ViewTab(type="docs")
         p = client.panels.create(
             sy.Panel(
                 name="From Object",
-                parent=parent,
+                project=project,
                 root=sy.panel.LeafNode(tabs=[tab]),
             )
         )
@@ -97,69 +96,97 @@ class TestClient:
         assert len(retrieved.root.tabs) == 1
         assert retrieved.root.tabs[0].key == tab.key
 
-    def test_create_multiple(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_create_multiple(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should create multiple panels."""
         panels = client.panels.create(
             [
-                sy.Panel(name="Multi 1", parent=parent),
-                sy.Panel(name="Multi 2", parent=parent),
+                sy.Panel(name="Multi 1", project=project),
+                sy.Panel(name="Multi 2", project=project),
             ]
         )
         assert [p.name for p in panels] == ["Multi 1", "Multi 2"]
 
-    def test_create_without_parent_raises(self, client: sy.Synnax) -> None:
-        """Should raise ValidationError when a panel has no parent."""
-        with pytest.raises(ValidationError):
+    def test_create_without_project_raises(self, client: sy.Synnax) -> None:
+        """Should raise ValidationError when a panel has no project."""
+        with pytest.raises(
+            ValidationError,
+            match="must belong to exactly one of a project and a range",
+        ):
             client.panels.create(sy.Panel(name="Orphan"))
 
-    def test_retrieve_by_key(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_by_key(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should retrieve a panel by key."""
-        created = client.panels.create(name="Retrieve Me", parent=parent)
+        created = client.panels.create(name="Retrieve Me", project=project)
         retrieved = client.panels.retrieve(key=created.key)
         assert retrieved.key == created.key
         assert retrieved.name == "Retrieve Me"
 
-    def test_retrieve_by_keys(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should retrieve multiple panels by keys."""
-        p1 = client.panels.create(name="Panel A", parent=parent)
-        p2 = client.panels.create(name="Panel B", parent=parent)
+        p1 = client.panels.create(name="Panel A", project=project)
+        p2 = client.panels.create(name="Panel B", project=project)
         panels = client.panels.retrieve(keys=[p1.key, p2.key])
         assert {p.key for p in panels} == {p1.key, p2.key}
 
-    def test_retrieve_where(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_by_group(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should filter the panels by group."""
+        made = client.panels.create(name="Ungrouped", project=project)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project))
+        assert client.panels.retrieve(groups=g.key) == []
+        ungrouped = client.panels.retrieve(projects=project, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.panels.retrieve(projects=project, grouped=True) == []
+
+    def test_retrieve_where(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should keep the panels that match the where and the other filters."""
-        a = client.panels.create(name="A", parent=parent)
-        b = client.panels.create(name="B", parent=parent)
+        a = client.panels.create(name="A", project=project)
+        b = client.panels.create(name="B", project=project)
         where = panel.Where(not_=panel.Where(key=sy.filter.Set[panel.Key](eq=a.key)))
         res = client.panels.retrieve(where=where, keys=[a.key, b.key, uuid4()])
         assert [r.key for r in res] == [b.key]
 
-    def test_retrieve_by_parent(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+    def test_retrieve_by_project(
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
-        """Should retrieve only the panels that are children of the parent."""
-        p1 = client.panels.create(name="Child 1", parent=parent)
-        p2 = client.panels.create(name="Child 2", parent=parent)
-        other = client.projects.create(name="Other Parent")
-        client.panels.create(name="Other", parent=sy.project.ontology_id(other.key))
-        panels = client.panels.retrieve(parent=parent)
+        """Should retrieve only the panels the project owns."""
+        p1 = client.panels.create(name="Child 1", project=project)
+        p2 = client.panels.create(name="Child 2", project=project)
+        other = client.projects.create(name="Other Project")
+        client.panels.create(name="Other", project=other.key)
+        panels = client.panels.retrieve(projects=[project])
         assert {p.key for p in panels} == {p1.key, p2.key}
+        assert all(p.project == project for p in panels)
 
-    def test_retrieve_by_parent_without_children(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+    def test_retrieve_by_project_without_panels(
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
-        """Should return no panels when the parent has no panel children."""
-        assert client.panels.retrieve(parent=parent) == []
+        """Should return no panels when the project owns none."""
+        assert client.panels.retrieve(projects=[project]) == []
+
+    def test_retrieve_by_range(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
+        """Should retrieve only the panels the range owns."""
+        rng = client.ranges.create(
+            name="Panel Range",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        owned = client.panels.create(sy.Panel(name="Range Owned", range=rng.key))
+        client.panels.create(name="Project Owned", project=project)
+        panels = client.panels.retrieve(ranges=[rng.key])
+        assert [p.key for p in panels] == [owned.key]
 
     def test_retrieve_with_search_term(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
         """Should search for panels by name."""
         prefix = "searchable-panel"
         created = client.panels.create(
             [
-                sy.Panel(name=f"{prefix}-1", parent=parent),
-                sy.Panel(name=f"{prefix}-2", parent=parent),
+                sy.Panel(name=f"{prefix}-1", project=project),
+                sy.Panel(name=f"{prefix}-2", project=project),
             ]
         )
 
@@ -175,58 +202,60 @@ class TestClient:
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=UUID("7c3e9a52-4b1d-4f0e-9a6c-2d8b5e1f3a90"))
 
-    def test_retrieve_key_list(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_key_list(
+        self, client: sy.Synnax, project: sy.project.Key
+    ) -> None:
         """Should return a list for a list of keys, even with one key."""
-        a = client.panels.create(name="A", parent=parent)
+        a = client.panels.create(name="A", project=project)
         res = client.panels.retrieve(key=[a.key])
         assert [r.key for r in res] == [a.key]
 
     def test_retrieve_plain_key_beside_fields(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
         """Should return one panel for a plain key beside other fields."""
-        a = client.panels.create(name="A", parent=parent)
+        a = client.panels.create(name="A", project=project)
         assert client.panels.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
             client.panels.retrieve(key=a.key, not_={"key": a.key})
 
-    def test_retrieve_or(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_retrieve_or(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should retrieve the panels that match any filter in or_."""
-        a = client.panels.create(name="A", parent=parent)
-        b = client.panels.create(name="B", parent=parent)
+        a = client.panels.create(name="A", project=project)
+        b = client.panels.create(name="B", project=project)
         res = client.panels.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
         assert {r.key for r in res} == {a.key, b.key}
 
-    def test_retrieve_one_by_parent_without_children(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+    def test_retrieve_one_by_project_without_panels(
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
-        """Should raise NotFoundError for one panel of a parent with no panels."""
-        with pytest.raises(NotFoundError, match=r"Panel matching .* not found"):
-            client.panels.retrieve(parent=parent, one=True)
+        """Should raise NotFoundError for one panel of a project with no panels."""
+        with pytest.raises(NotFoundError, match=r"Found no panel where .+"):
+            client.panels.retrieve(projects=[project], one=True)
 
-    def test_retrieve_none_field_by_parent_without_children(
-        self, client: sy.Synnax, parent: sy.ontology.ID
+    def test_retrieve_none_field_by_project_without_panels(
+        self, client: sy.Synnax, project: sy.project.Key
     ) -> None:
-        """Should reject a field set to None beside a parent with no panels."""
+        """Should reject a field set to None beside a project with no panels."""
         with pytest.raises(ValidationError, match="key is None"):
-            client.panels.retrieve(parent=parent, key=None)  # type: ignore[call-overload]
+            client.panels.retrieve(projects=[project], key=None)  # type: ignore[call-overload]
 
-    def test_rename(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_rename(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should rename a panel."""
-        p = client.panels.create(name="Before Rename", parent=parent)
+        p = client.panels.create(name="Before Rename", project=project)
         client.panels.rename(p.key, "After Rename")
         assert client.panels.retrieve(key=p.key).name == "After Rename"
 
-    def test_delete(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_delete(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should delete a panel."""
-        p = client.panels.create(name="To Delete", parent=parent)
+        p = client.panels.create(name="To Delete", project=project)
         client.panels.delete(p.key)
         with pytest.raises(NotFoundError):
             client.panels.retrieve(key=p.key)
 
-    def test_delete_multiple(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
+    def test_delete_multiple(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should delete multiple panels."""
-        p1 = client.panels.create(name="Delete 1", parent=parent)
-        p2 = client.panels.create(name="Delete 2", parent=parent)
+        p1 = client.panels.create(name="Delete 1", project=project)
+        p2 = client.panels.create(name="Delete 2", project=project)
         client.panels.delete([p1.key, p2.key])
         assert client.panels.retrieve(keys=[p1.key, p2.key]) == []

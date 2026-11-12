@@ -1,0 +1,93 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Arc modules"
+description: "Write Arc code one time in a module, and import it into your automations."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A module is Arc code that automations and other modules import. A module has no Driver
+and does not run by itself.
+
+<Divider.Divider x />
+
+## Create a module
+
+1. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
+2. Type a name, and select the **Module** type. The name can contain only letters,
+   digits, and underscores.
+3. Click **Create**.
+
+<Divider.Divider x />
+
+## Export code
+
+Put `export` before a top-level function, sequence, stage, or `:=` variable. Importers
+see only exported code.
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="psi_to_kpa, press, fill, hold, vent"
+export func psi_to_kpa() {v f64} f64 {
+    return v * 6.895
+}
+
+export sequence press {
+    stage fill {
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    stage hold {
+        0 -> press_vlv_cmd
+    }
+}
+
+export stage vent {
+    0 -> press_vlv_cmd
+    1 -> vent_vlv_cmd
+}
+```
+
+<Divider.Divider x />
+
+## Import a module
+
+The import path is the directory names and the module name, joined by `.`. This
+automation imports the module `tank` from the directory `lib`:
+
+```arc channels="tank_pt, tank_pt_kpa, start_cmd, abort_cmd"
+import lib.tank
+
+tank_pt -> tank.psi_to_kpa() -> tank_pt_kpa
+start_cmd == 1 => tank.press
+abort_cmd == 1 => tank.vent
+```
+
+An import can also use
+[an alias or a group](/reference/control/arc/reference/syntax#imports).
+
+<Divider.Divider x />
+
+## Edit a module
+
+The controls bar shows "Compiled" or "Failed to compile" with the error.
+
+A running automation keeps the module code that it started with until you redeploy it.
+
+If you rename, move, or delete a module, each import of the old path fails with
+`unknown module "lib.tank"`.
+
+<Divider.Divider x />
+
+## Rules
+
+| Rule                                                              | Error                                                                |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| A module cannot have an `authority` declaration.                  | `a module cannot have an authority block`                            |
+| A module cannot have a top-level flow.                            | `a module cannot have a top-level flow`                              |
+| Only a module can use `export`.                                   | `export is only valid in a module`                                   |
+| An importer can use only exported code.                           | `'scale' is not exported by module "lib.tank"`                       |
+| You cannot import an automation.                                  | `"fill" is an automation and cannot be imported`                     |
+| A module cannot import itself, directly or through other modules. | `import cycle: a -> b -> c -> a`                                     |
+| A module outside a directory cannot have a standard library name. | `"time" is a standard module name and cannot go directly under Arcs` |

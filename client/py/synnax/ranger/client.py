@@ -11,53 +11,67 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Iterator
-from typing import Any, Literal, cast, overload, override
-from uuid import UUID
+from collections.abc import Callable, Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
 
 import numpy as np
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, JsonValue, PrivateAttr
 
-import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer, label
-from synnax.channel.retrieve import Retriever as ChannelRetriever
+from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ontology import Client as OntologyClient
-from synnax.ontology.payload import ID
-from synnax.ranger import alias as alias_
-from synnax.ranger import kv
+from synnax.ranger import actions_gen, alias as alias_, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
+    Cursor,
     Key,
+    Order,
     Payload,
     RetrieveRequest,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from synnax.ranger.writer import Writer
+from synnax.resource import ID
 from synnax.signals.signals import Registry
 from synnax.state import Latest
-from synnax.task import Client as TaskClient
-from synnax.task import Task
 from synnax.telem import (
     CrudeSeries,
+    CrudeTimeStamp,
     DataType,
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
-from x import color as color_
-from x import filter
+from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
 
+# synnax.task imports this module through its range field.
+if TYPE_CHECKING:
+    from synnax.task import Client as TaskClient, Task
+
 _RANGE_SET_CHANNEL = "sy_range_set"
+
+
+def _set(path: list[str], value: JsonValue) -> actions_gen.SetAction:
+    return actions_gen.set(actions_gen.SetPayload(path=path, value=value))
+
+
+def _remove(field: str) -> actions_gen.RemoveAction:
+    return actions_gen.remove(actions_gen.RemovePayload(key=field))
+
+
+# A string holds every 64-bit timestamp exactly.
+def _nanoseconds(time: CrudeTimeStamp) -> str:
+    return str(int(TimeStamp(time)))
+
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -73,7 +87,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
     _tasks: TaskClient | None = PrivateAttr(None)
-    _ontology: OntologyClient | None = PrivateAttr(None)
 
     # ArrayOperators clears __hash__, but writes can key data by channel payload.
     __hash__ = channel.Payload.__hash__
@@ -83,7 +96,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         rng: Range,
         frame_client: framer.Client,
         tasks: TaskClient,
-        ontology: OntologyClient,
         payload: channel.Payload,
         _aliaser: alias_.Client | None = None,
     ):
@@ -92,7 +104,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self._cached_frame_client = frame_client
         self._aliaser = _aliaser
         self._tasks = tasks
-        self._ontology = ontology
 
     @property
     def _range(self) -> Range:
@@ -153,8 +164,7 @@ class ScopedChannel(ArrayOperators):
     It's very important to note that if the property accessor matches multiple channels,
     this class will contain all of them, and, as a result, single channel operations
     will fail. However, you can use the __iter__ method to iterate over the channels
-    in the returned values. This is particularly relevant when using regex to match
-    multiple channels.
+    in the returned values.
     """
 
     _internal: list[_InternalScopedChannel]
@@ -221,7 +231,7 @@ class ScopedChannel(ArrayOperators):
         return self._internal[0].index
 
     @property
-    def leaseholder(self) -> int:
+    def leaseholder(self) -> node.Key:
         self._guard()
         return self._internal[0].leaseholder
 
@@ -251,7 +261,7 @@ class Range(Payload):
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    _channels: ChannelRetriever | None = PrivateAttr(None)
+    _channels: channel.Retriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
@@ -263,24 +273,24 @@ class Range(Payload):
     """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
     _cached_tasks: TaskClient | None = PrivateAttr(None)
-    _cached_ontology: OntologyClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
+    @deprecate_positional("name", "time_range", "key", "color", "parent")
     def __init__(
         self,
         *,
         name: str,
         time_range: TimeRange,
-        key: UUID = NIL,
+        key: Key = NIL,
         color: color_.Crude | None = None,
-        parent: Range | Payload | None = None,
+        labels: Sequence[label.Key] = (),
+        parent: Key | Payload | None = None,
         _frame_client: framer.Client | None = None,
-        _channel_retriever: ChannelRetriever | None = None,
+        _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
         _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
         _tasks: TaskClient | None = None,
-        _ontology: OntologyClient | None = None,
         _label_client: label.Client | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
@@ -296,8 +306,8 @@ class Range(Payload):
         :param key: A UUID that uniquely identifies the range. This is typically not
             set by the user, and is generated by the cluster upon creating the range.
         :param color: An optional display color. None means the range has no color.
-        :param parent: An optional parent range. Retrieve or create the parent first,
-            then pass the ``Range`` directly.
+        :param labels: The keys of the labels to attach to the range.
+        :param parent: The parent range, or its key. None means the range has no parent.
         :param _frame_client: The backing client for reading and writing data to
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
@@ -305,22 +315,13 @@ class Range(Payload):
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
-        parent_payload: Payload | None = None
-        if parent is not None:
-            # parent may be a full Range or an already-resolved Payload (e.g. the
-            # .parent of a created or retrieved range, which the server returns as a
-            # Payload). Only Range has to_payload(); a Payload is used as-is.
-            parent_payload = (
-                parent.to_payload() if isinstance(parent, Range) else parent
-            )
-            if parent_payload.parent is not None:
-                parent_payload = parent_payload.model_copy(update={"parent": None})
         super().__init__(
             name=name,
             time_range=time_range,
             key=key,
             color=None if color is None else color_.Color(color),
-            parent=parent_payload,
+            labels=list(labels),
+            parent=parent.key if isinstance(parent, Payload) else parent,
         )
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
@@ -328,7 +329,6 @@ class Range(Payload):
         self._cached_aliaser = _aliaser
         self._cached_client = _client
         self._cached_tasks = _tasks
-        self._cached_ontology = _ontology
         self._cached_label_client = _label_client
 
     def _get_scoped_channel(
@@ -376,15 +376,14 @@ class Range(Payload):
                     frame_client=self._frame_client,
                     payload=pld,
                     tasks=self._tasks,
-                    ontology=self._ontology,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
         return results
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     @property
     def meta_data(self) -> kv.Client:
@@ -417,19 +416,13 @@ class Range(Payload):
         return self._cached_tasks
 
     @property
-    def _ontology(self) -> OntologyClient:
-        if self._cached_ontology is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_ontology
-
-    @property
     def _label_client(self) -> label.Client:
         if self._cached_label_client is None:
             raise _RANGE_NOT_CREATED
         return self._cached_label_client
 
     @property
-    def _channel_retriever(self) -> ChannelRetriever:
+    def _channel_retriever(self) -> channel.Retriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
@@ -452,8 +445,7 @@ class Range(Payload):
         corrected = {}
         for ch, alias in channel.items():
             if isinstance(ch, str):
-                res = self._channel_retriever.retrieve(ch)
-                corrected[sole("Channel", ch, res).key] = alias
+                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -465,6 +457,7 @@ class Range(Payload):
             time_range=self.time_range,
             key=self.key,
             color=self.color,
+            labels=self.labels,
             parent=self.parent,
         )
 
@@ -505,51 +498,44 @@ class Range(Payload):
 
     @property
     def children(self) -> list[Range]:
-        """Returns a list of child ranges of this range."""
-        res = self._ontology.retrieve_children(self.ontology_id)
-        range_children = [r for r in res if r.type == "range"]
-        if len(range_children) == 0:
-            return []
-        child_keys: list[Key] = [
-            UUID(r.key) for r in range_children if r.key is not None
-        ]
-        return self._client.retrieve(keys=child_keys)
+        """Retrieves the ranges whose parent is this range from the Core."""
+        return self._client.retrieve(parents=[self.key])
 
     def retrieve_labels(self) -> list[label.Label]:
-        """Retrieves the labels on the range from the Core."""
-        return self._label_client.retrieve(for_=self.ontology_id)
+        """Retrieves the labels that the Core stores on the range."""
+        keys = self._client.retrieve(key=self.key).labels
+        # A retrieve with no keys returns every label.
+        if len(keys) == 0:
+            return []
+        return self._label_client.retrieve(keys=keys)
 
     def add_label(self, *labels: label.Key) -> None:
         """Adds labels to the range.
 
         :param labels: The keys of the labels to add.
         """
-        self._label_client.label(self.ontology_id, list(labels))
+        self._label_client.label(self.resource_id, list(labels))
 
     def remove_label(self, *labels: label.Key) -> None:
         """Removes labels from the range.
 
         :param labels: The keys of the labels to remove.
         """
-        self._label_client.remove(self.ontology_id, list(labels))
+        self._label_client.remove(self.resource_id, list(labels))
 
     def snapshots(self) -> list[Task]:
-        res = self._ontology.retrieve_children(self.ontology_id)
-        tasks = [t for t in res if t.type == "task"]
-        return self._tasks.retrieve(
-            keys=[UUID(t.key) for t in tasks if t.key is not None]
-        )
+        """Returns the task snapshots in this range."""
+        return self._tasks.retrieve(ranges=[self.key])
 
 
 class Client:
     _frame_client: framer.Client
-    _channels: ChannelRetriever
+    _channels: channel.Retriever
     _retriever: Retriever
     _writer: Writer
     _unary_client: UnaryClient
     _signals: Registry
     _tasks: TaskClient
-    _ontology: OntologyClient
     _labels: label.Client
 
     def __init__(
@@ -559,10 +545,9 @@ class Client:
         frame_client: framer.Client,
         writer: Writer,
         retriever: Retriever,
-        channel_retriever: ChannelRetriever,
+        channel_retriever: channel.Retriever,
         signals: Registry,
         tasks: TaskClient,
-        ontology: OntologyClient,
         labels: label.Client,
     ) -> None:
         self._unary_client = unary_client
@@ -572,7 +557,6 @@ class Client:
         self._channels = channel_retriever
         self._signals = signals
         self._tasks = tasks
-        self._ontology = ontology
         self._labels = labels
 
     @overload
@@ -583,7 +567,8 @@ class Client:
         time_range: TimeRange,
         color: color_.Crude | None = None,
         retrieve_if_name_exists: bool = False,
-        parent: Range | Payload | None = None,
+        labels: Sequence[label.Key] = (),
+        parent: Key | Payload | None = None,
         key: Key = NIL,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
@@ -595,8 +580,8 @@ class Client:
         :param retrieve_if_name_exists: If true, this method will retrieve the range
         if it already exists. This method will throw a ValidationError
         if the range already exists and has a DIFFERENT time range.
-        :param parent: An optional parent range. Retrieve or create the parent first,
-        then pass it directly.
+        :param labels: The keys of the labels to attach to the range.
+        :param parent: The parent range, or its key.
         """
 
     @overload
@@ -640,7 +625,8 @@ class Client:
         time_range: TimeRange | None = None,
         color: color_.Crude | None = None,
         retrieve_if_name_exists: bool = False,
-        parent: Range | Payload | None = None,
+        labels: Sequence[label.Key] = (),
+        parent: Key | Payload | None = None,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
@@ -650,6 +636,7 @@ class Client:
                     name=name,
                     time_range=time_range if time_range is not None else TimeRange.ZERO,
                     color=color,
+                    labels=labels,
                     parent=parent,
                 ).to_payload()
             ]
@@ -695,13 +682,12 @@ class Client:
         name: filter.StringInput = ...,
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
+        parents: Key | list[Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        include_labels: bool = ...,
-        include_parent: bool = ...,
         one: bool = ...,
     ) -> Range: ...
 
@@ -713,13 +699,12 @@ class Client:
         name: str,
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
+        parents: Key | list[Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        include_labels: bool = ...,
-        include_parent: bool = ...,
         one: bool = ...,
     ) -> Range: ...
 
@@ -731,6 +716,7 @@ class Client:
         name: filter.StringInput = ...,
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
+        parents: Key | list[Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -740,8 +726,6 @@ class Client:
         overlaps_with: TimeRange | None = ...,
         has_labels: list[label.Key] | None = ...,
         search_term: str = ...,
-        include_labels: bool = ...,
-        include_parent: bool = ...,
         one: Literal[True],
     ) -> Range: ...
 
@@ -753,6 +737,7 @@ class Client:
         name: list[str] | filter.StringDict | filter.String = ...,
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
+        parents: Key | list[Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -763,9 +748,8 @@ class Client:
         has_labels: list[label.Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
-        include_labels: bool = ...,
-        include_parent: bool = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Range]: ...
 
@@ -780,9 +764,8 @@ class Client:
         has_labels: list[label.Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
-        include_labels: bool = False,
-        include_parent: bool = False,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Range | list[Range]:
@@ -795,6 +778,8 @@ class Client:
         :param name: Keeps ranges with this name.
         :param overlaps: Keeps ranges whose time range overlaps this one.
         :param labels: Keeps ranges that have this label, or any label in the list.
+        :param parents: Keeps the ranges nested in this range, or in any range in the
+            list.
         :param and_: Keeps ranges that match every filter in the list.
         :param or_: Keeps ranges that match any filter in the list.
         :param not_: Keeps ranges that do not match the filter.
@@ -805,18 +790,18 @@ class Client:
         :param has_labels: Keeps ranges that have one of these labels.
         :param search_term: A fuzzy search term matched against range names.
         :param limit: The maximum number of ranges to retrieve.
-        :param offset: The number of ranges to skip.
-        :param include_labels: Attaches the labels of each range.
-        :param include_parent: Attaches the parent of each range.
+        :param order: The order of the ranges. Defaults to key order.
+        :param after: Retrieves the ranges past this position in the order: the key of
+            the last range of the page before, and its value of the order field.
         :param one: Returns one range for any filter.
         :returns: One range for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of ranges. The list leaves out keys that do not exist.
         :raises NotFoundError: If one range is wanted and none matches.
         :raises MultipleFoundError: If one range is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one range is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(
             key=None if keys is None else filter.Set[Key](in_=list(keys)),
             name=None if names is None else filter.String(in_=list(names)),
@@ -827,12 +812,11 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
-            include_labels=include_labels,
-            include_parent=include_parent,
+            order=order,
+            after=after,
         )
         ranges = self._sugar(self._retriever.retrieve(req))
-        return sole("Range", fields, ranges) if single else ranges
+        return sole("range", req, ranges) if single else ranges
 
     def delete(
         self,
@@ -840,13 +824,78 @@ class Client:
     ) -> None:
         self._writer.delete(normalize(key))
 
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a range, in order, in one transaction.
+
+        :param key: The key of the range.
+        :param actions: The actions to apply, such as ``ranger.set`` and
+            ``ranger.remove``. A timestamp in an action is a string of its exact
+            nanoseconds.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        self._writer.dispatch(key, normalize(actions))
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a range.
 
         :param key: The key of the range to rename.
         :param name: The new name for the range.
         """
-        self._writer.rename(key, name)
+        self.dispatch(key, _set(["name"], name))
+
+    def set_end(self, key: Key, end: CrudeTimeStamp) -> None:
+        """Sets the end of the time range of a range.
+
+        :param key: The key of the range.
+        :param end: The new end of the time range.
+        :raises NotFoundError: If no range has the given key.
+        """
+        self.dispatch(key, _set(["time_range", "end"], _nanoseconds(end)))
+
+    def set_time_range(self, key: Key, time_range: TimeRange) -> None:
+        """Sets the start and end of a range.
+
+        :param key: The key of the range.
+        :param time_range: The new time range.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the start is after the end.
+        """
+        value: JsonValue = {
+            "start": _nanoseconds(time_range.start),
+            "end": _nanoseconds(time_range.end),
+        }
+        self.dispatch(key, _set(["time_range"], value))
+
+    def set_color(self, key: Key, color: color_.Crude | None) -> None:
+        """Sets the color of a range, or clears it when color is None.
+
+        :param key: The key of the range.
+        :param color: The new color, such as ``"#FF0000"``.
+        :raises NotFoundError: If no range has the given key.
+        """
+        if color is None:
+            self.dispatch(key, _remove("color"))
+        else:
+            self.dispatch(key, _set(["color"], color_.Color(color).model_dump()))
+
+    def set_parent(self, key: Key, parent: Key | Payload | None) -> None:
+        """Nests a range in a parent range, or makes it a top-level range when parent
+        is None.
+
+        :param key: The key of the range.
+        :param parent: The parent range, or its key.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the parent is the range itself or a range nested
+            in it.
+        """
+        if parent is None:
+            self.dispatch(key, _remove("parent"))
+            return
+        parent_key = parent.key if isinstance(parent, Payload) else parent
+        self.dispatch(key, _set(["parent"], str(parent_key)))
 
     def search(
         self,
@@ -858,19 +907,15 @@ class Client:
         result: list[Range] = []
         for r in ranges:
             rng = Range(
-                **r.model_dump(exclude={"labels", "parent"}),
+                **r.model_dump(),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=kv.Client(rng=r.key, client=self._unary_client),
                 _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
-                _ontology=self._ontology,
                 _tasks=self._tasks,
                 _label_client=self._labels,
             )
-            rng.labels = r.labels
-            if r.parent is not None:
-                rng.parent = r.parent
             result.append(rng)
         return result
 

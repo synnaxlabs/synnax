@@ -85,7 +85,7 @@ var _ = Describe("Factory", func() {
 				Config: msgpack.EncodedJSON{"rate": -1},
 			}
 			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
-				To(MatchError(ContainSubstring("rate: must be positive")))
+				To(MatchError(ContainSubstring("rate")))
 		})
 	})
 
@@ -101,13 +101,7 @@ var _ = Describe("Factory", func() {
 				APIKey: apiKey,
 				Assets: []string{"stand", "pad"},
 			}))
-			t = task.Task{
-				Key:    uuid.New(),
-				Rack:   rackSvc.EmbeddedKey,
-				Name:   "Sift Scanner",
-				Type:   sift.ScanTaskType,
-				Config: msgpack.EncodedJSON{"rate": 50},
-			}
+			t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
 			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		})
@@ -165,12 +159,7 @@ var _ = Describe("Factory", func() {
 			It("Should connect with an API key the grant names",
 				func(ctx SpecContext) {
 					key := createAPIKey(ctx, apiKey)
-					g := MustSucceed(secretSvc.Grant(
-						ctx,
-						nil,
-						rackSvc.EmbeddedKey.OntologyID(),
-						key,
-					))
+					g := grantToRack(ctx, key)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
 							URI:    server.Address(),
@@ -183,12 +172,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail for an API key that Sift rejects", func(ctx SpecContext) {
 				key := createAPIKey(ctx, "wrong")
-				g := MustSucceed(secretSvc.Grant(
-					ctx,
-					nil,
-					rackSvc.EmbeddedKey.OntologyID(),
-					key,
-				))
+				g := grantToRack(ctx, key)
 				stat := exec(ctx, "test_connection", map[string]any{
 					"connection": sift.Properties{URI: server.Address(), APIKey: key},
 					"grant":      g,

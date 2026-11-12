@@ -31,13 +31,21 @@ const (
 	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
 	durationInputParam   = "duration"
+	infSymbolName        = "inf"
+	isFiniteSymbolName   = "is_finite"
+	isInfiniteSymbolName = "is_infinite"
+	isNaNSymbolName      = "is_nan"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
+	nanSymbolName        = "nan"
 	powSymbolName        = "pow"
 	resetInputParam      = "reset"
 )
 
-var numConstraint = types.NumericConstraint()
+var (
+	numConstraint   = types.NumericConstraint()
+	floatConstraint = types.FloatConstraint()
+)
 
 type (
 	reductionFn  = func(telem.Series, int64, *telem.Series) int64
@@ -93,11 +101,9 @@ var (
 			"sensor -> math.avg(count=100) -> output\nsensor -> math.avg(duration=5s) -> output",
 		),
 		doc.Divider(),
-		doc.Paragraph("An optional reset input clears the accumulated average:"),
-		doc.Divider(),
-		doc.Code(
-			"arc",
-			"sensor -> math.avg() -> output\nreset_signal -> math.avg().reset",
+		doc.Paragraph(
+			"In a graph, wire a `bool` signal to the reset input to clear the "+
+				"average. Text mode cannot wire it.",
 		),
 	)
 	minDoc = doc.New(
@@ -131,12 +137,85 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "sensor -> math.derivative() -> rate_output"),
 	)
+	isNaNDoc = doc.New(
+		doc.Paragraph("Returns true if a float value is NaN."),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func clean() {x f64} f64 {\n    if math.is_nan(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
+	)
+	isInfiniteDoc = doc.New(
+		doc.Paragraph(
+			"Returns true if a float value is positive or negative infinity.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func capped() {x f64} f64 {\n    if math.is_infinite(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
+	)
+	isFiniteDoc = doc.New(
+		doc.Paragraph("Returns true if a float value is not NaN and not infinite."),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"sequence main {\n    stage spin_down {\n        not math.is_finite(pump_speed) or pump_speed < 15 => next\n    }\n    stage stopped {\n        1 -> pump_stopped\n    }\n}",
+		),
+	)
+	nanDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func invalid() {x f64} f64 {\n    if x < 0.0 {\n        return math.nan\n    }\n    return x\n}",
+		),
+	)
+	infDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func lowest() {x f64} f64 {\n    low f64 $= math.inf\n    if x < low {\n        low = x\n    }\n    return low\n}",
+		),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
-			"Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers.",
+			"Numerical primitives: running averages, running min/max, derivatives, float checks, and arithmetic helpers.",
 		),
 	)
 )
+
+func newFloatCheckSymbol(name string, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: "value", Type: types.Variable("T", &floatConstraint)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
+		}),
+		Trigger: symbol.TriggerOnly,
+		Doc:     doc,
+	}
+}
+
+func newFloatConstant(name string, value float64, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name:         name,
+		Kind:         symbol.KindConstant,
+		Exec:         symbol.ExecBoth,
+		Type:         types.Variable("T", &floatConstraint),
+		DefaultValue: value,
+		Doc:          doc,
+	}
+}
 
 func newPowSymbol() *symbol.Symbol {
 	return &symbol.Symbol{
@@ -191,7 +270,18 @@ func NewSymbols() []*symbol.Symbol {
 	max := createBaseSymbol(maxSymbolName, maxDoc)
 	derivative := newDerivativeSymbol()
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
-	mod.AddChild(newPowSymbol(), avg, min, max, derivative)
+	mod.AddChild(
+		newPowSymbol(),
+		avg,
+		min,
+		max,
+		derivative,
+		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
+		newFloatCheckSymbol(isInfiniteSymbolName, isInfiniteDoc),
+		newFloatCheckSymbol(isFiniteSymbolName, isFiniteDoc),
+		newFloatConstant(nanSymbolName, math.NaN(), nanDoc),
+		newFloatConstant(infSymbolName, math.Inf(1), infDoc),
+	)
 	avgBare := *avg
 	avgBare.Deprecated = avg
 	minBare := *min
@@ -275,7 +365,8 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
-	var inputs WindowInputs
+	// The schema rejects a non-numeric window value; Next reads the live values.
+	var inputs windowInputs
 	if err := windowInputsSchema.Parse(
 		nodeCfg.Node.Inputs.ValueMap(),
 		&inputs,
@@ -288,11 +379,10 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		inputs:      inputs,
 	}, nil
 }
 
-type WindowInputs struct {
+type windowInputs struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 	Count    int64          `json:"count"    msgpack:"count"`
 }
@@ -305,7 +395,6 @@ var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
 type avgNode struct {
 	*node.State
 	process       reductionFn
-	inputs        WindowInputs
 	inputIdx      int
 	resetIdx      int
 	sampleCount   int64
@@ -349,15 +438,17 @@ func (r *avgNode) Next(ctx node.Context) {
 		}
 	}
 
-	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
+	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
+	if duration > 0 && inputTime.Len() > 0 {
 		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
-	if r.inputs.Count > 0 && r.sampleCount >= r.inputs.Count {
+	count := r.NumericInput[int64](countInputParam)
+	if count > 0 && r.sampleCount >= count {
 		shouldReset = true
 	}
 

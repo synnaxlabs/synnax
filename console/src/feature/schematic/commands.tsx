@@ -18,7 +18,7 @@ const CreateCommand = Command.create({
   name: "Create schematic",
   icon: <PSchematic.CreateIcon />,
   useOnSelect: Schematic.useCreate,
-  useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(schematic.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand];

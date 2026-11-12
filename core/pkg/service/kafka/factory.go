@@ -34,7 +34,7 @@ const scanTaskName = "Kafka Scanner"
 
 // FactoryConfig is the configuration for the Kafka task factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -154,7 +154,7 @@ func (f *factory) ConfigureTask(
 		// A successful configure writes no status, so a start answers the command. An
 		// auto-start that fails must answer it too, since no start follows.
 		if rt.cfg.AutoStart {
-			if err := rt.start(ctx, cmdKey); err != nil {
+			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}
 		}
@@ -166,7 +166,7 @@ func (f *factory) ConfigureTask(
 			return nil, err
 		}
 		if wt.cfg.AutoStart {
-			if err := wt.start(ctx, cmdKey); err != nil {
+			if err := errors.Combine(wt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}
 		}
@@ -210,14 +210,17 @@ func (f *factory) reportConfigError(
 // properties.
 func resolveProperties(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *device.Service,
 	key device.Key,
 ) (Properties, error) {
 	var dev device.Device
-	if err := svc.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return Properties{}, errors.Wrapf(err, "retrieving device %s", key)
 	}
 	return decodeProperties(dev)
@@ -227,14 +230,17 @@ func resolveProperties(
 // wrapping query.ErrNotFound when a key does not exist.
 func retrieveChannels(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *channel.Service,
 	keys channel.Keys,
 ) (map[channel.Key]channel.Channel, error) {
 	var channels []channel.Channel
-	if err := svc.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	byKey := make(map[channel.Key]channel.Channel, len(channels))

@@ -39,21 +39,20 @@ channel::InputRegister holding(
 channel::InputRegister input_string(
     const synnax::channel::Key key,
     const std::uint16_t address,
-    const std::int32_t length,
+    const std::uint16_t length,
     const bool bytes_swapped,
     const std::string &name
 ) {
     auto p = x::json::Parser(
         x::json::json{
-            {"type", "input_register"},
+            {"type", "input_register_string"},
             {"address", address},
             {"channel", key},
-            {"data_type", "string"},
-            {"string_length", length},
+            {"length", length},
             {"bytes_swapped", bytes_swapped},
         }
     );
-    const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(p);
+    const auto cfg = ::synnax::modbus::InputRegisterStringReadChannel::parse(p);
     channel::InputRegister ch(cfg, device::ConnectionConfig{});
     ch.ch = synnax::channel::Channel{
         .key = key,
@@ -133,8 +132,7 @@ TEST(RegisterReader, OverlappingChannels) {
         {holding(1, 10, x::telem::FLOAT64_T, "value"),
          holding(2, 11, x::telem::UINT16_T, "word")}
     );
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_DOUBLE_EQ(fr.at<double>(1, 0), 3.14159);
     EXPECT_EQ(fr.at<uint16_t>(2, 0), slave.get_holding_register(11));
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
@@ -156,8 +154,7 @@ TEST(RegisterReader, SplitsWideSpan) {
         {holding(1, 200, x::telem::UINT16_T, "high"),
          holding(2, 0, x::telem::UINT16_T, "low")}
     );
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.at<uint16_t>(1, 0), 22);
     EXPECT_EQ(fr.at<uint16_t>(2, 0), 11);
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 2);
@@ -198,8 +195,7 @@ TEST(RegisterReader, CastsToChannelDataType) {
     auto low = holding(2, 4, x::telem::UINT16_T, "low");
     low.ch.data_type = x::telem::UINT8_T;
     RegisterReader reader(device::HoldingRegister, {level, low});
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_FLOAT_EQ(fr.at<float>(1, 0), 1234.0F);
     EXPECT_EQ(fr.at<uint8_t>(2, 0), static_cast<uint8_t>(1234));
     EXPECT_EQ(fr.series->at(1).byte_size(), 1U);
@@ -218,8 +214,7 @@ TEST(BitReader, CastsToChannelDataType) {
     auto state = coil(1, 2, "state");
     state.ch.data_type = x::telem::FLOAT64_T;
     BitReader reader(device::Coil, {state});
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_DOUBLE_EQ(fr.at<double>(1, 0), 1.0);
     slave.stop();
 }
@@ -258,8 +253,7 @@ TEST(RegisterReader, SplitsAtMaxRegisters) {
          holding(3, 2, x::telem::UINT16_T, "c")},
         requests
     );
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.at<uint16_t>(3, 0), 33);
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 2);
     slave.stop();
@@ -278,8 +272,7 @@ TEST(BitReader, SplitsAtMaxGap) {
     device::RequestConfig requests;
     requests.max_gap = 5;
     BitReader reader(device::Coil, {coil(1, 0, "a"), coil(2, 10, "b")}, requests);
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
     EXPECT_EQ(fr.at<uint8_t>(2, 0), 1);
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_COILS), 2);
@@ -305,8 +298,7 @@ TEST(RegisterReader, BitsShareRequestWithValues) {
          holding_bit(4, 4, 15, "b15"),
          holding(5, 5, x::telem::UINT16_T, "value")}
     );
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
     EXPECT_EQ(fr.at<uint8_t>(2, 0), 0);
     EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
@@ -330,8 +322,7 @@ TEST(RegisterReader, String) {
     auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1671}));
 
     RegisterReader reader(device::InputRegister, {input_string(1, 0, 8, false, "tag")});
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.series->at(0).strings(), std::vector<std::string>{"PUMP1"});
     slave.stop();
 }
@@ -349,8 +340,7 @@ TEST(RegisterReader, StringBytesSwapped) {
 
     RegisterReader reader(device::InputRegister, {input_string(1, 0, 3, true, "tag")});
     EXPECT_EQ(reader.sy_channels().size(), 1);
-    const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
+    const auto fr = ASSERT_NIL_P(read_once(reader, dev));
     EXPECT_EQ(fr.series->at(0).strings(), std::vector<std::string>{"ABC"});
     slave.stop();
 }

@@ -11,15 +11,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import secret
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from x import filter, telem
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
@@ -42,6 +46,18 @@ class Details(BaseModel):
     not_after: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
     sha1: str
     sha256: str
+
+
+class Order(BaseModel):
+    """Is a sort of certificates.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Base(BaseModel):
@@ -68,6 +84,7 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        name: Selects by name.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -76,6 +93,7 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    name: filter.String | None = None
 
 
 # WhereInput is a Where written as a partial record.
@@ -87,9 +105,24 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "name": filter.StringInput,
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of certificates: the sort value and the key of a
+    certificate.
+
+    Attributes:
+        key: Is the key of the certificate at the position.
+        name: Is the name of the certificate at the position, when the order sorts by
+            it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class StoredCertificate(Base):
@@ -106,7 +139,7 @@ class FileCertificate(Base):
 
     source: Literal["file"] = "file"
     certificate_path: str
-    private_key_path: str | None = None
+    private_key_file: str | None = None
     details: Details | None = None
 
 
@@ -125,16 +158,18 @@ class RetrieveRequest(BaseModel):
         where: Selects the certificates to retrieve. An absent where selects all of
             them.
         search_term: Keeps the certificates that match the term, closest match first.
+        order: Sorts the certificates. An absent order sorts them by key.
+        after: Starts the certificates strictly past this position in their order.
         limit: Is the most certificates to return.
-        offset: Is the number of matching certificates to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class RetrieveResponse(BaseModel):
@@ -150,8 +185,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="certificate")
+TYPE_RESOURCE_ID = ID(type="certificate")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="certificate", key=str(key))

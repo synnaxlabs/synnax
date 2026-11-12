@@ -14,10 +14,8 @@ package relay
 
 import (
 	"io"
-	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -31,33 +29,15 @@ import (
 // Config is the configuration for opening the telemetry relay. See its fields for more
 // information.
 type Config struct {
-	// Transport is the network transport used to move telemetry streams. This is used
-	// to both send telemetry streams from the host node to peer nodes, and to stream
-	// telemetry from peer nodes to the host node.
-	//
-	// Remote nodes are one of the three available data sources for the relay. Data for
-	// channels whose leaseholder is not the host node will be streamed from remote
-	// nodes.
-	//
-	// [REQUIRED]
-	Transport Transport
-	// HostResolver is used to retrieve information about the host node.
-	//
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
-	// TS is the underlying time-series database engine that serves as one of the three
-	// main data sources for the relay.
-	//
-	// This is the second of the three available data sources for the relay. Data for
-	// channels whose leaseholder is the host node will be streamed from the time-series
-	// engine's streaming mechanism.
+	// TS is the underlying time-series database engine. The relay streams stored
+	// channels from it.
 	//
 	// [REQUIRED]
 	TS *ts.DB
 	// FreeWrites is the pipeline for moving data for free virtual channels. Free
-	// virtual channels are not leased to any node and their data is not stored in the
-	// cluster; their writes are propagated straight through the relay. This is mostly
-	// used for signaling changes in cluster meta-data.
+	// virtual channels are not leased to any node and their data is not stored; their
+	// writes are propagated straight through the relay. Most free channels carry
+	// metadata change notices.
 	//
 	// [REQUIRED]
 	FreeWrites confluence.Outlet[Response]
@@ -65,11 +45,12 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
-	// a streamer to receive a response before dropping the frame.
+	// StreamerBufferSize sets the channel buffer size, in frames, between the relay and
+	// each streamer. The relay drops a frame for a streamer whose buffer is full, so a
+	// slow streamer never delays the relay or other streamers.
 	//
-	// [OPTIONAL] - Defaults to 20ms.
-	SlowConsumerTimeout time.Duration
+	// [OPTIONAL] - Defaults to 100.
+	StreamerBufferSize int
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
@@ -89,7 +70,7 @@ var (
 	// configuration is not valid on its own and must be overridden with the required
 	// fields. See Config for more information.
 	DefaultConfig = Config{
-		SlowConsumerTimeout: time.Millisecond * 20,
+		StreamerBufferSize: 100,
 		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
@@ -99,13 +80,11 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.SlowConsumerTimeout = override.Numeric(
-		c.SlowConsumerTimeout,
-		other.SlowConsumerTimeout,
+	c.StreamerBufferSize = override.Numeric(
+		c.StreamerBufferSize,
+		other.StreamerBufferSize,
 	)
 	c.ResponseBufferSize = override.Numeric(
 		c.ResponseBufferSize,
@@ -118,11 +97,9 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	v.NotNil("transport", c.Transport)
-	v.NotNil("host_resolver", c.HostResolver)
 	v.NotNil("ts", c.TS)
 	v.NotNil("free_writes", c.FreeWrites)
-	v.Positive("slow_consumer_timeout", c.SlowConsumerTimeout)
+	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
 	v.Positive("response_buffer_size", c.ResponseBufferSize)
 	v.Positive("demand_buffer_size", c.DemandBufferSize)
 	return v.Error()
@@ -134,7 +111,7 @@ type Relay struct {
 	ins      alamos.Instrumentation
 	demands  confluence.Inlet[demand]
 	shutdown io.Closer
-	delta    *confluence.DynamicDeltaMultiplier[Response]
+	delta    *delta
 	cfg      Config
 }
 
@@ -148,15 +125,12 @@ func Open(configs ...Config) (*Relay, error) {
 
 	tpr := newTapper(cfg)
 	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
-	demands.SetOutletAddress("peer_demands")
+	demands.SetOutletAddress("demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
 	r.demands = demands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response](
-		cfg.SlowConsumerTimeout,
-		cfg.Instrumentation,
-	)
+	r.delta = newDelta(cfg.Instrumentation)
 	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
@@ -180,8 +154,6 @@ func Open(configs ...Config) (*Relay, error) {
 		confluence.WithRetryOnPanic(),
 	)
 
-	startServer(cfg, r.NewStreamer)
-
 	return r, nil
 }
 
@@ -192,24 +164,25 @@ func (r *Relay) Close() error {
 }
 
 func (r *Relay) connectToDelta(
-	buf int,
-) (confluence.Outlet[Response], observe.Disconnect) {
-	var (
-		data = confluence.NewStream[Response](buf)
-		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())
-	)
-	data.SetInletAddress(addr)
-	r.delta.Connect(data)
-	return data, func() {
+	accepts func(Response) bool,
+) (<-chan Response, observe.Disconnect) {
+	s := &subscriber{
+		responses: make(chan Response, r.cfg.StreamerBufferSize),
+		accepts:   accepts,
+		addr:      address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String()),
+	}
+	r.delta.connections <- s
+	return s.responses, func() {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.
 		c := make(chan struct{})
 		go func() {
-			confluence.Drain(data)
+			for range s.responses {
+			}
 			close(c)
 		}()
-		r.delta.Disconnect(data)
+		r.delta.disconnections <- s
 		<-c
 	}
 }

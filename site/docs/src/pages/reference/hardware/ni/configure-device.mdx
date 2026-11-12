@@ -47,7 +47,8 @@ The Driver looks for NI devices every few seconds. A device shows in the
 The key of an NI device is its serial number. Modules show under their chassis. The
 Driver skips CompactRIO controllers, but it finds the modules in them. The Driver also
 finds simulated devices that you create in NI MAX, so you can try Synnax without
-hardware.
+hardware. A simulated device has no serial number, so its key is its location, such as
+`Dev1`.
 
 To stop the search, right-click the Driver in the devices toolbar and select **Toggle NI
 device scanner**.

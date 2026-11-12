@@ -16,8 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synnax import secret, task
-from synnax import status as status_
+from synnax import secret, status as status_, task
 
 
 class Alert(BaseModel):

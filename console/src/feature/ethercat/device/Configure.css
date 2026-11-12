@@ -1,0 +1,47 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-ethercat-configure__frame {
+    width: 110rem;
+    max-width: 94vw;
+
+    &.console--wide {
+        width: 200rem;
+    }
+}
+
+.console-ethercat-sync__cycle {
+    width: 24rem;
+}
+
+.console-ethercat-sync__auto {
+    padding: 1rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+.console-ethercat-sync__badge {
+    margin-left: auto;
+}
+
+.console-ethercat-configure__columns {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 10rem;
+    align-items: start;
+}
+
+@media (width <= 1100px) {
+    .console-ethercat-configure__columns {
+        grid-auto-flow: row;
+        gap: 5rem;
+    }
+}

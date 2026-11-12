@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -82,22 +83,33 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ReadConfigLadder,
-			Legacy:             &legacy.Read,
-			Migrations:         []gorp.Migration{v2.NewReadMigration(slaves)},
-			SetEntryKey:        (*ReadConfig).SetKey,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			References:      readConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ReadConfigLadder,
+			Legacy:          &legacy.Read,
+			Migrations: []gorp.Migration{
+				v2.NewReadMigration(slaves),
+				v3.ReadMigration,
+			},
+			SetEntryKey: (*ReadConfig).SetKey,
+			PatchEntry:  (*ReadConfig).Patch,
+			HashEntry:   (*ReadConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
+				snap gorp.Snapshot,
 				_ string,
 				c *ReadConfig,
-			) error {
-				return v2.ResolveReadConfig(ctx, tx, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
+			},
+			ValidateEntry: func(c *ReadConfig) error {
+				v := validate.New("ethercat.ReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
 			},
 		},
 	); !ok(err, s.Read) {
@@ -105,37 +117,45 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.WriteConfigLadder,
-			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
-			SetEntryKey:        (*WriteConfig).SetKey,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.WriteConfigLadder,
+			Legacy:          &legacy.Write,
+			Migrations: []gorp.Migration{
+				v2.NewWriteMigration(slaves),
+				v3.WriteMigration,
+			},
+			SetEntryKey: (*WriteConfig).SetKey,
+			PatchEntry:  (*WriteConfig).Patch,
+			HashEntry:   (*WriteConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
+				snap gorp.Snapshot,
 				_ string,
 				c *WriteConfig,
-			) error {
-				return v2.ResolveWriteConfig(ctx, tx, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
+			ValidateEntry: (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
@@ -157,14 +177,14 @@ func (s *Service) Stores() []config.Store {
 func slavesOf(svc *device.Service) v2.Slaves {
 	return func(
 		ctx context.Context,
-		tx gorp.Tx,
+		snap gorp.Snapshot,
 		keys []string,
 	) (map[string]v2.Slave, error) {
 		var devices []device.Device
 		if err := svc.NewRetrieve().
 			Where(device.And(device.MatchKeys(keys...), device.MatchMakes("ethercat"))).
 			Entries(&devices).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
 		slaves := make(map[string]v2.Slave, len(devices))

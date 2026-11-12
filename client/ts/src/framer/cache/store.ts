@@ -23,6 +23,7 @@ import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import {
   type Block,
+  domainOf,
   offsetOf,
   RAW_LEVEL,
   RawBlock,
@@ -30,6 +31,7 @@ import {
 } from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
 import { tileSpan } from "@/framer/cache/grid";
+import { COMMIT_MARGIN } from "@/framer/cache/reader";
 
 export interface StoreProps extends Partial<
   Pick<DynamicProps, "dynamicBufferSize" | "now">
@@ -47,6 +49,13 @@ export interface StoreProps extends Partial<
    * @default TimeSpan.minutes(10)
    */
   staleThreshold?: TimeSpan;
+  /**
+   * About the most raw samples the store keeps of each streamed channel with a known
+   * index. A channel keeps more while its samples since the commit point outnumber a
+   * quarter of the limit.
+   * @default 2 ** 17
+   */
+  liveSamples?: number;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
   /**
@@ -58,6 +67,7 @@ export interface StoreProps extends Partial<
 
 const DEFAULT_BUDGET = Size.megabytes(128);
 const DEFAULT_STALE_THRESHOLD = TimeSpan.minutes(10);
+const DEFAULT_LIVE_SAMPLES = 2 ** 17;
 
 // ENTRY_OVERHEAD estimates the memory of a block apart from its samples, so that blocks
 // with no samples count against the budget too.
@@ -82,6 +92,20 @@ interface Live {
   block: RawBlock | null;
 }
 
+// A sample of an index channel.
+interface Mark {
+  time: TimeStamp;
+  alignment: bigint;
+}
+
+/** Where the raw samples of a streamed index channel and its data channels start. */
+export interface Floor {
+  /** Raw samples draw from here on. */
+  start: TimeStamp;
+  /** The store keeps raw samples from here on, or from any time when undefined. */
+  kept?: TimeStamp;
+}
+
 /**
  * Receives a span of a channel's history that changed, or of every channel's when the
  * channel is null.
@@ -100,7 +124,8 @@ export const calculated = (p: channel.Payload): boolean =>
  * leaves first. Every block of a channel holds one data type. A join appends streamed
  * samples to the raw block of their time, which stays open until the stream moves past
  * it. A sealed block stays valid until a history change names it while the history
- * signals stream. Other blocks expire.
+ * signals stream. Other blocks expire. A streamed index channel and its data channels
+ * keep about liveSamples raw samples each, from the floor of the index on.
  */
 export class Store {
   private readonly budget: number;
@@ -124,6 +149,12 @@ export class Store {
   private readonly calculated = new Set<channel.Key>();
   // leaseholders holds the node of each stored channel.
   private readonly leaseholders = new Map<channel.Key, number>();
+  private readonly liveSamples: number;
+  // indexOf holds the index of each known channel, an index itself included.
+  private readonly indexOf = new Map<channel.Key, channel.Key>();
+  // floors holds the raw sample floor of each trimmed index channel, and the floor
+  // before it.
+  private readonly floors = new Map<channel.Key, { start: Mark; kept?: Mark }>();
   private signalKey: channel.Key | null = null;
   // signalsSince is when the stream last acked the history signals, or null when it
   // does not carry them.
@@ -134,6 +165,7 @@ export class Store {
     budget = DEFAULT_BUDGET,
     staleThreshold = DEFAULT_STALE_THRESHOLD,
     dynamicBufferSize = tileSpan(RAW_LEVEL),
+    liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
     node = () => undefined,
@@ -141,6 +173,7 @@ export class Store {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
     this.dynamicBufferSize = dynamicBufferSize;
+    this.liveSamples = liveSamples;
     this.instrumentation = instrumentation;
     this.now = now;
     this.node = node;
@@ -157,12 +190,13 @@ export class Store {
 
   /**
    * Caches the block under the key as the most recently used, replacing any block
-   * there, and evicts least recently used blocks past the budget. The block it sets is
-   * never evicted. Call it again after the block changes, so its new size counts
-   * against the budget.
+   * there, and evicts least recently used blocks past the budget. A raw block takes the
+   * floor of its channel's index. The block it sets is never evicted. Call it again
+   * after the block changes, so its new size counts against the budget.
    */
   set(key: string, block: Block): void {
     if (block instanceof RawBlock) {
+      this.applyFloor(block);
       this.changed(block.channel);
       if (block.coveredCount > 0)
         this.newest.set(
@@ -263,8 +297,16 @@ export class Store {
     return this.calculated.has(ch);
   }
 
-  /** Records the channel, which decides whether history signals name it. */
+  /**
+   * Records the channel, which decides whether history signals name it, and which
+   * index's floor its raw samples follow.
+   */
   setChannel(p: channel.Payload): void {
+    const index = p.isIndex ? p.key : p.index;
+    if (index !== 0) {
+      this.indexOf.set(p.key, index);
+      this.indexOf.set(index, index);
+    }
     if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
     if (p.virtual) this.leaseholders.delete(p.key);
@@ -370,6 +412,13 @@ export class Store {
     return this.streamed.get(ch) ?? null;
   }
 
+  /** @returns where the raw samples of the index channel start, if it was trimmed. */
+  floor(index: channel.Key): Floor | undefined {
+    const floor = this.floors.get(index);
+    if (floor == null) return undefined;
+    return { start: floor.start.time, kept: floor.kept?.time };
+  }
+
   /** @returns the block the stream is writing the channel's samples into, if any. */
   open(ch: channel.Key): RawBlock | null {
     return this.live.get(ch)?.block ?? null;
@@ -416,6 +465,8 @@ export class Store {
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
       this.set(rawKey(block.channel, block.index), block);
+    if (this.indexOf.get(block.channel) === block.channel)
+      this.trim(block.channel, block);
   }
 
   /**
@@ -445,6 +496,7 @@ export class Store {
     for (const [key, { block }] of this.entries)
       if (block.channel === ch) this.delete(key);
     this.newest.delete(ch);
+    this.floors.delete(ch);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
@@ -462,6 +514,8 @@ export class Store {
     this.dataTypes.clear();
     this.newest.clear();
     this.streamed.clear();
+    this.indexOf.clear();
+    this.floors.clear();
     this.bytes = 0;
   }
 
@@ -477,6 +531,70 @@ export class Store {
     this.set(rawKey(block.channel, block.index), block);
   }
 
+  // Moves the index's floor once more than half the sample limit streamed past it. The
+  // new floor keeps a quarter of the limit, and never passes the commit point. Each
+  // block of the index's channels at either floor takes it again.
+  private trim(index: channel.Key, open: RawBlock): void {
+    const prev = this.floors.get(index);
+    const keep = this.liveSamples / 4;
+    const committed = this.now().sub(COMMIT_MARGIN);
+    let since = 0;
+    let next: Mark | null = null;
+    walk: for (let i = open.index; ; i--) {
+      const block = i === open.index ? open : this.peekRaw(index, i);
+      if (block == null) break;
+      const series = block.seriesIn(TimeRange.MAX);
+      for (let j = series.length - 1; j >= 0; j--) {
+        const s = series[j];
+        if (prev != null && s.alignment < prev.start.alignment) break walk;
+        since += s.length;
+        if (next == null && since >= keep && !s.timeRange.start.after(committed))
+          next = { time: s.timeRange.start, alignment: s.alignment };
+        if (next != null && since > 2 * keep) break walk;
+      }
+    }
+    if (
+      next == null ||
+      since <= 2 * keep ||
+      (prev != null && next.alignment <= prev.start.alignment)
+    )
+      return;
+    const kept = prev?.start;
+    this.floors.set(index, { start: next, kept });
+    const domains = new Set(
+      [next, kept].flatMap((m) => (m == null ? [] : [Number(domainOf(m.alignment))])),
+    );
+    for (const [ch, of] of this.indexOf) {
+      if (of !== index) continue;
+      for (const domain of domains) {
+        const block = this.peekRaw(ch, domain);
+        if (block != null) this.set(rawKey(ch, domain), block);
+      }
+      this.changed(ch);
+    }
+  }
+
+  // Drops the block's samples before the kept floor of its channel's index, and splits
+  // its series at both floors, so that every channel of the index draws from them.
+  private applyFloor(block: RawBlock): void {
+    const index = this.indexOf.get(block.channel);
+    const floor = index == null ? undefined : this.floors.get(index);
+    if (floor == null) return;
+    const { start, kept } = floor;
+    if (domainOf(start.alignment) === BigInt(block.index))
+      block.split(start.alignment, start.time);
+    if (kept != null && domainOf(kept.alignment) === BigInt(block.index)) {
+      block.split(kept.alignment, kept.time);
+      block.trim(kept.alignment, kept.time);
+    }
+  }
+
+  // Returns the cached raw block, leaving its recency alone.
+  private peekRaw(ch: channel.Key, index: number): RawBlock | undefined {
+    const block = this.entries.get(rawKey(ch, index))?.block;
+    return block instanceof RawBlock ? block : undefined;
+  }
+
   private changed(ch: channel.Key): void {
     this.epochs.set(ch, this.epoch(ch) + 1);
   }
@@ -487,6 +605,7 @@ export class Store {
       live = {
         buffer: new Dynamic({
           dynamicBufferSize: this.dynamicBufferSize,
+          maxBufferSize: this.liveSamples / 16,
           instrumentation: this.instrumentation.child(`live-${ch}`),
           now: this.now,
         }),

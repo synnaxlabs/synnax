@@ -40,9 +40,12 @@ every frame.
 
 1. In the devices toolbar, right-click the device and select **Create write task**.
 2. Set **State update rate**.
-3. Click **Add channel**. In the port list of the channel, select **Analog** or
-   **Digital**, then select the port.
-4. Click <Icon.Play /> (**Start**).
+3. The task starts with one digital output channel. To add more, click **Add channel**,
+   or click a free port in the map above the channel list. See
+   [ports](/reference/hardware/tasks#ports).
+4. In the channel list, set the **Type** of each channel to **Analog** or **Digital**,
+   then click its **Port** and select a port in the grid.
+5. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `lj1`, the output
 `DIO4` gives the command channel `lj1_DIO4_cmd` with the index `lj1_DIO4_cmd_time`, and
@@ -86,9 +89,6 @@ client.tasks.configure(task)
 task.start()
 ```
 
-Python creates the task on the embedded Driver of the Core. For a device on another
-Driver, use the Console or TypeScript.
-
   </Fragment>
   <Fragment slot="typescript">
 
@@ -129,7 +129,7 @@ await task.start();
 | Device            | `device`               |         | The serial number of the device.                          |
 | State update rate | `state_rate`           | 10 Hz   | How often the task writes the state channels.             |
 | Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-|                   | `auto_start`           | Off     | Starts the task each time the Driver starts. Code only.   |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
 
 <Divider.Divider x />
 
@@ -184,6 +184,19 @@ A channel in code has no command channel or no state channel.
 <Problem.Fix>
 
 Create both and set them on the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Another channel uses FIO4"}>
+<Problem.Cause>
+
+Two enabled channels use the same port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a different port for one of the channels, or disable one of them.
 
 </Problem.Fix>
 </Problem.Item>
