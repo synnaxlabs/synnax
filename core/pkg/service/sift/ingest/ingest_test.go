@@ -840,6 +840,57 @@ var _ = Describe("Engine", func() {
 					Expect(server.Invalid()).To(BeEmpty())
 				})
 
+			It("Should resend the values of a channel written without its index",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+						Retry: breaker.Config{
+							BaseInterval: 300 * time.Millisecond,
+						},
+					})
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					write(
+						ctx,
+						idx,
+						[]telem.TimeStamp{at(1), at(2)},
+						map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						},
+					)
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					server.Fail(status.Error(codes.Unavailable, "sift is down"))
+					keys := channel.Keys{ch.Key()}
+					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+						Keys:  keys,
+						Start: at(1),
+					}))
+					Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(1.0, 2.0),
+					})))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					Eventually(rec.retryErrors).Should(HaveLen(1))
+					// The next attempt catches up past this value of the channel.
+					write(ctx, idx, []telem.TimeStamp{at(3)},
+						map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(3.0)})
+					want := []fake.Point{
+						point(at(1), 1.0),
+						point(at(2), 2.0),
+						point(at(3), 3.0),
+					}
+					Eventually(points(ch.Name)).Should(Equal(want))
+					Expect(stop()).To(Succeed())
+					Expect(server.Points("stand", ch.Name)).To(Equal(want))
+					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+
 			It("Should stop reading the stored values of a channel once it sent them",
 				func(ctx SpecContext) {
 					idx := createIndex(ctx)

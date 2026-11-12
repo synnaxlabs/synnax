@@ -286,6 +286,11 @@ func (e *Engine) Stream(ctx context.Context, from Positions) error {
 
 // stream catches up from storage until a pass is short, then sends live samples.
 func (e *Engine) stream(ctx context.Context, a *attempt) (err error) {
+	// A channel that an earlier attempt marked has values before the positions, which
+	// catching up would pass.
+	if err = a.sendUnindexed(ctx); err != nil {
+		return err
+	}
 	for {
 		start := time.Now()
 		if err = e.catchUp(ctx, a); err != nil {
@@ -432,6 +437,13 @@ func (e *Engine) retry(
 	if err != nil {
 		return err
 	}
+	values := make(map[channel.Key]telem.TimeStamp)
+	for _, f := range e.flows {
+		for _, ch := range f.channels {
+			values[ch.Key()] = confirmed[f.index.Key()]
+		}
+	}
+	unindexed := make(map[channel.Key]set.Set[channel.Key])
 	for {
 		id, err := e.ingestionConfig(ctx)
 		if err == nil {
@@ -442,14 +454,14 @@ func (e *Engine) retry(
 					ctx:     ctx,
 					timeout: e.cfg.ConfirmTimeout.Duration(),
 				},
-				configID:  id,
-				confirmed: confirmed,
-				sent:      maps.Clone(confirmed),
-				start:     maps.Clone(confirmed),
-				ends:      make(map[channel.Key]telem.Alignment),
-				values:    make(map[channel.Key]telem.TimeStamp),
-				unindexed: make(map[channel.Key]set.Set[channel.Key]),
-				last:      time.Now(),
+				configID:        id,
+				confirmed:       confirmed,
+				sent:            maps.Clone(confirmed),
+				confirmedValues: values,
+				values:          maps.Clone(values),
+				unindexed:       unindexed,
+				ends:            make(map[channel.Key]telem.Alignment),
+				last:            time.Now(),
 			}
 			confirms := e.confirms
 			err = run(ctx, a)
@@ -546,8 +558,6 @@ type attempt struct {
 	configID  string
 	confirmed Positions
 	sent      Positions
-	// start holds the positions the attempt started from.
-	start Positions
 	// pending counts the values sent since the last checkpoint.
 	pending int64
 	last    time.Time
@@ -564,7 +574,11 @@ type attempt struct {
 	ends map[channel.Key]telem.Alignment
 	// values holds, for each data channel, the time after the last value sent.
 	values map[channel.Key]telem.TimeStamp
+	// confirmedValues holds the entries of values that Sift confirmed. Attempts share
+	// it, as they share confirmed.
+	confirmedValues map[channel.Key]telem.TimeStamp
 	// unindexed holds the data channels of each index that arrived live without it.
+	// Attempts share it, so that a retry still sends their values.
 	unindexed map[channel.Key]set.Set[channel.Key]
 }
 
@@ -593,22 +607,13 @@ func (a *attempt) encode(
 		return a.sender.send(req)
 	})
 	for i, ts := range last {
-		if ts > a.value(f, f.channels[i]) {
-			a.values[f.channels[i].Key()] = ts
+		if key := f.channels[i].Key(); ts > a.values[key] {
+			a.values[key] = ts
 		}
 	}
 	a.pending += n
 	a.failed = err != nil && !errors.Is(err, ctx.Err())
 	return next, err
-}
-
-// value returns the time after the last value of ch sent, or the start of the attempt
-// when it sent none.
-func (a *attempt) value(f flow, ch channel.Channel) telem.TimeStamp {
-	if v, ok := a.values[ch.Key()]; ok {
-		return v
-	}
-	return a.start[f.index.Key()]
 }
 
 // stop confirms what the attempt sent after ctx is cancelled, so the next run starts
@@ -640,6 +645,10 @@ func (a *attempt) checkpoint(ctx context.Context, always bool) error {
 	}
 	if err := a.sender.confirm(); err != nil {
 		a.failed = true
+		return err
+	}
+	maps.Copy(a.confirmedValues, a.values)
+	if err := a.unmark(ctx); err != nil {
 		return err
 	}
 	through := a.through()
@@ -720,36 +729,44 @@ func (a *attempt) markUnindexed(f flow, fr framer.Frame) {
 
 // sendUnindexed sends the stored values of each channel that arrived without its index,
 // from its last value sent to the index position. It sends no other channel, so Sift
-// gets no value twice. A channel stays marked while it has a stored value at or after
-// the index position.
+// gets no value twice.
 func (a *attempt) sendUnindexed(ctx context.Context) error {
 	for _, f := range a.engine.flows {
 		keys := a.unindexed[f.index.Key()]
 		end := a.sent[f.index.Key()]
 		for _, ch := range f.channels {
-			if !keys.Contains(ch.Key()) {
+			start := a.values[ch.Key()]
+			if !keys.Contains(ch.Key()) || start >= end {
 				continue
 			}
-			if start := a.value(f, ch); start < end {
-				if err := a.engine.read(
-					ctx,
-					f,
-					[]channel.Channel{ch},
-					telem.TimeRange{Start: start, End: end},
-					func(fr framer.Frame) error {
-						_, err := a.encode(ctx, f, fr, start)
-						return err
-					},
-				); err != nil {
+			if err := a.engine.read(
+				ctx,
+				f,
+				[]channel.Channel{ch},
+				telem.TimeRange{Start: start, End: end},
+				func(fr framer.Frame) error {
+					_, err := a.encode(ctx, f, fr, start)
 					return err
-				}
+				},
+			); err != nil {
+				return err
 			}
-			pending, err := a.engine.stored(ctx, ch, end)
+		}
+	}
+	return nil
+}
+
+// unmark clears the mark of each channel that has no stored value at or after the
+// position of its index. Call it only once Sift confirmed the values sent.
+func (a *attempt) unmark(ctx context.Context) error {
+	for index, keys := range a.unindexed {
+		for key := range keys {
+			found, err := a.engine.stored(ctx, key, a.sent[index])
 			if err != nil {
 				return err
 			}
-			if !pending {
-				keys.Remove(ch.Key())
+			if !found {
+				keys.Remove(key)
 			}
 		}
 	}
@@ -759,11 +776,11 @@ func (a *attempt) sendUnindexed(ctx context.Context) error {
 // stored reports whether storage holds a value of ch at or after ts.
 func (e *Engine) stored(
 	ctx context.Context,
-	ch channel.Channel,
+	ch channel.Key,
 	ts telem.TimeStamp,
 ) (found bool, err error) {
 	it, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{ch.Key()},
+		Keys:   channel.Keys{ch},
 		Bounds: telem.TimeRange{Start: ts, End: telem.TimeStampMax},
 	})
 	if err != nil {
