@@ -85,12 +85,7 @@ interface UploadButtonProps extends UploadModalParams {
   onRejected: (reply: status.Status) => void;
 }
 
-const UploadButton = ({
-  name,
-  source,
-  onUploaded,
-  onRejected,
-}: UploadButtonProps) => {
+const UploadButton = ({ name, source, onUploaded, onRejected }: UploadButtonProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
