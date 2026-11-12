@@ -112,7 +112,15 @@ func queueUpload(
 		name, subject, tr = rng.Name, "range "+rng.Name, rng.TimeRange
 	}
 	// A span that has not ended sends the data written so far.
-	tr.End = min(tr.End, telem.Now())
+	now := telem.Now()
+	if tr.Start > now {
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"%s starts in the future, so it has no data yet",
+			subject,
+		)
+	}
+	tr.End = min(tr.End, now)
 	if tr.Span() <= 0 {
 		return "", errors.Wrapf(
 			validate.ErrValidation,
