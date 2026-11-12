@@ -153,9 +153,7 @@ const Selector = ({
     >
       <Menu.ContextMenu {...contextMenuProps} menu={contextMenu}>
         <Tabs.Frame x align="center" className={CSS.BE("view", "views")}>
-          <div className={CSS.BE("view", "search")}>
-            <Search />
-          </div>
+          <Search />
           <Strip
             onContextMenu={contextMenuProps.open}
             icon={icon}

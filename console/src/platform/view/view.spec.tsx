@@ -294,6 +294,7 @@ describe("View permissions", () => {
     await renderHarness(await createSubject({}));
     await screen.findByText("All ranges");
     expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+    expect(document.querySelector(".console-view__search")).toBeNull();
     expect(queryIconButton(getViews(), "add")).toBeNull();
   });
 

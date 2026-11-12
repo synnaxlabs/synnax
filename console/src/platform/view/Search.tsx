@@ -12,6 +12,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
 /** The search field of a frame, which holds the term. */
@@ -20,17 +21,19 @@ export const Search = (): ReactElement | null => {
     useContext("View.Search");
   if (!editable) return null;
   return (
-    <Input.Text
-      size="small"
-      level="h5"
-      color={9}
-      startContent={startContent}
-      variant="text"
-      grow
-      value={searchTerm}
-      onChange={setSearchTerm}
-      placeholder={`Search ${plural(resourceType)}...`}
-    />
+    <div className={CSS.BE("view", "search")}>
+      <Input.Text
+        size="small"
+        level="h5"
+        color={9}
+        startContent={startContent}
+        variant="text"
+        grow
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={`Search ${plural(resourceType)}...`}
+      />
+    </div>
   );
 };
 
