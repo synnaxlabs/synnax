@@ -86,6 +86,7 @@ type Server struct {
 	paused    chan struct{}
 	runs      []*runsv2.Run
 	runFails  []error
+	cfgFails  []error
 }
 
 var (
@@ -211,6 +212,14 @@ func (s *Server) FailRuns(errs ...error) {
 	s.runFails = append(s.runFails, errs...)
 }
 
+// FailConfigs makes each of the next calls to CreateIngestionConfig return one of
+// errs, in order.
+func (s *Server) FailConfigs(errs ...error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfgFails = append(s.cfgFails, errs...)
+}
+
 // Pause stops ingest streams from reading requests until Resume, so clients back up.
 func (s *Server) Pause() {
 	s.mu.Lock()
@@ -237,6 +246,11 @@ func (s *Server) CreateIngestionConfig(
 ) (*ingestionconfigsv2.CreateIngestionConfigResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if len(s.cfgFails) > 0 {
+		err := s.cfgFails[0]
+		s.cfgFails = s.cfgFails[1:]
+		return nil, err
+	}
 	if req.AssetName == "" {
 		return nil, status.Error(codes.InvalidArgument, "asset_name is required")
 	}

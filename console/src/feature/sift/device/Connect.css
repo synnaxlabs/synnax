@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-sift-connect {
-    width: 155rem;
-}
-
 .console-sift-connect__sections {
     grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
 }
