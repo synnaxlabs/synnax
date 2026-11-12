@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
-import { assert, describe, expect, it, vi } from "vitest";
+import { type UnaryClient } from "@synnaxlabs/freighter";
+import { id, Series, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
+import { type z } from "zod";
 
+import { framer } from "@/framer";
 import { NotFoundError, PathError } from "@/index";
-import { type query } from "@/query";
+import { query } from "@/query";
 import { rack } from "@/rack";
 import { secret } from "@/secret";
 import { task } from "@/task";
@@ -21,6 +24,7 @@ import {
   expectDeleted,
   expectLive,
   holdResponses,
+  PushStreamer,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -718,6 +722,62 @@ describe("Secret", () => {
       });
       await expect(grant).rejects.toThrow(NotFoundError);
       await expect(grant).rejects.toThrow(`Secrets with keys [${key}] not found`);
+    });
+  });
+
+  describe("record cap", () => {
+    it("should keep the uses of a held secret when it trims uses", async () => {
+      const uses = [{ type: "certificate", key: "held" }];
+      const send = async (
+        target: string,
+        req: { where: { key: { eq: secret.Key } } },
+        _: z.ZodType,
+        res: z.ZodType,
+      ) => {
+        if (target !== "/secret/retrieve")
+          throw new Error(`unexpected request to ${target}`);
+        const { eq: key } = req.where.key;
+        return res.parse({
+          secrets: [{ key, name: key, source: "stored", updated: 0, uses }],
+        });
+      };
+      const unary = { use: () => {}, send } as unknown as UnaryClient;
+      const stream = new PushStreamer();
+      const cache = new query.Cache({
+        openStreamer: async () => stream,
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
+        onError: () => {},
+        recordCap: 4,
+      });
+      onTestFinished(async () => await cache.close());
+      const secrets = new secret.Client({ unary, cache });
+      await cache.ensureStreaming();
+      const [held, ...others] = Array.from({ length: 6 }, () => uuid.create());
+      const q = { key: held, includeUses: true };
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await secrets.retrieve(q);
+      // The fifth read trims once. The sixth trims again and drops the oldest uses.
+      for (const key of others) await secrets.retrieve({ key, includeUses: true });
+      stream.push(
+        new framer.Frame({
+          [secret.ACTION_CHANNEL_NAME]: new Series([
+            {
+              key: held,
+              dispatchKey: "remote-dispatch",
+              seq: 1,
+              actions: [
+                secret.create({
+                  secret: { key: held, name: "Renamed", source: "stored", updated: 0 },
+                }),
+              ],
+            },
+          ]),
+        }),
+      );
+      await expect
+        .poll(() => expectLive(secrets.watch(q).getCached()).name)
+        .toBe("Renamed");
+      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(uses);
     });
   });
 });
