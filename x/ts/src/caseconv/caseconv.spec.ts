@@ -429,6 +429,13 @@ describe("caseconv", () => {
         expect(() => convert({ inner_pair: [1, 2, 3] })).toThrow(zod.ParseError);
       });
 
+      it("Should pass a null value at a path through", () => {
+        const { convert } = caseconv.snakeToCamelPath(["nested", "inner_pair"], {
+          schema: docZ,
+        });
+        expect(convert(null)).toBeNull();
+      });
+
       it("Should decode a marked value inside an object set at a path", () => {
         const { convert } = caseconv.snakeToCamelPath(["nested"], { schema: docZ });
         expect(convert({ inner_pair: "1:2" })).toEqual({ innerPair: [1, 2] });

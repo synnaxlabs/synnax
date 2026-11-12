@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestRangerV2(t *testing.T) {
+func TestRangerV3(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Ranger v3 Suite", SuiteConfig())
 }

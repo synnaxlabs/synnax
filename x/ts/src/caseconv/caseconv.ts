@@ -483,7 +483,7 @@ const convertChild = <V>(
   converter: Converter,
   encodes: boolean,
 ): V => {
-  if (!encodes && schema != null && getEncoder(schema) != null)
+  if (!encodes && value != null && schema != null && getEncoder(schema) != null)
     return decodeMarked(schema, value, true) as V;
   if (isValidObject(value))
     return isPreservedType(value) ? value : converter(value, { schema });

@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestPanelV3(t *testing.T) {
+func TestPanelV4(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Panel v4 Suite", SuiteConfig())
 }

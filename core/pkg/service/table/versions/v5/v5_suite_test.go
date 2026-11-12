@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestTableV4(t *testing.T) {
+func TestTableV5(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Table v5 Suite", SuiteConfig())
 }

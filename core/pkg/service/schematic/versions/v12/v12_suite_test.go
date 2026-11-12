@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSchematicV11(t *testing.T) {
+func TestSchematicV12(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Schematic v12 Suite", SuiteConfig())
 }

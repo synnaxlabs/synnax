@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSymbolV3(t *testing.T) {
+func TestSymbolV4(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Schematic Symbol v4 Suite", SuiteConfig())
 }
