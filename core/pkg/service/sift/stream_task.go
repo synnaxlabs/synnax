@@ -30,6 +30,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 // StreamTaskType is the type of a task that streams live data to Sift.
@@ -116,9 +118,11 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 	}
 	runs := &runSync{
 		task:     t,
+		uri:      props.URI,
 		progress: p,
 		wake:     make(chan struct{}, 1),
 		changed:  make(set.Set[ranger.Key]),
+		rejected: make(set.Set[ranger.Key]),
 	}
 	e, err := ingest.New(ctx, ingest.Config{
 		DB:                 t.factoryCfg.DB,
@@ -162,7 +166,7 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 			disconnect := t.factoryCfg.Ranger.OnAction(runs.observe)
 			defer disconnect()
 			runs.signal()
-			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic())
+			sCtx.Go(runs.run, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 		}
 		sCtx.Go(func(ctx context.Context) error {
 			return e.Stream(ctx, from)
@@ -282,13 +286,16 @@ func (p *progress) write(ctx context.Context) {
 // range changes.
 type runSync struct {
 	task     *streamTask
+	uri      string
 	engine   *ingest.Engine
 	progress *progress
 	wake     chan struct{}
 	// synced is set once a sync succeeds. Until then, every sync checks the run of each
 	// ended range, since a range can change while the task is stopped.
 	synced bool
-	mu     sync.Mutex
+	// rejected holds the ranges whose run Sift rejected, which wait until they change.
+	rejected set.Set[ranger.Key]
+	mu       sync.Mutex
 	// changed holds the ranges that changed since the last sync. It is guarded by mu.
 	changed set.Set[ranger.Key]
 }
@@ -317,9 +324,15 @@ func (r *runSync) run(ctx context.Context) error {
 			return nil
 		case <-r.wake:
 		}
-		if err := r.sync(ctx); err != nil && ctx.Err() == nil {
-			r.task.ReportError(ctx, "Failed to set Sift run", err.Error())
+		err := r.sync(ctx)
+		if err == nil || ctx.Err() != nil {
+			continue
 		}
+		// The API key fails every run and every send, so the task stops.
+		if st, ok := statusOf(err); ok && denied(st) {
+			return failure(r.uri, st.Err())
+		}
+		r.task.ReportError(ctx, "Failed to set Sift run", err.Error())
 	}
 }
 
@@ -344,8 +357,12 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		return err
 	}
 	for _, rng := range ranges {
+		if changed.Contains(rng.Key) {
+			r.rejected.Remove(rng.Key)
+		}
 		end := rng.TimeRange.End
-		if end > sent || (r.synced && end <= since && !changed.Contains(rng.Key)) {
+		if end > sent || r.rejected.Contains(rng.Key) ||
+			(r.synced && end <= since && !changed.Contains(rng.Key)) {
 			continue
 		}
 		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
@@ -358,7 +375,16 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			TimeRange: rng.TimeRange,
 			Tags:      tags,
 		}); err != nil {
-			return err
+			st, ok := statusOf(err)
+			if !ok || denied(st) {
+				return err
+			}
+			r.rejected.Add(rng.Key)
+			r.task.ReportError(ctx, "Failed to set Sift run", fmt.Sprintf(
+				"Sift rejected the run of %s: %s. Change the range to try again.",
+				rng.Name,
+				st.Message(),
+			))
 		}
 	}
 	if sent > since {
@@ -366,6 +392,20 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 	}
 	r.synced = true
 	return nil
+}
+
+// statusOf returns the gRPC status that err wraps.
+func statusOf(err error) (*grpcstatus.Status, bool) {
+	var gs interface{ GRPCStatus() *grpcstatus.Status }
+	if !errors.As(err, &gs) {
+		return nil, false
+	}
+	return gs.GRPCStatus(), true
+}
+
+// denied reports whether st rejects the API key rather than one request.
+func denied(st *grpcstatus.Status) bool {
+	return st.Code() == codes.Unauthenticated || st.Code() == codes.PermissionDenied
 }
 
 // rangeTags returns the names of the labels of rng, which become the tags of its Sift
