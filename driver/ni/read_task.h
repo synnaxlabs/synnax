@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <set>
@@ -26,6 +27,10 @@
 #include "driver/ni/ni.h"
 
 namespace driver::ni {
+/// @brief the largest difference between the configured and the actual sample rate
+/// that a read task accepts, as a fraction of the configured rate.
+const double MAX_RATE_ERROR = 1e-3;
+
 /// @brief the configuration for a read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device key that will be used for the channels in the task. Read
@@ -236,8 +241,8 @@ private:
     }
 
     /// @brief fails when DAQmx moved the sample rate by more than one step of the
-    /// sample clock timebase. The sample clock stamps samples from the configured rate,
-    /// so a moved rate gives wrong timestamps.
+    /// sample clock timebase, or by more than MAX_RATE_ERROR. The sample clock stamps
+    /// samples from the configured rate, so a moved rate gives wrong timestamps.
     [[nodiscard]] x::errors::Error
     check_rate(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle handle) const {
         if (this->software_timed) return x::errors::NIL;
@@ -257,7 +262,9 @@ private:
                 &timebase
             ))
             return err;
-        if (std::abs(actual - configured) <= configured * configured / timebase)
+        const auto step = configured * configured / timebase;
+        if (std::abs(actual - configured) <=
+            std::min(step, MAX_RATE_ERROR * configured))
             return x::errors::NIL;
         const auto rate = channel::format_number(actual);
         return channel::field_err("sample_rate", "Device would run at " + rate + " Hz");

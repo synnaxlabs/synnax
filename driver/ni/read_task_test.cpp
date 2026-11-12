@@ -1899,6 +1899,16 @@ TEST(ReadTaskConfigTest, testApplyAcceptsNearestTimebaseRate) {
     ASSERT_NIL(apply_at_rate(30000, 30003.0003, 100e6));
 }
 
+/// @brief it should fail on a rate one step away when the step is more than 0.1 % of
+/// the rate, as an X Series device runs 1004000 Hz at 1010101.01 Hz.
+TEST(ReadTaskConfigTest, testApplyFailsOnLargeTimebaseStep) {
+    const auto err = apply_at_rate(1004000, 1010101.0101, 100e6);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    const auto fields = x::json::json::parse(err.data)["errors"];
+    ASSERT_EQ(fields.size(), 1);
+    EXPECT_EQ(fields[0]["message"], "Device would run at 1010101.01 Hz");
+}
+
 /// @brief it should accept a rate that DAQmx reads back with rounding, as a PXIe-4303
 /// reads 1000 Hz back as 1000.0000003 Hz.
 TEST(ReadTaskConfigTest, testApplyAcceptsRoundedRate) {
