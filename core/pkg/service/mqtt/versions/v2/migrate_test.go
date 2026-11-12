@@ -21,13 +21,12 @@ import (
 
 var _ = Describe("Migrate", func() {
 	stored := func(c v1.ChannelField) v1.ChannelField {
-		c.Pointer, c.Channel, c.Name = "/v", 7, "cmd"
+		c.Pointer, c.Name = "/v", "cmd"
 		return c
 	}
 	base := func(dt telem.DataType) v2.BaseChannelField {
 		return v2.BaseChannelField{
 			Pointer:  "/v",
-			Channel:  7,
 			Name:     "cmd",
 			DataType: &dt,
 		}
@@ -102,6 +101,32 @@ var _ = Describe("Migrate", func() {
 				TimeFormat:       payload.TimeFormatISO8601,
 			},
 		),
+		Entry("a time format on a bound field as a timestamp, whatever its data type",
+			v1.ChannelField{
+				Channel:    7,
+				JSONType:   payload.JSONTypeString,
+				TimeFormat: &unixMs,
+			},
+			v2.TimestampChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.Float64T),
+				TimeFormat: payload.TimeFormatUnixMs,
+			}),
+		Entry("a number on a bound field as a float, for its channel to reconcile",
+			v1.ChannelField{
+				Channel:  7,
+				JSONType: payload.JSONTypeNumber,
+				DataType: telem.Int16T,
+			},
+			v2.FloatChannelField{
+				Pointer:    "/v",
+				Channel:    7,
+				Name:       "cmd",
+				DataType:   new(telem.Int16T),
+				EnumValues: []payload.FloatEntry{},
+			}),
 		Entry("a UUID channel as a uuid",
 			v1.ChannelField{JSONType: payload.JSONTypeString, DataType: telem.UUIDT},
 			v2.UuidChannelField{BaseChannelField: base(telem.UUIDT)}),

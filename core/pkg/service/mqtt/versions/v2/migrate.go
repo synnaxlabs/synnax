@@ -19,13 +19,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// MigrateChannelField lifts a v1 channel field to v2 by its stored shape and data type,
-// without its Synnax channel. A timestamp data type makes a timestamp field in its
-// time format, ISO 8601 when it has none. A boolean JSON type makes a boolean field,
-// and a string with no entries a string field. A number, or a string with entries,
-// makes a float field that keeps the entries. The field then takes the kind and the
-// entries that its data type allows, so a number on an int8 channel becomes an
-// integer field. The caller reconciles the field against its Synnax channel.
+// MigrateChannelField lifts a v1 channel field to v2 by its stored shape, without its
+// Synnax channel. A timestamp data type, or a time format on a field with a channel,
+// makes a timestamp field in that format, ISO 8601 when it has none. A boolean JSON
+// type
+// makes a boolean field, and a string with no entries a string field. A number, or a
+// string with entries, makes a float field that keeps the entries. A field with no
+// channel then takes the kind and the entries its data type allows, so a number for a
+// new int8 channel becomes an integer field. The caller reconciles a field that has a
+// channel against that channel, because v1 encoded by the channel's own data type.
 func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, error) {
 	old.ApplyDefaults()
 	dt := old.DataType
@@ -37,7 +39,7 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 	}
 	var c xpayload.Channel
 	switch {
-	case dt == telem.TimestampT:
+	case dt == telem.TimestampT || (old.TimeFormat != nil && old.Channel != 0):
 		c = xpayload.Channel{
 			Kind:       xpayload.KindTimestamp,
 			TimeFormat: lo.FromPtrOr(old.TimeFormat, payload.TimeFormatISO8601),
@@ -60,7 +62,9 @@ func MigrateChannelField(_ context.Context, old v1.ChannelField) (ChannelField, 
 			),
 		}
 	}
-	c, _ = c.Reconcile(dt)
+	if old.Channel == 0 {
+		c, _ = c.Reconcile(dt)
+	}
 	return channelField(base, c), nil
 }
 

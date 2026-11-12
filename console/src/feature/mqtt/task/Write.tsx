@@ -334,7 +334,12 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         if (client == null) throw new DisconnectedError();
         const ch = await client.channels.retrieve(key);
         const current = get(root.config.targets[copy.key], { optional: true })?.value;
-        if (current?.type !== "plain" || current.channel.dataType !== initial) return;
+        if (
+          current?.type !== "plain" ||
+          current.channel.channel !== 0 ||
+          current.channel.dataType !== initial
+        )
+          return;
         set(path.channel.dataType, ch.dataType.toString());
       }, "Failed to copy the data type of the command channel");
     });
