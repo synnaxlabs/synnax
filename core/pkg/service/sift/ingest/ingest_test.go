@@ -839,6 +839,50 @@ var _ = Describe("Engine", func() {
 					Expect(server.Points("stand", other.Name)).To(HaveLen(2))
 					Expect(server.Invalid()).To(BeEmpty())
 				})
+
+			It("Should stop reading the stored values of a channel once it sent them",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					other := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key(), other.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+					})
+					writeCh := func(start telem.TimeStamp, mode framer.WriterMode) {
+						GinkgoHelper()
+						keys := channel.Keys{ch.Key()}
+						w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+							Keys:  keys,
+							Start: start,
+							Mode:  mode,
+						}))
+						Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+							telem.NewSeriesV(1.0, 2.0),
+						})))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+					}
+					writeOther := func(stamps ...telem.TimeStamp) {
+						GinkgoHelper()
+						write(ctx, idx, stamps, map[channel.Key]telem.Series{
+							other.Key(): telem.NewSeriesV(1.0, 2.0),
+						})
+					}
+					points := func(name string) func() []fake.Point {
+						return func() []fake.Point { return server.Points("stand", name) }
+					}
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					writeOther(at(1), at(2))
+					Eventually(points(other.Name)).Should(HaveLen(2))
+					writeCh(at(1), framer.WriterModePersistStream)
+					Eventually(points(ch.Name)).Should(HaveLen(2))
+					writeOther(at(3), at(4))
+					Eventually(points(other.Name)).Should(HaveLen(4))
+					// Only a read of the stored values of ch can find this write.
+					writeCh(at(3), framer.WriterModePersistOnly)
+					Consistently(points(ch.Name)).Should(HaveLen(2))
+					Expect(stop()).To(Succeed())
+				})
 		})
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
