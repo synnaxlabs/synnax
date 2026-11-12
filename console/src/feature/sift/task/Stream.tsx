@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Select } from "@synnaxlabs/lyra/select";
-import { Channel } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Channel, Status as PStatus } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -19,6 +23,7 @@ import { Select as SelectDevice } from "@/feature/sift/device/Select";
 import { MAKE } from "@/feature/sift/device/types";
 import {
   deployStreamConfigZ,
+  PROGRESS_KEY_PREFIX,
   STREAM_SCHEMAS,
   STREAM_TYPE,
   type StreamSchemas,
@@ -52,6 +57,37 @@ const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to send",
 };
 
+const Progress = () => {
+  const key = PForm.useFieldValue(path.key);
+  const progress = PStatus.useResult({ key: `${PROGRESS_KEY_PREFIX}${key}` }).data;
+  if (progress == null) return null;
+  return (
+    <PForm.Section title="Progress">
+      <Flex.Box y gap="tiny">
+        <Flex.Box x align="center" gap="small">
+          <Status.Indicator variant={progress.variant} />
+          <Text.Text>{progress.message}</Text.Text>
+          <Text.Text x>
+            <Telem.Text.TimeSpanSince
+              el="span"
+              level="p"
+              color="gray"
+              format="semantic"
+              variant="code"
+            >
+              {progress.time}
+            </Telem.Text.TimeSpanSince>
+            <Icon.Time color={9} />
+          </Text.Text>
+        </Flex.Box>
+        <Text.Text level="small" color={9}>
+          {progress.description}
+        </Text.Text>
+      </Flex.Box>
+    </PForm.Section>
+  );
+};
+
 const Form: FC = () => (
   <PForm.Sections>
     <PForm.Section title="Data">
@@ -78,6 +114,7 @@ const Form: FC = () => (
         )}
       </PForm.Field>
     </PForm.Section>
+    <Progress />
   </PForm.Sections>
 );
 
