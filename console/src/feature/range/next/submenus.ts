@@ -103,8 +103,8 @@ export interface Submenus {
 
 /**
  * Opens the values of one property of a menu at a time, beside the menu. A rest on a
- * property opens its values, a click or ArrowRight opens them at once, and ArrowLeft
- * or Escape closes them. While the pointer moves toward open values, the properties it
+ * property opens its values, a click or ArrowRight opens them at once, and ArrowLeft or
+ * Escape closes them. While the pointer moves toward open values, the properties it
  * crosses neither light nor open. Each trigger names its property with a
  * `data-property` attribute, and one set of handlers on the menu reads them all.
  */

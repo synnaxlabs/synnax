@@ -184,14 +184,12 @@ const formatTick = ({ at, unit, size }: Tick, first: boolean): string => {
 };
 
 const GRID_LINE = "var(--console-range-timeline-line)";
+const GRID_FILL = `linear-gradient(${GRID_LINE}, ${GRID_LINE})`;
 
 /** One grid line per tick, as background layers, since months differ in length. */
 const grid = (marks: Tick[], w: Window): string =>
   marks
-    .map(
-      ({ at }) =>
-        `linear-gradient(${GRID_LINE}, ${GRID_LINE}) ${percent(at, w)}% 0 / 1px 100% no-repeat`,
-    )
+    .map(({ at }) => `${GRID_FILL} ${percent(at, w)}% 0 / 1px 100% no-repeat`)
     .join(", ") || "none";
 
 interface ContextValue {
