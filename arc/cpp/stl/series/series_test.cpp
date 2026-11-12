@@ -1002,6 +1002,8 @@ const std::string_view MISC_WAT = R"wat(
   (import "series" "not" (func $not (param i32) (result i32)))
   (import "series" "len" (func $len (param i32) (result i64)))
   (import "series" "slice" (func $slice (param i32 i32 i32) (result i32)))
+  (import "series" "index_from_i64" (func $index_from_i64 (param i64) (result i32)))
+  (import "series" "index_from_u64" (func $index_from_u64 (param i64) (result i32)))
   (import "series" "create_empty_i32" (func $create_empty_i32 (param i32) (result i32)))
   (import "series" "set_element_i32" (func $set_element_i32 (param i32 i32 i32) (result i32)))
   (import "series" "index_i32" (func $index_i32 (param i32 i32) (result i32)))
@@ -1024,6 +1026,10 @@ const std::string_view MISC_WAT = R"wat(
     (call $len (local.get 0)))
   (func (export "slice") (param i32 i32 i32) (result i32)
     (call $slice (local.get 0) (local.get 1) (local.get 2)))
+  (func (export "index_from_i64") (param i64) (result i32)
+    (call $index_from_i64 (local.get 0)))
+  (func (export "index_from_u64") (param i64) (result i32)
+    (call $index_from_u64 (local.get 0)))
   (func (export "create_empty_i32") (param i32) (result i32)
     (call $create_empty_i32 (local.get 0)))
   (func (export "set_element_i32") (param i32 i32 i32) (result i32)
@@ -1289,6 +1295,45 @@ TEST(SeriesModule, LenNullHandleReturnsZero) {
     EXPECT_EQ(result[0].i64(), 0);
 }
 
+/// @brief it should return an index that fits in an i32.
+TEST(SeriesModule, IndexFromReturnsIndexInRange) {
+    Fixture f{std::string(MISC_WAT)};
+    for (const int64_t index:
+         {int64_t{0}, int64_t{-1}, int64_t{INT32_MAX}, int64_t{INT32_MIN}}) {
+        auto result = f.get("index_from_i64")
+                          .call(f.store, {wasmtime::Val(index)})
+                          .unwrap();
+        EXPECT_EQ(result[0].i32(), static_cast<int32_t>(index));
+    }
+    auto result = f.get("index_from_u64")
+                      .call(f.store, {wasmtime::Val(int64_t{INT32_MAX})})
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), INT32_MAX);
+}
+
+/// @brief it should trap for an i64 index that does not fit in an i32.
+TEST(SeriesModule, IndexFromI64OutOfRangeTraps) {
+    Fixture f{std::string(MISC_WAT)};
+    for (const int64_t index: {int64_t{INT32_MAX} + 1, int64_t{INT32_MIN} - 1})
+        expect_failure(
+            f.get("index_from_i64").call(f.store, {wasmtime::Val(index)}),
+            "index " + std::to_string(index) + " out of bounds for an i32 series index"
+        );
+}
+
+/// @brief it should read a u64 index as unsigned and trap when it does not fit.
+TEST(SeriesModule, IndexFromU64OutOfRangeTraps) {
+    Fixture f{std::string(MISC_WAT)};
+    expect_failure(
+        f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{-1})}),
+        "index 18446744073709551615 out of bounds for an i32 series index"
+    );
+    expect_failure(
+        f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{INT32_MAX} + 1)}),
+        "index 2147483648 out of bounds for an i32 series index"
+    );
+}
+
 TEST(SeriesModule, SliceExtractsSubrange) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")
@@ -1341,21 +1386,107 @@ TEST(SeriesModule, SliceNullHandleReturnsZero) {
     EXPECT_EQ(result[0].i32(), 0);
 }
 
-TEST(SeriesModule, SliceOutOfBoundsReturnsZero) {
-    Fixture f{std::string(MISC_WAT)};
+/// @brief slices a series of 10, 20, 30, 40 from start to end and returns the values of
+/// the result. A zero handle gives no values.
+std::vector<int32_t> slice_of_four(Fixture &f, const int32_t start, const int32_t end) {
     auto h_r = f.get("create_empty_i32")
-                   .call(f.store, {wasmtime::Val(int32_t{3})})
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
                    .unwrap();
     auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h), wasmtime::Val(start), wasmtime::Val(end)}
+                      )
+                      .unwrap();
+    std::vector<int32_t> values;
+    const auto *s = f.state->get(result[0].i32());
+    if (s == nullptr) return values;
+    for (size_t i = 0; i < s->size(); i++)
+        values.push_back(s->at<int32_t>(static_cast<int>(i)));
+    return values;
+}
+
+/// @brief it should stop a slice at the length for an open end or an end past it.
+TEST(SeriesModule, SliceEndPastLengthStopsAtLength) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, 2, INT32_MAX), (std::vector<int32_t>{30, 40}));
+    EXPECT_EQ(slice_of_four(f, 2, 10), (std::vector<int32_t>{30, 40}));
+}
+
+/// @brief it should count a negative slice bound from the end.
+TEST(SeriesModule, SliceNegativeBoundCountsFromTheEnd) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, 0, -1), (std::vector<int32_t>{10, 20, 30}));
+    EXPECT_EQ(slice_of_four(f, -2, INT32_MAX), (std::vector<int32_t>{30, 40}));
+    EXPECT_EQ(slice_of_four(f, -3, -1), (std::vector<int32_t>{20, 30}));
+}
+
+/// @brief it should stop a negative slice bound before the series at the start.
+TEST(SeriesModule, SliceNegativeBoundBeforeSeriesStopsAtStart) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, -10, 2), (std::vector<int32_t>{10, 20}));
+    EXPECT_TRUE(slice_of_four(f, 0, -10).empty());
+}
+
+/// @brief it should give no series when the start is past the length.
+TEST(SeriesModule, SliceStartPastLengthGivesNoSeries) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_TRUE(slice_of_four(f, 4, INT32_MAX).empty());
+}
+
+/// @brief it should give a slice its own data.
+TEST(SeriesModule, SliceHasItsOwnData) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h_r = f.get("create_empty_i32")
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
+                   .unwrap();
+    auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
     auto result = f.get("slice")
                       .call(
                           f.store,
                           {wasmtime::Val(h),
-                           wasmtime::Val(int32_t{0}),
-                           wasmtime::Val(int32_t{10})}
+                           wasmtime::Val(int32_t{1}),
+                           wasmtime::Val(int32_t{3})}
                       )
                       .unwrap();
-    EXPECT_EQ(result[0].i32(), 0);
+    auto sliced = result[0].i32();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(sliced),
+             wasmtime::Val(int32_t{0}),
+             wasmtime::Val(int32_t{9})}
+        )
+        .unwrap();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{2}), wasmtime::Val(int32_t{7})}
+        )
+        .unwrap();
+    EXPECT_EQ(f.state->get(h)->at<int32_t>(1), 20);
+    EXPECT_EQ(f.state->get(sliced)->at<int32_t>(1), 30);
 }
 
 TEST(SeriesModule, SliceStartGEEndReturnsZero) {

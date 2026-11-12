@@ -385,6 +385,9 @@ See [Find channels](/reference/channels/find).
 - `TimeSpan(rate)` is the period, so 2 Hz is 500 ms.
 - Python: options, flags, and timeouts are keyword-only. A 0.60 call that passes them by
   position still runs with a `DeprecationWarning` until the next minor release.
+- Python: `roles.retrieve` no longer takes `offset`, and a call that passes `offset` or
+  `internal` by position raises `TypeError`. Page with `limit` and `after`, and pass
+  `internal` by keyword.
 - Python: `task.start()` raises `RuntimeError` when the Driver fails to start the task.
 - Python: `wait_until` and `wait_while` check the current value first.
 - Python: `client.read` with a list of channels also returns their index channels, and
@@ -413,6 +416,10 @@ See [Find channels](/reference/channels/find).
   rewrites stored Arcs. Rewrite Arc text that you keep outside Synnax.
 - A constant that overflows its type, or an integer division by zero, fails to compile.
 - A series variable outside a function, such as `s := [1.0, 2.0]`, fails to compile.
+- `range()` no longer takes integer arguments of mixed types, such as
+  `range(n, i64(100))` with `n` an `i32`. The Core adds casts to stored and imported
+  Arcs, such as `range(i64(n), i64(100))`, but not where an argument reads a channel or
+  a module value. Add the casts to those calls and to new Arc text.
 
 #### Hardware
 

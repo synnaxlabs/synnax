@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot, type ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type lineplot, type ranger, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   dynamicWindow,
   staticWindow,
@@ -21,7 +25,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -70,10 +74,10 @@ describe("Range.SYNCHRONIZERS", () => {
     renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
       wrapper,
     });
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
+    expect(selectRange(store.getState(), range.key)).toBeDefined();
     await client.ranges.delete(range.key);
     await waitFor(() => {
-      expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+      expect(selectRange(store.getState(), range.key)).toBeUndefined();
     });
   });
 
@@ -145,11 +149,9 @@ describe("Range.SYNCHRONIZERS", () => {
       expect(ranges).toEqual([{ variant: "key", key: local.key }]);
     });
 
-    const mountWithLocal = async () => {
-      const local = createLocal();
-      await createPlot([{ variant: "key", key: local.key }]);
+    const mount = async (local: Session.Range.StaticState, as: Synnax = client) => {
       const { wrapper, store } = await createConsoleWrapper({
-        client,
+        client: as,
         preloadedState: {
           [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
             ranges: [local],
@@ -157,7 +159,10 @@ describe("Range.SYNCHRONIZERS", () => {
         },
       });
       const hook = renderHook(
-        () => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS),
+        () => ({
+          verified: Session.Synchronizer.use(Session.Range.SYNCHRONIZERS),
+          statuses: Status.useNotifications().statuses,
+        }),
         { wrapper },
       );
       const rewritten = () =>
@@ -165,19 +170,66 @@ describe("Range.SYNCHRONIZERS", () => {
       return { ...hook, rewritten };
     };
 
-    it("should try the rewrite again when a send fails", async () => {
+    const mountWithLocal = async (as: Synnax = client) => {
+      const local = createLocal();
+      const plot = await createPlot([{ variant: "key", key: local.key }]);
+      return { ...(await mount(local, as)), plot, local };
+    };
+
+    it("should report a failed send and try the rewrite again", async () => {
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const send = vi
         .spyOn(client.lineplots, "send")
         .mockRejectedValue(new Error("send failed"));
       try {
-        const { result, rewritten } = await mountWithLocal();
-        await waitFor(() => expect(result.current).toBe(true));
-        expect(error).toHaveBeenCalled();
+        const local = createLocal();
+        await createPlot([{ variant: "key", key: local.key }]);
+        await createPlot([{ variant: "key", key: local.key }]);
+        const { result, rewritten } = await mount(local);
+        await waitFor(() => expect(result.current.verified).toBe(true));
+        await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+        expect(result.current.statuses).toEqual([
+          expect.objectContaining({
+            variant: "error",
+            name: "Line plot",
+            message: "Failed to update static ranges",
+            description: "send failed",
+          }),
+        ]);
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();
         error.mockRestore();
+      }
+    });
+
+    it("should skip line plots the user cannot update and try again later", async () => {
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      const { result, plot, local, rewritten } = await mountWithLocal(viewer);
+      await waitFor(() => expect(result.current.verified).toBe(true));
+      expect(rewritten()).toBe(false);
+      expect(result.current.statuses).toEqual([]);
+      const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
+      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
+    });
+
+    it("should mark the rewrite done when a line plot is deleted first", async () => {
+      const local = createLocal();
+      const plot = await createPlot([{ variant: "key", key: local.key }]);
+      const retrieve = client.lineplots.retrieve.bind(client.lineplots);
+      const spy = vi
+        .spyOn(client.lineplots, "retrieve")
+        .mockImplementationOnce(async (params) => {
+          const plots = await retrieve(params);
+          await createTestClient().lineplots.delete(plot.key);
+          return plots;
+        });
+      try {
+        const { result, rewritten } = await mount(local);
+        await waitFor(() => expect(rewritten()).toBe(true));
+        expect(result.current.statuses).toEqual([]);
+      } finally {
+        spy.mockRestore();
       }
     });
 

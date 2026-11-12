@@ -66,16 +66,27 @@ The Console cannot change the color or the parent of a range.
 
   <Fragment slot="python">
 
-Call `client.ranges.set_end` to change the end of the range:
+Call `client.ranges.set_time_range` to change the start and end, or
+`client.ranges.set_end` to change only the end. Call `client.ranges.set_color` and
+`client.ranges.set_parent` to change the color and the parent. Pass `None` to clear the
+color or to make the range top-level:
 
 ```python
 from datetime import datetime
 
-my_range = client.ranges.retrieve(name="My Range")
-client.ranges.set_end(my_range.key, datetime(2023, 2, 12, 15, 0))
-```
+import synnax as sy
 
-Python cannot change the start, the color, or the parent of a range.
+my_range = client.ranges.retrieve(name="My Range")
+client.ranges.set_time_range(
+    my_range.key,
+    sy.TimeRange(
+        start=sy.TimeStamp(datetime(2023, 2, 12, 13, 0)),
+        end=sy.TimeStamp(datetime(2023, 2, 12, 15, 0)),
+    ),
+)
+client.ranges.set_color(my_range.key, "#00FF00")
+client.ranges.set_parent(my_range.key, None)
+```
 
   </Fragment>
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -134,6 +135,10 @@ func (s *Service) resync(ctx context.Context, key Key) {
 			}
 		}
 		b, err := s.Build(ctx, key)
+		if errors.Is(err, channel.ErrLookupsChanged) {
+			s.taskSync.Trigger(key)
+			return nil
+		}
 		if err != nil {
 			return err
 		}

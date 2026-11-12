@@ -169,5 +169,5 @@ func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(tree.Prefix(last))
 	b.WriteString("Root\n")
 	childPrefix := prefix + tree.Indent(last)
-	b.WriteString(i.Root.StringWithPrefix(childPrefix))
+	b.WriteString(i.Root.stringWithPrefix(childPrefix))
 }

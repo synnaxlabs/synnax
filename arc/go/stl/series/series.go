@@ -12,6 +12,8 @@ package series
 import (
 	"context"
 	"fmt"
+	"math"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -135,6 +137,16 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "length", Type: i64}},
 		),
 		symbol.InternalHostFunc(
+			"index_from_i64",
+			types.Params{{Name: "idx", Type: i64}},
+			types.Params{{Name: "idx", Type: i32}},
+		),
+		symbol.InternalHostFunc(
+			"index_from_u64",
+			types.Params{{Name: "idx", Type: types.U64()}},
+			types.Params{{Name: "idx", Type: i32}},
+		),
+		symbol.InternalHostFunc(
 			"slice",
 			types.Params{
 				{Name: "handle", Type: i32},
@@ -187,29 +199,36 @@ func NewHost(
 			return 0
 		}).Export("len")
 	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, index int64) int32 {
+			if index < math.MinInt32 || index > math.MaxInt32 {
+				panic(fmt.Sprintf(indexOverflow, index))
+			}
+			return int32(index)
+		}).Export("index_from_i64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, index uint64) int32 {
+			if index > math.MaxInt32 {
+				panic(fmt.Sprintf(indexOverflow, index))
+			}
+			return int32(index)
+		}).Export("index_from_u64")
+	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, start, end uint32) uint32 {
 			ser, ok := s.Get(handle)
 			if !ok {
 				return 0
 			}
 			length := int(ser.Len())
-			startIdx := int(start)
-			endIdx := int(end)
-			if endIdx < 0 || endIdx > length {
-				endIdx = length
-			}
-			if startIdx < 0 {
-				startIdx = 0
-			}
+			startIdx := sliceBound(start, length)
+			endIdx := sliceBound(end, length)
 			if startIdx >= endIdx {
 				return 0
 			}
 			density := int(ser.DataType.Density())
-			sliced := telem.Series{
+			return s.Store(telem.Series{
 				DataType: ser.DataType,
-				Data:     ser.Data[startIdx*density : endIdx*density],
-			}
-			return s.StoreView(sliced)
+				Data:     slices.Clone(ser.Data[startIdx*density : endIdx*density]),
+			})
 		}).Export("slice")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint32 {
@@ -227,6 +246,8 @@ func NewHost(
 	return h, nil
 }
 
+const indexOverflow = "index %d out of bounds for an i32 series index"
+
 // mustIndex returns index as an offset into ser, where a negative index counts from
 // the end. It panics when index is outside ser, which traps the guest call.
 func mustIndex(ser telem.Series, index uint32) int {
@@ -235,6 +256,16 @@ func mustIndex(ser telem.Series, index uint32) int {
 		panic(fmt.Sprintf("index %d out of bounds for series of size %d", i, n))
 	}
 	return int(i)
+}
+
+// sliceBound returns bound as an offset into a series of length samples. A negative
+// bound counts from the end, and a bound outside the series stops at the nearer end.
+func sliceBound(bound uint32, length int) int {
+	b := int(int32(bound))
+	if b < 0 {
+		b += length
+	}
+	return min(max(b, 0), length)
 }
 
 // bindCreateEmpty registers create_empty_<suffix>, the allocator shared by

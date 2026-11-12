@@ -368,15 +368,18 @@ version numbers. The train rule of RFC 0058 §2.2 does not apply: Desktop 1.4.0 
 beside Core 0.59.2. RFC 0058 §4 rejected independent numbers because users could not
 tell which products work together, and Desktop pairs with nothing but its own Core.
 
-A person dispatches `release.desktop.yaml` from `main` or from a `release/desktop-X.Y`
-branch, with a bump (`patch`, `minor`, or `major`) and an optional candidate flag. It
-reuses the parts of `release.yaml`:
+A person dispatches `release.desktop.yaml` with a bump and an optional candidate flag: a
+`minor` (the default) or `major` bump from `main`, or a `patch` from a
+`release/desktop-X.Y` branch. A run from any other branch fails. It reuses the parts of
+`release.yaml`:
 
 1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
    integration on Ubuntu and Windows.
-2. **Resolve**: `resolve_version.sh desktop` takes the base from the highest `desktop/`
-   tag reachable from `HEAD`, skips the train rule, and bumps the first release from
-   `0.0.0`. Candidates count up as for the other products.
+2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
+   the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
+   bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
+   needs a stable `desktop/` tag on X.Y and must hold the newest one, so no patch drops
+   an earlier fix. Candidates count up as for the other products.
 3. **Draft**: `draft-release` makes a draft under the tag.
 4. **Build**: `build.synnax.yaml` builds the Driver, a Core with the Driver embedded,
    and Desktop, for macOS arm64 and Windows x64, signed and notarized. The run passes no
@@ -494,5 +497,3 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
 - The installer size. The macOS arm64 Core with the Driver is about 195 MB before
   compression.
 - The copy in shared surfaces that still says "Console", such as the update dialog.
-- The first version number. The first dispatch sets it through the bump: `major` gives
-  1.0.0, and `minor` gives 0.1.0.

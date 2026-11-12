@@ -12,6 +12,7 @@ package v4_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -84,6 +85,15 @@ var _ = Describe("CastRanges", func() {
 		Entry("a mixed call with an argument that does not resolve",
 			"for i := range(n, sensor) {}"),
 	)
+
+	It("Should cast the range() calls of a program with dashed names", func(
+		ctx SpecContext,
+	) {
+		src := "func my-fn(n i32) {\n    for i := range(n, i64(100)) {}\n}"
+		Expect(v4.CastRanges(ctx, src)).To(Equal(src))
+		Expect(v4.CastRanges(ctx, src, parser.Config{AllowDashedNames: true})).
+			To(Equal("func my-fn(n i32) {\n    for i := range(i64(n), i64(100)) {}\n}"))
+	})
 
 	It("Should leave a program that does not parse unchanged", func(ctx SpecContext) {
 		src := "func f( {\n    for i := range(n, i64(100)) {}\n"

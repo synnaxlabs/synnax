@@ -1349,7 +1349,6 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should keep a status it did not set when re-inspecting a valid channel",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "st_keep_dep")
 				mid := channel.Channel{
 					Name: "st_keep_mid", DataType: telem.Int64T, Virtual: true,
@@ -1365,7 +1364,7 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				g := openGraph(ctx)
 
 				By("Reporting a runtime status the way the calculation framer does")
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{

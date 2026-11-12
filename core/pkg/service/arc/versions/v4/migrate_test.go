@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
@@ -29,6 +30,25 @@ const (
 )
 
 var _ = Describe("MigrateArc", func() {
+	It("Should lex a stored Arc with the dashed names of its Core", func(
+		ctx SpecContext,
+	) {
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(
+				"func my-fn{n i32}() {\n    if n > 0 {\n" +
+					"        for i := range(n, i64(100)) {}\n    }\n}",
+			)},
+		}
+		cfg := parser.Config{AllowDashedNames: true}
+		got := textOf(migrateFromV3(ctx, seed, cfg).Base()).Materialize().Raw
+		Expect(got).To(Equal(
+			"func my-fn(n i32){} {\n    if n > 0 {\n" +
+				"        for i := range(i64(n), i64(100)) {}\n    }\n}",
+		))
+	})
+
 	It("Should rewrite the text of a stored Arc into a fresh document", func(
 		ctx SpecContext,
 	) {
@@ -166,9 +186,9 @@ func textOf(b v4.Base) text.Text {
 	return src.Text
 }
 
-// migrateFromV3 runs the v4 migration over a gorp-seeded v3 Arc and returns the
-// migrated current Arc.
-func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
+// migrateFromV3 runs the v4 migration with cfgs over a gorp-seeded v3 Arc and returns
+// the migrated current Arc.
+func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Arc]{DB: db}))
@@ -176,7 +196,7 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: []gorp.Migration{v4.Migration},
+		Migrations: []gorp.Migration{v4.NewMigration(parser.ConfigOf(cfgs...))},
 	})).To(Succeed())
 	var got v4.Arc
 	Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().

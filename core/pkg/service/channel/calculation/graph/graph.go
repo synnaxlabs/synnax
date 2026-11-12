@@ -473,8 +473,11 @@ func (g *Graph) handleChanges(
 						zap.String("name", ch.Name),
 						zap.Stringers("deps", nd.deps),
 					)
+					// An update to an untracked node holds a coalesced create, so the
+					// expression a runtime status describes may be gone.
 					prev, ok := g.mu.nodes[ch.Key()]
-					if ok && (prev.invalid || prev.Expression != ch.Expression) {
+					if (!ok && chg.Kind == gorp.ChangeUpdate) ||
+						(ok && (prev.invalid || prev.Expression != ch.Expression)) {
 						g.clearNodeStatus(ctx, tx, ch.Key())
 					}
 				}
@@ -634,7 +637,7 @@ func (g *Graph) reconcileQueued(
 				continue
 			}
 			valid = append(valid, refetched)
-			if oldInvalid {
+			if oldInvalid || refetched.Expression != nd.Expression {
 				g.clearNodeStatus(ctx, tx, key)
 			}
 			if oldInvalid || oldType != newNode.DataType {

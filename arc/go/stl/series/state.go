@@ -50,7 +50,7 @@ func (s *ProgramState) Store(series telem.Series) uint32 {
 }
 
 // StoreView stores a series that shares its data with memory held elsewhere, such as
-// a slice of another series. Only its handle counts toward MaxBytes.
+// a stateful variable. Only its handle counts toward MaxBytes.
 func (s *ProgramState) StoreView(series telem.Series) uint32 {
 	return s.store(series, HandleBytes)
 }
