@@ -27,6 +27,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { textOf } from "@/log/aether/format";
+import { compile, find } from "@/log/aether/search";
 import {
   type Filter,
   type LogEntry,
@@ -177,6 +179,7 @@ export class StreamMultiChannelLog
   private _channels: channel.Key[] = [];
   private filter: Filter = ZERO_FILTER;
   private hidden = new Set<channel.Key>();
+  private pattern: RegExp | null = null;
 
   constructor(
     client: telem.Client | null,
@@ -243,6 +246,7 @@ export class StreamMultiChannelLog
     if (deep.equal(this.filter, filter)) return;
     this.filter = filter;
     this.hidden = new Set(filter.hiddenChannels);
+    this.pattern = filter.search == null ? null : compile(filter.search, "g");
     this.cancelPage();
     this.reload();
   }
@@ -267,6 +271,22 @@ export class StreamMultiChannelLog
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
     );
+  }
+
+  /**
+   * The oldest time the reads of every shown channel reached, or null when no read of
+   * a channel that stores older samples has run.
+   */
+  get reached(): TimeStamp | null {
+    let reached: bigint | null = null;
+    for (const [, m] of this.shownMetas())
+      if (
+        !m.exhausted &&
+        m.oldest != null &&
+        (reached == null || m.oldest.time > reached)
+      )
+        reached = m.oldest.time;
+    return reached == null ? null : new TimeStamp(reached);
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */
@@ -810,7 +830,9 @@ export class StreamMultiChannelLog
   // Inserts each group of entries at its place in time order: after the entries that
   // share its time, or before them when prepended from an older page. groups holds the
   // entries of one sample per group.
-  private insert(groups: LogEntry[][], prepended = false): void {
+  private insert(all: LogEntry[][], prepended = false): void {
+    const groups = this.filtered(all);
+    if (groups.length === 0) return;
     groups.sort((a, b) => compareTimes(a[0], b[0]));
     const first = groups[0][0].timestamp.valueOf();
     const last = this.entries.at(-1)?.timestamp.valueOf();
@@ -830,6 +852,27 @@ export class StreamMultiChannelLog
     }
     for (; i < this.entries.length; i++) merged.push(this.entries[i]);
     this.entries = merged;
+  }
+
+  // Returns the lines whose drawn text matches the search, testing each line of a
+  // sample alone. The reads count every sample, so a search changes only what the
+  // entries hold.
+  private filtered(groups: LogEntry[][]): LogEntry[][] {
+    const { pattern, filter } = this;
+    if (pattern == null) return groups;
+    const kept: LogEntry[][] = [];
+    for (const group of groups) {
+      const matched = group.filter(
+        ({ channelKey, value }) =>
+          find(pattern, textOf(value, filter.formats[channelKey])).length > 0,
+      );
+      if (matched.length === 0) continue;
+      // A matched line that continues a sample leads the sample's kept lines.
+      if (matched[0].continuation === true)
+        matched[0] = { ...matched[0], continuation: false };
+      kept.push(matched);
+    }
+    return kept;
   }
 
   // Evicts the newest entries past maxEntries, which a later read finds again. The cut

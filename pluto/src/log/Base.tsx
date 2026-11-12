@@ -15,8 +15,9 @@ import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings } from "@synnaxlabs/x";
+import { box, strings, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -84,6 +85,7 @@ export const Base = ({
   timeZone,
   channels,
   hiddenChannels,
+  search,
   emptyContent = EMPTY_CONTENT,
   color,
   telem,
@@ -107,6 +109,7 @@ export const Base = ({
     timeZone,
     channels,
     hiddenChannels,
+    search,
     color,
     telem,
     hold,
@@ -126,6 +129,7 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
     rowEntries,
+    searchedTo,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -283,7 +287,14 @@ export const Base = ({
         {loading && !blank && (
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
-        {empty ? emptyContent : children}
+        {searchedTo !== "" && (
+          <Text.Text level="small" color={9} className={CSS.BE("log", "searched")}>
+            Searched back to{" "}
+            {new TimeStamp(BigInt(searchedTo)).toString("dateTime", timeZone)}
+          </Text.Text>
+        )}
+        {empty && emptyContent}
+        {children}
       </div>
     </Menu.ContextMenu>
   );

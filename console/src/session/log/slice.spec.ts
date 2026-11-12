@@ -172,6 +172,22 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setSearch", () => {
+    it("should change only the given search fields", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY }));
+        store.dispatch(Log.setSearch({ key: KEY, text: "err" }));
+        store.dispatch(Log.setSearch({ key: KEY, mode: "regex", filtered: true }));
+      });
+      expect(docOf()?.search).toEqual({ text: "err", mode: "regex", filtered: true });
+    });
+
+    it("should default to an empty plain-text search with no filter", () => {
+      act(() => void store.dispatch(Log.create({ key: KEY })));
+      expect(docOf()?.search).toEqual({ text: "", mode: "text", filtered: false });
+    });
+  });
+
   describe("remove", () => {
     it("should remove a log by key", () => {
       act(() => {

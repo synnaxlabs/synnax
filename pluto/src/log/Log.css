@@ -40,6 +40,19 @@
     animation: pluto-log-loading-in 150ms ease-in 300ms both;
 }
 
+/* Sits over the oldest held lines, away from the newest ones the user reads. */
+.pluto-log__searched {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0 0.75rem;
+    background: var(--pluto-gray-l1);
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    pointer-events: none;
+}
+
 @keyframes pluto-log-loading-in {
     from {
         opacity: 0;

@@ -13,10 +13,8 @@ import {
   bounds,
   box,
   color,
-  compare,
-  DataType,
+  deep,
   type destructor,
-  notation,
   text,
   TimeStamp,
   type TimeZone,
@@ -25,8 +23,11 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { type Format, formatsOf, textOf } from "@/log/aether/format";
+import { compile, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
+  type Filter,
   type LogEntry,
   type LogSource,
   logSourceSpecZ,
@@ -58,6 +59,11 @@ export const logStateZ = log.logZ
     channelNames: z.record(z.string(), z.string()).default({}),
     channelDataTypes: z.record(z.string(), z.string()).default({}),
     hiddenChannels: z.array(channel.keyZ).default([]),
+    // filtered keeps only the lines that match the search.
+    search: searchZ.extend({ filtered: z.boolean().default(false) }).prefault({}),
+    // The oldest time a filtered log has read back to, as position holds a time. Empty
+    // when no filter runs or the reads hold every stored sample.
+    searchedTo: z.string().default(""),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.default(color.ZERO),
@@ -119,7 +125,7 @@ interface InternalState {
   render: render.Context;
   draw2d: Draw2D;
   telem: telem.MemoizedSource<LogEntry[], LogSource>;
-  configs: Record<string, log.ChannelEntry>;
+  formats: Record<string, Format>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;
   defaultPrefixColor: color.Color;
@@ -235,24 +241,18 @@ const wrapStarts = (value: string, columns: number): number[] => {
   return starts;
 };
 
-const INTEGER = /^-?\d+$/;
-
-// Returns the sample in the number format of its channel. A sample shows as it arrives
-// when the channel holds no numbers, its data type has not loaded, or a calculated
-// channel changed type after the sample arrived.
-const formatNumber = (
-  value: string,
-  dataType: string | undefined,
-  { precision, notation: valueNotation }: log.ChannelEntry,
-): string => {
-  if (dataType == null) return value;
-  const type = new DataType(dataType);
-  if (type.isInteger && INTEGER.test(value))
-    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
-  if (!type.isFloat || value.trim() === "") return value;
-  const number = Number(value);
-  if (Number.isNaN(number)) return value;
-  return notation.stringifyNumber(number, precision, valueNotation);
+// Returns the filter of the source. An invalid regex filters nothing. A search matches
+// the text the log draws, so it holds the format of each channel.
+const filterOf = ({
+  hiddenChannels,
+  channels,
+  channelDataTypes,
+  search: { text, mode, filtered },
+}: z.infer<typeof logStateZ>): Filter => {
+  const search = { text, mode };
+  if (!filtered || compile(search) == null)
+    return { hiddenChannels, search: null, formats: {} };
+  return { hiddenChannels, search, formats: formatsOf(channels, channelDataTypes) };
 };
 
 const sameEntries = (a: number[], b: number[]): boolean =>
@@ -345,7 +345,7 @@ export class Log
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
-    i.configs = configs;
+    i.formats = formatsOf(channelEntries, this.state.channelDataTypes);
 
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
 
@@ -354,17 +354,16 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
-    const { hiddenChannels } = this.state;
+    const filter = filterOf(this.state);
     // A new filter reloads the entries, so a paused view returns to its time.
     if (
       this.state.scrolling &&
       this.seeking == null &&
-      compare.primitiveArrays(hiddenChannels, this.prevState.hiddenChannels) !==
-        compare.EQUAL
+      !deep.equal(filter, filterOf(this.prevState))
     )
       this.seeking =
         this.entries[this.scrollState.offset - 1]?.timestamp.valueOf() ?? null;
-    i.telem.wrapped.setFilter?.({ hiddenChannels });
+    i.telem.wrapped.setFilter?.(filter);
     const { data } = i.telem.value();
     this.entries = data;
 
@@ -460,13 +459,22 @@ export class Log
     const loading = s.variant === "loading";
     const empty = this.entries.length === 0 && !loading;
     const blank = this.entries.length === 0 && loading;
+    const searchedTo = this.searchedTo();
     if (
       empty === this.state.empty &&
       loading === this.state.loading &&
-      blank === this.state.blank
+      blank === this.state.blank &&
+      searchedTo === this.state.searchedTo
     )
       return;
-    this.setState((p) => ({ ...p, empty, loading, blank }));
+    this.setState((p) => ({ ...p, empty, loading, blank, searchedTo }));
+  }
+
+  private searchedTo(): string {
+    const { text, mode, filtered } = this.state.search;
+    const { reached, exhausted } = this.internal.telem.wrapped;
+    if (!filtered || compile({ text, mode }) == null || exhausted !== false) return "";
+    return reached?.valueOf().toString() ?? "";
   }
 
   afterDelete(): void {
@@ -885,28 +893,13 @@ export class Log
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
-      this.state;
-    const { tsLen, configs } = this.internal;
+    const { channelNamesHidden, timestampsHidden, timeZone } = this.state;
+    const { tsLen, formats } = this.internal;
     const chKeyStr = String(entry.channelKey);
-    const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
       : "";
-    let value = entry.value;
-    const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
-    if (isTimestampChannel) {
-      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
-        format: "preciseDate",
-        timeZone: "local",
-      };
-      try {
-        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
-      } catch {
-        // Leave value as-is if it can't be parsed as a bigint.
-      }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
-      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
+    const value = textOf(entry.value, formats[chKeyStr]);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";

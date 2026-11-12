@@ -51,6 +51,28 @@ describe("log/Log", () => {
     expect(screen.queryByText("Configure channels")).toBeNull();
   });
 
+  it("names a filter that matches nothing", async () => {
+    const ch = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const { key, store } = await renderLog(Log, {
+      additionalRegistry: REGISTRY,
+      log: {
+        channels: [log.channelEntryZ.parse({ channel: ch.key, color: color.ZERO })],
+      },
+    });
+    act(() => {
+      store.dispatch(Session.Log.setSearch({ key, text: "err", filtered: true }));
+    });
+    expect(await screen.findByText("No matching lines")).toBeDefined();
+    act(() => {
+      store.dispatch(Session.Log.setSearch({ key, text: "(", mode: "regex" }));
+    });
+    expect(await screen.findByText("No data received yet")).toBeDefined();
+  });
+
   it("hands the hidden channels of the session to the log", async () => {
     const hidden: Array<number[] | undefined> = [];
     class Recorder extends WorkerStub {

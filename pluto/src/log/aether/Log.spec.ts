@@ -470,6 +470,49 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("search", () => {
+    it("should filter the source by a search with its filter on", () => {
+      const { source, updateState } = setup();
+      updateState({ search: { text: "err", filtered: true } });
+      expect(source.filter?.search).toEqual({ text: "err", mode: "text" });
+      updateState({ search: { text: "err" } });
+      expect(source.filter?.search).toBeNull();
+    });
+
+    it("should hand the source the format each channel draws with", () => {
+      const { source, updateState } = setup();
+      const channels = [
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision: 2 }),
+      ];
+      const channelDataTypes = { "1": "float64" };
+      updateState({
+        channels,
+        channelDataTypes,
+        search: { text: "1.50", filtered: true },
+      });
+      expect(source.filter.formats["1"]).toMatchObject({
+        precision: 2,
+        dataType: "float64",
+      });
+    });
+
+    it("should filter nothing with an invalid regex", () => {
+      const { source, updateState } = setup();
+      updateState({ search: { text: "(", mode: "regex", filtered: true } });
+      expect(source.filter?.search).toBeNull();
+    });
+
+    it("should report how far back a filtered log has searched", () => {
+      const { log, source, updateState } = setup([makeEntry(5)]);
+      source.reached = TimeStamp.seconds(3);
+      updateState({ search: { text: "5", filtered: true } });
+      expect(log.state.searchedTo).toBe(TimeStamp.seconds(3).valueOf().toString());
+      source.exhausted = true;
+      source.notify();
+      expect(log.state.searchedTo).toBe("");
+    });
+  });
+
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { log } = setup([makeEntry(0)]);
