@@ -240,9 +240,10 @@ func checkWriteChannel(wc WriteChannel, dt telem.DataType) error {
 
 // reconcileWriteConfig changes each channel of cfg to agree with its Synnax channel,
 // read through tx, and logs each change. A kind the channel's data type does not allow
-// becomes the data type's own kind. Entries convert between numeric kinds when they
-// stay exact, and drop on other kinds. An entry that does not fit the channel, or
-// whose value collides with an earlier one's, drops.
+// becomes the first numeric kind it allows when the kind is numeric, and the data
+// type's own kind otherwise. Entries convert between numeric kinds when they stay
+// exact, and drop on other kinds. An entry that does not fit the channel, or whose
+// value collides with an earlier one's, drops.
 func reconcileWriteConfig(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -319,14 +320,25 @@ func reconcileWriteChannel(
 		return wc
 	}
 	if !slices.Contains(kinds, wc.Type()) {
+		kind := kinds[0]
+		if numeric(wc.Type()) {
+			if i := slices.IndexFunc(kinds, numeric); i >= 0 {
+				kind = kinds[i]
+			}
+		}
 		warn(
 			"changed the kind of a Kafka write channel to match its channel",
 			zap.String("old", string(wc.Type())),
-			zap.String("new", string(kinds[0])),
+			zap.String("new", string(kind)),
 		)
-		wc = convertWriteChannel(wc, kinds[0], warn)
+		wc = convertWriteChannel(wc, kind, warn)
 	}
 	return dropEntries(wc, dt, warn)
+}
+
+func numeric(k payload.Kind) bool {
+	return k == payload.KindFloat || k == payload.KindInteger ||
+		k == payload.KindUnsigned
 }
 
 // convertWriteChannel returns wc as kind. Entries convert between numeric kinds when
