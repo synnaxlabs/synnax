@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // firstOperandHint keeps an outer hint from retyping a literal-only first operand.
@@ -71,6 +72,48 @@ func literalOnly[N antlr.ParserRuleContext](
 	return true
 }
 
+// compileOperand compiles operand and makes it meet the value on the stack, of type
+// left, in one unit. Two units of one dimension meet in the smaller one, and a value
+// with no unit takes the unit of the other. It returns the type of the operand and the
+// unit of both values.
+func compileOperand[N, O antlr.ParserRuleContext](
+	ctx context.Context[N],
+	left types.Type,
+	operand O,
+	compile func(context.Context[O]) (types.Type, error),
+) (types.Type, *types.Unit, error) {
+	hint := left.Unwrap()
+	unit := hint.Unit
+	if next := ctx.TypeMap[operand].Unwrap().Unit; !types.UnitsIncompatible(
+		unit,
+		next,
+	) {
+		unit = types.CommonUnit(unit, next)
+	}
+	if types.UnitsConvertible(hint.Unit, unit) {
+		if err := EmitUnitScale(ctx, left, unit); err != nil {
+			return types.Type{}, nil, err
+		}
+	}
+	hint.Unit = unit
+	t, err := compile(ctx.Child(operand).WithHint(hint))
+	if err != nil {
+		return types.Type{}, nil, err
+	}
+	if from := t.Unwrap().Unit; types.UnitsConvertible(from, unit) {
+		if from.Scale < unit.Scale {
+			return types.Type{}, nil, errors.Newf(
+				"operand in %s was not analyzed before a value in %s",
+				from.Name, unit.Name,
+			)
+		}
+		if err = EmitUnitScale(ctx, t, unit); err != nil {
+			return types.Type{}, nil, err
+		}
+	}
+	return t, unit, nil
+}
+
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
@@ -106,15 +149,19 @@ func compileBinaryAdditive(
 	}
 
 	for i := 1; i < len(muls); i++ {
-		operandHint := hintType
+		left := hintType
 		if firstIsSeries {
-			operandHint = elemType
+			left = resultType
 		}
-		operandType, err := compileMultiplicative(
-			ctx.Child(muls[i]).WithHint(operandHint),
+		operandType, unit, err := compileOperand(
+			ctx, left, muls[i], compileMultiplicative,
 		)
 		if err != nil {
 			return types.Type{}, err
+		}
+		hintType.Unit, elemType.Unit = unit, unit
+		if firstIsSeries {
+			resultType = types.Series(elemType)
 		}
 
 		secondIsSeries := operandType.Kind == types.KindSeries
@@ -132,6 +179,7 @@ func compileBinaryAdditive(
 			}
 		} else if secondIsSeries {
 			secondElemType := *operandType.Elem
+			secondElemType.Unit = unit
 			op := operators[i-1]
 			if err := ctx.Resolver.EmitSeriesReverseArithmetic(
 				ctx.Writer,
@@ -141,7 +189,7 @@ func compileBinaryAdditive(
 			); err != nil {
 				return types.Type{}, err
 			}
-			resultType = operandType
+			resultType = types.Series(secondElemType)
 			elemType = secondElemType
 			firstIsSeries = true
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
@@ -200,13 +248,20 @@ func compileBinaryMultiplicative(
 	}
 
 	for i := 1; i < len(unaries); i++ {
-		operandHint := hintType
+		left := hintType
 		if firstIsSeries {
-			operandHint = elemType
+			left = resultType
 		}
-		operandType, err := compileUnary(ctx.Child(unaries[i]).WithHint(operandHint))
+		operandType, unit, err := compileOperand(ctx, left, unaries[i], compileUnary)
 		if err != nil {
 			return types.Type{}, err
+		}
+		if operators[i-1] != "%" {
+			unit = types.ProductUnit(left.Unwrap().Unit, operandType.Unwrap().Unit)
+		}
+		hintType.Unit, elemType.Unit = unit, unit
+		if firstIsSeries {
+			resultType = types.Series(elemType)
 		}
 
 		secondIsSeries := operandType.Kind == types.KindSeries
@@ -224,6 +279,7 @@ func compileBinaryMultiplicative(
 			}
 		} else if secondIsSeries {
 			secondElemType := *operandType.Elem
+			secondElemType.Unit = unit
 			op := operators[i-1]
 			if err := ctx.Resolver.EmitSeriesReverseArithmetic(
 				ctx.Writer,
@@ -233,7 +289,7 @@ func compileBinaryMultiplicative(
 			); err != nil {
 				return types.Type{}, err
 			}
-			resultType = operandType
+			resultType = types.Series(secondElemType)
 			elemType = secondElemType
 			firstIsSeries = true
 		} else {
@@ -273,13 +329,11 @@ func compileBinaryRelational(
 		hintType = leftType.Unwrap()
 	}
 
-	operandHint := hintType
+	left := hintType
 	if isSeries {
-		operandHint = elemType
+		left = leftType
 	}
-
-	_, err = compileAdditive(ctx.Child(adds[1]).WithHint(operandHint))
-	if err != nil {
+	if _, _, err = compileOperand(ctx, left, adds[1], compileAdditive); err != nil {
 		return types.Type{}, err
 	}
 	var op string
@@ -332,13 +386,11 @@ func compileBinaryEquality(
 		hintType = leftType.Unwrap()
 	}
 
-	operandHint := hintType
+	left := hintType
 	if isSeries {
-		operandHint = elemType
+		left = leftType
 	}
-
-	_, err = compileRelational(ctx.Child(rels[1]).WithHint(operandHint))
-	if err != nil {
+	if _, _, err = compileOperand(ctx, left, rels[1], compileRelational); err != nil {
 		return types.Type{}, err
 	}
 	var op string

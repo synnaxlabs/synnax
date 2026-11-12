@@ -40,7 +40,7 @@ func Parse(
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if num := literal.NumericLiteral(); num != nil {
-		return ParseNumeric(num, writtenTarget(num, targetType))
+		return ParseNumeric(num, targetType)
 	}
 	if str := parser.StringTerminal(literal); str != nil {
 		return ParseString(str.GetText(), targetType)
@@ -183,34 +183,23 @@ func parseNumericWithUnit(
 		targetType = types.Type{Kind: kind, Unit: targetType.Unit}
 	}
 
-	// If target type has a unit, convert to target unit's scale
-	// Example: 300ms with target TimeSpan() (ns) → 300 * (1e-3 / 1e-9) = 300,000,000
+	// A target in a unit takes the literal in that unit. Any other target takes the
+	// number as written.
+	value, valueUnit := numericValue, unit
 	if targetType.Unit != nil {
 		factor, err := units.ScaleFactor(unit, targetType.Unit)
 		if err != nil {
 			return ParsedValue{}, err
 		}
-		targetValue := numericValue * factor
-		return convertToTargetKind(targetValue, targetType, unit)
+		value, valueUnit = numericValue*factor, targetType.Unit
 	}
-
-	// If target type has a kind but no unit, convert to SI then to target kind
-	if targetType.IsValid() {
-		siValue := numericValue * unit.Scale
-		return convertToTargetKind(siValue, targetType, unit)
+	if !targetType.IsValid() {
+		targetType.Kind = types.KindF64
+		if isIntLiteral {
+			targetType.Kind = types.KindI64
+		}
 	}
-
-	// Default (no target type): use type inference int64 if scaled result is exact
-	// integer AND original literal was integer, else f64
-	siValue := numericValue * unit.Scale
-
-	resultType := types.Type{Unit: unit}
-	if isIntLiteral && IsExactInteger(siValue) {
-		resultType.Kind = types.KindI64
-		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
-	}
-	resultType.Kind = types.KindF64
-	return ParsedValue{Value: siValue, Type: resultType}, nil
+	return convertToTargetKind(value, targetType, valueUnit)
 }
 
 // parseIntegerLiteral converts an integer value to the target type.
@@ -529,27 +518,9 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return parseNumericSigned(
-					numLit,
-					true,
-					writtenTarget(numLit, targetType),
-				)
+				return parseNumericSigned(numLit, true, targetType)
 			}
 		}
 	}
 	return ParsedValue{}, errors.New("expression is not a compile-time constant")
-}
-
-// writtenTarget gives a target with no unit the unit of numLit, so that the literal
-// keeps its number as written.
-func writtenTarget(numLit parser.INumericLiteralContext, target types.Type) types.Type {
-	if !target.IsValid() || target.Unit != nil {
-		return target
-	}
-	if id := numLit.IDENTIFIER(); id != nil {
-		if unit, ok := units.Resolve(id.GetText()); ok {
-			target.Unit = unit
-		}
-	}
-	return target
 }

@@ -974,10 +974,15 @@ var _ = Describe("Text", func() {
 				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
 			)
 			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
-			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
+			scale := findNodeByKey(inter.Nodes, duration.Type.Name)
+			Expect(scale.Type).To(HavePrefix(compiler.ScaleSyntheticPrefix))
+			value := MustBeOk(scale.Inputs.Get("value"))
+			arg := findNodeByKey(inter.Nodes, value.Type.Name)
 			Expect(arg.Type).To(HavePrefix("expression_"))
-			Expect(hasEdge(inter, nodeReading(inter, 901), arg.Key)).To(BeTrue(),
-				"the trigger must fire the computed input")
+			for _, key := range []string{arg.Key, scale.Key} {
+				Expect(hasEdge(inter, nodeReading(inter, 901), key)).To(BeTrue(),
+					"the trigger must fire the computed input")
+			}
 		})
 
 		It(

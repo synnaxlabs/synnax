@@ -6042,6 +6042,129 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
+		DescribeTable("Holds a value as the number in its unit in a calculation",
+			func(ctx SpecContext, funcs, write, expected string) {
+				h := newRuntimeHarness(ctx, funcs+`
+				sequence main {
+				    a i64 s := 2s
+				    b i64 ms := 1ms
+				    c i64 s := 0s
+				    n i64 := 0
+				    p f64 psi := 1.0psi
+				    plain f64 := 400.0
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"b={b} c={c} n={n} p={p}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				var logged []string
+				for i := range 5 {
+					h.Ingest(100, telem.NewSeriesV[int64](1))
+					advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+					out, _ := h.Flush()
+					logged = append(logged, drainStrings(out, 101)...)
+				}
+				Expect(logged).ToNot(BeEmpty())
+				Expect(logged[len(logged)-1]).To(Equal(expected))
+			},
+			Entry("a unit literal that a function returns",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`b = f(a)`, "b=5 c=0 n=0 p=1"),
+			Entry("a unit literal that a function returns to a flow",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`raw -> f(x=a) -> b`, "b=5 c=0 n=0 p=1"),
+			Entry("a float unit literal",
+				"func f() f64 psi {\nreturn 0.1psi\n}",
+				`p = f()`, "b=1 c=0 n=0 p=0.1"),
+			Entry("a local variable",
+				"func f(x i64 s) i64 ms {\nt := 5ms\nreturn t\n}",
+				`b = f(a)`, "b=5 c=0 n=0 p=1"),
+			Entry("a sum with a literal in the same unit",
+				"func f(x i64 s) i64 s {\nreturn x + 1s\n}",
+				`c = f(a)`, "b=1 c=3 n=0 p=1"),
+			Entry("a sum with a literal in a smaller unit",
+				"func f(x i64 s) i64 ms {\nreturn x + 500ms\n}",
+				`b = f(a)`, "b=2500 c=0 n=0 p=1"),
+			Entry("a sum with a literal in a larger unit",
+				"func f(x i64 ms) i64 ms {\nreturn x + 1s\n}",
+				`b = f(b)`, "b=1001 c=0 n=0 p=1"),
+			Entry("a sum of two variables in different units",
+				"func f(x i64 s, y i64 ms) i64 ms {\nreturn x + y\n}",
+				`b = f(a, b)`, "b=2001 c=0 n=0 p=1"),
+			Entry("a result that converts to the unit of the function",
+				"func f(x i64 s) i64 ms {\nreturn x + 1s\n}",
+				`b = f(a)`, "b=3000 c=0 n=0 p=1"),
+			Entry("a declaration that converts",
+				"func f(x i64 s) i64 ms {\ny i64 ms := x\nreturn y\n}",
+				`b = f(a)`, "b=2000 c=0 n=0 p=1"),
+			Entry("an argument that converts",
+				"func g(y i64 ms) i64 ms {\nreturn y\n}\n"+
+					"func f(x i64 s) i64 ms {\nreturn g(x)\n}",
+				`b = f(a)`, "b=2000 c=0 n=0 p=1"),
+			Entry("a comparison between units",
+				"func f(x i64 s) i64 {\nif x > 1500ms {\nreturn 1\n}\nreturn 0\n}",
+				`n = f(a)`, "b=1 c=0 n=1 p=1"),
+			Entry("a comparison of a number with no unit",
+				"func f(v f64) i64 {\nif v > 300psi {\nreturn 1\n}\nreturn 0\n}",
+				`n = f(plain)`, "b=1 c=0 n=1 p=1"),
+			Entry("a quotient of two unit values",
+				"func f(x i64 s) i64 {\nreturn x / 500ms\n}",
+				`n = f(a)`, "b=1 c=0 n=4 p=1"),
+			Entry("a product with a number with no unit",
+				"func f(x i64 s) i64 s {\nreturn x * 60\n}",
+				`c = f(a)`, "b=1 c=120 n=0 p=1"),
+			Entry(
+				"a narrow integer",
+				"func f() i64 {\nx i32 s := 3s\nif x > 2500ms {\nreturn 1\n}\nreturn 0\n}",
+				`n = f()`,
+				"b=1 c=0 n=1 p=1",
+			),
+			Entry(
+				"an integer in a unit that is not a whole base value",
+				"func f() i64 {\nx i64 psi := 5psi\nif x > 4psi {\nreturn 1\n}\nreturn 0\n}",
+				`n = f()`,
+				"b=1 c=0 n=1 p=1",
+			),
+			Entry(
+				"a series plus a value in a smaller unit",
+				"func f(x i64 ms) i64 ms {\nxs := [1s, 2s]\nys := xs + x\nreturn ys[0]\n}",
+				`b = f(b)`,
+				"b=1001 c=0 n=0 p=1",
+			),
+			Entry(
+				"a value plus a series in a larger unit",
+				"func f(x i64 ms) i64 ms {\nxs := [1s, 2s]\nys := x + xs\nreturn ys[1]\n}",
+				`b = f(b)`,
+				"b=2001 c=0 n=0 p=1",
+			),
+			Entry("an assigned literal in another unit",
+				"", `c = 3000ms`, "b=1 c=3 n=0 p=1"),
+			Entry("a flow calculation with a call",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`b = f(a) + 1ms`, "b=6 c=0 n=0 p=1"),
+			Entry("a flow calculation with a literal",
+				"", `c = a + 1s`, "b=1 c=3 n=0 p=1"),
+		)
+
+		It("Prints a unit value in a function as the number in its unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+			func show(x i64 s) str {
+			    t := 5ms
+			    return `+`f"t={t} sum={x + 500ms}"`+`
+			}
+			a i64 s := 2s
+			raw -> show(x=a) -> log`, resolver, digests...)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[int64](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"t=5 sum=2500"}))
+		})
+
 		It("Fires an interval at a computed period", func(ctx SpecContext) {
 			h := newRuntimeHarness(ctx, `
 				import time

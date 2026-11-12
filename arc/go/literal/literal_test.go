@@ -200,69 +200,20 @@ var _ = Describe("Literal Parser", func() {
 	)
 
 	Describe("Unit literals", func() {
-		Context("Type inference (no target type)", func() {
-			It(
-				"Should infer int64 for exact integer result from integer literal",
-				func() {
-					lit := getLiteral("10s")
-					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-					Expect(
-						parsed.Value,
-					).To(Equal(int64(10000000000)))
-					// 10s = 10 billion ns
-					Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+		Context("With no target type", func() {
+			DescribeTable("Should keep the number as written",
+				func(text string, expected any, kind types.Kind) {
+					parsed := MustSucceed(literal.Parse(getLiteral(text), types.Type{}))
+					Expect(parsed.Value).To(Equal(expected))
+					Expect(parsed.Type.Kind).To(Equal(kind))
 					Expect(parsed.Type.Unit).ToNot(BeNil())
-					Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
 				},
+				Entry("an integer duration", "10s", telem.TimeSpan(10), types.KindI64),
+				Entry("an integer mass", "100kg", int64(100), types.KindI64),
+				Entry("an integer pressure", "100psi", int64(100), types.KindI64),
+				Entry("a float length", "5.0km", 5.0, types.KindF64),
+				Entry("a float mass", "100.5kg", 100.5, types.KindF64),
 			)
-
-			It("Should infer int64 for 100kg (SI value 100 is exact int)", func() {
-				lit := getLiteral("100kg")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(100)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer int64 for 100psi (SI value ~689476 is exact int)", func() {
-				lit := getLiteral("100psi")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(BeNumerically("~", int64(689476), 1))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer int64 for 5km (SI value 5000 is exact int)", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It(
-				"Should infer float64 for float literal even if SI value is exact int",
-				func() {
-					lit := getLiteral("5.0km")
-					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-					Expect(parsed.Value).To(Equal(5000.0))
-					Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-				},
-			)
-
-			It("Should infer int64 for 300ms (300 million ns is exact int)", func() {
-				lit := getLiteral("300ms")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(
-					parsed.Value,
-				).To(Equal(int64(300000000)))
-				// 300ms = 300 million ns
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer float64 for float literal", func() {
-				lit := getLiteral("100.5kg")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(100.5))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			})
 		})
 
 		Context("With target type having a unit (scale conversion)", func() {
@@ -342,99 +293,9 @@ var _ = Describe("Literal Parser", func() {
 			})
 		})
 
-		Context("ParseNumeric with target type kind (no unit)", func() {
-			It("Should convert to i32 when SI value is exact integer", func() {
-				lit := getLiteral("100psi")
-				parsed := MustSucceed(
-					literal.ParseNumeric(lit.NumericLiteral(), types.I32()),
-				)
-				Expect(parsed.Value).To(BeNumerically("~", int32(689476), 1))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI32))
-			})
-
-			It("Should convert to i64 when SI value is exact integer", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(
-					literal.ParseNumeric(lit.NumericLiteral(), types.I64()),
-				)
-				Expect(parsed.Value).To(Equal(int64(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			DescribeTable(
-				"Time-unit literal boxing per target kind",
-				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
-					parsed := MustSucceed(
-						literal.ParseNumeric(getLiteral(text).NumericLiteral(), target),
-					)
-					Expect(parsed.Value).To(Equal(expectedValue))
-					Expect(parsed.Type.Kind).To(Equal(expectedKind))
-				},
-				Entry(
-					"i64 boxes telem.TimeSpan",
-					"5400s",
-					types.I64(),
-					telem.Second*5400,
-					types.KindI64,
-				),
-				Entry(
-					"u64 boxes plain uint64",
-					"5400s",
-					types.U64(),
-					uint64(5_400_000_000_000),
-					types.KindU64,
-				),
-				Entry(
-					"i32 boxes plain int32",
-					"1s",
-					types.I32(),
-					int32(1_000_000_000),
-					types.KindI32,
-				),
-				Entry(
-					"zero at i64 boxes telem.TimeSpan(0)",
-					"0s",
-					types.I64(),
-					telem.TimeSpan(0),
-					types.KindI64,
-				),
-				Entry(
-					"ns at i64 boxes telem.TimeSpan",
-					"54ns",
-					types.I64(),
-					telem.Nanosecond*54,
-					types.KindI64,
-				),
-			)
-
-			It("Should convert to f64", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(
-					literal.ParseNumeric(lit.NumericLiteral(), types.F64()),
-				)
-				Expect(parsed.Value).To(Equal(5000.0))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			})
-
-			It("Should convert to f32", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(
-					literal.ParseNumeric(lit.NumericLiteral(), types.F32()),
-				)
-				Expect(parsed.Value).To(Equal(float32(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF32))
-			})
-		})
-
 		Context(
 			"ParseNumeric Go-like constant semantics (error on fractional)",
 			func() {
-				It("Should error when converting non-exact value to i32", func() {
-					lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
-					Expect(literal.ParseNumeric(lit.NumericLiteral(), types.I32())).
-						Error().To(MatchError(ContainSubstring("fractional part")))
-				})
-
 				It("Should error when converting non-exact value to i64", func() {
 					lit := getLiteral("100.5kg")
 					Expect(literal.ParseNumeric(lit.NumericLiteral(), types.I64())).
@@ -446,7 +307,7 @@ var _ = Describe("Literal Parser", func() {
 					parsed := MustSucceed(
 						literal.ParseNumeric(lit.NumericLiteral(), types.I32()),
 					)
-					Expect(parsed.Value).To(Equal(int32(1000)))
+					Expect(parsed.Value).To(Equal(int32(1)))
 				})
 			},
 		)

@@ -47,6 +47,30 @@ func UnitFactor(from, to *Unit) float64 {
 	return factor
 }
 
+// CommonUnit returns the unit that a value in a and a value in b meet in, which is the
+// smaller one. A value with no unit takes the unit of the other.
+func CommonUnit(a, b *Unit) *Unit {
+	if a == nil {
+		return b
+	}
+	if b == nil || a.Scale <= b.Scale {
+		return a
+	}
+	return b
+}
+
+// ProductUnit returns the unit of a product or quotient of a value in a and a value in
+// b. Two values with a unit give a number with no unit.
+func ProductUnit(a, b *Unit) *Unit {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	return nil
+}
+
 // UnitsIncompatible reports whether a and b are units of different dimensions.
 func UnitsIncompatible(a, b *Unit) bool {
 	return a != nil && b != nil && !a.Dimensions.Equal(b.Dimensions)

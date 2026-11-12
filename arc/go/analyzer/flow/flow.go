@@ -442,6 +442,9 @@ func analyzeIdentifier(
 			converted := false
 			if sym.IsValueVariable() {
 				expected, actual = chanValueType, srcType
+				if expr := prevNode.Expression(); expr != nil {
+					TakeUnit(ctx, expr, chanValueType.Unit)
+				}
 				// Lowering converts a variable written to a variable of another unit.
 				if prevNode.Identifier() != nil &&
 					types.UnitsConvertible(actual.Unit, expected.Unit) {

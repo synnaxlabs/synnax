@@ -143,9 +143,14 @@ func checkArgType[T antlr.ParserRuleContext](
 		argType = argType.UnwrapChan()
 	}
 	paramType := param.Type
-	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err != nil &&
+	_, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil &&
 		ReportCalculation(ctx, arg.Expr, paramType, "'"+fnName+"' cannot take", nil) {
 		return
+	}
+	// The compiler converts an argument in a function body.
+	if fnErr == nil && types.UnitsConvertible(argType.Unit, paramType.Unit) {
+		argType.Unit, paramType.Unit = nil, nil
 	}
 	if init := convertedInitializer(ctx, arg.Expr, paramType, argType); init != nil {
 		if _, err := literal.ParseConst(init, paramType); err != nil {

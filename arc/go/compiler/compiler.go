@@ -32,7 +32,6 @@ package compiler
 
 import (
 	"context"
-	"math"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -351,29 +350,7 @@ func compileScaleSynthetic(
 		Results: []wasm.ValueType{wasm.ConvertType(out)},
 	})
 	ctx.Writer.WriteLocalGet(0)
-	up, down := types.UnitFactor(in.Unit, out.Unit), types.UnitFactor(out.Unit, in.Unit)
-	var err error
-	switch {
-	case in.Kind == types.KindF64:
-		ctx.Writer.WriteF64Const(up)
-		err = ctx.Writer.WriteBinaryOpInferred("*", in)
-	case in.Kind == types.KindF32:
-		ctx.Writer.WriteF32Const(float32(up))
-		err = ctx.Writer.WriteBinaryOpInferred("*", in)
-	// A whole factor keeps an integer exact.
-	case up == math.Trunc(up):
-		err = writeIntegerOp(ctx.Writer, "*", in, int64(up))
-	case down == math.Trunc(down):
-		err = writeIntegerOp(ctx.Writer, "/", in, int64(down))
-	default:
-		if err = expression.EmitCast(ctx, in, types.F64()); err != nil {
-			return compiledFunction{}, err
-		}
-		ctx.Writer.WriteF64Const(up)
-		ctx.Writer.WriteBinaryOp(wasm.OpF64Mul)
-		err = expression.EmitCast(ctx, types.F64(), in)
-	}
-	if err != nil {
+	if err := expression.EmitUnitScale(ctx, in, out.Unit); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{
@@ -381,17 +358,6 @@ func compileScaleSynthetic(
 		typeIdx:   typeIdx,
 		writer:    ctx.Writer,
 	}, nil
-}
-
-// writeIntegerOp applies op with the constant operand to the integer of type t on the
-// stack.
-func writeIntegerOp(w *wasm.Writer, op string, t types.Type, operand int64) error {
-	if t.Is64Bit() {
-		w.WriteI64Const(operand)
-	} else {
-		w.WriteI32Const(int32(operand))
-	}
-	return w.WriteBinaryOpInferred(op, t)
 }
 
 // compileDispatcherSynthetic emits a $sel-keyed if/else chain that calls exactly

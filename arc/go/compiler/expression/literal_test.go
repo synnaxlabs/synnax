@@ -109,13 +109,21 @@ var _ = Describe("Literal Compilation", func() {
 			"i64(5400s)",
 			types.I64(),
 			OpI64Const,
-			int64(5_400_000_000_000),
+			int64(5400),
 		),
 
 		Entry(
 			"time-span literal in u64 cast context",
 			"u64(5400s)",
 			types.U64(),
+			OpI64Const,
+			int64(5400),
+		),
+
+		Entry(
+			"time-span literal in a cast to another unit",
+			"i64 ns(5400s)",
+			types.TimeSpan(),
 			OpI64Const,
 			int64(5_400_000_000_000),
 		),

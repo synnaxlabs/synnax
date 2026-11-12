@@ -3618,53 +3618,24 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Unit Literals", func() {
-		It("Should compile unit literal with scale conversion", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getMs() f64 {
-				return 300ms
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getMs := mod.ExportedFunction("getMs")
-			Expect(getMs).ToNot(BeNil())
-
-			results := MustSucceed(getMs.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			result := math.Float64frombits(results[0])
-			Expect(
-				result,
-			).To(BeNumerically("~", 300000000.0, 1))
-			// 300ms = 300 million ns
-		})
-
-		It("Should compile kilometer literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getKm() f64 {
-				return 5km
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getKm := mod.ExportedFunction("getKm")
-			results := MustSucceed(getKm.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(Equal(5000.0))
-		})
-
-		It("Should compile psi literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getPsi() f64 {
-				return 100psi
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getPsi := mod.ExportedFunction("getPsi")
-			results := MustSucceed(getPsi.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
-		})
+		DescribeTable(
+			"Should compile a unit literal as the number in the unit of its target",
+			func(ctx SpecContext, result, literal string, expected float64) {
+				output := MustSucceed(compile(ctx, `
+				func get() `+result+` {
+					return `+literal+`
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("get").Call(ctx))
+				Expect(results).To(HaveLen(1))
+				Expect(math.Float64frombits(results[0])).To(Equal(expected))
+			},
+			Entry("in the same unit", "f64 ms", "300ms", 300.0),
+			Entry("in a smaller unit", "f64 ns", "300ms", 300e6),
+			Entry("in a larger unit", "f64 km", "5000m", 5.0),
+			Entry("a pressure", "f64 psi", "100psi", 100.0),
+		)
 	})
 
 	Describe("String Operations", func() {

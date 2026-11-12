@@ -955,19 +955,18 @@ func lowerAssignment(
 	ref := varFeederRef(e.register)
 	nodes, source := []ir.Node{res.node}, res.output
 	var edges []ir.Edge
-	// Only a lone variable holds its value in its unit.
-	if head, _ := parser.ExpressionNameParts(expr); head != "" {
-		from := res.node.Outputs[0].Type
-		if types.UnitsConvertible(from.Unit, sym.Type.Unit) {
-			scale := buildScaleNode(from, sym.Type, kg)
-			nodes = append(nodes, scale.node)
-			edges = append(edges, ir.Edge{
-				Source: source,
-				Target: scale.input,
-				Kind:   ir.EdgeKindContinuous,
-			})
-			source = scale.output
-		}
+	if from := res.node.Outputs[0].Type; types.UnitsConvertible(
+		from.Unit,
+		sym.Type.Unit,
+	) {
+		scale := buildScaleNode(from, sym.Type, kg)
+		nodes = append(nodes, scale.node)
+		edges = append(edges, ir.Edge{
+			Source: source,
+			Target: scale.input,
+			Kind:   ir.EdgeKindContinuous,
+		})
+		source = scale.output
 	}
 	return nodes, append(edges, ir.Edge{
 		Source: source,
@@ -1842,11 +1841,9 @@ func analyzeUnit(
 }
 
 type flowChainProcessor struct {
-	kg       *keyGenerator
-	shell    *shellBuilder
-	prevNode *ir.Node
-	// prevIdentifier is set when the previous flow node is a lone name.
-	prevIdentifier     bool
+	kg                 *keyGenerator
+	shell              *shellBuilder
+	prevNode           *ir.Node
 	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
@@ -2041,10 +2038,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 			))
 			return false
 		}
-		// A variable written to a variable of another unit converts on the way.
+		// A value written to a variable of another unit converts on the way.
 		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
-			p.prevIdentifier && len(to) > 0 &&
-			types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			len(to) > 0 && types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
 			scale := buildScaleNode(from, to[0].Type, p.kg)
 			p.edges = append(p.edges, ir.Edge{
 				Source: p.prevOutput,
@@ -2097,7 +2093,6 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.prevOutput = node.output
 	}
 	p.prevNode = &node.node
-	p.prevIdentifier = flowNode.Identifier() != nil
 	if node.node.Key != "" {
 		p.nodes = append(p.nodes, node.node)
 	}
@@ -2346,8 +2341,13 @@ func extractInputValues(
 				return nil, paramType, false
 			}
 			args = append(args, res.node)
-			t := res.node.Outputs[0].Type
-			return types.Zero(t), types.VarRef(t, res.node.Key), true
+			t, key := res.node.Outputs[0].Type, res.node.Key
+			if types.UnitsConvertible(t.Unit, paramType.Unit) {
+				scale := buildScaleNode(types.VarRef(t, key), paramType, kg)
+				args = append(args, scale.node)
+				t, key = paramType, scale.node.Key
+			}
+			return types.Zero(t), types.VarRef(t, key), true
 		}
 
 		parsedValue, err := literal.ParseConst(expr, paramType)

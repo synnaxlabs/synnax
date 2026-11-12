@@ -128,7 +128,7 @@ func compilePower(
 	}
 
 	ctx.Resolver.EmitMathPow(ctx.Writer, ctx.WriterID, baseType)
-
+	baseType.Unit = nil
 	return baseType, nil
 }
 
