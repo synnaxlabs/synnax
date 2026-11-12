@@ -11,8 +11,4 @@
 
 .console-version-update__download {
     width: 50rem;
-
-    & > .lyra-text {
-        flex-shrink: 0;
-    }
 }
