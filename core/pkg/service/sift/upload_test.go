@@ -11,6 +11,7 @@ package sift_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -45,6 +46,7 @@ var _ = Describe("Upload", func() {
 		t      task.Task
 		dt     driver.Task
 		dev    device.Device
+		idx    channel.Channel
 		ch     channel.Channel
 		rng    ranger.Range
 	)
@@ -64,7 +66,7 @@ var _ = Describe("Upload", func() {
 			URI:    server.Address(),
 			APIKey: createAPIKey(ctx, apiKey),
 		})
-		idx := createIndex(ctx)
+		idx = createIndex(ctx)
 		ch = createData(ctx, idx)
 		write(ctx, idx, ch,
 			[]telem.TimeStamp{at(1), at(2), at(3), at(4)},
@@ -255,6 +257,51 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(HaveLen(1))
 	})
 
+	It("Should resume from its saved positions an upload that was retrying",
+		func(ctx SpecContext) {
+			server.FailRuns(
+				grpcstatus.Error(codes.Unavailable, "runs are down"),
+				grpcstatus.Error(codes.Unavailable, "runs are down"),
+			)
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantWarning))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(uploadStatus(ctx, key)).To(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Details.Samples", BeEquivalentTo(4)),
+				HaveField(
+					"Details.Positions",
+					HaveExactElements(HaveField("Index", idx.Key())),
+				),
+			))
+			received := server.Received()
+			configure(ctx)
+			statusOf(ctx, key).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Description", "Sent 4 samples to asset stand."),
+			))
+			Expect(server.Received()).To(Equal(received))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+	It("Should fail a waiting upload whose device is deleted", func(ctx SpecContext) {
+		server.Pause()
+		first := upload(ctx)
+		statusOf(ctx, first).Should(HaveField("Message", "Uploading to Sift"))
+		second := upload(ctx)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
+		})).To(Succeed())
+		server.Resume()
+		statusOf(ctx, second).Should(SatisfyAll(
+			HaveField("Variant", status.VariantError),
+			HaveField("Message", "Failed to upload to Sift"),
+			HaveField("Description", ContainSubstring(
+				fmt.Sprintf("Devices with keys [%s] not found", dev.Key),
+			)),
+		))
+	})
+
 	It("Should hand the uploads to a scan task configured while the last one stops",
 		func(ctx SpecContext) {
 			server.Pause()
@@ -295,13 +342,60 @@ var _ = Describe("Upload", func() {
 		))
 	})
 
+	missingDevice, missingRange := uuid.New().String(), uuid.New()
+
 	DescribeTable("Should reject an invalid upload",
 		func(ctx SpecContext, args func() map[string]any, msg string) {
 			stat := execCommand(ctx, dt, t, "upload", args())
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to upload to Sift"))
-			Expect(stat.Description).To(HaveSuffix(msg))
+			Expect(stat.Description).To(ContainSubstring(msg))
 		},
+		Entry("no device", func() map[string]any {
+			return map[string]any{
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "device: required"),
+		Entry("no range", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "range: required"),
+		Entry("a device that does not exist", func() map[string]any {
+			return map[string]any{
+				"device":   missingDevice,
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, fmt.Sprintf("Devices with keys [%s] not found", missingDevice)),
+		Entry("a device that is not a Sift device", func() map[string]any {
+			ctx := context.Background()
+			other := dev
+			other.Key = uuid.New().String()
+			other.Make = "other"
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			return map[string]any{
+				"device":   other.Key,
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "is not a Sift device"),
+		Entry("a range that does not exist", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"range":    missingRange,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, fmt.Sprintf("Ranges with keys [%s] not found", missingRange)),
 		Entry("no asset", func() map[string]any {
 			return map[string]any{
 				"device":   dev.Key,
