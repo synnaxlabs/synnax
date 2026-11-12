@@ -130,11 +130,15 @@ func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, e
 	if err != nil {
 		return WriteConfig{}, err
 	}
-	cfg.Targets, err = lo.MapErr(
+	targets, err := lo.MapErr(
 		old.Targets,
 		func(t v1.WriteTarget, _ int) (WriteTarget, error) {
 			return MigrateWriteTarget(ctx, t)
 		},
 	)
-	return cfg, err
+	if err != nil {
+		return WriteConfig{}, err
+	}
+	cfg.Targets = targets
+	return cfg, nil
 }
