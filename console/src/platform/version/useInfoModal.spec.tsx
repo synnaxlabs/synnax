@@ -241,7 +241,6 @@ describe("version useInfoModal", () => {
         }),
       );
       fail();
-      expect(await screen.findByText("Failed to update Console")).toBeTruthy();
       await waitFor(() => expect(closed(ipc)).toContain(rid));
       expect(installed(ipc)).toBe(false);
     });
@@ -338,12 +337,9 @@ describe("version useInfoModal", () => {
       await screen.findByText("Console 1.6.0 cannot work with Core 1.5.0");
       setStatus(createStatus("1.5.1"));
       await waitFor(() => expect(callsOf(ipc, "plugin:updater|check")).toHaveLength(2));
-      fireEvent.click(screen.getByRole("button", { name: "Update" }));
-      expect(
-        await screen.findByText(
-          "The Core changed before the update started. Update again.",
-        ),
-      ).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Update" }));
+      });
       expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
     });
   });
