@@ -29,13 +29,14 @@ runs:
     - name: Set up zstd
       uses: ./.github/actions/setup-zstd
 
+    # The path text is part of the cache version too, so it is the same on each runner.
     # A cache holds paths relative to the workspace, which is on another drive on a
     # build bot, so an entry from a hosted runner unpacks to the wrong place there.
     - name: Restore trusted-signing-cli
       id: cache
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
-        path: ${{ runner.temp }}/trusted-signing-cli/bin
+        path: ~/.trusted-signing-cli/bin
         key:
           trusted-signing-cli-${{ runner.environment }}-${{ runner.os }}-${{ runner.arch
           }}-${{ inputs.version }}
@@ -45,18 +46,20 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
+      # A build bot keeps its home directory, where a restore can leave a binary of
+      # another version that cargo has no record of.
       run: |
-        cargo install trusted-signing-cli --version "$VERSION" --locked \
-          --root "$RUNNER_TEMP/trusted-signing-cli"
+        cargo install trusted-signing-cli --version "$VERSION" --locked --force \
+          --root "$USERPROFILE/.trusted-signing-cli"
 
     # Merge queue caches are unreachable from later runs, so the queue never saves.
     - name: Save trusted-signing-cli
       if: steps.cache.outputs.cache-hit != 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
-        path: ${{ runner.temp }}/trusted-signing-cli/bin
+        path: ~/.trusted-signing-cli/bin
         key: ${{ steps.cache.outputs.cache-primary-key }}
 
     - name: Add trusted-signing-cli to the PATH
       shell: bash
-      run: cygpath -w "$RUNNER_TEMP/trusted-signing-cli/bin" >> "$GITHUB_PATH"
+      run: echo "$USERPROFILE\.trusted-signing-cli\bin" >> "$GITHUB_PATH"
