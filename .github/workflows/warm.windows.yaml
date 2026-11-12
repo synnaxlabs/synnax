@@ -78,20 +78,25 @@ jobs:
             .github/scripts/go_toolchain_cache.sh core/go.mod | sed -n 's/^key=//p')
           version=$(yq .inputs.version.default \
             .github/actions/setup-trusted-signing-cli/action.yaml)
-          is_missing() {
-            found=$(.github/scripts/gh_api.sh \
+          count() {
+            .github/scripts/gh_api.sh \
               "repos/$GH_REPO/actions/caches?ref=refs/heads/main&key=$1" \
-              --jq "[.actions_caches[] | select(.key == \"$1\")] | length")
-            if [ "$found" != 0 ]; then return 1; fi
-            echo "$1 is missing"
+              --jq "[.actions_caches[] | select(.key == \"$1\")] | length"
           }
           missing=false
           for key in "$PNPM_KEY" "$go_key" \
             "trusted-signing-cli-self-hosted-Windows-X64-$version"; do
-            if is_missing "$key"; then missing=true; fi
+            found=$(count "$key")
+            if [ "$found" = 0 ]; then
+              echo "$key is missing"
+              missing=true
+            fi
           done
           hosted_missing=false
-          if is_missing "trusted-signing-cli-github-hosted-Windows-X64-$version"; then
+          key=trusted-signing-cli-github-hosted-Windows-X64-$version
+          found=$(count "$key")
+          if [ "$found" = 0 ]; then
+            echo "$key is missing"
             hosted_missing=true
           fi
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
