@@ -9,8 +9,8 @@
 
 # The code scanning rule on main blocks a pull request until it has an analysis for each
 # category main has. A pull request that changes no C++ input uploads an empty C++
-# analysis instead of a scan, and likewise for Rust. Every other run scans all languages.
-# A changed category orphans the alerts filed under the old one.
+# analysis instead of a scan, and likewise for Rust. Every other run scans all
+# languages. A changed category orphans the alerts filed under the old one.
 
 name: CodeQL
 
