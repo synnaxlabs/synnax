@@ -13,11 +13,13 @@ import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
+import { Settings } from "@/app/settings";
 import { Toolbars } from "@/app/toolbars";
 import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
 import { Embedded } from "@/feature/embedded";
 import { Panel } from "@/feature/panel";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Version } from "@/platform/version";
@@ -83,6 +85,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
             <Version.Badge />
             {DESKTOP && <Embedded.ConnectButton />}
             <Docs.OpenButton />
+            {FLAGS.settings && <Settings.Button />}
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>
         )}

@@ -12,10 +12,8 @@ import { type ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";
-import { Settings } from "@/app/settings";
 import { Toolbars } from "@/app/toolbars";
 import { Project } from "@/feature/project";
-import { FLAGS } from "@/flags";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Session } from "@/session";
 
@@ -72,7 +70,6 @@ export const Left = (): ReactElement => (
     </Nav.Bar.Content>
     <Nav.Bar.End bordered data-tauri-drag-region>
       <BottomMenu />
-      {FLAGS.settings && <Settings.Button />}
     </Nav.Bar.End>
   </PlatformNav.Bar>
 );
