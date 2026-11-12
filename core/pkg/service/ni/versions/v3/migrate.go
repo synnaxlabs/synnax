@@ -11,8 +11,8 @@ package v3
 
 import (
 	"context"
+	"fmt"
 	"math"
-	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -280,105 +280,227 @@ func MigrateDigitalWriteConfig(
 	return autoMigrateDigitalWriteConfig(ctx, old)
 }
 
-// narrowedFields are the Go names of the channel fields a migration can change.
-var narrowedFields = []string{
-	"Port",
-	"Line",
-	"Divisor",
-	"InitialCount",
-	"PulsesPerRev",
-	"Disabled",
+// changeLog logs the fields a migration narrows in one stored channel.
+type changeLog struct {
+	ins     alamos.Instrumentation
+	config  uuid.UUID
+	channel string
 }
 
-// channelValue returns the struct a channel holds: the variant of a union, or the
-// channel itself.
-func channelValue(ch reflect.Value) reflect.Value {
-	if v := ch.FieldByName("Variant"); v.IsValid() {
-		return v.Elem()
-	}
-	return ch
+func (l changeLog) warn(field string, old, new zap.Field) {
+	l.ins.L.Warn(
+		"narrowed an NI channel field",
+		zap.Stringer("config", l.config),
+		zap.String("channel", l.channel),
+		zap.String("field", field),
+		old,
+		new,
+	)
 }
 
-// fieldOf returns the named field of a channel, and false when it has no such field.
-func fieldOf(ch reflect.Value, name string) (any, bool) {
-	if !ch.IsValid() {
-		return nil, false
-	}
-	f := ch.FieldByName(name)
-	if !f.IsValid() {
-		return nil, false
-	}
-	return f.Interface(), true
+type number interface {
+	~int32 | ~uint32 | ~uint8 | ~float64
 }
 
-// sameValue reports whether two narrowed field values are equal, comparing numbers of
-// different types by value.
-func sameValue(a, b any) bool {
-	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
-	if av.CanFloat() || av.CanInt() || av.CanUint() {
-		return asFloat(av) == asFloat(bv)
+// logNumber logs field when its old and new values differ.
+func logNumber[O, N number](l changeLog, field string, old O, new N) {
+	if float64(old) != float64(new) {
+		l.warn(field, zap.Any("old", old), zap.Any("new", new))
 	}
-	return a == b
 }
 
-func asFloat(v reflect.Value) float64 {
-	switch {
-	case v.CanInt():
-		return float64(v.Int())
-	case v.CanUint():
-		return float64(v.Uint())
+// logFlag logs field when its old and new values differ.
+func logFlag(l changeLog, field string, old, new bool) {
+	if old != new {
+		l.warn(field, zap.Bool("old", old), zap.Bool("new", new))
+	}
+}
+
+// aiBases returns the shared fields of a v2 analog input variant and of its migration.
+// It panics for a variant without shared fields.
+func aiBases(
+	old v2.AIChannelVariant,
+	n AIChannelVariant,
+) (v2.BaseAIChannel, BaseAIChannel) {
+	switch o := old.(type) {
+	case v2.AIVoltageChannel:
+		return o.BaseAIChannel, n.(AIVoltageChannel).BaseAIChannel
+	case v2.AIAccelChannel:
+		return o.BaseAIChannel, n.(AIAccelChannel).BaseAIChannel
+	case v2.AIBridgeChannel:
+		return o.BaseAIChannel, n.(AIBridgeChannel).BaseAIChannel
+	case v2.AICurrentChannel:
+		return o.BaseAIChannel, n.(AICurrentChannel).BaseAIChannel
+	case v2.AIForceBridgeTableChannel:
+		return o.BaseAIChannel, n.(AIForceBridgeTableChannel).BaseAIChannel
+	case v2.AIForceBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, n.(AIForceBridgeTwoPointLinChannel).BaseAIChannel
+	case v2.AIForceIEPEChannel:
+		return o.BaseAIChannel, n.(AIForceIEPEChannel).BaseAIChannel
+	case v2.AIMicrophoneChannel:
+		return o.BaseAIChannel, n.(AIMicrophoneChannel).BaseAIChannel
+	case v2.AIPressureBridgeTableChannel:
+		return o.BaseAIChannel, n.(AIPressureBridgeTableChannel).BaseAIChannel
+	case v2.AIPressureBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, n.(AIPressureBridgeTwoPointLinChannel).BaseAIChannel
+	case v2.AIResistanceChannel:
+		return o.BaseAIChannel, n.(AIResistanceChannel).BaseAIChannel
+	case v2.AIRTDChannel:
+		return o.BaseAIChannel, n.(AIRTDChannel).BaseAIChannel
+	case v2.AIStrainGaugeChannel:
+		return o.BaseAIChannel, n.(AIStrainGaugeChannel).BaseAIChannel
+	case v2.AIThermocoupleChannel:
+		return o.BaseAIChannel, n.(AIThermocoupleChannel).BaseAIChannel
+	case v2.AITorqueBridgeTableChannel:
+		return o.BaseAIChannel, n.(AITorqueBridgeTableChannel).BaseAIChannel
+	case v2.AITorqueBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, n.(AITorqueBridgeTwoPointLinChannel).BaseAIChannel
+	case v2.AIVelocityIEPEChannel:
+		return o.BaseAIChannel, n.(AIVelocityIEPEChannel).BaseAIChannel
+	case v2.AIAccel4WireDCVoltageChannel:
+		return o.BaseAIChannel, n.(AIAccel4WireDCVoltageChannel).BaseAIChannel
+	case v2.AIAccelChargeChannel:
+		return o.BaseAIChannel, n.(AIAccelChargeChannel).BaseAIChannel
+	case v2.AIChargeChannel:
+		return o.BaseAIChannel, n.(AIChargeChannel).BaseAIChannel
+	case v2.AICurrentRMSChannel:
+		return o.BaseAIChannel, n.(AICurrentRMSChannel).BaseAIChannel
+	case v2.AIForceBridgePolynomialChannel:
+		return o.BaseAIChannel, n.(AIForceBridgePolynomialChannel).BaseAIChannel
+	case v2.AIFreqVoltageChannel:
+		return o.BaseAIChannel, n.(AIFreqVoltageChannel).BaseAIChannel
+	case v2.AIPressureBridgePolynomialChannel:
+		return o.BaseAIChannel, n.(AIPressureBridgePolynomialChannel).BaseAIChannel
+	case v2.AIThermistorIexChannel:
+		return o.BaseAIChannel, n.(AIThermistorIexChannel).BaseAIChannel
+	case v2.AIThermistorVexChannel:
+		return o.BaseAIChannel, n.(AIThermistorVexChannel).BaseAIChannel
+	case v2.AITorqueBridgePolynomialChannel:
+		return o.BaseAIChannel, n.(AITorqueBridgePolynomialChannel).BaseAIChannel
+	case v2.AIVoltageRMSChannel:
+		return o.BaseAIChannel, n.(AIVoltageRMSChannel).BaseAIChannel
+	case v2.AIVoltageWithExcitChannel:
+		return o.BaseAIChannel, n.(AIVoltageWithExcitChannel).BaseAIChannel
 	default:
-		return v.Float()
+		panic(fmt.Sprintf("analog input variant %T has no base", old))
 	}
 }
 
-// logChanges logs each narrowed channel field that differs between a stored config
-// and its migration.
-func logChanges(ins alamos.Instrumentation, key uuid.UUID, old, migrated any) {
-	oldChannels := reflect.ValueOf(old).FieldByName("Channels")
-	newChannels := reflect.ValueOf(migrated).FieldByName("Channels")
-	for i := range oldChannels.Len() {
-		o := channelValue(oldChannels.Index(i))
-		n := channelValue(newChannels.Index(i))
-		channelKey, _ := fieldOf(o, "Key")
-		log := func(field string, before, after any) {
-			ins.L.Warn(
-				"narrowed an NI channel field",
-				zap.Stringer("config", key),
-				zap.Any("channel", channelKey),
-				zap.String("field", field),
-				zap.Any("old", before),
-				zap.Any("new", after),
-			)
-		}
-		for _, name := range narrowedFields {
-			before, ok := fieldOf(o, name)
-			if !ok {
-				continue
-			}
-			if after, _ := fieldOf(n, name); !sameValue(before, after) {
-				log(name, before, after)
-			}
-		}
-		oldCJC, ok := fieldOf(o, "Cjc")
-		if !ok {
-			continue
-		}
-		newCJC, _ := fieldOf(n, "Cjc")
-		before, ok := fieldOf(channelValue(reflect.ValueOf(oldCJC)), "Port")
-		if !ok {
-			continue
-		}
-		after, _ := fieldOf(channelValue(reflect.ValueOf(newCJC)), "Port")
-		if !sameValue(before, after) {
-			log("Cjc.Port", before, after)
-		}
+func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
+	if o, ok := old.Variant.(v2.AITempBuiltinChannel); ok {
+		l.channel = o.Key
+		n := migrated.Variant.(AITempBuiltinChannel)
+		logFlag(l, "Disabled", o.Disabled, n.Disabled)
+		return
+	}
+	if old.Variant == nil {
+		return
+	}
+	o, n := aiBases(old.Variant, migrated.Variant)
+	l.channel = o.Key
+	logNumber(l, "Port", o.Port, n.Port)
+	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	tc, ok := old.Variant.(v2.AIThermocoupleChannel)
+	if !ok {
+		return
+	}
+	oldCJC, ok := tc.Cjc.Variant.(v2.ChanCJC)
+	if !ok {
+		return
+	}
+	newCJC := migrated.Variant.(AIThermocoupleChannel).Cjc.Variant.(ChanCJC)
+	logNumber(l, "Cjc.Port", oldCJC.Port, newCJC.Port)
+}
+
+func logAOChannel(l changeLog, old v2.AOChannel, migrated AOChannel) {
+	if old.Variant == nil {
+		return
+	}
+	o, n := old.Base(), migrated.Base()
+	l.channel = o.Key
+	logNumber(l, "Port", o.Port, n.Port)
+	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+}
+
+func logCIChannel(l changeLog, old v2.CIChannel, migrated CIChannel) {
+	if old.Variant == nil {
+		return
+	}
+	o, n := old.Base(), migrated.Base()
+	l.channel = o.Key
+	logNumber(l, "Port", o.Port, n.Port)
+	switch v := old.Variant.(type) {
+	case v2.CIFrequencyChannel:
+		after := migrated.Variant.(CIFrequencyChannel).Divisor
+		logNumber(l, "Divisor", v.Divisor, after)
+	case v2.CIPeriodChannel:
+		after := migrated.Variant.(CIPeriodChannel).Divisor
+		logNumber(l, "Divisor", v.Divisor, after)
+	case v2.CIEdgeCountChannel:
+		after := migrated.Variant.(CIEdgeCountChannel).InitialCount
+		logNumber(l, "InitialCount", v.InitialCount, after)
+	case v2.CIVelocityAngularChannel:
+		after := migrated.Variant.(CIVelocityAngularChannel).PulsesPerRev
+		logNumber(l, "PulsesPerRev", v.PulsesPerRev, after)
+	case v2.CIPositionAngularChannel:
+		after := migrated.Variant.(CIPositionAngularChannel).PulsesPerRev
+		logNumber(l, "PulsesPerRev", v.PulsesPerRev, after)
+	}
+	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+}
+
+func logDIChannel(l changeLog, old v2.DIChannel, migrated DIChannel) {
+	l.channel = old.Key
+	logNumber(l, "Port", old.Port, migrated.Port)
+	logNumber(l, "Line", old.Line, migrated.Line)
+	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+}
+
+func logDOChannel(l changeLog, old v2.DOChannel, migrated DOChannel) {
+	l.channel = old.Key
+	logNumber(l, "Port", old.Port, migrated.Port)
+	logNumber(l, "Line", old.Line, migrated.Line)
+	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+}
+
+func logAnalogRead(l changeLog, old v2.AnalogReadConfig, migrated AnalogReadConfig) {
+	for i, ch := range old.Channels {
+		logAIChannel(l, ch, migrated.Channels[i])
+	}
+}
+
+func logAnalogWrite(l changeLog, old v2.AnalogWriteConfig, migrated AnalogWriteConfig) {
+	for i, ch := range old.Channels {
+		logAOChannel(l, ch, migrated.Channels[i])
+	}
+}
+
+func logCounterRead(l changeLog, old v2.CounterReadConfig, migrated CounterReadConfig) {
+	for i, ch := range old.Channels {
+		logCIChannel(l, ch, migrated.Channels[i])
+	}
+}
+
+func logDigitalRead(l changeLog, old v2.DigitalReadConfig, migrated DigitalReadConfig) {
+	for i, ch := range old.Channels {
+		logDIChannel(l, ch, migrated.Channels[i])
+	}
+}
+
+func logDigitalWrite(
+	l changeLog,
+	old v2.DigitalWriteConfig,
+	migrated DigitalWriteConfig,
+) {
+	for i, ch := range old.Channels {
+		logDOChannel(l, ch, migrated.Channels[i])
 	}
 }
 
 // logged wraps a config migration so that it logs each channel field it changes.
 func logged[O gorp.Entry[uuid.UUID], N any](
 	migrateFn func(context.Context, O) (N, error),
+	logFn func(changeLog, O, N),
 ) func(context.Context, O, alamos.Instrumentation) (N, error) {
 	return func(ctx context.Context, old O, ins alamos.Instrumentation) (N, error) {
 		migrated, err := migrateFn(ctx, old)
@@ -386,7 +508,7 @@ func logged[O gorp.Entry[uuid.UUID], N any](
 			var zero N
 			return zero, err
 		}
-		logChanges(ins, old.GorpKey(), old, migrated)
+		logFn(changeLog{ins: ins, config: old.GorpKey()}, old, migrated)
 		return migrated, nil
 	}
 }
@@ -396,29 +518,29 @@ const narrowMigrationKey = "v61_narrow_field_types"
 // AnalogReadMigration lifts stored analog read configs to v3.
 var AnalogReadMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
-	logged(MigrateAnalogReadConfig),
+	logged(MigrateAnalogReadConfig, logAnalogRead),
 )
 
 // AnalogWriteMigration lifts stored analog write configs to v3.
 var AnalogWriteMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
-	logged(MigrateAnalogWriteConfig),
+	logged(MigrateAnalogWriteConfig, logAnalogWrite),
 )
 
 // CounterReadMigration lifts stored counter read configs to v3.
 var CounterReadMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
-	logged(MigrateCounterReadConfig),
+	logged(MigrateCounterReadConfig, logCounterRead),
 )
 
 // DigitalReadMigration lifts stored digital read configs to v3.
 var DigitalReadMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
-	logged(MigrateDigitalReadConfig),
+	logged(MigrateDigitalReadConfig, logDigitalRead),
 )
 
 // DigitalWriteMigration lifts stored digital write configs to v3.
 var DigitalWriteMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
-	logged(MigrateDigitalWriteConfig),
+	logged(MigrateDigitalWriteConfig, logDigitalWrite),
 )
