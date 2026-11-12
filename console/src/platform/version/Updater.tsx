@@ -110,6 +110,8 @@ export const Provider = ({
   useAsyncEffect(
     async (signal) => {
       setCheck({ variant: "loading" });
+      // A failed download belongs to the update that the last checks found.
+      setDownload((d) => (d.variant === "error" ? IDLE : d));
       // Not held.current: a newer run can set it before this cleanup runs.
       let found: Available | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
