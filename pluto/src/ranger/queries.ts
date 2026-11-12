@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, label, ranger } from "@synnaxlabs/client";
-import { color, deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
+import {
+  color,
+  deep,
+  type NumericTimeRange,
+  primitive,
+  unique,
+  verbs,
+} from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -21,6 +28,7 @@ const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PARENT_RESOURCE_NAME = "parent range";
+const PLURAL_PARENT_RESOURCE_NAME = "parent ranges";
 const PLURAL_ALIAS_RESOURCE_NAME = "channel aliases";
 
 export type RetrieveQuery = {
@@ -48,6 +56,35 @@ export const { use: useParent, useResult: useResultParent } = Flux.createRetriev
     client.ranges.parent.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) =>
     client.ranges.parent.watch(key).getCached(),
+});
+
+export type AncestorsQuery = {
+  keys: ranger.Key[];
+};
+
+/**
+ * The parent of each of the ranges and of each range above them: a key maps to the key
+ * of its parent, or to null at the top. It reads one level at a time.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  AncestorsQuery,
+  Record<ranger.Key, ranger.Key | null>
+>({
+  name: PLURAL_PARENT_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) => {
+    const links: Record<ranger.Key, ranger.Key | null> = {};
+    let level = keys;
+    while (level.length > 0) {
+      const ranges = await client.ranges.retrieve(level);
+      ranges.forEach(({ key, parent }) => (links[key] = parent ?? null));
+      level = unique.unique(
+        ranges.flatMap(({ parent }) =>
+          parent == null || parent in links ? [] : [parent],
+        ),
+      );
+    }
+    return links;
+  },
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =

@@ -103,6 +103,34 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultAncestors", () => {
+    it("should map each range to its parent up to the top", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const top = await client.ranges.create({ name: "top", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: top.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const { result } = renderHook(
+        () => Ranger.useResultAncestors({ keys: [bottom.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          [bottom.key]: middle.key,
+          [middle.key]: top.key,
+          [top.key]: null,
+        }),
+      );
+    });
+  });
+
   describe("useResultAliases", () => {
     it("should follow an alias set on a range above", async () => {
       const ch = await client.channels.create({
