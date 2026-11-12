@@ -347,6 +347,9 @@ func (f *Factory) configureRead(
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err
 	}
+	if err := validateReadConfig(&cfg); err != nil {
+		return nil, cfg.AutoStart, err
+	}
 	dev, err := f.retrieveDevice(ctx, cfg.Device)
 	if err != nil {
 		return nil, cfg.AutoStart, err

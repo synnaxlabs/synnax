@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -31,14 +32,26 @@ func fieldPath(rec, fld int, rest ...string) []string {
 }
 
 // validateReadConfig checks the rules of c that need no channel: each field's labels
-// are unique, and the data type of a new channel matches the field's kind and holds
-// each entry and the fill.
+// are unique, the data type of a new channel matches the field's kind and holds each
+// entry and the fill, and a bytes field with an empty pointer is the only enabled field
+// of its record.
 func validateReadConfig(c *ReadConfig) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
 	for i, rec := range c.Records {
+		enabled := lo.CountBy(rec.Fields, func(f ReadField) bool {
+			return !f.Base().Disabled
+		})
 		for j, fld := range rec.Fields {
+			if base := fld.Base(); fld.Type() == payload.KindBytes &&
+				base.Pointer == "" && !base.Disabled && enabled > 1 {
+				return validate.PathedError(errors.Wrap(
+					validate.ErrValidation,
+					"a bytes field with an empty pointer must be the only enabled "+
+						"field",
+				), fieldPath(i, j, "pointer")...)
+			}
 			opts := optionsOf(fld)
 			labels := make(set.Set[string], len(opts.entries))
 			for _, e := range opts.entries {

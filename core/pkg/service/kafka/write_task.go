@@ -107,7 +107,9 @@ type writeTask struct {
 	channels map[channel.Key]*writeChannel
 	// keys are the streamed channels: every enabled channel and its index.
 	keys channel.Keys
-	// template renders the value of every record.
+	// raw is true when each record value is the bytes of its sample, with no template.
+	raw bool
+	// template renders the value of every record that is not raw.
 	template xjson.Template
 	// slots fills the template for the record being built.
 	slots recordSlots
@@ -138,7 +140,7 @@ func (f *factory) configureWrite(
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := validateWriteConfig(&cfg); err != nil {
 		return nil, err
 	}
 	if cfg.Topic == "" {
@@ -174,22 +176,23 @@ func (f *factory) configureWrite(
 	if err != nil {
 		return nil, err
 	}
-	fields, slots, err := templateFields(cfg.Record)
-	if err != nil {
-		return nil, err
-	}
-	tmpl, err := xjson.NewTemplate(fields)
-	if err != nil {
-		return nil, err
-	}
 	wt := &writeTask{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		channels:   make(map[channel.Key]*writeChannel, len(keys)),
-		template:   tmpl,
-		slots:      recordSlots{slots: slots},
+		raw:        cfg.Record.ValuePointer == "",
+	}
+	if !wt.raw {
+		fields, slots, err := templateFields(cfg.Record)
+		if err != nil {
+			return nil, err
+		}
+		if wt.template, err = xjson.NewTemplate(fields); err != nil {
+			return nil, err
+		}
+		wt.slots = recordSlots{slots: slots}
 	}
 	streamed := make(set.Set[channel.Key], len(keys))
 	for _, wc := range cfg.Channels {
@@ -619,6 +622,10 @@ func (t *writeTask) record(
 		rec = &kgo.Record{Value: make([]byte, 0, recordCapacity)}
 	}
 	*rec = kgo.Record{Key: wc.key, Timestamp: ts.Time(), Value: rec.Value[:0]}
+	if t.raw {
+		rec.Value = append(rec.Value, sample...)
+		return rec, nil
+	}
 	t.slots.wc, t.slots.sample, t.slots.ts = wc, sample, ts
 	var err error
 	if rec.Value, err = t.template.Append(rec.Value, &t.slots); err != nil {

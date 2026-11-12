@@ -22,6 +22,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -75,14 +76,32 @@ func newWriteChannelConfig(base BaseWriteChannel, c payload.Channel) WriteChanne
 }
 
 // validateWriteConfig checks cfg without reading its Synnax channels. The values of
-// each channel's entries must differ, so two NaN entries, or 0 and -0, collide.
+// each channel's entries must differ, so two NaN entries, or 0 and -0, collide. An
+// empty value pointer writes each sample as the raw record value, so every enabled
+// channel must be bytes, and the record may place nothing else.
 func validateWriteConfig(cfg *WriteConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	raw := cfg.Record.ValuePointer == ""
+	if rec := cfg.Record; raw && (rec.ChannelPointer != nil ||
+		rec.TimestampPointer != nil || len(rec.Fields) > 0) {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"record.value_pointer: an empty pointer must be the only record field",
+		)
+	}
 	for _, wc := range cfg.Channels {
+		b := wc.Base()
+		if raw && !b.Disabled && wc.Type() != payload.KindBytes {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %q: an empty record.value_pointer requires the bytes kind",
+				b.Key,
+			)
+		}
 		if err := channelOf(wc).Validate(); err != nil {
-			return errors.Wrapf(err, "channel %q", wc.Base().Key)
+			return errors.Wrapf(err, "channel %q", b.Key)
 		}
 	}
 	return nil

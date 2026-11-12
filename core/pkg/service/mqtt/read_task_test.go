@@ -247,6 +247,21 @@ var _ = Describe("Read task", func() {
 			Expect(stored(ctx, data[0]).At(0)).To(Equal([]byte{0x00, 0xff, 0x3f}))
 		})
 
+		It("Should store the raw payload in a bytes field at the root pointer",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.BytesT)
+				start(ctx, readConfig(dev, plainEntry(
+					"plant/line12", field("raw", data[0], ""),
+				)))
+				broker.publish("plant/line12", "\x00\xff{", false)
+				broker.publish("plant/line12", `{"b":"AP8/"}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(2))
+				Expect(stored(ctx, data[0]).At(0)).To(Equal([]byte{0x00, 0xff, '{'}))
+				Expect(string(stored(ctx, data[0]).At(1))).To(Equal(`{"b":"AP8/"}`))
+			},
+		)
+
 		It("Should stream and not store when data saving is disabled",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
@@ -769,12 +784,17 @@ var _ = Describe("Read task", func() {
 						"field v of topic plant/x: channel 4000000 does not exist"
 				},
 			),
-			Entry("a bytes channel at the root pointer",
+			Entry("a bytes field at the root pointer beside another field",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					ch := createVirtual(ctx, telem.BytesT)
-					return readConfig(dev, plainEntry("plant/x", field("v", ch, ""))),
-						"field v of topic plant/x: a bytes channel requires a JSON " +
-							"pointer"
+					_, data := createIndexed(ctx, telem.BytesT, telem.Float64T)
+					entry := plainEntry(
+						"plant/x",
+						field("raw", data[0], ""),
+						field("v", data[1], "/v"),
+					)
+					return readConfig(dev, entry),
+						"a bytes field with an empty pointer must be the only " +
+							"enabled field"
 				},
 			),
 			Entry("an enum value that does not fit the channel",
@@ -834,7 +854,8 @@ var _ = Describe("Read task", func() {
 					idx, _ := createIndexed(ctx)
 					entry := plainEntry("plant/x", field("time", idx, "/ts"))
 					entry["index"] = "time"
-					return readConfig(dev, entry), `unknown time format ""`
+					return readConfig(dev, entry),
+						"entries.0.fields.0.time_format: invalid time_format"
 				},
 			),
 			Entry("an index field that does not exist",

@@ -235,6 +235,31 @@ var _ = Describe("Channel fields", func() {
 				)),
 			))
 		})
+
+		It("Should reject a bytes field at the root pointer beside another field",
+			func(ctx SpecContext) {
+				raw := field("bytes", 0)
+				raw["data_type"] = "bytes"
+				cfg := config(raw)
+				unit := staticField("/unit", "string", "rpm")
+				cfg["targets"].([]any)[0].(map[string]any)["fields"] = []any{unit}
+				Expect(prepare(ctx, cfg)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"targets.0.channel: a bytes channel with an empty pointer "+
+							"must be the only field",
+					)),
+				))
+			},
+		)
+
+		It("Should accept a bytes field alone at the root pointer",
+			func(ctx SpecContext) {
+				raw := field("bytes", 0)
+				raw["data_type"] = "bytes"
+				Expect(prepare(ctx, config(raw))).Error().ToNot(HaveOccurred())
+			},
+		)
 	})
 
 	Describe("Normalize", func() {

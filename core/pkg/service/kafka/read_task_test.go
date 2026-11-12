@@ -1492,6 +1492,40 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
+	It("Should read the raw record value into a bytes field with no pointer",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.BytesT)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Records: single([]kafka.ReadField{
+					readField(
+						kafka.BaseReadField{Key: "raw", Channel: data.Key()},
+						telem.BytesT,
+					),
+				}),
+			})
+			start(ctx, dt, t)
+			for i, value := range [][]byte{{0x00, 0xff, '{'}, []byte(`{"v":1}`)} {
+				rec := &kgo.Record{
+					Topic:     topic,
+					Value:     value,
+					Timestamp: time.UnixMilli(int64(10_000 + i)),
+				}
+				Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+			}
+			Expect(expectStored(ctx, data.Key(), 2).Data).To(Equal(
+				telem.NewSeriesV([]byte{0x00, 0xff, '{'}, []byte(`{"v":1}`)).Data,
+			))
+			Expect(timestamps(stored(ctx, index.Key()))).To(Equal([]telem.TimeStamp{
+				10 * telem.SecondTS,
+				10*telem.SecondTS + telem.MillisecondTS,
+			}))
+		},
+	)
+
 	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
@@ -1744,16 +1778,24 @@ var _ = Describe("Read task", func() {
 					),
 				}
 			}, "pointer"),
-		Entry("a bytes field with no pointer",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.BytesT)
+		Entry("a bytes field with no pointer beside another field",
+			func(ctx context.Context, _, data channel.Channel) []kafka.ReadField {
+				_, raw := createIndexed(ctx, telem.BytesT)
 				return []kafka.ReadField{
 					readField(
-						kafka.BaseReadField{Key: "raw", Channel: data.Key()},
+						kafka.BaseReadField{Key: "raw", Channel: raw.Key()},
 						telem.BytesT,
 					),
+					readField(
+						kafka.BaseReadField{
+							Key:     "v",
+							Channel: data.Key(),
+							Pointer: "/v",
+						},
+						telem.Float64T,
+					),
 				}
-			}, `field "raw": pointer must not be empty`),
+			}, "a bytes field with an empty pointer must be the only enabled field"),
 		Entry("an enum value beyond the channel's range",
 			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
 				_, data := createIndexed(ctx, telem.Int8T)

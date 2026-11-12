@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -50,7 +51,9 @@ type readGroup struct {
 	fields []BaseReadField
 	// channels[i] is the channel fields[i] writes to.
 	channels []channel.Channel
-	// extractor resolves the fields' pointers in a record.
+	// raw is true when the group's only field reads the whole record value as bytes.
+	raw bool
+	// extractor resolves the fields' pointers in a record. Nil when the group is raw.
 	extractor *xjson.Extractor
 	// values[i] is scratch space for the JSON value of fields[i] in a record.
 	values []jsontext.Value
@@ -119,7 +122,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := validateReadConfig(&cfg); err != nil {
 		return nil, err
 	}
 	if cfg.Topic == "" {
@@ -162,7 +165,7 @@ func buildReadGroups(
 			if fld.Disabled {
 				continue
 			}
-			if fld.Pointer == "" {
+			if fld.Pointer == "" && f.Type() != payload.KindBytes {
 				return nil, errors.Wrapf(
 					validate.ErrValidation,
 					"field %q: pointer must not be empty",
@@ -216,6 +219,7 @@ func buildReadGroups(
 			if err != nil {
 				return nil, errors.Wrapf(err, "field %q", fld.Key)
 			}
+			g.raw = len(pointer) == 0
 			col, err := newColumn(f, ch)
 			if err != nil {
 				return nil, errors.Wrapf(err, "field %q", fld.Key)
@@ -231,8 +235,10 @@ func buildReadGroups(
 		if len(g.fields) == 0 {
 			continue
 		}
-		g.extractor = xjson.NewExtractor(pointers)
-		g.values = make([]jsontext.Value, len(g.fields))
+		if !g.raw {
+			g.extractor = xjson.NewExtractor(pointers)
+			g.values = make([]jsontext.Value, len(g.fields))
+		}
 		if rec.Index != "" && g.stamp == -1 {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
@@ -770,6 +776,11 @@ func (t *readTask) convert(rec *kgo.Record) {
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
+	if g.raw {
+		g.columns[0].appendSample(rec.Value)
+		g.rows = append(g.rows, r)
+		return
+	}
 	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
 		t.skip(r, "Record is not JSON: "+err.Error())
 		return
@@ -782,7 +793,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 				g.truncate(r.pos)
 				return
 			}
-			col.appendFill()
+			col.appendSample(col.fill)
 		} else if err := col.append(g.values[i]); err != nil {
 			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
 			g.truncate(r.pos)

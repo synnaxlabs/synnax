@@ -94,12 +94,12 @@ func (c *column) absent(raw jsontext.Value) bool {
 		(c.dataType != telem.StringT && !c.emptyLabeled && string(raw) == `""`)
 }
 
-// appendFill appends the fill of the column, which must have one.
-func (c *column) appendFill() {
+// appendSample appends sample, which has no length prefix.
+func (c *column) appendSample(sample []byte) {
 	if c.density == 0 {
-		c.data = telem.ByteOrder.AppendUint32(c.data, uint32(len(c.fill)))
+		c.data = telem.ByteOrder.AppendUint32(c.data, uint32(len(sample)))
 	}
-	c.data = append(c.data, c.fill...)
+	c.data = append(c.data, sample...)
 	if c.density == 0 {
 		c.ends = append(c.ends, len(c.data))
 	}

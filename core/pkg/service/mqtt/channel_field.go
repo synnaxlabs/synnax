@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -96,12 +97,21 @@ func plainTargets(
 }
 
 // validateWriteConfig checks the rules of cfg that need no channel: the entries of a
-// channel field have unique values, so two NaN entries, or 0 and -0, collide.
+// channel field have unique values, so two NaN entries, or 0 and -0, collide, and a
+// bytes channel field with an empty pointer is the only field of its target.
 func validateWriteConfig(cfg *WriteConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
 	return plainTargets(cfg, func(path string, t *PlainWriteTarget) error {
+		if t.Channel.Type() == payload.KindBytes && t.Channel.Base().Pointer == "" &&
+			len(t.Fields) > 0 {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"%s: a bytes channel with an empty pointer must be the only field",
+				path,
+			)
+		}
 		return errors.Wrap(channelOf(t.Channel).Validate(), path)
 	})
 }

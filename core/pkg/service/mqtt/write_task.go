@@ -10,6 +10,7 @@
 package mqtt
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"uuid"
@@ -64,6 +65,8 @@ type writeTarget struct {
 	encoder  *xjson.Encoder
 	qos      byte
 	retained bool
+	// raw is true when each payload is the bytes of its sample, with no template.
+	raw bool
 }
 
 var _ target = writeTarget{}
@@ -73,6 +76,14 @@ func (t writeTarget) String() string { return "target " + t.topic }
 
 // publication implements target.
 func (t writeTarget) publication(series telem.Series, i int) (publication, error) {
+	if t.raw {
+		return publication{
+			topic:    t.topic,
+			payload:  bytes.Clone(series.At(i)),
+			qos:      t.qos,
+			retained: t.retained,
+		}, nil
+	}
 	payload, err := t.template.Append(nil, payloadSlots{t: t, sample: series.At(i)})
 	if err != nil {
 		return publication{}, err
@@ -134,6 +145,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	if err != nil {
 		return writeTarget{}, errors.Wrap(err, path)
 	}
+	t.raw = target.Channel.Type() == payload.KindBytes && len(pointer) == 0
 	f, err := channelOf(target.Channel).Field(ch.DataType)
 	if err != nil {
 		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)

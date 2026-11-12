@@ -52,10 +52,7 @@ var _ = Describe("Write task", func() {
 	BeforeEach(func() { f = newFactory() })
 
 	// startTask configures and starts a write task, stopping it when the spec ends.
-	startTask := func(
-		ctx context.Context,
-		cfg kafka.WriteConfig,
-	) (driver.Task, task.Task) {
+	startTask := func(ctx context.Context, cfg any) (driver.Task, task.Task) {
 		GinkgoHelper()
 		t := newTask(ctx, kafka.WriteTaskType, cfg)
 		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
@@ -691,6 +688,87 @@ var _ = Describe("Write task", func() {
 		Entry("bytes as base64",
 			telem.BytesT, telem.NewSeriesV([]byte{0x00, 0xff, 0x3f}),
 			kafka.BytesWriteChannel{}, "AP8/"),
+	)
+
+	// rawConfig returns cfg with an empty record.value_pointer, which a struct config
+	// would leave out.
+	rawConfig := func(cfg kafka.WriteConfig) any {
+		GinkgoHelper()
+		m := toJSON(cfg, json.OmitZeroStructFields(true))
+		rec, _ := m["record"].(map[string]any)
+		if rec == nil {
+			rec = map[string]any{}
+		}
+		rec["value_pointer"] = ""
+		m["record"] = rec
+		return m
+	}
+
+	It("Should produce the raw bytes of each sample with an empty value pointer",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.BytesT)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			startTask(ctx, rawConfig(kafka.WriteConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Channels: []kafka.WriteChannel{
+					writeAs(data.Key(), kafka.BytesWriteChannel{}),
+				},
+			}))
+			start := telem.TimeStamp(10 * telem.Second)
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{start, start + telem.SecondTS},
+				telem.NewSeriesV([]byte{0x00, 0xff, '{'}, []byte{}),
+			)
+			recs := consume(ctx, topic, 2)
+			Expect(recs).To(HaveLen(2))
+			Expect(recs[0].Value).To(Equal([]byte{0x00, 0xff, '{'}))
+			Expect(recs[1].Value).To(BeEmpty())
+		},
+	)
+
+	DescribeTable("Should reject an empty value pointer",
+		func(
+			ctx SpecContext,
+			dt telem.DataType,
+			v kafka.WriteChannelVariant,
+			rec kafka.Record,
+			msg string,
+		) {
+			_, data := createIndexed(ctx, dt)
+			dev := createDevice(ctx, clusterProperties())
+			cfg := rawConfig(kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    "t",
+				Record:   rec,
+				Channels: []kafka.WriteChannel{writeAs(data.Key(), v)},
+			})
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+		},
+		Entry("on a float channel",
+			telem.Float64T, kafka.FloatWriteChannel{}, kafka.Record{},
+			`channel "c1": an empty record.value_pointer requires the bytes kind`),
+		Entry("beside a channel pointer", telem.BytesT, kafka.BytesWriteChannel{},
+			kafka.Record{ChannelPointer: new("/channel")},
+			"record.value_pointer: an empty pointer must be the only record field"),
+		Entry("beside a timestamp pointer", telem.BytesT, kafka.BytesWriteChannel{},
+			kafka.Record{TimestampPointer: new("/ts")},
+			"record.value_pointer: an empty pointer must be the only record field"),
+		Entry("beside a record field", telem.BytesT, kafka.BytesWriteChannel{},
+			kafka.Record{Fields: []http.WriteField{{Variant: http.StaticWriteField{
+				BaseWriteField: http.BaseWriteField{Key: "src", Pointer: "/src"},
+				JSONType:       payload.JSONTypeString,
+				Value:          "synnax",
+			}}}},
+			"record.value_pointer: an empty pointer must be the only record field"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {

@@ -90,7 +90,10 @@ type readTopic struct {
 	indexField      int
 	qos             byte
 	retainedIgnored bool
-	extractor       *xjson.Extractor
+	// raw is true when the topic's only field reads the whole payload as bytes.
+	raw bool
+	// extractor finds the value of each field in a payload. Nil when the topic is raw.
+	extractor *xjson.Extractor
 	// values[i] is the value of fields[i] in the last payload.
 	values []jsontext.Value
 	// text holds a payload that is not JSON as a JSON string.
@@ -132,12 +135,7 @@ func newReadTopic(
 		if err != nil {
 			return nil, errors.Wrap(err, path)
 		}
-		if ch.DataType == telem.BytesT && len(pointer) == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a bytes channel requires a JSON pointer", path,
-			)
-		}
+		t.raw = rf.Type() == payload.KindBytes && len(pointer) == 0
 		field := readField{
 			name:     f.Name,
 			pointer:  pointer,
@@ -202,8 +200,10 @@ func newReadTopic(
 			t.keys = append(t.keys, f.channel)
 		}
 	}
-	t.extractor = xjson.NewExtractor(pointers)
-	t.values = make([]jsontext.Value, len(t.fields))
+	if !t.raw {
+		t.extractor = xjson.NewExtractor(pointers)
+		t.values = make([]jsontext.Value, len(t.fields))
+	}
 	return t, nil
 }
 
@@ -225,6 +225,9 @@ func (t *readTopic) extract(msg []byte) error {
 // in the order of keys. It converts every field or none, because a frame that writes to
 // an index must hold every channel of that index.
 func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error) {
+	if t.raw {
+		return t.convertRaw(msg), msg.received, nil
+	}
 	if err := t.extract(msg.payload); err != nil {
 		return nil, 0, err
 	}
@@ -262,6 +265,17 @@ func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error
 		series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(stamp))
 	}
 	return series, stamp, nil
+}
+
+// convertRaw turns the payload of msg into one bytes sample, stamped on arrival.
+func (t *readTopic) convertRaw(msg message) []telem.Series {
+	data := telem.ByteOrder.AppendUint32(nil, uint32(len(msg.payload)))
+	sample := telem.Series{DataType: telem.BytesT, Data: append(data, msg.payload...)}
+	if t.index == 0 {
+		return []telem.Series{sample}
+	}
+	stamp := telem.ByteOrder.AppendUint64(nil, uint64(msg.received))
+	return []telem.Series{{DataType: telem.TimestampT, Data: stamp}, sample}
 }
 
 // batch gathers the samples of many messages into one frame, with one series for each

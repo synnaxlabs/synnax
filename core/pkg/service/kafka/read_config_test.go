@@ -185,12 +185,40 @@ var _ = Describe("ReadConfig", func() {
 			},
 		)
 
-		It("Should save a draft bytes field with no pointer", func(ctx SpecContext) {
-			Expect(prepare(ctx, configOf(
+		It("Should reject a bytes field with no pointer beside another enabled field",
+			func(ctx SpecContext) {
+				Expect(prepare(ctx, configOf(
+					map[string]any{"key": "raw", "type": "bytes"},
+					map[string]any{"key": "f", "type": "float", "pointer": "/v"},
+				))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"records.0.fields.0.pointer: a bytes field with an empty "+
+							"pointer must be the only enabled field",
+					)),
+				))
+			},
+		)
+
+		DescribeTable("Should accept a bytes field with no pointer",
+			func(ctx SpecContext, fields ...map[string]any) {
+				Expect(prepare(ctx, configOf(fields...))).To(Succeed())
+			},
+			Entry("alone", map[string]any{"key": "raw", "type": "bytes"}),
+			Entry("beside a disabled field",
 				map[string]any{"key": "raw", "type": "bytes"},
+				map[string]any{
+					"key":      "f",
+					"type":     "float",
+					"pointer":  "/v",
+					"disabled": true,
+				},
+			),
+			Entry("when it is disabled itself",
+				map[string]any{"key": "raw", "type": "bytes", "disabled": true},
 				map[string]any{"key": "f", "type": "float", "pointer": "/v"},
-			))).To(Succeed())
-		})
+			),
+		)
 	})
 
 	Describe("Resolve", func() {

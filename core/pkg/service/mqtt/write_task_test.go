@@ -186,6 +186,17 @@ var _ = Describe("Write task", func() {
 			})
 		})
 
+		It("Should publish the raw bytes of a bytes channel at the root pointer",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.BytesT)
+				start(ctx, writeConfig(dev, plainTarget("plant/raw", ch, "", "bytes")))
+				value := telem.NewSeriesV([]byte{0x00, 0xff, '{'})
+				command(ctx, ch, value, func(g Gomega) {
+					g.Expect(payloads("plant/raw")).To(ContainElement("\x00\xff{"))
+				})
+			},
+		)
+
 		It("Should publish a timestamp in its time format",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)
