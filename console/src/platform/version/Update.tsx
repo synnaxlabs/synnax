@@ -64,6 +64,12 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
   const startAfterConfirm = async (found: Available): Promise<void> => {
     if (await confirmed(found)) start(found.update);
   };
+  const available = check.variant === "success" ? check.available : null;
+  const updateButton = available != null && (
+    <Button.Button variant="filled" onClick={() => void startAfterConfirm(available)}>
+      Update and restart
+    </Button.Button>
+  );
   const total = download.total.valueOf();
   const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
 
@@ -73,7 +79,12 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
     </Status.Summary>
   );
   if (download.variant === "error" && download.status != null)
-    updateContent = <Status.Summary level={level} status={download.status} />;
+    updateContent = (
+      <>
+        <Status.Summary level={level} status={download.status} />
+        {updateButton}
+      </>
+    );
   else if (download.variant === "loading")
     if (progressPercent === 100)
       updateContent = (
@@ -104,19 +115,16 @@ export const Update = ({ level = "h4" }: UpdateProps): ReactElement => {
   else if (check.variant === "error" || check.variant === "blocked")
     updateContent = <Status.Summary level={level} status={check.status} />;
   else if (check.variant === "success")
-    if (check.available != null) {
-      const found = check.available;
+    if (available != null)
       updateContent = (
         <>
           <Status.Summary level={level} variant="success">
-            Version {found.update.version} available
+            Version {available.update.version} available
           </Status.Summary>
-          <Button.Button variant="filled" onClick={() => void startAfterConfirm(found)}>
-            Update and restart
-          </Button.Button>
+          {updateButton}
         </>
       );
-    } else
+    else
       updateContent = (
         <Status.Summary level={level} variant="success">
           Up to date

@@ -69,4 +69,20 @@ describe("Version.Update", () => {
     expect(screen.queryByRole("button", UPDATE)).toBeNull();
     expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(1);
   });
+
+  it("should offer the update again after it fails", async () => {
+    const ipc = mockUpdater({
+      served: "1.5.1",
+      download: async () => {
+        throw new Error("download failed");
+      },
+    });
+    render(<Version.Update />, { wrapper: await createWrapper() });
+    fireEvent.click(await screen.findByRole("button", UPDATE));
+    expect(await screen.findByText("Failed to update Console")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", UPDATE));
+    await waitFor(() =>
+      expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(2),
+    );
+  });
 });

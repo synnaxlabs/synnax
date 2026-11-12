@@ -165,9 +165,7 @@ export const Provider = ({
     onEvent: (event: DownloadEvent) => void,
   ): Promise<void> => {
     if (held.current !== update)
-      throw new Error(
-        "The Core changed before the update started. Close this dialog and update again.",
-      );
+      throw new Error("The Core changed before the update started. Update again.");
     const current: Installing = { update, released: false };
     installing.current = current;
     let failed = false;

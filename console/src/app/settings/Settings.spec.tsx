@@ -29,6 +29,8 @@ import { awaitGranted, createConsoleWrapper, uniqueName } from "@/testutil";
 const client = createTestClient();
 
 // Can read users and nothing else, so it can neither open tabs nor read the license.
+// Every grant check reads the role's policies, which awaitGranted caches, so the checks
+// in each test answer on the first render.
 const createLimitedClient = async () => {
   const limited = await createTestClientWithPolicy(client, {
     name: uniqueName("policy"),
