@@ -14,11 +14,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { createRenderCounter } from "@synnaxlabs/lyra/testutil";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, screen, waitFor } from "@testing-library/react";
-import { type ReactElement, useEffect } from "react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { type ComponentType, type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
-import { TreeItem } from "@/feature/range/next/Item";
+import { FlatItem, TreeItem } from "@/feature/range/next/Item";
+import { Timeline } from "@/feature/range/next/Timeline";
 import { NodeProvider, useExpanded, useTree } from "@/feature/range/next/tree";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
@@ -28,18 +29,25 @@ const noop = () => {};
 
 const { Counted, counts, reset } = createRenderCounter();
 
-const item = ({ key, ...props }: List.ItemProps<ranger.Key>): ReactElement => (
-  <Counted key={key} id={props.itemKey}>
-    <TreeItem {...props} />
-  </Counted>
-);
+const counted =
+  (Item: ComponentType<List.ItemProps<ranger.Key>>) =>
+  ({ key, ...props }: List.ItemProps<ranger.Key>): ReactElement => (
+    <Counted key={key} id={props.itemKey}>
+      <Item {...props} />
+    </Counted>
+  );
+
+type Layout = "tree" | "list" | "timeline";
+
+const ITEMS = { tree: counted(TreeItem), list: counted(FlatItem) };
 
 interface TreeProps {
   label: label.Key;
+  layout: Layout;
 }
 
 /** The ranges with the label as roots, in name order, with their children. */
-const Tree = ({ label }: TreeProps): ReactElement => {
+const Tree = ({ label, layout }: TreeProps): ReactElement => {
   const list = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: { labels: [label] }, order: { field: "name", descending: false } },
@@ -62,9 +70,13 @@ const Tree = ({ label }: TreeProps): ReactElement => {
         onExpand={toggle}
         more={tree.more}
       >
-        <List.Scroll>
-          <List.Items<ranger.Key>>{item}</List.Items>
-        </List.Scroll>
+        {layout === "timeline" ? (
+          <Timeline nodes={tree.nodes} />
+        ) : (
+          <List.Scroll>
+            <List.Items<ranger.Key>>{ITEMS[layout]}</List.Items>
+          </List.Scroll>
+        )}
       </NodeProvider>
     </Select.Frame>
   );
@@ -88,9 +100,13 @@ const createRanges = async (): Promise<{
 };
 
 /** Shows the tree and waits for its items to settle, then resets the count. */
-const renderTree = async (label: label.Key, ranges: ranger.Range[]): Promise<void> => {
+const renderTree = async (
+  label: label.Key,
+  ranges: ranger.Range[],
+  layout: Layout = "tree",
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  await renderSuspended(<Tree label={label} />, { wrapper });
+  await renderSuspended(<Tree label={label} layout={layout} />, { wrapper });
   await waitFor(() =>
     ranges.forEach((r) => expect(countEditableText(List.itemNameID(r.key))).toBe(1)),
   );
@@ -99,14 +115,61 @@ const renderTree = async (label: label.Key, ranges: ranger.Range[]): Promise<voi
 };
 
 describe("range tree", () => {
-  it("should render only the item of a renamed range", async () => {
+  it.each<Layout>(["tree", "list"])(
+    "should render only the item of a renamed range in the %s layout",
+    async (layout) => {
+      const { label, ranges } = await createRanges();
+      await renderTree(label, ranges, layout);
+      const [, b] = ranges;
+      await client.ranges.rename(b.key, "b2");
+      await screen.findByText("b2");
+      await act(async () => {});
+      expect(Object.fromEntries(counts)).toEqual({ [b.key]: 1 });
+    },
+  );
+
+  it("should mount each child once on expand and render no other item", async () => {
     const { label, ranges } = await createRanges();
+    // The ranges below an expanded range move, so the last range keeps all still.
+    const c = ranges[2];
+    const end = TimeStamp.now().sub(TimeSpan.days(1));
+    const children = await client.ranges.create(
+      ["x", "y"].map((name) => ({
+        name,
+        timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+        parent: c.key,
+      })),
+    );
     await renderTree(label, ranges);
-    const [, b] = ranges;
-    await client.ranges.rename(b.key, "b2");
-    await screen.findByText("b2");
+    const item = screen.getByRole("listitem", { name: "c" });
+    fireEvent.click(within(item).getByRole("button", { name: "Expand" }));
+    await waitFor(() =>
+      children.forEach((c) =>
+        expect(countEditableText(List.itemNameID(c.key))).toBe(1),
+      ),
+    );
     await act(async () => {});
-    expect(Object.fromEntries(counts)).toEqual({ [b.key]: 1 });
+    expect(Object.fromEntries(counts)).toEqual({ [c.key]: 1 });
+  });
+
+  it("should change no lane when the timeline zooms", async () => {
+    const { label, ranges } = await createRanges();
+    await renderTree(label, ranges, "timeline");
+    const changes: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => changes.push(...records));
+    screen.getAllByRole("listitem").forEach((lane) =>
+      observer.observe(lane, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    await screen.findByRole("button", { name: "Fit all" });
+    await act(async () => {});
+    observer.disconnect();
+    expect(changes).toEqual([]);
   });
 
   it("should mount an added range once and render no other item", async () => {
