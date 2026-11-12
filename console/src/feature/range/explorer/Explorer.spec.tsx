@@ -50,7 +50,10 @@ const createRange = async (
   });
 };
 
-/** Creates a label, one range with it, and one range without it. */
+/**
+ * Creates a label, one range with it, and one range without it. Both start years ahead
+ * of the ranges other specs create, so they lead the newest-first list.
+ */
 const createLabeled = async (): Promise<{
   label: label.Label;
   labeled: ranger.Range;
@@ -60,10 +63,13 @@ const createLabeled = async (): Promise<{
     name: uniqueName("label"),
     color: "#000000",
   });
+  const start = TimeStamp.now().add(TimeSpan.days(3650));
+  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
   const labeled = await createRange(uniqueRangeName("labeled"), {
     labels: [label.key],
+    timeRange,
   });
-  const other = await createRange(uniqueRangeName("other"));
+  const other = await createRange(uniqueRangeName("other"), { timeRange });
   return { label, labeled, other };
 };
 
