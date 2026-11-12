@@ -25,6 +25,7 @@ jobs:
   deploy:
     name: Deploy to Sandbox-Windows
     runs-on: ubuntu-latest
+    environment: runners
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
