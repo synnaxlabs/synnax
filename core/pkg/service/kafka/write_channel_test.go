@@ -393,26 +393,29 @@ var _ = Describe("Stored write configs", func() {
 				})).To(Succeed())
 				return ch.Key()
 			}
-			old := v0.WriteConfig{Topic: "samples", Channels: []v0.WriteChannel{
-				{
-					Key:      "c1",
-					Channel:  create(telem.Uint8T),
-					JSONType: payload.JSONTypeNumber,
+			old := v0.WriteConfig{
+				Key:   uuid.New(),
+				Topic: "samples",
+				Channels: []v0.WriteChannel{
+					{
+						Key:      "c1",
+						Channel:  create(telem.Uint8T),
+						JSONType: payload.JSONTypeNumber,
+					},
+					{
+						Key:        "c2",
+						Channel:    create(telem.Int16T),
+						JSONType:   payload.JSONTypeString,
+						EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
+					},
+					{
+						Key:      "c3",
+						Channel:  create(telem.StringT),
+						JSONType: payload.JSONTypeString,
+					},
+					{Key: "c4", Channel: 999999, JSONType: "object"},
 				},
-				{
-					Key:        "c2",
-					Channel:    create(telem.Int16T),
-					JSONType:   payload.JSONTypeString,
-					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
-				},
-				{
-					Key:      "c3",
-					Channel:  create(telem.StringT),
-					JSONType: payload.JSONTypeString,
-				},
-				{Key: "c4", Channel: 999999, JSONType: "object"},
-			}}
-			old.Key = uuid.New()
+			}
 			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())
 			svc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
