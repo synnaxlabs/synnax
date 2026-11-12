@@ -111,6 +111,13 @@ struct Scanner {
     virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
+    /// @brief returns the data that the status of the scan task carries, such as a
+    /// problem of the last scan that the user can fix from the Console. Safe to call
+    /// from one thread while another runs scan().
+    [[nodiscard]] virtual std::optional<x::json::json::object_t> status_data() const {
+        return std::nullopt;
+    }
+
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
         synnax::task::Command &cmd,
@@ -256,7 +263,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
-    /// @brief sets the status variant and text, then sends it.
+    /// @brief sets the status variant, text, and the data of the scanner, then sends
+    /// it.
     void send_status(
         const std::string &variant,
         const std::string &message,
@@ -265,6 +273,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
+        this->status.details.data = this->scanner->status_data();
         this->send_status();
     }
 
@@ -273,7 +282,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
     void report_scan(const x::errors::Error &err) {
         if (err) {
             if (this->status.variant == synnax::status::VARIANT_WARNING &&
-                this->status.description == err.data)
+                this->status.description == err.data &&
+                this->status.details.data == this->scanner->status_data())
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(

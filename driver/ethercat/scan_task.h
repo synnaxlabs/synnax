@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -34,6 +37,13 @@ const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 /// @brief command type for switching a slave to standalone mode, in which only Synnax
 /// sets it up and reads its data. The slave changes after a power restart.
 const std::string SET_STANDALONE_CMD_TYPE = "set_standalone";
+
+/// @brief command type for turning off the DewesoftX "EthercatDAQ Filter" on each
+/// interface whose replies the last scan found it blocks.
+const std::string DISABLE_DEWESOFT_FILTER_CMD_TYPE = "disable_dewesoft_filter";
+
+/// @brief turns off the DewesoftX filter on the adapters of the interfaces.
+using DisableFilter = std::function<x::errors::Error(const std::vector<std::string> &)>;
 
 /// @brief configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
@@ -67,7 +77,8 @@ public:
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         ScanTaskConfig cfg,
-        std::shared_ptr<engine::Pool> pool
+        std::shared_ptr<engine::Pool> pool,
+        DisableFilter disable_filter
     );
 
     /// @brief returns scanner configuration for common::ScanTask.
@@ -78,6 +89,10 @@ public:
     /// replies a filter blocks, with the slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
+
+    /// @brief returns the interfaces whose replies the last scan found the DewesoftX
+    /// filter blocks, as "filtered", or std::nullopt when it found none.
+    [[nodiscard]] std::optional<x::json::json::object_t> status_data() const override;
 
     /// @brief handles EtherCAT-specific commands.
     bool exec(
@@ -95,6 +110,11 @@ private:
     synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
+    DisableFilter disable_filter;
+    mutable std::mutex mu;
+    /// @brief the interfaces whose replies the last scan found the DewesoftX filter
+    /// blocks. Guarded by mu.
+    std::vector<std::string> filtered;
     /// @brief when to probe again an interface that had no slaves.
     struct Probe {
         /// @brief the scan count at which to probe the interface.
@@ -134,6 +154,13 @@ private:
 
     /// @brief handles the set_standalone command.
     void set_standalone(const synnax::task::Command &cmd) const;
+
+    /// @brief handles the disable_dewesoft_filter command.
+    void disable_dewesoft_filter(const synnax::task::Command &cmd) const;
+
+    /// @brief returns an error status that answers cmd.
+    [[nodiscard]] synnax::task::Status
+    command_status(const synnax::task::Command &cmd) const;
 };
 
 }

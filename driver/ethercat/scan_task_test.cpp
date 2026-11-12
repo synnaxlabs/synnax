@@ -31,6 +31,11 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
                                                  const std::string &) {
     return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
 };
+
+/// @brief a filter switch that the tests do not use.
+const DisableFilter NO_FILTER = [](const std::vector<std::string> &) {
+    return x::errors::NIL;
+};
 }
 
 class EtherCATScanTest : public ::testing::Test {
@@ -93,7 +98,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            this->pool
+            this->pool,
+            NO_FILTER
         );
     }
 
@@ -116,7 +122,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
         .internal = true,
     };
     ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
+    Scanner scanner(ctx, task, cfg, nullptr, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -139,7 +145,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
         .internal = true,
     };
     ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
+    Scanner scanner(ctx, task, cfg, nullptr, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = "unknown_command";
@@ -193,7 +199,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
         .internal = true
     };
     ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
+    Scanner scanner(this->ctx, task, cfg, pool, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -223,7 +229,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
         .type = SCAN_TASK_TYPE,
         .internal = true
     };
-    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
+    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool, NO_FILTER);
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
@@ -245,7 +251,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
         .internal = true
     };
     ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
+    Scanner scanner(this->ctx, task, cfg, pool, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -281,7 +287,8 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            NO_FILTER
         );
     }
 
@@ -359,10 +366,91 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            [this](const std::vector<std::string> &interfaces) {
+                this->disabled.push_back(interfaces);
+                return this->disable_err;
+            }
         );
     }
+
+    /// @brief the interfaces of each call to turn off the filter.
+    std::vector<std::vector<std::string>> disabled;
+    /// @brief the error that turning off the filter returns.
+    x::errors::Error disable_err = x::errors::NIL;
+    /// @brief a device that the Core holds from the adapter with the filter.
+    const std::unordered_map<std::string, synnax::device::Device> saved{
+        {"saved",
+         synnax::device::Device{.key = "saved", .properties = {{"network", "eth0"}}}},
+    };
+
+    /// @brief runs the command that turns off the filter, and returns its status.
+    [[nodiscard]] synnax::task::Status disable_filter() const {
+        synnax::task::Command cmd;
+        cmd.type = DISABLE_DEWESOFT_FILTER_CMD_TYPE;
+        cmd.key = "1";
+        EXPECT_TRUE(this->scanner->exec(cmd, synnax::task::Task{}, this->ctx));
+        return this->ctx->statuses.back();
+    }
 };
+
+/// @brief it should send the interfaces whose replies the filter blocks as status data,
+/// and no data once it reports none.
+TEST_F(EtherCATScanFilterTest, SendsTheFilteredInterfacesAsStatusData) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    EXPECT_EQ(
+        this->scanner->status_data(),
+        (x::json::json::object_t{{"filtered", x::json::json::array({"eth0"})}})
+    );
+    ASSERT_NIL_P(this->scanner->scan({}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should turn off the filter on the interfaces that the last scan reported.
+TEST_F(EtherCATScanFilterTest, TurnsOffTheFilterOnTheReportedInterfaces) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    const auto status = this->disable_filter();
+    ASSERT_EQ(this->disabled.size(), 1);
+    EXPECT_EQ(this->disabled[0], std::vector<std::string>{"eth0"});
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Turned off the DewesoftX filter");
+    EXPECT_EQ(
+        status.description,
+        "Synnax looks for modules on the adapter again within a few scans."
+    );
+    EXPECT_EQ(status.details.cmd, "1");
+}
+
+/// @brief it should report why the filter is still on.
+TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
+    this->disable_err = x::errors::Error(
+        errors::FILTER_ERROR,
+        "Windows did not give the Driver administrator access."
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    const auto status = this->disable_filter();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to turn off the DewesoftX filter");
+    EXPECT_EQ(status.description, this->disable_err.data);
+}
+
+/// @brief it should change nothing when the last scan reported no filter.
+TEST_F(EtherCATScanFilterTest, ChangesNothingWhenTheScanReportedNoFilter) {
+    ASSERT_NIL_P(this->scanner->scan({}));
+    const auto status = this->disable_filter();
+    EXPECT_TRUE(this->disabled.empty());
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.description, "The DewesoftX filter blocks no adapter.");
+}
 
 /// @brief it should not report the filter of an adapter with no devices while another
 /// adapter shows devices.
@@ -372,11 +460,7 @@ TEST_F(EtherCATScanFilterTest, IgnoresTheFilterOfAnAdapterWithNoDevices) {
 
 /// @brief it should report the filter of an adapter that the Core holds devices from.
 TEST_F(EtherCATScanFilterTest, ReportsTheFilterOfAnAdapterThatHadDevices) {
-    const std::unordered_map<std::string, synnax::device::Device> saved{
-        {"saved",
-         synnax::device::Device{.key = "saved", .properties = {{"network", "eth0"}}}},
-    };
-    const auto [devices, err] = this->scanner->scan({.devices = &saved});
+    const auto [devices, err] = this->scanner->scan({.devices = &this->saved});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, this->blocked.data);
     EXPECT_EQ(devices.size(), 1);
@@ -891,7 +975,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            NO_FILTER
         );
     }
 
@@ -1081,7 +1166,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            this->pool
+            this->pool,
+            NO_FILTER
         );
     }
 

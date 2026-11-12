@@ -24,6 +24,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
+#include "driver/ethercat/soem/filter.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/write_task.h"
 
@@ -229,7 +230,13 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     if (parser.error()) return {std::move(result), parser.error()};
     result.auto_start = !cfg.disabled;
     if (auto err = this->pool->check_available()) return {std::move(result), err};
-    auto scanner = std::make_unique<Scanner>(ctx, task, cfg, this->pool);
+    auto scanner = std::make_unique<Scanner>(
+        ctx,
+        task,
+        cfg,
+        this->pool,
+        soem::disable_dewesoft_filter
+    );
     result.task = std::make_unique<common::ScanTask>(
         std::move(scanner),
         ctx,

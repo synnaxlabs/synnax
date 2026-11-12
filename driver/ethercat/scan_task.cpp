@@ -187,9 +187,14 @@ Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
     ScanTaskConfig cfg,
-    std::shared_ptr<engine::Pool> pool
+    std::shared_ptr<engine::Pool> pool,
+    DisableFilter disable_filter
 ):
-    ctx(std::move(ctx)), task(std::move(task)), cfg(cfg), pool(std::move(pool)) {}
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    cfg(cfg),
+    pool(std::move(pool)),
+    disable_filter(std::move(disable_filter)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -222,7 +227,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                                         : this->pool->discover(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
-        if (err.matches(errors::PERMISSION_DENIED)) return {{}, err};
+        if (err.matches(errors::PERMISSION_DENIED)) {
+            std::lock_guard lock(this->mu);
+            this->filtered.clear();
+            return {{}, err};
+        }
         if (err.matches(errors::NO_SLAVES_FOUND)) {
             auto &probe = this->next_probes[key];
             probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
@@ -257,9 +266,16 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     // A filter on an adapter with no devices can hide a bus only when no adapter shows
     // a device, or when the Core holds devices from the adapter.
+    std::vector<std::string> filtered;
     for (const auto &[key, failure]: blocked)
-        if (devices.empty() || holds_devices_on(scan_ctx, key))
+        if (devices.empty() || holds_devices_on(scan_ctx, key)) {
             failures.insert(failure);
+            filtered.push_back(key);
+        }
+    {
+        std::lock_guard lock(this->mu);
+        this->filtered = std::move(filtered);
+    }
     if (failures.empty()) return {devices, x::errors::NIL};
     std::string desc;
     for (const auto &failure: failures)
@@ -280,7 +296,52 @@ bool Scanner::exec(
         this->set_standalone(cmd);
         return true;
     }
+    if (cmd.type == DISABLE_DEWESOFT_FILTER_CMD_TYPE) {
+        this->disable_dewesoft_filter(cmd);
+        return true;
+    }
     return false;
+}
+
+std::optional<x::json::json::object_t> Scanner::status_data() const {
+    std::lock_guard lock(this->mu);
+    if (this->filtered.empty()) return std::nullopt;
+    return x::json::json::object_t{{"filtered", this->filtered}};
+}
+
+synnax::task::Status Scanner::command_status(const synnax::task::Command &cmd) const {
+    return synnax::task::Status{
+        .name = this->task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
+    };
+}
+
+void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) const {
+    auto task_status = this->command_status(cmd);
+    task_status.message = "Failed to turn off the DewesoftX filter";
+    std::vector<std::string> interfaces;
+    {
+        std::lock_guard lock(this->mu);
+        interfaces = this->filtered;
+    }
+    if (interfaces.empty())
+        task_status.description = "The DewesoftX filter blocks no adapter.";
+    else if (const auto err = this->disable_filter(interfaces))
+        task_status.description = err.data;
+    else {
+        task_status.variant = synnax::status::VARIANT_SUCCESS;
+        task_status.message = "Turned off the DewesoftX filter";
+        task_status.description = "Synnax looks for modules on the adapter again "
+                                  "within a few scans.";
+    }
+    this->ctx->set_status(task_status);
 }
 
 std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
@@ -412,17 +473,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     TestInterfaceArgs args(parser);
 
-    synnax::task::Status task_status{
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details =
-            synnax::task::StatusDetails{
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = this->task.config_hash,
-            },
-        .owner = synnax::task::resource_id(this->task.key),
-    };
+    auto task_status = this->command_status(cmd);
 
     if (!parser.ok()) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "test_interface: failed to parse command";
@@ -457,17 +508,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
 void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const SetStandaloneArgs args(parser);
-    synnax::task::Status task_status{
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details =
-            synnax::task::StatusDetails{
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = this->task.config_hash,
-            },
-        .owner = synnax::task::resource_id(this->task.key),
-    };
+    auto task_status = this->command_status(cmd);
     const auto fail = [&](const std::string &description) {
         task_status.message = "Failed to switch the device";
         task_status.description = errors::sentence(description);

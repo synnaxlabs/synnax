@@ -95,8 +95,17 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
+    /// @brief the status data after each scan.
+    std::vector<std::optional<x::json::json::object_t>> data;
+
     [[nodiscard]] ScannerConfig config() const override {
         return ScannerConfig{.make = "", .log_prefix = "[mock] "};
+    }
+
+    [[nodiscard]] std::optional<x::json::json::object_t> status_data() const override {
+        if (this->scan_count == 0 || this->scan_count > this->data.size())
+            return std::nullopt;
+        return this->data[this->scan_count - 1];
     }
 
     MockScanner(
@@ -1496,7 +1505,8 @@ inline std::unique_ptr<ScanTask> new_test_task(
     const std::shared_ptr<task::MockContext> &ctx,
     const synnax::task::Task &task,
     const std::vector<x::errors::Error> &scan_errors = {},
-    const std::vector<x::errors::Error> &start_errors = {}
+    const std::vector<x::errors::Error> &start_errors = {},
+    const std::vector<std::optional<x::json::json::object_t>> &data = {}
 ) {
     auto cluster_api = std::make_unique<MockClusterAPI>(
         std::make_shared<std::vector<synnax::device::Device>>(),
@@ -1515,13 +1525,15 @@ inline std::unique_ptr<ScanTask> new_test_task(
             }}
         )
     );
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{},
+        scan_errors,
+        start_errors,
+        std::vector<x::errors::Error>{}
+    );
+    scanner->data = data;
     return std::make_unique<ScanTask>(
-        std::make_unique<MockScanner>(
-            std::vector<std::vector<synnax::device::Device>>{},
-            scan_errors,
-            start_errors,
-            std::vector<x::errors::Error>{}
-        ),
+        std::move(scanner),
         ctx,
         task,
         x::breaker::Config{},
@@ -2234,5 +2246,33 @@ TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
     EXPECT_EQ(ctx->statuses[1].description, "eth1: cannot open");
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+}
+
+/// @brief it should send the data of the scanner with a scan warning, and warn again
+/// when only the data changes.
+TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
+    const x::json::json::object_t first{{"filtered", x::json::json::array({"eth1"})}};
+    const x::json::json::object_t second{{"filtered", x::json::json::array()}};
+    const auto scan_task = new_test_task(
+        ctx,
+        new_test_task_record(),
+        {partial, partial, partial},
+        {},
+        {first, first, second}
+    );
+    scan_task->start();
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        ctx->statuses.size(),
+        3,
+        std::chrono::seconds(4),
+        std::chrono::milliseconds(1)
+    );
+    scan_task->stop(false);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[1].details.data, first);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[2].details.data, second);
 }
 }
