@@ -29,6 +29,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 var _ = Describe("Stream task", func() {
@@ -292,6 +294,26 @@ var _ = Describe("Stream task", func() {
 					Should(BeEmpty())
 			})
 	})
+
+	It("Should warn while Sift is down and clear the warning once it recovers",
+		func(ctx SpecContext) {
+			start(ctx, streamConfig())
+			send(ctx, 1)
+			Eventually(values).Should(ConsistOf(1.0))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			send(ctx, 2)
+			Eventually(
+				func() task.Status { return taskStatus(ctx, t) },
+			).Should(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to send data to Sift"),
+				HaveField("Description", ContainSubstring("Sift is down")),
+			))
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(5 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Expect(values()).To(ConsistOf(1.0, 2.0))
+		})
 
 	It("Should fail when Sift rejects the API key", func(ctx SpecContext) {
 		dev = createDevice(ctx, sift.Properties{
