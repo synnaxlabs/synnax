@@ -444,7 +444,7 @@ describe("range/explorer/Explorer", () => {
       expect(screen.getByText("Labels")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Remove Labels filter" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
-      expect(screen.queryByPlaceholderText("Search ranges...")).toBeNull();
+      expect(screen.getByPlaceholderText("Search ranges...")).toBeTruthy();
       fireEvent.click(screen.getByText("Newest first"));
       expect(screen.queryByText("Oldest first")).toBeNull();
       expect(screen.getByText("Tree")).toBeTruthy();

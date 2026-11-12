@@ -16,10 +16,8 @@ import { CSS } from "@/platform/css";
 import { useContext } from "@/platform/view/context";
 
 /** The search field of a frame, which holds the term. */
-export const Search = (): ReactElement | null => {
-  const { editable, resourceType, searchTerm, setSearchTerm } =
-    useContext("View.Search");
-  if (!editable) return null;
+export const Search = (): ReactElement => {
+  const { resourceType, searchTerm, setSearchTerm } = useContext("View.Search");
   return (
     <div className={CSS.BE("view", "search")}>
       <Input.Text
