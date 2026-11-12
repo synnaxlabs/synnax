@@ -65,9 +65,14 @@ name but uses only the `X.Y`, so the product carries no meaning. The docs deploy
 reads the branch name (`site/docs/src/util/deploy/plan.ts:82`).
 
 Desktop joins a run with the other products only on `main`. A Desktop patch is its own
-dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set. It
-bundles the newest stable Core reachable from `HEAD` and the Driver of that Core, as
-today (`release.desktop.yaml:106-116`).
+dispatch of `release.yaml` from `release/desktop-X.Y`, with only `desktop` set.
+
+Desktop bundles released binaries: the Core of the run, or the newest stable Core
+reachable from `HEAD`, and the newest stable Driver on the train of that Core
+(`latest_version.sh`). This changes behavior. Today Desktop builds both from source at
+`HEAD` (`release.desktop.yaml:142-158`), so a Core or Driver fix on
+`release/desktop-X.Y` reaches a Desktop patch. After this RFC, the fix needs a Core or
+Driver release first.
 
 ### 3.1 Job graph
 
@@ -99,8 +104,10 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   (`draft-release/action.yaml:55`).
 - **Docs**: One deploy per run, after the publish. The docs pages are prerendered, so
   the deploy sets the download links and the dates of the release notes.
-- **Release notes date**: `Release.astro` reads the publish date of `core/vX.Y.0` from
-  the releases listing. The `date` prop is deleted, so no pull request dates a release.
+- **Release notes date**: For 0.59 and later, `Release.astro` reads the publish date of
+  `core/vX.Y.0` from the releases listing, which gains `published_at`. Those notes lose
+  the `date` prop, so no pull request dates a release. Older notes keep the prop: their
+  tags predate `core/v*`.
 
 ### 3.2 Verify
 
@@ -111,7 +118,8 @@ green run and skips CI.
 
 The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
 `nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
-passed. It follows `check_artifact_cache.sh`, which finds an earlier run the same way.
+passed. A full run has about 185 jobs, so the script pages the job list. It follows
+`check_artifact_cache.sh`, which finds an earlier run through the same API.
 
 ### 3.3 macOS builds on the build bots, signing on hosted runners
 
