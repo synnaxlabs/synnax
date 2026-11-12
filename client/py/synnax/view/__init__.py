@@ -9,26 +9,30 @@
 
 from synnax.view.client import Client
 from synnax.view.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
+    Cursor,
     Key,
+    Order,
     RangeView,
     StatusView,
     Type,
     View,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
+    "Cursor",
     "Key",
+    "Order",
     "RangeView",
     "StatusView",
     "Type",
     "View",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

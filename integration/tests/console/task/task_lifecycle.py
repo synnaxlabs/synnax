@@ -103,17 +103,18 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
+        # Deleting the range deletes its task snapshots, which use the channels.
+        try:
+            rng = self.client.ranges.retrieve(name=RANGE_NAME)
+            self.client.ranges.delete(rng.key)
+        except sy.NotFoundError:
+            pass
         with self._try_to("delete example channels"):
             for names in EXAMPLE_CHANNELS:
                 try:
                     self.client.channels.delete(names)
                 except sy.NotFoundError:
                     pass
-        try:
-            rng = self.client.ranges.retrieve(name=RANGE_NAME)
-            self.client.ranges.delete(rng.key)
-        except sy.NotFoundError:
-            pass
         super().teardown()
 
     def run(self) -> None:
@@ -133,16 +134,19 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         The config stores the inverted dataSavingDisabled flag.
         """
-        actual: bool | None = None
-        for _ in range(10):
+
+        def data_saving() -> bool | None:
             task = self.client.tasks.retrieve(names=[name])[0]
             disabled = task.config.get(
                 "dataSavingDisabled", task.config.get("data_saving_disabled")
             )
-            actual = None if disabled is None else not disabled
-            if actual == expected:
-                return
-            sy.sleep(0.5)
+            return None if disabled is None else not disabled
+
+        def matches() -> bool | None:
+            return True if data_saving() == expected else None
+
+        sy.poll(matches, timeout=5, interval=0.5)
+        actual = data_saving()
         assert actual == expected, (
             f"Task '{name}' data saving should be {expected}, got {actual}"
         )

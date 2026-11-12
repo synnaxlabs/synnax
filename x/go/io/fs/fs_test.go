@@ -10,6 +10,7 @@
 package fs_test
 
 import (
+	"io"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -364,6 +365,10 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 				})
+				It("Should make missing parent directories", func() {
+					Expect(fs.Sub("parent/child")).ToNot(BeNil())
+					Expect(fs.Exists("parent/child")).To(BeTrue())
+				})
 				It("Should give FS of subdirectories", func() {
 					Expect(fs.Sub("sub1")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
@@ -382,6 +387,78 @@ var _ = Describe("FS", func() {
 					l := MustSucceed(fs.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("sub1"))
+				})
+			})
+			Describe("CopyFile", func() {
+				write := func(fs xfs.FS, name, data string) {
+					GinkgoHelper()
+					f := MustSucceed(fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC))
+					MustSucceed(f.Write([]byte(data)))
+					Expect(f.Close()).To(Succeed())
+				}
+				It(
+					"Should copy a file and replace the file in the destination",
+					func() {
+						src, dst := MustSucceed(
+							fs.Sub("src"),
+						), MustSucceed(
+							fs.Sub("dst"),
+						)
+						write(src, "data.txt", "new")
+						write(dst, "data.txt", "older data")
+						Expect(xfs.CopyFile(src, dst, "data.txt")).To(Succeed())
+						f := MustSucceed(dst.Open("data.txt", os.O_RDONLY))
+						Expect(io.ReadAll(f)).To(Equal([]byte("new")))
+						Expect(f.Close()).To(Succeed())
+					},
+				)
+				It("Should return an error for a missing file", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					Expect(xfs.CopyFile(src, dst, "data.txt")).
+						To(MatchError(os.ErrNotExist))
+				})
+			})
+			Describe("CopyDir", func() {
+				It("Should copy a directory with everything in it", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					MustSucceed(src.Sub("dir/empty"))
+					Expect(xfs.WriteFile(src, "dir/a.txt", []byte("a"))).To(Succeed())
+					MustSucceed(src.Sub("dir/child"))
+					Expect(xfs.WriteFile(src, "dir/child/b.txt", []byte("b"))).
+						To(Succeed())
+					Expect(xfs.CopyDir(src, dst, "dir")).To(Succeed())
+					Expect(xfs.ReadFile(dst, "dir/a.txt")).To(Equal([]byte("a")))
+					Expect(xfs.ReadFile(dst, "dir/child/b.txt")).To(Equal([]byte("b")))
+					Expect(dst.Exists("dir/empty")).To(BeTrue())
+				})
+				It("Should copy all of the source for an empty name", func() {
+					src, dst := MustSucceed(fs.Sub("src")), MustSucceed(fs.Sub("dst"))
+					Expect(xfs.WriteFile(src, "a.txt", []byte("a"))).To(Succeed())
+					Expect(xfs.CopyDir(src, dst, "")).To(Succeed())
+					Expect(xfs.ReadFile(dst, "a.txt")).To(Equal([]byte("a")))
+				})
+			})
+			Describe("ReadFile", func() {
+				It("Should return an error for a missing file", func() {
+					Expect(xfs.ReadFile(fs, "missing.txt")).Error().
+						To(MatchError(os.ErrNotExist))
+				})
+			})
+			Describe("WriteFile", func() {
+				It("Should replace the file and leave no temporary file", func() {
+					Expect(xfs.WriteFile(fs, "data.txt", []byte("older data"))).
+						To(Succeed())
+					Expect(xfs.WriteFile(fs, "data.txt", []byte("new"))).To(Succeed())
+					Expect(xfs.ReadFile(fs, "data.txt")).To(Equal([]byte("new")))
+					Expect(fs.Exists("data.txt.tmp")).To(BeFalse())
+				})
+				It("Should keep the old file when the write fails", func() {
+					Expect(xfs.WriteFile(fs, "data.txt", []byte("old"))).To(Succeed())
+					faulty := WrapFaultyFS(fs, WithFailWrite())
+					Expect(xfs.WriteFile(faulty, "data.txt", []byte("new"))).
+						To(MatchError(ErrFault))
+					Expect(xfs.ReadFile(fs, "data.txt")).To(Equal([]byte("old")))
+					Expect(fs.Exists("data.txt.tmp")).To(BeFalse())
 				})
 			})
 			_ = Describe("Exists", func() {

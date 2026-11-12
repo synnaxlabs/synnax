@@ -15,12 +15,12 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
@@ -30,14 +30,14 @@ import (
 
 // ServiceConfig is the configuration for the project API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 	// Project stores and retrieves projects.
 	//
 	// [REQUIRED]
 	Project *project.Service
+	// Bundle exports and imports projects as bundles.
+	//
+	// [REQUIRED]
+	Bundle *bundle.Service
 }
 
 var (
@@ -48,22 +48,22 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Project = override.Nil(c.Project, other.Project)
+	c.Bundle = override.Nil(c.Bundle, other.Bundle)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.project")
-	v.NotNil("rbac", c.RBAC)
 	v.NotNil("project", c.Project)
+	v.NotNil("bundle", c.Bundle)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *project.Service
+	bundle   *bundle.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -72,8 +72,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.RBAC,
 		internal: cfg.Project,
+		bundle:   cfg.Bundle,
 	}, nil
 }
 
@@ -84,61 +84,59 @@ type (
 	CreateResponse = CreateRequest
 )
 
+// Create creates the projects. It returns an error wrapping validate.ErrValidation when
+// a project with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeProject}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Projects); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }
 
-type RenameRequest struct {
-	Name string      `json:"name" msgpack:"name"`
-	Key  project.Key `json:"key"  msgpack:"key"`
-}
+// DispatchRequest carries an action sequence to apply to a single project. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[project.Key, project.Action]
 
-func (s *Service) Rename(
+// Dispatch applies the action sequence to the target project atomically. Subscribers to
+// the project action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
-	req RenameRequest,
+	req DispatchRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{project.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the projects that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, project.ResourceID)
+}
+
+// Retrieve returns the projects that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Projects))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Projects))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: project.OntologyIDsFromProjects(res.Projects),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, project.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -158,37 +156,29 @@ type (
 	ExportResponse = zip.Files
 )
 
-// Export exports the project and its ontology descendants as a bundle. It requires
-// retrieve access on the project, which it enforces before it reads a member, and on
-// every document, panel, and group the bundle carries.
+var _ bind.Named = ExportRequest{}
+
+// Named implements bind.Named.
+func (r ExportRequest) Named() []resource.ID {
+	return []resource.ID{project.ResourceID(r.Key)}
+}
+
+// Export exports the project and the records it owns as a bundle. It requires retrieve
+// access on every document, panel, and group the bundle carries.
 func (s *Service) Export(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req ExportRequest,
 ) (ExportResponse, error) {
 	encoder, err := imex.ResolveEncoding(req.Encoding)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		enforcer = s.access.NewEnforcer(nil)
-		subject  = auth.GetSubject(ctx)
-	)
-	if err := enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{project.OntologyID(req.Key)},
-	}); err != nil {
-		return nil, err
-	}
-	files, members, err := s.internal.Export(ctx, req.Key, encoder)
+	files, members, err := s.bundle.Export(ctx, snap, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
-	if err = enforcer.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: members,
-	}); err != nil {
+	if err = snap.Enforce(members...); err != nil {
 		return nil, err
 	}
 	return files, nil
@@ -205,30 +195,27 @@ type (
 	}
 )
 
-// Import imports a project bundle in a single transaction. It requires create access on
-// the project type and on every resource kind the bundle carries, all enforced before
-// any import work runs.
+// PrepareImport decodes the bundle in req. It returns a validation error for missing
+// params or an invalid bundle.
+func (s *Service) PrepareImport(
+	ctx context.Context,
+	req ImportRequest,
+) (bundle.Bundle, error) {
+	fileName, err := parseImportParams(ctx)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	return s.bundle.Decode(ctx, req, fileName)
+}
+
+// Import imports the bundle that PrepareImport decoded into a new project.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
-	req ImportRequest,
+	_ ImportRequest,
+	b bundle.Bundle,
 ) (ImportResponse, error) {
-	fileName, err := parseImportParams(ctx)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	objects, err := s.internal.ImportObjects(ctx, req)
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: objects,
-	}); err != nil {
-		return ImportResponse{}, err
-	}
-	p, err := s.internal.Import(ctx, tx, req, fileName)
+	p, err := s.bundle.Import(ctx, tx, b)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -268,17 +255,11 @@ type DeleteRequest struct {
 	Keys []project.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the projects with the given keys, and the records each one holds.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: project.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

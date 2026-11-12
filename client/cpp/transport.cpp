@@ -93,10 +93,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::ranger::CreateRequest,
         grpc::ranger::CreateResponse,
         grpc::ranger::RangeCreateService>>(pool, base_target);
-    this->range_set_end = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::ranger::SetEndRequest,
+    this->range_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ranger::DispatchRequest,
         google::protobuf::Empty,
-        grpc::ranger::RangeSetEndService>>(pool, base_target);
+        grpc::ranger::RangeDispatchService>>(pool, base_target);
     this->range_kv_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::DeleteRequest,
         google::protobuf::Empty,
@@ -121,6 +121,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::rack::DeleteRequest,
         google::protobuf::Empty,
         grpc::rack::RackDeleteService>>(pool, base_target);
+    this->rack_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::rack::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::rack::RackDispatchService>>(pool, base_target);
     this->task_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::CreateRequest,
         grpc::task::CreateResponse,
@@ -133,6 +137,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::task::DeleteRequest,
         google::protobuf::Empty,
         grpc::task::TaskDeleteService>>(pool, base_target);
+    this->task_dispatch = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::task::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::task::TaskDispatchService>>(pool, base_target);
     this->device_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::CreateRequest,
         grpc::device::CreateResponse,
@@ -145,6 +153,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::device::DeleteRequest,
         google::protobuf::Empty,
         grpc::device::DeviceDeleteService>>(pool, base_target);
+    this->device_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::device::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::device::DeviceDispatchService>>(pool, base_target);
     this->control_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::control::RetrieveRequest,
         grpc::control::RetrieveResponse,
@@ -193,19 +205,22 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     chan_retrieve->use(mw);
     range_retrieve->use(mw);
     range_create->use(mw);
-    range_set_end->use(mw);
+    range_dispatch->use(mw);
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);
     rack_create_client->use(mw);
     rack_retrieve->use(mw);
     rack_delete->use(mw);
+    rack_dispatch->use(mw);
     task_create->use(mw);
     task_retrieve->use(mw);
     task_delete->use(mw);
+    task_dispatch->use(mw);
     device_create->use(mw);
     device_retrieve->use(mw);
     device_delete->use(mw);
+    device_dispatch->use(mw);
     control_retrieve->use(mw);
     status_retrieve->use(mw);
     status_set->use(mw);

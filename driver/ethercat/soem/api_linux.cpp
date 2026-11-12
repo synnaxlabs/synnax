@@ -29,13 +29,13 @@ x::errors::Error ProdAPI::check_socket(const char *ifname) {
     if (errno == EPERM)
         return x::errors::Error(
             errors::PERMISSION_DENIED,
-            "permission denied opening " + iface +
+            "Permission denied opening " + iface +
                 ": the Driver needs CAP_NET_RAW. Reinstall the Driver service with "
-                "'sudo synnax-driver install', or run the Core or the Driver as root"
+                "'sudo synnax-driver install', or run the Core or the Driver as root."
         );
     return x::errors::Error(
         errors::INTERFACE_ERROR,
-        "failed to open a raw socket on " + iface + ": " +
+        "Failed to open a raw socket on " + iface + ": " +
             std::generic_category().message(errno)
     );
 }

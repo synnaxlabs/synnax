@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
@@ -102,6 +103,15 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	It("Should report the gRPC protocol and the protobuf encoding", func() {
+		for _, rep := range []alamos.Report{server.Report(), client.Report()} {
+			Expect(rep).To(Equal(alamos.Report{
+				"protocol":  "grpc",
+				"encodings": []string{"protobuf"},
+			}))
+		}
 	})
 
 	It("Should return EOF on every receive after the client closes its send side",

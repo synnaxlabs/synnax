@@ -112,7 +112,9 @@ class TestLiveFrame:
         assert cost.step(now, known={RUNNER}, found=found(running=True))
         assert (
             cost.step(
-                now + LIVE_INTERVAL / 2, known={RUNNER}, found=found(running=True)
+                now + sy.TimeSpan(LIVE_INTERVAL // 2),
+                known={RUNNER},
+                found=found(running=True),
             )
             == {}
         )

@@ -10,10 +10,11 @@
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { Codec, WSIteratorCodec, WSWriterCodec } from "@/framer/codec";
+import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
 import { ValidationError } from "@/index";
 
 // Wire bytes the Core uses to mark JSON and binary WebSocket messages.
@@ -336,6 +337,32 @@ describe("encoder", () => {
     });
   });
 
+  describe("series views", () => {
+    it("should encode only the samples of a sub-series", () => {
+      const codec = new Codec([1], [DataType.INT32]);
+      const sub = new Series(new Int32Array([1, 2, 3, 4, 5])).sub(1, 3);
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [sub])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([2, 3]);
+    });
+
+    it("should encode only the written samples of an allocated series", () => {
+      const codec = new Codec([1], [DataType.FLOAT64]);
+      const s = Series.alloc({ capacity: 10, dataType: DataType.FLOAT64 });
+      s.write(new Series(new Float64Array([1.5, 2.5])));
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [s])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([1.5, 2.5]);
+    });
+
+    it("should encode only the samples of a subarray", () => {
+      const codec = new Codec([1], [DataType.UINT8]);
+      const data = new Uint8Array([9, 8, 7, 6]).subarray(2);
+      const decoded = codec.decode(
+        codec.encode(new framer.Frame([1], [new Series(data)])),
+      );
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([7, 6]);
+    });
+  });
+
   describe("alignment multiples", () => {
     const MULTIPLES_PRESENT_BIT = 1 << 6;
     const EXTENDED_BIT = 1 << 7;
@@ -452,6 +479,20 @@ describe("encoder", () => {
       expect(() => decoder.decode(stale)).toThrow(
         new ValidationError("remote sent invalid sequence number 1"),
       );
+    });
+  });
+
+  describe("websocket codec JSON fallback", () => {
+    [WSWriterCodec, WSStreamerCodec, WSIteratorCodec].forEach((WSCodec) => {
+      it(`should label parse errors in ${WSCodec.name}`, () => {
+        const codec = new WSCodec(new Codec([1], [DataType.INT32]));
+        const json = new TextEncoder().encode(JSON.stringify({ id: "a" }));
+        const data = new Uint8Array([LOW_PERF_SPECIAL_CHAR, ...json]);
+        const schema = z.object({ id: z.number() });
+        expect(() => codec.decode(data, schema, { label: "test response" })).toThrow(
+          /test response/,
+        );
+      });
     });
   });
 

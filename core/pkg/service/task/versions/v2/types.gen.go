@@ -17,9 +17,8 @@ import (
 	"uuid"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -31,8 +30,6 @@ type Key = uuid.UUID
 
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
-	// Task is the key of the task this status pertains to.
-	Task Key `json:"task" msgpack:"task"`
 	// Running is true if the task is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 	// Cmd is the last command executed on this task.
@@ -58,7 +55,7 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack this task deploys to. Zero for a draft that has not
 	// been assigned a rack; required to start.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
 	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -77,14 +74,6 @@ type Task struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Task) Validate() error {
-	v := validate.New("Task")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.
@@ -126,6 +115,20 @@ func (r *ReadConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.SampleRate = 10
+	r.StreamRate = 5
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("sample_rate", r.SampleRate, 0)
+	return v.Error()
+}
+
 // WriteConfig carries the configuration fields shared by hardware control tasks.
 type WriteConfig struct {
 	PersistConfig
@@ -147,6 +150,19 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.Rate == 0 {
 		s.Rate = 0.2
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.Rate = 0.2
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.GreaterThan("rate", s.Rate, 0)
+	return v.Error()
 }
 
 // ScaleType is the "type" value that selects a variant of Scale.
@@ -182,6 +198,11 @@ type LinearScale struct {
 
 func (LinearScale) isScaleVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinearScale) ApplyDefaults() {
 	if l.Slope == 0 {
@@ -203,7 +224,32 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (m *MapScale) SetDefaults() {
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MapScale) SetUngroupedDefaults() {
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (m *MapScale) DefaultGroups() {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
+	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
+	}
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
+// group takes its defaults only when all of its members are zero.
 func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
@@ -306,6 +352,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			LinearScale
 		}
+		v.LinearScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -315,9 +362,11 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
+		v.MapScale.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.MapScale.DefaultGroups()
 		u.Variant = v.MapScale
 	case PolynomialScaleType:
 		var v struct {
@@ -374,7 +423,8 @@ func (u Scale) Type() ScaleType {
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
+// schema-declared defaults. A default group takes its defaults only when all of its
+// members are zero.
 func (u *Scale) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 	case LinearScale:

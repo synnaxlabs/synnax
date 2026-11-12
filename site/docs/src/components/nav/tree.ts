@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Edition } from "@/components/edition";
-import { type Flag } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
 interface Base {
   name: string;
-  /** Hides the node and its children while the flag is off. */
-  flag?: Flag;
   /** Marks the node and its children as applying only to this edition. */
   edition?: Edition.Edition;
   children?: PageNavNode[];

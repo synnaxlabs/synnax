@@ -14,7 +14,6 @@ import { type FC } from "react";
 
 import {
   AI_PORT_TYPE,
-  GROUND_CHANNEL,
   type Model,
   negativeChannelOf,
   PORTS,
@@ -104,26 +103,48 @@ interface FormProps {
 
 interface NegativeChannelFieldProps {
   port: deep.Path<string>;
-  negChan: deep.Path<number>;
+  negChan: deep.Path<number | undefined>;
 }
 
-/** The negative input of a T7 channel: ground, or the port's differential pair. */
+type NegativeInput = "ground" | "pair" | "stored";
+
+const inputOf = (value: number | undefined, pair: number | null): NegativeInput => {
+  if (value == null) return "ground";
+  return value === pair ? "pair" : "stored";
+};
+
+/**
+ * The negative input of a T7 channel: ground, which leaves the channel's negative
+ * channel absent, or the port's differential pair. A stored value that is neither
+ * shows as its own option until the user picks one of the two.
+ */
 const NegativeChannelField = ({ port, negChan }: NegativeChannelFieldProps) => {
   const pair = negativeChannelOf(PForm.useFieldValue(port));
   return (
-    <PForm.Field path={negChan} label="Negative channel">
-      {({ value, onChange, preview }) => (
-        <Select.Simple<number>
-          allowNone={false}
-          value={value}
-          onChange={onChange}
-          preview={preview}
-          resourceName="negative channel"
-        >
-          <Select.Item itemKey={GROUND_CHANNEL}>Ground</Select.Item>
-          {pair != null && <Select.Item itemKey={pair}>{`AIN${pair}`}</Select.Item>}
-        </Select.Simple>
-      )}
+    <PForm.Field<number | undefined> path={negChan} label="Negative channel">
+      {({ value, onChange, preview }) => {
+        const input = inputOf(value, pair);
+        return (
+          <Select.Simple<NegativeInput>
+            allowNone={false}
+            value={input}
+            onChange={(next: NegativeInput) => {
+              if (next === "ground") onChange(undefined);
+              else if (next === "pair" && pair != null) onChange(pair);
+            }}
+            preview={preview}
+            resourceName="negative channel"
+          >
+            <Select.Item<NegativeInput> itemKey="ground">Ground</Select.Item>
+            {pair != null && (
+              <Select.Item<NegativeInput> itemKey="pair">{`AIN${pair}`}</Select.Item>
+            )}
+            {input === "stored" && (
+              <Select.Item<NegativeInput> itemKey="stored">{`AIN${value}`}</Select.Item>
+            )}
+          </Select.Simple>
+        );
+      }}
     </PForm.Field>
   );
 };

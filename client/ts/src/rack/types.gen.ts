@@ -12,16 +12,22 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { role } from "@/access/role";
+import { group } from "@/group";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /** StatusDetails contains rack-specific status details. */
 export const statusDetailsZ = z.object({
-  /** rack is the key of the rack this status pertains to. */
-  rack: keyZ,
+  /** running is true when the status comes from a running Driver. */
+  running: z.boolean().default(false),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
@@ -34,7 +40,8 @@ export type Where = {
   name?: filter.String;
   embedded?: filter.Bool;
   integrations?: filter.Contains<z.ZodString>;
-  hostIsNode?: boolean;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -57,12 +64,29 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   embedded: filter.boolZ.optional(),
   /** integrations selects by integrations. */
   integrations: filter.containsZ(z.string()).optional(),
-  /**
-   * hostIsNode matches racks on the Core that serves the request, or racks on other
-   * Cores when false.
-   */
-  hostIsNode: z.boolean().optional(),
+  /** groups matches the racks in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the racks in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
+
+/** Cursor is a position in an order of racks: the sort value and the key of a rack. */
+export const cursorZ = z.object({
+  /** key is the key of the rack at the position. */
+  key: keyZ,
+  /** name is the name of the rack at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/** Order is a sort of racks. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
@@ -73,10 +97,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the racks that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the racks. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the racks strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most racks to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching racks to skip. */
-  offset: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
 });
@@ -104,10 +130,19 @@ export const payloadZ = z.object({
     .string()
     .array()
     .default(() => []),
+  /**
+   * version is the version of the Driver that runs the rack, written at each connect.
+   * Absent until a Driver reports it.
+   */
+  version: z.string().optional(),
+  /** group is the group the rack sits in, if any. */
+  group: group.keyZ.optional(),
+  /** role is the role that grants the rack its permissions. */
+  role: role.keyZ,
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ embedded: true, key: true }).extend({
+export const newZ = payloadZ.omit({ embedded: true, role: true, key: true }).extend({
   key: keyZ.refine((v) => v !== 0, "key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}
@@ -119,5 +154,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("rack");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("rack");
+export const TYPE_RESOURCE_ID = resourceID(0);

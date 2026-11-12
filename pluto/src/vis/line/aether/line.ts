@@ -40,7 +40,7 @@ import {
   finiteRuns,
 } from "@/vis/line/aether/draw";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
+import { groupSize, inView, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -325,6 +325,8 @@ interface InternalState {
   loadingState?: LoadingState;
   // loaded is true once both sources leave loading, until either source changes.
   loaded?: boolean;
+  // drawn holds the ops of the last render.
+  drawn: DrawOperation[];
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -344,6 +346,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
+    i.drawn ??= [];
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -446,6 +449,37 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return result;
   }
 
+  /**
+   * @returns the point the line drew at its last render whose x is nearest target, and
+   * the y bounds of every point drawn. The value of a point the line reduced has
+   * float32 precision.
+   */
+  findDrawnByXValue(props: LineProps, target: number): FindResult {
+    const { key } = this;
+    const { color, label, visible } = this.state;
+    const result: FindResult = {
+      key,
+      color,
+      label,
+      position: { x: 0, y: 0 },
+      value: { x: NaN, y: NaN },
+      bounds: { lower: 0, upper: 0 },
+    };
+    const { drawn } = this.internal;
+    const found = visible ? nearest(drawn, target) : null;
+    if (found == null) return result;
+    const [{ x, y, xOffset, yOffset }, i] = found;
+    result.value = {
+      x: Number(x.at(xOffset + i, true)),
+      y: Number(y.at(yOffset + i, true)),
+    };
+    result.bounds = bounds.max(
+      drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
+    );
+    result.position = props.dataToDecimalScale.pos(result.value);
+    return result;
+  }
+
   // read returns the value props of the view. A zoom gives the sources points only once
   // its span holds, so a fast zoom does not read the spans it passes through. A pan
   // reads at once.
@@ -485,7 +519,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, v, groupsPerColumn);
-    const ops = reducer.reduce(full, i.aggregation, size);
+    const cut =
+      x.sorted === true && bounds.isFinite(v.bounds)
+        ? inView(full, v.bounds, size)
+        : full;
+    const ops = reducer.reduce(cut, i.aggregation, size);
+    i.drawn = ops;
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.renderCtx);
@@ -527,7 +566,31 @@ const view = ({ region, dataToDecimalScale }: LineProps): View => {
   };
 };
 
-/** Just makes sure that the lines we draw to make stuff thick are really close together. */
+// Returns the op and op index of the sample whose x is nearest target. The x samples of
+// each op must ascend.
+const nearest = (
+  ops: DrawOperation[],
+  target: number,
+): [DrawOperation, number] | null => {
+  let found: [DrawOperation, number] | null = null;
+  let distance = Infinity;
+  for (const op of ops) {
+    const { x, xOffset, count } = op;
+    const after = Math.min(Math.max(x.binarySearch(target) - xOffset, 0), count);
+    for (const i of [after - 1, after]) {
+      if (i < 0 || i >= count) continue;
+      const d = Math.abs(Number(x.at(xOffset + i, true)) - target);
+      if (Number.isNaN(d) || d >= distance) continue;
+      found = [op, i];
+      distance = d;
+    }
+  }
+  return found;
+};
+
+/**
+ * Just makes sure that the lines we draw to make stuff thick are really close together.
+ */
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>

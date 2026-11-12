@@ -28,9 +28,9 @@ inline void stamp_now(const runtime::state::Series &ts, const x::telem::TimeStam
     ts->set(0, now);
 }
 
-/// @brief Register holds what its variable is mapped to: a value, a channel key,
-/// or a derivation index. Writes are last-wins; the unedged f0 holds the initial
-/// value.
+/// @brief Register holds what its variable is mapped to: a value, a channel key, or a
+/// derivation index. Writes are last-wins. f0 holds the initial value, edge-fed for a
+/// computed `$=`.
 class Register : public runtime::node::Node {
     runtime::state::Node state;
     bool stateful;
@@ -108,12 +108,13 @@ public:
         return node_type == symbol_name || node_type == stateful_symbol_name;
     }
 
-    /// @brief Create dispatches on shape: a value-carrying first input makes a
-    /// Register; an edge-fed one an ExprRead deref.
+    /// @brief Create dispatches on shape: a `variable` whose first input has no value
+    /// makes an ExprRead deref. Any other shape makes a Register.
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        if (!cfg.node.inputs.empty() && cfg.node.inputs[0].value.is_null()) {
+        if (cfg.node.type == symbol_name && !cfg.node.inputs.empty() &&
+            cfg.node.inputs[0].value.is_null()) {
             size_t sel_idx = ExprRead::NO_SEL;
             if (const auto [idx, err] = cfg.state.resolve_input("sel"); !err)
                 sel_idx = idx;

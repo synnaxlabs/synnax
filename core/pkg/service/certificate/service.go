@@ -11,13 +11,11 @@ package certificate
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -37,14 +35,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology holds a resource for each certificate.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group holds the "Certificates" group, the default parent of every certificate.
-	//
-	// [REQUIRED]
-	Group *group.Service
 	// Secret stores the private key of each certificate that has one.
 	//
 	// [REQUIRED]
@@ -82,8 +72,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
@@ -99,8 +87,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("certificate.service")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
-	v.NotNil("group", c.Group)
 	v.NotNil("secret", c.Secret)
 	v.NotNil("status", c.Status)
 	v.NotNil("now", c.Now)
@@ -111,8 +97,8 @@ func (c ServiceConfig) Validate() error {
 // Service stores certificates, reads their details, and reports their expiry as
 // statuses.
 type Service struct {
-	group   group.Group
 	table   *gorp.Table[Key, Certificate]
+	state   *actions.State[Key, Action]
 	indexes indexes
 	closer  xio.MultiCloser
 	cfg     ServiceConfig
@@ -126,29 +112,30 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
+	s.state = actions.NewState[Key, Action](s.cfg.DB)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = s.cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Certificates",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Certificate]{
 		DB:              s.cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s.cfg.Ontology.RegisterService(s)
 	if s.cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = s.cfg.Signals.PublishFromGorp(
-			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+		if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Certificate]{
+			Changes:  s.table.Changes,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_certificate_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -179,26 +166,30 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 // safe to call concurrently with any other method of the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a Writer that creates, renames, and deletes certificates. If tx is
-// nil, the Writer writes directly to the DB.
+// Changes returns the changes that the commit c made to certificates.
+func (s *Service) Changes(
+	ctx context.Context,
+	c gorp.Commit,
+) gorp.TxReader[Key, Certificate] {
+	return s.table.Changes(ctx, c)
+}
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
+
+// NewWriter opens a Writer that creates, changes, and deletes certificates in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
-		table:     s.table,
-		secrets:   s.cfg.Secret.NewWriter(tx),
-		statuses:  s.cfg.Status.NewWriter(tx),
-		now:       s.cfg.Now,
+		tx:         tx,
+		table:      s.table,
+		secrets:    s.cfg.Secret.NewWriter(tx),
+		statuses:   s.cfg.Status.NewWriter(tx),
+		now:        s.cfg.Now,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
 // NewRetrieve opens a query that retrieves certificates.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }

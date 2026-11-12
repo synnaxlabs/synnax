@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -16,7 +16,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
@@ -37,7 +36,7 @@ const useDelete = Tree.createUseDelete({
   },
 });
 
-const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
+const useDuplicate = (props: Tree.ContextMenuProps): (() => void) => {
   const {
     selection: { ids },
     state: { getResource },
@@ -45,9 +44,9 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   const rename = Base.useRename();
   const copy = Base.useCopy({
     afterSuccess: async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
-      const id = schematic.ontologyID(data.key);
+      const id = schematic.resourceID(data.key);
       const [name, renamed] = await Text.asyncEdit(
-        List.itemNameID(ontology.idToString(id)),
+        List.itemNameID(resource.idToString(id)),
       );
       if (!renamed) return;
       await rename.updateAsync({ key: data.key, name });
@@ -95,16 +94,17 @@ const useRangeSnapshot = () => {
       key: id.key,
       name: getResource(id).name,
     }));
-    const parentID = ranger.ontologyID(rng.key);
-    update({ schematics, parentID });
+    update({ schematics, range: rng.key });
   };
 };
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: schematic.ontologyID,
+  resourceID: schematic.resourceID,
   convertKey: String,
 });
+
+const retrieve: Tree.Retrieve = async (c, key) => await c.schematics.retrieve(key);
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
@@ -112,11 +112,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state,
   } = props;
   const activeRange = Range.useResolve();
-  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const schematics = Base.useMultiple({ keys: ids.map(({ key }) => key) });
+  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const handleCopy = useCopy(props);
+  const handleDuplicate = useDuplicate(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Export.useResource();
   const handleLink = Core.useCopyLinkToClipboard();
@@ -141,23 +142,24 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
+      {schematics.every((s) => !s.snapshot) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
-          <Menu.Item itemKey="copy" onClick={handleCopy}>
+          <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
             <Icon.Copy />
-            Copy
+            Duplicate
           </Menu.Item>
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() => handleLink({ name: first.name, resourceID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -168,16 +170,23 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const TreeItem = Tree.createItem({
+/** Lists the schematics that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
   type: "schematic",
+  children: (client, key) =>
+    Tree.createSource(
+      client.schematics,
+      { groups: [key] },
+      Tree.toResource("schematic"),
+    ),
+};
+
+const TreeItem = Tree.createItem({
+  linkable: true,
   icon: <Icon.Schematic />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS = {
-  schematic: TreeItem,
-  ...Symbol.TREE_ITEMS,
-} satisfies Tree.Items;
+export const TREE_ITEMS = { schematic: TreeItem } satisfies Tree.Items;

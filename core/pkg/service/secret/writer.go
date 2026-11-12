@@ -12,38 +12,45 @@ package secret
 import (
 	"context"
 	"crypto/cipher"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer creates, renames, and deletes secrets.
+// Writer creates, changes, and deletes secrets.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	aead      cipher.AEAD
-	table     *gorp.Table[Key, Secret]
-	uses      Finder
-	now       func() telem.TimeStamp
-	group     group.Group
+	tx         gorp.Tx
+	aead       cipher.AEAD
+	table      *gorp.Table[Key, Secret]
+	now        func() telem.TimeStamp
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the secret, or replaces the secret with the same key. For a stored
-// secret, value is the plain text, which Create encrypts and must not be empty. For a
-// file secret, value must be empty. Create gives a secret without a key a new one, and
-// sets Updated.
-func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Set creates the secret, or replaces the secret with the same key. For a stored
+// secret, value is the plain text, which Set encrypts and must not be empty. For a file
+// secret, value must be empty. A replace must keep the source of the secret. Set gives
+// a secret without a key a new one, and sets Updated. The commit carries a create
+// action that holds the secret without its value.
+func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
 	}
 	base := s.Base()
 	if base.Key == uuid.Nil() {
 		base.Key = uuid.New()
+	} else if err := w.checkSource(ctx, base.Key, s.Source()); err != nil {
+		return err
 	}
 	base.Updated = w.now()
 	s.SetBase(base)
@@ -54,65 +61,95 @@ func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
 	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := s.OntologyID()
-	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
+	created := *s
+	if stored, ok := created.Variant.(StoredSecret); ok {
+		stored.Value = nil
+		created.Variant = stored
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Secret: created}))
+	return nil
 }
 
-// Rename renames the secret with the given key, keeping its value. It returns
-// query.ErrNotFound if no secret has the key, and a validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.table.NewUpdate().
+// checkSource returns a validation error when a secret with key exists and has a source
+// other than source.
+func (w Writer) checkSource(ctx context.Context, key Key, source Source) error {
+	var prev []Secret
+	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Secret](key)).
-		ChangeErr(func(_ gorp.Context, s Secret) (Secret, error) {
-			base := s.Base()
-			base.Name = name
-			s.SetBase(base)
-			if err := s.Validate(); err != nil {
-				return Secret{}, err
-			}
-			return s, nil
-		}).
-		Exec(ctx, w.tx)
-}
-
-// Delete deletes the secrets with the given keys. It returns a validation error naming
-// the resource that uses a secret when anything uses one. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	uses, err := w.uses(ctx, w.tx, keys)
-	if err != nil {
-		return err
-	}
-	if len(uses) > 0 {
-		use := uses[0]
-		var s Secret
-		if err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Secret](use.Secret)).
-			Entry(&s).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"cannot delete secret %q because %s %q uses it",
-			s.Base().Name,
-			use.Resource.Type,
-			use.Name,
-		)
-	}
-	if err = w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Secret](keys...)).
+		SkipMissingKeys().
+		Entries(&prev).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	v := validate.New("secret")
+	for _, p := range prev {
+		v.Ternaryf(
+			"source",
+			p.Source() != source,
+			"cannot change from %s to %s",
+			p.Source(),
+			source,
+		)
+	}
+	return v.Error()
+}
+
+// Apply applies the actions to the secret with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result fails to validate, and an error wrapping query.ErrNotFound when no secret has
+// the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Secret](key)).
+		ChangeErr(func(_ gorp.Context, s Secret) (Secret, error) {
+			next, err := Reduce(s, acts...)
+			if err != nil {
+				return Secret{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Secret{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// Rename renames the secret with the given key by applying a set of the name. It keeps
+// the value.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.Apply(
+		ctx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
+}
+
+// Delete deletes the secrets with the given keys. It returns a gorp.RestrictError when
+// anything uses one of them. Delete is idempotent.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Secret](keys...)).
+		Exec(ctx, w.tx)
+}
+
+// ValidateFileName adds an error to v at field unless name is a file name, so a rack
+// that joins it to a folder stays in that folder. A colon starts a Windows drive, such
+// as C:key.pem.
+func ValidateFileName(v *validate.Validator, field, name string) {
+	if name == "" {
+		v.Ternary(field, true, "required")
+		return
+	}
+	v.Ternary(
+		field,
+		name == "." || name == ".." || strings.ContainsAny(name, `/\:`),
+		"must be a file name, not a path",
+	)
 }
 
 func validateSecret(s Secret, value []byte) error {
@@ -121,7 +158,7 @@ func validateSecret(s Secret, value []byte) error {
 	case StoredSecret:
 		v.Ternary("value", len(value) == 0, "required")
 	case FileSecret:
-		v.NotEmptyString("path", variant.Path)
+		ValidateFileName(v, "file_name", variant.FileName)
 		v.Ternary("value", len(value) != 0, "must be empty for a file secret")
 	default:
 		v.Ternary("source", true, "required")

@@ -12,27 +12,29 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Log", func(ctx SpecContext) {
-		l := log.Log{
-			Name: "test",
+		tx := DeferClose(db.OpenTx())
+		l := defaults.Fill(log.Log{
+			Project: &proj.Key,
+			Name:    "test",
 			Channels: []log.ChannelEntry{
 				{
-					Channel:  channel.Key(1),
+					Channel:  ch1,
 					Color:    MustSucceed(color.FromHex("#ff0000")),
 					Notation: notation.NotationStandard,
 				},
 			},
 			ChannelNamesHidden: true,
-		}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+		})
+		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		var res log.Log
 		Expect(
 			svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx),

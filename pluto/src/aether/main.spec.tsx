@@ -1789,9 +1789,9 @@ describe("Aether Main", () => {
       await waitFor(() => expect(root.children).toHaveLength(3));
     });
     it("should drop invokes queued before a detach rather than replay them on re-attach", async () => {
-      // An invoke issued before the create message flushes waits on the entry. Detaching
-      // rejects its caller, so replaying it after a StrictMode re-attach would run the
-      // side effect for a call the caller was already told had failed.
+      // An invoke issued before the create message flushes waits on the entry.
+      // Detaching rejects its caller, so replaying it after a StrictMode re-attach
+      // would run the side effect for a call the caller was already told had failed.
       const [workerSide, mainSide] = aether.createMockPair();
       const root = aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });
