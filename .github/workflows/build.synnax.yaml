@@ -44,8 +44,7 @@ on:
         type: boolean
         default: false
       flags_enabled:
-        description:
-          "Console web assets: turn on every flag in console/src/flags/external.ts"
+        description: "Console web assets: turn on every flag in console/src/flags.ts"
         type: boolean
         default: false
       console_tauri:

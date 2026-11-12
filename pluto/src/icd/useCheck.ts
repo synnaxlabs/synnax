@@ -20,6 +20,8 @@ import { Synnax } from "@/synnax";
 export const CHECK_DELAY = TimeSpan.milliseconds(500);
 
 export interface UseCheckParams {
+  /** The key of the ICD that the form edits. */
+  key: icd.Key;
   /** The form that edits the ICD. */
   form: Pick<Form.ContextValue, "bind" | "setStatus" | "clearStatus"> & {
     value: () => icd.New;
@@ -32,7 +34,7 @@ export interface UseCheckParams {
  * the form path it names, and clears the problems the previous check found. An edit
  * clears the problem on the edited path until the next check.
  */
-export const useCheck = ({ form }: UseCheckParams): void => {
+export const useCheck = ({ key, form }: UseCheckParams): void => {
   const client = Synnax.use();
   const { bind, value, setStatus, clearStatus } = form;
   const handleError = Status.useErrorHandler();
@@ -45,7 +47,7 @@ export const useCheck = ({ form }: UseCheckParams): void => {
       handleError(async () => {
         const v = deep.copy(value());
         checked = v;
-        const problems = await client.icds.check(v);
+        const problems = await client.icds.check({ ...v, key });
         // The form changed while the check ran, so its problems are out of date.
         if (!deep.equal(value(), v)) return;
         marked.forEach(clearStatus);
@@ -61,5 +63,5 @@ export const useCheck = ({ form }: UseCheckParams): void => {
       clearTimeout(timer);
       unbind();
     };
-  }, [client, bind, value, setStatus, clearStatus, handleError]);
+  }, [client, key, bind, value, setStatus, clearStatus, handleError]);
 };

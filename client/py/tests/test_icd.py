@@ -170,15 +170,12 @@ class TestICD:
         assert [ic.name for ic in icds] == ["A", "B"]
         assert icds[0].key != icds[1].key
 
-    def test_create_replace(self, client: sy.Synnax) -> None:
-        """Should replace an ICD whole when one with its key exists."""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse an ICD whose key exists and keep the stored ICD."""
         ic = client.icds.create(create_icd())
-        renamed = ic.messages[0].model_copy(update={"name": "Renamed"})
-        client.icds.create(sy.ICD(key=ic.key, name=ic.name, messages=[renamed]))
-        retrieved = client.icds.retrieve(key=ic.key)
-        assert len(retrieved.messages) == 1
-        assert retrieved.messages[0].key == ic.messages[0].key
-        assert retrieved.messages[0].name == "Renamed"
+        with pytest.raises(sy.ValidationError, match=f"icd {ic.key} already exists"):
+            client.icds.create(ic.model_copy(update={"name": "Replaced"}))
+        assert client.icds.retrieve(key=ic.key).name == ic.name
 
     def test_create_with_problems(self, client: sy.Synnax) -> None:
         """Should store an ICD with problems that a check finds."""

@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the ICD with the given created state. Emitted by the Core when an ICD is
-    created or overwritten whole; clients never dispatch it.
+    created or imported; clients never dispatch it.
     """
 
     icd: ICD

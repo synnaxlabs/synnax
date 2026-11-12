@@ -272,8 +272,8 @@ review. A Claude session pushes against it, never along with it:
   the new piece to the open PR, and never wait for the parent to merge first. When the
   parent merges, merge `main` into the child and retarget it to `main`.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
-  behind a flag in `console/src/flags/external.ts` and merges anyway. The flag flip is
-  the last small PR, never the first big one.
+  behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
+  small PR, never the first big one.
 - **Mechanical changes ship alone** as `review/bot` PRs: renames, format runs, lint
   fixes, regenerated code. The human review then reads only hand-written code.
 - **A fix and the refactor it needed are two PRs.** The refactor lands first.

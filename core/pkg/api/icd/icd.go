@@ -78,7 +78,7 @@ type CreateResponse struct {
 	ICDs []ICD `json:"icds" msgpack:"icds"`
 }
 
-// Create creates the given ICDs in tx, or replaces whole those whose keys exist.
+// Create creates the given ICDs in tx. It refuses an ICD whose key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

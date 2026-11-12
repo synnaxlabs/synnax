@@ -20,19 +20,15 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
-const useICDLink = FLAGS.icd ? ICD.useLink : () => undefined;
-
 // Keyed by the resource type, the segment after the cluster key in a deep link.
-const useLinks = (): void => {
-  const icd = useICDLink();
+const useLinks = (): void =>
   Link.useDeep(Core.useLink(), {
     arc: Arc.useLink(),
     channel: Channel.useLink(),
     device: Device.useLink(),
-    ...(icd == null ? {} : { icd }),
+    icd: ICD.useLink(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
     project: Project.useLink(),
@@ -41,7 +37,6 @@ const useLinks = (): void => {
     table: Table.useLink(),
     task: Task.useLink(),
   });
-};
 
 // Synnax Desktop takes one link, its login, and Account.Guard handles that one.
 export const useDeep: () => void = Session.Runtime.LINKS_DISABLED ? () => {} : useLinks;

@@ -20,9 +20,9 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const useChecked = (values: icd.ICD) => {
-  const form = Form.use({ values, schema: icd.icdZ });
-  ICD.useCheck({ form });
+const useChecked = ({ key, name, messages }: icd.ICD) => {
+  const form = Form.use({ values: { name, messages }, schema: ICD.formSchema });
+  ICD.useCheck({ key, form });
   return form;
 };
 
@@ -52,6 +52,13 @@ describe("ICD.useCheck", () => {
         message: 'duplicate message name "Mode"',
       }),
     );
+  });
+
+  it("should check the ICD under its own key", async () => {
+    const check = vi.spyOn(client.icds, "check");
+    renderHook(() => useChecked(values), { wrapper });
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    expect(check.mock.calls[0][0].key).toBe(values.key);
   });
 
   it("should show the problems the ICD has when it mounts", async () => {

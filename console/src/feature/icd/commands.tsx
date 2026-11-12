@@ -11,17 +11,14 @@ import { icd } from "@synnaxlabs/client";
 import { Access, ICD } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/feature/icd/useCreate";
-import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
-export const COMMANDS = FLAGS.icd
-  ? [
-      Command.create({
-        key: "create_icd",
-        name: "Create ICD",
-        icon: <ICD.CreateIcon />,
-        useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
-        useOnSelect: useCreate,
-      }),
-    ]
-  : [];
+const CreateCommand = Command.create({
+  key: "create_icd",
+  name: "Create ICD",
+  icon: <ICD.CreateIcon />,
+  useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
+  useOnSelect: useCreate,
+});
+
+export const COMMANDS = [CreateCommand];

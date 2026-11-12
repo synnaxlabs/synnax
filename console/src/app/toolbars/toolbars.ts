@@ -18,7 +18,6 @@ import { Secret } from "@/feature/secret";
 import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
-import { FLAGS } from "@/flags";
 import { type Nav } from "@/platform/nav";
 
 export const DEFAULT_SIZE = 200;
@@ -30,7 +29,7 @@ export const LEFT: Nav.Toolbar[] = [
   Device.TOOLBAR,
   Task.TOOLBAR,
   Arc.TOOLBAR,
-  ...(FLAGS.icd ? [ICD.TOOLBAR] : []),
+  ICD.TOOLBAR,
   Status.TOOLBAR,
   ...(DESKTOP ? [] : [User.TOOLBAR]),
   Secret.TOOLBAR,

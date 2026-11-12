@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the ICD with the given created state. Emitted by the Core when
-// an ICD is created or overwritten whole; clients never dispatch it.
+// an ICD is created or imported; clients never dispatch it.
 type CreatePayload struct {
 	ICD ICD `json:"icd" msgpack:"icd"`
 }

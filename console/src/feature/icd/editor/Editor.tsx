@@ -83,7 +83,7 @@ export const Editor = (): ReactElement => {
     query: { key },
     mode: canEdit ? "normal" : "preview",
   });
-  ICD.useCheck({ form });
+  ICD.useCheck({ key, form });
   const handleImport = useImport();
   return (
     <Form.Form<typeof ICD.formSchema> {...form}>

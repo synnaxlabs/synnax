@@ -138,26 +138,16 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It(
-			"Should keep message and field keys when replacing an ICD",
-			func(ctx SpecContext) {
-				ic := icd.ICD{
-					Name: "Replace",
-					Messages: []icd.Message{
-						canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
-					},
-				}
-				w := svc.NewWriter(tx)
-				Expect(w.Create(ctx, &ic)).To(Succeed())
-				messageKey := ic.Messages[0].Key
-				fieldKey := binaryFieldOf(ic.Messages[0], 0).Key
-				ic = setScale(ic, 0, 0.25)
-				Expect(w.Create(ctx, &ic)).To(Succeed())
-				Expect(ic.Messages[0].Key).To(Equal(messageKey))
-				Expect(binaryFieldOf(ic.Messages[0], 0).Key).To(Equal(fieldKey))
-				Expect(binaryFieldOf(ic.Messages[0], 0).Scale).To(Equal(0.25))
-			},
-		)
+		It("Should refuse an ICD whose key exists", func(ctx SpecContext) {
+			ic := icd.ICD{Name: "Stored"}
+			w := svc.NewWriter(tx)
+			Expect(w.Create(ctx, &ic)).To(Succeed())
+			again := icd.ICD{Key: ic.Key, Name: "Replaced"}
+			Expect(w.Create(ctx, &again)).To(
+				MatchError(ContainSubstring("icd %s already exists", ic.Key)),
+			)
+			Expect(retrieveICD(ctx, ic.Key).Name).To(Equal("Stored"))
+		})
 
 		It("Should store an ICD with problems that Check finds", func(ctx SpecContext) {
 			ic := icd.ICD{Name: "Duplicates", Messages: []icd.Message{

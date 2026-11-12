@@ -31,11 +31,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates the ICD, or replaces it whole when an ICD with its key exists. Create
-// assigns keys to the ICD, its messages, and their fields where absent. It returns a
-// path-scoped validation error when the ICD breaks a rule of its schema. Problems that
-// Check finds do not stop the save. Create attaches a create action that carries the
-// stored ICD to the transaction, so its commit broadcasts the action.
+// Create creates the ICD. Create assigns keys to the ICD, its messages, and their
+// fields where absent. It returns a validation error when an ICD with its key exists,
+// and a path-scoped validation error when the ICD breaks a rule of its schema. Problems
+// that Check finds do not stop the save. Create attaches a create action that carries
+// the stored ICD to the transaction, so its commit broadcasts the action.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	if ic.Key == uuid.Nil() {
 		ic.Key = uuid.New()
@@ -44,14 +44,14 @@ func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	if err := ic.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(ic).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, ic.Key, NewCreateAction(CreatePayload{ICD: *ic}))
 	return nil
 }
 
-// CreateMany creates or replaces each of the given ICDs as Create does.
+// CreateMany creates each of the given ICDs as Create does.
 func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 	for i := range *ics {
 		if err := w.Create(ctx, &(*ics)[i]); err != nil {
@@ -63,10 +63,11 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 
 // Import replaces the messages of the ICD with the given key by those parsed from data
 // in the given format. An imported message keeps the key of the message with its name,
-// and each of its fields keeps the key of that message's field with its name. Import
-// stores the result as Create does and returns it. It returns a path-scoped validation
-// error when data does not parse or the result breaks a rule of the ICD's schema, and
-// an error wrapping query.ErrNotFound when no ICD has the key.
+// and each of its fields keeps the key of that message's field with its name. Problems
+// that Check finds do not stop the import. Import attaches a create action that carries
+// the stored ICD to the transaction and returns the ICD. It returns a path-scoped
+// validation error when data does not parse or the result breaks a rule of the ICD's
+// schema, and an error wrapping query.ErrNotFound when no ICD has the key.
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,
@@ -78,16 +79,21 @@ func (w Writer) Import(
 		return ICD{}, err
 	}
 	var ic ICD
-	if err = w.table.NewRetrieve().
+	if err = w.table.
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, ICD](key)).
-		Entry(&ic).
+		ChangeErr(func(_ gorp.Context, existing ICD) (ICD, error) {
+			ic = merge(existing, messages)
+			assignKeys(&ic)
+			if err := ic.Validate(); err != nil {
+				return ICD{}, err
+			}
+			return ic, nil
+		}).
 		Exec(ctx, w.tx); err != nil {
 		return ICD{}, err
 	}
-	ic = merge(ic, messages)
-	if err = w.Create(ctx, &ic); err != nil {
-		return ICD{}, err
-	}
+	w.dispatcher.Attach(w.tx, key, NewCreateAction(CreatePayload{ICD: ic}))
 	return ic, nil
 }
 

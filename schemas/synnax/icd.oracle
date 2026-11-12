@@ -290,7 +290,7 @@ ICD struct {
 
         @doc value """
             replaces the ICD with the given created state. Emitted by the Core when an
-            ICD is created or overwritten whole; clients never dispatch it.
+            ICD is created or imported; clients never dispatch it.
         """
     }
 

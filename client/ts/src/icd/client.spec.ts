@@ -158,13 +158,11 @@ describe("icd", () => {
       expect(ics[0].key).not.toEqual(ics[1].key);
     });
 
-    it("should replace an ICD with an existing key", async () => {
+    it("should refuse an ICD whose key exists", async () => {
       const ic = await client.icds.create(createNew("Engine"));
-      const [status] = ic.messages;
-      await client.icds.create({ ...ic, messages: [{ ...status, name: "Renamed" }] });
-      const retrieved = await client.icds.retrieve(ic.key);
-      expect(retrieved.messages).toHaveLength(1);
-      expect(retrieved.messages[0]).toMatchObject({ key: status.key, name: "Renamed" });
+      const create = client.icds.create({ ...ic, name: "Replaced" });
+      await expect(create).rejects.toThrow(`icd ${ic.key} already exists`);
+      expect((await client.icds.retrieve(ic.key)).name).toEqual("Engine");
     });
 
     it("should store an ICD that has problems", async () => {
