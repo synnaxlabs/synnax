@@ -17,6 +17,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
@@ -119,6 +120,10 @@ func literal(f WriteField) ([]byte, error) {
 		}
 		return value, nil
 	case BytesWriteField:
+		// The strict decoder still skips line breaks, which the Console rejects.
+		if strings.ContainsAny(v.Value, "\r\n") {
+			return nil, errors.Wrap(validate.ErrValidation, "value is not base64")
+		}
 		if _, err := base64.StdEncoding.Strict().DecodeString(v.Value); err != nil {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "value is not base64: %v", err,

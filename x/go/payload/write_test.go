@@ -181,6 +181,9 @@ var _ = Describe("WriteField", func() {
 			Entry("unpadded base64",
 				payload.WriteField{Variant: payload.BytesWriteField{Value: "AQI"}},
 				"value is not base64"),
+			Entry("base64 with a line break",
+				payload.WriteField{Variant: payload.BytesWriteField{Value: "AQ\r\nI="}},
+				"value is not base64"),
 		)
 	})
 })
