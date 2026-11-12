@@ -750,7 +750,7 @@ describe("Secret", () => {
         recordCap: 4,
       });
       onTestFinished(async () => await cache.close());
-      const secrets = new secret.Client({ unary, cache });
+      const secrets = new secret.Client({ unary, cache, usesChannels: [] });
       await cache.ensureStreaming();
       const [held, ...others] = Array.from({ length: 6 }, () => uuid.create());
       const q = { key: held, includeUses: true };
