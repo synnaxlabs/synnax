@@ -192,12 +192,17 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
   return [config, dev.rack];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const digitalReadPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(DIGITAL_READ_SCHEMAS.config.parse(config).channels);
+
 export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
   deployConfigZ: deployDigitalReadConfigZ,
   onConfigure,
+  plotChannels: digitalReadPlotChannels,
   type: "ni_digital_read",
 });
 

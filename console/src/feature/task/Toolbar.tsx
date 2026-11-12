@@ -27,6 +27,7 @@ import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
+import { PLOT_CHANNELS } from "@/feature/task/types";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import {
   type SetDataSavingParams,
@@ -406,6 +407,11 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
+  const plot = PlatformTask.usePlot();
+  const plotTasks = selectedTasks.flatMap(({ name, type, config }) => {
+    const plotChannels = PLOT_CHANNELS[type];
+    return plotChannels == null ? [] : [{ name, config, plotChannels }];
+  });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const resourceIDs = task.resourceID(keys);
@@ -527,6 +533,12 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
+      )}
+      {plotTasks.length > 0 && (
+        <Menu.Item itemKey="plot" onClick={() => plot(plotTasks)}>
+          <Icon.LinePlot />
+          Plot
+        </Menu.Item>
       )}
       {hasCreatePermission && showSnapshotToActiveRange && (
         <Range.SnapshotMenuItem

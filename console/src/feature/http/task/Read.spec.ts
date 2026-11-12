@@ -947,3 +947,20 @@ describe("Read", () => {
     expect(updated.properties.read["/data"].index).toBe(idxCh.key);
   });
 });
+
+describe("readPlotChannels", () => {
+  it("should find the enabled fields of every endpoint", () => {
+    const config = {
+      endpoints: [
+        {
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { fields: [{ channel: 3, disabled: false }] },
+      ],
+    };
+    expect(HTTP.Task.readPlotChannels(config)).toEqual([1, 3]);
+  });
+});

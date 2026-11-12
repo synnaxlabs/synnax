@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
+import { z } from "zod";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm } from "@/platform/task/testutil";
+import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getIconButton, queryIcon } from "@/testutil";
+import { assertDefined, getIconButton, queryIcon, uniqueName } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
   fireEvent.click(getIconButton(container, icon));
@@ -47,6 +50,40 @@ describe("UtilityButtons", () => {
     expect(queryIcon(container, "python")).toBeTruthy();
     expect(queryIcon(container, "link")).toBeTruthy();
     expect(queryIcon(container, "export")).toBeTruthy();
+    expect(queryIcon(container, "line-plot")).toBeNull();
+  });
+
+  it("should plot the enabled channels that the form's config holds", async () => {
+    const client = createTestClient();
+    const { key } = await client.channels.create({
+      name: uniqueName("value"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const configZ = z.object({
+      channels: z.array(z.object({ channel: z.number(), disabled: z.boolean() })),
+    });
+    const plotChannels: Task.PlotChannels = (config) =>
+      Task.enabledChannels(configZ.parse(config).channels);
+    const channels = [
+      { channel: key, disabled: false },
+      { channel: key + 1, disabled: true },
+      { channel: 0, disabled: false },
+    ];
+    const { container, store } = await renderInTaskFormWithClient(
+      <Task.UtilityButtons plotChannels={plotChannels} />,
+      { client, values: { key: "task_123", name: "My Task", config: { channels } } },
+    );
+    const proj = await client.projects.create({ name: uniqueName("proj") });
+    store.dispatch(Session.Project.select(proj.key));
+    clickIcon(container, "line-plot");
+    const plot = await waitFor(async () => {
+      const [created] = await client.lineplots.retrieve({ projects: [proj.key] });
+      assertDefined(created, "the line plot was not created");
+      return created;
+    });
+    expect(plot.name).toBe("Plot for My Task");
+    expect(plot.channels.y1).toEqual([key]);
   });
 
   it("should copy TypeScript code that retrieves the task", async () => {

@@ -25,6 +25,7 @@ export * from "@/platform/task/getChannelNameID";
 export * from "@/platform/task/integration";
 export * from "@/platform/task/ParentRangeButton";
 export * from "@/platform/task/payload";
+export * from "@/platform/task/plot";
 export * from "@/platform/task/port";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";

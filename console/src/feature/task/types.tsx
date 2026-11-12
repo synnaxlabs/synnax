@@ -33,6 +33,11 @@ export const INTEGRATIONS: Task.Integration[] = [
   PagerDuty.Task.INTEGRATION,
 ];
 
+/** The read task types that a plot can show, by type. */
+export const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
+  INTEGRATIONS.flatMap(({ plotChannels }) => Object.entries(plotChannels ?? {})),
+);
+
 const TASK_ICON = <Icon.Task />;
 
 export const getIcon = (type: string): Icon.ReactElement =>

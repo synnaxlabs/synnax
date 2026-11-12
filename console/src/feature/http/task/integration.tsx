@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/http/task/Read";
-import { PREFIX } from "@/feature/http/task/types";
+import { readPlotChannels, ReadSelectable } from "@/feature/http/task/Read";
+import { PREFIX, READ_TYPE } from "@/feature/http/task/types";
 import { WriteSelectable } from "@/feature/http/task/Write";
 import { type Task } from "@/platform/task";
 
@@ -19,4 +19,5 @@ export const INTEGRATION: Task.Integration = {
   name: "HTTP",
   icon: <Icon.Logo.HTTP />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

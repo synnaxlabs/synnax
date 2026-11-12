@@ -294,6 +294,10 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, device.rack];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
+
 export const Read = Task.wrapForm({
   type: "opc_read",
   Properties,
@@ -301,6 +305,7 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   onConfigure,
+  plotChannels: readPlotChannels,
 });
 
 export const useCreateRead = Task.createUseCreate({

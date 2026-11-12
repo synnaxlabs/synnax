@@ -401,6 +401,12 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, dev.rack];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(
+    READ_SCHEMAS.config.parse(config).endpoints.flatMap(({ fields }) => fields),
+  );
+
 export const Read = Task.wrapForm({
   Properties,
   Form,
@@ -408,6 +414,7 @@ export const Read = Task.wrapForm({
   deployConfigZ: deployReadConfigZ,
   type: "http_read",
   onConfigure,
+  plotChannels: readPlotChannels,
 });
 
 export const useCreateRead = Task.createUseCreate({

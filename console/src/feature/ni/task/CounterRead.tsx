@@ -251,6 +251,10 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   return [config, rackKey];
 };
 
+/** @returns the channels that a plot of the read task shows. */
+export const counterReadPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(COUNTER_READ_SCHEMAS.config.parse(config).channels);
+
 export const CounterRead = Task.wrapForm({
   Properties,
   Form,
@@ -258,6 +262,7 @@ export const CounterRead = Task.wrapForm({
   deployConfigZ: deployCounterReadConfigZ,
   type: "ni_counter_read",
   onConfigure,
+  plotChannels: counterReadPlotChannels,
 });
 
 export const useCreateCounterRead = Task.createUseCreate({
