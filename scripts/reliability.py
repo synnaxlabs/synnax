@@ -17,8 +17,9 @@ Usage: uv run scripts/reliability.py <run-url> --version 0.59.0 [--out path]
     [--hitl <run-url>] [--manual-pass <skip reason>]...
     [--manual-note <why they were run by hand>]
 
-The data goes to DigitalOcean Spaces, where the docs build reads it; redeploy the docs
-to publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY
+The data goes to DigitalOcean Spaces under the release's train, as in
+docs/reliability/0.61/run.json, where the docs build reads it; redeploy the docs to
+publish it. --out writes it to a local file instead. Uploading needs DO_SPACES_KEY
 and DO_SPACES_SECRET in the environment.
 
 Integration results come from the run's `test-results-*` artifacts. --hitl adds the
@@ -43,7 +44,9 @@ REPO = "synnaxlabs/synnax"
 ROOT = Path(__file__).resolve().parent.parent
 SPACES_ENDPOINT = "https://nyc3.digitaloceanspaces.com"
 SPACES_BUCKET = "synnax"
-SPACES_KEY = "docs/reliability/run.json"
+# Each train's data has its own key, so a docs branch keeps reading the data its page
+# code understands.
+SPACES_KEY = "docs/reliability/{train}/run.json"
 
 PRODUCTS = [
     ("core", "Core"),
@@ -438,7 +441,15 @@ def platform_skip(node: ast.If, *, system: str) -> str | None:
     return None
 
 
-def upload(body: str) -> None:
+def spaces_key(version: str) -> str:
+    """Returns the key of a release's data, as in docs/reliability/0.61/run.json."""
+    m = re.fullmatch(r"(\d+\.\d+)\.\d+", version)
+    if m is None:
+        sys.exit(f"--version must be a release such as 0.61.0, not {version}")
+    return SPACES_KEY.format(train=m.group(1))
+
+
+def upload(body: str, *, key_name: str) -> None:
     key = os.environ.get("DO_SPACES_KEY")
     secret = os.environ.get("DO_SPACES_SECRET")
     if key is None or secret is None:
@@ -454,7 +465,7 @@ def upload(body: str) -> None:
         aws_secret_access_key=secret,
     ).put_object(
         Bucket=SPACES_BUCKET,
-        Key=SPACES_KEY,
+        Key=key_name,
         Body=body.encode(),
         ACL="public-read",
         ContentType="application/json",
@@ -758,8 +769,9 @@ def main() -> None:
         args.out.write_text(body)
         dest = str(args.out)
     else:
-        upload(body)
-        dest = f"s3://{SPACES_BUCKET}/{SPACES_KEY}"
+        key_name = spaces_key(args.version)
+        upload(body, key_name=key_name)
+        dest = f"s3://{SPACES_BUCKET}/{key_name}"
     counts: dict[str, int] = {}
     for t in tests:
         counts[t[2]] = counts.get(t[2], 0) + 1

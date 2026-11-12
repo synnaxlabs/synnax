@@ -116,9 +116,15 @@ interface Raw {
   ][];
 }
 
-// `scripts/reliability.py` uploads the data. Pages that read it are prerendered, so
-// only the docs build fetches it. The origin URL skips the CDN's cached copy.
-const DATA_URL = "https://synnax.nyc3.digitaloceanspaces.com/docs/reliability/run.json";
+// The release train whose data this page reads. `scripts/reliability.py` uploads each
+// train's data to its own key, so an older docs branch keeps the data its page code
+// understands. A refresh for a new release moves this to that release's train.
+const TRAIN = "0.61";
+
+// Pages that read the data are prerendered, so only the docs build fetches it. The
+// origin URL skips the CDN's cached copy.
+const ORIGIN = "https://synnax.nyc3.digitaloceanspaces.com";
+const DATA_URL = `${ORIGIN}/docs/reliability/${TRAIN}/run.json`;
 
 const res = await fetch(DATA_URL);
 if (!res.ok) throw new Error(`fetch ${DATA_URL}: ${res.status} ${res.statusText}`);

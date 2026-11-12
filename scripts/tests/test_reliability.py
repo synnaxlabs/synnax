@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import ast
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from reliability import (
     platform_skip,
     run_id_of,
     shipped_changes,
+    spaces_key,
     suite_jobs,
 )
 
@@ -407,6 +409,20 @@ class TestShippedChanges:
             "integration/tests/a.py",
             "vendor/open62541/a.c",
         ]
+
+
+class TestSpacesKey:
+    """Data keys read from release versions."""
+
+    def test_should_key_the_data_by_the_release_train(self) -> None:
+        assert spaces_key("0.61.0") == "docs/reliability/0.61/run.json"
+
+    def test_should_exit_on_a_version_that_is_not_a_release(self) -> None:
+        with pytest.raises(
+            SystemExit,
+            match=re.escape("--version must be a release such as 0.61.0, not 0.61"),
+        ):
+            spaces_key("0.61")
 
 
 class TestRunIdOf:
