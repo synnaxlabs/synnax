@@ -283,6 +283,34 @@ var _ = Describe("Engine", func() {
 			Entry("bytes", telem.NewSeriesV([]byte{1, 2}), []byte{1, 2}),
 		)
 
+		It("Should send every sample of a channel that starts after its index",
+			func(ctx SpecContext) {
+				const before, count = 150_000, 120_000
+				idx := createIndex(ctx)
+				stamps := make([]telem.TimeStamp, before)
+				for i := range before {
+					stamps[i] = at(1) + telem.TimeStamp(i)
+				}
+				write(ctx, idx, stamps, nil)
+				ch := createData(ctx, idx, telem.Float64T)
+				later := make([]telem.TimeStamp, count)
+				values := make([]float64, count)
+				for i := range count {
+					later[i] = at(2) + telem.TimeStamp(i)
+					values[i] = float64(i)
+				}
+				write(ctx, idx, later,
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeries(values)})
+				e := open(ctx, channel.Keys{ch.Key()})
+				Expect(e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(3)}, nil)).
+					To(Succeed())
+				points := server.Points("stand", ch.Name)
+				Expect(points).To(HaveLen(count))
+				Expect(
+					points[count-1],
+				).To(Equal(point(later[count-1], float64(count-1))))
+			})
+
 		It("Should send one flow per index", func(ctx SpecContext) {
 			idxA, idxB := createIndex(ctx), createIndex(ctx)
 			a := createData(ctx, idxA, telem.Float64T)
@@ -371,6 +399,24 @@ var _ = Describe("Engine", func() {
 				Expect(rec.retryErrors()).To(HaveExactElements(
 					MatchError(ContainSubstring("down")),
 				))
+			})
+
+		It("Should return the last error once it runs out of retries",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				write(ctx, idx, []telem.TimeStamp{at(1)},
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+				server.Fail(
+					status.Error(codes.Unavailable, "down"),
+					status.Error(codes.Unavailable, "down"),
+				)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					Retry: breaker.Config{MaxRetries: 1},
+				})
+				Expect(e.Upload(ctx, telem.TimeRange{Start: at(0), End: at(2)}, nil)).
+					To(MatchError(ContainSubstring("down")))
+				Expect(server.Points("stand", ch.Name)).To(BeEmpty())
 			})
 
 		It("Should return an error that retrying cannot fix", func(ctx SpecContext) {
@@ -600,8 +646,26 @@ var _ = Describe("Engine", func() {
 				}).Should(BeNumerically(">", at(0)))
 				Expect(stop()).To(Succeed())
 				last := rec.last()
-				Expect(last.Through).To(Equal(last.Positions[idx.Key()]))
+				Expect(last.Through).To(BeNumerically(">=", last.Positions[idx.Key()]))
 				Expect(last.Positions[idleIdx.Key()]).To(Equal(at(0)))
+			})
+
+		It("Should report the time it caught up to while it gets no samples",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					CheckpointInterval: 10 * telem.Millisecond,
+				})
+				start := telem.Now()
+				stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+				Eventually(func() telem.TimeStamp { return rec.last().Through }).
+					Should(BeNumerically(">", start))
+				Expect(stop()).To(Succeed())
+				Expect(
+					rec.last().Positions,
+				).To(Equal(ingest.Positions{idx.Key(): at(0)}))
+				Expect(rec.samples()).To(BeZero())
 			})
 
 		It("Should confirm what it sent when stopped", func(ctx SpecContext) {
@@ -621,6 +685,30 @@ var _ = Describe("Engine", func() {
 				idx.Key(): at(1) + 1,
 			}))
 		})
+
+		It("Should not report what Sift did not confirm when stopped during a confirm",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					CheckpointInterval: telem.Millisecond,
+				})
+				server.Pause()
+				server.Fail(status.Error(codes.Unavailable, "down"))
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}) }()
+				write(ctx, idx, []telem.TimeStamp{at(1)},
+					map[channel.Key]telem.Series{ch.Key(): telem.NewSeriesV(1.0)})
+				Eventually(server.Streams).Should(Equal(1))
+				// Gives the engine time to start waiting for the confirm.
+				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				server.Resume()
+				Eventually(done).Should(Receive())
+				Expect(rec.last().Positions).To(BeEmpty())
+				Expect(server.Points("stand", ch.Name)).To(BeEmpty())
+			})
 
 		It("Should read from storage when it falls behind the live samples",
 			func(ctx SpecContext) {
