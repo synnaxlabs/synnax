@@ -311,7 +311,7 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
   it becomes no fill, the field warns as usual, and the migration logs it.
 - **Channel field**: A stored `timestamp` data type wins. `number` becomes the numeric
   kind. `string` stays `string`, and its entries take the decimal text of their values,
-  so each sample writes the same JSON string as before.
+  so a numeric sample writes the same JSON string as before.
 - **Static write field**: Lift by the stored Go type, not `json_type`, because the HTTP
   Driver sends the value as it is. A whole `float64` within 2^53 becomes `integer`, and
   other numbers become `float`. An `int64` or `uint64` keeps its value. A string or

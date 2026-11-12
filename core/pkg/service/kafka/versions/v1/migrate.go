@@ -22,9 +22,9 @@ import (
 // Synnax channel. A number with a time format and no entries, the only timestamp shape
 // v0 ran, becomes a timestamp channel. Another number becomes a float channel. A
 // string stays a string, and its entries take the decimal text of their values, so a
-// sample writes the same JSON string as in v0. A boolean becomes a boolean with no
-// entries. The kind may not fit the Synnax channel, so the caller reconciles it against
-// the channel.
+// numeric sample writes the same JSON string as in v0. A boolean becomes a boolean with
+// no entries. The kind may not fit the Synnax channel, so the caller reconciles it
+// against the channel.
 func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, error) {
 	old.ApplyDefaults()
 	base := BaseWriteChannel{Key: old.Key, Disabled: old.Disabled, Channel: old.Channel}
