@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { DataType, type task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
 import { TimeStamp } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
@@ -21,6 +21,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -79,6 +80,48 @@ describe("Sift stream form", () => {
       asset: "Test stand 1",
       channels: [data.key],
     });
+  });
+
+  it("should show the asset of a snapshot without New asset", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "Test stand 1" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    const snap = await client.tasks.copy(t.key, uniqueName("snap"), true);
+    await renderTaskFormTab(Sift.Task.Stream, { client, taskKey: snap.key });
+    expect(await screen.findByText("Test stand 1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
+  });
+
+  it("should not list calculated channels, which the Core does not store", async () => {
+    const prefix = uniqueName("sift_stored");
+    const index = await client.channels.create({
+      name: `${prefix}_time`,
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const data = await client.channels.create({
+      name: `${prefix}_data`,
+      dataType: DataType.FLOAT64,
+      index: index.key,
+    });
+    await client.channels.create({
+      name: `${prefix}_calc`,
+      dataType: DataType.FLOAT64,
+      virtual: true,
+      expression: `return ${data.name} * 2`,
+    });
+    await renderStream();
+    fireEvent.click(screen.getByText("Select channels to send"));
+    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
+      target: { value: prefix },
+    });
+    expect(await screen.findByText(data.name)).toBeTruthy();
+    expect(screen.queryByText(`${prefix}_calc`)).toBeNull();
   });
 
   it("should show the progress of the stream once the Core writes it", async () => {
