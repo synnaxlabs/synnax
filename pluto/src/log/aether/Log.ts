@@ -24,7 +24,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { type Format, formatsOf, textOf } from "@/log/aether/format";
-import { compile, searchZ } from "@/log/aether/search";
+import { compile, find, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type Filter,
@@ -142,16 +142,21 @@ interface InternalState {
   selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
+  // Matches the search everywhere in a value, or null when there is no valid search.
+  pattern: RegExp | null;
+  matchColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
   stopListeningRestore?: destructor.Destructor;
 }
 
-// One line of pixels on screen. A wrapped entry has one row per piece of its value. A
-// day row shows its text in prefix, above entry.
+// One line of pixels on screen. A wrapped entry has one row per piece of its value,
+// which starts at start in the entry's value. A day row shows its text in prefix, above
+// entry.
 interface Row {
   entry: number;
   prefix: string;
   value: string;
+  start: number;
   channelKey: string;
   first: boolean;
   day?: boolean;
@@ -224,6 +229,13 @@ const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
 // already, as a surrogate pair.
 const WIDE =
   /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
+
+// Returns the columns that the characters of value from start to end take.
+const columnsOf = (value: string, start: number, end: number): number => {
+  let columns = 0;
+  for (let i = start; i < end; i++) columns += WIDE.test(value[i]) ? 2 : 1;
+  return columns;
+};
 
 // Returns where each row of a value with wide characters starts.
 const wrapStarts = (value: string, columns: number): number[] => {
@@ -348,12 +360,15 @@ export class Log
     i.formats = formatsOf(channelEntries, this.state.channelDataTypes);
 
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
+    i.matchColor = color.setAlpha(i.theme.colors.warning.z, 0.4);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
+    const { text, mode } = this.state.search;
+    i.pattern = compile({ text, mode }, "g");
     const filter = filterOf(this.state);
     // A new filter reloads the entries, so a paused view returns to its time.
     if (
@@ -601,15 +616,15 @@ export class Log
 
   private rowOf(layout: EntryLayout, row: number): Row {
     const { entry, prefix, value, channelKey, indent, columns, lead, starts } = layout;
-    const start = (row - lead) * columns;
-    const text =
-      starts != null
-        ? value.slice(starts[row - lead], starts[row - lead + 1])
-        : value.slice(wrapPoint(value, start), wrapPoint(value, start + columns));
+    const at = (row - lead) * columns;
+    const start = starts != null ? starts[row - lead] : wrapPoint(value, at);
+    const end =
+      starts != null ? starts[row - lead + 1] : wrapPoint(value, at + columns);
     return {
       entry,
       prefix: row === 0 ? prefix : indent,
-      value: row < lead ? "" : text,
+      value: row < lead ? "" : value.slice(start, end),
+      start: row < lead ? 0 : start,
       channelKey,
       first: row === 0,
     };
@@ -626,7 +641,15 @@ export class Log
 
   private dayRow(entry: number): Row {
     const prefix = dayText(this.entries[entry], this.state.timeZone);
-    return { entry, prefix, value: "", channelKey: "", first: false, day: true };
+    return {
+      entry,
+      prefix,
+      value: "",
+      start: 0,
+      channelKey: "",
+      first: false,
+      day: true,
+    };
   }
 
   // Lays out the rows that fit above the entry at end, less its bottom tail rows, and
@@ -687,6 +710,7 @@ export class Log
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
+    this.renderMatches(draw2d, rows);
     this.renderElements(draw2d, rows, lh);
     this.renderScrollbar(draw2d, rows);
     clearScissor();
@@ -877,6 +901,65 @@ export class Log
       bordered: false,
       rounded: false,
       backgroundColor: this.internal.selectionColor,
+    });
+  }
+
+  // Returns the column of the character at index in the row's value. A negative number
+  // draws its sign one column left of the value.
+  private column(row: Row, index: number): number {
+    const sign = row.first && row.value[0] === "-" ? -1 : 0;
+    return row.prefix.length + sign + columnsOf(row.value, 0, index);
+  }
+
+  // Draws a box behind the characters of a row from column start to end.
+  private drawSpan(
+    draw2d: Draw2D,
+    index: number,
+    start: number,
+    end: number,
+    fill: color.Color,
+  ): void {
+    const { charWidth, lineHeight, selectionOffsetY } = this.internal;
+    const reg = this.state.region;
+    draw2d.container({
+      region: box.construct(
+        {
+          x: box.left(reg) + CONTENT_PADDING + start * charWidth,
+          y: box.top(reg) + index * lineHeight + CONTENT_PADDING + selectionOffsetY,
+        },
+        { width: (end - start) * charWidth, height: lineHeight },
+      ),
+      bordered: false,
+      rounded: false,
+      backgroundColor: fill,
+    });
+  }
+
+  private renderMatches(draw2d: Draw2D, rows: Row[]): void {
+    const { pattern, matchColor } = this.internal;
+    if (pattern == null) return;
+    const matches = new Map<number, Array<[number, number]>>();
+    rows.forEach((row, index) => {
+      if (row.day === true || row.value.length === 0) return;
+      let held = matches.get(row.entry);
+      if (held == null) {
+        const { value } = this.formatEntry(this.entries[row.entry]);
+        held = find(pattern, value);
+        matches.set(row.entry, held);
+      }
+      const end = row.start + row.value.length;
+      for (const [from, to] of held) {
+        // An empty match has nothing to draw.
+        if (from === to || to <= row.start || from >= end) continue;
+        const [a, b] = [Math.max(from, row.start), Math.min(to, end)];
+        this.drawSpan(
+          draw2d,
+          index,
+          this.column(row, a - row.start),
+          this.column(row, b - row.start),
+          matchColor,
+        );
+      }
     });
   }
 
