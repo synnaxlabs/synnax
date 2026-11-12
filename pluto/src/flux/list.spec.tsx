@@ -409,10 +409,10 @@ describe("useList", () => {
     expect(result.current.data).toEqual([]);
   });
 
-  it("should read the first page of an eager list as it mounts, and no other", async () => {
+  it("should read the first page of an eager list as it mounts", async () => {
     const a = await create("a");
     const b = await create("b");
-    await create("c");
+    const c = await create("c");
     const { result } = renderHook(
       () =>
         Flux.useList(ranges, {
@@ -424,10 +424,9 @@ describe("useList", () => {
       { wrapper },
     );
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
-    act(() => result.current.more());
-    await act(async () => await sleep.sleep(TimeSpan.milliseconds(50)));
-    expect(result.current.data).toEqual([a.key, b.key]);
     expect(result.current.complete).toBe(false);
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
   });
 
   it("should start the list on a search", async () => {

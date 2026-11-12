@@ -70,10 +70,7 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
   pageSize?: number;
   /** How many records the list reads at first. Defaults to `pageSize`. */
   initialSize?: number;
-  /**
-   * Reads the first page as the list mounts, and never a later one: `more` does
-   * nothing. For a list that shows one page at most.
-   */
+  /** Reads the first page as the list mounts, instead of on the first `more`. */
   eager?: boolean;
   /** How long a search term waits before the list reads it. */
   searchDebounce?: CrudeTimeSpan;
@@ -221,7 +218,6 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   }, [list, started]);
 
   const more = () => {
-    if (eager) return;
     if (!started) return setStarted(true);
     if (list == null || reading.current != null) return;
     // A failed first read leaves no window, so the first page reads again.

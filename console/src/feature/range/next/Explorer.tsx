@@ -208,6 +208,8 @@ const EXPLORER_LAYOUTS: view.RangeLayout[] = ["tree", "list", "timeline"];
 
 const SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
 
+const NO_MORE = (): void => {};
+
 /**
  * The sort or the layout of the open view. A stored view reads it from the view and
  * saves a change to it. A static view holds it here.
@@ -252,7 +254,6 @@ const Internal = (): ReactElement => {
     name: "ranges",
     query: { where: scoped, order: ORDERS[sort] },
     initialSize: searching ? MATCH_LIMIT + 1 : undefined,
-    // A search in a tree reads its first page only.
     eager: searching,
     searchDebounce: 0,
   });
@@ -311,7 +312,8 @@ const Internal = (): ReactElement => {
       getItem={root.getItem}
       subscribe={root.subscribe}
       answered={answered}
-      more={root.more}
+      // A search in a tree reads its first page only.
+      more={searching ? NO_MORE : root.more}
       search={handleSearch}
       onWhereChange={setWhere}
       itemHeight={itemHeight(layout)}
