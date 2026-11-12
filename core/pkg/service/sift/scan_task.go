@@ -11,6 +11,7 @@ package sift
 
 import (
 	"context"
+	"uuid"
 
 	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -60,6 +62,13 @@ type listAssetsResult struct {
 type listUploadsArgs struct {
 	// Range is the key of the range to list the uploads of.
 	Range ranger.Key `json:"range"`
+}
+
+// validate rejects a zero range, which would match every upload of a time range.
+func (a listUploadsArgs) validate() error {
+	v := validate.New("sift.list_uploads")
+	v.Ternary("range", a.Range == uuid.Nil(), "required")
+	return v.Error()
 }
 
 type listUploadsResult struct {
@@ -118,6 +127,9 @@ func (s scanner) Exec(
 		var args listUploadsArgs
 		if err := cmd.Args.Unmarshal(&args); err != nil {
 			return nil, errors.Wrap(err, "invalid arguments")
+		}
+		if err := args.validate(); err != nil {
+			return nil, err
 		}
 		keys, err := rangeUploads(ctx, s.cfg.DB, s.cfg.Status, args.Range)
 		if err != nil {
