@@ -51,4 +51,17 @@ describe("Staleness.Fields", () => {
     typeTimeout("7s");
     await waitFor(() => expect(value(path.stalenessTimeout)).toBe(7));
   });
+
+  it("should reject a timeout longer than 100 days", () => {
+    const { value } = renderForm(
+      <Staleness.Fields unit={TimeSpan.SECOND} />,
+      { stalenessTimeout: 3 },
+      schema,
+    );
+    fireEvent.focus(field());
+    fireEvent.change(field(), { target: { value: "300y" } });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(screen.getByText("Timeout must be 100d or less")).toBeDefined();
+    expect(value(path.stalenessTimeout)).toBe(3);
+  });
 });

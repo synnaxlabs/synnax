@@ -14,6 +14,12 @@ import { type ReactElement } from "react";
 
 const path = deep.path<{ onClickDelay?: number }>();
 
+// A browser timer fires at once past 2^31 - 1 ms, which would skip the hold.
+const MAX_DELAY = TimeSpan.days(24);
+
+const checkDelay = (span: TimeSpan): string | null =>
+  span.greaterThan(MAX_DELAY) ? "Delay must be 24d or less" : null;
+
 /** Edits the click delay in nanoseconds. A number typed alone is milliseconds. */
 export const ActivationDelayField = (): ReactElement => (
   <Form.Field<number | undefined>
@@ -28,6 +34,7 @@ export const ActivationDelayField = (): ReactElement => (
         unit={TimeSpan.MILLISECOND}
         value={value}
         onChange={onChange}
+        check={checkDelay}
       />
     )}
   </Form.Field>

@@ -23,8 +23,16 @@ export interface FieldsProps {
   unit?: TimeSpan;
 }
 
-const checkTimeout = (span: TimeSpan): string | null =>
-  span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
+// The Core stores the timeout as int64 nanoseconds, and a client holds it as a float64,
+// so the bound stays below 2^53 ns.
+const MAX_TIMEOUT = TimeSpan.days(100);
+
+/** @returns why a staleness timeout is out of bounds, or null when it is valid. */
+export const checkTimeout = (span: TimeSpan): string | null => {
+  if (span.lessThan(TimeSpan.SECOND)) return "Timeout must be 1s or more";
+  if (span.greaterThan(MAX_TIMEOUT)) return "Timeout must be 100d or less";
+  return null;
+};
 
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its

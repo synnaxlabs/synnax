@@ -29,9 +29,6 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
   </Form.Section>
 );
 
-const checkStalenessTimeout = (span: TimeSpan): string | null =>
-  span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
-
 export interface StalenessSectionProps {
   /** The staleness color of each element that has the field. */
   colors: ColorValue[];
@@ -62,7 +59,7 @@ export const StalenessSection = ({
             : Number(unit.mult(timeout).valueOf())
         }
         onChange={(ns) => onTimeoutChange(ns / Number(unit.valueOf()))}
-        check={checkStalenessTimeout}
+        check={Staleness.checkTimeout}
       />
     </Input.Item>
   </Form.Section>
