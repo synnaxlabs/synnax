@@ -19,24 +19,4 @@ def login() -> None:
     """Logs the user into a Synnax cluster, creates an API key, and saves the key and
     the connection parameters.
     """
-    run(Context(console=console.Rich()), config.default_clusters())
-
-
-def run(ctx: Context, clusters: config.Clusters) -> None:
-    """Prompts for connection parameters, connects, and saves an API key for the
-    logged-in user to clusters.
-    """
-    options = connect.prompt_client_options(ctx)
-    synnax = connect.from_context(ctx, opts=options)
-    if synnax is None:
-        return
-    connect.save_api_key(synnax, opts=options, clusters=clusters)
-    ctx.console.info(_SUCCESSFUL_LOGIN)
-
-
-_SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client
-without having to log in. To connect the cluster in a Python shell, use the following:
-
-from synnax import Synnax
-client = Synnax()
-"""
+    connect.login(Context(console=console.Rich()), config.default_clusters())

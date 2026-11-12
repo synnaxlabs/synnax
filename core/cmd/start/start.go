@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -57,6 +58,7 @@ type CoreConfig struct {
 	updateBackupDisabled *bool
 	alamos.Instrumentation
 	dataPath             string
+	secretsKeyFile       string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
@@ -69,6 +71,7 @@ type CoreConfig struct {
 	slowConsumerTimeout  time.Duration
 	sessionIdleTimeout   time.Duration
 	taskWorkerCount      uint8
+	secretsKey           secret.EncryptionKey
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -132,6 +135,12 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		dataPath:        override.String(c.dataPath, other.dataPath),
+		secretsKey: override.If(
+			c.secretsKey,
+			other.secretsKey,
+			other.secretsKey != secret.EncryptionKey{},
+		),
+		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -173,6 +182,24 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.validateChannelNames,
 		),
 	}
+}
+
+const secretsKeyFileName = "secrets.key"
+
+// resolveSecretsKey returns the key that encrypts stored secrets: the key setting, the
+// key file setting, a random key for a Core in memory, or the key file in the data
+// directory. A missing key file gets a new random key.
+func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
+	if c.secretsKey != (secret.EncryptionKey{}) {
+		return c.secretsKey, nil
+	}
+	if c.secretsKeyFile != "" {
+		return secret.LoadEncryptionKey(c.secretsKeyFile)
+	}
+	if *c.memBacked {
+		return secret.NewEncryptionKey(), nil
+	}
+	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
@@ -260,6 +287,11 @@ func BootupCore(
 		return err
 	}
 
+	secretsKey, err := cfg.resolveSecretsKey()
+	if !ok(err, nil) {
+		return err
+	}
+
 	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
 		Instrumentation:    cfg.Child("service"),
 		Distribution:       distributionLayer,
@@ -274,6 +306,7 @@ func BootupCore(
 			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
+		SecretsKey:           secretsKey,
 	})
 	if !ok(err, serviceLayer) {
 		return err

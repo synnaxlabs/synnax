@@ -11,6 +11,11 @@
 
 .console-ethercat-configure__frame {
     width: 110rem;
+    max-width: 94vw;
+
+    &.console--wide {
+        width: 200rem;
+    }
 }
 
 .console-ethercat-sync__cycle {
@@ -24,4 +29,19 @@
 
 .console-ethercat-sync__badge {
     margin-left: auto;
+}
+
+.console-ethercat-configure__columns {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 10rem;
+    align-items: start;
+}
+
+@media (width <= 1100px) {
+    .console-ethercat-configure__columns {
+        grid-auto-flow: row;
+        gap: 5rem;
+    }
 }

@@ -40,6 +40,7 @@ import {
   type Grants,
   openContextMenu,
   resolveFocusedTab,
+  selectRange,
   selectTestProject,
   type TestStore,
 } from "@/testutil";
@@ -168,7 +169,7 @@ describe("range/Toolbar", () => {
     fireEvent.drop(await screen.findByText("No favorited ranges"));
     // A dragged range lives on the Core, so the session gains only the stub.
     await waitFor(() =>
-      expect(Session.Range.selectState(store.getState(), rng.key)).toEqual({
+      expect(selectRange(store.getState(), rng.key)).toEqual({
         variant: "persisted",
         key: rng.key,
       }),
@@ -222,7 +223,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Unpin"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );
       expect((await client.ranges.retrieve(created.key)).name).toBe(rng.name);
     });
@@ -233,9 +234,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(local.name);
       fireEvent.click(await screen.findByText("Save to Core"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), local.key)?.variant).toBe(
-          "persisted",
-        ),
+        expect(selectRange(store.getState(), local.key)?.variant).toBe("persisted"),
       );
       await waitFor(async () =>
         expect((await client.ranges.retrieve(local.key)).name).toBe(local.name),
@@ -263,7 +262,7 @@ describe("range/Toolbar", () => {
       const { store } = await renderToolbar({ ranges: [local] });
       const variants: Array<string | undefined> = [];
       store.subscribe(() => {
-        const variant = Session.Range.selectState(store.getState(), local.key)?.variant;
+        const variant = selectRange(store.getState(), local.key)?.variant;
         if (variants.at(-1) !== variant) variants.push(variant);
       });
       await openContextMenu(local.name);
@@ -272,7 +271,7 @@ describe("range/Toolbar", () => {
       // the static entry back.
       await waitFor(() => expect(variants).toContain("persisted"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), local.key)).toEqual(local),
+        expect(selectRange(store.getState(), local.key)).toEqual(local),
       );
       await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
     });
@@ -286,7 +285,7 @@ describe("range/Toolbar", () => {
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );
       await waitFor(async () => {
         await expect(client.ranges.retrieve(created.key)).rejects.toSatisfy((e) =>
@@ -318,9 +317,7 @@ describe("range/Toolbar", () => {
       const renamed = uniqueRangeName("renamed");
       commitTextEdit(editor, renamed);
       await waitFor(() =>
-        expect(nameOf(Session.Range.selectState(store.getState(), local.key))).toBe(
-          renamed,
-        ),
+        expect(nameOf(selectRange(store.getState(), local.key))).toBe(renamed),
       );
       await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
     });

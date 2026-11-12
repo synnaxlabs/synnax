@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { bundle } from "@remotion/bundler";
@@ -21,6 +22,7 @@ import { stage } from "@/director/stage";
 import { type Edit, type Format, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { type FilmProps } from "@/remotion/Film";
+import { type HeroProps, type Region, SHOT, type ShotProps } from "@/remotion/Mail";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -194,12 +196,19 @@ const withBundle = async (
   }
 };
 
+const nativeWidth = ({ meta }: Timeline): number => Math.round(meta.width * meta.dsf);
+
+/** outputWidth returns the width a capture's video renders at for a target. */
+const outputWidth = (timeline: Timeline, target?: string): number => {
+  const native = nativeWidth(timeline);
+  return target == null ? Math.min(1920, native) : parseTarget(target, native);
+};
+
 /** runRender directs the timeline and renders the video through Remotion. */
 export const runRender = async (opts: RenderRunOptions): Promise<void> => {
   const { timeline, captureDir, outputLocation, draft = false } = opts;
-  const native = Math.round(timeline.meta.width * timeline.meta.dsf);
-  const targetWidth =
-    opts.target == null ? Math.min(1920, native) : parseTarget(opts.target, native);
+  const native = nativeWidth(timeline);
+  const targetWidth = outputWidth(timeline, opts.target);
   const scale = targetWidth / native;
   const tracks = direct(timeline, targetWidth);
   const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
@@ -303,4 +312,104 @@ export const runFilmStills = async (opts: FilmStillsOptions): Promise<string[]> 
     }
   });
   return paths;
+};
+
+const MAIL = { imageFormat: "jpeg", jpegQuality: 85, scale: 2 } as const;
+
+export interface MailHero {
+  /** source is a still in the bundle's public dir. */
+  source: string;
+  /** output is where the JPEG goes. */
+  output: string;
+}
+
+/** runMailHeroes renders each still in `dir` as a window on the hero gradient. */
+export const runMailHeroes = async (dir: string, heroes: MailHero[]): Promise<void> =>
+  await withBundle(dir, async (serveUrl) => {
+    for (const { source, output } of heroes) {
+      const inputProps: HeroProps = { source };
+      const composition = await selectComposition({
+        serveUrl,
+        id: "mail-hero",
+        inputProps,
+      });
+      await renderStill({ composition, serveUrl, output, inputProps, ...MAIL });
+    }
+  });
+
+export interface MailShot {
+  /** captureDir holds the frames/ and timeline.json of a capture. */
+  captureDir: string;
+  /** target is the output width the capture's video renders at. */
+  target?: string;
+  /** seconds is the time of the video frame to show. */
+  seconds: number;
+  /**
+   * region is the box to show, in pixels of the rendered video. Null shows the full
+   * width from the top.
+   */
+  region: Region | null;
+  /** output is where the JPEG goes. */
+  output: string;
+}
+
+/**
+ * runMailShot renders a region of a captured video's frame as a 2x JPEG, from the
+ * full-resolution capture. Throws when the time or the region falls outside the video.
+ */
+export const runMailShot = async (shot: MailShot): Promise<void> => {
+  const timeline = await loadTimeline(shot.captureDir);
+  const { meta, events } = timeline;
+  const frame = Math.round(shot.seconds * meta.fps);
+  if (frame < 0 || frame >= meta.frames)
+    throw new Error(
+      `${shot.seconds}s falls outside the capture's ${meta.frames / meta.fps}s`,
+    );
+  const width = outputWidth(timeline, shot.target);
+  const height = (width * meta.height) / meta.width;
+  const { x, y, width: w } = shot.region ?? { x: 0, y: 0, width };
+  if (
+    w <= 0 ||
+    x < 0 ||
+    y < 0 ||
+    x + w > width ||
+    y + (w * SHOT.height) / SHOT.width > height
+  )
+    throw new Error(
+      `region ${x},${y},${w} falls outside the ${width}x${Math.round(height)} video`,
+    );
+  const k = nativeWidth(timeline) / width;
+  const inputProps: ShotProps = {
+    meta,
+    tracks: direct(timeline, width),
+    events,
+    region: { x: x * k, y: y * k, width: w * k },
+  };
+  // Bundling copies the public dir, so serve only the frame the still shows.
+  const dir = await mkdtemp(path.join(tmpdir(), "studio-shot-"));
+  const name = `${String(frame).padStart(6, "0")}.png`;
+  try {
+    await mkdir(path.join(dir, "frames"));
+    await copyFile(
+      path.join(shot.captureDir, "frames", name),
+      path.join(dir, "frames", name),
+    );
+    await withBundle(dir, async (serveUrl) => {
+      const composition = await selectComposition({
+        serveUrl,
+        id: "mail-shot",
+        inputProps,
+      });
+      await renderStill({
+        composition,
+        serveUrl,
+        frame,
+        output: shot.output,
+        inputProps,
+        ...MAIL,
+      });
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 };

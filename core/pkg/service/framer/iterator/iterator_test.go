@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -1840,20 +1841,18 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It("Should reject a free index with no calculated owner", func(
 					ctx SpecContext,
 				) {
-					calc := &channel.Channel{
-						Name:       "idx_only_orphan",
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
+					orphan := &channel.Channel{
+						Name:        "idx_only_orphan_time",
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Virtual:     true,
+						Leaseholder: distnode.KeyFree,
 					}
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
-					orphan := calc.Index()
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Delete(ctx, calc.Key(), false)
+						return channelSvc.NewWriter(tx).Create(ctx, orphan)
 					})).To(Succeed())
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{orphan},
+						Keys:   []channel.Key{orphan.Key()},
 						Bounds: telem.TimeRangeMax,
 					})).Error().To(MatchError(
 						ContainSubstring("cannot read from free channel"),

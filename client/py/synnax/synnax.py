@@ -17,6 +17,7 @@ from synnax import (
     access as access_,
     arc,
     auth,
+    certificate,
     channel,
     connection,
     control as control_,
@@ -35,6 +36,7 @@ from synnax import (
     ranger,
     resource,
     schematic,
+    secret,
     signals as signals_,
     status,
     table,
@@ -94,6 +96,8 @@ class Synnax(framer.Client):
     groups: group.Client
     labels: label.Client
     views: view.Client
+    secrets: secret.Client
+    certificates: certificate.Client
     imex: imex_.Client
     projects: project.Client
     tables: table.Client
@@ -247,6 +251,8 @@ class Synnax(framer.Client):
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
+        self.secrets = secret.Client(client=self._transport.unary)
+        self.certificates = certificate.Client(client=self._transport.unary)
         self.imex = imex_.Client(file_transport=self._transport.file_transport)
         self.projects = project.Client(
             client=self._transport.unary,

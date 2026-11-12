@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Compile compiles a statement and returns whether execution diverged
+// compile compiles a statement and returns whether execution diverged
 // (return/break/etc)
-func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
+func compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
 		return false, compileVariableDeclaration(ctx.Child(varDecl))
 	}
@@ -62,7 +62,7 @@ func CompileBlock(
 	blockCtx := ctx.WithScope(blockScope)
 	for _, stmt := range ctx.AST.AllStatement() {
 		var stmtDiverged bool
-		stmtDiverged, err = Compile(blockCtx.Child(stmt))
+		stmtDiverged, err = compile(blockCtx.Child(stmt))
 		if err != nil {
 			return false, err
 		}
