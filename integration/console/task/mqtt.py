@@ -226,18 +226,18 @@ class MQTTWrite(MQTTTask):
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
 
-    def configure_channel(
-        self, *, pointer: str, json_type: str, data_type: str
-    ) -> None:
-        """Set the command channel of the selected plain target.
+    def configure_channel(self, *, pointer: str, data_type: str, kind: str) -> None:
+        """Set the command channel of the selected plain target. The data type sets
+        the kinds the form offers, so it is set first.
 
         :param pointer: JSON pointer the value takes in the payload.
-        :param json_type: JSON type as listed, e.g. "Number".
         :param data_type: Synnax data type of the channel, e.g. "float64".
+        :param kind: How the value is written, as listed under Write as, e.g.
+            "Number".
         """
         self._fill("Pointer", pointer)
-        self._select("JSON type", json_type)
         self._select("Data type", data_type)
+        self._select("Write as", kind)
 
 
 class MQTTEdge(TaskPage):

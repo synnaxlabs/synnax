@@ -47,9 +47,7 @@ class MQTTWriteTask(MQTTCase):
         self.log("Testing: Add a plain target and a Sparkplug B tag")
         page.add_entry()
         page.set_topic(TOPIC)
-        page.configure_channel(
-            pointer="/position", json_type="Number", data_type="float64"
-        )
+        page.configure_channel(pointer="/position", data_type="float64", kind="Number")
         page.add_tags(SPARKPLUG_EDGE_NODE, [TAG])
         listed = page.entries()
         expected = [TOPIC, TAG_PATH]

@@ -11,9 +11,6 @@ package kafka
 
 import (
 	"context"
-	"math"
-	"slices"
-	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -24,91 +21,58 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// fieldOf returns how wc writes samples of data type dt. It returns an error wrapping
-// validate.ErrValidation when wc's kind cannot write dt, or an entry of wc is not a
-// value of dt.
-func fieldOf(wc WriteChannel, dt telem.DataType) (xjson.Field, error) {
-	if kinds := payload.ChannelKinds(dt); !slices.Contains(kinds, wc.Type()) {
-		return xjson.Field{}, errors.Wrapf(
-			validate.ErrValidation,
-			"a %s channel cannot be written as %s, only as %v",
-			dt, wc.Type(), kinds,
-		)
-	}
-	f := xjson.Field{DataType: dt, Type: xjson.String}
-	var err error
+// channelOf returns the kind and the options of wc.
+func channelOf(wc WriteChannel) payload.Channel {
+	c := payload.Channel{Kind: wc.Type()}
 	switch v := wc.Variant.(type) {
 	case FloatWriteChannel:
-		f.Type = xjson.Number
-		f.Enums = lo.Map(v.EnumValues, func(e payload.FloatEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, float64(e.Value))
-		})
+		c.Float = v.EnumValues
 	case IntegerWriteChannel:
-		f.Type = xjson.Number
-		f.Enums = lo.Map(v.EnumValues, func(e payload.IntegerEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, int64(e.Value))
-		})
+		c.Integer = v.EnumValues
 	case UnsignedWriteChannel:
-		f.Type = xjson.Number
-		f.Enums = lo.Map(v.EnumValues, func(e payload.UnsignedEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, uint64(e.Value))
-		})
+		c.Unsigned = v.EnumValues
 	case StringWriteChannel:
-		f.Enums = make([]xjson.Enum, len(v.EnumValues))
-		for i, e := range v.EnumValues {
-			if f.Enums[i], err = textEnum(e, dt); err != nil {
-				return xjson.Field{}, err
-			}
-		}
+		c.String = v.EnumValues
 	case BooleanWriteChannel:
-		f.Type = xjson.Boolean
-		f.Enums = lo.Map(v.EnumValues, func(e payload.BooleanEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, e.Value)
-		})
+		c.Boolean = v.EnumValues
 	case TimestampWriteChannel:
-		if f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat)); err != nil {
-			return xjson.Field{}, err
-		}
-	case JsonWriteChannel:
-		f.Type = xjson.JSON
+		c.TimeFormat = v.TimeFormat
 	}
-	return f, nil
+	return c
 }
 
-// textEnum returns the enum of e, whose value is the text of a sample of dt.
-func textEnum(e payload.StringEntry, dt telem.DataType) (xjson.Enum, error) {
-	var err error
-	switch kind, _ := payload.KindOf(dt); kind {
+// newWriteChannelConfig returns the write channel of base with the kind and the options
+// of c.
+func newWriteChannelConfig(base BaseWriteChannel, c payload.Channel) WriteChannel {
+	var v WriteChannelVariant
+	switch c.Kind {
 	case payload.KindFloat:
-		var v float64
-		if v, err = strconv.ParseFloat(e.Value, 64); err == nil {
-			return xjson.NewEnum(e.Label, v), nil
-		}
+		v = FloatWriteChannel{BaseWriteChannel: base, EnumValues: c.Float}
 	case payload.KindInteger:
-		var v int64
-		if v, err = strconv.ParseInt(e.Value, 10, 64); err == nil {
-			return xjson.NewEnum(e.Label, v), nil
-		}
-	case payload.KindUnsigned, payload.KindBoolean:
-		var v uint64
-		if v, err = strconv.ParseUint(e.Value, 10, 64); err == nil {
-			return xjson.NewEnum(e.Label, v), nil
-		}
+		v = IntegerWriteChannel{BaseWriteChannel: base, EnumValues: c.Integer}
+	case payload.KindUnsigned:
+		v = UnsignedWriteChannel{BaseWriteChannel: base, EnumValues: c.Unsigned}
+	case payload.KindString:
+		v = StringWriteChannel{BaseWriteChannel: base, EnumValues: c.String}
+	case payload.KindBoolean:
+		v = BooleanWriteChannel{BaseWriteChannel: base, EnumValues: c.Boolean}
+	case payload.KindTimestamp:
+		v = TimestampWriteChannel{BaseWriteChannel: base, TimeFormat: c.TimeFormat}
+	case payload.KindJSON:
+		v = JsonWriteChannel{BaseWriteChannel: base}
+	case payload.KindUUID:
+		v = UuidWriteChannel{BaseWriteChannel: base}
+	case payload.KindBytes:
+		v = BytesWriteChannel{BaseWriteChannel: base}
 	default:
-		return xjson.NewEnum(e.Label, e.Value), nil
+		panic("kafka: unknown write channel kind " + string(c.Kind))
 	}
-	return xjson.Enum{}, errors.Wrapf(
-		validate.ErrValidation,
-		"enum label %q: %q is not a %s value",
-		e.Label, e.Value, dt,
-	)
+	return WriteChannel{Variant: v}
 }
 
 // validateWriteConfig checks cfg without reading its Synnax channels. The values of
@@ -118,53 +82,11 @@ func validateWriteConfig(cfg *WriteConfig) error {
 		return err
 	}
 	for _, wc := range cfg.Channels {
-		var dup int
-		switch v := wc.Variant.(type) {
-		case FloatWriteChannel:
-			dup = duplicate(v.EnumValues, func(a, b payload.FloatEntry) bool {
-				x, y := float64(a.Value), float64(b.Value)
-				return x == y || (math.IsNaN(x) && math.IsNaN(y))
-			})
-		case IntegerWriteChannel:
-			dup = duplicate(v.EnumValues, func(a, b payload.IntegerEntry) bool {
-				return a.Value == b.Value
-			})
-		case UnsignedWriteChannel:
-			dup = duplicate(v.EnumValues, func(a, b payload.UnsignedEntry) bool {
-				return a.Value == b.Value
-			})
-		case StringWriteChannel:
-			dup = duplicate(v.EnumValues, func(a, b payload.StringEntry) bool {
-				return a.Value == b.Value
-			})
-		case BooleanWriteChannel:
-			dup = duplicate(v.EnumValues, func(a, b payload.BooleanEntry) bool {
-				return a.Value == b.Value
-			})
-		default:
-			dup = -1
-		}
-		if dup >= 0 {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"channel %q: enum_values[%d]: value is already labeled",
-				wc.Base().Key, dup,
-			)
+		if err := channelOf(wc).Validate(); err != nil {
+			return errors.Wrapf(err, "channel %q", wc.Base().Key)
 		}
 	}
 	return nil
-}
-
-func duplicate[E any](entries []E, equal func(a, b E) bool) int {
-	for i, e := range entries {
-		if slices.ContainsFunc(
-			entries[:i],
-			func(prev E) bool { return equal(prev, e) },
-		) {
-			return i
-		}
-	}
-	return -1
 }
 
 // readChannels returns the channels among keys, read through snap. A key with no
@@ -208,42 +130,23 @@ func resolveWriteConfig(
 	if err != nil {
 		return err
 	}
-	for _, wc := range cfg.Channels {
+	for i, wc := range cfg.Channels {
 		b := wc.Base()
 		ch, ok := channels[b.Channel]
 		if b.Disabled || !ok {
 			continue
 		}
-		if err = checkWriteChannel(wc, ch.DataType); err != nil {
+		c, err := channelOf(wc).Resolve(ch.DataType)
+		if err != nil {
 			return errors.Wrapf(err, "channel %q", b.Key)
 		}
-		if v, ok := wc.Variant.(FloatWriteChannel); ok &&
-			ch.DataType == telem.Float32T {
-			for j, e := range v.EnumValues {
-				v.EnumValues[j].Value = payload.Float(float32(e.Value))
-			}
-		}
+		cfg.Channels[i] = newWriteChannelConfig(b, c)
 	}
 	return nil
 }
 
-func checkWriteChannel(wc WriteChannel, dt telem.DataType) error {
-	f, err := fieldOf(wc, dt)
-	if err != nil {
-		return err
-	}
-	if _, err = xjson.NewEncoder(f); err != nil {
-		return err
-	}
-	return xjson.CheckEnums(f)
-}
-
 // reconcileWriteConfig changes each channel of cfg to agree with its Synnax channel,
-// read through tx, and logs each change. A kind the channel's data type does not allow
-// becomes the first numeric kind it allows when the kind is numeric or timestamp, and
-// the data type's own kind otherwise. Entries convert between numeric kinds when they
-// stay exact, and drop on other kinds. An entry that does not fit the channel, or whose
-// value collides with an earlier one's, drops.
+// read through tx, as payload.Channel.Reconcile does, and logs each change.
 func reconcileWriteConfig(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -261,21 +164,24 @@ func reconcileWriteConfig(
 		return err
 	}
 	for i, wc := range cfg.Channels {
-		ch, ok := channels[wc.Base().Channel]
+		b := wc.Base()
+		ch, ok := channels[b.Channel]
 		if !ok {
 			continue
 		}
-		fields := []zap.Field{
-			zap.Stringer("config", cfg.Key),
-			zap.String("field", wc.Base().Key),
-			zap.Stringer("channel", ch.Key()),
-			zap.String("channel_name", ch.Name),
-			zap.String("data_type", string(ch.DataType)),
+		c, changes := channelOf(wc).Reconcile(ch.DataType)
+		for _, change := range changes {
+			ins.L.Warn(
+				"changed a Kafka write channel to agree with its channel",
+				zap.Stringer("config", cfg.Key),
+				zap.String("field", b.Key),
+				zap.Stringer("channel", ch.Key()),
+				zap.String("channel_name", ch.Name),
+				zap.String("data_type", string(ch.DataType)),
+				zap.String("change", change),
+			)
 		}
-		warn := func(msg string, extra ...zap.Field) {
-			ins.L.Warn(msg, append(slices.Clip(fields), extra...)...)
-		}
-		cfg.Channels[i] = reconcileWriteChannel(wc, ch.DataType, warn)
+		cfg.Channels[i] = newWriteChannelConfig(b, c)
 	}
 	return nil
 }
@@ -306,286 +212,4 @@ func newWriteMigration(svc *channel.Service) gorp.Migration {
 			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
 		},
 	)
-}
-
-type warnFunc func(msg string, fields ...zap.Field)
-
-func reconcileWriteChannel(
-	wc WriteChannel,
-	dt telem.DataType,
-	warn warnFunc,
-) WriteChannel {
-	kinds := payload.ChannelKinds(dt)
-	if len(kinds) == 0 {
-		return wc
-	}
-	if !slices.Contains(kinds, wc.Type()) {
-		kind := kinds[0]
-		// A v0 row that kept a time format after it moved off a timestamp channel
-		// wrote numbers there.
-		if numeric(wc.Type()) || wc.Type() == payload.KindTimestamp {
-			if i := slices.IndexFunc(kinds, numeric); i >= 0 {
-				kind = kinds[i]
-			}
-		}
-		warn(
-			"changed the kind of a Kafka write channel to match its channel",
-			zap.String("old", string(wc.Type())),
-			zap.String("new", string(kind)),
-		)
-		wc = convertWriteChannel(wc, kind, warn)
-	}
-	return dropEntries(wc, dt, warn)
-}
-
-func numeric(k payload.Kind) bool {
-	return k == payload.KindFloat || k == payload.KindInteger ||
-		k == payload.KindUnsigned
-}
-
-// convertWriteChannel returns wc as kind. Entries convert between numeric kinds when
-// they stay exact, and drop otherwise.
-func convertWriteChannel(
-	wc WriteChannel,
-	kind payload.Kind,
-	warn warnFunc,
-) WriteChannel {
-	from := numericValues(wc)
-	drop := func(e numericValue) {
-		warn(
-			"dropped a Kafka write channel enum entry that does not convert",
-			zap.String("label", e.label),
-			zap.Stringer("value", e),
-		)
-	}
-	out := WriteChannel{}
-	switch kind {
-	case payload.KindFloat:
-		var v FloatWriteChannel
-		for _, e := range from {
-			if f, ok := e.asFloat(); ok {
-				v.EnumValues = append(
-					v.EnumValues,
-					payload.FloatEntry{Label: e.label, Value: payload.Float(f)},
-				)
-			} else {
-				drop(e)
-			}
-		}
-		out.Variant = v
-	case payload.KindInteger:
-		var v IntegerWriteChannel
-		for _, e := range from {
-			if i, ok := e.asInt(); ok {
-				v.EnumValues = append(
-					v.EnumValues,
-					payload.IntegerEntry{Label: e.label, Value: payload.Integer(i)},
-				)
-			} else {
-				drop(e)
-			}
-		}
-		out.Variant = v
-	case payload.KindUnsigned:
-		var v UnsignedWriteChannel
-		for _, e := range from {
-			if u, ok := e.asUint(); ok {
-				v.EnumValues = append(
-					v.EnumValues,
-					payload.UnsignedEntry{Label: e.label, Value: payload.Unsigned(u)},
-				)
-			} else {
-				drop(e)
-			}
-		}
-		out.Variant = v
-	default:
-		if from != nil || hasTextEntries(wc) {
-			warn("dropped the enum entries of a Kafka write channel")
-		}
-		out.Variant = emptyVariants[kind]
-	}
-	out.SetBase(wc.Base())
-	return out
-}
-
-// emptyVariants holds the variant of each kind with no numeric entries.
-var emptyVariants = map[payload.Kind]WriteChannelVariant{
-	payload.KindString:    StringWriteChannel{},
-	payload.KindBoolean:   BooleanWriteChannel{},
-	payload.KindTimestamp: TimestampWriteChannel{TimeFormat: payload.TimeFormatISO8601},
-	payload.KindJSON:      JsonWriteChannel{},
-	payload.KindUUID:      UuidWriteChannel{},
-	payload.KindBytes:     BytesWriteChannel{},
-}
-
-// numericValue is one entry of a float, integer, or unsigned write channel. kind names
-// the field that holds its value.
-type numericValue struct {
-	label string
-	kind  payload.Kind
-	f     float64
-	i     int64
-	u     uint64
-}
-
-func numericValues(wc WriteChannel) []numericValue {
-	var out []numericValue
-	switch v := wc.Variant.(type) {
-	case FloatWriteChannel:
-		for _, e := range v.EnumValues {
-			out = append(out, numericValue{
-				label: e.Label,
-				kind:  payload.KindFloat,
-				f:     float64(e.Value),
-			})
-		}
-	case IntegerWriteChannel:
-		for _, e := range v.EnumValues {
-			out = append(out, numericValue{
-				label: e.Label,
-				kind:  payload.KindInteger,
-				i:     int64(e.Value),
-			})
-		}
-	case UnsignedWriteChannel:
-		for _, e := range v.EnumValues {
-			out = append(out, numericValue{
-				label: e.Label,
-				kind:  payload.KindUnsigned,
-				u:     uint64(e.Value),
-			})
-		}
-	}
-	return out
-}
-
-func (n numericValue) String() string {
-	switch n.kind {
-	case payload.KindInteger:
-		return strconv.FormatInt(n.i, 10)
-	case payload.KindUnsigned:
-		return strconv.FormatUint(n.u, 10)
-	default:
-		return strconv.FormatFloat(n.f, 'g', -1, 64)
-	}
-}
-
-func hasTextEntries(wc WriteChannel) bool {
-	switch v := wc.Variant.(type) {
-	case StringWriteChannel:
-		return len(v.EnumValues) > 0
-	case BooleanWriteChannel:
-		return len(v.EnumValues) > 0
-	}
-	return false
-}
-
-// maxExactFloat is the largest magnitude up to which a float64 holds every integer.
-const maxExactFloat = 1 << 53
-
-func (n numericValue) asFloat() (float64, bool) {
-	switch n.kind {
-	case payload.KindInteger:
-		return float64(n.i), n.i >= -maxExactFloat && n.i <= maxExactFloat
-	case payload.KindUnsigned:
-		return float64(n.u), n.u <= maxExactFloat
-	default:
-		return n.f, true
-	}
-}
-
-func (n numericValue) asInt() (int64, bool) {
-	switch n.kind {
-	case payload.KindFloat:
-		ok := n.f == math.Trunc(n.f) && n.f >= math.MinInt64 && n.f < math.MaxInt64
-		return int64(n.f), ok
-	case payload.KindUnsigned:
-		return int64(n.u), n.u <= math.MaxInt64
-	default:
-		return n.i, true
-	}
-}
-
-func (n numericValue) asUint() (uint64, bool) {
-	switch n.kind {
-	case payload.KindFloat:
-		ok := n.f == math.Trunc(n.f) && n.f >= 0 && n.f < math.MaxUint64
-		return uint64(n.f), ok
-	case payload.KindInteger:
-		return uint64(n.i), n.i >= 0
-	default:
-		return n.u, true
-	}
-}
-
-// dropEntries drops each entry of wc that does not fit a channel of data type dt, or
-// whose value matches an earlier entry's there, and logs it.
-func dropEntries(wc WriteChannel, dt telem.DataType, warn warnFunc) WriteChannel {
-	switch v := wc.Variant.(type) {
-	case FloatWriteChannel:
-		v.EnumValues = keepEntries(v.EnumValues, dt, warn,
-			func(e payload.FloatEntry) string { return e.Label },
-			func(es []payload.FloatEntry) WriteChannelVariant {
-				v.EnumValues = es
-				return v
-			})
-		wc.Variant = v
-	case IntegerWriteChannel:
-		v.EnumValues = keepEntries(v.EnumValues, dt, warn,
-			func(e payload.IntegerEntry) string { return e.Label },
-			func(es []payload.IntegerEntry) WriteChannelVariant {
-				v.EnumValues = es
-				return v
-			})
-		wc.Variant = v
-	case UnsignedWriteChannel:
-		v.EnumValues = keepEntries(v.EnumValues, dt, warn,
-			func(e payload.UnsignedEntry) string { return e.Label },
-			func(es []payload.UnsignedEntry) WriteChannelVariant {
-				v.EnumValues = es
-				return v
-			})
-		wc.Variant = v
-	case StringWriteChannel:
-		v.EnumValues = keepEntries(v.EnumValues, dt, warn,
-			func(e payload.StringEntry) string { return e.Label },
-			func(es []payload.StringEntry) WriteChannelVariant {
-				v.EnumValues = es
-				return v
-			})
-		wc.Variant = v
-	case BooleanWriteChannel:
-		v.EnumValues = keepEntries(v.EnumValues, dt, warn,
-			func(e payload.BooleanEntry) string { return e.Label },
-			func(es []payload.BooleanEntry) WriteChannelVariant {
-				v.EnumValues = es
-				return v
-			})
-		wc.Variant = v
-	}
-	return wc
-}
-
-func keepEntries[E any](
-	entries []E,
-	dt telem.DataType,
-	warn warnFunc,
-	label func(E) string,
-	with func([]E) WriteChannelVariant,
-) []E {
-	kept := make([]E, 0, len(entries))
-	for _, e := range entries {
-		candidate := WriteChannel{Variant: with(append(slices.Clip(kept), e))}
-		if err := checkWriteChannel(candidate, dt); err != nil {
-			warn(
-				"dropped a Kafka write channel enum entry",
-				zap.String("label", label(e)),
-				zap.Error(err),
-			)
-			continue
-		}
-		kept = append(kept, e)
-	}
-	return kept
 }

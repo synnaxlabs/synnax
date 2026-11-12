@@ -1,0 +1,191 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v0"
+import "schemas/x/versions/telem/v0"
+
+QoS = v1.QoS
+
+SparkplugDataType = v1.SparkplugDataType
+
+ReadField = v1.ReadField
+
+BaseReadEntry = v1.BaseReadEntry
+
+ReadEntry = v1.ReadEntry
+
+ReadConfig = v1.ReadConfig
+
+BaseChannelField struct {
+    pointer   string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the payload. An
+            empty pointer sends the bare value as the entire payload, in which case the
+            target may not declare any additional fields.
+        """
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the Synnax command channel that triggers the publish."
+    }
+    name      string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type telem.DataType? {
+        @doc value "is the data type of a new channel. Absent for an existing one."
+    }
+
+    @doc value  "carries the fields every command channel field shares."
+    @go marshal
+}
+
+ChannelField union on type payload.Kind extends BaseChannelField {
+    float {
+        enum_values payload.FloatEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    integer {
+        enum_values payload.IntegerEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    unsigned {
+        enum_values payload.UnsignedEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON number."
+    }
+    string {
+        enum_values payload.StringEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON string."
+    }
+    boolean {
+        enum_values payload.BooleanEntry[] = [] {
+            @doc value "maps channel values to the labels written in their place."
+        }
+
+        @doc value "writes each sample as a JSON boolean."
+    }
+    timestamp {
+        time_format payload.TimeFormat {
+            @doc value "is the encoding of each sample."
+        }
+
+        @doc value "writes each sample of a timestamp channel in a time format."
+    }
+    json {
+        @doc value "writes each sample of a JSON channel as its JSON value."
+    }
+    uuid {
+        @doc value "writes each sample of a UUID channel as a JSON string."
+    }
+    bytes {
+        @doc value "writes each sample of a bytes channel as a base64 JSON string."
+    }
+
+    @doc value  """
+        is the command channel value placed into the payload of a target. The type
+        selects the JSON value of each sample. A sample that matches an entry of
+        enum_values is written as the entry's label.
+    """
+    @go marshal
+}
+
+BaseWriteField = v1.BaseWriteField
+
+WriteField = v1.WriteField
+
+BaseWriteTarget = v1.BaseWriteTarget
+
+WriteTarget union on type extends BaseWriteTarget {
+    plain {
+        topic    string = "" {
+            @doc value "is the topic to publish to."
+        }
+        qos      QoS = at_least_once {
+            @doc value "is the quality of service of the publish."
+        }
+        retained bool = false {
+            @doc value "is true when the broker retains the published message."
+        }
+        channel  ChannelField = float {
+            @doc value "is the command channel whose writes trigger the publish."
+        }
+        fields   WriteField[] {
+            @doc value "contains additional static or generated payload fields."
+        }
+
+        @doc value "publishes a JSON payload to one topic."
+    }
+    sparkplug {
+        group     string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string = "" {
+            @doc value "is the name of the tag to command."
+        }
+        tag_type  SparkplugDataType = double {
+            @doc value "is the Sparkplug B data type the command value is sent as."
+        }
+        channel   channel.Key = 0 {
+            @doc value "is the Synnax command channel whose writes trigger the command."
+        }
+        name      string = "" {
+            @doc value "is the human-readable name of the command channel."
+        }
+
+        @doc value "sends a Sparkplug B command for one tag."
+    }
+
+    @doc value  """
+        is a single destination of an MQTT write task. The type field selects a plain
+        topic with a JSON payload or a Sparkplug B tag command.
+    """
+    @go marshal
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to write to."
+    }
+    targets WriteTarget[] {
+        @doc value "contains the topics and tags to write to."
+    }
+
+    @doc value  """
+        configures an MQTT write task, which publishes a message whenever a value is
+        written to the command channel of a target.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+ScanConfig = v1.ScanConfig
+
+EdgeTag = v1.EdgeTag
+
+EdgeConfig = v1.EdgeConfig

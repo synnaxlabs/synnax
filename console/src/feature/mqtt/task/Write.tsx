@@ -9,21 +9,23 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt } from "@synnaxlabs/client";
+import { channel, DisconnectedError, mqtt } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { Synnax } from "@synnaxlabs/pluto";
+import { type DataType, deep, id, type payload, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { use, useFromConfig } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { jsonTypeOf } from "@/feature/mqtt/task/createReadFields";
+import { kindOf } from "@/feature/mqtt/task/createReadFields";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
@@ -36,6 +38,7 @@ import {
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
+  type ChannelField,
   deployWriteConfigZ,
   type PlainWriteTarget,
   type ReadField,
@@ -166,6 +169,49 @@ const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
   );
 };
 
+/** Returns field written as kind, with the defaults of kind. */
+const asKind = (field: ChannelField, kind: payload.Kind): ChannelField =>
+  mqtt.channelFieldZ.parse({
+    pointer: field.pointer,
+    channel: field.channel,
+    name: field.name,
+    dataType: field.dataType,
+    type: kind,
+    ...(kind === "timestamp" ? { timeFormat: "iso8601" } : {}),
+  });
+
+/** A command channel can hold any data type a payload writes. */
+const NO_HIDDEN_DATA_TYPES: DataType[] = [];
+
+const ChannelSections: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => {
+  const field = PForm.useFieldValue(path.channel);
+  const dataType = Task.Payload.useDataType(field.channel, field.dataType);
+  return (
+    <>
+      <PForm.Section title="Channel">
+        <PlainChannelNameField path={path} deviceName={deviceName} />
+        <Task.Payload.DataTypeField
+          path={deep.present(path.channel.dataType)}
+          channel={field.channel}
+          hideDataTypes={NO_HIDDEN_DATA_TYPES}
+        />
+        <PForm.TextField
+          path={path.channel.pointer}
+          label="Pointer"
+          padHelpText={false}
+          inputProps={POINTER_INPUT_PROPS}
+        />
+        <Task.Payload.KindFields
+          path={path.channel}
+          dataType={dataType}
+          asKind={asKind}
+        />
+      </PForm.Section>
+      <Task.Payload.EntriesSection path={path.channel} />
+    </>
+  );
+};
+
 const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => (
   <PForm.Sections>
     <PForm.Section title="Publish">
@@ -178,17 +224,14 @@ const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) 
       <QoSField path={path.qos} />
       <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
     </PForm.Section>
-    <Task.Payload.ChannelSections
-      path={path.channel}
-      pointerPlaceholder="Empty sends the bare value"
-    >
-      <PlainChannelNameField path={path} deviceName={deviceName} />
-    </Task.Payload.ChannelSections>
+    <ChannelSections path={path} deviceName={deviceName} />
     <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
   </PForm.Sections>
 );
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
+
+const POINTER_INPUT_PROPS = { placeholder: "Empty sends the bare value" } as const;
 
 const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
   const type = PForm.useFieldValue(path.type);
@@ -212,13 +255,15 @@ const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
 /** Creates a target that publishes to a topic, at the pointer of a browsed field. */
 const createTarget = (topic: string, field?: ReadField): PlainWriteTarget => {
   const target = mqtt.plainWriteTargetZ.parse({ type: "plain", topic });
-  if (field == null) return target;
-  const { pointer, dataType } = field;
-  return {
-    ...target,
-    channel: { ...target.channel, pointer, dataType, jsonType: jsonTypeOf(field) },
-  };
+  const channel =
+    field == null
+      ? { type: "float", dataType: DEFAULT_DATA_TYPE }
+      : { type: kindOf(field), pointer: field.pointer, dataType: field.dataType };
+  return { ...target, channel: mqtt.channelFieldZ.parse(channel) };
 };
+
+/** The data type of the command channel of a target that names no sample. */
+const DEFAULT_DATA_TYPE = "float64";
 
 const createSparkplugTarget = (tag?: SparkplugTag): SparkplugWriteTarget => {
   const target = mqtt.sparkplugWriteTargetZ.parse({ type: "sparkplug" });
@@ -266,6 +311,35 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const isPreview = Task.useIsPreview();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const discover = useDiscoverModal();
+  const client = Synnax.use();
+  const { get, set } = PForm.useContext();
+  const handleError = Status.useErrorHandler();
+
+  // The Core clears the data type of a target with a channel, so a copy, which gets a
+  // new channel, reads the data type of the channel it copies. That channel exists: the
+  // Core rejects a config that names a missing channel, and a used one is not deleted.
+  // The read sets the data type only while the copy still holds the one it started
+  // with, so it does not replace a type the user picked.
+  const handleDuplicate = (all: WriteTarget[], keys: string[]): WriteTarget[] => {
+    const copies = duplicateTargets(all, keys);
+    const sources = all.filter(({ key }) => keys.includes(key));
+    copies.forEach((copy, i) => {
+      const source = sources[i];
+      if (copy.type !== "plain" || source.type !== "plain") return;
+      if (source.channel.channel === 0) return;
+      const key = source.channel.channel;
+      const initial = copy.channel.dataType;
+      const path = deep.variant(root.config.targets[copy.key], "type", "plain");
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const ch = await client.channels.retrieve(key);
+        const current = get(root.config.targets[copy.key], { optional: true })?.value;
+        if (current?.type !== "plain" || current.channel.dataType !== initial) return;
+        set(path.channel.dataType, ch.dataType.toString());
+      }, "Failed to copy the data type of the command channel");
+    });
+    return copies;
+  };
 
   const handleAdd = async () => {
     const added = await discover({ device, entries: targets.value() });
@@ -302,7 +376,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
               </PlatformButton.CreateListItem>
             )
           }
-          createChannels={duplicateTargets}
+          createChannels={handleDuplicate}
           listItem={targetItem}
           contextMenuItems={Task.readChannelContextMenuItem}
           resolve={resolve}

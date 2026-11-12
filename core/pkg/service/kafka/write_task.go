@@ -220,7 +220,7 @@ func newWriteChannel(
 	if err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Base().Key)
 	}
-	f, err := fieldOf(wc, ch.DataType)
+	f, err := channelOf(wc).Field(ch.DataType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Base().Key)
 	}

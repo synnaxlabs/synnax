@@ -31,8 +31,9 @@ publishes one message to the topic:
 
 - **Pointer** -> where the value goes in a JSON payload, such as `/position`. An empty
   pointer sends the bare value as the whole payload, with no other fields.
-- **JSON type** -> the value goes out as a number, a string, or a boolean. With a
-  string, the **Enum mapping** turns numbers into text labels, such as `1` into `OPEN`.
+- **Write as** -> the value goes out as a number, a string, or a boolean. The list shows
+  only what the data type of the channel allows. The **Enum mapping** of each type
+  writes a label in place of a matching value, such as `OPEN` for `1`.
 - **Additional fields** -> the same fields in each payload. A static field adds a fixed
   value, and a generated field adds a new UUID or the current time.
 
@@ -55,7 +56,7 @@ command of 42 publishes:
 2. Click **Add targets**. Select a topic, then select the field that carries the command
    value. For a topic that publishes rarely, click **Add a topic by name**.
 3. Click **Add** _N_ **targets**. Each field becomes a target.
-4. Select a target to set its **Pointer** and **JSON type**. To add fields to the
+4. Select a target to set its **Pointer** and **Write as**. To add fields to the
    payload, click **Static** or **Generated** under **Additional fields**.
 5. Click <Icon.Play /> (**Start**).
 
@@ -86,7 +87,7 @@ task = mqtt.WriteTask(
     targets=[
         mqtt.PlainWriteTarget(
             topic="plant/valve1/set",
-            channel=mqtt.ChannelField(pointer="/position", channel=cmd.key),
+            channel=mqtt.FloatChannelField(pointer="/position", channel=cmd.key),
             fields=[
                 mqtt.StaticWriteField(
                     pointer="/source", json_type="string", value="synnax"
@@ -127,16 +128,33 @@ send one.
 
 A target has these settings:
 
-| Setting                                           | Default       | Notes                                                      |
-| ------------------------------------------------- | ------------- | ---------------------------------------------------------- |
-| Topic <small>`topic`</small>                      |               | The topic to publish to. No wildcards.                     |
-| Quality of service <small>`qos`</small>           | At least once | At most once (0), at least once (1), or exactly once (2).  |
-| Retain <small>`retained`</small>                  | Off           | Asks the broker to keep the message for later subscribers. |
-| Pointer <small>`channel.pointer`</small>          | Empty         | Empty sends the bare value as the whole payload.           |
-| JSON type <small>`channel.json_type`</small>      | Number        | Number, string, or boolean.                                |
-| Time format <small>`channel.time_format`</small>  | ISO 8601      | For a `timestamp` command channel.                         |
-| Channel <small>`channel.channel`</small>          |               | The command channel.                                       |
-| Enum mapping <small>`channel.enum_values`</small> | None          | With a string JSON type, maps numbers to text labels.      |
+| Setting                                           | Default       | Notes                                                       |
+| ------------------------------------------------- | ------------- | ----------------------------------------------------------- |
+| Topic <small>`topic`</small>                      |               | The topic to publish to. No wildcards.                      |
+| Quality of service <small>`qos`</small>           | At least once | At most once (0), at least once (1), or exactly once (2).   |
+| Retain <small>`retained`</small>                  | Off           | Asks the broker to keep the message for later subscribers.  |
+| Pointer <small>`channel.pointer`</small>          | Empty         | Empty sends the bare value as the whole payload.            |
+| Write as <small>`channel.type`</small>            | Number        | Number, string, or boolean. Other data types write as such. |
+| Time format <small>`channel.time_format`</small>  |               | Required for a `timestamp` command channel.                 |
+| Channel <small>`channel.channel`</small>          |               | The command channel.                                        |
+| Enum mapping <small>`channel.enum_values`</small> | None          | Maps channel values to the labels written in their place.   |
+
+The data type of the command channel sets which types it can be written as:
+
+| Channel data type | Write as (`channel.type`)                           |
+| ----------------- | --------------------------------------------------- |
+| Float             | **Number** (`float`), **String**, or **Boolean**    |
+| Signed integer    | **Number** (`integer`), **String**, or **Boolean**  |
+| Unsigned integer  | **Number** (`unsigned`), **String**, or **Boolean** |
+| `boolean`         | **Boolean**, **Number** (`unsigned`), or **String** |
+| `timestamp`       | `timestamp`, in its time format                     |
+| `string`          | **String**                                          |
+| `json`            | `json`, as its JSON value                           |
+| `uuid`            | `uuid`, as a string                                 |
+| `bytes`           | `bytes`, as base64 text                             |
+
+Each type has its own enum mapping, with values of that type. **Boolean** writes a
+nonzero value as the label of `true`.
 
 An additional field has these settings:
 
@@ -148,8 +166,9 @@ An additional field has these settings:
 | Generator <small>`generator`</small>     | UUID     | Generated fields only. UUID or timestamp.  |
 | Time format <small>`time_format`</small> | ISO 8601 | Generated timestamps only.                 |
 
-In code, a target is `PlainWriteTarget`, its command channel is `ChannelField`, and the
-additional fields are `StaticWriteField` and `GeneratedWriteField`.
+In code, a target is `PlainWriteTarget`, and its command channel is a `ChannelField`
+such as `FloatChannelField`, named for its kind. The additional fields are
+`StaticWriteField` and `GeneratedWriteField`.
 
 <Divider.Divider x />
 

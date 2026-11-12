@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep, id, type payload, primitive } from "@synnaxlabs/x";
-import { type FC, useEffect, useRef } from "react";
+import { type FC, useRef } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
@@ -33,7 +33,6 @@ import {
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { Form as PlatformForm } from "@/platform/form";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -222,76 +221,6 @@ const asKind = (ch: WriteChannel, kind: payload.Kind): WriteChannel =>
       : {}),
   });
 
-interface KindSelectProps {
-  path: deep.Target<WriteChannel>;
-  kinds: payload.Kind[];
-}
-
-const KindSelect = ({ path, kinds }: KindSelectProps) => (
-  <PForm.Field<WriteChannel> path={path} label="Output type" padHelpText={false}>
-    {({ value, onChange }) => (
-      <Select.Simple<payload.Kind>
-        value={value.type}
-        onChange={(kind: payload.Kind) => onChange(asKind(value, kind))}
-        resourceName="kind"
-      >
-        {kinds.map((kind) => (
-          <Select.Item key={kind} itemKey={kind}>
-            {Task.Payload.kindName(kind)}
-          </Select.Item>
-        ))}
-      </Select.Simple>
-    )}
-  </PForm.Field>
-);
-
-interface EntriesSectionProps {
-  path: deep.Target<WriteChannel>;
-  type: payload.Kind;
-}
-
-const EntriesSection = ({ path, type }: EntriesSectionProps) => {
-  switch (type) {
-    case "float":
-      return (
-        <Task.Payload.EnumMappingSection
-          path={deep.variant(path, "type", "float").enumValues}
-          valueFirst
-        />
-      );
-    case "integer":
-    case "unsigned":
-    case "string":
-      return (
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={deep.variant(path, "type", type).enumValues}
-            resourceName="mapping"
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valuePlaceholder={type === "string" ? "Text" : "Integer"}
-            valueFirst
-          />
-        </PForm.Section>
-      );
-    case "boolean":
-      return (
-        <PForm.Section title="Enum mapping">
-          <PlatformForm.KeyValueEditor
-            path={deep.variant(path, "type", "boolean").enumValues}
-            resourceName="mapping"
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="boolean"
-            valueFirst
-          />
-        </PForm.Section>
-      );
-    default:
-      return null;
-  }
-};
-
 /**
  * Selects the channel of the write channel at path. It sets the channel and an output
  * type that the channel allows in one change, so the Core never sees a pair it rejects.
@@ -321,28 +250,16 @@ const ChannelField = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
 };
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const ch = PForm.useFieldValue(path);
-  const { set } = PForm.useContext();
-  const query = primitive.isNonZero(ch.channel) ? { key: ch.channel } : null;
+  const key = PForm.useFieldValue(path.channel);
+  const query = primitive.isNonZero(key) ? { key } : null;
   const { data: dataType } = PChannel.useResultDataType(query);
-  const kinds = dataType == null ? null : Task.Payload.channelKinds(dataType);
-  const allowed = kinds == null || kinds.includes(ch.type);
-  useEffect(() => {
-    if (kinds != null && !allowed) set(path, asKind(ch, kinds[0]));
-  }, [kinds?.[0], allowed]);
   return (
     <PForm.Sections className={CSS.B("kafka-details")}>
       <PForm.Section title="Channel">
         <ChannelField path={path} />
-        {kinds != null && kinds.length > 1 && <KindSelect path={path} kinds={kinds} />}
-        {ch.type === "timestamp" && (
-          <Task.Payload.TimeFormatField
-            path={deep.variant(path, "type", "timestamp").timeFormat}
-            label="Time format"
-          />
-        )}
+        <Task.Payload.KindFields path={path} dataType={dataType} asKind={asKind} />
       </PForm.Section>
-      <EntriesSection path={path} type={ch.type} />
+      <Task.Payload.EntriesSection path={path} />
     </PForm.Sections>
   );
 };
