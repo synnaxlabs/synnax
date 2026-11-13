@@ -13,7 +13,7 @@ package v5
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.

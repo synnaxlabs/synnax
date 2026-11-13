@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 )
 
 // MigrateWriteChannel lifts a v0 write channel to v1 by its stored shape, without its

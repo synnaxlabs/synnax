@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )

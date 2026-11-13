@@ -21,6 +21,7 @@ Float float64 {
         is a 64-bit float. It is a JSON number when finite, and the text "NaN",
         "Infinity", or "-Infinity" when not.
     """
+    @go hand
     @py hand
     @py include  "x/py/x/payload/float"
     @ts hand

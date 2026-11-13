@@ -20,8 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -52,12 +51,12 @@ var _ = Describe("Codec", func() {
 						QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 						Channel: v5.ChannelField{
 							Pointer:    "test_16",
-							JSONType:   payloadv0.JSONType("number"),
+							JSONType:   payload.JSONType("number"),
 							Channel:    channel.Key(19),
 							Name:       "test_19",
 							DataType:   telem.DataType("test_20"),
-							TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-							EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
+							TimeFormat: new(payload.TimeFormat("iso8601")),
+							EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
 						},
 						Fields: []payload.WriteField{
 							{Variant: payload.FloatWriteField{
@@ -102,12 +101,12 @@ var _ = Describe("Codec", func() {
 				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 				Channel: v5.ChannelField{
 					Pointer:    "test_12",
-					JSONType:   payloadv0.JSONType("number"),
+					JSONType:   payload.JSONType("number"),
 					Channel:    channel.Key(15),
 					Name:       "test_15",
 					DataType:   telem.DataType("test_16"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{{Label: "test_19", Value: 20.5}},
 				},
 				Fields: []payload.WriteField{
 					{Variant: payload.FloatWriteField{
@@ -125,12 +124,12 @@ var _ = Describe("Codec", func() {
 				QueryParams: []v5.QueryParam{},
 				Channel: v5.ChannelField{
 					Pointer:    "",
-					JSONType:   payloadv0.JSONType(""),
+					JSONType:   payload.JSONType(""),
 					Channel:    channel.Key(0),
 					Name:       "",
 					DataType:   telem.DataType(""),
 					TimeFormat: nil,
-					EnumValues: []payloadv0.EnumEntry{},
+					EnumValues: []payload.EnumEntry{},
 				},
 				Fields: []payload.WriteField{},
 			}),
@@ -143,12 +142,12 @@ var _ = Describe("Codec", func() {
 				QueryParams: []v5.QueryParam{},
 				Channel: v5.ChannelField{
 					Pointer:    "test_8",
-					JSONType:   payloadv0.JSONType("number"),
+					JSONType:   payload.JSONType("number"),
 					Channel:    channel.Key(11),
 					Name:       "test_11",
 					DataType:   telem.DataType("test_12"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{},
 				},
 				Fields: []payload.WriteField{},
 			}),
@@ -171,12 +170,12 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 				Channel: v5.ChannelField{
 					Pointer:    "test_16",
-					JSONType:   payloadv0.JSONType("number"),
+					JSONType:   payload.JSONType("number"),
 					Channel:    channel.Key(19),
 					Name:       "test_19",
 					DataType:   telem.DataType("test_20"),
-					TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-					EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
+					TimeFormat: new(payload.TimeFormat("iso8601")),
+					EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
 				},
 				Fields: []payload.WriteField{
 					{Variant: payload.FloatWriteField{
@@ -212,12 +211,12 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 		Channel: v5.ChannelField{
 			Pointer:    "test_12",
-			JSONType:   payloadv0.JSONType("number"),
+			JSONType:   payload.JSONType("number"),
 			Channel:    channel.Key(15),
 			Name:       "test_15",
 			DataType:   telem.DataType("test_16"),
-			TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-			EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
+			TimeFormat: new(payload.TimeFormat("iso8601")),
+			EnumValues: []payload.EnumEntry{{Label: "test_19", Value: 20.5}},
 		},
 		Fields: []payload.WriteField{
 			{Variant: payload.FloatWriteField{
@@ -257,12 +256,12 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 					Channel: v5.ChannelField{
 						Pointer:    "test_16",
-						JSONType:   payloadv0.JSONType("number"),
+						JSONType:   payload.JSONType("number"),
 						Channel:    channel.Key(19),
 						Name:       "test_19",
 						DataType:   telem.DataType("test_20"),
-						TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-						EnumValues: []payloadv0.EnumEntry{{Label: "test_23", Value: 24.5}},
+						TimeFormat: new(payload.TimeFormat("iso8601")),
+						EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
 					},
 					Fields: []payload.WriteField{
 						{Variant: payload.FloatWriteField{
@@ -338,12 +337,12 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 			Channel: v5.ChannelField{
 				Pointer:    "test_12",
-				JSONType:   payloadv0.JSONType("number"),
+				JSONType:   payload.JSONType("number"),
 				Channel:    channel.Key(15),
 				Name:       "test_15",
 				DataType:   telem.DataType("test_16"),
-				TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-				EnumValues: []payloadv0.EnumEntry{{Label: "test_19", Value: 20.5}},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{{Label: "test_19", Value: 20.5}},
 			},
 			Fields: []payload.WriteField{
 				{Variant: payload.FloatWriteField{
@@ -368,12 +367,12 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			QueryParams: []v5.QueryParam{},
 			Channel: v5.ChannelField{
 				Pointer:    "",
-				JSONType:   payloadv0.JSONType(""),
+				JSONType:   payload.JSONType(""),
 				Channel:    channel.Key(0),
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: []payloadv0.EnumEntry{},
+				EnumValues: []payload.EnumEntry{},
 			},
 			Fields: []payload.WriteField{},
 		}
@@ -393,12 +392,12 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			QueryParams: []v5.QueryParam{},
 			Channel: v5.ChannelField{
 				Pointer:    "test_8",
-				JSONType:   payloadv0.JSONType("number"),
+				JSONType:   payload.JSONType("number"),
 				Channel:    channel.Key(11),
 				Name:       "test_11",
 				DataType:   telem.DataType("test_12"),
-				TimeFormat: new(payloadv0.TimeFormat("iso8601")),
-				EnumValues: []payloadv0.EnumEntry{},
+				TimeFormat: new(payload.TimeFormat("iso8601")),
+				EnumValues: []payload.EnumEntry{},
 			},
 			Fields: []payload.WriteField{},
 		}

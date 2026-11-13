@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	xpayload "github.com/synnaxlabs/x/payload"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 )
 

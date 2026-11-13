@@ -22,7 +22,26 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseWriteField = v0.BaseWriteField{Key: "test_1", Pointer: "test_2"}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("BaseWriteField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.BaseWriteField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.BaseWriteField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseWriteField),
+			Entry("zero values", v0.BaseWriteField{Key: "", Pointer: ""}),
+		)
+	})
 	Describe("BooleanEntry", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.BooleanEntry) {
@@ -253,7 +272,64 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("WriteField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.WriteField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.WriteField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("float variant", v0.WriteField{Variant: v0.FloatWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				Value:          v0.Float(1.5),
+			}}),
+			Entry("integer variant", v0.WriteField{Variant: v0.IntegerWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				Value:          v0.Integer(2),
+			}}),
+			Entry("unsigned variant", v0.WriteField{Variant: v0.UnsignedWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				Value:          v0.Unsigned(2),
+			}}),
+			Entry("string variant", v0.WriteField{Variant: v0.StringWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				Value:          "test_1",
+			}}),
+			Entry("boolean variant", v0.WriteField{Variant: v0.BooleanWriteField{BaseWriteField: fullyPopulatedBaseWriteField, Value: true}}),
+			Entry("json variant", v0.WriteField{Variant: v0.JsonWriteField{BaseWriteField: fullyPopulatedBaseWriteField, Value: "test_1"}}),
+			Entry("uuid variant", v0.WriteField{Variant: v0.UuidWriteField{BaseWriteField: fullyPopulatedBaseWriteField}}),
+			Entry("timestamp variant", v0.WriteField{Variant: v0.TimestampWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				TimeFormat:     v0.TimeFormat("iso8601"),
+			}}),
+			Entry("bytes variant", v0.WriteField{Variant: v0.BytesWriteField{
+				BaseWriteField: fullyPopulatedBaseWriteField,
+				Value:          "test_1",
+			}}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeBaseWriteField(b *testing.B) {
+	seed := fullyPopulatedBaseWriteField
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.BaseWriteField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeBooleanEntry(b *testing.B) {
 	seed := v0.BooleanEntry{Label: "test_1", Value: false}
@@ -478,6 +554,65 @@ func BenchmarkEncodeDecodeUnsignedRead(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkEncodeDecodeWriteField(b *testing.B) {
+	seed := v0.WriteField{Variant: v0.FloatWriteField{
+		BaseWriteField: fullyPopulatedBaseWriteField,
+		Value:          v0.Float(1.5),
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.WriteField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeBaseWriteField(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseWriteField
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.BaseWriteField{Key: "", Pointer: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.BaseWriteField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.BaseWriteField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeBooleanEntry(f *testing.F) {
@@ -1023,6 +1158,119 @@ func FuzzDecodeUnsignedRead(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.UnsignedRead
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteField(f *testing.F) {
+	{
+		seed := v0.WriteField{Variant: v0.FloatWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			Value:          v0.Float(1.5),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.IntegerWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			Value:          v0.Integer(2),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.UnsignedWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			Value:          v0.Unsigned(2),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.StringWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			Value:          "test_1",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.BooleanWriteField{BaseWriteField: fullyPopulatedBaseWriteField, Value: true}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.JsonWriteField{BaseWriteField: fullyPopulatedBaseWriteField, Value: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.UuidWriteField{BaseWriteField: fullyPopulatedBaseWriteField}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.TimestampWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			TimeFormat:     v0.TimeFormat("iso8601"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.WriteField{Variant: v0.BytesWriteField{
+			BaseWriteField: fullyPopulatedBaseWriteField,
+			Value:          "test_1",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.WriteField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.WriteField
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

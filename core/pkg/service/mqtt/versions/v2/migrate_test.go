@@ -17,7 +17,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
-	payloadv1 "github.com/synnaxlabs/x/payload/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -370,14 +369,14 @@ var _ = Describe("Migrate", func() {
 		}))
 		plain, ok := t.Variant.(v2.PlainWriteTarget)
 		Expect(ok).To(BeTrue())
-		Expect(plain.Fields).To(Equal([]payloadv1.WriteField{
-			{Variant: payloadv1.IntegerWriteField{
-				BaseWriteField: payloadv1.BaseWriteField{Key: "n", Pointer: "/n"},
+		Expect(plain.Fields).To(Equal([]payload.WriteField{
+			{Variant: payload.IntegerWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "n", Pointer: "/n"},
 				Value:          3,
 			}},
-			{Variant: payloadv1.TimestampWriteField{
-				BaseWriteField: payloadv1.BaseWriteField{Key: "t", Pointer: "/t"},
-				TimeFormat:     payloadv1.TimeFormatUnixNs,
+			{Variant: payload.TimestampWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "t", Pointer: "/t"},
+				TimeFormat:     payload.TimeFormatUnixNs,
 			}},
 		}))
 	})
