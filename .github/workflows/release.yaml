@@ -467,10 +467,7 @@ jobs:
       # only after a stage succeeds, and a run whose tag already names this commit has
       # nothing to stage. While the newest version overall or on this train waits for
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
-      # is approved last. The check only reads. The build job runs it so that a version
-      # the run cannot claim fails at dispatch, and the publish job runs it again
-      # because the tags and the registry can change during the run. A failed build
-      # publishes no product, so a pending approval holds the products of the run too.
+      # is approved last. The check only reads, and the publish job runs it again.
       - &claim-ts
         name: Check the version claim
         id: claim
@@ -663,9 +660,8 @@ jobs:
 
       # A run at the commit that the tag names finishes a partial publish, since the
       # registry skips what already went up. Any other run stops, so one version never
-      # holds packages from two commits. The check only reads. The build job runs it so
-      # that a version the run cannot claim fails at dispatch, and the publish job runs
-      # it again because the tags and the registry can change during the run.
+      # holds packages from two commits. The check only reads, and the publish job runs
+      # it again.
       - &claim-py
         name: Check the version claim
         id: claim
