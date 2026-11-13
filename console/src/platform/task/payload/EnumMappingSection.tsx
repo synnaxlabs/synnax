@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep, type payload } from "@synnaxlabs/x";
+import { type deep, type payload, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form as PlatformForm } from "@/platform/form";
@@ -65,6 +65,8 @@ export const TextEnumMappingSection = ({
   </Form.Section>
 );
 
+const CELL_FIELDS = ["label", "value"];
+
 export interface BooleanEnumMappingSectionProps {
   /** The path of the enum values. */
   path: deep.Target<payload.BooleanEntry[]>;
@@ -77,9 +79,12 @@ export interface BooleanEnumMappingSectionProps {
 export const BooleanEnumMappingSection = ({
   path,
 }: BooleanEnumMappingSectionProps): ReactElement => {
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
   const entries = Form.useFieldValue(path);
+  const statuses = Form.useStatuses(path);
   const rows = entries.map(({ label, value }) => [label, value ? 1 : 0]);
+  const cellStatus = ({ x, y }: xy.XY) =>
+    statuses.find(({ key }) => key === `${String(path)}.${y}.${CELL_FIELDS[x]}`);
   const handleChange = (next: Input.TableCell[][]) =>
     set(
       path,
@@ -88,7 +93,13 @@ export const BooleanEnumMappingSection = ({
   return (
     <Form.Section title="Enum mapping">
       <Input.Item padHelpText={false}>
-        <Input.Table value={rows} onChange={handleChange} resourceName="mapping">
+        <Input.Table
+          value={rows}
+          onChange={handleChange}
+          resourceName="mapping"
+          cellStatus={cellStatus}
+          preview={mode === "preview" ? true : undefined}
+        >
           <Input.TableColumn name="Label" type="string">
             {(p) => <Input.Text {...p} placeholder="String (e.g. ON)" />}
           </Input.TableColumn>
