@@ -1380,6 +1380,8 @@ var _ = Describe("Writer", func() {
 						})
 					}()
 					Eventually(removing).Should(BeClosed())
+					// The removal can start before the delete commits.
+					Eventually(deleted).Should(Receive(BeNil()))
 					read := make(chan bool, 1)
 					go func() {
 						defer GinkgoRecover()
@@ -1388,7 +1390,6 @@ var _ = Describe("Writer", func() {
 							Exists(ctx, slow.DB))
 					}()
 					Eventually(read).Should(Receive(BeFalse()))
-					Eventually(deleted).Should(Receive(BeNil()))
 				},
 			)
 		})
