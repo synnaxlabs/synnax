@@ -13,7 +13,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
 import { resource } from "@/resource";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();
@@ -80,6 +80,49 @@ describe("NI device", async () => {
       await client.ni.devices.create({ ...d, name: "Replaced" });
       const retrieved = await client.ni.devices.retrieve({ key: d.key });
       expect(retrieved.name).toBe("Replaced");
+    });
+  });
+
+  describe("optimistic writes", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+    const createNew = (): ni.device.New => ({
+      key: uuid.create(),
+      rack: rack.key,
+      name: "Optimistic",
+      resourceName: id.create(),
+      model: "PXIe-4300",
+    });
+
+    it("should cache the device before the write commits", async () => {
+      const d = createNew();
+      let duringWrite: string | undefined;
+      await client.ni.devices.create(d, {
+        onOptimistic: () => {
+          duringWrite = expectLive(
+            client.ni.devices.watch(d.key ?? "").getCached(),
+          ).name;
+        },
+      });
+      expect(duringWrite).toEqual(d.name);
+    });
+
+    it("should drop the optimistic device when the write fails", async () => {
+      const d = createNew();
+      await expect(client.ni.devices.create(d, { onOptimistic: fail })).rejects.toBe(
+        WRITE_FAILED,
+      );
+      expect(client.ni.devices.watch(d.key ?? "").getCached()).toBeUndefined();
+    });
+
+    it("should restore the device when a delete fails", async () => {
+      const d = await create();
+      await expect(
+        client.ni.devices.delete(d.key, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect((await client.ni.devices.retrieve({ key: d.key })).name).toBe(d.name);
     });
   });
 
