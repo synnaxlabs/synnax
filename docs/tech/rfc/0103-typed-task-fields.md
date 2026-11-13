@@ -96,7 +96,8 @@ channel field writes a matching entry's label, or else `string` writes text and
 A field is bound to a channel, or unbound with the name and data type of the channel to
 create. No field then holds a `data_type` that the Core must ignore. `unbound` holds a
 full data type on every kind, so one union serves read and channel fields, and §4 checks
-it as it checks a channel. Kafka write channels are always bound and keep `channel`.
+it as it checks a channel. Kafka write channels, MQTT Sparkplug write targets, and edge
+tags keep their key and name.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
@@ -284,13 +285,14 @@ cannot see channels, so a key it binds can dangle on import (see **Dangling keys
 numeric type picks its kind. `boolean` entries become `value != 0`. `string` drops its
 entries, as no conversion read them. `timestamp` with no `time_format` takes `iso8601`.
 
-- **Binding**: From each version before `Binding` (Kafka v0 and v1, MQTT v1 and v2, HTTP
-  v4 and v5), a read field, channel field, or Sparkplug read entry with `channel != 0`
-  becomes `bound` and drops `name` and `data_type`. One with `channel == 0` becomes
-  `unbound` with the stored `name` and `data_type`. Each shipped default is `float64`,
-  so such an index field or field with a `time_format` takes `data_type: timestamp`. A
-  field with no stored `data_type` takes it from its kind: `float64`, `int64`, or
-  `uint64` for a numeric kind, and the kind's own type otherwise.
+- **Binding**: From each version, from the shipped one up to the one before `Binding`, a
+  read field, channel field, or Sparkplug read entry with `channel != 0` becomes `bound`
+  and drops `name` and `data_type`. One with `channel == 0` becomes `unbound` with the
+  stored `name` and `data_type`. Each shipped default is `float64`, so
+  `MigrateReadField`, the first step from a shipped version, gives such an index field
+  or field with a `time_format` the `timestamp` kind and keeps its `time_format`. A
+  later step takes the data type from the kind when the field stores none: `float64`,
+  `int64`, or `uint64` for a numeric kind, and the kind's own type otherwise.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
@@ -332,15 +334,15 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   **Binding**. `Decoded` carries the map to `ReconcileEntry`, which now runs before
   `DropDangling` and turns each bound key into `unbound` from the map when no local
   channel has that key, or when `cluster` is another Core's, because two Cores hand out
-  the same channel keys. Every other channel key from another Core, such as a Kafka
-  write channel or a Sparkplug tag, becomes disabled, and the import logs it. A map
-  built from a version before `Binding` holds no real channel values, so it unbinds only
-  a missing key. With no map entry for a missing key, `ReconcileEntry` removes the
-  field, or for a channel field its target or endpoint, and logs what it removed.
-  `ReconcileEntry` skips a missing key that is not a `Binding`, such as a Kafka write
-  channel, and `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27
-  adds `BoundKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
-  input to the task service. Phases 28 to 31 apply the rule.
+  the same channel keys. A Kafka write channel, Sparkplug write target, or edge tag from
+  another Core becomes disabled, and the import logs it. A map built from a version
+  before `Binding` holds no real channel values, so it unbinds only a missing key. With
+  no map entry for a missing key, `ReconcileEntry` removes the field, or for a channel
+  field its target or endpoint, and logs what it removed. `ReconcileEntry` skips a
+  missing key that is not a `Binding`, such as a Kafka write channel, and `DropDangling`
+  removes it as today. `bound.key` 0 is invalid. Phase 27 adds `BoundKeys`, the `Decode`
+  and hook arguments, the order, and a `cluster.Identity` input to the task service.
+  Phases 28 to 31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
