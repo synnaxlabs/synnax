@@ -15,7 +15,7 @@ from typing import override as _override
 
 from pydantic import BaseModel, Field
 
-from synnax import channel, device as device_, label, ranger, secret, task
+from synnax import channel as channel_, device as device_, label, ranger, secret, task
 from x import telem
 
 
@@ -53,7 +53,7 @@ class StreamConfig(task.StartConfig):
 
     device: device_.Key = ""
     asset: str = ""
-    channels: list[channel.Key] = Field(default_factory=list)
+    channels: list[channel_.Key] = Field(default_factory=list)
     labels: list[label.Key] = Field(default_factory=list)
 
     @_override
@@ -70,7 +70,19 @@ class Position(BaseModel):
             the index.
     """
 
-    index: channel.Key = Field(ge=0, le=4294967295)
+    index: channel_.Key = Field(ge=0, le=4294967295)
+    time: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class ChannelPosition(BaseModel):
+    """Is how far Sift has confirmed the values of one data channel.
+
+    Attributes:
+        channel: Is the data channel the position belongs to.
+        time: Is the time before which Sift confirmed every value of the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
     time: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
 
 
@@ -91,7 +103,7 @@ class UploadDetails(BaseModel):
     device: device_.Key
     range: ranger.Key | None = None
     time_range: telem.TimeRange
-    channels: list[channel.Key] = Field(default_factory=list)
+    channels: list[channel_.Key] = Field(default_factory=list)
     asset: str
     positions: list[Position] = Field(default_factory=list)
     samples: int = Field(default=0, ge=-9223372036854775808, le=9223372036854775807)
@@ -101,11 +113,18 @@ class StreamDetails(BaseModel):
     """Is the progress of a stream to Sift, held in the details of its status.
 
     Attributes:
+        start: Is the time the task started to send from, so a range that ends at or
+            before it gets no run.
         positions: Holds, for each index, how far Sift has confirmed the stream.
         runs_through: Is the time before which every labeled range that ended has a run.
+        behind: Holds each data channel that was written without its index and whose
+            values Sift has not confirmed. It is empty while every channel arrives with
+            its index.
     """
 
+    start: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
     positions: list[Position] = Field(default_factory=list)
     runs_through: telem.TimeStamp = Field(
         ge=-9223372036854775808, le=9223372036854775807
     )
+    behind: list[ChannelPosition] = Field(default_factory=list)
