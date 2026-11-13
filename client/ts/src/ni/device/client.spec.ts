@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -63,7 +63,7 @@ describe("NI device", async () => {
     });
 
     it("should throw a NotFoundError for a missing device", async () => {
-      await expect(client.ni.devices.retrieve({ key: id.create() })).rejects.toThrow(
+      await expect(client.ni.devices.retrieve({ key: uuid.create() })).rejects.toThrow(
         NotFoundError,
       );
     });
