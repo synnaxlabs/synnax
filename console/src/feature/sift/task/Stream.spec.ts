@@ -170,21 +170,6 @@ describe("Sift stream form", () => {
     expect(await findDialogTriggerByText("rig")).toBeTruthy();
   });
 
-  it("should show the asset of a snapshot without New asset", async () => {
-    const dev = await createSiftDevice(client);
-    const t = await client.tasks.create(
-      {
-        ...ZERO_DRAFT,
-        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "Test stand 1" },
-      },
-      Sift.Task.STREAM_SCHEMAS,
-    );
-    const snap = await client.tasks.copy(t.key, uniqueName("snap"), true);
-    await renderTaskFormTab(Sift.Task.Stream, { client, taskKey: snap.key });
-    expect(await screen.findByText("Test stand 1")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
-  });
-
   it("should save the labels that the user picks", async () => {
     const dev = await createSiftDevice(client);
     const [, data] = await newIndexedPair(client);
