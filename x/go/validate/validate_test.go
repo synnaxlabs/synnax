@@ -140,6 +140,13 @@ var _ = Describe("Validate", func() {
 			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
 		})
 
+		It("Should mark the Errorf error as a validation error", func() {
+			err := validate.Errorf("wrong: %d", 1)
+			Expect(err).To(MatchError("wrong: 1"))
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(err, validate.ErrValidation)).To(BeTrue())
+		})
+
 		It("Should mark the Ternaryf error as a validation error", func() {
 			v.Ternaryf("field", true, "wrong: %d", 1)
 			Expect(v.Error()).To(MatchError(validate.ErrValidation))
@@ -159,6 +166,7 @@ var _ = Describe("Validate", func() {
 				v.Ternary("field", true, "100% wrong")
 				return v.Error()
 			}()),
+			Entry("an Errorf failure", validate.Errorf("%d%% wrong", 100)),
 			Entry("a wrapped validation error", validate.ErrRequired),
 		)
 
