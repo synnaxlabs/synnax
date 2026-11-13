@@ -416,6 +416,16 @@ describe("range/next/Explorer", () => {
     });
   });
 
+  describe("item", () => {
+    it("should show no start for a range with no start", async () => {
+      const planned = await createPlanned(uniqueRangeName("planned"));
+      await renderExplorer();
+      const item = await findItem(planned.name);
+      const when = within(item).getByRole("group", { name: "Time range" });
+      expect(when.textContent).toBe("Planned");
+    });
+  });
+
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
       const planned = await createPlanned(uniqueRangeName("planned"));
