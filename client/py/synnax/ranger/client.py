@@ -311,7 +311,7 @@ class Range(Payload):
         :param color: An optional display color. None means the range has no color.
         :param labels: The keys of the labels to attach to the range.
         :param parent: The parent range, or its key. None means the range has no parent.
-        :param has_children: Whether other ranges are nested in the range. The cluster
+        :param has_children: Whether other ranges are nested in the range. The Core
             sets it on each retrieve, and it is never stored.
         :param _frame_client: The backing client for reading and writing data to
             and from the cluster. This is provided by Synnax during calls to
