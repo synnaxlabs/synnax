@@ -144,6 +144,17 @@ public:
         this->slave_list.push_back(std::move(result));
     }
 
+    /// @brief replaces the slave at position with props. A scan sees the change only
+    /// after deactivate(), as a restarted slave on a real bus.
+    void replace_slave(const uint16_t position, slave::Properties props) {
+        std::lock_guard lock(this->mu);
+        const auto it = std::ranges::find_if(
+            this->slave_list,
+            [position](const auto &s) { return s.properties.position == position; }
+        );
+        it->properties = std::move(props);
+    }
+
     /// @brief makes the PDO discovery of the slave at position fail with error and find
     /// no PDOs.
     void fail_pdo_discovery(const uint16_t position, const std::string &error) {

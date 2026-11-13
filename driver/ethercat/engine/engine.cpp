@@ -834,7 +834,7 @@ x::errors::Error
 Engine::configure(const slave::Properties &slave, const Parameters &parameters) {
     const auto [lock, lock_err] = this->lock_stopped();
     if (lock_err) return lock_err;
-    const auto [slaves, err] = this->master->scan();
+    const auto [slaves, err] = this->rediscover_locked();
     if (err) return err;
     const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
         const auto &p = s.properties;

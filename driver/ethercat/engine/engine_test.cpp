@@ -2026,8 +2026,24 @@ TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     ASSERT_NIL(this->engine->configure(io_slave(0), standalone));
     EXPECT_EQ(
         this->master->call_log(),
-        (std::vector<std::string>{"scan", "write", "deactivate", "scan"})
+        (std::vector<std::string>{"deactivate", "scan", "write", "deactivate", "scan"})
     );
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {0, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should scan the bus again before it looks for the slave, so a slave that
+/// restarted since the last scan is not looked up in that old scan.
+TEST_F(EngineTest, ConfigureScansTheBusAgainBeforeItLooksForTheSlave) {
+    ASSERT_NIL_P(this->engine->discover());
+    auto restarted = io_slave(0);
+    restarted.serial = 5;
+    this->master->replace_slave(0, restarted);
+    ASSERT_NIL(this->engine->configure(restarted, standalone));
     EXPECT_EQ(
         this->master->written(),
         (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
@@ -2100,13 +2116,16 @@ TEST_F(EngineTest, ConfigureRefusesAtOnceWhileATaskStartsTheBus) {
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
-/// @brief it should write nothing and discover nothing again when the parameters for
-/// the slave are empty.
+/// @brief it should write nothing and scan only once when the parameters for the slave
+/// are empty.
 TEST_F(EngineTest, ConfigureWritesNothingForNoParameters) {
     ASSERT_NIL(this->engine->configure(io_slave(0), [](const auto &) {
         return std::pair{std::vector<slave::StartupParameter>{}, x::errors::NIL};
     }));
-    EXPECT_EQ(this->master->call_log(), std::vector<std::string>{"scan"});
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{"deactivate", "scan"})
+    );
 }
 
 /// @brief it should call the network by the name of its master, not by its interface.
