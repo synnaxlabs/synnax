@@ -22,6 +22,7 @@ cc_library(
     deps = [
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 
