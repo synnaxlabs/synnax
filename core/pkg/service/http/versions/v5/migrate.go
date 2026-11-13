@@ -51,13 +51,14 @@ func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, 
 }
 
 // MigrateReadField lifts a v4 read field to v5. The stored data type picks the kind. A
-// field with a time format is a timestamp field, because v4 used a time format only on
-// a timestamp channel and defaulted the data type to float64. A float, integer, or
-// unsigned field keeps the data type for a new channel. An enum entry converts when the
-// kind holds its value, and a boolean entry is true when its value is not 0. A string
-// or timestamp field drops its entries, and a timestamp field with no time format takes
-// ISO 8601. Of entries that repeat a label, the first stays, and an empty label drops
-// on a kind other than string.
+// field with a time format and the float64 default or an unknown data type is a
+// timestamp field, because v4 used a time format only on a timestamp channel. On any
+// other data type the time format is left over, and the field keeps its kind. A float,
+// integer, or unsigned field keeps the data type for a new channel. An enum entry
+// converts when the kind holds its value, and a boolean entry is true when its value is
+// not 0. A string or timestamp field drops its entries, and a timestamp field with no
+// time format takes ISO 8601. Of entries that repeat a label, the first stays, and an
+// empty label drops on a kind other than string.
 //
 // An optional field's fill converts to the kind as the v4 Driver read it: an enum label
 // converts to the value of its entry, other text on a numeric field reads as a number,
@@ -169,7 +170,9 @@ func liftReadField(
 	switch {
 	case channelType != nil:
 		old.DataType = *channelType
-	case index || old.TimeFormat != nil:
+	case index:
+		old.DataType = telem.TimestampT
+	case old.TimeFormat != nil && defaultDataType(old.DataType):
 		old.DataType = telem.TimestampT
 	}
 	kind, ok := xpayload.KindOf(old.DataType)
@@ -203,6 +206,13 @@ func liftReadField(
 		Channel:  old.Channel,
 		Pointer:  old.Pointer,
 	}, o, nil, warn)
+}
+
+// defaultDataType returns true when dt is the v4 default of float64 or not a known data
+// type, so it says nothing about the field's channel.
+func defaultDataType(dt telem.DataType) bool {
+	_, known := xpayload.KindOf(dt)
+	return dt == telem.Float64T || !known
 }
 
 func uniqueLabels(entries []payload.EnumEntry, warn Warn) []payload.EnumEntry {
