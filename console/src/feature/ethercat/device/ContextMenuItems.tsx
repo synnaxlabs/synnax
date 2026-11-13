@@ -11,6 +11,7 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 
 import { useSlaves, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
@@ -54,10 +55,13 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const hasOutputs = slaves.some(
     ({ properties }) => properties.pdos.outputs.length > 0,
   );
-  const taskItems = [
-    ...(hasInputs ? [READ_TASK_ITEM] : []),
-    ...(hasOutputs ? [WRITE_TASK_ITEM] : []),
-  ];
+  // One task runs the modules of one network.
+  const oneNetwork =
+    unique.unique(slaves.map(({ rack, properties }) => `${rack}/${properties.network}`))
+      .length <= 1;
+  const taskItems = oneNetwork
+    ? [...(hasInputs ? [READ_TASK_ITEM] : []), ...(hasOutputs ? [WRITE_TASK_ITEM] : [])]
+    : [];
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });

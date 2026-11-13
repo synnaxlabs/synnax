@@ -303,6 +303,21 @@ describe("EtherCAT device ContextMenuItems", () => {
       expect(new Set(saved.map((d) => d.properties.identifier)).size).toBe(2);
     });
 
+    it("should offer no task for modules on different networks", async () => {
+      const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+      const create = async (network: string) =>
+        await createSlaveDevice(
+          client,
+          rack.key,
+          { network, pdos: createPDOs() },
+          false,
+        );
+      await renderContextMenu([await create("eth0"), await create("eth1")]);
+      expect(await screen.findByText("Disable")).toBeTruthy();
+      expect(screen.queryByText("Create read task")).toBeNull();
+      expect(screen.queryByText("Create write task")).toBeNull();
+    });
+
     it("should leave a slave with no outputs out of the write task", async () => {
       const { second, store } = await renderNewSlaves();
       fireEvent.click(await screen.findByText("Create write task"));
