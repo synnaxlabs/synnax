@@ -9,7 +9,6 @@
 
 import { lineplot, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
@@ -19,16 +18,13 @@ import { uniqueName } from "@/testutil";
 const client = createTestClient();
 
 describe("LinePlot.TABS restore", () => {
-  it("should restore a deleted line plot of a range into a project", async () => {
+  it("should restore a deleted line plot into the given project", async () => {
     const { restore } = LinePlot.TABS[lineplot.TYPE_RESOURCE_ID.type];
     assert(restore != null);
-    const rng = await client.ranges.create({
-      name: uniqueName("range"),
-      timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2)),
-    });
+    const from = await client.projects.create({ name: uniqueName("from") });
     const to = await client.projects.create({ name: uniqueName("to") });
     const created = await client.lineplots.create({
-      range: rng.key,
+      project: from.key,
       name: uniqueName("line plot"),
     });
     await client.lineplots.retrieve(created.key);
@@ -45,6 +41,5 @@ describe("LinePlot.TABS restore", () => {
     });
     const restored = await createTestClient().lineplots.retrieve(created.key);
     expect(restored.project).toEqual(to.key);
-    expect(restored.range).toBeUndefined();
   });
 });

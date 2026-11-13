@@ -12,9 +12,7 @@ import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { framer } from "@/framer";
-import { label } from "@/label";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
 import { status } from "@/status";
 import { task } from "@/task";
 import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
@@ -36,7 +34,6 @@ const createStreamedClient = async (recordCap?: number) => {
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
@@ -44,20 +41,8 @@ const createStreamedClient = async (recordCap?: number) => {
     file: new HTTPClient(coreURL, binary.JSON_CODEC),
     retrieveChannels: async () => [],
   });
-  const ranges = new ranger.Client({
-    unary,
-    cache,
-    labels,
-    framer: frames,
-  });
   const statuses = new status.Client({ unary, cache });
-  const tasks = new task.Client({
-    unary,
-    framer: frames,
-    ranges,
-    cache,
-    statuses,
-  });
+  const tasks = new task.Client({ unary, framer: frames, cache, statuses });
   await cache.ensureStreaming();
   return { stream, tasks, statuses };
 };

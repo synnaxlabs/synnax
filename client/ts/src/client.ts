@@ -360,7 +360,6 @@ export default class Synnax extends framer.Client {
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ranges: this.ranges,
       cache,
       statuses: this.statuses,
     });

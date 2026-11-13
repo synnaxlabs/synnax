@@ -38,10 +38,6 @@ export const RANGES_NAV: Nav.PageNavNode = {
       name: "Metadata and labels",
     },
     {
-      href: "/reference/ranges/snapshots",
-      name: "Snapshots",
-    },
-    {
       href: "/reference/ranges/data",
       name: "Read and write range data",
     },

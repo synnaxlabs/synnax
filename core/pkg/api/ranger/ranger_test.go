@@ -25,14 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -602,54 +598,6 @@ var _ = Describe("Delete cascades", func() {
 			},
 		}
 	}
-	createLinePlot := func(ctx SpecContext) held {
-		GinkgoHelper()
-		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Range: &r.Key})
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
-		})).To(Succeed())
-		return held{
-			id: lineplot.ResourceID(lp.Key),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				return MustSucceed(svc.LinePlot.NewRetrieve().
-					Where(lineplot.MatchKeys(lp.Key)).
-					Exists(ctx, db))
-			},
-		}
-	}
-	createSnapshot := func(ctx SpecContext) held {
-		GinkgoHelper()
-		t := task.Task{
-			Type:     pagerduty.AlertTaskType,
-			Rack:     svc.Rack.EmbeddedKey,
-			Name:     "Snapshot",
-			Snapshot: true,
-			Range:    &r.Key,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Task.NewWriter(tx).Create(ctx, &t)
-		})).To(Succeed())
-		grant(
-			ctx,
-			access.ActionUpdate,
-			u.ResourceID(),
-			t.ResourceID(),
-			svc.Rack.EmbeddedKey.ResourceID(),
-		)
-		grant(ctx, access.ActionDelete, u.ResourceID(), resource.ID{
-			Type: resource.TypeStatus,
-		})
-		return held{
-			id: t.ResourceID(),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				return MustSucceed(svc.Task.NewRetrieve().
-					Where(task.MatchKeys(t.Key)).
-					Exists(ctx, db))
-			},
-		}
-	}
 	DescribeTable(
 		"Should need delete on each record that the range holds",
 		func(ctx SpecContext, create func(ctx SpecContext) held) {
@@ -666,8 +614,6 @@ var _ = Describe("Delete cascades", func() {
 			Expect(h.exists(ctx)).To(BeFalse())
 		},
 		Entry("a nested range", createChild),
-		Entry("a line plot", createLinePlot),
-		Entry("a snapshot task", createSnapshot),
 	)
 })
 
