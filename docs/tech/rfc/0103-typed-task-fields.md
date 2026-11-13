@@ -169,7 +169,7 @@ non-string channel.
 
 ## 5 Rules by layer
 
-**Core write**, in `ResolveEntry` (`task/config/config.go:105`), through a `Channels`
+**Core write**, in `ResolveEntry` (`task/config/config.go`), through a `Channels`
 function that each service builds, as `slavesOf` does. It skips disabled fields and
 missing channels, because imports hold foreign keys. It rejects a kind that §4 does not
 allow, a fill or entry that does not fit the channel's width, and a fill on an index
@@ -205,14 +205,15 @@ On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel 
 device stores for it: the pointer's channel for a read field and the target's channel
 for a channel field. It binds only when that channel exists and holds the field's
 `data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
-one, and its key replaces the stored one. When a channel already holds the field's name
-and data type, the field binds to it. When the name is taken by a channel of another
-data type, the new channel adds its data type to the name, such as `temp_int32`, and
-binds to a channel that already holds that name and type. Each source picks one index:
-the channel of a bound index field, else the index of its first bound channel, else the
-stored index, else a new one. An unbound index field binds to it, each new channel takes
-it, and the device stores it. It then saves the field as bound. An adapter keeps the
-atomic Phase 13 near 400 lines, and Phase 15 deletes it.
+one, and its key replaces the stored one. When the replaced stored channel holds the
+field's name, the new channel adds its data type to the name, such as `temp_int32`. Any
+other name that a channel already holds fails configure, and the message tells the user
+to rename the field. Each source picks one index: the channel of a bound index field,
+else the index of its first bound channel, else the stored index, else a new one. An
+unbound index field binds to it, each new fixed-density channel takes it, and the device
+stores it. A new string or JSON channel stays virtual, as today. `onConfigure` then
+saves the field as bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase
+15 deletes it.
 
 ## 6 Field types
 
