@@ -168,22 +168,26 @@ const createChannelOn = (port: AOPort | DOPort): WriteChannel => ({
 });
 
 /**
- * Creates a channel on the lowest free port of the last channel's type, then of the
- * other type. Null when every port is taken.
+ * Creates a copy of the channel with the key, or of the last channel without one, on
+ * the lowest free port of its type, then of the other type. Null when the channel to
+ * copy is gone or every port is taken.
  */
 const createNextChannel = (
   channels: WriteChannel[],
   model: Model,
+  copy?: string,
 ): WriteChannel | null => {
-  const last = channels.at(-1);
+  const template =
+    copy == null ? channels.at(-1) : channels.find(({ key }) => key === copy);
+  if (copy != null && template == null) return null;
   const preferred =
-    last == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(last.type);
+    template == null ? DO_PORT_TYPE : convertWriteChannelTypeToPortType(template.type);
   const backup = preferred === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
   const port = getOpenPort(channels, model, [preferred, backup]);
   if (port == null) return null;
-  if (last == null) return createChannelOn(port);
+  if (template == null) return createChannelOn(port);
   return {
-    ...deep.copy(last),
+    ...deep.copy(template),
     ...Task.WRITE_CHANNEL_OVERRIDE,
     type: convertPortTypeToWriteChannelType(port.type),
     key: id.create(),
@@ -199,8 +203,8 @@ const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
   PForm.useCheck(path.config, uniqueTerminalsZ(model));
-  const createChannel = (channels: WriteChannel[]) =>
-    createNextChannel(channels, model);
+  const createChannel = (channels: WriteChannel[], copy?: string) =>
+    createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...p} device={device} />
   );
