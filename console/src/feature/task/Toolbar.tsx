@@ -27,7 +27,6 @@ import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
-import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -44,7 +43,6 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
-import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -62,10 +60,10 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  where: { internal: { eq: false }, snapshot: { eq: false } },
+  where: { internal: { eq: false } },
 };
 
-const filter = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) => !task.internal;
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
@@ -406,14 +404,11 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
-  const activeRange = Range.useResolve();
-  const snapshotToActiveRange = useRangeSnapshot();
   const resourceIDs = task.resourceID(keys);
   // Deleting the row of an Arc deletes the Arc.
   const arcIDs = arc.resourceID(
     selectedTasks.map(arc.task.arcKeyOf).filter((key) => key != null),
   );
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted([...resourceIDs, ...arcIDs]);
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
@@ -463,10 +458,6 @@ const ContextMenu = ({
       });
     copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
-  // The menu of an Arc has no snapshot.
-  const snapshotTasks = selectedTasks.filter(({ type }) => type !== arc.task.TYPE);
-  const showSnapshotToActiveRange =
-    activeRange?.variant === "persisted" && snapshotTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (
@@ -527,20 +518,6 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
-      )}
-      {hasCreatePermission && showSnapshotToActiveRange && (
-        <Range.SnapshotMenuItem
-          range={activeRange}
-          key="snapshot"
-          onClick={() =>
-            snapshotToActiveRange({
-              tasks: snapshotTasks.map(({ name, resourceID: { key } }) => ({
-                key,
-                name,
-              })),
-            })
-          }
-        />
       )}
       <Menu.Divider />
       {isSingle && (

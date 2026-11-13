@@ -61,7 +61,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -194,8 +193,6 @@ type Layer struct {
 	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
-	// Alias is for working with channel aliases on ranges.
-	Alias *alias.Service
 	// KV is for working with key-value pairs on ranges.
 	KV *kv.Service
 	// Project is for working with Projects.
@@ -903,15 +900,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-		Channel:         l.Channel,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
-		return nil, err
-	}
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
@@ -950,7 +938,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeProject:         l.Project.Resources(),
 			resource.TypeRack:            l.Rack.Resources(),
 			resource.TypeRange:           l.Ranger.Resources(),
-			resource.TypeRangeAlias:      l.Alias.Resources(),
 			resource.TypeRole:            l.RBAC.Role.Resources(),
 			resource.TypeSchematic:       l.Schematic.Resources(),
 			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
@@ -1000,11 +987,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Panel.CompositionMigrations(),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
+			rangeAliasDropMigration,
 		),
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if err = deleteOntologyChannels(
+	if err = deleteRetiredChannels(
 		ctx,
 		cfg.Distribution.DB,
 		l.Channel,

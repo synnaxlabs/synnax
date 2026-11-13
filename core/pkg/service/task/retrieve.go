@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -82,14 +81,6 @@ func MatchRacks(vals ...rack.Key) Filter {
 	}
 }
 
-// MatchRanges returns a filter for tasks whose Range matches any of the provided
-// values.
-func MatchRanges(vals ...ranger.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return r.indexes.rangeVal.Filter(vals...)
-	}
-}
-
 // MatchArcs returns a filter for the tasks that run any of the Arcs with the given
 // keys.
 func MatchArcs(arcs ...uuid.UUID) Filter {
@@ -126,15 +117,6 @@ func MatchInternal(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 			return e.Internal == v, nil
-		})
-	}
-}
-
-// MatchSnapshot returns a filter for tasks by their Snapshot field.
-func MatchSnapshot(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Task] {
-		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
-			return e.Snapshot == v, nil
 		})
 	}
 }

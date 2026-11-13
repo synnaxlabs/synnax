@@ -149,7 +149,7 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
-			"Should reject a panel with neither a project nor a range",
+			"Should reject a panel with no project",
 			func(ctx SpecContext) {
 				u := newUser(ctx)
 				p := panel.Panel{Key: uuid.New(), Name: "no-owner"}
@@ -158,7 +158,7 @@ var _ = Describe("Service", func() {
 				Expect(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
 					Panels: []panel.Panel{p},
 				})).Error().To(MatchError(ContainSubstring(
-					"must belong to exactly one of a project and a range",
+					"must belong to a project",
 				)))
 			},
 		)

@@ -57,7 +57,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		); err != nil {
 			return resource.ID{}, err
 		}
-		t.Group, t.Project, t.Range = opts.Group, &proj, nil
+		t.Group, t.Project = opts.Group, &proj
 		if err = s.NewWriter(tx).Create(ctx, &t); err != nil {
 			return resource.ID{}, err
 		}

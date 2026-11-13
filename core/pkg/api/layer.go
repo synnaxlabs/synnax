@@ -48,7 +48,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -88,7 +87,7 @@ type Transport struct {
 	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
@@ -118,14 +117,6 @@ type Transport struct {
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
 	// KVDispatch applies path actions to a range key-value pair.
 	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
-	// ALIAS
-	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
-	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
-	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
-	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
-	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
-	// AliasDispatch applies path actions to a range alias.
-	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -285,7 +276,6 @@ type Layer struct {
 	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
-	Alias        *alias.Service
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
@@ -409,14 +399,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVSet,
 		t.KVDelete,
 		t.KVDispatch,
-
-		// ALIAS
-		t.AliasSet,
-		t.AliasResolve,
-		t.AliasRetrieve,
-		t.AliasList,
-		t.AliasDelete,
-		t.AliasDispatch,
 
 		// PROJECT
 		t.ProjectDelete,
@@ -653,14 +635,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
-	// ALIAS
-	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
-	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
-	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
-	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
-	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
-	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
-
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
@@ -877,7 +851,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
-		Alias:   cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
@@ -911,11 +884,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.KV, err = kv.NewService(kv.ServiceConfig{
 		KV: cfg.Service.KV,
-	}); err != nil {
-		return nil, err
-	}
-	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		Alias: cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
