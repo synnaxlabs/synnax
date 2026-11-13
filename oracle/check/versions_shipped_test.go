@@ -1057,6 +1057,22 @@ Channel struct {
 				))
 			})
 
+		It("Should fail a removed chain that does not resolve at the release", func() {
+			write(releaseRoot, v0Path, `
+import "schemas/x/versions/text/v0"
+
+Channel struct {
+    level text.Level
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(ConsistOf(
+				"schemas/synnax/channel at core/v0.60.1: no version chain for " +
+					"schemas/x/text",
+			))
+		})
+
 		It("Should fail a removed chain when a current chain does not resolve",
 			func() {
 				write(root, "schemas/synnax/versions/other/v0.oracle", `
