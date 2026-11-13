@@ -174,7 +174,13 @@ describe("lineplot/toolbar/Data", () => {
       const options = screen.getAllByRole("option");
       expect(options).toHaveLength(1);
       expect(within(options[0]).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
-      expect(screen.queryByText("No favorite ranges found")).toBeNull();
+      expect(screen.queryByText("No pinned ranges found")).toBeNull();
+    });
+
+    it("says no pinned ranges match a search that finds none", async () => {
+      await renderData([]);
+      search("no such range");
+      await screen.findByText("No pinned ranges found");
     });
 
     it("replaces the window with the live option picked", async () => {

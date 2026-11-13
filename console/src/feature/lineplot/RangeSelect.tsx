@@ -272,7 +272,7 @@ const ABOVE: position.LocationPreference = {
 
 const emptyContent = (
   <Status.Summary center variant="disabled">
-    No favorite ranges found
+    No pinned ranges found
   </Status.Summary>
 );
 
