@@ -371,6 +371,45 @@ var _ = Describe("Read field", func() {
 			))
 		})
 
+		It("Should import a v1 timestamp field with its time format", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, telem.TimestampT)
+			data := MustSucceed(svc.Read.Normalize(ctx, db, 1, readConfig(
+				map[string]any{
+					"key":         "f1",
+					"channel":     ch.Key(),
+					"pointer":     "/ts",
+					"time_format": "unix_ms",
+				},
+			)))
+			Expect(fieldsOf(data)[0]).To(SatisfyAll(
+				HaveKeyWithValue("type", "timestamp"),
+				HaveKeyWithValue("time_format", "unix_ms"),
+			))
+		})
+
+		It(
+			"Should import a v1 field on a boolean channel by the rules of Reconcile",
+			func(
+				ctx SpecContext,
+			) {
+				ch := createChannel(ctx, telem.BooleanT)
+				data := MustSucceed(svc.Read.Normalize(ctx, db, 1, readConfig(
+					map[string]any{
+						"key":         "f1",
+						"channel":     ch.Key(),
+						"pointer":     "/v",
+						"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
+					},
+				)))
+				Expect(fieldsOf(data)[0]).To(SatisfyAll(
+					HaveKeyWithValue("type", "boolean"),
+					HaveKeyWithValue("enum_values", BeEmpty()),
+				))
+			},
+		)
+
 		It("Should leave a field with no channel unchanged", func(ctx SpecContext) {
 			Expect(normalize(ctx, readField("float", channel.Channel{}, map[string]any{
 				"data_type": "float32",

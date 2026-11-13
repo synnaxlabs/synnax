@@ -1087,6 +1087,39 @@ describe("MQTT Read form", () => {
       expect(index).toBeGreaterThan(0);
     });
 
+    it("should create the channel of a field's data type", async () => {
+      const { container, dev, draft } = await renderRead([
+        createReadEntry("e1", "plant/count", {
+          fields: [createReadField("f1", "/n", { dataType: "int32" })],
+        }),
+      ]);
+      await deployAndAwaitTask(client, container, draft.key, MQTT.Task.READ_SCHEMAS);
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      const key = updated.properties.read["plant/count"].channels["/n"];
+      expect((await client.channels.retrieve(key)).dataType.toString()).toBe("int32");
+    });
+
+    it("should show a deploy error on the data type of a field", async () => {
+      const { container } = await renderRead([
+        createReadEntry("e1", "plant/mixed", {
+          fields: [
+            createReadField("f1", "/n"),
+            createReadField("f2", "/s", { dataType: "string" }),
+          ],
+        }),
+      ]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/s/ }));
+      await clickDeploy(container);
+      expect(
+        await screen.findByText(
+          "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
+        ),
+      ).toBeTruthy();
+    });
+
     it("should create virtual channels with no index for string fields", async () => {
       const { container, dev, draft } = await renderRead([
         createReadEntry("e1", "plant/mode", {
