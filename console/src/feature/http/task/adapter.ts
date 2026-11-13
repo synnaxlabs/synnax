@@ -49,14 +49,14 @@ const isNumeric = (field: ReadField): field is NumericField =>
 
 const MAX_FLOAT32 = 3.4028234663852886e38;
 
-/**
- * @returns v, a float or the decimal text of an integer, as a value of the kind of the
- * data type, or undefined when a channel of the data type cannot hold it exactly.
- */
 const NON_FINITE = new Set(["NaN", "Infinity", "-Infinity"]);
 
 const INTEGER_TEXT = /^-?\d+$/;
 
+/**
+ * @returns v, a float or the decimal text of an integer, as a value of the kind of the
+ * data type, or undefined when a channel of the data type cannot hold it exactly.
+ */
 const convertNumber = (
   v: number | string,
   kind: NumericKind,
@@ -87,8 +87,12 @@ const convertNumber = (
   return n >= min && n <= max ? n.toString() : undefined;
 };
 
-/** @returns v as a boolean that is true when v is not 0, or undefined for NaN. */
+/**
+ * @returns v as a boolean that is true when v is not 0, or undefined for NaN or text
+ * that is not an integer.
+ */
 const toBoolean = (v: number | string): boolean | undefined => {
+  if (typeof v === "string" && !INTEGER_TEXT.test(v)) return undefined;
   const f = typeof v === "number" ? v : Number(v);
   return Number.isNaN(f) ? undefined : f !== 0;
 };

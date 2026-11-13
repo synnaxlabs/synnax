@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -467,11 +468,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 if (conv_err)
                     warning = "Failed to convert " + field.pointer.to_string() +
                               " for channel " + ch.name + ": " + conv_err.data;
-                else if (dt == x::telem::BOOLEAN_T)
-                    sample_val = static_cast<uint8_t>(
-                        std::get<double>(x::telem::FLOAT64_T.cast(val)) != 0
-                    );
-                else
+                else if (dt == x::telem::BOOLEAN_T) {
+                    const auto f = std::get<double>(x::telem::FLOAT64_T.cast(val));
+                    if (std::isnan(f))
+                        warning = "Failed to convert " + field.pointer.to_string() +
+                                  " for channel " + ch.name + ": NaN is not a boolean";
+                    else
+                        sample_val = static_cast<uint8_t>(f != 0);
+                } else
                     sample_val = dt.cast(val);
             }
 

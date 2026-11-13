@@ -3280,6 +3280,22 @@ TEST(HTTPReadTask, BooleanFieldReadsNumbersNotZeroAsTrue) {
     EXPECT_EQ(fr.at<uint8_t>(3, 0), 0);
 }
 
+/// @brief it should warn on NaN text on a boolean channel, which is not a boolean.
+TEST(HTTPReadTask, BooleanFieldWarnsOnNaN) {
+    BooleanReadField field;
+    field.pointer = "/state";
+    field.channel = 1;
+    ReadEndpoint ep;
+    ep.fields = {field};
+    ReadTaskConfig cfg;
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "state", .data_type = x::telem::BOOLEAN_T};
+
+    auto [fr, res] = read_once(cfg, R"({"state": "NaN"})");
+    ASSERT_NIL(res.error);
+    EXPECT_NE(res.warning.description.find("NaN is not a boolean"), std::string::npos);
+}
+
 /// @brief it should write the exact typed integer fill of a parsed config when the
 /// value is absent.
 TEST(HTTPReadTask, ParsedIntegerFillWritesExactly) {
