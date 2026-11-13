@@ -212,16 +212,6 @@ func noteLift(ins alamos.Instrumentation, key uuid.UUID) func(field, change stri
 	}
 }
 
-// ImportReadConfig is MigrateReadConfig for an import, and logs each change to a field
-// through ins.
-func ImportReadConfig(
-	ctx context.Context,
-	old v1.ReadConfig,
-	ins alamos.Instrumentation,
-) (ReadConfig, error) {
-	return migrateReadConfig(ctx, old, nil, noteLift(ins, old.Key))
-}
-
 // NewReadMigration returns the migration that lifts stored read configs to v2, with the
 // kind of each field's channel read through channels, then reconciles each field with
 // its channel. It logs each change to a field.
