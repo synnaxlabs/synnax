@@ -665,8 +665,10 @@ var _ = Describe("Engine", func() {
 		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			run.Key = "hotfire"
-			Expect(e.SetRun(ctx, run)).Error().
-				To(MatchError(`run key "hotfire" is not a UUID: invalid uuid`))
+			Expect(e.SetRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
 			Expect(server.Runs()).To(BeEmpty())
 		})
 

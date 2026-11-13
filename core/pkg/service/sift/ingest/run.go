@@ -18,9 +18,9 @@ import (
 
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/breaker"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	xuuid "github.com/synnaxlabs/x/uuid"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -46,7 +46,7 @@ type Run struct {
 func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
 	rng, err := uuid.Parse(r.Key)
 	if err != nil {
-		return "", errors.Wrapf(err, "run key %q is not a UUID", r.Key)
+		return "", validate.Errorf("run key %q is not a UUID", r.Key)
 	}
 	key := xuuid.NewV5(rng, e.cfg.Asset).String()
 	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
