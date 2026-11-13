@@ -14,7 +14,7 @@
 # Usage: resolve_version.sh <product> <prerelease> <ref> [bump] [core]
 #
 # Every product releases only from main or a release branch: release/X.Y, the one
-# branch of train X.Y, or release/desktop-X.Y for Desktop.
+# branch of train X.Y, or release/desktop-X.Y, which releases only Desktop.
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
 # tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the product has
@@ -90,6 +90,10 @@ case "$PRODUCT" in
             exit 1
         fi
         TRAIN=$(release_train "")
+        if [ -n "$(release_train desktop-)" ]; then
+            echo "$REF releases only Desktop. Leave $PRODUCT out of the run" >&2
+            exit 1
+        fi
         if [ -z "$TRAIN" ] && [ "$REF" != main ]; then
             echo "releases run only from main or release/X.Y, not '$REF'" >&2
             exit 1
