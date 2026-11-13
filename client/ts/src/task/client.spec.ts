@@ -49,7 +49,6 @@ const createStreamedClient = async (recordCap?: number) => {
     cache,
     labels,
     framer: frames,
-    channels: async () => [],
   });
   const statuses = new status.Client({ unary, cache });
   const tasks = new task.Client({

@@ -595,7 +595,6 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Project", resource.TypeProject),
 		Entry("Rack", resource.TypeRack),
 		Entry("Range", resource.TypeRange),
-		Entry("RangeAlias", resource.TypeRangeAlias),
 		Entry("Role", resource.TypeRole),
 		Entry("Schematic", resource.TypeSchematic),
 		Entry("SchematicSymbol", resource.TypeSchematicSymbol),

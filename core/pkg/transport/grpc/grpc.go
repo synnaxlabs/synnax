@@ -32,7 +32,6 @@ import (
 	apinidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -51,7 +50,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
@@ -70,7 +68,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		auth.New(&t),
 		ranger.New(&t),
 		kv.New(&t),
-		alias.New(&t),
 		rack.New(&t),
 		task.New(&t),
 		device.New(&t),
@@ -147,7 +144,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
 	// RANGE
-	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC

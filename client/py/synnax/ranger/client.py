@@ -21,7 +21,7 @@ from freighter import UnaryClient
 from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import actions_gen, alias as alias_, kv
+from synnax.ranger import actions_gen, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Cursor,
@@ -82,8 +82,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    _aliaser: alias_.Client | None = PrivateAttr(None)
-    """An aliaser for setting the channel's alias."""
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
     _tasks: TaskClient | None = PrivateAttr(None)
@@ -97,12 +95,10 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         frame_client: framer.Client,
         tasks: TaskClient,
         payload: channel.Payload,
-        _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
         self._cached_range = rng
         self._cached_frame_client = frame_client
-        self._aliaser = _aliaser
         self._tasks = tasks
 
     @property
@@ -142,9 +138,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         if self._cache is None:
             self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
-
-    def set_alias(self, alias: str) -> None:
-        self._range.set_alias(self.key, alias)
 
     @override
     def __str__(self) -> str:
@@ -235,10 +228,6 @@ class ScopedChannel(ArrayOperators):
         self._guard()
         return self._internal[0].leaseholder
 
-    def set_alias(self, alias: str) -> None:
-        self._guard()
-        self._internal[0].set_alias(alias)
-
     def __iter__(self) -> Iterator[_InternalScopedChannel]:
         return iter(self._internal)
 
@@ -265,8 +254,6 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
-    """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr({})
     """A writer for creating child ranges"""
     _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr({})
@@ -288,7 +275,6 @@ class Range(Payload):
         _frame_client: framer.Client | None = None,
         _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
-        _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
         _tasks: TaskClient | None = None,
         _label_client: label.Client | None = None,
@@ -326,7 +312,6 @@ class Range(Payload):
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self._cached_aliaser = _aliaser
         self._cached_client = _client
         self._cached_tasks = _tasks
         self._cached_label_client = _label_client
@@ -348,8 +333,6 @@ class Range(Payload):
         if scoped is not None:
             return scoped
         channels = self._channel_retriever.retrieve(query)
-        aliases = self._aliaser.resolve([query])
-        channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         scoped = self._get_scoped_channel(channels, query)
         self._scoped[query] = scoped
         return scoped
@@ -392,12 +375,6 @@ class Range(Payload):
         return self._kv
 
     @property
-    def _aliaser(self) -> alias_.Client:
-        if self._cached_aliaser is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_aliaser
-
-    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
@@ -426,30 +403,6 @@ class Range(Payload):
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
-
-    @overload
-    def set_alias(self, channel: channel.Key | str, alias: str) -> None: ...
-
-    @overload
-    def set_alias(self, channel: dict[channel.Key | str, str]) -> None: ...
-
-    def set_alias(
-        self,
-        channel: channel.Key | str | dict[channel.Key | str, str],
-        alias: str | None = None,
-    ) -> None:
-        if not isinstance(channel, dict):
-            if alias is None:
-                raise ValueError("Alias must be provided if channel is not a dict")
-            channel = {channel: alias}
-        corrected = {}
-        for ch, alias in channel.items():
-            if isinstance(ch, str):
-                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
-            else:
-                corrected[ch] = alias
-        self._aliaser.set(corrected)
-        self._scoped.clear()
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -911,7 +864,6 @@ class Client:
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=kv.Client(rng=r.key, client=self._unary_client),
-                _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
                 _tasks=self._tasks,
                 _label_client=self._labels,
