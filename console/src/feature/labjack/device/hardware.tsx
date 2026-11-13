@@ -16,6 +16,13 @@ import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.LabJack />;
 
+/** Binds the configure form and menu items to the generic device table. */
+export const ADAPTER = Device.createLegacyAdapter({
+  make: MAKE,
+  zeroProperties: ZERO_PROPERTIES,
+  suggestIdentifiers,
+});
+
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "LabJack",
@@ -25,11 +32,7 @@ export const HARDWARE: Device.Hardware = {
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "plain" },
-  Configure: Device.createConfigure({
-    icon: ICON,
-    zeroProperties: ZERO_PROPERTIES,
-    suggestIdentifiers,
-  }),
+  Configure: Device.createConfigure({ icon: ICON, adapter: ADAPTER }),
   checks: [
     "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",
     "Kipling and other LabJack programs are closed, because they hold the device.",
