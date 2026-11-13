@@ -217,10 +217,6 @@ const validatePointer = (ctx: z.core.ParsePayload<ChannelField>) => {
     });
 };
 
-// The Core sets each pointer in turn, so one inside another replaces or blocks it.
-const overlaps = (a: string, b: string) =>
-  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
-
 const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const { value } = ctx;
   const { channel, fields } = value;
@@ -238,7 +234,9 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const pointers = [channel.pointer];
   fields.forEach((field, i) => {
     if (field.pointer === "") return;
-    if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
+    if (
+      pointers.some((pointer) => Task.Payload.pointersOverlap(pointer, field.pointer))
+    )
       ctx.issues.push({
         code: "custom",
         input: value,
