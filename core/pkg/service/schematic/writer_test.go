@@ -224,6 +224,117 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("test"))
 			},
 		)
+		Describe("Edge actions", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"edges","nodes":[{"key":"a"},{"key":"b"}],"edges":[`+
+						`{"key":"e1","source":{"node":"a","param":"o"},`+
+						`"target":{"node":"b","param":"i"},"stroke_color":"#ff0000"}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+
+			retrieve := func(ctx SpecContext) schematic.Schematic {
+				GinkgoHelper()
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				return res
+			}
+
+			invalidWidth := SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("stroke_width")),
+			)
+
+			DescribeTable("Should reject a stroke width out of bounds",
+				func(ctx SpecContext, a schematic.Action) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(invalidWidth)
+					Expect(retrieve(ctx).Edges[0].StrokeWidth).To(BeEquivalentTo(2))
+				},
+				Entry("set_edge_style at 0", schematic.NewSetEdgeStyleAction(
+					schematic.SetEdgeStylePayload{
+						Key:         "e1",
+						StrokeWidth: new(uint8(0)),
+					},
+				)),
+				Entry("set_edge_style at 21", schematic.NewSetEdgeStyleAction(
+					schematic.SetEdgeStylePayload{
+						Key:         "e1",
+						StrokeWidth: new(uint8(21)),
+					},
+				)),
+				Entry("set_edge at 21", schematic.NewSetEdgeAction(
+					schematic.SetEdgePayload{Edge: schematic.Edge{
+						Key:         "e1",
+						Source:      schematic.Handle{Node: "a", Param: "o"},
+						Target:      schematic.Handle{Node: "b", Param: "i"},
+						Variant:     schematic.EdgeVariantPipe,
+						StrokeWidth: 21,
+					}},
+				)),
+			)
+
+			It("Should apply each field-level edge action", func(ctx SpecContext) {
+				segments := []schematic.Segment{{Direction: "x", Length: 40}}
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					schematic.NewSetEdgeStyleAction(schematic.SetEdgeStylePayload{
+						Key:         "e1",
+						StrokeWidth: new(uint8(6)),
+					}),
+					schematic.NewSetEdgeSegmentsAction(schematic.SetEdgeSegmentsPayload{
+						Key:      "e1",
+						Segments: segments,
+					}),
+					schematic.NewClearEdgeStrokeColorAction(
+						schematic.ClearEdgeStrokeColorPayload{Key: "e1"},
+					),
+				})).To(Succeed())
+				e := retrieve(ctx).Edges[0]
+				Expect(e.StrokeWidth).To(BeEquivalentTo(6))
+				Expect(e.Segments).To(Equal(segments))
+				Expect(e.StrokeColor).To(BeNil())
+			})
+
+			DescribeTable(
+				"Should do nothing for an edge that does not exist",
+				func(ctx SpecContext, a schematic.Action) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(Succeed())
+					res := retrieve(ctx)
+					Expect(res.Edges).To(HaveLen(1))
+					Expect(res.Edges[0].Key).To(Equal("e1"))
+					Expect(res.Edges[0].StrokeColor).ToNot(BeNil())
+				},
+				Entry("set_edge_style", schematic.NewSetEdgeStyleAction(
+					schematic.SetEdgeStylePayload{
+						Key:         "ghost",
+						StrokeWidth: new(uint8(6)),
+					},
+				)),
+				Entry("set_edge_segments", schematic.NewSetEdgeSegmentsAction(
+					schematic.SetEdgeSegmentsPayload{
+						Key:      "ghost",
+						Segments: []schematic.Segment{{Direction: "x", Length: 40}},
+					},
+				)),
+				Entry(
+					"clear_edge_stroke_color",
+					schematic.NewClearEdgeStrokeColorAction(
+						schematic.ClearEdgeStrokeColorPayload{Key: "ghost"},
+					),
+				),
+			)
+		})
+
 		Describe("A schematic that stores a zero scale", func() {
 			var stored schematic.Schematic
 			BeforeEach(func(ctx SpecContext) {
