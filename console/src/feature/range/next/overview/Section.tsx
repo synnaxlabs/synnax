@@ -88,6 +88,7 @@ export const AddButton = ({ tooltip, onClick }: AddButtonProps): ReactElement =>
     textColor={9}
     tooltip={tooltip}
     tooltipLocation="left"
+    aria-label={tooltip}
     onClick={onClick}
   >
     <Icon.Add />

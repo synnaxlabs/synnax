@@ -278,6 +278,18 @@ describe("range/next/overview", () => {
       expect(await rng.kv.get("operator")).toBe("grace");
     });
 
+    it("should collapse the section on its title and open it again on an action", async () => {
+      const rng = await createTestRange(client);
+      await rng.kv.set("operator", "ada");
+      await renderOverview(rng.key);
+      await screen.findByDisplayValue("ada");
+      fireEvent.click(screen.getByRole("button", { name: /Metadata/, expanded: true }));
+      await waitFor(() => expect(screen.queryByDisplayValue("ada")).toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "Add metadata" }));
+      await screen.findByDisplayValue("ada");
+      expect(screen.getByPlaceholderText("Key")).toBeTruthy();
+    });
+
     it("should remove a pair", async () => {
       const rng = await createTestRange(client);
       await rng.kv.set("operator", "ada");
