@@ -552,6 +552,35 @@ describe("color.Color", () => {
     });
   });
 
+  describe("oklch", () => {
+    test("should give white a lightness of 1 and no chroma", () => {
+      const [l, c, , a] = color.oklch("#ffffff");
+      expect(l).toBeCloseTo(1);
+      expect(c).toBeCloseTo(0);
+      expect(a).toEqual(1);
+    });
+    test.each(["#ff0000", "#3774d080", "#123456", "#00000000"])(
+      "should round trip %s through fromOKLCH",
+      (hex) => {
+        expect(color.fromOKLCH(color.oklch(hex))).toEqual(color.construct(hex));
+      },
+    );
+    test("should clamp an out-of-gamut color into sRGB", () => {
+      const c = color.fromOKLCH([0.9, 0.4, 30, 1]);
+      expect(color.isColor(c)).toBe(true);
+      expect(c[0]).toEqual(255);
+    });
+  });
+
+  describe("over", () => {
+    test("should paint the foreground over the background at an opacity", () => {
+      expect(color.over("#ff0000", "#0000ff", 0.25)).toEqual([64, 0, 191, 255]);
+    });
+    test("should return the background at opacity 0", () => {
+      expect(color.over("#ff0000", "#00ff0080", 0)).toEqual([0, 255, 0, 255]);
+    });
+  });
+
   describe("hsva", () => {
     test("converts primary colors", () => {
       expect(color.hsva("#ff0000")).toEqual([0, 100, 100, 1]);
