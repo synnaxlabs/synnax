@@ -161,8 +161,11 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 	})
 }
 
-// checkArrayDefaultSize enforces that every fixed-size array in a field's default,
-// nested ones included, has exactly as many elements as the array.
+// checkArrayDefaultSize enforces that a fixed-size array in a field's own default has
+// exactly as many elements as the array. It checks the default itself, array elements,
+// and the fields of a struct literal whose type is a struct, an alias of one, or a
+// union variant. It does not check a struct literal typed through a type parameter, a
+// distinct type, or a map, nor a default that a struct inherits.
 func checkArrayDefaultSize(c *analysisCtx) {
 	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
 		checkArraySizes(c, typ, f, f.Type, *f.Default)

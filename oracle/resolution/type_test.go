@@ -380,6 +380,59 @@ var _ = Describe("ArraySize", func() {
 	)
 })
 
+var _ = Describe("Collection", func() {
+	var table *resolution.Table
+	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: args}
+	}
+	tp := resolution.TypeParam{Name: "T"}
+	tpRef := resolution.TypeRef{TypeParam: &tp}
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(name string, form resolution.TypeForm) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form:          form,
+			})).To(Succeed())
+		}
+		params := []resolution.TypeParam{tp}
+		add("Pair", resolution.StructForm{})
+		add("Wrap", resolution.AliasForm{Target: tpRef, TypeParams: params})
+		add("Fixed", resolution.DistinctForm{Base: tpRef, TypeParams: params})
+		add("Grow", resolution.AliasForm{
+			Target:     ref("t.Grow", ref("t.Grow", tpRef)),
+			TypeParams: params,
+		})
+	})
+
+	It("Should return the collection with its type arguments applied", func() {
+		collection := MustBeOk(resolution.Collection(
+			ref("t.Wrap", ref("Array", ref("t.Pair"))),
+			table,
+		))
+		Expect(collection.Name).To(Equal("Array"))
+		Expect(collection.TypeArgs).To(Equal([]resolution.TypeRef{ref("t.Pair")}))
+	})
+
+	It("Should apply the type arguments of a generic distinct type", func() {
+		collection := MustBeOk(resolution.Collection(
+			ref("t.Fixed", ref("Map", ref("string"), ref("t.Pair"))),
+			table,
+		))
+		Expect(collection.Name).To(Equal("Map"))
+		Expect(collection.TypeArgs[1]).To(Equal(ref("t.Pair")))
+	})
+
+	It("Should return false for a self-expanding alias", func() {
+		_, ok := resolution.Collection(ref("t.Grow", ref("string")), table)
+		Expect(ok).To(BeFalse())
+	})
+})
+
 var _ = Describe("Dealias", func() {
 	var table *resolution.Table
 	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
