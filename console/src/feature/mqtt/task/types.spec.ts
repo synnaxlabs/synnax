@@ -434,6 +434,18 @@ describe("MQTT Task Types", () => {
       ).toBe(true);
     });
 
+    it("should hold an enabled bytes field with no pointer", () => {
+      const { config: shape } = MQTT.Task.READ_SCHEMAS;
+      const bytes = (overrides: object) =>
+        readConfig({
+          ...entry,
+          fields: [{ ...field, type: "bytes", pointer: "", ...overrides }],
+        });
+      expect(shape.safeParse(bytes({})).success).toBe(false);
+      expect(shape.safeParse(bytes({ disabled: true })).success).toBe(true);
+      expect(shape.safeParse(bytes({ pointer: "/raw" })).success).toBe(true);
+    });
+
     it("should reject an empty enum label on a numeric field", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig({

@@ -134,7 +134,16 @@ const readFieldZ = z.discriminatedUnion("type", [
   mqtt.timestampReadFieldZ,
   mqtt.jsonReadFieldZ,
   mqtt.uuidReadFieldZ,
-  mqtt.bytesReadFieldZ,
+  // The Core refuses an enabled bytes field with no pointer.
+  mqtt.bytesReadFieldZ.check((ctx) => {
+    if (!ctx.value.disabled && ctx.value.pointer === "")
+      ctx.issues.push({
+        code: "custom",
+        input: ctx.value,
+        message: "A bytes field requires a JSON pointer",
+        path: ["pointer"],
+      });
+  }),
 ]);
 
 const readConfigZ = mqtt.readConfigZ.extend({
