@@ -220,16 +220,18 @@ user name of that form loses the suffix too, which changes only the name of the 
 channel. An empty name first takes the name the Console generates today. A new channel
 takes the name when it is free, else the name with its data type as a suffix, such as
 `temp_int32`, else that name with a counter, such as `temp_int32_2`, until a name is
-free. A taken name never fails configure, and configure never binds by name. Each source
-picks one index: the channel of a bound index field, else the first non-zero index of
-its bound channels, on HTTP and MQTT the stored index when it still exists, else a new
-one. An unbound index field binds to it, and each new fixed-density read channel takes
-it. A command channel keeps its own `_time` index, as today. A new index takes the
-unbound index field's `unbound.name`, or else the generated `_time` name, under the same
-rename rule. On HTTP and MQTT the device stores the source's index. On HTTP and MQTT, a
-new variable-density channel (string, JSON, or bytes) stays virtual, as today. On Kafka
-it takes the index, as today. `onConfigure` then saves the field as bound. An adapter
-keeps the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
+free. Each name is checked against the channels that the same configure already created,
+and an "already exists" error from the Core retries with the next name. A taken name
+never fails configure, and configure never binds by name. Each source picks one index:
+the channel of a bound index field, else the first non-zero index of its bound channels,
+on HTTP and MQTT the stored index when it still exists, else a new one. An unbound index
+field binds to it, and each new fixed-density read channel takes it. A command channel
+keeps its own `_time` index, as today. A new index takes the unbound index field's
+`unbound.name`, or else the generated `_time` name, under the same rename rule. On HTTP
+and MQTT the device stores the source's index. On HTTP and MQTT, a new variable-density
+channel (string, JSON, or bytes) stays virtual, as today. On Kafka it takes the index,
+as today. `onConfigure` then saves the field as bound. An adapter keeps the atomic Phase
+12 near 400 lines, and Phase 14 deletes it.
 
 ## 6 Field types
 
@@ -355,11 +357,12 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   stored with `command_channel` 0 and no `command_channel_name` still rejects writes.
   With no map entry for a missing `Binding` key, `ReconcileEntry` removes the field, or
   for a channel field its target or endpoint, and logs what it removed. `ReconcileEntry`
-  skips a missing key that is not a `Binding`, such as a Kafka write channel, and
-  `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
-  `ChannelKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
-  input to the task service. Phases 28 to 31 apply the rule. Phase 29 changes the shared
-  `configureReadChannels`, and Phase 31 uses it.
+  applies these rules to each of the four keys above, missing or foreign, before
+  `DropDangling` runs. It skips any other missing key, and `DropDangling` removes it as
+  today. `bound.key` 0 is invalid. Phase 27 adds `ChannelKeys`, the `Decode` and hook
+  arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
+  31 apply the rule. Phase 29 changes the shared `configureReadChannels`, Phase 30
+  changes `configureCommandChannel`, and Phase 31 uses both.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
@@ -415,4 +418,4 @@ carries a config keeps the `Float` text form; check C++ `to_json`.
 | 28    | Bind Kafka read fields to `task.Binding`              | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/task`, `console/src/feature/kafka`, `client`, `site/docs/src/pages/reference/hardware`                                | 7, 27                          |
 | 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                | 9, 27                          |
 | 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                | 10, 27                         |
-| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27, 29             |
+| 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27, 29, 30         |
