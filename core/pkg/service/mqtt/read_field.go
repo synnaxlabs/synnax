@@ -14,9 +14,14 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/validate"
@@ -78,6 +83,27 @@ func readChannels(svc *channel.Service) v2.Channels {
 			}
 		}), nil
 	}
+}
+
+// readLadder is versions.ReadConfigLadder, except that a v1 config lifts through
+// v2.ImportReadConfig, which logs each change to a field through ins.
+func readLadder(ins alamos.Instrumentation) imex.Ladder[ReadConfig] {
+	ladder := versions.ReadConfigLadder
+	ladder.Decode = func(
+		ctx context.Context,
+		version imex.Version,
+		data msgpack.EncodedJSON,
+	) (ReadConfig, error) {
+		if version != v1.Version {
+			return versions.ReadConfigLadder.Decode(ctx, version, data)
+		}
+		old, err := imex.DecodeBlob[v1.ReadConfig](data, "mqtt.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return v2.ImportReadConfig(ctx, old, ins)
+	}
+	return ladder
 }
 
 // resolveReadConfig checks each enabled field of an enabled entry of cfg against its

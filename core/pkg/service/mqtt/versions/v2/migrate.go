@@ -199,6 +199,29 @@ func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, erro
 	return migrateReadConfig(ctx, old, nil, func(string, string) {})
 }
 
+// noteLift returns the note that logs each change the v1 lift makes to a field of the
+// config with key.
+func noteLift(ins alamos.Instrumentation, key uuid.UUID) func(field, change string) {
+	return func(field, change string) {
+		ins.L.Warn(
+			"changed an MQTT read field to v2",
+			zap.Stringer("config", key),
+			zap.String("field", field),
+			zap.String("change", change),
+		)
+	}
+}
+
+// ImportReadConfig is MigrateReadConfig for an import, and logs each change to a field
+// through ins.
+func ImportReadConfig(
+	ctx context.Context,
+	old v1.ReadConfig,
+	ins alamos.Instrumentation,
+) (ReadConfig, error) {
+	return migrateReadConfig(ctx, old, nil, noteLift(ins, old.Key))
+}
+
 // NewReadMigration returns the migration that lifts stored read configs to v2, with the
 // kind of each field's channel read through channels, then reconciles each field with
 // its channel. It logs each change to a field.
@@ -218,19 +241,7 @@ func NewReadMigration(channels Channels) gorp.Migration {
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
-				cfg, err := migrateReadConfig(
-					ctx,
-					old,
-					found,
-					func(field, change string) {
-						ins.L.Warn(
-							"changed an MQTT read field to v2",
-							zap.Stringer("config", old.Key),
-							zap.String("field", field),
-							zap.String("change", change),
-						)
-					},
-				)
+				cfg, err := migrateReadConfig(ctx, old, found, noteLift(ins, old.Key))
 				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
