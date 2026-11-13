@@ -968,6 +968,28 @@ var _ = Describe("Engine", func() {
 				HaveField("Tags", ConsistOf("cold")),
 			)))
 		})
+
+		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
+			run.Key = "hotfire"
+			Expect(e.UpdateRun(ctx, run)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(`run key "hotfire" is not a UUID`),
+			))
+		})
+
+		It("Should retry a temporary failure", func(ctx SpecContext) {
+			id := MustSucceed(e.SetRun(ctx, run))
+			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
+			run.Tags = []string{"cold"}
+			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
+			Expect(rec.retryErrors()).To(HaveExactElements(
+				MatchError(ContainSubstring("sift is down")),
+			))
+			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+				HaveField("RunId", id),
+				HaveField("Tags", ConsistOf("cold")),
+			)))
+		})
 	})
 
 	Describe("Stream", func() {
