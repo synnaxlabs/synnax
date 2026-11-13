@@ -98,7 +98,6 @@ describe("View.Filter", () => {
 
     it("should edit only the condition of the chip", async () => {
       await renderFixture(TWO);
-      await enableEditing();
       fireEvent.click(await screen.findByRole("button", { name: "Info" }));
       const picker = await screen.findByRole("dialog", { name: "Variants" });
       fireEvent.click(within(picker).getByText("Warning"));
@@ -109,7 +108,6 @@ describe("View.Filter", () => {
 
     it("should remove only the condition of the chip", async () => {
       await renderFixture(TWO);
-      await enableEditing();
       const removes = await screen.findAllByRole("button", {
         name: "Remove Variants filter",
       });

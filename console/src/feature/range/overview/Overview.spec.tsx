@@ -38,6 +38,7 @@ import {
   createTestStore,
   findTagCloseButton,
   type Grants,
+  queryIconButton,
   renderSuspended,
   resolveFocusedTab,
   type TestStore,
@@ -460,6 +461,22 @@ describe("range/overview", () => {
       const rng = await renderAs({});
       await screen.findByText(rng.name);
       expect(screen.queryByDisplayValue(rng.name)).toBeNull();
+    });
+
+    it("should show metadata without edit controls to a subject who may not update the range", async () => {
+      const rng = await createTestRange(client);
+      await rng.kv.set("operator", "ada");
+      const as = await createTestClientWithGrants(client, {
+        create: [lineplot.TYPE_RESOURCE_ID],
+        retrieve: READS,
+      });
+      await renderOverview(rng.key, as);
+      // Both grants answer from one policy read, so this button shows that it landed.
+      await screen.findByRole("button", { name: "Plot" });
+      await screen.findByText("ada");
+      expect(screen.queryByDisplayValue("ada")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+      expect(queryIconButton(document.body, "add")).toBeNull();
     });
 
     it("should offer a child range but no plot to a subject who may create only ranges", async () => {

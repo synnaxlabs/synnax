@@ -34,6 +34,7 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
   const [adding, setAdding] = useState(false);
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(key));
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
   const showMetaData = pairs.length > 0 || adding;
   return (
@@ -51,9 +52,10 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
             pairs={pairs}
             adding={adding}
             onAddingChange={setAdding}
+            preview={!canEdit}
           />
         ) : (
-          <AddLine onClick={() => setAdding(true)}>Metadata</AddLine>
+          canEdit && <AddLine onClick={() => setAdding(true)}>Metadata</AddLine>
         )}
       </Flex.Box>
     </div>
