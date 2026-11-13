@@ -174,8 +174,6 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
     /// @brief internal selects by internal.
     ::x::filter::Field<::x::filter::Bool> internal;
-    /// @brief snapshot selects by snapshot.
-    ::x::filter::Field<::x::filter::Bool> snapshot;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -319,9 +317,6 @@ struct Task {
     std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
-    /// @brief snapshot is true if this task is an immutable snapshot copy of another
-    /// task.
-    bool snapshot = false;
     /// @brief status is the current execution status of the task.
     std::optional<Status> status;
 

@@ -78,10 +78,9 @@ var _ = Describe("Resource", func() {
 		It("Should fill a page with channels when the caller cannot read the tasks",
 			func(ctx SpecContext) {
 				tsk := task.Task{
-					Type:     pagerduty.AlertTaskType,
-					Rack:     svc.Rack.EmbeddedKey,
-					Name:     term,
-					Snapshot: true,
+					Type: pagerduty.AlertTaskType,
+					Rack: svc.Rack.EmbeddedKey,
+					Name: term,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.Task.NewWriter(tx).Create(ctx, &tsk)

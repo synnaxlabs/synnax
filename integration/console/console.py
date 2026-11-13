@@ -62,7 +62,7 @@ class Console:
         self.layout = LayoutClient(page=page, results_dir=results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
-        self.labels = LabelClient(self.layout)
+        self.labels = LabelClient(layout=self.layout, client=self.client)
         self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
@@ -73,7 +73,7 @@ class Console:
             layout=self.layout, client=self.client, project=self.project
         )
         self.panels = PanelsClient(self.layout)
-        self.ranges = RangesClient(layout=self.layout, pages=self.pages)
+        self.ranges = RangesClient(self.layout)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 

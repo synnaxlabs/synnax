@@ -7,20 +7,29 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+
+import time
 from re import search as re_search
 
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
+import synnax as sy
 from console.base import ResourceClient
 from console.color import pick as pick_color
+from console.layout import LayoutClient
 from x.color import Color
 
-_MODAL_SELECTOR = ".console-label__edit"
-_LABEL_ITEM_SELECTOR = ".console-label__list-item"
+_ITEM_SELECTOR = ".console-label-settings__item"
+_SEARCH_PLACEHOLDER = "Search labels"
+_POLL_MS = 100
 
 
 class LabelClient(ResourceClient):
-    """Console label client for managing labels via the UI."""
+    """Console label client for managing labels on the Labels page of Settings."""
+
+    def __init__(self, *, layout: LayoutClient, client: sy.Synnax) -> None:
+        super().__init__(layout)
+        self.client = client
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
@@ -29,77 +38,32 @@ class LabelClient(ResourceClient):
         :param color: Optional hex color code (e.g., "#FF0000") to set for the new
             label.
         """
-        self._open_edit_modal()
-        add_button = self.layout.page.locator("button.console-label__create")
-        add_button.click()
-
-        create_form = self.layout.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}.console--create"
-        ).first
-
+        self._show_page()
+        self.page.get_by_role("button", name="Create label", exact=True).click()
+        modal = self.page.locator(self.layout.MODAL_SELECTOR).first
+        name_input = modal.get_by_placeholder("Label name", exact=True)
+        name_input.wait_for(state="visible", timeout=5000)
         if color is not None:
-            color_swatch = create_form.locator(".lyra-color-swatch").first
-            pick_color(self.layout.page, color_swatch, hex_color=color)
-
-        name_input = create_form.locator("input[placeholder='Name']")
+            pick_color(self.page, modal.get_by_label("Label color"), hex_color=color)
         name_input.fill(name)
-
-        save_button = create_form.locator("button:has(svg.lyra-icon--check)")
-        save_button.click()
-        create_form.wait_for(state="hidden", timeout=5000)
-
-        label_item = self._wait_for_label_item(name)
-        if label_item is None:
-            items = self._find_label_items()
-            all_names = self._enumerate_label_names(items)
-            raise ValueError(
-                f"Label '{name}' was not created successfully. Available labels: "
-                f"{all_names}"
-            )
-
-        self._close_edit_modal()
+        modal.get_by_role("button", name="Create").click()
+        modal.wait_for(state="hidden", timeout=5000)
+        self._get_item(name)
 
     def exists(self, name: str) -> bool:
         """Check if a label exists by name."""
-        self._open_edit_modal()
-        items_locator = self.layout.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        )
-        try:
-            items_locator.first.wait_for(state="visible", timeout=5000)
-        except PlaywrightTimeoutError:
-            self._close_edit_modal()
-            return False
-        found = False
-        for item in items_locator.all():
-            if not item.is_visible():
-                continue
-            name_input = item.locator("input[placeholder='Name']").first
-            if name_input.count() == 0:
-                continue
-            if name_input.input_value().strip() == name.strip():
-                found = True
-                break
-        self._close_edit_modal()
-        return found
+        return self._find_item(name) is not None
 
     def get_color(self, name: str) -> Color:
         """Get the color of a label by name."""
-        self._open_edit_modal()
-        label_item = self._wait_for_label_item(name)
-        if label_item is None:
-            raise ValueError(f"Label '{name}' not found")
-        color_swatch = label_item.locator(".lyra-color-swatch").first
-        style = color_swatch.get_attribute("style")
+        swatch = self._get_item(name).get_by_label("Color", exact=True)
+        style = swatch.get_attribute("style")
         if style is None:
             raise ValueError(f"Label '{name}' has no style attribute")
-        # Find --pluto-swatch-color: rgba( ... );
         match = re_search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
         if match is None:
             raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
-        rgba = match.group(1)
-        self._close_edit_modal()
-        return Color(rgba)
+        return Color(match.group(1))
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an existing label.
@@ -107,30 +71,17 @@ class LabelClient(ResourceClient):
         :param old_name: The current name of the label.
         :param new_name: The new name for the label.
         """
-        self._open_edit_modal()
-
-        label_item = self._wait_for_label_item(old_name)
-        if label_item is None:
-            raise ValueError(f"Label '{old_name}' not found")
-
-        name_input = label_item.locator("input[placeholder='Name']").first
-
-        name_input.click()
-        self.layout.select_all_and_type(new_name)
-        name_input.press("Enter")
-        expect(name_input).to_have_value(new_name, timeout=5000)
-
-        renamed_item = self._wait_for_label_item(new_name)
-
-        if renamed_item is None:
-            all_items = self._find_label_items()
-            all_names = self._enumerate_label_names(all_items)
-            raise RuntimeError(
-                f"Label rename from '{old_name}' to '{new_name}' did not complete. "
-                f"Available labels: {all_names}"
-            )
-
-        self._close_edit_modal()
+        self.layout.rename_in_place(self._get_item(old_name), new_name)
+        # The Console holds an edit for a short window before it sends it, so a search
+        # for the new name before the Core has it comes back empty.
+        deadline = time.monotonic() + 5
+        while not self.client.labels.retrieve(names=[new_name]):
+            if time.monotonic() >= deadline:
+                raise PlaywrightTimeoutError(
+                    f"The Core did not rename label to {new_name}"
+                )
+            self.page.wait_for_timeout(_POLL_MS)
+        self._get_item(new_name)
 
     def delete(self, name: str) -> None:
         """Delete a label.
@@ -138,46 +89,8 @@ class LabelClient(ResourceClient):
         :param name: The name of the label to delete.
         :raises ValueError: If the label with the provided name is not found.
         """
-        self._open_edit_modal()
-
-        label_item = self._wait_for_label_item(name)
-        if label_item is None:
-            items = self._find_label_items()
-            all_names = self._enumerate_label_names(items)
-            self._close_edit_modal()
-            raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
-
-        label_item.hover()
-
-        delete_button = label_item.locator("button:has(svg.lyra-icon--delete)")
-        delete_button.wait_for(state="visible", timeout=5000)
-
-        element_id = label_item.get_attribute("id")
-        delete_button.click(timeout=5000)
-
-        self.layout.page.locator(f"[id='{element_id}']").wait_for(
-            state="hidden", timeout=10000
-        )
-
-        self._close_edit_modal()
-
-    def list_all(self) -> list[str]:
-        """List all existing labels.
-
-        :returns: List of label names.
-        """
-        self._open_edit_modal()
-        labels: list[str] = []
-        items = self._find_label_items()
-        for item in items:
-            if item.is_visible():
-                name_input = item.locator("input[placeholder='Name']").first
-                if name_input.count() > 0:
-                    name = name_input.input_value()
-                    if name:
-                        labels.append(name)
-        self._close_edit_modal()
-        return labels
+        self.layout.delete_with_confirmation(self._get_item(name))
+        expect(self._items(name)).to_have_count(0, timeout=5000)
 
     def change_color(self, *, name: str, new_color: str) -> None:
         """Change the color of a label.
@@ -185,59 +98,40 @@ class LabelClient(ResourceClient):
         :param name: The name of the label to update.
         :param new_color: The new hex color code (e.g., "#FF0000").
         """
-        self._open_edit_modal()
+        swatch = self._get_item(name).get_by_label("Color", exact=True)
+        pick_color(self.page, swatch, hex_color=new_color)
 
-        label_item = self._wait_for_label_item(name)
-        if label_item is None:
-            raise ValueError(f"Label '{name}' not found")
+    def _show_page(self) -> None:
+        """Show the Labels page of Settings."""
+        nav = self.layout.open_settings()
+        nav.get_by_role("menuitem", name="Labels", exact=True).click()
+        self.page.get_by_placeholder(_SEARCH_PLACEHOLDER, exact=True).wait_for(
+            state="visible", timeout=5000
+        )
 
-        color_swatch = label_item.locator(".lyra-color-swatch").first
-        pick_color(self.layout.page, color_swatch, hex_color=new_color)
-        self._close_edit_modal()
+    def _search(self, term: str) -> None:
+        self._show_page()
+        self.page.get_by_placeholder(_SEARCH_PLACEHOLDER, exact=True).fill(term)
 
-    def _open_edit_modal(self) -> None:
-        self.layout.open_modal("Edit labels", selector=_MODAL_SELECTOR)
+    def _items(self, name: str) -> Locator:
+        """The lines on the Labels page whose name is ``name``."""
+        return self.page.locator(_ITEM_SELECTOR).and_(
+            self.page.get_by_role("option", name=name, exact=True)
+        )
 
-    def _close_edit_modal(self) -> None:
-        self.layout.close_modal(_MODAL_SELECTOR)
-
-    def _wait_for_label_item(self, name: str) -> Locator | None:
-        """Wait for a label item to appear, polling for async state propagation."""
-        selector = f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        items_locator = self.layout.page.locator(selector)
-        try:
-            items_locator.first.wait_for(state="visible", timeout=5000)
-        except PlaywrightTimeoutError:
-            return None
-        item = items_locator.filter(
-            has=self.layout.page.locator(f"input[placeholder='Name'][value='{name}']")
-        ).first
+    def _find_item(self, name: str) -> Locator | None:
+        """Search the Labels page for a label, or return None if it is not listed."""
+        self._search(name)
+        item = self._items(name).first
         try:
             item.wait_for(state="visible", timeout=5000)
         except PlaywrightTimeoutError:
             return None
-        element_id = item.get_attribute("id")
-        if not element_id:
-            return None
-        return self.layout.page.locator(f"[id='{element_id}']")
+        return item
 
-    def _find_label_items(self) -> list[Locator]:
-        return self.layout.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        ).all()
-
-    def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
-        """Extract label names from a list of label item locators.
-
-        :param items: List of label item locators
-        :returns: List of label names
-        """
-        all_names = []
-        for item in items:
-            if item.is_visible():
-                inp = item.locator("input[placeholder='Name']").first
-                if inp.count() > 0:
-                    current_name = inp.input_value()
-                    if current_name:
-                        all_names.append(current_name)
-        return all_names
+    def _get_item(self, name: str) -> Locator:
+        """Like _find_item, but raises if the search does not list the label."""
+        item = self._find_item(name)
+        if item is None:
+            raise ValueError(f"Label '{name}' not found on the Labels page")
+        return item

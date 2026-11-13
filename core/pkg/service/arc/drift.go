@@ -36,7 +36,7 @@ func (s *Service) RetrieveDrift(
 	for _, key := range keys {
 		var tasks []task.Task
 		if err := s.cfg.Task.NewRetrieve().
-			Where(task.And(s.cfg.MatchTasks(key), task.MatchSnapshot(false))).
+			Where(s.cfg.MatchTasks(key)).
 			Entries(&tasks).
 			Exec(ctx, snap); err != nil {
 			return nil, err

@@ -12,7 +12,6 @@ import {
   type group,
   project,
   query,
-  type ranger,
   type resource,
   type Synnax,
   UnexpectedError,
@@ -106,7 +105,6 @@ export interface VisualizationQuery {
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
-  ranges?: ranger.Key[];
 }
 
 /** The calls that every visualization client answers. */

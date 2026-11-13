@@ -14,28 +14,21 @@ import {
   query,
   type ranger,
   ranger as rangerClient,
-  type resource,
-  schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { Errors, Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Overview } from "@/feature/range/overview/Overview";
 import { Modals } from "@/platform/modals";
-import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
-import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
-  CaptureStatuses,
   createConsoleWrapper,
   createTestClientWithGrants,
   getHeaderIconButton,
@@ -49,10 +42,7 @@ import {
 const client = createTestClient();
 
 interface RenderOverviewResult {
-  onSnapshotClick: ReturnType<typeof vi.fn>;
-  onSnapshotDelete: ReturnType<typeof vi.fn>;
   setTabResource: (rangeKey: string) => Promise<void>;
-  statuses: Status.NotificationSpec[];
 }
 
 const renderOverview = async (
@@ -60,39 +50,19 @@ const renderOverview = async (
   FallbackComponent?: ComponentType<Errors.FallbackProps>,
   as: Client = client,
 ): Promise<RenderOverviewResult> => {
-  const onSnapshotClick = vi.fn(async () => {});
-  const onSnapshotDelete = vi.fn(async () => {});
-  const services: PlatformRange.SnapshotServices = {
-    schematic: {
-      icon: <Icon.Schematic />,
-      onClick: onSnapshotClick,
-      onDelete: onSnapshotDelete,
-    },
-    task: {
-      icon: <Icon.Task />,
-      onClick: onSnapshotClick,
-      onDelete: onSnapshotDelete,
-    },
-  };
   const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(
     client,
     rangerClient.resourceID(rangeKey),
   );
   await primePanel(wrapper, panelKey);
-  const statuses: Status.NotificationSpec[] = [];
   await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
-        <PlatformRange.SnapshotServicesProvider services={services}>
-          <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
-            <Overview />
-          </Errors.SuspenseBoundary>
-          <Modals.Stack />
-          <CaptureStatuses
-            onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
-          />
-        </PlatformRange.SnapshotServicesProvider>
+        <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
+          <Overview />
+        </Errors.SuspenseBoundary>
+        <Modals.Stack />
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
     // A spec that passes a fallback expects the boundary to catch.
@@ -107,7 +77,7 @@ const renderOverview = async (
         }),
       ]);
     });
-  return { onSnapshotClick, onSnapshotDelete, setTabResource, statuses };
+  return { setTabResource };
 };
 
 const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => {
@@ -119,30 +89,12 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
   });
 };
 
-const createSnapshot = async (rng: ranger.Range): Promise<resource.ID> => {
-  const project = await client.projects.create({
-    name: uniqueName("proj"),
-  });
-  const sch = await client.schematics.create({
-    project: project.key,
-    name: uniqueName("sch"),
-  });
-  const snap = await client.schematics.copy({
-    key: sch.key,
-    name: uniqueName("snap"),
-    snapshot: true,
-    range: rng.key,
-  });
-  return schematic.resourceID(snap.key);
-};
-
 describe("range/overview/Overview", () => {
-  it("renders the range details alongside the child range and snapshot sections", async () => {
+  it("renders the range details alongside the child range section", async () => {
     const rng = await createTestRange(client);
     await renderOverview(rng.key);
     expect(await screen.findByDisplayValue(rng.name)).toBeTruthy();
     expect(await screen.findByText("Child ranges")).toBeTruthy();
-    expect(await screen.findByText("Snapshots")).toBeTruthy();
   });
 
   it("lists the range's children", async () => {
@@ -169,51 +121,6 @@ describe("range/overview/Overview", () => {
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
     expect(await screen.findByText("Save locally")).toBeTruthy();
   });
-
-  it("lists snapshots and routes selection to the snapshot service", async () => {
-    const rng = await createTestRange(client);
-    const snapID = await createSnapshot(rng);
-    const { onSnapshotClick, statuses } = await renderOverview(rng.key);
-    const item = await screen.findByText(
-      (await client.resources.retrieve(snapID)).name,
-    );
-    fireEvent.click(item);
-    await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
-    expect(clicked.id.key).toBe(snapID.key);
-    await act(async () => {});
-    expect(statuses).not.toContainEqual(
-      expect.objectContaining({ message: "Failed to open snapshot" }),
-    );
-  });
-
-  it("lists the task snapshots in the range", async () => {
-    const rng = await createTestRange(client);
-    const rack = await client.racks.create({ name: uniqueName("rack") });
-    const source = await rack.createTask({
-      name: uniqueName("tsk"),
-      type: "pagerduty_alert",
-      config: {},
-    });
-    const snap = await client.tasks.copy(source.key, uniqueName("snap"), true, rng.key);
-    const { onSnapshotClick } = await renderOverview(rng.key);
-    fireEvent.click(await screen.findByText(snap.name));
-    await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [clicked] = onSnapshotClick.mock.calls[0] as [resource.Resource];
-    expect(clicked.id).toEqual({ type: "task", key: snap.key });
-  });
-
-  it("deletes a snapshot through its service after confirmation", async () => {
-    const rng = await createTestRange(client);
-    const snapID = await createSnapshot(rng);
-    const name = (await client.resources.retrieve(snapID)).name;
-    const { onSnapshotDelete } = await renderOverview(rng.key);
-    await screen.findByText(name);
-    fireEvent.click(await waitFor(() => getIconButton(document.body, "delete")));
-    await screen.findByText(`Are you sure you want to delete ${name}?`);
-    fireEvent.click(findButton("Delete"));
-    await waitFor(() => expect(onSnapshotDelete).toHaveBeenCalledTimes(1));
-  });
 });
 
 describe("range/overview tab", () => {
@@ -232,7 +139,6 @@ describe("range/overview tab", () => {
     // The whole tab tombstones. A section left behind would render its own
     // inline "failed to retrieve" state next to the tombstone.
     expect(screen.queryByText("Child ranges")).toBeNull();
-    expect(screen.queryByText("Snapshots")).toBeNull();
   });
 
   it("shows the restored range's details after retry", async () => {
@@ -303,7 +209,6 @@ describe("range/overview/ChildRanges permissions", () => {
     label.TYPE_RESOURCE_ID,
     panel.TYPE_RESOURCE_ID,
     project.TYPE_RESOURCE_ID,
-    schematic.TYPE_RESOURCE_ID,
   ];
 
   const createSubject = async (grants: Grants) =>
