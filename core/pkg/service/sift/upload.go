@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/ingest"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
@@ -66,14 +67,18 @@ type uploadResult struct {
 	Status status.Key `json:"status"`
 }
 
-// queueUpload validates args and writes the pending status of the upload, which the
-// uploader of the rack picks up.
+// queueUpload decodes and validates the arguments of an upload command, then writes
+// the pending status of the upload, which the uploader of the rack picks up.
 func queueUpload(
 	ctx context.Context,
 	cfg FactoryConfig,
 	rk rack.Key,
-	args uploadArgs,
+	raw msgpack.EncodedJSON,
 ) (status.Key, error) {
+	var args uploadArgs
+	if err := raw.Unmarshal(&args); err != nil {
+		return "", errors.Wrap(err, "invalid arguments")
+	}
 	if err := args.validate(); err != nil {
 		return "", err
 	}
