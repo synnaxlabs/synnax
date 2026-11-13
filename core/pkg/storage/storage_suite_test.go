@@ -40,7 +40,10 @@ func holdLock(dir string) int {
 		return 1
 	}
 	fmt.Println("locked")
-	_, _ = io.Copy(io.Discard, os.Stdin)
+	if _, err = io.Copy(io.Discard, os.Stdin); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	if err = lock.Close(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
