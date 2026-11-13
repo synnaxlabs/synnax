@@ -19,7 +19,7 @@ import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
   color,
   DataType,
-  type notation,
+  notation,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -27,7 +27,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+// The row's notation prop shadows the namespace inside the row component.
+const PRECISION_BOUNDS = notation.PRECISION_BOUNDS;
 const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
@@ -138,6 +139,7 @@ const ChannelRow = ({
               onClear={() => handlePrecisionChange()}
               endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
+              integer
               disabled={disabled}
               shrink={false}
               variant="shadow"
