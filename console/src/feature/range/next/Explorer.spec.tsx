@@ -13,8 +13,9 @@ import {
   NotFoundError,
   type project,
   ranger,
+  type Synnax,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -47,14 +48,17 @@ interface RenderArgs {
   project?: project.Key;
   /** The selected Core, which a copied link names. */
   core?: Session.Core.Core;
+  /** The client the explorer reads with. */
+  as?: Synnax;
 }
 
 const renderExplorer = async ({
   project,
   core,
+  as = client,
 }: RenderArgs = {}): Promise<TestStore> => {
   const { wrapper, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState: {
       [Session.Project.SLICE_NAME]: {
         ...Session.Project.ZERO_SLICE_STATE,
@@ -324,6 +328,31 @@ describe("range/next/Explorer", () => {
         within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
       );
       await findItem(match.name);
+    });
+
+    it("should show the error of a search whose ranges above fail to read, not the last matches", async () => {
+      const [first, second] = [uniqueToken(), uniqueToken()];
+      const holder = await createRange(uniqueRangeName("holder"));
+      const shown = await createRange(`${first} shown`, { parent: holder.key });
+      const top = await createRange(uniqueRangeName("top"));
+      const parent = await createRange(uniqueRangeName("parent"), { parent: top.key });
+      await createRange(`${second} match`, { parent: parent.key });
+      const as = createTestClient();
+      // Only the read of the range above the second match fails. The tree lists the top
+      // range, so the range under it is not cached.
+      const spy = rejectRequests(
+        as,
+        (target, req) =>
+          target === "/range/retrieve" && JSON.stringify(req).includes(parent.key),
+        new Error("parent read failed"),
+      );
+      onTestFinished(() => spy.mockRestore());
+      await renderExplorer({ as });
+      await search(first);
+      await findItem(shown.name);
+      await search(second);
+      await screen.findByText("Failed to search ranges");
+      expect(screen.queryByRole("listitem", { name: shown.name })).toBeNull();
     });
 
     it("should drop a deleted range that holds matches", async () => {
