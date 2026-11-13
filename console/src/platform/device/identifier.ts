@@ -64,17 +64,20 @@ export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyPa
   name: "devices",
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const all = await client.devices.retrieve({});
-    const pending = all.filter((d) => data.keys.includes(d.key) && !d.configured);
-    const taken = prefixesOf(all.filter((d) => !pending.includes(d)));
-    for (const prev of pending) {
-      const [identifier] = suggest(prev.name, taken);
+    for (const key of data.keys) {
+      // A fresh read before each write sees what an overlapping run already wrote.
+      const all = await client.devices.retrieve({});
+      const prev = all.find((d) => d.key === key);
+      if (prev == null || prev.configured) continue;
+      const [identifier] = suggest(
+        prev.name,
+        prefixesOf(all.filter((d) => d.key !== key)),
+      );
       if (identifier == null)
         throw new Error(
           `Synnax cannot suggest a free identifier for ${prev.name}. Configure the ` +
             "device by hand.",
         );
-      taken.add(channel.escapeInvalidName(identifier));
       const next: device.Device = {
         ...prev,
         configured: true,
