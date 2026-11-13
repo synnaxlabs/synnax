@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
@@ -77,5 +78,77 @@ describe("useByKeys", () => {
         [first.key, second.key].sort(),
       ),
     );
+  });
+});
+
+describe("typed devices", async () => {
+  const rack = await client.racks.create({ name: uniqueName("ni_rack") });
+  const createTyped = async (): Promise<ni.device.Device> =>
+    await client.ni.devices.create({
+      rack: rack.key,
+      name: uniqueName("ni_dev"),
+      resourceName: id.create(),
+      model: "PXIe-4300",
+      analogInput: { index: 0, temperature: 0, channels: { 0: 1 } },
+    });
+
+  describe("useRetrieve", () => {
+    it("should retrieve the device with its status", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data?.name).toBe(dev.name));
+      expect(result.current.data?.status).toBeDefined();
+    });
+  });
+
+  describe("useList", () => {
+    it("should list the devices on a rack", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(
+        () => NI.Device.useList({ query: { where: { rack: { eq: rack.key } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toContain(dev.key));
+      expect(result.current.getItem(dev.key)?.name).toBe(dev.name);
+    });
+  });
+
+  describe("useUpdateConfiguration", () => {
+    it("should change the given fields and keep the rest", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useUpdateConfiguration(), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: dev.key,
+          configuration: { identifier: "dev" },
+        });
+      });
+      const stored = await client.ni.devices.retrieve({ key: dev.key });
+      expect(stored.identifier).toBe("dev");
+      expect(stored.name).toBe(dev.name);
+      expect(stored.analogInput.channels).toEqual({ 0: 1 });
+    });
+  });
+
+  describe("useDelete", () => {
+    it("should delete the device", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(dev.key);
+      });
+      await expect(
+        client.ni.devices.retrieve({ where: { key: { eq: dev.key } } }),
+      ).resolves.toEqual([]);
+    });
   });
 });
