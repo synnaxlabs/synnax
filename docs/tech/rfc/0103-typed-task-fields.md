@@ -205,11 +205,13 @@ rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 **Console**: The data type select sets the kind, and `DataTypeField` shows every type.
 On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel that the
 device stores for it: the pointer's channel for a read field and the target's channel
-for a channel field. It binds only when that channel exists and holds the field's
-`data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
-one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
-that becomes unbound again takes its channel's name without a `_<data_type>` or
-`_<data_type>_<n>` suffix that configure added, so suffixes do not stack. An empty name
+for a channel field. It binds only when that channel exists, holds the field's
+`data_type`, and, if it is fixed-density, is on the index that the source picks below.
+Otherwise, and always on Kafka, whose devices store no channels, it creates one, and its
+key replaces the stored one. `unbound.name` holds the user's name. A field that becomes
+unbound again takes its channel's name without a `_<data_type>` or `_<data_type>_<n>`
+suffix whose type is the channel's own, so suffixes do not stack. A user name of that
+form loses the suffix too, which changes only the name of the new channel. An empty name
 first takes the name the Console generates today. A new channel takes the name when it
 is free, else the name with its data type as a suffix, such as `temp_int32`, else that
 name with a counter, such as `temp_int32_2`, until a name is free. A taken name never
@@ -280,8 +282,10 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 - **Binding**: From each shipped version (Kafka v0, MQTT v1, HTTP v4), a read field,
   channel field, or Sparkplug read entry with `channel != 0` becomes `bound` and drops
   `name` and `data_type`. One with `channel == 0` becomes `unbound` with the stored
-  `name` and `data_type`. Each shipped default is `float64`, so such an index field or
-  field with a `time_format` takes `data_type: timestamp`.
+  `name` and `data_type`. This step runs with the channels, as
+  `NewReadMigrations(channels)` does, on every migration path, so a key with no local
+  channel also becomes `unbound`. Each shipped default is `float64`, so such an index
+  field or field with a `time_format` takes `data_type: timestamp`.
 - **Entries**: A `float64` entry converts when it is whole and fits the kind. Others
   drop with a warning, as they failed at run time.
 - **#4594 fill**: A number is `value`. An enum label resolves once to its entry's value,
