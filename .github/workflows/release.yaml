@@ -765,11 +765,8 @@ jobs:
           Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
           .github/scripts/synnax-server.exe
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-
-      - name: Install trusted-signing-cli
-        run: cargo install trusted-signing-cli
+      - name: Set up trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build Windows installer
         shell: powershell

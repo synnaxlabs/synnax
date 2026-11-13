@@ -556,9 +556,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Install trusted-signing-cli
+      - name: Set up trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: cargo install trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Remove read-only attribute from Driver for signing
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
