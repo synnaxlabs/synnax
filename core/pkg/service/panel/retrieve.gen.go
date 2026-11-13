@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/compare"
 )
 
@@ -39,6 +40,7 @@ type indexes struct {
 	name    *gorp.SortedIndex[Key, Panel, string]
 	group   *gorp.KeyReference[Key, Panel, group.Key]
 	project *gorp.KeyReference[Key, Panel, project.Key]
+	owner   *gorp.KeyReference[Key, Panel, user.Key]
 	search  *gorp.SearchIndex[Key, Panel]
 }
 
@@ -76,6 +78,18 @@ func newIndexes() indexes {
 				return []project.Key{*e.Project}
 			},
 		}),
+		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
+			Name:     "owner",
+			Table:    "user",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Targets: func(e *Panel) []user.Key {
+				if e.Owner == nil {
+					return nil
+				}
+				return []user.Key{*e.Owner}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Panel](
 			"search",
 			func(e *Panel) []string {
@@ -100,6 +114,7 @@ func (i indexes) references() []gorp.Reference[Key, Panel] {
 	return []gorp.Reference[Key, Panel]{
 		i.group,
 		i.project,
+		i.owner,
 	}
 }
 
@@ -240,6 +255,23 @@ func MatchProjects(vals ...project.Key) Filter {
 func MatchHasProject(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
 		return r.indexes.project.FilterHolding(has)
+	}
+}
+
+// MatchOwners returns a filter for panels
+// whose Owner matches any of the provided
+// values.
+func MatchOwners(vals ...user.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.owner.Filter(vals...)
+	}
+}
+
+// MatchHasOwner returns a filter for panels whose
+// Owner holds a target when has is true, and holds none when has is false.
+func MatchHasOwner(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Panel] {
+		return r.indexes.owner.FilterHolding(has)
 	}
 }
 

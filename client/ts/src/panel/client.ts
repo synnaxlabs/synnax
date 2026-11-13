@@ -46,7 +46,12 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
-const LINES: Lines = { ...group.MEMBER_LINES, ...project.MEMBER_LINES };
+const LINES: Lines = {
+  ...group.MEMBER_LINES,
+  ...project.MEMBER_LINES,
+  owners: ({ owner }, keys) => owner != null && keys.includes(owner),
+  owned: ({ owner }, owned) => (owner != null) === owned,
+};
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
