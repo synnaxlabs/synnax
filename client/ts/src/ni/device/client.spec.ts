@@ -8,14 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ni } from "@/ni";
+import { resource } from "@/resource";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();
+
+const configuration = (name: string): ni.device.ConfigurationUpdate => ({
+  group: "configuration",
+  name,
+  identifier: "",
+  analogInput: { index: 0, temperature: 0, channels: {} },
+  analogOutput: {},
+  counterInput: {},
+  digitalInput: {},
+  digitalOutput: {},
+});
 
 describe("NI device", async () => {
   await other.connect();
@@ -44,12 +56,37 @@ describe("NI device", async () => {
       ]);
       expect(devices.map((d) => d.name)).toEqual(["A", "B"]);
     });
+
+    it("should replace a device whose key exists", async () => {
+      const d = await create();
+      await client.ni.devices.create({ ...d, name: "Replaced" });
+      // A stream echo that lands during the request wins until the echo of the
+      // replace arrives.
+      await expect
+        .poll(async () => (await client.ni.devices.retrieve({ key: d.key })).name)
+        .toBe("Replaced");
+    });
   });
 
   describe("retrieve", () => {
     it("should include the status of the device", async () => {
       const d = await create();
       const retrieved = await client.ni.devices.retrieve({
+        key: d.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status?.owner).toEqual(ni.device.resourceID(d.key));
+    });
+
+    it("should include the status of a device the stream cached", async () => {
+      const d = await create();
+      await other.ni.devices.retrieve({ key: d.key });
+      await waitForStreamLive(other.connection);
+      await client.ni.devices.update(d.key, configuration("Cached"));
+      await expect
+        .poll(async () => (await other.ni.devices.retrieve({ key: d.key })).name)
+        .toBe("Cached");
+      const retrieved = await other.ni.devices.retrieve({
         key: d.key,
         includeStatus: true,
       });
@@ -104,6 +141,14 @@ describe("NI device", async () => {
     });
   });
 
+  describe("update errors", () => {
+    it("should throw a NotFoundError for a missing device", async () => {
+      await expect(
+        client.ni.devices.update(uuid.create(), configuration("Missing")),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
   describe("delete", () => {
     it("should delete the device", async () => {
       const d = await create();
@@ -116,21 +161,21 @@ describe("NI device", async () => {
 
   describe("cache", () => {
     it("should receive a device another client creates", async () => {
+      await waitForStreamLive(other.connection);
+      const seen: string[] = [];
+      const stop = other.ni.devices.onSet((device) => seen.push(device.key));
+      const d = await create();
+      await expect.poll(() => seen).toContain(d.key);
+      stop();
+    });
+
+    it("should receive a device another client updates", async () => {
       const seen: string[] = [];
       const d = await create();
       await other.ni.devices.retrieve({ key: d.key });
       await waitForStreamLive(other.connection);
       const stop = other.ni.devices.onSet((device) => seen.push(device.name));
-      await client.ni.devices.update(d.key, {
-        group: "configuration",
-        name: "Streamed",
-        identifier: "",
-        analogInput: { index: 0, temperature: 0, channels: {} },
-        analogOutput: {},
-        counterInput: {},
-        digitalInput: {},
-        digitalOutput: {},
-      });
+      await client.ni.devices.update(d.key, configuration("Streamed"));
       await expect.poll(() => seen).toContain("Streamed");
       stop();
     });
@@ -144,6 +189,28 @@ describe("NI device", async () => {
       await client.ni.devices.delete(d.key);
       await expect.poll(() => deleted).toContain(d.key);
       stop();
+    });
+  });
+
+  describe("resource search", () => {
+    it("should rename a device in a subscribed search", async () => {
+      const token = `nidev${Math.random().toString(36).slice(2)}`;
+      const d = await create(token);
+      await expect
+        .poll(
+          async () =>
+            (await client.resources.search({ searchTerm: token, types: ["ni_device"] }))
+              .length,
+        )
+        .toBe(1);
+      const list = client.resources.watch({ searchTerm: token, types: ["ni_device"] });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      await client.ni.devices.update(d.key, configuration(`${token} renamed`));
+      const key = resource.idToString(ni.device.resourceID(d.key));
+      await expect
+        .poll(() => list.getCached()?.records.find((r) => r.key === key)?.name)
+        .toBe(`${token} renamed`);
     });
   });
 });
