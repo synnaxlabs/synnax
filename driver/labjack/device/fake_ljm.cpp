@@ -28,6 +28,7 @@ std::atomic<void *> stream_callback_arg = nullptr;
 std::atomic<bool> late_scans_sent = false;
 std::atomic<bool> late_scans_arrived = false;
 std::atomic<int> lost_stream_reads = 0;
+std::atomic<int> last_stopped_handle = -1;
 }
 
 #pragma GCC visibility push(default)
@@ -37,6 +38,7 @@ int LJM_eStreamStart(const int handle, int, int, const int *, double *) {
 }
 
 int LJM_eStreamStop(const int handle) {
+    last_stopped_handle = handle;
     return handle == driver::labjack::device::FAILING_STOP_HANDLE ? FAILURE : 0;
 }
 
@@ -44,7 +46,8 @@ int LJM_WriteLibraryConfigS(const char *, double) {
     return 0;
 }
 
-int LJM_SetStreamCallback(int, const StreamCallback callback, void *arg) {
+int LJM_SetStreamCallback(const int handle, const StreamCallback callback, void *arg) {
+    if (handle == driver::labjack::device::FAILING_CALLBACK_HANDLE) return FAILURE;
     stream_callback = callback;
     stream_callback_arg = arg;
     return 0;
@@ -55,8 +58,10 @@ int LJM_eStreamRead(const int handle, double *data, int *, int *) {
         if (!late_scans_sent.exchange(true))
             std::thread([] {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                late_scans_arrived = true;
+                // The device can end once a read finds the scans, so the callback
+                // runs first.
                 stream_callback.load()(stream_callback_arg.load());
+                late_scans_arrived = true;
             }).detach();
         if (!late_scans_arrived) return NO_SCANS_RETURNED;
     }
@@ -65,6 +70,10 @@ int LJM_eStreamRead(const int handle, double *data, int *, int *) {
                                         : NO_RESPONSE_BYTES_RECEIVED;
     *data = driver::labjack::device::READ_VALUE;
     return 0;
+}
+
+int fake_ljm_last_stopped_handle() {
+    return last_stopped_handle;
 }
 
 int LJM_Close(int) {

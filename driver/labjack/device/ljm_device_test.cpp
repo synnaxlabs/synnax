@@ -89,6 +89,20 @@ TEST(LJMDeviceTest, testFailedStartAllowsNextStart) {
     ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
 }
 
+/// @brief it should stop the stream when the stream callback cannot be set, and allow a
+/// new stream.
+TEST(LJMDeviceTest, testFailedCallbackStopsStream) {
+    const LJMDevice dev(open_fake_api(), FAILING_CALLBACK_HANDLE);
+    ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
+    x::lib::Shared lib("./driver/labjack/device/libfake_ljm.so");
+    ASSERT_TRUE(lib.load());
+    const auto last_stopped_handle = reinterpret_cast<int (*)()>(
+        const_cast<void *>(lib.get_func_ptr(LAST_STOPPED_HANDLE_FUNC))
+    );
+    EXPECT_EQ(last_stopped_handle(), FAILING_CALLBACK_HANDLE);
+    ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
+}
+
 /// @brief it should allow a new stream after a stop that failed.
 TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     const LJMDevice dev(open_fake_api(), FAILING_STOP_HANDLE);
