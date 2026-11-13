@@ -36,7 +36,7 @@ const EXPANDED: Partial<Record<string, string>> = {
   device: "Test stand DAQ",
 };
 
-/** Alarms on the stand, which the statuses toolbar shows once they are favorites. */
+/** Alarms on the stand, which the statuses toolbar shows once they are pinned. */
 const ALARMS = [
   { name: "OX tank pressure", variant: "success", message: "Within limits" },
   { name: "Fuel tank pressure", variant: "success", message: "Within limits" },
@@ -73,7 +73,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await addToToolbar(
       session,
       "Open status explorer",
-      "Favorite",
+      "Pin",
       ALARMS.map((a) => a.name),
     );
 
