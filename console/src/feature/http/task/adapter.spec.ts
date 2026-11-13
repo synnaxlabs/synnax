@@ -61,6 +61,30 @@ describe("adapter", () => {
       });
     });
 
+    it("should convert the fill and entries between numeric kinds", () => {
+      const field = createField({
+        type: "float",
+        fill: 2,
+        enumValues: [
+          { label: "ON", value: 1 },
+          { label: "HALF", value: 0.5 },
+          { label: "BIG", value: 300 },
+        ],
+      });
+      expect(retype(field, DataType.UINT8)).toMatchObject({
+        type: "unsigned",
+        fill: "2",
+        enumValues: [{ label: "ON", value: "1" }],
+      });
+    });
+
+    it("should drop an integer fill that a float has no equal for", () => {
+      const field = createField({ type: "integer", fill: "9007199254740993" });
+      const float = retype(field, DataType.FLOAT64);
+      expect(float.type).toBe("float");
+      expect("fill" in float ? float.fill : undefined).toBeUndefined();
+    });
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({

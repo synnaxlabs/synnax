@@ -14,12 +14,15 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
+	"strconv"
+	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
@@ -45,7 +48,7 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 // field. The field that indexes the endpoint is a timestamp field whenever it has a
 // time format, because the v4 Console marked its timing field that way.
 func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
-	return liftReadEndpoint(old, ignore), nil
+	return liftReadEndpoint(old, nil, ignore), nil
 }
 
 // MigrateReadField lifts a v4 read field to v5. The stored data type picks the kind. A
@@ -55,19 +58,21 @@ func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, 
 // new channel. An enum entry converts when the kind holds its value, and a boolean
 // entry is true when its value is not 0. A string or timestamp field drops its entries,
 // and a timestamp field with no time format takes ISO 8601. Of entries that repeat a
-// label, the first stays.
+// label, the first stays, and an empty label drops on a kind other than string.
 //
-// An optional field's fill converts to the stored data type, and an enum label converts
-// to the value of its entry. An optional float field with no fill takes NaN. A fill
-// that does not convert, a fill on a field that is not optional, and an optional field
-// with no fill on any other kind drop, because the Driver rejected each of them. An
-// unknown data type reads as float64.
+// An optional field's fill converts to the kind as the v4 Driver read it: an enum label
+// converts to the value of its entry, other text on a numeric field reads as a number,
+// and a fill that is not text on a string field reads as its JSON text. An optional
+// float field with no fill takes NaN. A fill that does not convert, a fill on a field
+// that is not optional, and an optional field with no fill on any other kind drop,
+// because the Driver rejected each of them. An unknown data type reads as float64.
 func MigrateReadField(old v4.ReadField) ReadField {
-	return liftReadField(old, false, ignore)
+	return liftReadField(old, false, nil, ignore)
 }
 
 // NewReadMigration returns the migration that lifts stored v4 read configs to v5,
-// reconciles them with channels, and logs each lossy change.
+// reconciles them with channels, and logs each lossy change. A field whose channel
+// exists lifts by the channel's data type, as the v4 Driver read it.
 func NewReadMigration(channels Channels) gorp.Migration {
 	return migrate.New(
 		"v62_typed_read_field",
@@ -83,7 +88,11 @@ func NewReadMigration(channels Channels) gorp.Migration {
 				warn := func(msg string, fields ...zap.Field) {
 					ins.L.Warn(msg, append(fields, zap.Stringer("config", old.Key))...)
 				}
-				cfg := liftReadConfig(old, warn)
+				found, err := channels(ctx, tx, channelsOf(old))
+				if err != nil {
+					return errors.Wrapf(err, "config %s", old.Key)
+				}
+				cfg := liftReadConfig(old, found, warn)
 				if err := ReconcileReadConfig(
 					ctx,
 					tx,
@@ -100,19 +109,39 @@ func NewReadMigration(channels Channels) gorp.Migration {
 	)
 }
 
-func liftReadConfig(old v4.ReadConfig, warn Warn) ReadConfig {
+func channelsOf(cfg v4.ReadConfig) []channel.Key {
+	var keys []channel.Key
+	for _, ep := range cfg.Endpoints {
+		for _, f := range ep.Fields {
+			if f.Channel != 0 {
+				keys = append(keys, f.Channel)
+			}
+		}
+	}
+	return lo.Uniq(keys)
+}
+
+func liftReadConfig(
+	old v4.ReadConfig,
+	found map[channel.Key]Channel,
+	warn Warn,
+) ReadConfig {
 	return ReadConfig{
 		PersistConfig: old.PersistConfig,
 		Device:        old.Device,
 		Rate:          old.Rate,
 		Endpoints: lo.Map(old.Endpoints, func(ep v4.ReadEndpoint, _ int) ReadEndpoint {
-			return liftReadEndpoint(ep, warn)
+			return liftReadEndpoint(ep, found, warn)
 		}),
 		NanFillEnabled: old.NanFillEnabled,
 	}
 }
 
-func liftReadEndpoint(old v4.ReadEndpoint, warn Warn) ReadEndpoint {
+func liftReadEndpoint(
+	old v4.ReadEndpoint,
+	found map[channel.Key]Channel,
+	warn Warn,
+) ReadEndpoint {
 	return ReadEndpoint{
 		Key:         old.Key,
 		Method:      old.Method,
@@ -121,16 +150,28 @@ func liftReadEndpoint(old v4.ReadEndpoint, warn Warn) ReadEndpoint {
 		QueryParams: old.QueryParams,
 		Body:        old.Body,
 		Fields: lo.Map(old.Fields, func(f v4.ReadField, _ int) ReadField {
-			return liftReadField(f, f.Key == old.Index, warn)
+			var channelType *telem.DataType
+			if ch, ok := found[f.Channel]; ok {
+				channelType = &ch.DataType
+			}
+			return liftReadField(f, f.Key == old.Index, channelType, warn)
 		}),
 		Index: old.Index,
 	}
 }
 
-func liftReadField(old v4.ReadField, index bool, warn Warn) ReadField {
+func liftReadField(
+	old v4.ReadField,
+	index bool,
+	channelType *telem.DataType,
+	warn Warn,
+) ReadField {
 	warn = withField(warn, old.Key)
-	if old.TimeFormat != nil &&
-		(index || (!old.Optional && len(old.EnumValues) == 0)) {
+	switch {
+	case channelType != nil:
+		old.DataType = *channelType
+	case old.TimeFormat != nil &&
+		(index || (!old.Optional && len(old.EnumValues) == 0)):
 		old.DataType = telem.TimestampT
 	}
 	kind, ok := xpayload.KindOf(old.DataType)
@@ -156,6 +197,7 @@ func liftReadField(old v4.ReadField, index bool, warn Warn) ReadField {
 		}
 		o.entries = append(o.entries, entry{label: e.Label, value: value})
 	}
+	o.entries = withoutEmptyLabels(o.entries, kind, warn)
 	return assemble(kind, BaseReadField{
 		Key:      old.Key,
 		Name:     old.Name,
@@ -196,18 +238,37 @@ func liftFill(old v4.ReadField, kind payload.Kind, warn Warn) any {
 		return nil
 	}
 	raw := *old.FillValue
+	if kind == payload.KindString {
+		if _, ok := raw.(string); !ok {
+			b, err := json.Marshal(raw)
+			if err != nil {
+				warn("dropped a fill that does not convert", zap.Error(err))
+				return nil
+			}
+			return string(b)
+		}
+	}
 	if label, ok := raw.(string); ok && (numeric(kind) || kind == payload.KindBoolean) {
 		e, found := lo.Find(old.EnumValues, func(e payload.EnumEntry) bool {
 			return e.Label == label
 		})
-		if !found {
+		switch {
+		case found:
+			raw = e.Value
+		case numeric(kind):
+			text := strings.TrimSpace(label)
+			if f, err := strconv.ParseFloat(text, 64); err == nil &&
+				kind == payload.KindFloat && (math.IsNaN(f) || math.IsInf(f, 0)) {
+				return payload.Float(f)
+			}
+			raw = jsontext.Value(text)
+		default:
 			warn(
 				"dropped a fill label that no enum entry has",
 				zap.String("label", label),
 			)
 			return nil
 		}
-		raw = e.Value
 	}
 	sample, err := decodeFill(raw, old)
 	if err != nil {
