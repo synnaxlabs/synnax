@@ -14,8 +14,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"os"
-	"path/filepath"
 	"slices"
 
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -32,12 +30,11 @@ type Release struct {
 	Root string
 }
 
-// checkShipped fails on every version file whose stored types no longer decode the data
-// a stable release wrote. It compares filled-in shapes, so a type may move to another
-// file or chain, and an enum or union may gain members. A chain removed with its live
-// file under repoRoot passes unless a current chain gained one of its stored types
-// since the release. resolver resolves the current chains, and is nil when there are
-// none.
+// checkShipped fails on every version file whose stored types no longer decode the
+// data a stable release wrote. It compares filled-in shapes, so a type may move to
+// another file or chain, and an enum or union may gain members. A chain that repoRoot
+// marks as removed passes. resolver resolves the current chains, and is nil when there
+// are none.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
@@ -51,33 +48,19 @@ func checkShipped(
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
 		return
 	}
+	removed, err := versions.Removed(repoRoot)
+	if err != nil {
+		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
+		return
+	}
 	shipped := versions.NewResolver(
 		shippedChains, analyzer.NewStandardFileLoader(release.Root),
 	)
-	var owners map[string]string
 	for _, livePath := range slices.Sorted(maps.Keys(shippedChains)) {
-		chain := shippedChains[livePath]
-		current, ok := chains[livePath]
-		if !ok {
-			live, err := liveExists(repoRoot, livePath)
-			if err != nil {
-				r.fail(Finding{
-					Path:     livePath + ".oracle",
-					Severity: SeverityError,
-					Message:  err.Error(),
-				})
-				continue
-			}
-			if !live {
-				if owners == nil {
-					owners = gainedOwners(
-						ctx, chains, resolver, shippedChains, shipped,
-					)
-				}
-				checkRemoved(ctx, r, shipped, chain, owners, release)
-				continue
-			}
+		if removed.Contains(livePath) {
+			continue
 		}
+		chain := shippedChains[livePath]
 		for _, n := range chain.Numbers {
 			filePath := chain.FilePath(n) + ".oracle"
 			fail := func(format string, args ...any) {
@@ -94,6 +77,7 @@ func checkShipped(
 					),
 				})
 			}
+			current, ok := chains[livePath]
 			if !ok || !slices.Contains(current.Numbers, n) {
 				fail("is gone")
 				continue
@@ -119,131 +103,26 @@ func checkShipped(
 	}
 }
 
-// gainedOwners returns, for each stored type name that a current chain did not store at
-// the release, the live path of that chain. It skips a chain that does not resolve,
-// because checkChain and the shipped comparison report it.
-func gainedOwners(
-	ctx context.Context,
-	chains map[string]versions.Chain,
-	resolver *versions.Resolver,
-	shippedChains map[string]versions.Chain,
-	shipped *versions.Resolver,
-) map[string]string {
-	owners := make(map[string]string)
-	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
-		names, err := storedNames(ctx, resolver, chains[livePath])
-		if err != nil {
-			continue
-		}
-		var had []string
-		if old, ok := shippedChains[livePath]; ok {
-			if had, err = storedNames(ctx, shipped, old); err != nil {
-				continue
-			}
-		}
-		for _, name := range names {
-			if !slices.Contains(had, name) {
-				owners[name] = livePath
-			}
-		}
-	}
-	return owners
-}
-
-// checkRemoved fails a removed chain when a current chain gained one of its stored
-// types, because the chain moved and the Core would read the shipped data with it.
-func checkRemoved(
-	ctx context.Context,
-	r *GateReport,
-	shipped *versions.Resolver,
-	chain versions.Chain,
-	owners map[string]string,
-	release Release,
-) {
-	livePath := chain.LivePath()
-	names, err := storedNames(ctx, shipped, chain)
-	if err != nil {
-		r.fail(Finding{
-			Path:     livePath + ".oracle",
-			Severity: SeverityError,
-			Message:  fmt.Sprintf("%s at %s: %s", livePath, release.Tag, err),
-		})
-		return
-	}
-	for _, name := range names {
-		owner, ok := owners[name]
-		if !ok {
-			continue
-		}
-		r.fail(Finding{
-			Path:     livePath + ".oracle",
-			Severity: SeverityError,
-			Message: fmt.Sprintf(
-				"%s is gone, but %s now stores %s, which %s shipped",
-				livePath, owner, name, release.Tag,
-			),
-			FixHint: fmt.Sprintf(
-				"restore %s from %s, or give the stored type a new name",
-				chain.Dir(), release.Tag,
-			),
-		})
-	}
-}
-
-// storedNames returns the sorted names of the stored types in the current version of
-// chain.
-func storedNames(
-	ctx context.Context, resolver *versions.Resolver, chain versions.Chain,
-) ([]string, error) {
-	livePath, n := chain.LivePath(), chain.Current()
-	ns := versions.DepNS(livePath, n)
-	t := resolution.NewTable()
-	if err := resolver.SurfaceInto(ctx, t, livePath, n, ns); err != nil {
-		return nil, err
-	}
-	stored := storedTypes(t, ns)
-	names := make([]string, len(stored))
-	for i, typ := range stored {
-		names[i] = typ.Name
-	}
-	return names, nil
-}
-
-// storedTypes returns the types in namespace ns of t that have a codec or a migration,
-// sorted by name.
-func storedTypes(t *resolution.Table, ns string) []resolution.Type {
-	var stored []resolution.Type
-	for _, typ := range t.TypesInNamespace(ns) {
-		if !typ.Synthetic && (domain.HasExprFromType(typ, "go", "marshal") ||
-			domain.HasExprFromType(typ, "go", "migrate")) {
-			stored = append(stored, typ)
-		}
-	}
-	slices.SortFunc(
-		stored,
-		func(a, b resolution.Type) int { return cmp.Compare(a.Name, b.Name) },
-	)
-	return stored
-}
-
-// liveExists reports whether the live file of the chain at livePath exists under root.
-func liveExists(root, livePath string) (bool, error) {
-	_, err := os.Stat(filepath.Join(root, livePath+".oracle"))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return err == nil, err
-}
-
 // compareStored checks each stored type of the surface in namespace ns: every type
 // with a codec or a migration. A stored type the surface no longer carries is allowed
 // only when the comparison of a stored type that remains reaches it.
 func compareStored(
 	old, now *resolution.Table, ns string, fail func(format string, args ...any),
 ) {
+	var roots []resolution.Type
+	for _, t := range old.TypesInNamespace(ns) {
+		if !t.Synthetic && (domain.HasExprFromType(t, "go", "marshal") ||
+			domain.HasExprFromType(t, "go", "migrate")) {
+			roots = append(roots, t)
+		}
+	}
+	slices.SortFunc(
+		roots,
+		func(a, b resolution.Type) int { return cmp.Compare(a.Name, b.Name) },
+	)
 	s := newShapes(old, now)
 	var removed []resolution.Type
-	for _, t := range storedTypes(old, ns) {
+	for _, t := range roots {
 		n, ok := now.Get(t.QualifiedName)
 		if !ok {
 			removed = append(removed, t)

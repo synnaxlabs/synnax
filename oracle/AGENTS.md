@@ -66,9 +66,10 @@ or generator logic and schemas disagree.
   bytes, and arc v1+ resolve the live shape at read time.
 - **A resource whose stored data the Core deletes is removed whole.** Delete its live
   file, every version file, and its generated outputs (sync leaves them), and add a Core
-  migration that deletes its stored entries. The `versions` gate passes a removed
-  shipped chain only when its live file is gone too, no stored type imports it, and no
-  current chain gained one of its stored types since the release.
+  migration that deletes its stored entries. Leave an empty `removed` file as the only
+  entry of its version directory: the `versions` gate passes a shipped chain only with
+  it, so a rename still fails. Delete the marker once a stable release ships without the
+  chain.
 - **Version files pin every versioned dependency.** A stored reference (a range's color)
   and a `@go marshal omit` field (a task's status) both import a pinned version file
   (`import "schemas/x/versions/color/v0"`), and the version package resolves them there.
