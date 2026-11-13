@@ -257,7 +257,7 @@ describe("range/Explorer", () => {
       const rng = await createTestRange(client);
       const { store } = await renderExplorer();
       fireEvent.contextMenu(await revealRange(rng.name));
-      fireEvent.click(await screen.findByText("Favorite"));
+      fireEvent.click(await screen.findByText("Pin"));
       await waitFor(() => {
         const state = selectRange(store.getState(), rng.key);
         expect(state?.variant).toBe("persisted");

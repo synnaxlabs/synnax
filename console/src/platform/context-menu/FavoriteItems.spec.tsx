@@ -32,29 +32,29 @@ const render = async (props: Partial<ContextMenu.FavoriteItemsProps> = {}) => {
 };
 
 describe("ContextMenu.FavoriteItems", () => {
-  it("shows only Favorite when some items are not favorited", async () => {
+  it("shows only Pin when some items are not favorited", async () => {
     const { onFavorite } = await render({ anyNotFavorited: true });
-    expect(screen.queryByText("Unfavorite")).toBeNull();
-    fireEvent.click(screen.getByText("Favorite"));
+    expect(screen.queryByText("Unpin")).toBeNull();
+    fireEvent.click(screen.getByText("Pin"));
     expect(onFavorite).toHaveBeenCalledTimes(1);
   });
 
-  it("shows only Unfavorite when some items are favorited", async () => {
+  it("shows only Unpin when some items are favorited", async () => {
     const { onUnfavorite } = await render({ anyFavorited: true });
-    expect(screen.queryByText("Favorite")).toBeNull();
-    fireEvent.click(screen.getByText("Unfavorite"));
+    expect(screen.queryByText("Pin")).toBeNull();
+    fireEvent.click(screen.getByText("Unpin"));
     expect(onUnfavorite).toHaveBeenCalledTimes(1);
   });
 
   it("shows both actions for a mixed selection", async () => {
     await render({ anyFavorited: true, anyNotFavorited: true });
-    expect(screen.getByText("Favorite")).toBeTruthy();
-    expect(screen.getByText("Unfavorite")).toBeTruthy();
+    expect(screen.getByText("Pin")).toBeTruthy();
+    expect(screen.getByText("Unpin")).toBeTruthy();
   });
 
   it("shows neither action when nothing is selectable", async () => {
     await render();
-    expect(screen.queryByText("Favorite")).toBeNull();
-    expect(screen.queryByText("Unfavorite")).toBeNull();
+    expect(screen.queryByText("Pin")).toBeNull();
+    expect(screen.queryByText("Unpin")).toBeNull();
   });
 });

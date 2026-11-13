@@ -28,13 +28,13 @@ export const FavoriteItems = ({
     {anyNotFavorited && (
       <Menu.Item itemKey="favorite" onClick={onFavorite}>
         <Icon.StarFilled />
-        Favorite
+        Pin
       </Menu.Item>
     )}
     {anyFavorited && (
       <Menu.Item itemKey="unfavorite" onClick={onUnfavorite}>
         <Icon.StarOutlined />
-        Unfavorite
+        Unpin
       </Menu.Item>
     )}
   </>
