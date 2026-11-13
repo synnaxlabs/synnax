@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { niChassis } from "@/ni/chassis";
 import { niDevice } from "@/ni/device";
 
 /** Client groups the clients of the NI resources. */
 export class Client {
+  readonly chassis: niChassis.Client;
   readonly devices: niDevice.Client;
 
   constructor(cfg: niDevice.ClientConfig) {
+    this.chassis = new niChassis.Client(cfg);
     this.devices = new niDevice.Client(cfg);
   }
 }
