@@ -638,6 +638,19 @@ var _ = Describe("Engine", func() {
 			)))
 		})
 
+		It("Should make a run on the asset of a config that another engine created",
+			func(ctx SpecContext) {
+				MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, run))
+				second := run
+				second.Key = uuid.New().String()
+				id := MustSucceed(open(ctx, channel.Keys{ch.Key()}).SetRun(ctx, second))
+				Expect(server.IngestionConfigs()).To(HaveLen(1))
+				Expect(server.Runs()).To(ContainElement(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("AssetIds", ConsistOf("asset-stand")),
+				)))
+			})
+
 		It("Should update the run that already has the key", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			id := MustSucceed(e.SetRun(ctx, run))
