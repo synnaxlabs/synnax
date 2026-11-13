@@ -959,6 +959,7 @@ func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
+		Include: data.AddInternal,
 	}
 }
 
@@ -1106,7 +1107,13 @@ func (p *Plugin) resolveEnumType(
 	form resolution.EnumForm,
 	data *templateData,
 ) string {
+	if !form.IsIntEnum {
+		data.AddSystem("string")
+		return "std::string"
+	}
+
 	name := resolved.Name
+
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
 		if targetOutputPath != "" {
@@ -1116,10 +1123,7 @@ func (p *Plugin) resolveEnumType(
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
-	if !form.IsIntEnum {
-		data.AddSystem("string")
-		return "std::string"
-	}
+
 	return name
 }
 
