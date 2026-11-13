@@ -127,8 +127,11 @@ export const Text = ({
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
     focusedRef.current = false;
     let committed: string | null = null;
-    if (resetOnBlurIfEmpty && e.target.value === "") committed = cachedFocusRef.current;
-    else if (onlyChangeOnBlur) committed = tempValue;
+    // Only the user's edit commits, so a change from elsewhere while focused stays.
+    if (resetOnBlurIfEmpty && e.target.value === "")
+      committed = onlyChangeOnBlur ? null : cachedFocusRef.current;
+    else if (onlyChangeOnBlur && tempValue !== cachedFocusRef.current)
+      committed = tempValue;
     if (committed != null && committed !== value) onChange?.(committed);
     setTempValue(null);
     onBlur?.(e);

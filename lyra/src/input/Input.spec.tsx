@@ -129,6 +129,17 @@ describe("Input", () => {
         fireEvent.blur(input);
         expect(onChange).not.toHaveBeenCalled();
       });
+      it("should not write the focus value back over a change made while focused", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Text value="original" onChange={onChange} onlyChangeOnBlur />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        c.rerender(<Input.Text value="remote" onChange={onChange} onlyChangeOnBlur />);
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+      });
     });
 
     describe("focus and blur handlers", () => {
@@ -166,6 +177,18 @@ describe("Input", () => {
         fireEvent.blur(input);
         expect(onChange).not.toHaveBeenCalled();
         expect(input).toHaveProperty("value", "original");
+      });
+
+      it("should not write the focus value over a change made while focused when emptied", () => {
+        const onChange = vi.fn();
+        const props = { onChange, resetOnBlurIfEmpty: true, onlyChangeOnBlur: true };
+        const c = render(<Input.Text value="original" {...props} />);
+        const input = c.getByRole("textbox");
+        fireEvent.focus(input);
+        c.rerender(<Input.Text value="remote" {...props} />);
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
       });
 
       it("should change an emptied value back to the original on blur", () => {
