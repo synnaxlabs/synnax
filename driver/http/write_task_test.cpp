@@ -705,6 +705,63 @@ TEST(HTTPWriteTask, StaticFields) {
     EXPECT_EQ(body["device_id"].get<std::string>(), "sensor-01");
 }
 
+/// @brief it should merge a json field with the fields nested inside or above it.
+TEST(HTTPWriteTask, NestedJSONField) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    ::x::payload::JsonWriteField meta;
+    meta.pointer = "/meta";
+    meta.value = R"({"site": "a"})";
+    ::x::payload::StringWriteField unit;
+    unit.pointer = "/meta/unit";
+    unit.value = "psi";
+    ::x::payload::JsonWriteField info;
+    info.pointer = "/info/detail";
+    info.value = "[1]";
+    ::x::payload::StringWriteField parent;
+    parent.pointer = "/info";
+    parent.value = "x";
+    ep.fields = {meta, unit, info, parent};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{2.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(
+        reqs[0].body,
+        R"({"info":"x","meta":{"site":"a","unit":"psi"},"value":2.0})"
+    );
+}
+
 /// @brief it should place the exact value of each kind of fixed field in the body.
 TEST(HTTPWriteTask, FixedFieldKinds) {
     testutil::Server server(

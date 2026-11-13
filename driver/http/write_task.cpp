@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <set>
@@ -63,6 +64,13 @@ std::string compact(const std::string &text) {
         out.push_back(c);
     }
     return out;
+}
+
+/// @brief reports whether a value at one of others sits inside or above pointer.
+bool nests(const std::string &pointer, const std::vector<std::string> &others) {
+    return std::ranges::any_of(others, [&](const std::string &other) {
+        return other.starts_with(pointer + "/") || pointer.starts_with(other + "/");
+    });
 }
 
 /// @brief returns the JSON value that a fixed write field places in every body, or
@@ -261,11 +269,17 @@ WriteTaskSink::WriteTaskSink(
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
             state.enum_values.emplace_back(entry.value, entry.label);
+        std::vector<std::string> pointers{ep.channel.pointer};
+        for (const auto &field: ep.fields)
+            pointers.push_back(::x::payload::base(field).pointer);
         for (const auto &field: ep.fields) {
             const auto pointer = x::json::json::json_pointer(
                 ::x::payload::base(field).pointer
             );
-            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field)) {
+            // A value nested inside or above the field must merge with its parsed
+            // value, so only a field that stands alone keeps its text as written.
+            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field);
+                jf != nullptr && !nests(jf->pointer, pointers)) {
                 state.static_fields.push_back({
                     .pointer = pointer,
                     .value = x::uuid::create().to_string(),
