@@ -65,7 +65,8 @@ export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyPa
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     for (const key of data.keys) {
-      // A fresh read before each write sees what an overlapping run already wrote.
+      // A fresh read sees the identifiers that other runs already saved, not their
+      // pending picks.
       const all = await client.devices.retrieve({});
       const prev = all.find((d) => d.key === key);
       if (prev == null || prev.configured) continue;
