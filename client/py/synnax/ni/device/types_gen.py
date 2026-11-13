@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -47,6 +47,27 @@ class CommandStatePair(BaseModel):
     state: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
 
 
+class Identity(BaseModel):
+    """Holds the device fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the device is connected to.
+        serial: Is the serial number of the device, or its NI-MAX resource name when it
+            is simulated.
+        model: Is the product name of the device.
+        alias: Is the DAQmx alias of the device.
+        simulated: Is true when the device is simulated in NI-MAX.
+        chassis: Is the chassis that holds the device. Absent for a standalone device.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    serial: str
+    model: str
+    alias: str
+    simulated: bool = False
+    chassis: chassis_.Key | None = None
+
+
 class StatusDetails(BaseModel):
     """Identifies the device and rack that a status pertains to.
 
@@ -72,6 +93,29 @@ class OutputPorts(BaseModel):
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class Configuration(BaseModel):
+    """Holds the device fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the device.
+        identifier: Is the prefix of the device's channel names. The device is
+            unconfigured while it is empty.
+        analog_input: Are the channels of the analog input ports.
+        analog_output: Are the channels of the analog output ports.
+        counter_input: Are the channels of the counter input ports.
+        digital_input: Are the channels of the digital input lines.
+        digital_output: Are the channels of the digital output lines.
+    """
+
+    name: str
+    identifier: str = ""
+    analog_input: InputPorts = Field(default_factory=lambda: InputPorts())
+    analog_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
+    counter_input: InputPorts = Field(default_factory=lambda: InputPorts())
+    digital_input: InputPorts = Field(default_factory=lambda: InputPorts())
+    digital_output: OutputPorts = Field(default_factory=lambda: OutputPorts())
 
 
 class Device(BaseModel):
@@ -116,6 +160,27 @@ class Device(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a device.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 TYPE_RESOURCE_ID = ID(type="ni_device")

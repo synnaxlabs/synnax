@@ -10,23 +10,33 @@
 from synnax.ni.device.types_gen import (
     TYPE_RESOURCE_ID,
     CommandStatePair,
+    Configuration,
+    ConfigurationUpdate,
     Device,
+    Identity,
+    IdentityUpdate,
     InputPorts,
     Key,
     OutputPorts,
     Status,
     StatusDetails,
+    Update,
     resource_id,
 )
 
 __all__ = [
     "TYPE_RESOURCE_ID",
     "CommandStatePair",
+    "Configuration",
+    "ConfigurationUpdate",
     "Device",
+    "Identity",
+    "IdentityUpdate",
     "InputPorts",
     "Key",
     "OutputPorts",
     "Status",
     "StatusDetails",
+    "Update",
     "resource_id",
 ]

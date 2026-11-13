@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -349,6 +350,109 @@ var _ = Describe("Service", func() {
 				func(d device.Device) (device.Device, error) { return d, nil },
 			)).To(MatchError(query.ErrNotFound))
 		})
+	})
+
+	Describe("Apply", func() {
+		It("Should write identity fields and keep configuration", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.Identifier = "dev1"
+					return d, nil
+				},
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: device.Identity{
+					Rack:   rackKey,
+					Serial: "02B",
+					Model:  "PXI-6259",
+				}},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Serial).To(Equal("02B"))
+			Expect(got.Model).To(Equal("PXI-6259"))
+			Expect(got.Name).To(Equal(d.Name))
+			Expect(got.Identifier).To(Equal("dev1"))
+		})
+
+		It("Should write configuration fields and keep identity", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "dev1",
+					},
+				},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should clear the ports that a configuration update leaves out", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.AnalogInput = device.InputPorts{
+						Index:    1,
+						Channels: map[string]channel.Key{"ai0": 2},
+					}
+					return d, nil
+				},
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "dev1",
+					},
+				},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.AnalogInput.Index).To(BeZero())
+			Expect(got.AnalogInput.Channels).To(BeEmpty())
+		})
+
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{Name: "Renamed"},
+				},
+			})).To(MatchError(query.ErrNotFound))
+		})
+
+		DescribeTable(
+			"Should reject an invalid update",
+			func(ctx SpecContext, update device.Update, message string) {
+				d := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update)).
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry("no group", device.Update{}, "no field group"),
+			Entry(
+				"identity",
+				device.Update{Variant: device.IdentityUpdate{}},
+				"required",
+			),
+			Entry(
+				"configuration",
+				device.Update{Variant: device.ConfigurationUpdate{}},
+				"required",
+			),
+		)
 	})
 
 	Describe("Delete", func() {
