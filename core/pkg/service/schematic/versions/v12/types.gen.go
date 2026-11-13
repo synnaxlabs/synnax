@@ -317,6 +317,15 @@ func (s *StalenessConfig) SetDefaults() {
 	s.StalenessTimeout = 5000000000
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StalenessConfig) Validate() error {
+	v := validate.New("StalenessConfig")
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1)
+	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
+	return v.Error()
+}
+
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
 type NumericTelemConfig struct {
@@ -397,7 +406,10 @@ func (t *ToggleConfig) SetDefaults() {
 // schema constraints.
 func (t ToggleConfig) Validate() error {
 	v := validate.New("ToggleConfig")
+	v.GreaterThanEq("on_click_delay", t.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", t.OnClickDelay, 2147483647000000)
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.StalenessConfig.Validate)
 	if t.Control != nil {
 		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
 	}
@@ -558,6 +570,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1527,6 +1540,8 @@ func (b ButtonNodeConfig) Validate() error {
 	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
 	v.Ternaryf("level", !b.Level.IsValid(), "invalid level: %v", b.Level)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
+	v.GreaterThanEq("on_click_delay", b.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", b.OnClickDelay, 2147483647000000)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
 		v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
@@ -1640,6 +1655,7 @@ func (g GaugeNodeConfig) Validate() error {
 	v.Ternaryf("level", !g.Level.IsValid(), "invalid level: %v", g.Level)
 	v.Exec(g.LabeledConfig.Validate)
 	v.Exec(g.NumericTelemConfig.Validate)
+	v.Exec(g.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1705,7 +1721,10 @@ func (i InputNodeConfig) Validate() error {
 	v := validate.New("InputNodeConfig")
 	v.Ternaryf("size", !i.Size.IsValid(), "invalid size: %v", i.Size)
 	v.Ternaryf("level", !i.Level.IsValid(), "invalid level: %v", i.Level)
+	v.GreaterThanEq("on_click_delay", i.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", i.OnClickDelay, 2147483647000000)
 	v.Exec(i.LabeledConfig.Validate)
+	v.Exec(i.StalenessConfig.Validate)
 	if i.Control != nil {
 		v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
 	}
@@ -1748,6 +1767,7 @@ func (l *LightNodeConfig) ApplyDefaults() {
 func (l LightNodeConfig) Validate() error {
 	v := validate.New("LightNodeConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -1945,7 +1965,10 @@ func (s SelectNodeConfig) Validate() error {
 	v := validate.New("SelectNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	}
@@ -2062,7 +2085,10 @@ func (s SetpointNodeConfig) Validate() error {
 	v := validate.New("SetpointNodeConfig")
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	if s.Control != nil {
 		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	}
@@ -2120,6 +2146,7 @@ func (s StateIndicatorNodeConfig) Validate() error {
 	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -2169,6 +2196,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	v := validate.New("StringDisplayNodeConfig")
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
 	return v.Error()
 }
 
@@ -2318,6 +2346,7 @@ func (va ValueNodeConfig) Validate() error {
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
+	v.Exec(va.StalenessConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -3853,6 +3882,8 @@ func (t TankNodeConfig) Validate() error {
 	if t.Precision != nil {
 		v.LessThanEq("precision", *t.Precision, 17)
 	}
+	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1)
+	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }

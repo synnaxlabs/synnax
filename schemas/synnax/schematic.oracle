@@ -264,8 +264,10 @@ ToggleConfig struct extends LabeledConfig, ScaledConfig, StalenessConfig {
         @doc value "is the control state display configuration."
     }
     on_click_delay  telem.TimeSpan = 0 {
-        @doc value "is the debounce delay applied to clicks."
-        @ts type   telem.NumericTimeSpan
+        @doc value    "is the debounce delay applied to clicks."
+        @ts type      telem.NumericTimeSpan
+        @validate max 2147483647000000
+        @validate min 0
     }
 
     @doc value  """
@@ -386,8 +388,10 @@ NodeConfig union on variant {
             @doc value "is the typography level of the button text."
         }
         on_click_delay  telem.TimeSpan = 0 {
-            @doc value "is the debounce delay applied to clicks."
-            @ts type   telem.NumericTimeSpan
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
         command_channel channel.Key?        {
             @doc value "is the channel button presses are written to."
@@ -479,8 +483,10 @@ NodeConfig union on variant {
             """
         }
         on_click_delay  telem.TimeSpan = 0 {
-            @doc value "is the debounce delay applied to clicks."
-            @ts type   telem.NumericTimeSpan
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
@@ -598,8 +604,10 @@ NodeConfig union on variant {
             @doc value "indicates whether the select rejects interaction."
         }
         on_click_delay  telem.TimeSpan = 0 {
-            @doc value "is the debounce delay applied to clicks."
-            @ts type   telem.NumericTimeSpan
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
@@ -659,8 +667,10 @@ NodeConfig union on variant {
             """
         }
         on_click_delay  telem.TimeSpan = 0 {
-            @doc value "is the debounce delay applied to clicks."
-            @ts type   telem.NumericTimeSpan
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
@@ -1208,8 +1218,10 @@ Page struct {
 
 StalenessConfig struct {
     staleness_timeout telem.TimeSpan = 5000000000 {
-        @doc value "is the span after which the value is considered stale."
-        @ts type   telem.NumericTimeSpan
+        @doc value    "is the span after which the value is considered stale."
+        @ts type      telem.NumericTimeSpan
+        @validate max 9007199254740991
+        @validate min 1
     }
     staleness_color   color.Color?   {
         @doc value "is the color applied when the value is stale."
