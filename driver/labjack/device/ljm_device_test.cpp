@@ -114,7 +114,7 @@ TEST(LJMDeviceTest, testStreamReadWaitsForScans) {
     EXPECT_EQ(value, READ_VALUE);
 }
 
-/// @brief it should report a lost stream, for which LJM never calls back.
+/// @brief it should report a lost stream.
 TEST(LJMDeviceTest, testStreamReadReportsLostStream) {
     const LJMDevice dev(open_fake_api(), LOST_STREAM_HANDLE);
     ASSERT_NIL(start_stream(dev));
