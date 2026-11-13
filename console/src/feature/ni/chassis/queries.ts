@@ -38,12 +38,13 @@ export const useList = ({
   ...rest
 }: Omit<
   Flux.UseListParams<ListQuery, ni.chassis.Chassis>,
-  "name"
+  "itemQuery" | "name"
 > = {}): Flux.UseListReturn<ni.chassis.Key, ni.chassis.Chassis> =>
   Flux.useList((client) => client.ni.chassis, {
     ...rest,
     name: RESOURCE_NAME,
     query: query === null ? null : { ...BASE_QUERY, ...query },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
   });
 
 export interface RenameParams extends Pick<ni.chassis.Chassis, "key" | "name"> {}
