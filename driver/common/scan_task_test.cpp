@@ -95,8 +95,11 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
+    /// @brief the make the scanner reports, which filters device signals.
+    std::string make;
+
     [[nodiscard]] ScannerConfig config() const override {
-        return ScannerConfig{.make = "", .log_prefix = "[mock] "};
+        return ScannerConfig{.make = this->make, .log_prefix = "[mock] "};
     }
 
     MockScanner(
@@ -948,6 +951,9 @@ TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
     synnax::device::Device stored;
     stored.key = "device1";
     stored.rack = 1;
+    stored.name = "Device 1";
+    stored.make = "test_make";
+    stored.model = "test_model";
     stored.location = "old_location";
     stored.properties = {{"user", "a"}};
     synnax::device::Device scanned = stored;
@@ -974,17 +980,19 @@ TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
     task.key = x::uuid::create();
     task.rack = 1;
     task.name = "Test Scan Task";
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{
+            {scanned},
+            {scanned},
+            {scanned}
+        },
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+    scanner->make = stored.make;
     ScanTask scan_task(
-        std::make_unique<MockScanner>(
-            std::vector<std::vector<synnax::device::Device>>{
-                {scanned},
-                {scanned},
-                {scanned}
-            },
-            std::vector<x::errors::Error>{},
-            std::vector<x::errors::Error>{},
-            std::vector<x::errors::Error>{}
-        ),
+        std::move(scanner),
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
