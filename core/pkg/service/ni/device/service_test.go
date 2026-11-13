@@ -35,12 +35,12 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		stat     *status.Service
-		rackSvc  *rack.Service
-		chassisT *gorp.Table[chassis.Key, chassis.Chassis]
-		svc      *device.Service
-		tx       gorp.Tx
-		rackKey  rack.Key
+		stat       *status.Service
+		rackSvc    *rack.Service
+		chassisSvc *chassis.Service
+		svc        *device.Service
+		tx         gorp.Tx
+		rackKey    rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -54,12 +54,10 @@ var _ = Describe("Service", func() {
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
-		chassisT = MustOpen(
-			gorp.OpenTable(ctx, gorp.TableConfig[chassis.Key, chassis.Chassis]{
-				DB:   db,
-				Name: "ni_chassis",
-			}),
-		)
+		chassisSvc = MustOpen(chassis.OpenService(ctx, chassis.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
 			Status: stat,
@@ -81,8 +79,13 @@ var _ = Describe("Service", func() {
 	}
 	createChassis := func(ctx context.Context) chassis.Key {
 		GinkgoHelper()
-		c := chassis.Chassis{Key: uuid.New(), Rack: rackKey, Name: "PXIe-1071"}
-		Expect(chassisT.NewCreate().Entry(&c).Exec(ctx, tx)).To(Succeed())
+		c := chassis.Chassis{
+			Rack:         rackKey,
+			Name:         "PXIe-1071",
+			ResourceName: uuid.New().String(),
+			Model:        "PXIe-1071",
+		}
+		Expect(chassisSvc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 		return c.Key
 	}
 	retrieve := func(ctx context.Context, key device.Key) device.Device {
@@ -402,9 +405,7 @@ var _ = Describe("Service", func() {
 			key := createChassis(ctx)
 			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &key}
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-			Expect(chassisT.NewDelete().
-				Where(gorp.MatchKeys[chassis.Key, chassis.Chassis](key)).
-				Exec(ctx, tx)).To(Succeed())
+			Expect(chassisSvc.NewWriter(tx).Delete(ctx, key)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(device.MatchKeys(d.Key)).
 				Exists(ctx, tx)).To(BeFalse())
