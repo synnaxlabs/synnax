@@ -351,6 +351,9 @@ bound, a log precision, or the line plot X channel.
 - The Users page of Settings is a record table with checkable items, like the range
   explorer: the name, then a role select in place. A right click opens the menu of the
   selected users. A "You" badge follows the current user's name.
+- The Labels page of Settings is a record table with checkable items: a color swatch,
+  then the name. Click the swatch to recolor. A right click opens the menu of the
+  selected labels. You create a label from the page or from any label field.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

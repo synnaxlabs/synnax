@@ -31,7 +31,6 @@ from console.layout import LayoutClient
 class AccessClient(ResourceClient):
     """Console RBAC client for existing role/user UI functionality."""
 
-    SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
     USER_ITEM_SELECTOR = ".console-user-members__item"
     USER_SEARCH_PLACEHOLDER = "Search users"
 
@@ -201,7 +200,7 @@ class AccessClient(ResourceClient):
         """
         if not self.layout.command_exists("Open settings"):
             return False
-        nav = self._open_settings()
+        nav = self.layout.open_settings()
         users = nav.get_by_role("menuitem", name="Users", exact=True)
         try:
             users.wait_for(state="visible", timeout=2000)
@@ -322,17 +321,9 @@ class AccessClient(ResourceClient):
     # Helper methods
     # -------------------------------------------------------------------------
 
-    def _open_settings(self) -> Locator:
-        """Open the Settings tab, or show it if it is already open."""
-        nav = self.layout.page.locator(self.SETTINGS_NAV_SELECTOR)
-        if not nav.is_visible():
-            self.layout.command_palette("Open settings")
-            nav.wait_for(state="visible", timeout=5000)
-        return nav
-
     def _show_users_page(self) -> None:
         """Show the Users page of Settings."""
-        nav = self._open_settings()
+        nav = self.layout.open_settings()
         nav.get_by_role("menuitem", name="Users", exact=True).click()
         self.layout.page.get_by_placeholder(
             self.USER_SEARCH_PLACEHOLDER, exact=True

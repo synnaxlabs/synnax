@@ -25,7 +25,11 @@ const bottomStateZ = baseStateZ
   .prefault({});
 export interface BottomState extends z.infer<typeof bottomStateZ> {}
 
-const windowStateZ = z.object({ left: leftStateZ, bottom: bottomStateZ }).prefault({});
+const settingsStateZ = z.object({ section: z.string().optional() }).prefault({});
+
+const windowStateZ = z
+  .object({ left: leftStateZ, bottom: bottomStateZ, settings: settingsStateZ })
+  .prefault({});
 
 export const ZERO_WINDOW_STATE = windowStateZ.parse({});
 
@@ -50,6 +54,10 @@ export interface LeftKeyPayload extends Window.OptionalKeyParams {
 
 export interface ResizePayload extends Window.OptionalKeyParams {
   size: number;
+}
+
+export interface SettingsSectionPayload extends Window.OptionalKeyParams {
+  section: string;
 }
 
 const withKey = Window.createWithKeyHandler(windowStateZ);
@@ -146,6 +154,11 @@ const { actions, reducer } = createSlice({
       bottom.visible = false;
       bottom.hover = false;
     }),
+    selectSettingsSection: withKey<SettingsSectionPayload, SliceState>(
+      ({ settings }, { payload: { section } }) => {
+        settings.section = section;
+      },
+    ),
   },
   extraReducers: Window.handleRemoved,
 });
@@ -166,6 +179,7 @@ export const {
   resizeBottom,
   collapseBottom,
   hideAll,
+  selectSettingsSection,
 } = actions;
 
 export { reducer };
@@ -189,5 +203,6 @@ export const MIDDLEWARE = [
     resizeBottom,
     collapseBottom,
     hideAll,
+    selectSettingsSection,
   ]),
 ];
