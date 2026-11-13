@@ -118,12 +118,14 @@ jobs:
 
   # A seat can halt from idle before a runner takes the job, and nothing else starts it
   # again. This job starts a seat when none is up, until the job leaves the queue. It
-  # cancels the run when the runners of a seat stay idle and do not take the job.
+  # cancels the run when the runners of a seat stay idle and do not take the job. Only
+  # the cancel changes the result of the call.
   watch:
     needs: start
     name: Keep a runner up
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    continue-on-error: true
     permissions:
       actions: write
       id-token: write
@@ -155,7 +157,7 @@ jobs:
             sleep 20
           done
           run="${name% / *} / Run ($AGENT)"
-          up=false
+          since=
           # A seat that stays idle from its start stops in about 23 minutes. A seat that
           # other jobs keep busy can stop after this watch ends, and then the job stays
           # in the queue. A call that fails is done again on the next pass.
@@ -171,22 +173,23 @@ jobs:
               Name=instance-state-name,Values=pending,running,stopping,stopped \
               --query 'Reservations[].Instances[].[InstanceId,State.Name]') || continue
             if grep -qE 'pending|running' <<< "$seats"; then
-              up=true
+              since=${since:-$SECONDS}
               continue
             fi
-            # Only a seat with idle runners stops. A stop this long after the job went
-            # into the queue shows that the runners were online and did not take it.
-            if [ "$up" = true ] && [ "$SECONDS" -gt 180 ]; then
+            # Only a seat with idle runners stops. A stop after the seat was up this long
+            # with the job in the queue shows that the runners did not take the job.
+            if [ -n "$since" ] && [ $((SECONDS - since)) -gt 600 ]; then
               echo "::error::The agent-$AGENT runners were idle and did not take the" \
                 "job. Check their labels and the workflows their runner group accepts."
-              gh run cancel "$GITHUB_RUN_ID"
+              gh run cancel "$GITHUB_RUN_ID" || continue
               exit 1
             fi
             mapfile -t ids < <(cut -f 1 <<< "$seats")
             # The waiter fails when another job starts an instance first.
             aws ec2 wait instance-stopped --instance-ids "${ids[@]}" || continue
-            up=false
-            aws ec2 start-instances --instance-ids "${ids[0]}" > /dev/null || continue
+            since=
+            id=$(shuf -n 1 -e "${ids[@]}")
+            aws ec2 start-instances --instance-ids "$id" > /dev/null || continue
           done
 
   run:
