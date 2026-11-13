@@ -33,8 +33,11 @@ func MigrateChannelEntry(
 	old v3.ChannelEntry,
 ) (ChannelEntry, error) {
 	entry, err := autoMigrateChannelEntry(ctx, old)
-	if err != nil || old.Color == (colorv0.Color{}) {
-		return entry, err
+	if err != nil {
+		return ChannelEntry{}, err
+	}
+	if old.Color == (colorv0.Color{}) {
+		return entry, nil
 	}
 	c, err := color.MigrateColor(ctx, old.Color)
 	if err != nil {

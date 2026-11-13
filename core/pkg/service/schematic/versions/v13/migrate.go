@@ -12,70 +12,72 @@ package v13
 import (
 	"context"
 	"reflect"
+	"slices"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 // MigrateSchematic lifts a v12 schematic to v13, which stores every color alpha as a
-// 0-255 byte. An optional color that holds the zero color becomes absent, as v12 stored
-// the zero color to mean that the theme picks the color. Symbol state overrides keep
-// their zero colors, which paint a region transparent.
+// 0-255 byte. A zero color in a field that v12 read as "the theme picks the color"
+// becomes absent. Every other zero color still paints transparent and stays.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
 	for k, cfg := range s.Configs {
-		v := reflect.ValueOf(&cfg).Elem()
-		clearZeroColors(v)
+		clearThemeColors(reflect.ValueOf(&cfg).Elem())
 		s.Configs[k] = cfg
 	}
 	return s, nil
 }
 
-var (
-	colorPtrType = reflect.TypeFor[*color.Color]()
-	statesType   = reflect.TypeFor[[]symbol.State]()
-)
+// themeColors names, for each struct, the optional colors whose zero color v12 read as
+// "the theme picks the color".
+var themeColors = map[reflect.Type][]string{
+	reflect.TypeFor[StalenessConfig]():      {"StalenessColor"},
+	reflect.TypeFor[TankElementConfig]():    {"StalenessColor"},
+	reflect.TypeFor[ScaleIndicatorConfig](): {"LevelColor", "AxisColor", "TextColor"},
+	reflect.TypeFor[ValueElementConfig]():   {"TextColor"},
+	reflect.TypeFor[GaugeElementConfig]():   {"StrokeColor"},
+}
 
-// clearZeroColors sets every optional color under v that holds the zero color to nil,
-// except inside symbol states. v must be settable.
-func clearZeroColors(v reflect.Value) {
-	if v.Type() == statesType {
-		return
-	}
+// clearThemeColors sets each color under v that themeColors names and that holds the
+// zero color to nil. v must be settable.
+func clearThemeColors(v reflect.Value) {
 	switch v.Kind() {
 	case reflect.Pointer:
-		if v.IsNil() {
-			return
+		if !v.IsNil() {
+			clearThemeColors(v.Elem())
 		}
-		if v.Type() == colorPtrType {
-			if *v.Interface().(*color.Color) == (color.Color{}) {
-				v.SetZero()
-			}
-			return
-		}
-		clearZeroColors(v.Elem())
 	case reflect.Interface:
 		if v.IsNil() {
 			return
 		}
 		c := reflect.New(v.Elem().Type()).Elem()
 		c.Set(v.Elem())
-		clearZeroColors(c)
+		clearThemeColors(c)
 		v.Set(c)
 	case reflect.Struct:
-		for _, f := range v.Fields() {
-			if f.CanSet() {
-				clearZeroColors(f)
+		names := themeColors[v.Type()]
+		for sf, f := range v.Fields() {
+			if !f.CanSet() {
+				continue
 			}
+			c, isColor := reflect.TypeAssert[*color.Color](f)
+			if isColor && slices.Contains(names, sf.Name) {
+				if c != nil && *c == (color.Color{}) {
+					f.SetZero()
+				}
+				continue
+			}
+			clearThemeColors(f)
 		}
 	case reflect.Slice:
 		for i := range v.Len() {
-			clearZeroColors(v.Index(i))
+			clearThemeColors(v.Index(i))
 		}
 	default:
 	}
