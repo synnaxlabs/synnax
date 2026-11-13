@@ -276,14 +276,3 @@ class TaskClient(ResourceClient):
             self.ctx_menu.action(item, "Edit configuration")
         else:
             item.dblclick()
-
-    def snapshot(self, names: list[str], *, range_name: str) -> None:
-        """Snapshot tasks to the active range via context menu.
-
-        :param names: Names of the tasks to snapshot.
-        :param range_name: Name of the active range.
-        """
-        if not names:
-            return
-        last = self._select(names)
-        self.ctx_menu.action(last, f"Snapshot to {range_name}", exact=False)

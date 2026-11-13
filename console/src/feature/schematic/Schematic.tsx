@@ -46,7 +46,6 @@ const EmptyContent = (): ReactElement => {
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
-  const isSnapshot = Base.useIsSnapshot();
   const dispatch = Session.useDispatch();
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
@@ -87,7 +86,7 @@ const Internal = (): ReactElement => {
   const renderExtraMenuItems = (): ReactElement => (
     <>
       {canEdit && <Diagram.Menu.ToggleEditItem />}
-      {!isSnapshot && <Control.Menu.ToggleItem />}
+      <Control.Menu.ToggleItem />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </>

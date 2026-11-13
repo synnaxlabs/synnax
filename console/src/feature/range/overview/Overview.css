@@ -33,20 +33,6 @@
     }
 }
 
-.console-snapshots__list-item {
-    padding: 1.5rem;
-
-    .console-snapshots__delete {
-        opacity: 0;
-    }
-
-    &:hover {
-        .console-snapshots__delete {
-            opacity: 1;
-        }
-    }
-}
-
 .console-metadata__list-item {
     height: 6rem;
     max-height: 6rem;

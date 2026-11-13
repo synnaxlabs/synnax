@@ -39,7 +39,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -98,34 +97,14 @@ func statusOf(ctx SpecContext, t task.Task) resource.ID {
 func createTask(ctx SpecContext) task.Task {
 	GinkgoHelper()
 	t := task.Task{
-		Type:     pagerduty.AlertTaskType,
-		Rack:     svc.Rack.EmbeddedKey,
-		Name:     "Before",
-		Snapshot: true,
+		Type: pagerduty.AlertTaskType,
+		Rack: svc.Rack.EmbeddedKey,
+		Name: "Before",
 	}
 	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.Task.NewWriter(tx).Create(ctx, &t)
 	})).To(Succeed())
 	return t
-}
-
-func createRange(ctx SpecContext) ranger.Range {
-	GinkgoHelper()
-	r := ranger.Range{
-		Name:      "Snapshot Range",
-		TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
-	}
-	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Ranger.NewWriter(tx).Create(ctx, &r)
-	})).To(Succeed())
-	return r
-}
-
-func countInRange(ctx SpecContext, r ranger.Range) int {
-	GinkgoHelper()
-	return MustSucceed(svc.Task.NewRetrieve().
-		Where(task.MatchRanges(r.Key)).
-		Count(ctx, node.DB))
 }
 
 // createSecret creates a stored secret that an alert config can name as its routing
@@ -194,7 +173,6 @@ var _ = Describe("Dispatch rename", func() {
 		MustSucceed(dispatch(AuthedCtx(ctx, u), renameTo(t.Key, "After")))
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
-		Expect(renamed.Snapshot).To(BeTrue())
 		Expect(renamed.Config).To(Equal(t.Config))
 	})
 	taskID := func(_ SpecContext, t task.Task) resource.ID { return t.ResourceID() }
@@ -450,22 +428,6 @@ var _ = Describe("Create", func() {
 				To(Equal(routingKey.String()))
 		},
 	)
-
-	It(
-		"Should refuse a snapshot in a range the subject cannot update",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			t := newTask()
-			grantAll(ctx, u, createNeeds(t)...)
-			r := createRange(ctx)
-			t.Snapshot = true
-			t.Range = &r.Key
-			Expect(create(AuthedCtx(ctx, u), apitask.CreateRequest{
-				Tasks: []task.Task{t},
-			})).Error().To(denied(u, access.ActionUpdate, ranger.ResourceID(r.Key)))
-			Expect(countInRange(ctx, r)).To(BeZero())
-		},
-	)
 })
 
 var _ = Describe("Retrieve", func() {
@@ -566,10 +528,9 @@ var _ = Describe("Retrieve", func() {
 	) {
 		u := createUser(ctx)
 		match := task.Task{
-			Type:     pagerduty.AlertTaskType,
-			Rack:     svc.Rack.EmbeddedKey,
-			Name:     "Cryostat pressure",
-			Snapshot: true,
+			Type: pagerduty.AlertTaskType,
+			Rack: svc.Rack.EmbeddedKey,
+			Name: "Cryostat pressure",
 		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Task.NewWriter(tx).Create(ctx, &match)
@@ -997,44 +958,39 @@ var _ = Describe("Delete", func() {
 
 var _ = Describe("Copy", func() {
 	var (
-		u user.User
-		t task.Task
-		r ranger.Range
+		u    user.User
+		t    task.Task
+		name string
 	)
 	BeforeEach(func(ctx SpecContext) {
 		u = createUser(ctx)
 		t = createTask(ctx)
-		r = createRange(ctx)
+		name = "Copy " + uuid.New().String()
 	})
-	// copyNeeds returns what a snapshot copy of t into r needs: retrieve on t, create
-	// on the copy and its status, and update on its rack and r.
+	// copyNeeds returns what a copy of t needs: retrieve on t, create on the copy and
+	// its status, and update on its rack.
 	copyNeeds := func() []need {
 		return []need{
 			{access.ActionRetrieve, t.ResourceID()},
 			{access.ActionCreate, resource.ID{Type: resource.TypeTask}},
 			{access.ActionCreate, resource.ID{Type: resource.TypeStatus}},
 			{access.ActionUpdate, t.Rack.ResourceID()},
-			{access.ActionUpdate, ranger.ResourceID(r.Key)},
 		}
 	}
 	copyAs := func(ctx SpecContext) (apitask.CopyResponse, error) {
-		return copyTask(AuthedCtx(ctx, u), apitask.CopyRequest{
-			Key:      t.Key,
-			Name:     "Copy",
-			Snapshot: true,
-			Range:    &r.Key,
-		})
+		return copyTask(AuthedCtx(ctx, u), apitask.CopyRequest{Key: t.Key, Name: name})
 	}
-	It("Should place a snapshot copy in a range", func(ctx SpecContext) {
+	countCopies := func(ctx SpecContext) int {
+		GinkgoHelper()
+		return MustSucceed(svc.Task.NewRetrieve().
+			Where(task.MatchNames(name)).
+			Count(ctx, node.DB))
+	}
+	It("Should copy the task under a new key", func(ctx SpecContext) {
 		grantAll(ctx, u, copyNeeds()...)
 		res := MustSucceed(copyAs(ctx))
-		Expect(res.Task.Range).To(Equal(&r.Key))
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), res.Task.ResourceID())
-		found := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Where: &task.Where{Ranges: []ranger.Key{r.Key}},
-		}))
-		Expect(found.Tasks).To(HaveLen(1))
-		Expect(found.Tasks[0].Key).To(Equal(res.Task.Key))
+		Expect(res.Task.Key).ToNot(Equal(t.Key))
+		Expect(retrieveTask(ctx, res.Task.Key).Name).To(Equal(name))
 	})
 
 	DescribeTable(
@@ -1044,10 +1000,10 @@ var _ = Describe("Copy", func() {
 			grantAll(ctx, u, slices.Delete(slices.Clone(needs), refused, refused+1)...)
 			Expect(copyAs(ctx)).Error().
 				To(denied(u, needs[refused].action, needs[refused].object))
-			Expect(countInRange(ctx, r)).To(BeZero())
+			Expect(countCopies(ctx)).To(BeZero())
 		},
 		Entry("without retrieve on the task", 0),
-		Entry("without update on the range", 4),
+		Entry("without update on its rack", 3),
 	)
 
 	It(
@@ -1058,7 +1014,7 @@ var _ = Describe("Copy", func() {
 			routingKey := uuid.MustParse(t.Config["routing_key"].(string))
 			Expect(copyAs(ctx)).Error().
 				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
-			Expect(countInRange(ctx, r)).To(BeZero())
+			Expect(countCopies(ctx)).To(BeZero())
 		},
 	)
 })

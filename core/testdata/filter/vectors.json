@@ -1119,8 +1119,7 @@
         "type": "labjack_write",
         "rack": 65538,
         "config": {},
-        "internal": false,
-        "snapshot": false
+        "internal": false
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
@@ -1128,8 +1127,7 @@
         "type": "labjack_scan",
         "rack": 65538,
         "config": {},
-        "internal": true,
-        "snapshot": false
+        "internal": true
       },
       "c": {
         "key": "00000000-0000-4000-8000-00000000000c",
@@ -1137,8 +1135,7 @@
         "type": "labjack_write",
         "rack": 131073,
         "config": {},
-        "internal": false,
-        "snapshot": true
+        "internal": false
       }
     },
     "cases": [
@@ -1296,15 +1293,6 @@
         "expected": ["a", "c"]
       },
       {
-        "name": "snapshot eq",
-        "where": {
-          "snapshot": {
-            "eq": true
-          }
-        },
-        "expected": ["c"]
-      },
-      {
         "name": "the slots on one node are ANDed",
         "where": {
           "type": {
@@ -1341,8 +1329,8 @@
             },
             {
               "not": {
-                "snapshot": {
-                  "eq": true
+                "rack": {
+                  "eq": 131073
                 }
               }
             }
@@ -1360,8 +1348,8 @@
               }
             },
             {
-              "snapshot": {
-                "eq": true
+              "rack": {
+                "eq": 131073
               }
             }
           ]
