@@ -159,7 +159,7 @@ const Upload = ({
               grow
             />
           </Flex.Box>
-          <Form.Field path={path.config.channels} label="Channels">
+          <Form.Field path={path.config.channels} label="Channels" required>
             {({ value, onChange }) => (
               <Channel.SelectMultiple
                 value={value}
