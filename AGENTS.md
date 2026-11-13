@@ -271,6 +271,11 @@ review. A Claude session pushes against it, never along with it:
   branch, open the new PR against it, and name the parent in the description. Never add
   the new piece to the open PR, and never wait for the parent to merge first. When the
   parent merges, merge `main` into the child and retarget it to `main`.
+- 🚨 **A PR shows only its own commits. NO EXCEPTIONS.** The base of a stacked PR is its
+  parent's branch, never `main`. A PR against `main` whose diff includes the commits of
+  an open parent makes the reviewer read the same change in several PRs. Before you open
+  or hand over a PR, check that its diff holds only its own change. When the parent
+  merges or moves, rebase or retarget the child at once.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
   behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
   small PR, never the first big one.
