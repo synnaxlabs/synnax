@@ -18,33 +18,32 @@ import { type Spec } from "@/schematic/edge/spec";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 const SYMBOL_INTERVAL = 40;
-const SYMBOL_INTERVAL_PER_WIDTH = 3;
 const SYMBOL_SIZE = 10;
+const CORNER_CLEARANCE = 5;
+const CORNER_CLEARANCE_PER_WIDTH = 4;
 
 interface SymbolProps {
   position: xy.XY;
   direction: direction.Direction;
   strokeWidth: number;
+  scale: number;
 }
 
 const HydraulicSymbol = ({
-  position,
+  position: { x, y },
   direction,
   strokeWidth,
+  scale,
 }: SymbolProps): ReactElement => {
-  const size = SYMBOL_SIZE + strokeWidth - Base.DEFAULT_STROKE_WIDTH;
-  const pos = { ...position };
-  if (direction === "x") pos.y += size / 2;
-  else pos.x += size / 2;
-  return (
-    <path
-      d={`M0,0 L0,-${size} L${size},-${size}`}
-      fill="none"
-      strokeWidth={strokeWidth}
-      transform={`translate(${pos.x},${pos.y}) rotate(270)`}
-      strokeLinecap="round"
-    />
-  );
+  const size = SYMBOL_SIZE * scale;
+  const symbolStroke = Math.min(strokeWidth, Base.DEFAULT_STROKE_WIDTH * scale);
+  // Reaches as far past the edge of a wide line as the default symbol does.
+  const half = size / 2 + (strokeWidth - symbolStroke) / 2;
+  const d =
+    direction === "x"
+      ? `M${x},${y + half} L${x - size},${y + half} L${x - size},${y - half}`
+      : `M${x + half},${y} L${x - half},${y} L${x - half},${y - size}`;
+  return <path d={d} fill="none" strokeWidth={symbolStroke} strokeLinecap="round" />;
 };
 
 const Line = ({
@@ -54,6 +53,8 @@ const Line = ({
   strokeWidth,
 }: Segmented.PathProps): ReactElement => {
   const symbolStyle = { [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) };
+  // Grows slower than the line, so a wide line still fits symbols on each run.
+  const scale = Math.sqrt(strokeWidth / Base.DEFAULT_STROKE_WIDTH);
   return (
     <g className={CSS.symbolColored} style={symbolStyle}>
       <Base.Base
@@ -63,14 +64,16 @@ const Line = ({
       />
       {Path.computeSymbolPositions(
         points,
-        SYMBOL_INTERVAL +
-          SYMBOL_INTERVAL_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
+        SYMBOL_INTERVAL * scale,
+        CORNER_CLEARANCE +
+          CORNER_CLEARANCE_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
       ).map(({ position, direction }, i) => (
         <HydraulicSymbol
           key={i}
           position={position}
           direction={direction}
           strokeWidth={strokeWidth}
+          scale={scale}
         />
       ))}
     </g>

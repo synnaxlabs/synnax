@@ -18,46 +18,47 @@ import { type Spec } from "@/schematic/edge/spec";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 const SYMBOL_INTERVAL = 40;
-const SYMBOL_INTERVAL_PER_WIDTH = 3;
 const SYMBOL_SIZE = 10;
+const CORNER_CLEARANCE = 5;
+const CORNER_CLEARANCE_PER_WIDTH = 4;
 
 interface SymbolProps {
   position: xy.XY;
   direction: direction.Direction;
   strokeWidth: number;
+  scale: number;
 }
 
 const PneumaticSymbol = ({
   position,
   direction,
   strokeWidth,
+  scale,
 }: SymbolProps): ReactElement => {
-  const size = SYMBOL_SIZE + strokeWidth - Base.DEFAULT_STROKE_WIDTH;
-  const pos = { ...position };
-  if (direction === "x") pos.y += size / 3;
-  else pos.x -= size / 3;
-  let pointTwo = xy.translateX(pos, -size);
-  let rotate = 45;
-  if (direction === "y") {
-    pointTwo = xy.translateY(pos, -size);
-    rotate += 90;
-  }
+  const size = SYMBOL_SIZE * scale;
+  const symbolStroke = Math.min(strokeWidth, Base.DEFAULT_STROKE_WIDTH * scale);
+  // Reaches as far past the edge of a wide line as the default symbol does.
+  const grow = (strokeWidth - symbolStroke) / 2;
+  const length = size + 2 * Math.SQRT2 * grow;
+  const first =
+    direction === "x"
+      ? xy.translate(position, { x: -grow, y: size / 3 + grow })
+      : xy.translate(position, { x: -size / 3 - grow, y: -grow });
+  const second =
+    direction === "x" ? xy.translateX(first, -size) : xy.translateY(first, -size);
+  const rotate = direction === "x" ? 45 : 135;
   return (
     <>
-      <path
-        d={`M0,0 L0,-${size}`}
-        fill="none"
-        strokeWidth={strokeWidth}
-        transform={`translate(${pos.x},${pos.y}) rotate(${rotate})`}
-        strokeLinecap="round"
-      />
-      <path
-        d={`M0,0 L0,-${size}`}
-        fill="none"
-        strokeWidth={strokeWidth}
-        transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
-        strokeLinecap="round"
-      />
+      {[first, second].map(({ x, y }, i) => (
+        <path
+          key={i}
+          d={`M0,0 L0,-${length}`}
+          fill="none"
+          strokeWidth={symbolStroke}
+          transform={`translate(${x},${y}) rotate(${rotate})`}
+          strokeLinecap="round"
+        />
+      ))}
     </>
   );
 };
@@ -69,6 +70,8 @@ const Line = ({
   strokeWidth,
 }: Segmented.PathProps): ReactElement => {
   const symbolStyle = { [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) };
+  // Grows slower than the line, so a wide line still fits symbols on each run.
+  const scale = Math.sqrt(strokeWidth / Base.DEFAULT_STROKE_WIDTH);
   return (
     <g className={CSS.symbolColored} style={symbolStyle}>
       <Base.Base
@@ -78,14 +81,16 @@ const Line = ({
       />
       {Path.computeSymbolPositions(
         points,
-        SYMBOL_INTERVAL +
-          SYMBOL_INTERVAL_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
+        SYMBOL_INTERVAL * scale,
+        CORNER_CLEARANCE +
+          CORNER_CLEARANCE_PER_WIDTH * (strokeWidth - Base.DEFAULT_STROKE_WIDTH),
       ).map(({ position, direction }, i) => (
         <PneumaticSymbol
           key={i}
           position={position}
           direction={direction}
           strokeWidth={strokeWidth}
+          scale={scale}
         />
       ))}
     </g>

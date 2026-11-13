@@ -93,12 +93,51 @@ describe("edge registry", () => {
     expect(new Set(edgeWidths(renderEdge(variant)))).toEqual(new Set(["2"]));
   });
 
-  it.each(["hydraulic", "pneumatic", "data"] satisfies Edge.Variant[])(
-    "should draw the %s symbols at the stroke width",
-    (variant) => {
-      const widths = symbolWidths(renderEdge(variant, { strokeWidth: 6 }));
-      expect(widths.length).toBeGreaterThan(0);
-      expect(new Set(widths)).toEqual(new Set(["6"]));
+  it("should draw the data symbols at the stroke width", () => {
+    const widths = symbolWidths(renderEdge("data", { strokeWidth: 6 }));
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths)).toEqual(new Set(["6"]));
+  });
+
+  describe.each([
+    { variant: "hydraulic", pathsPerSymbol: 1 },
+    { variant: "pneumatic", pathsPerSymbol: 2 },
+  ] satisfies Array<{ variant: Edge.Variant; pathsPerSymbol: number }>)(
+    "$variant symbols",
+    ({ variant, pathsPerSymbol }) => {
+      const symbols = (strokeWidth: number) => {
+        const els = Array.from(
+          renderEdge(variant, { strokeWidth }).querySelectorAll(
+            "[stroke-width]:not(.react-flow__edge-interaction)",
+          ),
+        );
+        const xs = els
+          .filter((_, i) => i % pathsPerSymbol === 0)
+          .map((el) => {
+            const source = el.getAttribute("transform") ?? el.getAttribute("d") ?? "";
+            return Number(/-?[\d.]+/.exec(source)?.[0]);
+          });
+        return { stroke: Number(els[0].getAttribute("stroke-width")), xs };
+      };
+
+      it("should draw at the default stroke width on a default line", () => {
+        expect(symbols(2).stroke).toBe(2);
+      });
+
+      it.each([8, 20])("should draw thinner than a %i px line", (strokeWidth) => {
+        const { stroke } = symbols(strokeWidth);
+        expect(stroke).toBeGreaterThan(2);
+        expect(stroke).toBeLessThan(strokeWidth);
+      });
+
+      it.each([2, 8, 20])(
+        "should space the symbols in step with their size at %i px",
+        (strokeWidth) => {
+          const { stroke, xs } = symbols(strokeWidth);
+          expect(xs.length).toBeGreaterThan(1);
+          xs.slice(1).forEach((x, i) => expect(x - xs[i]).toBeCloseTo(20 * stroke));
+        },
+      );
     },
   );
 
