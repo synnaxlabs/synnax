@@ -841,8 +841,8 @@ func (fn *funcData) varName(goName string) string {
 }
 
 // addHandField reads a field whose type moved to another resource with a new shape
-// through a hand-written step, migrate<Type><Field>, that the build requires. The type
-// of a variant field is the variant's Go type.
+// through a hand-written step, migrate<Type><Field>, that the build requires. For a
+// variant field, <Type> is the variant's Go type.
 func (c *collector) addHandField(fn *funcData, owner, accessor, goName string) {
 	varName := fn.varName(goName)
 	fn.UsesCtx = true
