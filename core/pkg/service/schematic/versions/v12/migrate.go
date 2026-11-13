@@ -11,147 +11,57 @@ package v12
 
 import (
 	"context"
-	"reflect"
+	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-// MigrateSchematic lifts a v11 schematic to v12, which stores every color alpha as a
-// 0-255 byte. An optional color that holds the zero color becomes absent, as v11 stored
-// the zero color to mean that the theme picks the color. Symbol state overrides keep
-// their zero colors, which paint a region transparent.
+// MigrateSchematic lifts a v11 schematic into v12. It keeps the precision of each
+// numeric symbol as a whole number.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
-	s, err := autoMigrateSchematic(ctx, old)
+	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	for k, cfg := range s.Configs {
-		v := reflect.ValueOf(&cfg).Elem()
-		clearZeroColors(v)
-		s.Configs[k] = cfg
+	// A tank declares its numeric fields inline, so the generated copy skips the
+	// precision whose type changed.
+	for k, cfg := range old.Configs {
+		if o, ok := cfg.Variant.(v10.TankElementConfig); ok {
+			n := out.Configs[k].Variant.(TankElementConfig)
+			n.Precision = migratePrecision(o.Precision)
+			out.Configs[k] = ElementConfig{Variant: n}
+		}
 	}
-	return s, nil
+	return out, nil
 }
 
-var (
-	colorPtrType = reflect.TypeFor[*color.Color]()
-	statesType   = reflect.TypeFor[[]symbol.State]()
-)
+// Migration lifts stored schematics from v11 to v12, which stores the precision as an
+// optional byte.
+var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
-// clearZeroColors sets every optional color under v that holds the zero color to nil,
-// except inside symbol states. v must be settable.
-func clearZeroColors(v reflect.Value) {
-	if v.Type() == statesType {
-		return
+// MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
+// the precision to a whole number and clamps it to 0 through 17. A NaN precision
+// becomes 0.
+func MigrateNumericTelemConfig(
+	ctx context.Context,
+	old v11.NumericTelemConfig,
+) (NumericTelemConfig, error) {
+	cfg, err := autoMigrateNumericTelemConfig(ctx, old)
+	if err != nil {
+		return NumericTelemConfig{}, err
 	}
-	switch v.Kind() {
-	case reflect.Pointer:
-		if v.IsNil() {
-			return
-		}
-		if v.Type() == colorPtrType {
-			if *v.Interface().(*color.Color) == (color.Color{}) {
-				v.SetZero()
-			}
-			return
-		}
-		clearZeroColors(v.Elem())
-	case reflect.Interface:
-		if v.IsNil() {
-			return
-		}
-		c := reflect.New(v.Elem().Type()).Elem()
-		c.Set(v.Elem())
-		clearZeroColors(c)
-		v.Set(c)
-	case reflect.Struct:
-		for i := range v.NumField() {
-			if f := v.Field(i); f.CanSet() {
-				clearZeroColors(f)
-			}
-		}
-	case reflect.Slice:
-		for i := range v.Len() {
-			clearZeroColors(v.Index(i))
-		}
-	default:
+	cfg.Precision = migratePrecision(old.Precision)
+	return cfg, nil
+}
+
+// maxPrecision is the most significant digits a float64 holds.
+const maxPrecision = 17
+
+func migratePrecision(p float64) *uint8 {
+	if math.IsNaN(p) {
+		return new(uint8(0))
 	}
-}
-
-// Migration lifts stored schematics from v11 to v12.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSchematic)
-
-// MigrateElementConfig lifts a v11 element config to v12.
-func MigrateElementConfig(
-	ctx context.Context,
-	old v11.ElementConfig,
-) (ElementConfig, error) {
-	return autoMigrateElementConfig(ctx, old)
-}
-
-// MigrateStaticSymbolConfig lifts a v11 static symbol config to v12.
-func MigrateStaticSymbolConfig(
-	ctx context.Context,
-	old v11.StaticSymbolConfig,
-) (StaticSymbolConfig, error) {
-	return autoMigrateStaticSymbolConfig(ctx, old)
-}
-
-// MigrateToggleSymbolConfig lifts a v11 toggle symbol config to v12.
-func MigrateToggleSymbolConfig(
-	ctx context.Context,
-	old v11.ToggleSymbolConfig,
-) (ToggleSymbolConfig, error) {
-	return autoMigrateToggleSymbolConfig(ctx, old)
-}
-
-// MigrateStalenessConfig lifts a v11 staleness config to v12.
-func MigrateStalenessConfig(
-	ctx context.Context,
-	old v11.StalenessConfig,
-) (StalenessConfig, error) {
-	return autoMigrateStalenessConfig(ctx, old)
-}
-
-// MigrateStateMapping lifts a v11 state mapping to v12.
-func MigrateStateMapping(
-	ctx context.Context,
-	old v11.StateMapping,
-) (StateMapping, error) {
-	return autoMigrateStateMapping(ctx, old)
-}
-
-// MigrateScaleIndicatorConfig lifts a v11 scale indicator config to v12.
-func MigrateScaleIndicatorConfig(
-	ctx context.Context,
-	old v11.ScaleIndicatorConfig,
-) (ScaleIndicatorConfig, error) {
-	return autoMigrateScaleIndicatorConfig(ctx, old)
-}
-
-// MigrateDummyToggleSymbolConfig lifts a v11 dummy toggle symbol config to v12.
-func MigrateDummyToggleSymbolConfig(
-	ctx context.Context,
-	old v11.DummyToggleSymbolConfig,
-) (DummyToggleSymbolConfig, error) {
-	return autoMigrateDummyToggleSymbolConfig(ctx, old)
-}
-
-// MigrateToggleConfig lifts a v11 toggle config to v12.
-func MigrateToggleConfig(
-	ctx context.Context,
-	old v11.ToggleConfig,
-) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
-}
-
-// MigrateSegmentedEdgeConfig lifts a v11 segmented edge config to v12.
-func MigrateSegmentedEdgeConfig(
-	ctx context.Context,
-	old v11.SegmentedEdgeConfig,
-) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
+	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
 }

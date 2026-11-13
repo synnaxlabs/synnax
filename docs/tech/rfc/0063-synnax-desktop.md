@@ -15,9 +15,10 @@ Core, a host, or a port. A supervisor in the Rust shell starts the Core on a fre
 loopback port with a root password made for each launch, watches it, restarts it after a
 crash, and stops it when the app exits. Desktop and the Console are one package: static
 build flags select the features that each app wires in. Desktop has its own version
-numbers and its own release workflow, apart from the Console, Core, and Driver, and each
-Desktop release builds its own Core and Driver. The Core gets two small changes: a
-loopback bind option and a flag that stops the Core when its stdin closes.
+numbers, apart from the Console, Core, and Driver, and releases through `release.yaml`.
+Each Desktop release builds its own Core, and its own Driver unless the run releases the
+Driver and the Core on one minor. The Core gets two small changes: a loopback bind
+option and a flag that stops the Core when its stdin closes.
 
 ## 1 Motivation
 
@@ -368,36 +369,45 @@ version numbers. The train rule of RFC 0058 §2.2 does not apply: Desktop 1.4.0 
 beside Core 0.59.2. RFC 0058 §4 rejected independent numbers because users could not
 tell which products work together, and Desktop pairs with nothing but its own Core.
 
-A person dispatches `release.desktop.yaml` with a bump and an optional candidate flag: a
-`minor` (the default) or `major` bump from `main`, or a `patch` from a
-`release/desktop-X.Y` branch. A run from any other branch fails. It reuses the parts of
-`release.yaml`:
+A person dispatches `release.yaml` with `desktop` set, a `desktop_bump`, and an optional
+candidate flag: a `minor` (the default) or `major` bump from `main`, or a `patch` from a
+`release/desktop-X.Y` branch, with every other product off, since they fail there. A run
+from `main` without the Core also turns off `typescript` and `python`, which release
+from `main` only with the Core. A run from any other branch fails. RFC 0111 §3.0 moved
+Desktop into `release.yaml` from a workflow of its own, `release.desktop.yaml`. The
+stages are those of the other products:
 
-1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
-   integration on Ubuntu and Windows.
+1. **Verify**: The commit needs one green run of `ci.yaml` with `full`: every job on
+   every OS it supports, plus integration on Ubuntu and Windows. An earlier nightly or
+   release run counts. If none exists, CI runs in parallel with the draft and the build.
+   Verify gates only the publish.
 2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
    the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
    bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
    needs a stable `desktop/` tag on X.Y and must hold the newest one, so no patch drops
    an earlier fix. Candidates count up as for the other products.
 3. **Draft**: `draft-release` makes a draft under the tag.
-4. **Build**: `build.synnax.yaml` builds the Driver, a Core with the Driver embedded,
-   and Desktop, for macOS arm64 and Windows x64, signed and notarized. The run passes no
-   release tag, so the Core and Driver never appear as release assets. The Desktop job
-   places the Core at `console/src-tauri/binaries/synnax-core-<target-triple>`, which
-   Git ignores (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
-5. **Publish**: The job uploads the bundles under names without a space
-   (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, writes the
-   updater manifest `latest.json` from their signatures, and publishes the release.
+4. **Build**: `build.synnax.yaml` builds a Core with the Driver embedded and Desktop,
+   for macOS arm64 and Windows x64, signed and notarized. The Driver is the one of the
+   run when the run releases the Driver and the Core on one minor. If not, the build
+   compiles it. The run passes no release tag, so the Core and Driver never appear as
+   release assets. The Desktop job places the Core at
+   `console/src-tauri/binaries/synnax-core-<target-triple>`, which Git ignores
+   (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
+5. **Publish**: A job uploads the bundles to the draft under names without a space
+   (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, and writes
+   the updater manifest `latest.json` from their signatures. The `publish` job of the
+   run then makes the release public.
 
 The Desktop version names a Desktop release and nothing else. It is on the tag, the app,
-and the updater manifest. The Core and Driver of the run carry the newest stable Core
-version reachable from the commit, and the build stamps the same version into the
-bundled clients. So the client checks (`client/ts/src/connection/status.ts:246`) compare
-two versions of the same code, and they need no special case for Desktop. The bundled
-Core shares its number with a Core release but is a different build. Its Git commit
-(`synnax version`) identifies it. Desktop licenses carry no maximum version (RFC 0062
-§5.8), so the license ceiling never reads the number.
+and the updater manifest. The bundled Core carries the Core version of the run, or else
+the newest stable Core version reachable from the commit. The build stamps the same
+version into the bundled clients and into a Driver that it compiles. So the client
+checks (`client/ts/src/connection/status.ts:246`) compare two versions of the same code,
+and they need no special case for Desktop. The bundled Core shares its number with a
+Core release but is a different build. Its Git commit (`synnax version`) identifies it.
+Desktop licenses carry no maximum version (RFC 0062 §5.8), so the license ceiling never
+reads the number.
 
 The docs site serves `/releases/desktop/latest.json` and `/releases/desktop/next.json`.
 Each one redirects to the `latest.json` of the highest `desktop/` release on its
@@ -423,10 +433,10 @@ of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packa
   `DESKTOP` constant and wiring sites, `feature/embedded`, `EMBEDDED_KEY`, and the
   splash inputs. One phase, because no part runs without the others and the Console
   bundle is the green state at every commit.
-- **Phase 3: Release.** `release.desktop.yaml`, the `desktop` product in
-  `resolve_version.sh` and the hub, the Desktop CI job, the updater manifest, and
-  signing. The installation page waits for the first release, because its download link
-  needs a published manifest.
+- **Phase 3: Release.** `release.desktop.yaml` (now part of `release.yaml`), the
+  `desktop` product in `resolve_version.sh` and the hub, the Desktop CI job, the updater
+  manifest, and signing. The installation page waits for the first release, because its
+  download link needs a published manifest.
 
 ## 7 What this RFC does not cover
 

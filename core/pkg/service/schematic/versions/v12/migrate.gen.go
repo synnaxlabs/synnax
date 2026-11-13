@@ -14,11 +14,7 @@ package v12
 import (
 	"context"
 
-	"github.com/samber/lo"
-	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -49,239 +45,115 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 	case nil:
 		return ElementConfig{}, nil
 	case v11.CapElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CapElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FilterElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FilterElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowStraightenerElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowStraightenerElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.HeaterElementElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HeaterElementElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.IsoCapElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: IsoCapElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.IsoFilterElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: IsoFilterElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.NozzleElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: NozzleElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.OrificeElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: OrificeElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.OrificePlateElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: OrificePlateElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.StrainerElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: StrainerElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.StrainerConeElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: StrainerConeElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ThrusterElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ThrusterElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.VentElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: VentElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterGeneralElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterGeneralElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterElectromagneticElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterElectromagneticElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterVariableAreaElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterVariableAreaElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterCoriolisElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterCoriolisElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterNozzleElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterNozzleElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterVenturiElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterVenturiElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterRingPistonElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterRingPistonElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterPositiveDisplacementElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterPositiveDisplacementElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterTurbineElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterTurbineElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterPulseElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterPulseElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterFloatSensorElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterFloatSensorElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlowmeterOrificeElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlowmeterOrificeElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.BoxElementConfig:
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: BoxElementConfig{
 			LabeledConfig: variant.LabeledConfig,
-			StrokeColor:   strokeColor,
-			FillColor:     fillColor,
+			StrokeColor:   variant.StrokeColor,
+			FillColor:     variant.FillColor,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v11.ButtonElementConfig:
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: ButtonElementConfig{
 			LabeledConfig:  variant.LabeledConfig,
 			Size:           variant.Size,
@@ -289,52 +161,28 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			OnClickDelay:   variant.OnClickDelay,
 			CommandChannel: variant.CommandChannel,
 			Mode:           variant.Mode,
-			FillColor:      fillColor,
+			FillColor:      variant.FillColor,
 			Control:        variant.Control,
 		}}, nil
 	case v11.CircleElementConfig:
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: CircleElementConfig{
 			LabeledConfig: variant.LabeledConfig,
 			Radius:        variant.Radius,
-			StrokeColor:   strokeColor,
-			FillColor:     fillColor,
+			StrokeColor:   variant.StrokeColor,
+			FillColor:     variant.FillColor,
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v11.GaugeElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
+		numericTelemConfig, err := MigrateNumericTelemConfig(ctx, variant.NumericTelemConfig)
 		if err != nil {
 			return ElementConfig{}, err
 		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
 		return ElementConfig{Variant: GaugeElementConfig{
 			LabeledConfig:      variant.LabeledConfig,
-			NumericTelemConfig: variant.NumericTelemConfig,
-			StalenessConfig:    stalenessConfig,
+			NumericTelemConfig: numericTelemConfig,
+			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
-			StrokeColor:        strokeColor,
+			StrokeColor:        variant.StrokeColor,
 			Bounds:             variant.Bounds,
 			BarWidth:           variant.BarWidth,
 			Location:           variant.Location,
@@ -342,152 +190,70 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Level:              variant.Level,
 		}}, nil
 	case v11.InputElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: InputElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			StalenessConfig: stalenessConfig,
+			StalenessConfig: variant.StalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
 			Dimensions:      variant.Dimensions,
-			FillColor:       fillColor,
+			FillColor:       variant.FillColor,
 			Disabled:        variant.Disabled,
 			InlineSize:      variant.InlineSize,
 			OnClickDelay:    variant.OnClickDelay,
 			Control:         variant.Control,
 		}}, nil
 	case v11.LightElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var onColor *color.Color
-		if variant.OnColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.OnColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			onColor = &v
-		}
 		return ElementConfig{Variant: LightElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
 			ScaledConfig:    variant.ScaledConfig,
-			StalenessConfig: stalenessConfig,
+			StalenessConfig: variant.StalenessConfig,
 			Channel:         variant.Channel,
 			Threshold:       variant.Threshold,
-			StrokeColor:     strokeColor,
-			OnColor:         onColor,
+			StrokeColor:     variant.StrokeColor,
+			OnColor:         variant.OnColor,
 		}}, nil
 	case v11.LineElementConfig:
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
 		return ElementConfig{Variant: LineElementConfig{
-			StrokeColor: strokeColor,
+			StrokeColor: variant.StrokeColor,
 			Start:       variant.Start,
 			End:         variant.End,
 			StrokeWidth: variant.StrokeWidth,
 		}}, nil
 	case v11.OffPageReferenceElementConfig:
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: OffPageReferenceElementConfig{
 			LabeledConfig:       variant.LabeledConfig,
-			FillColor:           fillColor,
+			FillColor:           variant.FillColor,
 			Page:                variant.Page,
 			DblClickNavDisabled: variant.DblClickNavDisabled,
 		}}, nil
 	case v11.PolygonElementConfig:
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: PolygonElementConfig{
 			LabeledConfig:  variant.LabeledConfig,
 			NumSides:       variant.NumSides,
 			SideLength:     variant.SideLength,
 			Rotation:       variant.Rotation,
 			CornerRounding: variant.CornerRounding,
-			StrokeColor:    strokeColor,
-			FillColor:      fillColor,
+			StrokeColor:    variant.StrokeColor,
+			FillColor:      variant.FillColor,
 			StrokeWidth:    variant.StrokeWidth,
 		}}, nil
 	case v11.SelectElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
-		options, err := lo.MapErr(variant.Options, func(v v11.StateMapping, _ int) (StateMapping, error) {
-			return MigrateStateMapping(ctx, v)
-		})
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: SelectElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			StalenessConfig: stalenessConfig,
+			StalenessConfig: variant.StalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
-			FillColor:       fillColor,
+			FillColor:       variant.FillColor,
 			InlineSize:      variant.InlineSize,
-			Options:         options,
+			Options:         variant.Options,
 			Disabled:        variant.Disabled,
 			OnClickDelay:    variant.OnClickDelay,
 			Control:         variant.Control,
 		}}, nil
 	case v11.ScaleElementConfig:
-		scaleIndicatorConfig, err := MigrateScaleIndicatorConfig(ctx, variant.ScaleIndicatorConfig)
+		scaleIndicatorConfig, err := autoMigrateScaleIndicatorConfig(ctx, variant.ScaleIndicatorConfig)
 		if err != nil {
 			return ElementConfig{}, err
 		}
@@ -498,26 +264,14 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Dimensions:           variant.Dimensions,
 		}}, nil
 	case v11.SetpointElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: SetpointElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			StalenessConfig: stalenessConfig,
+			StalenessConfig: variant.StalenessConfig,
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
 			Dimensions:      variant.Dimensions,
-			FillColor:       fillColor,
+			FillColor:       variant.FillColor,
 			Units:           variant.Units,
 			Disabled:        variant.Disabled,
 			InlineSize:      variant.InlineSize,
@@ -525,84 +279,34 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Control:         variant.Control,
 		}}, nil
 	case v11.StateIndicatorElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		options, err := lo.MapErr(variant.Options, func(v v11.StateMapping, _ int) (StateMapping, error) {
-			return MigrateStateMapping(ctx, v)
-		})
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: StateIndicatorElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			StalenessConfig: stalenessConfig,
+			StalenessConfig: variant.StalenessConfig,
 			Channel:         variant.Channel,
-			StrokeColor:     strokeColor,
+			StrokeColor:     variant.StrokeColor,
 			InlineSize:      variant.InlineSize,
-			Options:         options,
+			Options:         variant.Options,
 			Size:            variant.Size,
 		}}, nil
 	case v11.StringDisplayElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			textColor = &v
-		}
 		return ElementConfig{Variant: StringDisplayElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			StalenessConfig: stalenessConfig,
-			StrokeColor:     strokeColor,
-			TextColor:       textColor,
+			StalenessConfig: variant.StalenessConfig,
+			StrokeColor:     variant.StrokeColor,
+			TextColor:       variant.TextColor,
 			Tooltip:         variant.Tooltip,
 			InlineSize:      variant.InlineSize,
 			Channel:         variant.Channel,
 			Level:           variant.Level,
 		}}, nil
 	case v11.SwitchElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: SwitchElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.TextBoxElementConfig:
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			textColor = &v
-		}
 		return ElementConfig{Variant: TextBoxElementConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			TextColor:       textColor,
+			TextColor:       variant.TextColor,
 			Width:           variant.Width,
 			Align:           variant.Align,
 			AutoFitDisabled: variant.AutoFitDisabled,
@@ -610,595 +314,278 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Value:           variant.Value,
 		}}, nil
 	case v11.ValueElementConfig:
-		stalenessConfig, err := MigrateStalenessConfig(ctx, variant.StalenessConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			textColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
-		redline, err := color.MigrateScale(ctx, variant.Redline)
+		numericTelemConfig, err := MigrateNumericTelemConfig(ctx, variant.NumericTelemConfig)
 		if err != nil {
 			return ElementConfig{}, err
 		}
 		return ElementConfig{Variant: ValueElementConfig{
 			LabeledConfig:      variant.LabeledConfig,
-			NumericTelemConfig: variant.NumericTelemConfig,
-			StalenessConfig:    stalenessConfig,
+			NumericTelemConfig: numericTelemConfig,
+			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
-			StrokeColor:        strokeColor,
-			TextColor:          textColor,
-			FillColor:          fillColor,
+			StrokeColor:        variant.StrokeColor,
+			TextColor:          variant.TextColor,
+			FillColor:          variant.FillColor,
 			Tooltip:            variant.Tooltip,
-			Redline:            redline,
+			Redline:            variant.Redline,
 			Units:              variant.Units,
 			InlineSize:         variant.InlineSize,
 			Level:              variant.Level,
 			Location:           variant.Location,
 		}}, nil
 	case v11.AgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: AgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.CrossBeamAgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CrossBeamAgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.FlatBladeAgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlatBladeAgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.HeatExchangerGeneralElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HeatExchangerGeneralElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.HeatExchangerMElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HeatExchangerMElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.HeatExchangerStraightTubeElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HeatExchangerStraightTubeElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.HelicalAgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HelicalAgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.PaddleAgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PaddleAgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.PropellerAgitatorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PropellerAgitatorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.RotaryMixerElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: RotaryMixerElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.StaticMixerElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: StaticMixerElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.CavityPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CavityPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.CentrifugalCompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CentrifugalCompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.CompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.DiaphragmPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: DiaphragmPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.EjectionPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: EjectionPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.EjectorCompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: EjectorCompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.LiquidRingCompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: LiquidRingCompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.PistonPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PistonPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.PumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.RollerVaneCompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: RollerVaneCompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.ScrewPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ScrewPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.TurboCompressorElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: TurboCompressorElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.VacuumPumpElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: VacuumPumpElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.BurstDiscElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: BurstDiscElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlameArrestorElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlameArrestorElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlameArrestorDetonationElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlameArrestorDetonationElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlameArrestorExplosionElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlameArrestorExplosionElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlameArrestorFireResElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlameArrestorFireResElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FlameArrestorFireResDetonationElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FlameArrestorFireResDetonationElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.IsoBurstDiscElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: IsoBurstDiscElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.AngledValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: AngledValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.AngledReliefValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: AngledReliefValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.AngledSpringLoadedReliefValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: AngledSpringLoadedReliefValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.BallValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: BallValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.BreatherValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: BreatherValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.ButterflyValveOneElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ButterflyValveOneElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.ButterflyValveTwoElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ButterflyValveTwoElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.CheckValveElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CheckValveElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.CheckValveWithArrowElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CheckValveWithArrowElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ElectricRegulatorElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ElectricRegulatorElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ElectricRegulatorMotorizedElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ElectricRegulatorMotorizedElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.FourWayValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: FourWayValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.GateValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: GateValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.IsoCheckValveElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: IsoCheckValveElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ManualValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ManualValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.NeedleValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: NeedleValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.RegulatorElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: RegulatorElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.RegulatorManualElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: RegulatorManualElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.ReliefValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ReliefValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.SolenoidValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: SolenoidValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 			NormallyOpen:       variant.NormallyOpen,
 		}}, nil
 	case v11.SpringLoadedReliefValveElementConfig:
-		dummyToggleSymbolConfig, err := MigrateDummyToggleSymbolConfig(ctx, variant.DummyToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: SpringLoadedReliefValveElementConfig{
-			DummyToggleSymbolConfig: dummyToggleSymbolConfig,
+			DummyToggleSymbolConfig: variant.DummyToggleSymbolConfig,
 		}}, nil
 	case v11.ThreeWayValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ThreeWayValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.ThreeWayBallValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ThreeWayBallValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.ValveElementConfig:
-		toggleSymbolConfig, err := MigrateToggleSymbolConfig(ctx, variant.ToggleSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ValveElementConfig{
-			ToggleSymbolConfig: toggleSymbolConfig,
+			ToggleSymbolConfig: variant.ToggleSymbolConfig,
 		}}, nil
 	case v11.CrossJunctionElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CrossJunctionElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.CylinderElementConfig:
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: CylinderElementConfig{
 			LabeledConfig: variant.LabeledConfig,
 			ScaledConfig:  variant.ScaledConfig,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
-			StrokeColor:   strokeColor,
-			FillColor:     fillColor,
+			StrokeColor:   variant.StrokeColor,
+			FillColor:     variant.FillColor,
 		}}, nil
 	case v11.TankElementConfig:
-		var stalenessColor *color.Color
-		if variant.StalenessColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StalenessColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			stalenessColor = &v
-		}
-		var levelColor *color.Color
-		if variant.LevelColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.LevelColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			levelColor = &v
-		}
-		var axisColor *color.Color
-		if variant.AxisColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.AxisColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			axisColor = &v
-		}
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			textColor = &v
-		}
-		var strokeColor *color.Color
-		if variant.StrokeColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StrokeColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			strokeColor = &v
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return ElementConfig{}, err
-			}
-			fillColor = &v
-		}
 		return ElementConfig{Variant: TankElementConfig{
 			LabeledConfig:    variant.LabeledConfig,
 			Channel:          variant.Channel,
 			RollingAverage:   variant.RollingAverage,
-			Precision:        variant.Precision,
 			Notation:         variant.Notation,
 			StalenessTimeout: variant.StalenessTimeout,
-			StalenessColor:   stalenessColor,
+			StalenessColor:   variant.StalenessColor,
 			Bounds:           variant.Bounds,
-			LevelColor:       levelColor,
-			AxisColor:        axisColor,
-			TextColor:        textColor,
+			LevelColor:       variant.LevelColor,
+			AxisColor:        variant.AxisColor,
+			TextColor:        variant.TextColor,
 			Units:            variant.Units,
 			LevelHidden:      variant.LevelHidden,
 			CaretSide:        variant.CaretSide,
 			Level:            variant.Level,
 			Position:         variant.Position,
-			StrokeColor:      strokeColor,
-			FillColor:        fillColor,
+			StrokeColor:      variant.StrokeColor,
+			FillColor:        variant.FillColor,
 			Dimensions:       variant.Dimensions,
 			BorderRadius:     variant.BorderRadius,
 			CaretVisible:     variant.CaretVisible,
@@ -1206,41 +593,21 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Side:             variant.Side,
 		}}, nil
 	case v11.TJunctionElementConfig:
-		staticSymbolConfig, err := MigrateStaticSymbolConfig(ctx, variant.StaticSymbolConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: TJunctionElementConfig{
-			StaticSymbolConfig: staticSymbolConfig,
+			StaticSymbolConfig: variant.StaticSymbolConfig,
 		}}, nil
 	case v11.CustomActuatorElementConfig:
-		toggleConfig, err := MigrateToggleConfig(ctx, variant.ToggleConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
-		stateOverrides, err := lo.MapErr(variant.StateOverrides, func(v symbolv2.State, _ int) (symbol.State, error) {
-			return symbol.MigrateState(ctx, v)
-		})
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CustomActuatorElementConfig{
-			ToggleConfig:   toggleConfig,
+			ToggleConfig:   variant.ToggleConfig,
 			SpecKey:        variant.SpecKey,
-			StateOverrides: stateOverrides,
+			StateOverrides: variant.StateOverrides,
 		}}, nil
 	case v11.CustomStaticElementConfig:
-		stateOverrides, err := lo.MapErr(variant.StateOverrides, func(v symbolv2.State, _ int) (symbol.State, error) {
-			return symbol.MigrateState(ctx, v)
-		})
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: CustomStaticElementConfig{
 			LabeledConfig:  variant.LabeledConfig,
 			ScaledConfig:   variant.ScaledConfig,
 			SpecKey:        variant.SpecKey,
-			StateOverrides: stateOverrides,
+			StateOverrides: variant.StateOverrides,
 		}}, nil
 	case v11.GroupBoxElementConfig:
 		return ElementConfig{Variant: GroupBoxElementConfig{
@@ -1248,169 +615,58 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Locked:  variant.Locked,
 		}}, nil
 	case v11.PipeElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PipeElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.ElectricElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: ElectricElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.SecondaryElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: SecondaryElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.JacketedElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: JacketedElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.HydraulicElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: HydraulicElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.PneumaticElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: PneumaticElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	case v11.DataElementConfig:
-		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
-		if err != nil {
-			return ElementConfig{}, err
-		}
 		return ElementConfig{Variant: DataElementConfig{
-			SegmentedEdgeConfig: segmentedEdgeConfig,
+			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
 		}}, nil
 	default:
 		return ElementConfig{}, errors.Newf("unknown ElementConfig variant %T", variant)
 	}
 }
 
-func autoMigrateStaticSymbolConfig(ctx context.Context, old v11.StaticSymbolConfig) (StaticSymbolConfig, error) {
-	var strokeColor *color.Color
-	if old.StrokeColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StrokeColor)
-		if err != nil {
-			return StaticSymbolConfig{}, err
-		}
-		strokeColor = &v
-	}
-	return StaticSymbolConfig{
-		LabeledConfig: old.LabeledConfig,
-		ScaledConfig:  old.ScaledConfig,
-		StrokeColor:   strokeColor,
-	}, nil
-}
-
-func autoMigrateToggleSymbolConfig(ctx context.Context, old v11.ToggleSymbolConfig) (ToggleSymbolConfig, error) {
-	toggleConfig, err := MigrateToggleConfig(ctx, old.ToggleConfig)
-	if err != nil {
-		return ToggleSymbolConfig{}, err
-	}
-	var strokeColor *color.Color
-	if old.StrokeColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StrokeColor)
-		if err != nil {
-			return ToggleSymbolConfig{}, err
-		}
-		strokeColor = &v
-	}
-	return ToggleSymbolConfig{
-		ToggleConfig: toggleConfig,
-		StrokeColor:  strokeColor,
-	}, nil
-}
-
-func autoMigrateStalenessConfig(ctx context.Context, old v11.StalenessConfig) (StalenessConfig, error) {
-	var stalenessColor *color.Color
-	if old.StalenessColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StalenessColor)
-		if err != nil {
-			return StalenessConfig{}, err
-		}
-		stalenessColor = &v
-	}
-	return StalenessConfig{
-		StalenessTimeout: old.StalenessTimeout,
-		StalenessColor:   stalenessColor,
-	}, nil
-}
-
-func autoMigrateStateMapping(ctx context.Context, old v11.StateMapping) (StateMapping, error) {
-	var colorVal *color.Color
-	if old.Color != nil {
-		v, err := color.MigrateColor(ctx, *old.Color)
-		if err != nil {
-			return StateMapping{}, err
-		}
-		colorVal = &v
-	}
-	return StateMapping{
-		Key:   old.Key,
-		Name:  old.Name,
-		Value: old.Value,
-		Color: colorVal,
+func autoMigrateNumericTelemConfig(_ context.Context, old v11.NumericTelemConfig) (NumericTelemConfig, error) {
+	return NumericTelemConfig{
+		Channel:        old.Channel,
+		RollingAverage: old.RollingAverage,
+		Notation:       old.Notation,
 	}, nil
 }
 
 func autoMigrateScaleIndicatorConfig(ctx context.Context, old v11.ScaleIndicatorConfig) (ScaleIndicatorConfig, error) {
-	stalenessConfig, err := MigrateStalenessConfig(ctx, old.StalenessConfig)
+	numericTelemConfig, err := MigrateNumericTelemConfig(ctx, old.NumericTelemConfig)
 	if err != nil {
 		return ScaleIndicatorConfig{}, err
 	}
-	var levelColor *color.Color
-	if old.LevelColor != nil {
-		v, err := color.MigrateColor(ctx, *old.LevelColor)
-		if err != nil {
-			return ScaleIndicatorConfig{}, err
-		}
-		levelColor = &v
-	}
-	var axisColor *color.Color
-	if old.AxisColor != nil {
-		v, err := color.MigrateColor(ctx, *old.AxisColor)
-		if err != nil {
-			return ScaleIndicatorConfig{}, err
-		}
-		axisColor = &v
-	}
-	var textColor *color.Color
-	if old.TextColor != nil {
-		v, err := color.MigrateColor(ctx, *old.TextColor)
-		if err != nil {
-			return ScaleIndicatorConfig{}, err
-		}
-		textColor = &v
-	}
 	return ScaleIndicatorConfig{
-		NumericTelemConfig: old.NumericTelemConfig,
-		StalenessConfig:    stalenessConfig,
+		NumericTelemConfig: numericTelemConfig,
+		StalenessConfig:    old.StalenessConfig,
 		Bounds:             old.Bounds,
-		LevelColor:         levelColor,
-		AxisColor:          axisColor,
-		TextColor:          textColor,
+		LevelColor:         old.LevelColor,
+		AxisColor:          old.AxisColor,
+		TextColor:          old.TextColor,
 		Units:              old.Units,
 		LevelHidden:        old.LevelHidden,
 		CaretHidden:        old.CaretHidden,
@@ -1418,54 +674,5 @@ func autoMigrateScaleIndicatorConfig(ctx context.Context, old v11.ScaleIndicator
 		Side:               old.Side,
 		CaretSide:          old.CaretSide,
 		Level:              old.Level,
-	}, nil
-}
-
-func autoMigrateDummyToggleSymbolConfig(ctx context.Context, old v11.DummyToggleSymbolConfig) (DummyToggleSymbolConfig, error) {
-	var strokeColor *color.Color
-	if old.StrokeColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StrokeColor)
-		if err != nil {
-			return DummyToggleSymbolConfig{}, err
-		}
-		strokeColor = &v
-	}
-	return DummyToggleSymbolConfig{
-		LabeledConfig: old.LabeledConfig,
-		ScaledConfig:  old.ScaledConfig,
-		Enabled:       old.Enabled,
-		Clickable:     old.Clickable,
-		StrokeColor:   strokeColor,
-	}, nil
-}
-
-func autoMigrateToggleConfig(ctx context.Context, old v11.ToggleConfig) (ToggleConfig, error) {
-	stalenessConfig, err := MigrateStalenessConfig(ctx, old.StalenessConfig)
-	if err != nil {
-		return ToggleConfig{}, err
-	}
-	return ToggleConfig{
-		LabeledConfig:   old.LabeledConfig,
-		ScaledConfig:    old.ScaledConfig,
-		StalenessConfig: stalenessConfig,
-		StateChannel:    old.StateChannel,
-		CommandChannel:  old.CommandChannel,
-		Control:         old.Control,
-		OnClickDelay:    old.OnClickDelay,
-	}, nil
-}
-
-func autoMigrateSegmentedEdgeConfig(ctx context.Context, old v11.SegmentedEdgeConfig) (SegmentedEdgeConfig, error) {
-	var strokeColor *color.Color
-	if old.StrokeColor != nil {
-		v, err := color.MigrateColor(ctx, *old.StrokeColor)
-		if err != nil {
-			return SegmentedEdgeConfig{}, err
-		}
-		strokeColor = &v
-	}
-	return SegmentedEdgeConfig{
-		StrokeColor: strokeColor,
-		Segments:    old.Segments,
 	}, nil
 }

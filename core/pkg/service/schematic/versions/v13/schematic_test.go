@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v12_test
+package v13_test
 
 import (
 	"uuid"
@@ -15,21 +15,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
+	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 )
 
 var _ = Describe("Schematic", func() {
 	Describe("GorpKey", func() {
 		It("Should return the schematic's key", func() {
 			k := uuid.New()
-			Expect(v12.Schematic{Key: k}.GorpKey()).To(Equal(k))
+			Expect(v13.Schematic{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
 
 	Describe("ResourceID", func() {
 		It("Should return the schematic resource identifier", func() {
 			k := uuid.New()
-			Expect(v12.Schematic{Key: k}.ResourceID()).To(Equal(resource.ID{
+			Expect(v13.Schematic{Key: k}.ResourceID()).To(Equal(resource.ID{
 				Type: resource.TypeSchematic, Key: k.String(),
 			}))
 		})

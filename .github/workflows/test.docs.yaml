@@ -11,10 +11,22 @@ name: Test - Docs
 
 on:
   workflow_call:
+    inputs:
+      strict:
+        description: Whether a broken external link fails the check
+        required: false
+        type: boolean
+        default: false
     secrets:
       TURBO_TOKEN:
         required: false
   workflow_dispatch:
+    inputs:
+      strict:
+        description: Whether a broken external link fails the check
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: docs-${{ github.workflow }}-${{ github.ref }}
@@ -60,9 +72,12 @@ jobs:
             exit 1
           done
 
+      # A broken external link fails only a strict run. Any other run shows it as a
+      # warning on the pull request, because the cause can be the host.
       - name: Check site
         timeout-minutes: 15
         working-directory: site/docs
         env:
           DOCS_GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm check-site:build && pnpm check-site
+          STRICT: ${{ inputs.strict && '--strict' || '' }}
+        run: pnpm check-site:build && pnpm check-site ${STRICT:+"$STRICT"}

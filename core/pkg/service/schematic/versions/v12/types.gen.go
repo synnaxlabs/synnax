@@ -14,16 +14,15 @@ package v12
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -48,312 +47,42 @@ type Edge = v11.Edge
 type Segment = v11.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig struct {
-	// StrokeColor is the stroke color of the edge.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// Segments is the ordered list of orthogonal runs that trace the connector path
-	// from the source handle to the target handle.
-	Segments []Segment `json:"segments" msgpack:"segments"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s SegmentedEdgeConfig) Validate() error {
-	v := validate.New("SegmentedEdgeConfig")
-	for i := range s.Segments {
-		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
-// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType string
-
-const (
-	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = "pipe"
-	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = "electric"
-	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = "secondary"
-	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = "jacketed"
-	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
-	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
-	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = "data"
-)
-
-// EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant interface {
-	isEdgeConfigVariant()
-}
-
-type PipeEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (PipeEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (p PipeEdgeConfig) Validate() error {
-	v := validate.New("PipeEdgeConfig")
-	v.Exec(p.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type ElectricEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (ElectricEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (e ElectricEdgeConfig) Validate() error {
-	v := validate.New("ElectricEdgeConfig")
-	v.Exec(e.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type SecondaryEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s SecondaryEdgeConfig) Validate() error {
-	v := validate.New("SecondaryEdgeConfig")
-	v.Exec(s.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type JacketedEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (JacketedEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (j JacketedEdgeConfig) Validate() error {
-	v := validate.New("JacketedEdgeConfig")
-	v.Exec(j.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type HydraulicEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (h HydraulicEdgeConfig) Validate() error {
-	v := validate.New("HydraulicEdgeConfig")
-	v.Exec(h.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type PneumaticEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (p PneumaticEdgeConfig) Validate() error {
-	v := validate.New("PneumaticEdgeConfig")
-	v.Exec(p.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
-
-type DataEdgeConfig struct {
-	SegmentedEdgeConfig
-}
-
-func (DataEdgeConfig) isEdgeConfigVariant() {}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d DataEdgeConfig) Validate() error {
-	v := validate.New("DataEdgeConfig")
-	v.Exec(d.SegmentedEdgeConfig.Validate)
-	return v.Error()
-}
+type SegmentedEdgeConfig = v11.SegmentedEdgeConfig
 
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The
 // variant selects the visual style of the connection.
-type EdgeConfig struct {
-	Variant EdgeConfigVariant
-}
+type EdgeConfig = v11.EdgeConfig
 
-// MarshalJSONTo encodes the active variant with its "variant" tag injected.
-func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case PipeEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			PipeEdgeConfig
-		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
-	case ElectricEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			ElectricEdgeConfig
-		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
-	case SecondaryEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			SecondaryEdgeConfig
-		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
-	case JacketedEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			JacketedEdgeConfig
-		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
-	case HydraulicEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			HydraulicEdgeConfig
-		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
-	case PneumaticEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			PneumaticEdgeConfig
-		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
-	case DataEdgeConfig:
-		return json.MarshalEncode(enc, struct {
-			Type EdgeConfigType `json:"variant"`
-			DataEdgeConfig
-		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
-	default:
-		return errors.Newf("EdgeConfig: unknown variant %T", v)
-	}
-}
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
+type EdgeConfigVariant = v11.EdgeConfigVariant
 
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
-func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type EdgeConfigType `json:"variant"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case PipeEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			PipeEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.PipeEdgeConfig
-	case ElectricEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			ElectricEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.ElectricEdgeConfig
-	case SecondaryEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			SecondaryEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.SecondaryEdgeConfig
-	case JacketedEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			JacketedEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.JacketedEdgeConfig
-	case HydraulicEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			HydraulicEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.HydraulicEdgeConfig
-	case PneumaticEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			PneumaticEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.PneumaticEdgeConfig
-	case DataEdgeConfigType:
-		var v struct {
-			Type EdgeConfigType `json:"variant"`
-			DataEdgeConfig
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.DataEdgeConfig
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"EdgeConfig: unknown variant %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
+// EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
+type EdgeConfigType = v11.EdgeConfigType
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u EdgeConfig) Validate() error {
-	switch variant := u.Variant.(type) {
-	case PipeEdgeConfig:
-		return variant.Validate()
-	case ElectricEdgeConfig:
-		return variant.Validate()
-	case SecondaryEdgeConfig:
-		return variant.Validate()
-	case JacketedEdgeConfig:
-		return variant.Validate()
-	case HydraulicEdgeConfig:
-		return variant.Validate()
-	case PneumaticEdgeConfig:
-		return variant.Validate()
-	case DataEdgeConfig:
-		return variant.Validate()
-	}
-	return nil
-}
+const (
+	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	PipeEdgeConfigType EdgeConfigType = v11.PipeEdgeConfigType
+	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	ElectricEdgeConfigType EdgeConfigType = v11.ElectricEdgeConfigType
+	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
+	SecondaryEdgeConfigType EdgeConfigType = v11.SecondaryEdgeConfigType
+	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	JacketedEdgeConfigType EdgeConfigType = v11.JacketedEdgeConfigType
+	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
+	HydraulicEdgeConfigType EdgeConfigType = v11.HydraulicEdgeConfigType
+	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
+	PneumaticEdgeConfigType EdgeConfigType = v11.PneumaticEdgeConfigType
+	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	DataEdgeConfigType EdgeConfigType = v11.DataEdgeConfigType
+)
+
+type PipeEdgeConfig = v11.PipeEdgeConfig
+type ElectricEdgeConfig = v11.ElectricEdgeConfig
+type SecondaryEdgeConfig = v11.SecondaryEdgeConfig
+type JacketedEdgeConfig = v11.JacketedEdgeConfig
+type HydraulicEdgeConfig = v11.HydraulicEdgeConfig
+type PneumaticEdgeConfig = v11.PneumaticEdgeConfig
+type DataEdgeConfig = v11.DataEdgeConfig
 
 // FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v11.FlexAlignment
@@ -409,29 +138,43 @@ type ScaledConfig = v11.ScaledConfig
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
-type StalenessConfig struct {
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+type StalenessConfig = v11.StalenessConfig
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig struct {
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StalenessConfig) ApplyDefaults() {
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
+func (n *NumericTelemConfig) ApplyDefaults() {
+	if n.Notation == "" {
+		n.Notation = "standard"
 	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
-func (s *StalenessConfig) SetDefaults() {
-	s.StalenessTimeout = 5
+func (n *NumericTelemConfig) SetDefaults() {
+	n.Notation = "standard"
 }
 
-// NumericTelemConfig is the numeric read and formatting shared by symbols that display
-// a channel's value as a number.
-type NumericTelemConfig = v11.NumericTelemConfig
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumericTelemConfig) Validate() error {
+	v := validate.New("NumericTelemConfig")
+	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
+	if n.Precision != nil {
+		v.LessThanEq("precision", *n.Precision, 17)
+	}
+	return v.Error()
+}
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
@@ -439,135 +182,17 @@ type ControlStateConfig = v11.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig struct {
-	LabeledConfig
-	ScaledConfig
-	StalenessConfig
-	// StateChannel is the channel whose value drives the symbol's active state.
-	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// CommandChannel is the channel actuation commands are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ToggleConfig) ApplyDefaults() {
-	t.LabeledConfig.ApplyDefaults()
-	t.ScaledConfig.ApplyDefaults()
-	t.StalenessConfig.ApplyDefaults()
-	if t.Control != nil {
-		t.Control.ApplyDefaults()
-	}
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (t *ToggleConfig) SetDefaults() {
-	t.LabeledConfig.SetDefaults()
-	t.ScaledConfig.SetDefaults()
-	t.StalenessConfig.SetDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t ToggleConfig) Validate() error {
-	v := validate.New("ToggleConfig")
-	v.Exec(t.LabeledConfig.Validate)
-	if t.Control != nil {
-		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
-	}
-	return v.Error()
-}
+type ToggleConfig = v11.ToggleConfig
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
-type StaticSymbolConfig struct {
-	LabeledConfig
-	ScaledConfig
-	// StrokeColor is the stroke color of the symbol.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticSymbolConfig) ApplyDefaults() {
-	s.LabeledConfig.ApplyDefaults()
-	s.ScaledConfig.ApplyDefaults()
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (s *StaticSymbolConfig) SetDefaults() {
-	s.LabeledConfig.SetDefaults()
-	s.ScaledConfig.SetDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s StaticSymbolConfig) Validate() error {
-	v := validate.New("StaticSymbolConfig")
-	v.Exec(s.LabeledConfig.Validate)
-	return v.Error()
-}
+type StaticSymbolConfig = v11.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig struct {
-	ToggleConfig
-	// StrokeColor is the stroke color of the symbol, which also fills it while it is
-	// active.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ToggleSymbolConfig) ApplyDefaults() {
-	t.ToggleConfig.ApplyDefaults()
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (t *ToggleSymbolConfig) SetDefaults() {
-	t.ToggleConfig.SetDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t ToggleSymbolConfig) Validate() error {
-	v := validate.New("ToggleSymbolConfig")
-	v.Exec(t.ToggleConfig.Validate)
-	return v.Error()
-}
+type ToggleSymbolConfig = v11.ToggleSymbolConfig
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
-type DummyToggleSymbolConfig struct {
-	LabeledConfig
-	ScaledConfig
-	// Enabled indicates whether the symbol renders in its active state.
-	Enabled bool `json:"enabled" msgpack:"enabled"`
-	// Clickable indicates whether clicking the symbol toggles its state.
-	Clickable bool `json:"clickable" msgpack:"clickable"`
-	// StrokeColor is the stroke color of the symbol, which also fills it while it is
-	// active.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DummyToggleSymbolConfig) ApplyDefaults() {
-	d.LabeledConfig.ApplyDefaults()
-	d.ScaledConfig.ApplyDefaults()
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (d *DummyToggleSymbolConfig) SetDefaults() {
-	d.LabeledConfig.SetDefaults()
-	d.ScaledConfig.SetDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d DummyToggleSymbolConfig) Validate() error {
-	v := validate.New("DummyToggleSymbolConfig")
-	v.Exec(d.LabeledConfig.Validate)
-	return v.Error()
-}
+type DummyToggleSymbolConfig = v11.DummyToggleSymbolConfig
 
 // ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
@@ -639,16 +264,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 }
 
 // StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping struct {
-	// Key is the unique identifier for the mapping entry.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the display name for this state.
-	Name string `json:"name" msgpack:"name"`
-	// Value is the channel value this state corresponds to.
-	Value float64 `json:"value" msgpack:"value"`
-	// Color is the display color associated with this state.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
+type StateMapping = v11.StateMapping
 
 // PageType names the kinds of page an off-page reference can link to.
 type PageType = v11.PageType
@@ -3759,8 +3375,8 @@ type TankNodeConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -3808,7 +3424,6 @@ func (TankNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Precision = 2
 	t.Notation = "standard"
 	t.StalenessTimeout = 5
 	t.Bounds.Upper = 100
@@ -3829,9 +3444,6 @@ func (t *TankNodeConfig) SetDefaults() {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankNodeConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
 	if t.Notation == "" {
 		t.Notation = "standard"
 	}
@@ -3891,6 +3503,9 @@ func (t TankNodeConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
+	if t.Precision != nil {
+		v.LessThanEq("precision", *t.Precision, 17)
+	}
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -9253,8 +8868,8 @@ type TankElementConfig struct {
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -9302,7 +8917,6 @@ func (TankElementConfig) isElementConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankElementConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
-	t.Precision = 2
 	t.Notation = "standard"
 	t.StalenessTimeout = 5
 	t.Bounds.Upper = 100
@@ -9323,9 +8937,6 @@ func (t *TankElementConfig) SetDefaults() {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TankElementConfig) ApplyDefaults() {
-	if t.Precision == 0 {
-		t.Precision = 2
-	}
 	if t.Notation == "" {
 		t.Notation = "standard"
 	}
@@ -9385,6 +8996,9 @@ func (t TankElementConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
+	if t.Precision != nil {
+		v.LessThanEq("precision", *t.Precision, 17)
+	}
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -11869,7 +11483,6 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for key, value := range s.Configs {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
 	}

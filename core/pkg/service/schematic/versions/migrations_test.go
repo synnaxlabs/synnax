@@ -37,6 +37,7 @@ var _ = Describe("Migrations", func() {
 			"v61_add_group",
 			"v61_schematic_group_membership",
 			"v61_schematic_owner",
+			"v62_byte_precision",
 			"v61_color_alpha_byte",
 		}))
 	})
