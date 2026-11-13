@@ -11,6 +11,7 @@ package ranger_test
 
 import (
 	"encoding/json/v2"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,6 +134,22 @@ var _ = Describe("Where", func() {
 				To(ConsistOf("Running", "Planned"))
 			Expect(match(ctx, ranger.Where{Recent: new(-30 * telem.Minute)})).
 				To(ConsistOf("Running"))
+		})
+
+		It("Should match all past ranges for the maximum recent span", func(
+			ctx SpecContext,
+		) {
+			span := telem.TimeSpan(math.MaxInt64)
+			Expect(match(ctx, ranger.Where{Recent: &span})).
+				To(ConsistOf("Running", "Done"))
+		})
+
+		It("Should match all future ranges for the minimum recent span", func(
+			ctx SpecContext,
+		) {
+			span := telem.TimeSpan(math.MinInt64)
+			Expect(match(ctx, ranger.Where{Recent: &span})).
+				To(ConsistOf("Running", "Planned"))
 		})
 
 		It("Should match the ranges that overlap a time range", func(ctx SpecContext) {

@@ -57,7 +57,11 @@ func MatchStages(stages ...Stage) Filter {
 // the query opened. A negative span starts when the query opened and reaches forward.
 func MatchRecent(span telem.TimeSpan) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Range] {
-		return MatchOverlaps(r.now.Add(-span).Range(r.now))(r)
+		if span >= 0 {
+			return MatchOverlaps(r.now.Add(-span).Range(r.now))(r)
+		}
+		// Negating the minimum span overflows, so step one nanosecond out first.
+		return MatchOverlaps(r.now.Range(r.now.Add(1).Add(-(span + 1))))(r)
 	}
 }
 
