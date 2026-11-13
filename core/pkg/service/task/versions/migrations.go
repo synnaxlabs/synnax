@@ -19,6 +19,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 )
 
 // MigrationsConfig configures the stored-task migration chain.
@@ -44,6 +45,11 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v2.NameMigration,
 			v3.Migration,
 			v3.RangeMigration,
+			v4.NewSnapshotMigration(v3.MigrationConfig{
+				Status:  cfg.Status,
+				Configs: cfg.Configs,
+			}),
+			v4.Migration,
 		},
 	)
 }

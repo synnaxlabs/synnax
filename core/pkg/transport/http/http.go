@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -124,7 +123,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: unary[channel.AliasedRetrieveRequest, channel.RetrieveResponse](
+		ChannelRetrieve: unary[channel.RetrieveRequest, channel.RetrieveResponse](
 			router,
 			"/api/v1/channel/retrieve",
 		),
@@ -258,32 +257,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		KVDispatch: unary[kv.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathRangeKVDispatch,
-		),
-
-		// ALIAS
-		AliasSet: unary[alias.SetRequest, struct{}](
-			router,
-			"/api/v1/range/alias/set",
-		),
-		AliasResolve: unary[alias.ResolveRequest, alias.ResolveResponse](
-			router,
-			"/api/v1/range/alias/resolve",
-		),
-		AliasRetrieve: unary[alias.RetrieveRequest, alias.RetrieveResponse](
-			router,
-			"/api/v1/range/alias/retrieve",
-		),
-		AliasList: unary[alias.ListRequest, alias.ListResponse](
-			router,
-			"/api/v1/range/alias/list",
-		),
-		AliasDelete: unary[alias.DeleteRequest, struct{}](
-			router,
-			"/api/v1/range/alias/delete",
-		),
-		AliasDispatch: unary[alias.DispatchRequest, struct{}](
-			router,
-			"/api/v1"+api.PathRangeAliasDispatch,
 		),
 
 		// PROJECT

@@ -14,7 +14,7 @@ package v2
 import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 )
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
