@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/errors"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 )
 
 // MigrateWriteConfig lifts a v4 HTTP write task config to v5.

@@ -9,7 +9,7 @@
 
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
-import "schemas/x/versions/payload/v1"
+import "schemas/x/versions/payload/v0"
 
 Method = v2.Method
 

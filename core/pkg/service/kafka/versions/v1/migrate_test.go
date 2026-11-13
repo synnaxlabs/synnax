@@ -18,7 +18,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
-	payloadv1 "github.com/synnaxlabs/x/payload/versions/v1"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -179,13 +178,13 @@ var _ = Describe("Migrate", func() {
 		Expect(rec.ValuePointer).To(Equal("/v"))
 		Expect(rec.ChannelPointer).To(Equal(new("/c")))
 		Expect(rec.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
-		Expect(rec.Fields).To(Equal([]payloadv1.WriteField{
-			{Variant: payloadv1.StringWriteField{
-				BaseWriteField: payloadv1.BaseWriteField{Key: "s", Pointer: "/s"},
+		Expect(rec.Fields).To(Equal([]payload.WriteField{
+			{Variant: payload.StringWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "s", Pointer: "/s"},
 				Value:          "plant-1",
 			}},
-			{Variant: payloadv1.UuidWriteField{
-				BaseWriteField: payloadv1.BaseWriteField{Key: "id", Pointer: "/id"},
+			{Variant: payload.UuidWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "id", Pointer: "/id"},
 			}},
 		}))
 	})

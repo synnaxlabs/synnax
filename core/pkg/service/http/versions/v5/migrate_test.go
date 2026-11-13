@@ -17,8 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
-	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
-	payload "github.com/synnaxlabs/x/payload/versions/v1"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -33,18 +32,18 @@ var _ = Describe("Migration", func() {
 				Path: "/set",
 				Channel: v4.ChannelField{
 					Pointer:  "/v",
-					JSONType: payloadv0.JSONTypeString,
+					JSONType: payload.JSONTypeString,
 					Channel:  7,
 				},
 				Fields: []v4.WriteField{
 					{Variant: v4.StaticWriteField{
 						BaseWriteField: v4.BaseWriteField{Key: "i", Pointer: "/i"},
-						JSONType:       payloadv0.JSONTypeString,
+						JSONType:       payload.JSONTypeString,
 						Value:          int64(-3),
 					}},
 					{Variant: v4.StaticWriteField{
 						BaseWriteField: v4.BaseWriteField{Key: "f", Pointer: "/f"},
-						JSONType:       payloadv0.JSONTypeNumber,
+						JSONType:       payload.JSONTypeNumber,
 						Value:          1.5,
 					}},
 					{Variant: v4.StaticWriteField{
@@ -52,7 +51,7 @@ var _ = Describe("Migration", func() {
 					}},
 					{Variant: v4.GeneratedWriteField{
 						BaseWriteField: v4.BaseWriteField{Key: "t", Pointer: "/t"},
-						Generator:      payloadv0.GeneratorTypeTimestamp,
+						Generator:      payload.GeneratorTypeTimestamp,
 					}},
 				},
 			}},
@@ -78,7 +77,7 @@ var _ = Describe("Migration", func() {
 		ep := got.Endpoints[0]
 		Expect(ep.Path).To(Equal("/set"))
 		Expect(ep.Channel.Pointer).To(Equal("/v"))
-		Expect(ep.Channel.JSONType).To(Equal(payloadv0.JSONTypeString))
+		Expect(ep.Channel.JSONType).To(Equal(payload.JSONTypeString))
 		Expect(ep.Channel.Channel).To(BeEquivalentTo(7))
 		Expect(ep.Fields).To(Equal([]payload.WriteField{
 			{Variant: payload.IntegerWriteField{
@@ -110,8 +109,8 @@ var _ = Describe("Migration", func() {
 			f, ok := MustSucceed2(v5.MigrateWriteField(v4.WriteField{
 				Variant: v4.GeneratedWriteField{
 					BaseWriteField: base,
-					Generator:      payloadv0.GeneratorTypeTimestamp,
-					TimeFormat:     new(payloadv0.TimeFormatUnixMs),
+					Generator:      payload.GeneratorTypeTimestamp,
+					TimeFormat:     new(payload.TimeFormatUnixMs),
 				},
 			}))
 			Expect(ok).To(BeTrue())
@@ -143,7 +142,7 @@ var _ = Describe("Migration", func() {
 			Fields: []v4.WriteField{
 				{Variant: v4.GeneratedWriteField{Generator: "id"}},
 				{Variant: v4.GeneratedWriteField{
-					Generator: payloadv0.GeneratorTypeUUID,
+					Generator: payload.GeneratorTypeUUID,
 				}},
 			},
 		}))
