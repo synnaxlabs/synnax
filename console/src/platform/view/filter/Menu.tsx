@@ -14,7 +14,7 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { useContext } from "@/platform/view/context";
-import { drop, find, put } from "@/platform/view/filter/codec";
+import { replace } from "@/platform/view/filter/codec";
 import { type Properties, type Property } from "@/platform/view/filter/types";
 import { useConditions } from "@/platform/view/filter/useConditions";
 
@@ -70,19 +70,24 @@ export const Menu = <W extends { and?: W[] }>({
       </Dialog.Trigger>
       <Base.Dialog aria-label="Filter">
         <Base.Menu gap="small">
-          {Object.entries(properties).map(([key, property]) => (
-            <PropertySub
-              key={key}
-              itemKey={key}
-              property={property}
-              value={find(conditions, key)}
-              onChange={(value) =>
-                setConditions(
-                  value == null ? drop(conditions, key) : put(conditions, key, value),
-                )
-              }
-            />
-          ))}
+          {Object.entries(properties).map(([key, property]) => {
+            // The menu edits the first condition on the property and leaves the rest.
+            const index = conditions.findIndex((c) => c.property === key);
+            const condition = conditions[index];
+            return (
+              <PropertySub
+                key={key}
+                itemKey={key}
+                property={property}
+                value={condition?.property == null ? null : condition.value}
+                onChange={(value) => {
+                  const next = value == null ? null : { property: key, value };
+                  if (index !== -1) setConditions(replace(conditions, index, next));
+                  else if (next != null) setConditions([...conditions, next]);
+                }}
+              />
+            );
+          })}
         </Base.Menu>
       </Base.Dialog>
     </Dialog.Frame>
