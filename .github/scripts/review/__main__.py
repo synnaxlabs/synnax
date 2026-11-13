@@ -64,6 +64,7 @@ from review import (
 
 _FILE = re.compile(r"diff --git a/.* b/(.*)")
 _INDEX = re.compile(r"(?m)^index .*\n")
+_BINARY = re.compile(r"(?m)^Binary files ")
 _HUNK = re.compile(r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
 
@@ -194,12 +195,13 @@ def _fetched(head: Path, commit: str) -> bool:
 
 
 def _files(diff: str) -> dict[str, tuple[str, str]]:
-    """Splits a diff by file. Maps each path to its patch, and to the patch without
-    its blob IDs and line numbers."""
+    """Splits a diff by file. Maps each path to its patch, and to the patch without its
+    line numbers and, unless only they show a binary file's change, its blob IDs."""
     out: dict[str, tuple[str, str]] = {}
     for chunk in re.split(r"(?m)^(?=diff --git )", diff):
         if m := _FILE.match(chunk):
-            out[m[1]] = chunk, _HUNK.sub("@@", _INDEX.sub("", chunk))
+            key = chunk if _BINARY.search(chunk) else _INDEX.sub("", chunk)
+            out[m[1]] = chunk, _HUNK.sub("@@", key)
     return out
 
 

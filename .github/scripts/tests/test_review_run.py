@@ -1040,6 +1040,37 @@ class TestMain:
         assert "diff --git a/b.go b/b.go" in new
         assert "a.go" not in new
 
+    def test_should_fetch_a_reviewed_commit_that_the_checkout_lacks(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "clone", "-q", "--bare", str(head), str(origin))
+        git(origin, "config", "uploadpack.allowAnySHA1InWant", "true")
+        other = tmp_path / "other"
+        git(tmp_path, "clone", "-q", str(origin), str(other))
+        files = {"a.go": "one\ntwo\n", "b.go": "three\n"}
+        dropped = self.side(other, env["BASE_SHA"], files)
+        git(other, "push", "-q", "origin", "side")
+        git(head, "remote", "add", "origin", str(origin))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "no longer changes these files:\n- `b.go`" in new
+
+    def test_should_show_a_binary_file_whose_content_changed(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        dropped = self.side(
+            head, env["BASE_SHA"], {"a.go": "one\ntwo\n", "c.bin": "\0old"}
+        )
+        (head / "c.bin").write_text("\0new")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "binary")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "diff --git a/c.bin b/c.bin" in new
+        assert "a.go" not in new
+
     def test_should_show_the_whole_diff_when_a_force_push_lost_the_commit(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
