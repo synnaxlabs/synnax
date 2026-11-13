@@ -249,6 +249,35 @@ var _ = Describe("Channel fields", func() {
 				)),
 			))
 		})
+
+		It(
+			"Should reject an additional field with no valid value",
+			func(ctx SpecContext) {
+				cfg := config(field("float", 0))
+				target := cfg["targets"].([]any)[0].(map[string]any)
+				target["fields"] = []any{map[string]any{
+					"key": "meta", "type": "json", "pointer": "/meta", "value": "{",
+				}}
+				Expect(prepare(ctx, cfg)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						`target plant/x: field "meta": value is not JSON`,
+					)),
+				))
+			},
+		)
+
+		It("Should skip the additional fields of a disabled target", func(
+			ctx SpecContext,
+		) {
+			cfg := config(field("float", 0))
+			target := cfg["targets"].([]any)[0].(map[string]any)
+			target["disabled"] = true
+			target["fields"] = []any{map[string]any{
+				"key": "meta", "type": "json", "pointer": "/meta", "value": "{",
+			}}
+			Expect(prepare(ctx, cfg)).Error().ToNot(HaveOccurred())
+		})
 	})
 
 	Describe("Normalize", func() {

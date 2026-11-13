@@ -474,33 +474,6 @@ func (u *ChannelField) SetBase(base BaseChannelField) {
 	}
 }
 
-// BaseWriteField carries the fields every write payload field shares.
-type BaseWriteField = v1.BaseWriteField
-
-// WriteField is an additional payload field on a plain write target. The type field
-// selects whether the value is fixed or generated per publish.
-type WriteField = v1.WriteField
-
-// WriteFieldVariant is implemented by every WriteField variant.
-type WriteFieldVariant = v1.WriteFieldVariant
-
-// WriteFieldType is the "type" value that selects a variant of WriteField.
-type WriteFieldType = v1.WriteFieldType
-
-const (
-	// StaticWriteFieldType places a fixed value in the payload.
-	StaticWriteFieldType WriteFieldType = v1.StaticWriteFieldType
-	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the
-	// payload.
-	GeneratedWriteFieldType WriteFieldType = v1.GeneratedWriteFieldType
-)
-
-// StaticWriteField places a fixed value in the payload.
-type StaticWriteField = v1.StaticWriteField
-
-// GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
-type GeneratedWriteField = v1.GeneratedWriteField
-
 // BaseWriteTarget carries the fields every write target shares.
 type BaseWriteTarget = v1.BaseWriteTarget
 
@@ -530,8 +503,8 @@ type PlainWriteTarget struct {
 	Retained bool `json:"retained" msgpack:"retained"`
 	// Channel is the command channel whose writes trigger the publish.
 	Channel ChannelField `json:"channel" msgpack:"channel"`
-	// Fields contains additional static or generated payload fields.
-	Fields []WriteField `json:"fields" msgpack:"fields"`
+	// Fields contains additional fixed or generated payload fields.
+	Fields []payload.WriteField `json:"fields" msgpack:"fields"`
 }
 
 func (PlainWriteTarget) isWriteTargetVariant() {}

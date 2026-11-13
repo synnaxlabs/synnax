@@ -112,6 +112,7 @@ var legacySecrets = map[string]struct{ key, plain string }{
 var legacyReimportErrors = map[string]string{
 	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
 	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"http_write":     `within "/endpoints/0/fields/0": WriteField: unknown type "string"`,
 }
 
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
@@ -143,6 +144,9 @@ var legacyVariantDiscarded = map[string]set.Set[string]{
 	// An EtherCAT entry channel reads its bit length from the slave's discovered
 	// entry.
 	"manual": set.New("bit_length"),
+	// A write field's type tag holds the kind of its value or its generator.
+	"static":    set.New("json_type"),
+	"generated": set.New("generator"),
 }
 
 // The three tables below map a legacy key to where its value lands in the stored

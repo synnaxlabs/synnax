@@ -101,7 +101,11 @@ WriteChannel union on type payload.Kind extends BaseWriteChannel {
     @go marshal
 }
 
-Record = v0.Record
+Record struct extends v0.Record {
+    fields payload.WriteField[] {
+        @doc value "contains additional fixed or generated record fields."
+    }
+}
 
 WriteConfig struct extends task.StartConfig {
     device     device.Key = "" {

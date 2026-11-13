@@ -13,8 +13,28 @@ package v0
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bwf BaseWriteField) EncodeOrc(w *orc.Writer) error {
+	w.String(bwf.Key)
+	w.String(bwf.Pointer)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bwf *BaseWriteField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bwf.Key, err = r.String(); err != nil {
+		return err
+	}
+	if bwf.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (be BooleanEntry) EncodeOrc(w *orc.Writer) error {
@@ -540,6 +560,175 @@ func (ur *UnsignedRead) DecodeOrc(r *orc.Reader) error {
 			}
 			ur.Fill = &hv
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wf WriteField) EncodeOrc(w *orc.Writer) error {
+	switch v := wf.Variant.(type) {
+	case FloatWriteField:
+		w.String("float")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.Value))
+	case IntegerWriteField:
+		w.String("integer")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int64(int64(v.Value))
+	case UnsignedWriteField:
+		w.String("unsigned")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint64(uint64(v.Value))
+	case StringWriteField:
+		w.String("string")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	case BooleanWriteField:
+		w.String("boolean")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.Value)
+	case JsonWriteField:
+		w.String("json")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	case UuidWriteField:
+		w.String("uuid")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TimestampWriteField:
+		w.String("timestamp")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.TimeFormat))
+	case BytesWriteField:
+		w.String("bytes")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	default:
+		return errors.Newf("WriteField: nil or unknown variant %T", wf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Float64()
+			if err != nil {
+				return err
+			}
+			v.Value = Float(rawV)
+		}
+		wf.Variant = v
+	case "integer":
+		var v IntegerWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = Integer(rawV)
+		}
+		wf.Variant = v
+	case "unsigned":
+		var v UnsignedWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint64()
+			if err != nil {
+				return err
+			}
+			v.Value = Unsigned(rawV)
+		}
+		wf.Variant = v
+	case "string":
+		var v StringWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wf.Variant = v
+	case "boolean":
+		var v BooleanWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Bool(); err != nil {
+			return err
+		}
+		wf.Variant = v
+	case "json":
+		var v JsonWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wf.Variant = v
+	case "uuid":
+		var v UuidWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		wf.Variant = v
+	case "timestamp":
+		var v TimestampWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.TimeFormat = TimeFormat(rawV)
+		}
+		wf.Variant = v
+	case "bytes":
+		var v BytesWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wf.Variant = v
+	default:
+		return errors.Newf("WriteField: unknown variant %q", tag)
 	}
 	return nil
 }

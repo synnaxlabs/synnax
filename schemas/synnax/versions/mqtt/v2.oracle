@@ -108,10 +108,6 @@ ChannelField union on type payload.Kind extends BaseChannelField {
     @go marshal
 }
 
-BaseWriteField = v1.BaseWriteField
-
-WriteField = v1.WriteField
-
 BaseWriteTarget = v1.BaseWriteTarget
 
 WriteTarget union on type extends BaseWriteTarget {
@@ -128,8 +124,8 @@ WriteTarget union on type extends BaseWriteTarget {
         channel  ChannelField = float {
             @doc value "is the command channel whose writes trigger the publish."
         }
-        fields   WriteField[] {
-            @doc value "contains additional static or generated payload fields."
+        fields   payload.WriteField[] {
+            @doc value "contains additional fixed or generated payload fields."
         }
 
         @doc value "publishes a JSON payload to one topic."

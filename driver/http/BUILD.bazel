@@ -33,6 +33,7 @@ cc_library(
         "//driver/http/types",
         "//driver/pipeline",
         "//driver/task",
+        "//x/cpp/base64",
         "//x/cpp/json",
         "//x/cpp/json:convert",
         "//x/cpp/loop",

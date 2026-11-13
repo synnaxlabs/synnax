@@ -38,9 +38,10 @@
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
-using ::synnax::http::GeneratedWriteField;
-using ::synnax::http::StaticWriteField;
 using ::synnax::http::WriteEndpoint;
+using ::x::payload::StringWriteField;
+using ::x::payload::TimestampWriteField;
+using ::x::payload::UuidWriteField;
 
 namespace {
 /// @brief helper to build a WriteTaskSink from config and a mock server URL.
@@ -188,10 +189,9 @@ TEST(HTTPWriteTask, ParseConfigDuplicatePointers) {
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
              {"fields",
               {{
-                  {"type", "static"},
+                  {"type", "integer"},
                   {"pointer", "/value"},
-                  {"json_type", "number"},
-                  {"value", 42},
+                  {"value", "42"},
               }}},
          }}},
     };
@@ -211,10 +211,9 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
              {"channel", {{"pointer", ""}, {"json_type", "number"}, {"channel", 1}}},
              {"fields",
               {{
-                  {"type", "static"},
+                  {"type", "integer"},
                   {"pointer", "/extra"},
-                  {"json_type", "number"},
-                  {"value", 42},
+                  {"value", "42"},
               }}},
          }}},
     };
@@ -222,8 +221,8 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
-/// @brief it should fail when a static field has an empty pointer.
-TEST(HTTPWriteTask, ParseConfigStaticFieldEmptyPointer) {
+/// @brief it should fail when a fixed field has an empty pointer.
+TEST(HTTPWriteTask, ParseConfigFixedFieldEmptyPointer) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -235,10 +234,9 @@ TEST(HTTPWriteTask, ParseConfigStaticFieldEmptyPointer) {
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
              {"fields",
               {{
-                  {"type", "static"},
+                  {"type", "integer"},
                   {"pointer", ""},
-                  {"json_type", "number"},
-                  {"value", 42},
+                  {"value", "42"},
               }}},
          }}},
     };
@@ -259,9 +257,8 @@ TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
              {"fields",
               {{
-                  {"type", "generated"},
+                  {"type", "uuid"},
                   {"pointer", ""},
-                  {"generator", "uuid"},
               }}},
          }}},
     };
@@ -390,8 +387,8 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     EXPECT_NE(err4.data.find("parameter"), std::string::npos);
 }
 
-/// @brief it should fail when a static field is missing the value field.
-TEST(HTTPWriteTask, ParseConfigStaticFieldMissingValueErrors) {
+/// @brief it should fail when a fixed field is missing the value field.
+TEST(HTTPWriteTask, ParseConfigFixedFieldMissingValueErrors) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -401,13 +398,82 @@ TEST(HTTPWriteTask, ParseConfigStaticFieldMissingValueErrors) {
              {"path", "/api/data"},
              {"channel",
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
-             {"fields", {{{"type", "static"}, {"pointer", "/extra"}}}},
+             {"fields", {{{"type", "string"}, {"pointer", "/extra"}}}},
          }}},
     };
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto [_, err] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     EXPECT_NE(err.data.find("value"), std::string::npos);
+}
+
+/// @brief it should fail when a fixed value cannot go into a body.
+TEST(HTTPWriteTask, ParseConfigFixedFieldValueErrors) {
+    const std::vector<std::pair<x::json::json, std::string>> cases = {
+        {{{"type", "float"}, {"value", "Infinity"}}, "value must be finite"},
+        {{{"type", "json"}, {"value", R"({"a": [1e400]})"}}, "value is not JSON"},
+    };
+    for (const auto &[field, message]: cases) {
+        auto f = field;
+        f["pointer"] = "/extra";
+        synnax::task::Task task;
+        task.config = {
+            {"device", "dev-001"},
+            {"endpoints",
+             {{
+                 {"method", "POST"},
+                 {"path", "/api/data"},
+                 {"channel",
+                  {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+                 {"fields", {f}},
+             }}},
+        };
+        auto ctx = std::make_shared<task::MockContext>(nullptr);
+        auto [_, err] = WriteTaskConfig::parse(ctx, task);
+        ASSERT_TRUE(err.matches(x::errors::VALIDATION)) << field.dump();
+        EXPECT_NE(err.data.find(message), std::string::npos) << err.data;
+    }
+}
+
+/// @brief it should fail when a bytes field does not hold canonical base64 text.
+TEST(HTTPWriteTask, ParseConfigBytesFieldNotBase64Errors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {{{"type", "bytes"}, {"pointer", "/extra"}, {"value", "AQ\r\nI="}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value is not base64"), std::string::npos);
+}
+
+/// @brief it should fail when a json field does not hold JSON text.
+TEST(HTTPWriteTask, ParseConfigJSONFieldNotJSONErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields", {{{"type", "json"}, {"pointer", "/extra"}, {"value", "{"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value is not JSON"), std::string::npos);
 }
 
 /// @brief a query_params entry may omit the value field; it defaults to an empty
@@ -617,7 +683,7 @@ TEST(HTTPWriteTask, StaticFields) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    StaticWriteField device_field;
+    StringWriteField device_field;
     device_field.pointer = "/device_id";
     device_field.value = "sensor-01";
     ep.fields = {device_field};
@@ -637,6 +703,126 @@ TEST(HTTPWriteTask, StaticFields) {
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_NEAR(body["value"].get<double>(), 10.0, 0.001);
     EXPECT_EQ(body["device_id"].get<std::string>(), "sensor-01");
+}
+
+/// @brief it should fail when a field pointer sits inside or above another pointer.
+TEST(HTTPWriteTask, ParseConfigNestedPointersError) {
+    const auto field = [](const std::string &pointer) {
+        return x::json::json{{"type", "json"}, {"pointer", pointer}, {"value", "{}"}};
+    };
+    const std::vector<x::json::json> cases = {
+        x::json::json::array({field("/value/unit")}),
+        x::json::json::array({field("/meta"), field("/meta/unit")}),
+    };
+    for (const auto &fields: cases) {
+        synnax::task::Task task;
+        task.config = {
+            {"device", "dev-001"},
+            {"endpoints",
+             {{
+                 {"method", "POST"},
+                 {"path", "/api/data"},
+                 {"channel",
+                  {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+                 {"fields", fields},
+             }}},
+        };
+        auto ctx = std::make_shared<task::MockContext>(nullptr);
+        auto [_, err] = WriteTaskConfig::parse(ctx, task);
+        ASSERT_TRUE(err.matches(x::errors::VALIDATION)) << fields.dump();
+        EXPECT_NE(err.data.find("overlaps"), std::string::npos) << err.data;
+    }
+}
+
+/// @brief it should fail when a field pointer uses the array append token.
+TEST(HTTPWriteTask, ParseConfigAppendTokenErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields",
+              {
+                  {{"type", "string"}, {"pointer", "/a/0"}, {"value", "x"}},
+                  {{"type", "json"}, {"pointer", "/a/-"}, {"value", "{}"}},
+                  {{"type", "uuid"}, {"pointer", "/a/1"}},
+              }},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("must not use the '-' token"), std::string::npos)
+        << err.data;
+}
+
+/// @brief it should place the exact value of each kind of fixed field in the body.
+TEST(HTTPWriteTask, FixedFieldKinds) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = "number";
+    ep.channel.channel = 1;
+    ::x::payload::FloatWriteField f;
+    f.pointer = "/f";
+    f.value = 0.5;
+    ::x::payload::IntegerWriteField i;
+    i.pointer = "/i";
+    i.value = std::numeric_limits<std::int64_t>::min();
+    ::x::payload::UnsignedWriteField u;
+    u.pointer = "/u";
+    u.value = std::numeric_limits<std::uint64_t>::max();
+    ::x::payload::BooleanWriteField b;
+    b.pointer = "/b";
+    b.value = true;
+    ::x::payload::JsonWriteField j;
+    j.pointer = "/j";
+    j.value = R"({"a": [18446744073709551616, 0.12345678901234567890, " x "]})";
+    ::x::payload::BytesWriteField y;
+    y.pointer = "/y";
+    y.value = "AQI=";
+    ep.fields = {f, i, u, b, j, y};
+
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{2.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(
+        reqs[0].body,
+        R"({"b":true,"f":0.5,"i":-9223372036854775808,)"
+        R"("j":{"a":[18446744073709551616,0.12345678901234567890," x "]},)"
+        R"("u":18446744073709551615,"value":2.0,"y":"AQI="})"
+    );
 }
 
 /// @brief it should include a generated UUID field.
@@ -664,9 +850,8 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    GeneratedWriteField request_id_field;
+    UuidWriteField request_id_field;
     request_id_field.pointer = "/request_id";
-    request_id_field.generator = "uuid";
     ep.fields = {request_id_field};
 
     cfg.endpoints = {ep};
@@ -1567,10 +1752,8 @@ TEST(HTTPWriteTask, GeneratedTimestampField) {
     ep.channel.pointer = "/value";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    GeneratedWriteField created_at_field;
+    TimestampWriteField created_at_field;
     created_at_field.pointer = "/created_at";
-    created_at_field.generator = "timestamp";
-    created_at_field.time_format = "iso8601";
     ep.fields = {created_at_field};
 
     cfg.endpoints = {ep};
@@ -1619,10 +1802,10 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
     ep.channel.pointer = "/payload/sensors/temperature/reading";
     ep.channel.json_type = "number";
     ep.channel.channel = 1;
-    StaticWriteField unit_field;
+    StringWriteField unit_field;
     unit_field.pointer = "/payload/sensors/temperature/unit";
     unit_field.value = "celsius";
-    StaticWriteField source_field;
+    StringWriteField source_field;
     source_field.pointer = "/metadata/source";
     source_field.value = "driver";
     ep.fields = {unit_field, source_field};

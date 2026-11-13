@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 )
@@ -77,6 +78,12 @@ func valueText(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
+// MigrateRecord lifts a v0 record shape to v1, with its fields lifted as
+// migrateRecordFields does.
+func MigrateRecord(ctx context.Context, old v0.Record) (Record, error) {
+	return autoMigrateRecord(ctx, old)
+}
+
 // MigrateWriteConfig lifts a v0 write config and each of its channels to v1.
 func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
 	cfg, err := autoMigrateWriteConfig(ctx, old)
@@ -92,4 +99,36 @@ func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, e
 		return WriteConfig{}, err
 	}
 	return cfg, nil
+}
+
+// migrateRecordFields lifts the record fields of a released Core to typed write fields,
+// as payload.LiftStaticWriteField and payload.LiftGeneratedWriteField do. A null field
+// and a field with an unknown generator, which no Driver ran, drop.
+func migrateRecordFields(
+	_ context.Context,
+	old []http.WriteField,
+) ([]payload.WriteField, error) {
+	var fields []payload.WriteField
+	for _, o := range old {
+		switch v := o.Variant.(type) {
+		case http.StaticWriteField:
+			f, err := payload.LiftStaticWriteField(
+				payload.BaseWriteField(v.BaseWriteField),
+				v.Value,
+			)
+			if err != nil {
+				return nil, err
+			}
+			fields = append(fields, f)
+		case http.GeneratedWriteField:
+			if f, ok := payload.LiftGeneratedWriteField(
+				payload.BaseWriteField(v.BaseWriteField),
+				v.Generator,
+				v.TimeFormat,
+			); ok {
+				fields = append(fields, f)
+			}
+		}
+	}
+	return fields, nil
 }

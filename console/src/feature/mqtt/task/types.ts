@@ -217,10 +217,6 @@ const validatePointer = (ctx: z.core.ParsePayload<ChannelField>) => {
     });
 };
 
-// The Core sets each pointer in turn, so one inside another replaces or blocks it.
-const overlaps = (a: string, b: string) =>
-  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
-
 const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const { value } = ctx;
   const { channel, fields } = value;
@@ -238,7 +234,9 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const pointers = [channel.pointer];
   fields.forEach((field, i) => {
     if (field.pointer === "") return;
-    if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
+    if (
+      pointers.some((pointer) => Task.Payload.pointersOverlap(pointer, field.pointer))
+    )
       ctx.issues.push({
         code: "custom",
         input: value,
@@ -249,18 +247,11 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   });
 };
 
-const deployPointerZ = json.pointerZ.min(1, "Additional field pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  mqtt.staticWriteFieldZ.extend({ pointer: deployPointerZ, value: json.primitiveZ }),
-  mqtt.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
-
 const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
   .extend({
     topic: deployTopicZ,
     channel: mqtt.channelFieldZ.check(validatePointer),
-    fields: deployWriteFieldZ.array().default(() => []),
+    fields: Task.Payload.deployWriteFieldZ.array().default(() => []),
   })
   .check(validateWriteTarget);
 

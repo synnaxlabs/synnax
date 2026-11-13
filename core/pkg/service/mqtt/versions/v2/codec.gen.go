@@ -462,7 +462,7 @@ func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.Fields = make([]WriteField, n)
+				v.Fields = make([]payload.WriteField, n)
 				for i := range v.Fields {
 					if err = v.Fields[i].DecodeOrc(r); err != nil {
 						return err

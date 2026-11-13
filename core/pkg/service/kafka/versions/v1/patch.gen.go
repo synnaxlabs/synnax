@@ -17,6 +17,50 @@ import (
 )
 
 // Patch applies the path action at c, which is not done, to the value.
+func (r *Record) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "value_pointer":
+		return patch.Defaulted(&r.ValuePointer, c.Next(), func(def *Record) {
+			r.ValuePointer = def.ValuePointer
+		})
+	case "channel_pointer":
+		return patch.OptionalValue(&r.ChannelPointer, c.Next())
+	case "timestamp_pointer":
+		return patch.OptionalValue(&r.TimestampPointer, c.Next())
+	case "time_format":
+		return patch.Defaulted(&r.TimeFormat, c.Next(), func(def *Record) {
+			r.TimeFormat = def.TimeFormat
+		})
+	case "fields":
+		return patch.List(&r.Fields, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (r *Record) HashContent(h *content.Hash) {
+	h.String(r.ValuePointer)
+	if r.ChannelPointer == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(*r.ChannelPointer)
+	}
+	if r.TimestampPointer == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(*r.TimestampPointer)
+	}
+	h.String(string(r.TimeFormat))
+	h.Len(len(r.Fields))
+	for i0 := range r.Fields {
+		r.Fields[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":

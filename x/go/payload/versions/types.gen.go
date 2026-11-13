@@ -98,6 +98,43 @@ type BooleanRead = v0.BooleanRead
 // TimestampRead holds the options of a field that reads a timestamp.
 type TimestampRead = v0.TimestampRead
 
+// BaseWriteField carries the fields every write field shares.
+type BaseWriteField = v0.BaseWriteField
+
+// WriteField is an additional field of a write payload. The type selects a fixed value,
+// or a value generated for each payload.
+type WriteField = v0.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
+type WriteFieldVariant = v0.WriteFieldVariant
+
+// FloatWriteField places a JSON number in every payload.
+type FloatWriteField = v0.FloatWriteField
+
+// IntegerWriteField places a JSON number in every payload.
+type IntegerWriteField = v0.IntegerWriteField
+
+// UnsignedWriteField places a JSON number in every payload.
+type UnsignedWriteField = v0.UnsignedWriteField
+
+// StringWriteField places a JSON string in every payload.
+type StringWriteField = v0.StringWriteField
+
+// BooleanWriteField places a JSON boolean in every payload.
+type BooleanWriteField = v0.BooleanWriteField
+
+// JsonWriteField places a JSON value in every payload.
+type JsonWriteField = v0.JsonWriteField
+
+// UuidWriteField places a new UUID string in each payload.
+type UuidWriteField = v0.UuidWriteField
+
+// TimestampWriteField places the time of each payload.
+type TimestampWriteField = v0.TimestampWriteField
+
+// BytesWriteField places base64 text in every payload.
+type BytesWriteField = v0.BytesWriteField
+
 // EnumEntry maps a string label in a payload to a numeric channel value for enum-style
 // parsing (e.g. "ON" -> 1, "OFF" -> 0).
 type EnumEntry = v0.EnumEntry

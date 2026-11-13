@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cmath>
+#include <optional>
 #include <set>
+#include <type_traits>
+#include <variant>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
@@ -36,18 +42,81 @@ std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &st
     };
 }
 
-/// @brief parses a GeneratorType from its string form.
-/// @param str the generator string ("uuid", "timestamp").
-/// @returns the parsed generator paired with an error when the string is unknown.
-std::pair<GeneratorType, x::errors::Error> parse_generator(const std::string &str) {
-    if (str == ::x::payload::GENERATOR_TYPE_UUID)
-        return {GeneratorType::UUID, x::errors::NIL};
-    if (str == ::x::payload::GENERATOR_TYPE_TIMESTAMP)
-        return {GeneratorType::Timestamp, x::errors::NIL};
-    return {
-        GeneratorType::UUID,
-        x::errors::Error(x::errors::VALIDATION, "unknown generator type '" + str + "'"),
-    };
+/// @brief returns valid JSON text with the whitespace outside its strings removed.
+std::string compact(const std::string &text) {
+    std::string out;
+    out.reserve(text.size());
+    bool in_string = false;
+    bool escaped = false;
+    for (const char c: text) {
+        if (in_string) {
+            out.push_back(c);
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                in_string = false;
+            continue;
+        }
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
+        if (c == '"') in_string = true;
+        out.push_back(c);
+    }
+    return out;
+}
+
+/// @brief reports whether a value at one pointer replaces or blocks a value at the
+/// other, because they are equal or one sits inside the other.
+bool overlaps(const std::string &a, const std::string &b) {
+    return a == b || a.starts_with(b + "/") || b.starts_with(a + "/");
+}
+
+/// @brief returns the JSON value that a fixed write field places in every body, or
+/// nullopt for a field that generates its value.
+std::pair<std::optional<x::json::json>, x::errors::Error>
+fixed_value(const ::x::payload::WriteField &field) {
+    using R = std::pair<std::optional<x::json::json>, x::errors::Error>;
+    return std::visit(
+        [](const auto &f) -> R {
+            using F = std::decay_t<decltype(f)>;
+            if constexpr (std::is_same_v<F, ::x::payload::FloatWriteField>) {
+                if (!std::isfinite(f.value.value))
+                    return {
+                        std::nullopt,
+                        x::errors::Error(x::errors::VALIDATION, "value must be finite"),
+                    };
+                return {x::json::json(f.value.value), x::errors::NIL};
+            } else if constexpr (
+                std::is_same_v<F, ::x::payload::IntegerWriteField> ||
+                std::is_same_v<F, ::x::payload::UnsignedWriteField>
+            )
+                return {x::json::json(f.value.value), x::errors::NIL};
+            else if constexpr (std::is_same_v<F, ::x::payload::JsonWriteField>) {
+                auto value = x::json::json::parse(f.value, nullptr, false);
+                if (value.is_discarded())
+                    return {
+                        std::nullopt,
+                        x::errors::Error(x::errors::VALIDATION, "value is not JSON"),
+                    };
+                return {std::move(value), x::errors::NIL};
+            } else if constexpr (std::is_same_v<F, ::x::payload::BytesWriteField>) {
+                if (auto [_, err] = x::base64::decode_strict(f.value); err)
+                    return {
+                        std::nullopt,
+                        x::errors::Error(x::errors::VALIDATION, "value is not base64"),
+                    };
+                return {x::json::json(f.value), x::errors::NIL};
+            } else if constexpr (
+                std::is_same_v<F, ::x::payload::UuidWriteField> ||
+                std::is_same_v<F, ::x::payload::TimestampWriteField>
+            )
+                return {std::nullopt, x::errors::NIL};
+            else
+                return {x::json::json(f.value), x::errors::NIL};
+        },
+        field
+    );
 }
 }
 
@@ -62,15 +131,15 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
     ) = ::synnax::http::WriteConfig::parse(parser);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
-    std::set<std::string> all_pointers;
+    std::vector<std::string> pointers;
 
     bool some_enabled = false;
     for (const auto &ep: cfg.endpoints) {
         validate_request(ep, parser);
 
-        all_pointers.clear();
+        pointers.clear();
         validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
-        all_pointers.insert(ep.channel.pointer);
+        if (!ep.channel.pointer.empty()) pointers.push_back(ep.channel.pointer);
         if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
             parser.field_err("endpoints.channel.json_type", type_err);
         if (ep.channel.channel == 0)
@@ -96,36 +165,38 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             );
 
         for (const auto &field: ep.fields) {
-            const std::string *pointer = nullptr;
-            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(&field))
-                pointer = &sf->pointer;
-            else if (
-                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
-                    &field
-                )
-            ) {
-                pointer = &gf->pointer;
-                if (auto [g, gen_err] = parse_generator(gf->generator); gen_err)
-                    parser.field_err("endpoints.fields.generator", gen_err);
-                if (gf->time_format.has_value())
-                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                            *gf->time_format
-                        );
-                        fmt_err)
-                        parser.field_err("endpoints.fields.time_format", fmt_err);
-            }
-            if (pointer == nullptr) continue;
+            const std::string *pointer = &::x::payload::base(field).pointer;
+            if (const auto *tf = std::get_if<::x::payload::TimestampWriteField>(&field))
+                if (auto [fmt, fmt_err] = x::json::parse_time_format(tf->time_format);
+                    fmt_err)
+                    parser.field_err("endpoints.fields.time_format", fmt_err);
+            if (auto [value, value_err] = fixed_value(field); value_err)
+                parser.field_err("endpoints.fields.value", value_err);
             validate_pointer(*pointer, parser, "endpoints.fields.pointer");
             if (pointer->empty())
                 parser.field_err(
                     "endpoints.fields.pointer",
                     "field pointer cannot be empty"
                 );
-            else if (!all_pointers.insert(*pointer).second)
+            // The append token reaches an array slot that the overlap check cannot see.
+            else if (pointer->ends_with("/-") || pointer->contains("/-/"))
                 parser.field_err(
                     "endpoints.fields.pointer",
-                    "pointer '" + *pointer + "' is already used"
+                    "pointer '" + *pointer + "' must not use the '-' token"
                 );
+            else if (
+                const auto other = std::ranges::find_if(
+                    pointers,
+                    [&](const std::string &p) { return overlaps(p, *pointer); }
+                );
+                other != pointers.end()
+            )
+                parser.field_err(
+                    "endpoints.fields.pointer",
+                    "pointer '" + *pointer + "' overlaps pointer '" + *other + "'"
+                );
+            else
+                pointers.push_back(*pointer);
         }
 
         // Validate bare primitive: if channel pointer is root, no other fields.
@@ -211,30 +282,33 @@ WriteTaskSink::WriteTaskSink(
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
             state.enum_values.emplace_back(entry.value, entry.label);
-        for (const auto &field: ep.fields)
-            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
+        for (const auto &field: ep.fields) {
+            const auto pointer = x::json::json::json_pointer(
+                ::x::payload::base(field).pointer
+            );
+            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field)) {
+                state.static_fields.push_back({
+                    .pointer = pointer,
+                    .value = x::uuid::create().to_string(),
+                    .text = compact(jf->value),
+                });
+                continue;
+            }
+            if (auto value = fixed_value(field).first; value.has_value()) {
+                state.static_fields.push_back({pointer, std::move(*value)});
+                continue;
+            }
+            GeneratedField gen_field;
+            gen_field.pointer = pointer;
+            if (const auto *tf = std::get_if<::x::payload::TimestampWriteField>(
                     &field
                 )) {
-                StaticField state_field;
-                state_field.pointer = x::json::json::json_pointer(sf->pointer);
-                state_field.value = sf->value;
-                state.static_fields.push_back(std::move(state_field));
-            } else if (
-                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
-                    &field
-                )
-            ) {
-                GeneratedField gen_field;
-                gen_field.pointer = x::json::json::json_pointer(gf->pointer);
-                gen_field.generator = parse_generator(gf->generator).first;
-                if (gf->time_format.has_value())
-                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                            *gf->time_format
-                        );
-                        !fmt_err)
-                        gen_field.time_format = fmt;
-                state.generated_fields.push_back(std::move(gen_field));
+                gen_field.generator = GeneratorType::Timestamp;
+                gen_field.time_format = x::json::parse_time_format(tf->time_format)
+                                            .first;
             }
+            state.generated_fields.push_back(std::move(gen_field));
+        }
         if (!ep.disabled) this->channel_to_endpoint[ep.channel.channel] = i;
         this->endpoints.push_back(std::move(state));
     }
@@ -261,7 +335,13 @@ WriteTaskSink::build_body(const Endpoint &ep, const x::json::json &sample_val) {
             body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
     }
 
-    return body.dump();
+    auto text = body.dump();
+    for (const auto &sf: ep.static_fields) {
+        if (sf.text.empty()) continue;
+        const auto placeholder = sf.value.dump();
+        text.replace(text.find(placeholder), placeholder.size(), sf.text);
+    }
+    return text;
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {

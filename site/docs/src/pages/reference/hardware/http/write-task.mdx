@@ -35,7 +35,7 @@ at a **Pointer**, with a **JSON type** of Number, String, or Boolean. With the p
 
 - **Empty pointer** -> the body is the value alone, such as `42`. The endpoint cannot
   have other fields.
-- **Static** field -> adds a fixed value at its own pointer, such as `/unit` with
+- **Fixed** field -> adds a fixed value at its own pointer, such as `/unit` with
   `"psi"`.
 - **Generated** field -> adds a new UUID or timestamp at its own pointer in each
   request.
@@ -52,7 +52,7 @@ at a **Pointer**, with a **JSON type** of Number, String, or Boolean. With the p
 1. In the devices toolbar, right-click the server and select **Create write task**.
 2. Click **Add endpoint**, then set **Method** (POST, PUT, or PATCH) and **Path**.
 3. Set **Pointer** and **JSON type** for the channel value.
-4. To add more body fields, click **Static** or **Generated**.
+4. To add more body fields, click **Fixed** or **Generated**.
 5. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel for each endpoint. For a server named "Pump
@@ -70,6 +70,7 @@ Python does not create channels. Create the command channel and its index first.
 ```python
 import synnax as sy
 from synnax import http
+from x import payload
 
 server = client.devices.retrieve(name="Pump controller")
 cmd_time = client.channels.create(
@@ -87,7 +88,7 @@ task = http.WriteTask(
             method="POST",
             path="/api/control",
             channel=http.ChannelField(pointer="/setpoint", channel=cmd.key),
-            fields=[http.StaticWriteField(pointer="/unit", value="psi")],
+            fields=[payload.StringWriteField(pointer="/unit", value="psi")],
         )
     ],
 )
@@ -128,9 +129,7 @@ const task = await client.tasks.create({
         method: "POST",
         path: "/api/control",
         channel: { pointer: "/setpoint", channel: cmd.key },
-        fields: [
-          { type: "static", pointer: "/unit", jsonType: "string", value: "psi" },
-        ],
+        fields: [{ type: "string", pointer: "/unit", value: "psi" }],
       },
     ],
   }),
@@ -170,12 +169,20 @@ The channel value has these settings:
 | Enum mapping <small>`enum_values`</small> | None      | String type only. Maps numbers to labels.            |
 | <small>`channel`</small>                  |           | The command channel. The Console creates it for you. |
 
-An additional field is static or generated:
+An additional field has a **Pointer** (`pointer`) and a type (`type`). The type sets its
+value:
 
-| Type      | Fields                                                                        |
-| --------- | ----------------------------------------------------------------------------- |
-| Static    | `pointer`, `value`. The value goes into the body as you give it.              |
-| Generated | `pointer`, `generator` (`uuid` or `timestamp`), `time_format` for timestamps. |
+| Type                                       | Value <small>`value`</small>                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------- |
+| String <small>`string`</small>             | Text.                                                                           |
+| Float <small>`float`</small>               | A finite number.                                                                |
+| Integer <small>`integer`</small>           | A signed 64-bit integer, written as decimal text.                               |
+| Unsigned integer <small>`unsigned`</small> | An unsigned 64-bit integer, written as decimal text.                            |
+| Boolean <small>`boolean`</small>           | `true` or `false`.                                                              |
+| JSON <small>`json`</small>                 | The JSON text of any value, such as `{"a": 1}`.                                 |
+| Base64 <small>`bytes`</small>              | Base64 text, sent as a string.                                                  |
+| UUID <small>`uuid`</small>                 | None. Each message gets a new UUID.                                             |
+| Timestamp <small>`timestamp`</small>       | None. Each message gets the current time in `time_format`, ISO 8601 by default. |
 
 <Divider.Divider x />
 
@@ -197,15 +204,18 @@ Check the path, the body fields, and the authentication of the server.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Pointer ... is already used by another field"}>
+<Problem.Item message={"Pointer ... overlaps another field"}>
 <Problem.Cause>
 
-Two fields in the body use the same pointer.
+Two fields in the body use the same pointer, or one pointer sits inside another, such as
+`/meta` and `/meta/unit`. The channel pointer counts too. The Driver reports this as
+`pointer '...' overlaps pointer '...'` when it configures the task.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each field its own pointer.
+Give each field a pointer that no other pointer contains, such as `/unit` next to
+`/value`.
 
 </Problem.Fix>
 </Problem.Item>

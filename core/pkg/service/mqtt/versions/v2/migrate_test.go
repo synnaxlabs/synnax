@@ -347,4 +347,37 @@ var _ = Describe("Migrate", func() {
 			}},
 		))
 	})
+
+	It("Should lift the additional fields of a plain target", func(ctx SpecContext) {
+		t := MustSucceed(v2.MigrateWriteTarget(ctx, v1.WriteTarget{
+			Variant: v1.PlainWriteTarget{
+				Topic: "plant/valve/set",
+				Fields: []v1.WriteField{
+					{Variant: v1.StaticWriteField{
+						BaseWriteField: v1.BaseWriteField{Key: "n", Pointer: "/n"},
+						JSONType:       payload.JSONTypeNumber,
+						Value:          3.0,
+					}},
+					{Variant: v1.GeneratedWriteField{
+						BaseWriteField: v1.BaseWriteField{Key: "t", Pointer: "/t"},
+						Generator:      payload.GeneratorTypeTimestamp,
+						TimeFormat:     new(payload.TimeFormatUnixNs),
+					}},
+					{Variant: v1.GeneratedWriteField{Generator: "id"}},
+				},
+			},
+		}))
+		plain, ok := t.Variant.(v2.PlainWriteTarget)
+		Expect(ok).To(BeTrue())
+		Expect(plain.Fields).To(Equal([]payload.WriteField{
+			{Variant: payload.IntegerWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "n", Pointer: "/n"},
+				Value:          3,
+			}},
+			{Variant: payload.TimestampWriteField{
+				BaseWriteField: payload.BaseWriteField{Key: "t", Pointer: "/t"},
+				TimeFormat:     payload.TimeFormatUnixNs,
+			}},
+		}))
+	})
 })

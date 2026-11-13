@@ -299,50 +299,6 @@ ChannelField union on type payload.Kind extends BaseChannelField {
     @go marshal
 }
 
-BaseWriteField struct {
-    key     string = create {
-        @doc value "uniquely identifies the field within the target."
-        @key
-    }
-    pointer string = "" {
-        @doc value "is the JSON Pointer where the value is placed in the payload."
-    }
-
-    @doc value  "carries the fields every write payload field shares."
-    @go marshal
-}
-
-WriteField union on type extends BaseWriteField {
-    static {
-        json_type payload.JSONType = number {
-            @doc value "is the JSON type the value is serialized as."
-        }
-        value     any              {
-            @doc value "is the fixed JSON value placed at the pointer."
-        }
-
-        @doc value "places a fixed value in the payload."
-    }
-    generated {
-        generator   payload.GeneratorType = uuid {
-            @doc value "is the generator that produces a fresh value per publish."
-        }
-        time_format payload.TimeFormat?   {
-            @doc value """
-                is the output encoding for timestamp generators. Defaults to iso8601.
-            """
-        }
-
-        @doc value "places a freshly generated UUID or timestamp in the payload."
-    }
-
-    @doc value  """
-        is an additional payload field on a plain write target. The type field selects
-        whether the value is fixed or generated per publish.
-    """
-    @go marshal
-}
-
 BaseWriteTarget struct {
     key      string = create {
         @doc value "uniquely identifies the target within the task."
@@ -370,8 +326,8 @@ WriteTarget union on type extends BaseWriteTarget {
         channel  ChannelField = float {
             @doc value "is the command channel whose writes trigger the publish."
         }
-        fields   WriteField[] {
-            @doc value "contains additional static or generated payload fields."
+        fields   payload.WriteField[] {
+            @doc value "contains additional fixed or generated payload fields."
         }
 
         @doc value "publishes a JSON payload to one topic."

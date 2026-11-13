@@ -16,32 +16,53 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, id, json, type payload } from "@synnaxlabs/x";
+import { deep, id, type payload } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 
-interface StaticField {
-  key: string;
-  pointer: string;
-  type: "static";
-  jsonType: payload.JSONType;
-  value: unknown;
-}
+type Field = payload.WriteField;
 
-interface GeneratedField {
-  key: string;
-  pointer: string;
-  type: "generated";
-  generator: payload.GeneratorType;
-  timeFormat?: payload.TimeFormat;
-}
+/** Returns base as a field of kind with the zero value of kind. */
+const fieldOf = (base: payload.BaseWriteField, kind: payload.Kind): Field => {
+  switch (kind) {
+    case "float":
+      return { ...base, type: kind, value: 0 };
+    case "integer":
+    case "unsigned":
+      return { ...base, type: kind, value: "0" };
+    case "boolean":
+      return { ...base, type: kind, value: false };
+    case "json":
+      return { ...base, type: kind, value: "null" };
+    case "timestamp":
+      return { ...base, type: kind, timeFormat: "iso8601" };
+    case "uuid":
+      return { ...base, type: kind };
+    default:
+      return { ...base, type: kind, value: "" };
+  }
+};
 
-type Field = StaticField | GeneratedField;
+const isGenerated = (kind: payload.Kind): boolean =>
+  kind === "uuid" || kind === "timestamp";
+
+const KIND_ITEMS = (
+  <>
+    <Select.Item<payload.Kind> itemKey="string">String</Select.Item>
+    <Select.Item<payload.Kind> itemKey="float">Float</Select.Item>
+    <Select.Item<payload.Kind> itemKey="integer">Integer</Select.Item>
+    <Select.Item<payload.Kind> itemKey="unsigned">Unsigned integer</Select.Item>
+    <Select.Item<payload.Kind> itemKey="boolean">Boolean</Select.Item>
+    <Select.Item<payload.Kind> itemKey="json">JSON</Select.Item>
+    <Select.Item<payload.Kind> itemKey="bytes">Base64</Select.Item>
+    <Select.Item<payload.Kind> itemKey="uuid">UUID</Select.Item>
+    <Select.Item<payload.Kind> itemKey="timestamp">Timestamp</Select.Item>
+  </>
+);
 
 interface ItemProps extends List.ItemProps<string> {
   /** The path of the field. */
@@ -51,118 +72,111 @@ interface ItemProps extends List.ItemProps<string> {
 // The section layout dissolves the box of each field, so sizing lives on the inputs.
 const POINTER_INPUT_PROPS = { placeholder: "/field", grow: true } as const;
 
-const STRING_INPUT_PROPS = {
-  placeholder: "value",
-  className: CSS.B("static-field-value"),
-} as const;
+const VALUE_INPUT_PROPS = { className: CSS.B("fixed-field-value") } as const;
 
-const NUMBER_INPUT_PROPS = { className: CSS.B("static-field-value") } as const;
+const TEXT_INPUT_PROPS = { ...VALUE_INPUT_PROPS, placeholder: "value" } as const;
 
-const PointerField = ({ path }: Pick<ItemProps, "path">) => (
-  <Form.TextField
-    path={path.pointer}
-    showLabel={false}
-    showHelpText={false}
-    inputProps={POINTER_INPUT_PROPS}
-  />
-);
+const INTEGER_INPUT_PROPS = { ...VALUE_INPUT_PROPS, placeholder: "0" } as const;
 
-const StaticItem = ({ path, ...props }: ItemProps) => {
-  const field = deep.variant(path, "type", "static");
-  const jsonType = Form.useFieldValue(field.jsonType);
+interface ValueProps {
+  path: deep.Path<Field>;
+  kind: payload.Kind;
+}
+
+const Value = ({ path, kind }: ValueProps): ReactElement | null => {
+  switch (kind) {
+    case "float":
+      return (
+        <Form.NumericField
+          path={deep.variant(path, "type", "float").value}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={VALUE_INPUT_PROPS}
+        />
+      );
+    case "integer":
+    case "unsigned":
+      return (
+        <Form.TextField
+          path={deep.variant(path, "type", kind).value}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={INTEGER_INPUT_PROPS}
+        />
+      );
+    case "boolean":
+      return (
+        <Form.CheckboxField
+          path={deep.variant(path, "type", "boolean").value}
+          showLabel={false}
+          showHelpText={false}
+        />
+      );
+    case "string":
+    case "json":
+    case "bytes":
+      return (
+        <Form.TextField
+          path={deep.variant(path, "type", kind).value}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={TEXT_INPUT_PROPS}
+        />
+      );
+    case "timestamp":
+      return (
+        <Form.Field
+          path={deep.variant(path, "type", "timestamp").timeFormat}
+          showLabel={false}
+          showHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Select.Simple<payload.TimeFormat>
+              value={value}
+              onChange={onChange}
+              resourceName="time format"
+              variant="floating"
+            >
+              <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+              <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+              <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+              <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+              <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+            </Select.Simple>
+          )}
+        </Form.Field>
+      );
+    default:
+      return null;
+  }
+};
+
+const Item = ({ path, ...props }: ItemProps) => {
+  const field = Form.useFieldValue(path);
   const { set } = Form.useContext();
-  const handleJSONTypeChange = (value: payload.JSONType) => {
-    set(field.jsonType, value);
-    set(field.value, json.ZERO_PRIMITIVES[value]);
-  };
+  const handleKindChange = (kind: payload.Kind) =>
+    set(path, fieldOf({ key: field.key, pointer: field.pointer }, kind));
   return (
     <Select.Item {...props} justify="between" align="center" x>
-      <PointerField path={path} />
-      <Select.Simple<payload.JSONType>
-        value={jsonType}
-        onChange={handleJSONTypeChange}
+      <Form.TextField
+        path={path.pointer}
+        showLabel={false}
+        showHelpText={false}
+        inputProps={POINTER_INPUT_PROPS}
+      />
+      <Select.Simple<payload.Kind>
+        value={field.type}
+        onChange={handleKindChange}
         resourceName="type"
       >
-        {JSON_TYPE_ITEMS}
+        {KIND_ITEMS}
       </Select.Simple>
-      {jsonType === "string" && (
-        <Form.TextField
-          path={field.value as deep.Target<string>}
-          showLabel={false}
-          showHelpText={false}
-          inputProps={STRING_INPUT_PROPS}
-        />
-      )}
-      {jsonType === "number" && (
-        <Form.NumericField
-          path={field.value as deep.Target<number>}
-          showLabel={false}
-          showHelpText={false}
-          inputProps={NUMBER_INPUT_PROPS}
-        />
-      )}
-      {jsonType === "boolean" && (
-        <Form.CheckboxField
-          path={field.value as deep.Target<boolean>}
-          showLabel={false}
-          showHelpText={false}
-        />
-      )}
+      <Value path={path} kind={field.type} />
       <Text.Text level="small" color={9}>
-        static
+        {isGenerated(field.type) ? "generated" : "fixed"}
       </Text.Text>
     </Select.Item>
   );
-};
-
-type GeneratorKey = "uuid" | payload.TimeFormat;
-
-/** A timestamp generator shows as its time format; ISO 8601 when unset. */
-const generatorKey = (
-  generator: payload.GeneratorType,
-  timeFormat: payload.TimeFormat | undefined,
-): GeneratorKey => (generator === "timestamp" ? (timeFormat ?? "iso8601") : "uuid");
-
-const GeneratedItem = ({ path, ...props }: ItemProps) => {
-  const field = deep.variant(path, "type", "generated");
-  const generator = Form.useFieldValue(field.generator);
-  const timeFormat = Form.useFieldValue(field.timeFormat);
-  const { set } = Form.useContext();
-  const handleChange = (key: GeneratorKey) => {
-    if (key === "uuid") {
-      set(field.generator, "uuid");
-      set(field.timeFormat, undefined);
-    } else {
-      set(field.generator, "timestamp");
-      set(field.timeFormat, key);
-    }
-  };
-  return (
-    <Select.Item {...props} justify="between" align="center" x>
-      <PointerField path={path} />
-      <Select.Simple<GeneratorKey>
-        value={generatorKey(generator, timeFormat ?? undefined)}
-        onChange={handleChange}
-        resourceName="generator"
-        variant="floating"
-      >
-        <Select.Item itemKey="uuid">UUID</Select.Item>
-        <Select.Item itemKey="iso8601">Timestamp (ISO 8601)</Select.Item>
-        <Select.Item itemKey="unix_sec">Timestamp (s)</Select.Item>
-        <Select.Item itemKey="unix_ms">Timestamp (ms)</Select.Item>
-        <Select.Item itemKey="unix_us">Timestamp (µs)</Select.Item>
-        <Select.Item itemKey="unix_ns">Timestamp (ns)</Select.Item>
-      </Select.Simple>
-      <Text.Text level="small" color={9}>
-        generated
-      </Text.Text>
-    </Select.Item>
-  );
-};
-
-const Item = (props: ItemProps) => {
-  const type = Form.useFieldValue(props.path.type);
-  return type === "static" ? <StaticItem {...props} /> : <GeneratedItem {...props} />;
 };
 
 const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
@@ -172,25 +186,16 @@ export interface AdditionalFieldsProps {
   path: deep.Path<Field[]>;
 }
 
-/** Lists the static and generated fields that a write adds to its payload. */
+/** Lists the fixed and generated fields that a write adds to its payload. */
 export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement => {
   const { data, push, remove } = Form.useFieldList(path);
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = useIsPreview();
-  const add = (field: Field) => {
+  const add = (kind: payload.Kind) => {
+    const field = fieldOf({ key: id.create(), pointer: "" }, kind);
     push(field);
     setSelected([field.key]);
   };
-  const handleAddStatic = () =>
-    add({
-      key: id.create(),
-      pointer: "",
-      type: "static",
-      jsonType: "string",
-      value: "",
-    });
-  const handleAddGenerated = () =>
-    add({ key: id.create(), pointer: "", type: "generated", generator: "uuid" });
   const handleRemove = (keys: string[]) => {
     remove(keys);
     setSelected([]);
@@ -205,16 +210,16 @@ export const AdditionalFields = ({ path }: AdditionalFieldsProps): ReactElement 
   const actions = !isPreview && (
     <>
       <Button.Button
-        onClick={handleAddStatic}
+        onClick={() => add("string")}
         variant="text"
         size="small"
-        tooltip="Add static field"
+        tooltip="Add fixed field"
       >
         <Icon.Add />
-        Static
+        Fixed
       </Button.Button>
       <Button.Button
-        onClick={handleAddGenerated}
+        onClick={() => add("uuid")}
         variant="text"
         size="small"
         tooltip="Add generated field"

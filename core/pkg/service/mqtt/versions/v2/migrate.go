@@ -131,11 +131,16 @@ func channelField(base BaseChannelField, c xpayload.Channel) ChannelField {
 }
 
 // MigrateWriteTarget lifts a v1 write target to v2. A plain target's channel field
-// lifts as MigrateChannelField does, and a Sparkplug B target keeps its fields.
+// lifts as MigrateChannelField does, and its additional fields as
+// migratePlainWriteTargetFields does. A Sparkplug B target keeps its fields.
 func MigrateWriteTarget(ctx context.Context, old v1.WriteTarget) (WriteTarget, error) {
 	switch t := old.Variant.(type) {
 	case v1.PlainWriteTarget:
 		ch, err := MigrateChannelField(ctx, t.Channel)
+		if err != nil {
+			return WriteTarget{}, err
+		}
+		fields, err := migratePlainWriteTargetFields(ctx, t.Fields)
 		if err != nil {
 			return WriteTarget{}, err
 		}
@@ -145,7 +150,7 @@ func MigrateWriteTarget(ctx context.Context, old v1.WriteTarget) (WriteTarget, e
 			Qos:             t.Qos,
 			Retained:        t.Retained,
 			Channel:         ch,
-			Fields:          t.Fields,
+			Fields:          fields,
 		}}, nil
 	case v1.SparkplugWriteTarget:
 		return WriteTarget{Variant: SparkplugWriteTarget{
@@ -164,19 +169,38 @@ func MigrateWriteTarget(ctx context.Context, old v1.WriteTarget) (WriteTarget, e
 
 // MigrateWriteConfig lifts a v1 write config and each of its targets to v2.
 func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
-	cfg, err := autoMigrateWriteConfig(ctx, old)
-	if err != nil {
-		return WriteConfig{}, err
+	return autoMigrateWriteConfig(ctx, old)
+}
+
+// migratePlainWriteTargetFields lifts the additional fields of a plain target of a
+// released Core to typed write fields, as payload.LiftStaticWriteField and
+// payload.LiftGeneratedWriteField do. A null field and a field with an unknown
+// generator, which no Driver ran, drop.
+func migratePlainWriteTargetFields(
+	_ context.Context,
+	old []v1.WriteField,
+) ([]payload.WriteField, error) {
+	var fields []payload.WriteField
+	for _, o := range old {
+		switch v := o.Variant.(type) {
+		case v1.StaticWriteField:
+			f, err := payload.LiftStaticWriteField(
+				payload.BaseWriteField(v.BaseWriteField),
+				v.Value,
+			)
+			if err != nil {
+				return nil, err
+			}
+			fields = append(fields, f)
+		case v1.GeneratedWriteField:
+			if f, ok := payload.LiftGeneratedWriteField(
+				payload.BaseWriteField(v.BaseWriteField),
+				v.Generator,
+				v.TimeFormat,
+			); ok {
+				fields = append(fields, f)
+			}
+		}
 	}
-	targets, err := lo.MapErr(
-		old.Targets,
-		func(t v1.WriteTarget, _ int) (WriteTarget, error) {
-			return MigrateWriteTarget(ctx, t)
-		},
-	)
-	if err != nil {
-		return WriteConfig{}, err
-	}
-	cfg.Targets = targets
-	return cfg, nil
+	return fields, nil
 }

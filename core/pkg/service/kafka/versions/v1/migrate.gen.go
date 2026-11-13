@@ -28,12 +28,30 @@ func autoMigrateReadConfig(_ context.Context, old v0.ReadConfig) (ReadConfig, er
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v0.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
+	record, err := MigrateRecord(ctx, old.Record)
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
 		Topic:       old.Topic,
 		RecordKey:   old.RecordKey,
-		Record:      old.Record,
+		Record:      record,
+	}, nil
+}
+
+func autoMigrateRecord(ctx context.Context, old v0.Record) (Record, error) {
+	fields, err := migrateRecordFields(ctx, old.Fields)
+	if err != nil {
+		return Record{}, err
+	}
+	return Record{
+		ValuePointer:     old.ValuePointer,
+		ChannelPointer:   old.ChannelPointer,
+		TimestampPointer: old.TimestampPointer,
+		TimeFormat:       old.TimeFormat,
+		Fields:           fields,
 	}, nil
 }

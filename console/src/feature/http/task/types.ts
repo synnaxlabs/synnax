@@ -83,21 +83,9 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   });
 };
 
-// The form edits primitive values; the stored shape accepts any JSON.
-const staticWriteFieldZ = http.staticWriteFieldZ.extend({
-  value: json.primitiveZ,
-});
-
-const writeFieldZ = z.discriminatedUnion("type", [
-  http.staticWriteFieldZ,
-  http.generatedWriteFieldZ,
-]);
-
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 
-export const writeEndpointZ = http.writeEndpointZ.extend({
-  fields: writeFieldZ.array().default(() => []),
-});
+export const writeEndpointZ = http.writeEndpointZ;
 
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
@@ -117,35 +105,19 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
         "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
       path: ["channel", "pointer"],
     });
-  const pointers = new Set<string>();
-  pointers.add(channel.pointer);
+  const pointers = isBarePrimitive ? [] : [channel.pointer];
   for (const [i, field] of fields.entries()) {
-    if (field.pointer === "") {
+    if (field.pointer === "") continue;
+    if (pointers.some((p) => Task.Payload.pointersOverlap(p, field.pointer)))
       ctx.issues.push({
         code: "custom",
         input: value,
-        message: "Additional field pointer cannot be empty",
+        message: `Pointer "${field.pointer}" overlaps another field`,
         path: ["fields", i, "pointer"],
       });
-      continue;
-    }
-    if (pointers.has(field.pointer))
-      ctx.issues.push({
-        code: "custom",
-        input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
-        path: ["fields", i, "pointer"],
-      });
-    else pointers.add(field.pointer);
+    else pointers.push(field.pointer);
   }
 };
-
-const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  staticWriteFieldZ.extend({ pointer: deployPointerZ }),
-  http.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
 
 const deployWriteEndpointZ = writeEndpointZ
   .extend({
@@ -155,7 +127,7 @@ const deployWriteEndpointZ = writeEndpointZ
     channel: http.channelFieldZ
       .extend({ pointer: json.pointerZ })
       .check(validateEnumValues),
-    fields: deployWriteFieldZ.array(),
+    fields: Task.Payload.deployWriteFieldZ.array(),
   })
   .check(validateWriteEndpoint);
 

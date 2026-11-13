@@ -705,10 +705,9 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "sf1",
-                type: "static",
+                type: "integer",
                 pointer: "/extra",
-                jsonType: "number",
-                value: 42,
+                value: "42",
               },
             ],
           },
@@ -746,10 +745,9 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "sf1",
-                type: "static",
+                type: "integer",
                 pointer: "/value",
-                jsonType: "number",
-                value: 42,
+                value: "42",
               },
             ],
           },
@@ -770,17 +768,15 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "sf1",
-                type: "static",
+                type: "integer",
                 pointer: "/extra",
-                jsonType: "number",
-                value: 1,
+                value: "1",
               },
               {
                 key: "sf2",
-                type: "static",
+                type: "integer",
                 pointer: "/extra",
-                jsonType: "number",
-                value: 2,
+                value: "2",
               },
             ],
           },
@@ -789,7 +785,33 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
-    it("should reject a static field with empty pointer", () => {
+    it.each([
+      ["inside the channel pointer", ["/value/unit"]],
+      ["inside another field", ["/meta", "/meta/unit"]],
+    ])("should reject a field pointer %s", (_, pointers) => {
+      const result = HTTP.Task.deployWriteConfigZ.safeParse({
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: pointers.map((pointer, i) => ({
+              key: `f${i}`,
+              type: "json",
+              pointer,
+              value: "{}",
+            })),
+          },
+        ],
+      });
+      expect(result.error?.issues.map(({ message }) => message)).toEqual([
+        `Pointer "${pointers.at(-1)}" overlaps another field`,
+      ]);
+    });
+
+    it("should reject a fixed field with empty pointer", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -801,10 +823,9 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "sf1",
-                type: "static",
+                type: "integer",
                 pointer: "",
-                jsonType: "number",
-                value: 42,
+                value: "42",
               },
             ],
           },
@@ -822,7 +843,7 @@ describe("HTTP Task Types", () => {
             method: "POST",
             path: "/api",
             channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [{ key: "gf1", type: "generated", pointer: "", generator: "uuid" }],
+            fields: [{ key: "gf1", type: "uuid", pointer: "" }],
           },
         ],
       };
@@ -831,7 +852,7 @@ describe("HTTP Task Types", () => {
   });
 
   describe("write fields", () => {
-    it("should validate a static field", () => {
+    it("should validate a fixed field", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -843,9 +864,8 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "sf1",
-                type: "static",
+                type: "string",
                 pointer: "/device_id",
-                jsonType: "string",
                 value: "sensor-01",
               },
             ],
@@ -853,7 +873,7 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("static");
+      expect(result.endpoints[0].fields[0].type).toBe("string");
     });
 
     it("should validate a generated UUID field", () => {
@@ -868,16 +888,15 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "gf1",
-                type: "generated",
+                type: "uuid",
                 pointer: "/request_id",
-                generator: "uuid",
               },
             ],
           },
         ],
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("generated");
+      expect(result.endpoints[0].fields[0].type).toBe("uuid");
     });
 
     it("should validate a generated timestamp field with format", () => {
@@ -892,9 +911,8 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "gf1",
-                type: "generated",
+                type: "timestamp",
                 pointer: "/timestamp",
-                generator: "timestamp",
                 timeFormat: "iso8601",
               },
             ],
@@ -902,10 +920,13 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("generated");
+      expect(result.endpoints[0].fields[0]).toMatchObject({
+        type: "timestamp",
+        timeFormat: "iso8601",
+      });
     });
 
-    it("should reject an invalid generator type", () => {
+    it("should reject an unknown field type", () => {
       const config = {
         device: "dev-001",
         endpoints: [
@@ -917,9 +938,8 @@ describe("HTTP Task Types", () => {
             fields: [
               {
                 key: "gf1",
-                type: "generated",
+                type: "random",
                 pointer: "/id",
-                generator: "random",
               },
             ],
           },

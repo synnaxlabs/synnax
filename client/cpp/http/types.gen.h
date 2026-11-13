@@ -13,7 +13,6 @@
 
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -29,7 +28,6 @@ struct Header;
 struct QueryParam;
 struct ReadField;
 struct ChannelField;
-struct BaseWriteField;
 struct ScanConfig;
 struct ReadEndpoint;
 struct WriteEndpoint;
@@ -124,60 +122,12 @@ struct ChannelField {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseWriteField carries the fields every write body field shares.
-struct BaseWriteField {
-    /// @brief key uniquely identifies the field within the endpoint.
-    std::string key;
-    /// @brief pointer is the JSON Pointer where the value is placed in the body.
-    std::string pointer = "";
-
-    static BaseWriteField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief ScanConfig configures an HTTP scan task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief StaticWriteField places a fixed value in the request body.
-struct StaticWriteField : public BaseWriteField {
-    std::string type = "static";
-    /// @brief json_type is the JSON type the value is serialized as.
-    std::string json_type = ::x::payload::JSON_TYPE_NUMBER;
-    /// @brief value is the fixed JSON value placed at the pointer.
-    x::json::json value;
-
-    static StaticWriteField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief GeneratedWriteField places a freshly generated UUID or timestamp in the body.
-struct GeneratedWriteField : public BaseWriteField {
-    std::string type = "generated";
-    /// @brief generator is the generator that produces a fresh value per request.
-    std::string generator = ::x::payload::GENERATOR_TYPE_UUID;
-    /// @brief time_format is the output encoding for timestamp generators. Defaults to
-    /// iso8601.
-    std::optional<std::string> time_format;
-
-    static GeneratedWriteField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteField is an additional body field on a write endpoint. The type field
-/// selects whether the value is fixed or generated per request.
-using WriteField = std::variant<StaticWriteField, GeneratedWriteField>;
-
-WriteField parse_write_field(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const WriteField &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const BaseWriteField &base(const WriteField &value) {
-    return std::visit([](const auto &v) -> const BaseWriteField & { return v; }, value);
-}
 
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
@@ -219,8 +169,8 @@ struct WriteEndpoint {
     std::vector<QueryParam> query_params;
     /// @brief channel is the command channel whose writes trigger this endpoint.
     ChannelField channel = {};
-    /// @brief fields contains additional static or generated body fields.
-    std::vector<WriteField> fields;
+    /// @brief fields contains additional fixed or generated body fields.
+    std::vector<::x::payload::WriteField> fields;
 
     static WriteEndpoint parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
