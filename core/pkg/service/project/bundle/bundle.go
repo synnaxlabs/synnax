@@ -101,7 +101,7 @@ const (
 )
 
 // unreachedTypes are the resource types a bundle can hold that the walk over the
-// project's members never reaches, since no project owns a task or an Arc. A panel tab
+// project's members never reaches, since no project holds a task or an Arc. A panel tab
 // is the only way one enters a bundle, and an import leaves each where its importer put
 // it rather than under the directory that held it.
 var unreachedTypes = set.New(
@@ -110,7 +110,8 @@ var unreachedTypes = set.New(
 )
 
 // Export serializes the project identified by key, as snap holds it, and the groups and
-// visualizations it owns as a bundle: one envelope per member document and panel, group
+// visualizations it holds as a bundle: one envelope per member document and panel,
+// group
 // children as directories, and a manifest naming the project at the root. It also
 // returns the resource ID of every document, panel, and group that shaped the artifact,
 // so a caller can enforce access on them. The encoder decides both the serialization

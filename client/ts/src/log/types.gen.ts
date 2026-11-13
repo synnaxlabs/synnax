@@ -97,7 +97,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the logs in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the logs owned by any of the given projects. */
+  /** projects matches the logs in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 

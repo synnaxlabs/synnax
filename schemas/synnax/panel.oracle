@@ -310,7 +310,7 @@ Where filter Panel {
         @doc value "matches the panels in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the panels owned by any of the given projects."
+        @doc value "matches the panels in any of the given projects."
     }
 
     @doc value         "is a filter that selects panels."

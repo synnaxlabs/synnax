@@ -1052,7 +1052,7 @@ Where filter Schematic {
         @doc value "matches the schematics in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the schematics owned by any of the given projects."
+        @doc value "matches the schematics in any of the given projects."
     }
 
     @doc value         "is a filter that selects schematics."

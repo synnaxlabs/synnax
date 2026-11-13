@@ -645,7 +645,7 @@ Where filter LinePlot {
         @doc value "matches the line plots in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the line plots owned by any of the given projects."
+        @doc value "matches the line plots in any of the given projects."
     }
 
     @doc value         "is a filter that selects line plots."

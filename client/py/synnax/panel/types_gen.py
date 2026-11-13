@@ -76,7 +76,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the panels in any of the given groups.
         grouped: Matches the panels in a group, or in no group when false.
-        projects: Matches the panels owned by any of the given projects.
+        projects: Matches the panels in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")

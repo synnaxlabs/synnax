@@ -400,7 +400,7 @@ Where filter Table {
         @doc value "matches the tables in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the tables owned by any of the given projects."
+        @doc value "matches the tables in any of the given projects."
     }
 
     @doc value         "is a filter that selects tables."

@@ -286,7 +286,7 @@ Where filter Log {
         @doc value "matches the logs in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the logs owned by any of the given projects."
+        @doc value "matches the logs in any of the given projects."
     }
 
     @doc value         "is a filter that selects logs."

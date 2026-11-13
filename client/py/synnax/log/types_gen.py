@@ -63,7 +63,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the logs in any of the given groups.
         grouped: Matches the logs in a group, or in no group when false.
-        projects: Matches the logs owned by any of the given projects.
+        projects: Matches the logs in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")

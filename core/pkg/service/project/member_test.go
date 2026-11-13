@@ -28,7 +28,7 @@ import (
 // createProject creates a project and returns it.
 func createProject(ctx SpecContext) project.Project {
 	GinkgoHelper()
-	p := project.Project{Name: "Owner"}
+	p := project.Project{Name: "Holder"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).Create(ctx, &p)
 	})).To(Succeed())
@@ -42,20 +42,20 @@ func createGroup(
 	scope resource.Type,
 ) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: "Owner", Parent: parent, Scope: scope}
+	g := group.Group{Name: "Holder", Parent: parent, Scope: scope}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return groupSvc.NewWriter(tx).Create(ctx, &g)
 	})).To(Succeed())
 	return g
 }
 
-var _ = Describe("ValidateOwner", func() {
+var _ = Describe("CheckMember", func() {
 	It("Should accept a project", func() {
-		Expect(project.ValidateOwner(new(uuid.New()))).To(Succeed())
+		Expect(project.CheckMember(new(uuid.New()))).To(Succeed())
 	})
 
 	It("Should reject no project", func() {
-		Expect(project.ValidateOwner(nil)).To(SatisfyAll(
+		Expect(project.CheckMember(nil)).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("project: must belong to a project")),
 		))

@@ -17,13 +17,13 @@ import { type Key } from "@/project/types.gen";
 import { query } from "@/query";
 
 /** A visualization, which belongs to a project. */
-export interface Owned {
+export interface Member {
   project?: Key;
 }
 
 /** The typed lines of a visualization Where that match by project. */
-export const OWNER_LINES = {
-  projects: ({ project }: Owned, keys: Key[]): boolean =>
+export const MEMBER_LINES = {
+  projects: ({ project }: Member, keys: Key[]): boolean =>
     project != null && keys.includes(project),
 };
 
@@ -68,7 +68,7 @@ export const createMoveRequest =
     }));
 
 /** A visualization that can sit in a group. */
-export interface Movable extends Owned {
+export interface Movable extends Member {
   group?: string;
 }
 

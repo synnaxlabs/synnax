@@ -236,7 +236,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the line plots in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the line plots owned by any of the given projects. */
+  /** projects matches the line plots in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 

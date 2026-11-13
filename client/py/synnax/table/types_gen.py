@@ -126,7 +126,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the tables in any of the given groups.
         grouped: Matches the tables in a group, or in no group when false.
-        projects: Matches the tables owned by any of the given projects.
+        projects: Matches the tables in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")

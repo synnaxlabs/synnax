@@ -177,7 +177,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the tables in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the tables owned by any of the given projects. */
+  /** projects matches the tables in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
