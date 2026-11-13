@@ -519,6 +519,18 @@ var _ = Describe("Server", func() {
 			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 		})
 
+		It("Should hold CreateAdhocRun from PauseRuns until ResumeRuns",
+			func(ctx SpecContext) {
+				server.PauseRuns()
+				held, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+				defer cancel()
+				Expect(createRun(held, &runsv2.CreateAdhocRunRequest{})).Error().
+					To(WithTransform(status.Code, Equal(codes.DeadlineExceeded)))
+				Expect(server.Runs()).To(BeEmpty())
+				server.ResumeRuns()
+				MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+			})
+
 		It("Should return the errors FailRunUpdates sets, in order",
 			func(ctx SpecContext) {
 				created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
