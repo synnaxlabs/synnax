@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -203,7 +204,7 @@ func (f *factory) configureWrite(
 					wc.Key, ch.Name,
 				)
 			}
-			if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
+			if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
 				return nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q: time_format alone encodes timestamp channel %s",
@@ -339,9 +340,9 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 // generatorSlot returns the slot that fills a generated field.
 func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	switch field.Generator {
-	case http.GeneratorTypeUUID:
+	case payload.GeneratorTypeUUID:
 		return slot{kind: slotUUID}, nil
-	case http.GeneratorTypeTimestamp:
+	case payload.GeneratorTypeTimestamp:
 		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
 		if field.TimeFormat != nil {
 			var err error

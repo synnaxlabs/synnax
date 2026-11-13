@@ -20,23 +20,28 @@ import { Aether } from "@/aether";
 import { Errors } from "@/errors";
 import { synnax } from "@/synnax/aether";
 
-export interface ContextValue extends synnax.ContextValue {
+interface State {
+  client: Synnax | null;
   status: connection.Status;
 }
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  ...synnax.ZERO_CONTEXT_VALUE,
-  status: connection.DEFAULT_STATUS,
-};
+const ZERO_STATE: State = { client: null, status: connection.DEFAULT_STATUS };
 
-const [Context, useContext] = context.create({
-  defaultValue: ZERO_CONTEXT_VALUE,
-  displayName: "Synnax.Context",
+// The status changes on each connection check. Its own context keeps that change from
+// re-rendering every reader of the client.
+const [ClientContext, useClientContext] = context.create<Synnax | null>({
+  defaultValue: null,
+  displayName: "Synnax.ClientContext",
 });
 
-export const use = () => useContext().client;
+const [StatusContext, useStatusContext] = context.create<connection.Status>({
+  defaultValue: connection.DEFAULT_STATUS,
+  displayName: "Synnax.StatusContext",
+});
 
-export const useConnectionStatus = () => useContext().status;
+export const use = (): Synnax | null => useClientContext();
+
+export const useConnectionStatus = (): connection.Status => useStatusContext();
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
@@ -87,15 +92,12 @@ export const TestProvider = ({
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = {
-    ...ZERO_CONTEXT_VALUE,
-    client,
-    status: status ?? ZERO_CONTEXT_VALUE.status,
-  };
   return (
-    <Context value={value}>
-      <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context>
+    <ClientContext value={client}>
+      <StatusContext value={status ?? connection.DEFAULT_STATUS}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </StatusContext>
+    </ClientContext>
   );
 };
 
@@ -106,8 +108,7 @@ export const Provider = ({
   // The client's lifetime keys on param content: a content-equal rewrite of
   // the params object (state hydration) must not tear down the connection.
   const connParams = useMemoDeepEqual(connParamsProp);
-  const [state, setState, ref] =
-    useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
+  const [state, setState, ref] = useCombinedStateAndRef<State>(ZERO_STATE);
   // Advances whenever the cluster may answer differently than it just did, which is
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
@@ -158,7 +159,7 @@ export const Provider = ({
 
   useEffect(() => {
     if (connParams == null) {
-      setState(ZERO_CONTEXT_VALUE);
+      setState(ZERO_STATE);
       return;
     }
     const heading = {
@@ -179,15 +180,17 @@ export const Provider = ({
       // Effect cleanup cannot await. The failure is logged rather than pushed
       // through handleError: a status for a client the user already left is noise.
       client.close().catch((e: unknown) => console.error("failed to close client", e));
-      setState(ZERO_CONTEXT_VALUE);
+      setState(ZERO_STATE);
     };
   }, [connParams]);
 
   return (
-    <Context value={state}>
-      <Errors.ResetProvider value={resetKey}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Errors.ResetProvider>
-    </Context>
+    <ClientContext value={pageClient}>
+      <StatusContext value={state.status}>
+        <Errors.ResetProvider value={resetKey}>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
+        </Errors.ResetProvider>
+      </StatusContext>
+    </ClientContext>
   );
 };

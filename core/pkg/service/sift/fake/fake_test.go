@@ -408,6 +408,36 @@ var _ = Describe("Server", func() {
 			)).To(HaveField("Runs", BeEmpty()))
 		})
 
+		It("Should list every run without a filter", func(ctx SpecContext) {
+			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{ClientKey: &key}))
+			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+			Expect(runs.ListRuns(ctx, &runsv2.ListRunsRequest{})).
+				To(HaveField("Runs", HaveLen(2)))
+		})
+
+		It("Should reject a filter it does not understand", func(ctx SpecContext) {
+			Expect(runs.ListRuns(
+				ctx,
+				&runsv2.ListRunsRequest{Filter: `asset_id == "x"`},
+			)).Error().To(SatisfyAll(
+				WithTransform(status.Code, Equal(codes.InvalidArgument)),
+				MatchError(ContainSubstring(`bad filter "asset_id == \"x\""`)),
+			))
+		})
+
+		It("Should match a client key with an escaped quote", func(ctx SpecContext) {
+			quoted := `range "1"`
+			created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
+				ClientKey: &quoted,
+			})).Run
+			Expect(runs.ListRuns(
+				ctx,
+				&runsv2.ListRunsRequest{Filter: `client_key == "range \"1\""`},
+			)).To(HaveField("Runs", HaveExactElements(
+				HaveField("RunId", created.RunId),
+			)))
+		})
+
 		It("Should reject a second run with the same client key",
 			func(ctx SpecContext) {
 				MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{
@@ -422,6 +452,17 @@ var _ = Describe("Server", func() {
 			Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{
 				AssetIds: []string{"asset-pad"},
 			})).Error().To(WithTransform(status.Code, Equal(codes.NotFound)))
+		})
+
+		It("Should reject a run with no name", func(ctx SpecContext) {
+			Expect(runs.CreateAdhocRun(ctx, &runsv2.CreateAdhocRunRequest{
+				StartTime: start,
+				StopTime:  stop,
+			})).Error().To(SatisfyAll(
+				WithTransform(status.Code, Equal(codes.InvalidArgument)),
+				MatchError(ContainSubstring("name is required")),
+			))
+			Expect(server.Runs()).To(BeEmpty())
 		})
 
 		It("Should reject a run that stops before it starts", func(ctx SpecContext) {
@@ -466,6 +507,9 @@ var _ = Describe("Server", func() {
 				codes.InvalidArgument),
 			Entry("stop before start", &runsv2.Run{StopTime: start},
 				[]string{"stop_time"}, codes.InvalidArgument),
+			Entry("no name", &runsv2.Run{}, []string{"name"}, codes.InvalidArgument),
+			Entry("no start time", &runsv2.Run{}, []string{"start_time"},
+				codes.InvalidArgument),
 		)
 
 		It("Should return the errors FailRuns sets, in order", func(ctx SpecContext) {
