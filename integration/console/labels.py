@@ -92,21 +92,6 @@ class LabelClient(ResourceClient):
         self.layout.delete_with_confirmation(self._get_item(name))
         expect(self._items(name)).to_have_count(0, timeout=5000)
 
-    def list_all(self) -> list[str]:
-        """List all existing labels.
-
-        :returns: List of label names.
-        """
-        self._search("")
-        items = self.page.locator(_ITEM_SELECTOR)
-        try:
-            items.first.wait_for(state="visible", timeout=5000)
-        except PlaywrightTimeoutError:
-            return []
-        return [
-            name for item in items.all() if (name := item.get_attribute("aria-label"))
-        ]
-
     def change_color(self, *, name: str, new_color: str) -> None:
         """Change the color of a label.
 
