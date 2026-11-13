@@ -220,9 +220,7 @@ class StalenessConfig(BaseModel):
     """
 
     staleness_timeout: telem.TimeSpan = Field(
-        default=telem.TimeSpan(5000000000),
-        ge=-9223372036854775808,
-        le=9223372036854775807,
+        default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
     staleness_color: color_.Color | None = None
 
@@ -428,7 +426,7 @@ class ToggleConfig(LabeledConfig, ScaledConfig, StalenessConfig):
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     control: ControlStateConfig | None = None
     on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
 
 
@@ -591,7 +589,7 @@ class ButtonNodeConfig(LabeledConfig):
     size: ComponentSize = "medium"
     level: text.Level = "h4"
     on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     mode: ButtonMode = "fire"
@@ -639,7 +637,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
     disabled: bool = False
     inline_size: int = Field(default=150, ge=0, le=65535)
     on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
     control: ControlStateConfig | None = None
 
@@ -700,7 +698,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     options: list[StateMapping] = Field(default_factory=list)
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
     control: ControlStateConfig | None = None
 
@@ -730,7 +728,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
     disabled: bool = False
     inline_size: int = Field(default=100, ge=0, le=65535)
     on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
     control: ControlStateConfig | None = None
 
@@ -1045,9 +1043,7 @@ class TankNodeConfig(LabeledConfig):
     precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: telem.TimeSpan = Field(
-        default=telem.TimeSpan(5000000000),
-        ge=-9223372036854775808,
-        le=9223372036854775807,
+        default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
     staleness_color: color_.Color | None = None
     bounds: spatial.Bounds = Field(

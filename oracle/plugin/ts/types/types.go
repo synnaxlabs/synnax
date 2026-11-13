@@ -2749,6 +2749,25 @@ func (p *Plugin) applyValidation(
 			}
 		}
 	}
+	// A hand-written number schema such as telem.numericTimeSpanZ has no .min or .max,
+	// so its bounds go through checks.
+	if !isNumber && tsTypeOverride != "number" &&
+		!resolution.IsPrimitive(effectiveType) &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {
+		var checks []string
+		if rules.Min != nil {
+			checks = append(checks, "z.gte("+boundLiteral(*rules.Min)+")")
+		}
+		if rules.GT != nil {
+			checks = append(checks, "z.gt("+boundLiteral(*rules.GT)+")")
+		}
+		if rules.Max != nil {
+			checks = append(checks, "z.lte("+boundLiteral(*rules.Max)+")")
+		}
+		if len(checks) > 0 {
+			zodType = fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
+		}
+	}
 	if defaultVal != nil {
 		switch defaultVal.Kind {
 		case resolution.ValueKindString:
@@ -3687,3 +3706,10 @@ export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )
+
+func boundLiteral(n validation.Number) string {
+	if n.IsInt {
+		return fmt.Sprintf("%d", n.Int)
+	}
+	return fmt.Sprint(n.Float)
+}
