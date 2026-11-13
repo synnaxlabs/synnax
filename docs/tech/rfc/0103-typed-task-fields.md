@@ -96,8 +96,8 @@ channel field writes a matching entry's label, or else `string` writes text and
 A field is bound to a channel, or unbound with the name and data type of the channel to
 create. No field then holds a `data_type` that the Core must ignore. `unbound` holds a
 full data type on every kind, so one union serves read and channel fields, and §4 checks
-it as it checks a channel. Kafka write channels, MQTT Sparkplug write targets, and edge
-tags keep their key and name.
+it as it checks a channel. Kafka write channels, Sparkplug write targets, and edge tags
+keep their own channel fields, and this RFC does not bind them.
 
 OPC UA v2 replaces `array_mode` and `array_size` with `sampling Sampling = unary`.
 Modbus v3 replaces `string_length`, and its `WriteChannel` stays an alias.
@@ -221,12 +221,13 @@ first takes the name the Console generates today. A new channel takes the name w
 is free, else the name with its data type as a suffix, such as `temp_int32`, else that
 name with a counter, such as `temp_int32_2`, until a name is free. A taken name never
 fails configure, and configure never binds by name. Each source picks one index: the
-channel of a bound index field, else the first non-zero index of its bound channels,
-else the stored index when it still exists, else a new one. An unbound index field binds
-to it, each new fixed-density channel takes it, and the device stores it. On HTTP and
-MQTT, a new variable-density channel (string, JSON, or bytes) stays virtual, as today.
-On Kafka it takes the index, as today. `onConfigure` then saves the field as bound. An
-adapter keeps the atomic Phase 12 near 400 lines, and Phase 14 deletes it.
+channel of a bound index field, else the first non-zero index of its bound channels, on
+HTTP and MQTT the stored index when it still exists, else a new one. An unbound index
+field binds to it, and each new fixed-density channel takes it. On HTTP and MQTT the
+device stores it. On HTTP and MQTT, a new variable-density channel (string, JSON, or
+bytes) stays virtual, as today. On Kafka it takes the index, as today. `onConfigure`
+then saves the field as bound. An adapter keeps the atomic Phase 12 near 400 lines, and
+Phase 14 deletes it.
 
 ## 6 Field types
 
@@ -334,15 +335,17 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   **Binding**. `Decoded` carries the map to `ReconcileEntry`, which now runs before
   `DropDangling` and turns each bound key into `unbound` from the map when no local
   channel has that key, or when `cluster` is another Core's, because two Cores hand out
-  the same channel keys. A Kafka write channel, Sparkplug write target, or edge tag from
-  another Core becomes disabled, and the import logs it. A map built from a version
-  before `Binding` holds no real channel values, so it unbinds only a missing key. With
-  no map entry for a missing key, `ReconcileEntry` removes the field, or for a channel
-  field its target or endpoint, and logs what it removed. `ReconcileEntry` skips a
-  missing key that is not a `Binding`, such as a Kafka write channel, and `DropDangling`
-  removes it as today. `bound.key` 0 is invalid. Phase 27 adds `BoundKeys`, the `Decode`
-  and hook arguments, the order, and a `cluster.Identity` input to the task service.
-  Phases 28 to 31 apply the rule.
+  the same channel keys. From another Core, a Sparkplug write target's `channel` and an
+  edge tag's `command_channel` become 0 and keep their names, so configure creates them
+  again. A Kafka write channel or an edge tag's published `channel` becomes disabled,
+  because configure cannot create it. The import logs each one. A map built from a
+  version before `Binding` holds no real channel values, so it unbinds only a missing
+  key. With no map entry for a missing key, `ReconcileEntry` removes the field, or for a
+  channel field its target or endpoint, and logs what it removed. `ReconcileEntry` skips
+  a missing key that is not a `Binding`, such as a Kafka write channel, and
+  `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
+  `BoundKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
+  input to the task service. Phases 28 to 31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
