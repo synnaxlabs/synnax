@@ -450,6 +450,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     env:
       SYNNAX_TS_ENV: prod
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -467,7 +469,8 @@ jobs:
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
       # is approved last. The check only reads. The build job runs it so that a version
       # the run cannot claim fails at dispatch, and the publish job runs it again
-      # because the tags and the registry can change during the run.
+      # because the tags and the registry can change during the run. A failed build
+      # publishes no product, so a pending approval holds the products of the run too.
       - &claim-ts
         name: Check the version claim
         id: claim
@@ -537,6 +540,7 @@ jobs:
           done
 
       - name: Upload packages
+        id: upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: npm-packages
@@ -574,12 +578,15 @@ jobs:
 
       - *claim-ts
 
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
       - name: Download packages
         if: steps.claim.outputs.staged != 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: npm-packages
+          artifact-ids: ${{ needs.build-ts.outputs.artifact_id }}
           path: npm-packages
+          merge-multiple: true
 
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
@@ -643,6 +650,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -705,6 +714,7 @@ jobs:
           done
 
       - name: Upload packages
+        id: upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pypi-packages
@@ -740,6 +750,15 @@ jobs:
 
       - *claim-py
 
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
+      - name: Download packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build-py.outputs.artifact_id }}
+          path: dist
+          merge-multiple: true
+
       # The tag claims the version before anything publishes.
       - name: Tag
         if: steps.claim.outputs.claimed != 'true'
@@ -747,12 +766,6 @@ jobs:
           TAG: ${{ needs.resolve.outputs.py_tag }}
         run:
           gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
-
-      - name: Download packages
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: pypi-packages
-          path: dist
 
       - name: Prune already-published distributions
         run: uv run --no-project python .github/scripts/prune_published.py

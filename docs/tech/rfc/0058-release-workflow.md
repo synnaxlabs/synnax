@@ -151,7 +151,10 @@ and every product the run releases, then publishes that artifact and builds noth
 failed package build publishes no product of the run. Both jobs stop when the version's
 tag names another commit, or when the registry has the version without a tag, so one
 version never holds packages from two commits. The build job checks this to fail at
-dispatch, and only the publish job pushes a tag.
+dispatch, and only the publish job pushes a tag. The npm build job also runs the
+approval check below, so a `client` that still waits for approval holds every product of
+a run that selects TypeScript: approve it and rerun the failed jobs, or dispatch without
+TypeScript.
 
 The Python publish job claims the version by pushing its tag at the run's commit, then
 publishes. To finish a partial publish, rerun the failed jobs, which keep the resolved
