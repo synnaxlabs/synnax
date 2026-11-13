@@ -336,16 +336,18 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   `DropDangling` and turns each bound key into `unbound` from the map when no local
   channel has that key, or when `cluster` is another Core's, because two Cores hand out
   the same channel keys. From another Core, a Sparkplug write target's `channel` and an
-  edge tag's `command_channel` become 0 and keep their names, so configure creates them
-  again. A Kafka write channel or an edge tag's published `channel` becomes disabled,
-  because configure cannot create it. The import logs each one. A map built from a
-  version before `Binding` holds no real channel values, so it unbinds only a missing
-  key. With no map entry for a missing key, `ReconcileEntry` removes the field, or for a
-  channel field its target or endpoint, and logs what it removed. `ReconcileEntry` skips
-  a missing key that is not a `Binding`, such as a Kafka write channel, and
-  `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27 adds
-  `BoundKeys`, the `Decode` and hook arguments, the order, and a `cluster.Identity`
-  input to the task service. Phases 28 to 31 apply the rule.
+  edge tag's `command_channel` become 0, so configure creates them again. Each takes its
+  channel name from `$channels`, whose keys include these channels, or else the name
+  that the Console derives today, such as `<tag>_cmd`. A Kafka write channel or an edge
+  tag's published `channel` becomes disabled, because configure cannot create it. The
+  import logs each one, with any name it set. A map built from a version before
+  `Binding` holds no real channel values, so it unbinds only a missing key. With no map
+  entry for a missing key, `ReconcileEntry` removes the field, or for a channel field
+  its target or endpoint, and logs what it removed. `ReconcileEntry` skips a missing key
+  that is not a `Binding`, such as a Kafka write channel, and `DropDangling` removes it
+  as today. `bound.key` 0 is invalid. Phase 27 adds `BoundKeys`, the `Decode` and hook
+  arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
+  31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
