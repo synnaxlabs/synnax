@@ -47,9 +47,10 @@ class AnalogInputPorts(BaseModel):
 
     index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     temperature: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    channels: dict[Annotated[int, Field(ge=0, le=65535)], channel_.Key] = Field(
-        default_factory=dict
-    )
+    channels: dict[
+        Annotated[int, Field(ge=0, le=65535)],
+        Annotated[channel_.Key, Field(ge=0, le=4294967295)],
+    ] = Field(default_factory=dict)
 
 
 class AnalogOutputChannels(BaseModel):
@@ -87,9 +88,10 @@ class DigitalInputChannels(BaseModel):
     """
 
     index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    lines: dict[Annotated[int, Field(ge=0, le=255)], channel_.Key] = Field(
-        default_factory=dict
-    )
+    lines: dict[
+        Annotated[int, Field(ge=0, le=255)],
+        Annotated[channel_.Key, Field(ge=0, le=4294967295)],
+    ] = Field(default_factory=dict)
 
 
 class Identity(BaseModel):

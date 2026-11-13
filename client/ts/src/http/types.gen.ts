@@ -192,7 +192,7 @@ export const WRITE_FIELD_SCHEMAS: {
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
-  rate: z.number().default(1),
+  rate: z.number().gt(0).default(1),
   endpoints: readEndpointZ.array().default(() => []),
   nanFillEnabled: z.boolean().default(false),
 });

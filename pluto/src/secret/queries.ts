@@ -49,7 +49,7 @@ export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, secret.Secr
 
 export type RetrieveMultipleQuery = secret.RetrieveMultipleParams;
 
-export const { use: useMultiple } = Flux.createRetrieve<
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   secret.Secret[]
 >({

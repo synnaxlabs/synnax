@@ -440,7 +440,7 @@ export const doChannelZ = z.object({
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 
 export const writeConfigZ = task.writeConfigZ.extend({
-  stateRate: z.number().default(10),
+  stateRate: z.number().gt(0).default(10),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
@@ -711,23 +711,23 @@ export const hardwareZ = z.object({
    * aiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
    * does not support the attribute.
    */
-  aiMinRate: z.number().default(0),
+  aiMinRate: z.number().min(0).default(0),
   /**
    * aiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
    * Hz. 0 means that the device does not support the attribute.
    */
-  aiMaxSingleChannelRate: z.number().default(0),
+  aiMaxSingleChannelRate: z.number().min(0).default(0),
   /**
    * aiMaxMultiChannelRate is the highest analog input sample rate of the device, in Hz.
    * A task with several channels divides it by the channel count. 0 means that the
    * device does not support the attribute.
    */
-  aiMaxMultiChannelRate: z.number().default(0),
+  aiMaxMultiChannelRate: z.number().min(0).default(0),
   /**
    * aoMaxRate is the highest analog output sample rate, in Hz. 0 means that the device
    * does not support the attribute.
    */
-  aoMaxRate: z.number().default(0),
+  aoMaxRate: z.number().min(0).default(0),
   /**
    * aiVoltageRanges are the analog input voltage ranges of the device, ends included.
    */

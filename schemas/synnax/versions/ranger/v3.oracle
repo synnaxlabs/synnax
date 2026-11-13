@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/label/v0"
-import "schemas/x/versions/color/v0"
+import "schemas/x/versions/color/v2"
 import "schemas/x/versions/filter/v0"
 import "schemas/x/versions/telem/v0"
 

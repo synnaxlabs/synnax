@@ -79,7 +79,7 @@ const inputs = {
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the tables in a group, or in no group when false. */
   grouped: z.boolean().exactOptional(),
-  /** projects matches the tables owned by any of the given projects. */
+  /** projects matches the tables in any of the given projects. */
   projects: filter.listInputZ(project.keyZ).exactOptional(),
 };
 

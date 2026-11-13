@@ -26,7 +26,7 @@ var _ = Describe("Actions", func() {
 		base = label.Label{
 			Key:   uuid.New(),
 			Name:  "Nominal",
-			Color: MustSucceed(color.FromHex("#00ff00")),
+			Color: MustSucceed(color.Parse("#00ff00")),
 		}
 	})
 	set := func(path []string, value any) label.Action {
@@ -49,9 +49,9 @@ var _ = Describe("Actions", func() {
 			"[color]: decoding value",
 		),
 		Entry(
-			"an alpha above the 0-255 scale",
-			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 300}),
-			"alpha 300 is above the 0-255 scale",
+			"a legacy object color",
+			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 0.5}),
+			"color is not a hex string",
 		),
 		Entry(
 			"a path into the color",
@@ -101,19 +101,9 @@ var _ = Describe("Actions", func() {
 		})
 		It("Should set the color", func() {
 			res := MustSucceed(label.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
+			Expect(res.Color).To(Equal(MustSucceed(color.Parse("#ff0000"))))
 			Expect(res.Name).To(Equal(base.Name))
 		})
-		DescribeTable("Should lift a legacy alpha", func(alpha, want float64) {
-			res := MustSucceed(label.Reduce(base, set(
-				[]string{"color"},
-				map[string]any{"r": 255, "g": 0, "b": 0, "a": alpha},
-			)))
-			Expect(res.Color.A).To(BeNumerically("~", want))
-		},
-			Entry("just above 1", 1.5, 1.0),
-			Entry("on the 0-255 scale", 128.0, 128.0/255),
-		)
 	})
 
 	Describe("RemovePayload", func() {

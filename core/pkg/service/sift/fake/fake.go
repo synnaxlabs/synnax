@@ -86,6 +86,7 @@ type Server struct {
 	failures  []error
 	paused    chan struct{}
 	runs      []*runsv2.Run
+	runsHeld  chan struct{}
 	runFails  []error
 	updFails  []error
 	cfgFails  []error
@@ -249,6 +250,26 @@ func (s *Server) Resume() {
 	}
 }
 
+// PauseRuns holds each call to CreateAdhocRun until ResumeRuns or until its client
+// cancels it.
+func (s *Server) PauseRuns() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runsHeld == nil {
+		s.runsHeld = make(chan struct{})
+	}
+}
+
+// ResumeRuns lets calls to CreateAdhocRun continue.
+func (s *Server) ResumeRuns() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runsHeld != nil {
+		close(s.runsHeld)
+		s.runsHeld = nil
+	}
+}
+
 // CreateIngestionConfig implements ingestionconfigsv2.IngestionConfigServiceServer.
 func (s *Server) CreateIngestionConfig(
 	_ context.Context,
@@ -407,7 +428,7 @@ func (s *Server) IngestWithConfigDataStream(
 	s.mu.Unlock()
 	var received []*ingestv1.IngestWithConfigDataStreamRequest
 	for {
-		if err := s.waitResumed(stream.Context()); err != nil {
+		if err := s.wait(stream.Context(), &s.paused); err != nil {
 			return err
 		}
 		req, err := stream.Recv()
@@ -437,15 +458,16 @@ func (s *Server) IngestWithConfigDataStream(
 	return stream.SendAndClose(&ingestv1.IngestWithConfigDataStreamResponse{})
 }
 
-func (s *Server) waitResumed(ctx context.Context) error {
+// wait returns when the channel at held is nil or closed, or when ctx is done.
+func (s *Server) wait(ctx context.Context, held *chan struct{}) error {
 	s.mu.Lock()
-	paused := s.paused
+	ch := *held
 	s.mu.Unlock()
-	if paused == nil {
+	if ch == nil {
 		return nil
 	}
 	select {
-	case <-paused:
+	case <-ch:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -557,9 +579,12 @@ func (s *Server) authorizeStream(
 
 // CreateAdhocRun implements runsv2.RunServiceServer.
 func (s *Server) CreateAdhocRun(
-	_ context.Context,
+	ctx context.Context,
 	req *runsv2.CreateAdhocRunRequest,
 ) (*runsv2.CreateAdhocRunResponse, error) {
+	if err := s.wait(ctx, &s.runsHeld); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.runFails) > 0 {

@@ -227,7 +227,7 @@ describe("ValueForm", () => {
     it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set(path.fillColor, [0, 255, 0, 1]));
+      act(() => methods.set(path.fillColor, [0, 255, 0, 255]));
       expect(getByText("Fill")).toBeDefined();
     });
   });

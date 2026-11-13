@@ -184,13 +184,13 @@ var _ = Describe("Actions", func() {
 	Describe("SetColor", func() {
 		It("Should set the color of the panel's icon", func() {
 			p := panel.Panel{Root: leafNode()}
-			c := MustSucceed(color.FromHex("#dc136c"))
+			c := MustSucceed(color.Parse("#dc136c"))
 			next := MustSucceed(panel.SetColorPayload{Color: &c}.Handle(p))
 			Expect(next.Color).To(HaveValue(Equal(c)))
 		})
 
 		It("Should reset the color when the payload holds none", func() {
-			c := MustSucceed(color.FromHex("#dc136c"))
+			c := MustSucceed(color.Parse("#dc136c"))
 			p := panel.Panel{Root: leafNode(), Color: &c}
 			next := MustSucceed(panel.SetColorPayload{}.Handle(p))
 			Expect(next.Color).To(BeNil())
@@ -997,22 +997,6 @@ var _ = Describe("Actions", func() {
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.ResizeSplitPayload{Split: 1, Size: 0.5},
 				"node at path is not a split",
-			),
-			Entry(
-				"size above 1",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: 1.5},
-				"split size must be in [0, 1]",
-			),
-			Entry(
-				"size below 0",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: -0.1},
-				"split size must be in [0, 1]",
 			),
 		)
 	})

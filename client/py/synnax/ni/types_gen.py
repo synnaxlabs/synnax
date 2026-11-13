@@ -964,10 +964,14 @@ class Hardware(BaseModel):
     counter_outputs: list[CounterPort] = Field(default_factory=list)
     digital_ports: list[DigitalPort] = Field(default_factory=list)
     terminals: list[str] = Field(default_factory=list)
-    ai_min_rate: telem.Rate = telem.Rate(0)
-    ai_max_single_channel_rate: telem.Rate = telem.Rate(0)
-    ai_max_multi_channel_rate: telem.Rate = telem.Rate(0)
-    ao_max_rate: telem.Rate = telem.Rate(0)
+    ai_min_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
+    ai_max_single_channel_rate: telem.Rate = Field(
+        default=telem.Rate(0), ge=0, allow_inf_nan=False
+    )
+    ai_max_multi_channel_rate: telem.Rate = Field(
+        default=telem.Rate(0), ge=0, allow_inf_nan=False
+    )
+    ao_max_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
     ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)

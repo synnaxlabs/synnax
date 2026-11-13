@@ -507,6 +507,57 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should merge a field's rules with the rules of its type chain",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Name = string {
+					@validate max_length 10
+				}
+
+				Range struct {
+					rate  Rate
+					fast  Rate @validate gt 5
+					size  Decimal
+					half  Decimal @validate max 0.5
+					label Name @validate min_length 2
+				}
+			`
+				table, diag := Analyze(ctx, source, "range", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(
+					&plugin.Request{Resolutions: table},
+				))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`rate: Rate = Field(ge=0, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`fast: Rate = Field(gt=5, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`size: Decimal = Field(ge=0, le=1, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`half: Decimal = Field(ge=0, le=0.500000, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`label: Name = Field(min_length=2, max_length=10)`,
+				))
+			},
+		)
+
+		It(
 			"Should emit native Field length constraints, which count code points",
 			func(ctx SpecContext) {
 				source := `
@@ -2548,7 +2599,8 @@ var _ = Describe("Python Types Plugin", func() {
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`wasm: Bytes`,
-							`output_memory_bases: dict[str, int]`,
+							`output_memory_bases: dict[str, `+
+								`Annotated[int, Field(ge=0, le=4294967295)]]`,
 							`node_key: str`,
 						).
 						ToNotContain("WASM:", "OutputMemoryBases:", "nodeKey:")
@@ -3291,7 +3343,9 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], int] = Field(default_factory=dict)",
+				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], " +
+					"Annotated[int, Field(ge=0, le=255)]] = " +
+					"Field(default_factory=dict)",
 			)
 		},
 	)
@@ -3319,7 +3373,40 @@ var _ = Describe("Collection type aliases and maps", func() {
 				"signed: dict[Annotated[int, Field(ge=-128, le=127)], str]",
 				"wide: dict[Annotated[int, Field(ge=-9223372036854775808, "+
 					"le=9223372036854775807)], str]",
-				"name: dict[str, int]",
+				"name: dict[str, Annotated[int, Field(ge=0, le=255)]]",
+			)
+		},
+	)
+
+	It(
+		"Should bound sized integer map values to the range of their type",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Key uint32
+
+			Values struct {
+				small  map<string, uint8>
+				port   map<string, uint16>
+				wide   map<string, int64>
+				keys   map<string, Key>
+				nested map<string, map<uint8, uint16>>
+				name   map<string, string>
+			}
+		`
+			resp := MustGenerate(ctx, source, "values", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"small: dict[str, Annotated[int, Field(ge=0, le=255)]]",
+				"port: dict[str, Annotated[int, Field(ge=0, le=65535)]]",
+				"wide: dict[str, Annotated[int, Field(ge=-9223372036854775808, "+
+					"le=9223372036854775807)]]",
+				"keys: dict[str, Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"nested: dict[str, dict[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=65535)]]]",
+				"name: dict[str, str]",
 			)
 		},
 	)
@@ -3402,7 +3489,8 @@ var _ = Describe("Collection type aliases and maps", func() {
 				resp,
 				"types_gen.py",
 			).ToContain(
-				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], int] | None = None",
+				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], " +
+					"Annotated[int, Field(ge=0, le=255)]] | None = None",
 			)
 		},
 	)
@@ -3443,7 +3531,9 @@ var _ = Describe("Collection type aliases and maps", func() {
 				resp,
 				"types_gen.py",
 			).ToContain(
-				"Authorities: TypeAlias = dict[Annotated[int, Field(ge=0, le=4294967295)], int]",
+				"Authorities: TypeAlias = dict[" +
+					"Annotated[int, Field(ge=0, le=4294967295)], " +
+					"Annotated[int, Field(ge=0, le=255)]]",
 			)
 		},
 	)

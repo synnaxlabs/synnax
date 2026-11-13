@@ -1,0 +1,946 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package sift_test
+
+import (
+	"context"
+	"time"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	xuuid "github.com/synnaxlabs/x/uuid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var _ = Describe("Stream task", func() {
+	var (
+		f      *sift.Factory
+		server *fake.Server
+		dev    device.Device
+		idx    channel.Channel
+		ch     channel.Channel
+		t      task.Task
+		dt     driver.Task
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
+		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
+		dev = createDevice(ctx, sift.Properties{
+			URI:    server.Address(),
+			APIKey: createAPIKey(ctx, apiKey),
+		})
+		idx = createIndex(ctx)
+		ch = createData(ctx, idx)
+		t = newTask(ctx, sift.StreamTaskType, nil)
+	})
+
+	streamConfig := func(labels ...label.Key) map[string]any {
+		return map[string]any{
+			"device":     dev.Key,
+			"asset":      "stand",
+			"channels":   []channel.Key{ch.Key()},
+			"labels":     labels,
+			"auto_start": true,
+		}
+	}
+
+	// start configures t with cfg and waits for it to start.
+	start := func(ctx context.Context, cfg map[string]any) {
+		GinkgoHelper()
+		t.Config = toJSON(cfg)
+		dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+		Eventually(taskStatus).WithArguments(ctx, t).
+			Should(HaveField("Message", "Started task"))
+	}
+
+	// send writes one sample of ch at the current time.
+	send := func(ctx context.Context, v float64) {
+		GinkgoHelper()
+		write(ctx, idx, ch, []telem.TimeStamp{telem.Now()}, telem.NewSeriesV(v))
+	}
+
+	values := func() []any {
+		points := server.Points("stand", ch.Name)
+		vs := make([]any, len(points))
+		for i, p := range points {
+			vs[i] = p.Value
+		}
+		return vs
+	}
+
+	progressOf := func(ctx context.Context) (sift.ProgressStatus, error) {
+		var s sift.ProgressStatus
+		err := statusSvc.NewRetrieve[sift.StreamDetails]().
+			Where(status.MatchKeys[sift.StreamDetails](sift.ProgressKey(t.Key))).
+			Entry(&s).
+			Exec(ctx, db)
+		return s, err
+	}
+
+	It("Should send live data to Sift and save its progress", func(ctx SpecContext) {
+		start(ctx, streamConfig())
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Eventually(progressOf).WithArguments(ctx).Should(SatisfyAll(
+			HaveField("Message", "Sent to Sift"),
+			HaveField(
+				"Description",
+				"Sent 1 sample to asset stand since the task started.",
+			),
+			HaveField("Details.Positions", HaveExactElements(
+				HaveField("Index", idx.Key()),
+			)),
+		))
+	})
+
+	It("Should send the data written while it was stopped", func(ctx SpecContext) {
+		start(ctx, streamConfig())
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Expect(dt.Stop(false)).To(Succeed())
+		send(ctx, 2)
+		start(ctx, streamConfig())
+		Eventually(values).Should(HaveExactElements(1.0, 2.0))
+	})
+
+	It("Should start again at the current time when its progress is deleted",
+		func(ctx SpecContext) {
+			start(ctx, streamConfig())
+			send(ctx, 1)
+			Eventually(values).Should(HaveExactElements(1.0))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Delete(ctx, sift.ProgressKey(t.Key))
+			})).To(Succeed())
+			send(ctx, 2)
+			start(ctx, streamConfig())
+			send(ctx, 3)
+			Eventually(values).Should(HaveExactElements(1.0, 3.0))
+		})
+
+	It("Should delete its progress when the task is deleted", func(ctx SpecContext) {
+		start(ctx, streamConfig())
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return taskSvc.NewWriter(tx).Delete(ctx, t.Key, false)
+		})).To(Succeed())
+		progressErr := func() error {
+			_, err := progressOf(ctx)
+			return err
+		}
+		Eventually(progressErr).Should(MatchError(query.ErrNotFound))
+		send(ctx, 2)
+		Expect(dt.Stop(false)).To(Succeed())
+		Consistently(progressErr).WithTimeout(200 * time.Millisecond).
+			Should(MatchError(query.ErrNotFound))
+	})
+
+	// setProgress writes a progress status for tk with details, as an earlier version
+	// could have left it.
+	setProgress := func(ctx context.Context, tk task.Task, details any) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+				Key:     sift.ProgressKey(tk.Key),
+				Name:    tk.Name,
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: details,
+			})
+		})).To(Succeed())
+	}
+
+	// rawProgress retrieves the progress status of tk without decoding its details.
+	rawProgress := func(ctx context.Context, tk task.Task) (status.Status[any], error) {
+		var s status.Status[any]
+		err := statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](sift.ProgressKey(tk.Key))).
+			Entry(&s).
+			Exec(ctx, db)
+		return s, err
+	}
+
+	// renameAndDelete renames t to name and deletes other in one transaction.
+	renameAndDelete := func(ctx context.Context, name string, other task.Task) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := taskSvc.NewWriter(tx)
+			if _, err := w.Apply(ctx, t.Key, task.NewSetAction(
+				task.SetPayload{Path: []string{"name"}, Value: name},
+			)); err != nil {
+				return err
+			}
+			return w.Delete(ctx, other.Key, false)
+		})).To(Succeed())
+	}
+
+	It("Should repair the progress of each task when one has corrupt details",
+		func(ctx SpecContext) {
+			deleted := newTask(ctx, sift.StreamTaskType, nil)
+			setProgress(ctx, deleted, nil)
+			setProgress(ctx, t, "corrupt")
+			renameAndDelete(ctx, "renamed", deleted)
+			Eventually(func() error {
+				_, err := rawProgress(ctx, deleted)
+				return err
+			}).Should(MatchError(query.ErrNotFound))
+			Eventually(rawProgress).WithArguments(ctx, t).
+				Should(HaveField("Name", "renamed"))
+		})
+
+	It("Should repair at open the progress of the tasks changed while it was closed",
+		func(ctx SpecContext) {
+			start(ctx, streamConfig())
+			Expect(dt.Stop(false)).To(Succeed())
+			deleted := newTask(ctx, sift.StreamTaskType, nil)
+			setProgress(ctx, deleted, nil)
+			Expect(f.Close()).To(Succeed())
+			renameAndDelete(ctx, "renamed", deleted)
+			f = MustOpen(sift.OpenFactory(factoryConfig()))
+			Eventually(func() error {
+				_, err := rawProgress(ctx, deleted)
+				return err
+			}).Should(MatchError(query.ErrNotFound))
+			Eventually(progressOf).WithArguments(ctx).
+				Should(HaveField("Name", "renamed"))
+		})
+
+	It("Should rename its progress when the task is renamed", func(ctx SpecContext) {
+		rename := func(name string) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := taskSvc.NewWriter(tx).Apply(ctx, t.Key, task.NewSetAction(
+					task.SetPayload{Path: []string{"name"}, Value: name},
+				))
+				return err
+			})).To(Succeed())
+		}
+		start(ctx, streamConfig())
+		Expect(dt.Stop(false)).To(Succeed())
+		rename("stopped")
+		Eventually(progressOf).WithArguments(ctx).
+			Should(HaveField("Name", "stopped"))
+		start(ctx, streamConfig())
+		rename("running")
+		Eventually(progressOf).WithArguments(ctx).
+			Should(HaveField("Name", "running"))
+		send(ctx, 1)
+		Eventually(values).Should(HaveExactElements(1.0))
+		Expect(progressOf(ctx)).To(HaveField("Name", "running"))
+	})
+
+	It("Should save where it starts before it sends anything", func(ctx SpecContext) {
+		before := telem.Now()
+		start(ctx, streamConfig())
+		Expect(progressOf(ctx)).To(HaveField("Details.Positions", HaveExactElements(
+			SatisfyAll(
+				HaveField("Index", idx.Key()),
+				HaveField("Time", BeNumerically(">=", before)),
+			),
+		)))
+	})
+
+	It("Should start at the current time without progress", func(ctx SpecContext) {
+		write(ctx, idx, ch,
+			[]telem.TimeStamp{telem.Now().Add(-10 * telem.Second)},
+			telem.NewSeriesV(1.0),
+		)
+		start(ctx, streamConfig())
+		send(ctx, 2)
+		Eventually(values).Should(HaveExactElements(2.0))
+		Consistently(values).WithTimeout(200 * time.Millisecond).
+			Should(HaveExactElements(2.0))
+	})
+
+	Describe("Runs", func() {
+		var l label.Label
+
+		BeforeEach(func(ctx SpecContext) {
+			l = label.Label{Name: "hotfire"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Create(ctx, &l)
+			})).To(Succeed())
+		})
+
+		// endedRange creates a range that ends before the next sample, and sends that
+		// sample.
+		endedRange := func(ctx context.Context, labels ...label.Key) ranger.Range {
+			GinkgoHelper()
+			now := telem.Now()
+			send(ctx, 1)
+			rng := createRange(ctx, telem.TimeRange{Start: now, End: now.Add(1)})
+			if len(labels) > 0 {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).AddLabels(ctx, rng.Key, labels)
+				})).To(Succeed())
+			}
+			send(ctx, 2)
+			return rng
+		}
+
+		It("Should make a labeled range a run once Sift has its data",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(SatisfyAll(
+					HaveField("Name", rng.Name),
+					HaveField(
+						"ClientKey",
+						HaveValue(Equal(xuuid.NewV5(rng.Key, "stand").String())),
+					),
+					HaveField("Tags", ConsistOf("hotfire")),
+				)))
+			})
+
+		It("Should make a run of a range that ends after the last sample",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				now := telem.Now()
+				send(ctx, 1)
+				rng := createRange(ctx, telem.TimeRange{
+					Start: now,
+					End:   now.Add(100 * telem.Millisecond),
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{l.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
+		It("Should make a run when one index of the task gets no samples",
+			func(ctx SpecContext) {
+				idleIdx := createIndex(ctx)
+				idle := createData(ctx, idleIdx)
+				cfg := streamConfig(l.Key)
+				cfg["channels"] = []channel.Key{ch.Key(), idle.Key()}
+				start(ctx, cfg)
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
+		It("Should update the run of a range that changes", func(ctx SpecContext) {
+			start(ctx, streamConfig(l.Key))
+			rng := endedRange(ctx, l.Key)
+			Eventually(server.Runs).Should(HaveLen(1))
+			rename := ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"name"},
+				Value: "renamed",
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+			})).To(Succeed())
+			Eventually(server.Runs).Should(HaveExactElements(
+				HaveField("Name", "renamed"),
+			))
+		})
+
+		It("Should update the run of a range that changed while the task was stopped",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(dt.Stop(false)).To(Succeed())
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			})
+
+		It("Should update a run that ends after the saved positions after a restart",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				now := telem.Now()
+				send(ctx, 1)
+				rng := createRange(ctx, telem.TimeRange{
+					Start: now,
+					End:   now.Add(100 * telem.Millisecond),
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{l.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveLen(1))
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">=", rng.TimeRange.End),
+				))
+				Expect(dt.Stop(false)).To(Succeed())
+				Expect(progressOf(ctx)).To(HaveField(
+					"Details.Positions",
+					HaveExactElements(HaveField(
+						"Time",
+						BeNumerically("<", rng.TimeRange.End),
+					)),
+				))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			})
+
+		// pastRange creates a range that ended before the task started.
+		pastRange := func(ctx context.Context) ranger.Range {
+			GinkgoHelper()
+			now := telem.Now()
+			return createRange(ctx, telem.TimeRange{
+				Start: now.Add(-10 * telem.Second),
+				End:   now.Add(-5 * telem.Second),
+			})
+		}
+
+		addLabel := func(ctx context.Context, rng ranger.Range) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).
+					AddLabels(ctx, rng.Key, []label.Key{l.Key})
+			})).To(Succeed())
+		}
+
+		It("Should not make a run of a range that ended before the task started",
+			func(ctx SpecContext) {
+				addLabel(ctx, pastRange(ctx))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+				Consistently(server.Runs).WithTimeout(200 * time.Millisecond).
+					Should(HaveExactElements(HaveField("Name", rng.Name)))
+			})
+
+		It("Should not make a run before its first start after a restart",
+			func(ctx SpecContext) {
+				past := pastRange(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(dt.Stop(false)).To(Succeed())
+				stopped := MustSucceed(progressOf(ctx)).Details
+				addLabel(ctx, past)
+				start(ctx, streamConfig(l.Key))
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">", stopped.RunsThrough),
+				))
+				Expect(progressOf(ctx)).To(HaveField("Details.Start", stopped.Start))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("Name", rng.Name)))
+			})
+
+		It("Should make a run of a range that gets a label after it ended",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx)
+				Eventually(progressOf).WithArguments(ctx).Should(HaveField(
+					"Details.RunsThrough",
+					BeNumerically(">=", rng.TimeRange.End),
+				))
+				addLabel(ctx, rng)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
+		It("Should make a run of a range that ended while the task was stopped",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				send(ctx, 1)
+				Eventually(values).Should(ConsistOf(1.0))
+				Expect(dt.Stop(false)).To(Succeed())
+				rng := endedRange(ctx, l.Key)
+				Expect(server.Runs()).To(BeEmpty())
+				start(ctx, streamConfig(l.Key))
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", rng.Name),
+				))
+			})
+
+		It("Should update the run of a range whose end moves before the task start",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				for _, edit := range []ranger.SetPayload{
+					{Path: []string{"time_range", "start"}, Value: telem.SecondTS},
+					{Path: []string{"time_range", "end"}, Value: 2 * telem.SecondTS},
+				} {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return rangerSvc.NewWriter(tx).
+							Apply(ctx, rng.Key, ranger.NewSetAction(edit))
+					})).To(Succeed())
+				}
+				Eventually(func() time.Time {
+					return server.Runs()[0].StopTime.AsTime()
+				}).Should(BeTemporally("==", time.Unix(2, 0)))
+			})
+
+		It("Should update the tags of a run when its range gets a label",
+			func(ctx SpecContext) {
+				cold := label.Label{Name: "cold"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Create(ctx, &cold)
+				})).To(Succeed())
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).
+						AddLabels(ctx, rng.Key, []label.Key{cold.Key})
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire", "cold")),
+				))
+			})
+
+		// removeLabel removes the task label from rng.
+		removeLabel := func(ctx context.Context, rng ranger.Range) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).
+					RemoveLabels(ctx, rng.Key, []label.Key{l.Key})
+			})).To(Succeed())
+		}
+
+		// createCold creates a label that no task has.
+		createCold := func(ctx context.Context) label.Label {
+			GinkgoHelper()
+			cold := label.Label{Name: "cold"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Create(ctx, &cold)
+			})).To(Succeed())
+			return cold
+		}
+
+		It("Should update the tags of a run when its range loses the task label",
+			func(ctx SpecContext) {
+				cold := createCold(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key, cold.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire", "cold")),
+				))
+				removeLabel(ctx, rng)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("cold")),
+				))
+			})
+
+		It("Should not make a run of a range that loses the task label before its run",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(taskStatus).WithArguments(ctx, t).
+					Should(HaveField("Message", "Failed to set Sift run"))
+				removeLabel(ctx, rng)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantSuccess),
+					HaveField("Message", "Started task"),
+				))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(BeEmpty())
+			})
+
+		It("Should not update the run of a range that never had the task label",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx)
+				conn := MustOpen(grpc.NewClient(
+					server.Address(),
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				))
+				authed := metadata.AppendToOutgoingContext(
+					ctx,
+					"authorization",
+					"Bearer "+apiKey,
+				)
+				key := xuuid.NewV5(rng.Key, "stand").String()
+				MustSucceed(runsv2.NewRunServiceClient(conn).CreateAdhocRun(
+					authed,
+					&runsv2.CreateAdhocRunRequest{
+						Name:      "outside",
+						StartTime: timestamppb.New(rng.TimeRange.Start.Time()),
+						StopTime:  timestamppb.New(rng.TimeRange.End.Time()),
+						ClientKey: &key,
+					},
+				))
+				labeled := endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(ContainElement(
+					HaveField("Name", labeled.Name),
+				))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(ContainElement(SatisfyAll(
+						HaveField("ClientKey", HaveValue(Equal(key))),
+						HaveField("Name", "outside"),
+					)))
+			})
+
+		It("Should warn until the range changes when Sift rejects its new tags",
+			func(ctx SpecContext) {
+				cold := createCold(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key, cold.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				server.FailRunUpdates(
+					grpcstatus.Error(codes.InvalidArgument, "bad tags"),
+				)
+				removeLabel(ctx, rng)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", "Failed to set Sift run"),
+					HaveField("Description", "Sift rejected the run of "+rng.Name+
+						": bad tags. Change the range to try again."),
+				))
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(taskStatus).WithArguments(ctx, t).
+					WithTimeout(200 * time.Millisecond).
+					Should(HaveField("Message", "Failed to set Sift run"))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(SatisfyAll(
+					HaveField("Name", "renamed"),
+					HaveField("Tags", ConsistOf("cold")),
+				)))
+				Eventually(taskStatus).WithArguments(ctx, t).
+					Should(HaveField("Message", "Started task"))
+			})
+
+		It("Should update the tags of a run when a task label is renamed",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				endedRange(ctx, l.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire")),
+				))
+				rename := label.NewSetAction(label.SetPayload{
+					Path:  []string{"name"},
+					Value: "coldflow",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Apply(ctx, l.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("coldflow")),
+				))
+			})
+
+		It("Should stop when Sift rejects the API key for a run",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.Unauthenticated, "expired"))
+				start(ctx, streamConfig(l.Key))
+				endedRange(ctx, l.Key)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantError),
+					HaveField("Message", "Failed to run task"),
+					HaveField(
+						"Description",
+						ContainSubstring("Sift rejected the API key"),
+					),
+					HaveField("Details.Running", false),
+				))
+			})
+
+		It("Should warn about a run while Sift retries it", func(ctx SpecContext) {
+			server.FailRuns(grpcstatus.Error(codes.Unavailable, "runs are down"))
+			start(ctx, streamConfig(l.Key))
+			endedRange(ctx, l.Key)
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to set Sift run"),
+				HaveField("Description", ContainSubstring("runs are down")),
+			))
+			Eventually(server.Runs).WithTimeout(5 * time.Second).Should(HaveLen(1))
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Started task"),
+			))
+		})
+
+		It("Should skip a run that Sift rejects until its range changes",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", "Failed to set Sift run"),
+					HaveField("Description", "Sift rejected the run of "+rng.Name+
+						": bad name. Change the range to try again."),
+					HaveField("Details.Running", true),
+				))
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(BeEmpty())
+				Expect(taskStatus(ctx, t)).
+					To(HaveField("Message", "Failed to set Sift run"))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantSuccess),
+					HaveField("Message", "Started task"),
+				))
+			},
+		)
+
+		It("Should not make a run of a range without a task label",
+			func(ctx SpecContext) {
+				start(ctx, streamConfig(l.Key))
+				endedRange(ctx)
+				Eventually(values).Should(HaveLen(2))
+				Consistently(server.Runs).WithTimeout(200 * time.Millisecond).
+					Should(BeEmpty())
+			})
+	})
+
+	It("Should send after a restart the values of a channel written without its index",
+		func(ctx SpecContext) {
+			other := createData(ctx, idx)
+			cfg := streamConfig()
+			cfg["channels"] = []channel.Key{ch.Key(), other.Key()}
+			start(ctx, cfg)
+			now := telem.Now()
+			stamps := []telem.TimeStamp{now, now.Add(telem.Millisecond)}
+			write(ctx, idx, other, stamps, telem.NewSeriesV(1.0, 2.0))
+			Eventually(func() []fake.Point {
+				return server.Points("stand", other.Name)
+			}).Should(HaveLen(2))
+			Expect(progressOf(ctx)).To(HaveField("Details.Behind", BeEmpty()))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			keys := channel.Keys{ch.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  keys,
+				Start: stamps[0],
+			}))
+			Expect(MustSucceed(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{telem.NewSeriesV(10.0, 20.0)},
+			)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(taskStatus).WithArguments(ctx, t).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(progressOf(ctx)).To(HaveField(
+				"Details.Behind",
+				HaveExactElements(HaveField("Channel", ch.Key())),
+			))
+			start(ctx, cfg)
+			Eventually(values).Should(HaveExactElements(10.0, 20.0))
+			Eventually(progressOf).WithArguments(ctx).
+				Should(HaveField("Details.Behind", BeEmpty()))
+			Expect(values()).To(HaveExactElements(10.0, 20.0))
+		})
+
+	It("Should warn while Sift is down and clear the warning once it recovers",
+		func(ctx SpecContext) {
+			start(ctx, streamConfig())
+			send(ctx, 1)
+			Eventually(values).Should(ConsistOf(1.0))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			send(ctx, 2)
+			Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to send data to Sift"),
+				HaveField("Description", ContainSubstring("Sift is down")),
+			))
+			Eventually(taskStatus).WithArguments(ctx, t).
+				WithTimeout(5 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Expect(values()).To(ConsistOf(1.0, 2.0))
+		})
+
+	It("Should keep the warning when a channel without its index arrives",
+		func(ctx SpecContext) {
+			cfg := factoryConfig()
+			// The writes below must arrive before the engine waits for Sift to confirm.
+			cfg.CheckpointInterval = 500 * telem.Millisecond
+			f = MustOpen(sift.OpenFactory(cfg))
+			other := createData(ctx, idx)
+			taskCfg := streamConfig()
+			taskCfg["channels"] = []channel.Key{ch.Key(), other.Key()}
+			start(ctx, taskCfg)
+			first := telem.Now()
+			write(ctx, idx, ch, []telem.TimeStamp{first}, telem.NewSeriesV(1.0))
+			Eventually(values).WithTimeout(2 * time.Second).
+				Should(HaveExactElements(1.0))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			send(ctx, 2)
+			Eventually(taskStatus).WithArguments(ctx, t).
+				WithTimeout(2 * time.Second).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			server.Pause()
+			DeferCleanup(server.Resume)
+			streams := server.Streams()
+			Eventually(server.Streams).WithTimeout(3 * time.Second).
+				Should(BeNumerically(">", streams))
+			keys := channel.Keys{other.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  keys,
+				Start: first,
+			}))
+			Expect(MustSucceed(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{telem.NewSeriesV(10.0)},
+			)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			sent := []any{1.0, 2.0}
+			Eventually(func(g Gomega) {
+				v := float64(len(sent) + 1)
+				send(ctx, v)
+				sent = append(sent, v)
+				g.Expect(progressOf(ctx)).To(HaveField(
+					"Details.Behind",
+					ContainElement(HaveField("Channel", other.Key())),
+				))
+			}).Should(Succeed())
+			Expect(taskStatus(ctx, t)).To(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to send data to Sift"),
+			))
+			server.Resume()
+			Eventually(taskStatus).WithArguments(ctx, t).
+				WithTimeout(2 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Eventually(values).WithTimeout(2 * time.Second).
+				Should(HaveExactElements(sent...))
+		})
+
+	It("Should clear the warning once Sift answers a task with nothing to send",
+		func(ctx SpecContext) {
+			server.FailConfigs(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			t.Config = toJSON(streamConfig())
+			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Eventually(taskStatus).WithArguments(ctx, t).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			Eventually(taskStatus).WithArguments(ctx, t).
+				WithTimeout(5 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Expect(server.Streams()).To(BeZero())
+		})
+
+	It("Should fail when Sift rejects the API key", func(ctx SpecContext) {
+		dev = createDevice(ctx, sift.Properties{
+			URI:    server.Address(),
+			APIKey: createAPIKey(ctx, "wrong"),
+		})
+		t.Config = toJSON(streamConfig())
+		dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+		Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+			HaveField("Variant", status.VariantError),
+			HaveField("Message", "Failed to run task"),
+			HaveField("Description", ContainSubstring("Sift rejected the API key")),
+		))
+	})
+
+	It("Should fail when the device belongs to another rack", func(ctx SpecContext) {
+		other := rack.Rack{Name: "other"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rackSvc.NewWriter(tx).Create(ctx, &other)
+		})).To(Succeed())
+		dev.Key = uuid.New().String()
+		dev.Rack = other.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Create(ctx, &dev)
+		})).To(Succeed())
+		t.Config = toJSON(streamConfig())
+		msg := "device " + dev.Name + " belongs to another rack"
+		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(msg))
+		Expect(taskStatus(ctx, t)).To(SatisfyAll(
+			HaveField("Variant", status.VariantError),
+			HaveField("Description", msg),
+			HaveField("Details.Cmd", "cmd-1"),
+		))
+	})
+
+	DescribeTable("Should reject an invalid config",
+		func(ctx SpecContext, field, msg string) {
+			cfg := streamConfig()
+			delete(cfg, field)
+			t.Config = toJSON(cfg)
+			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
+				To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("no device", "device", "device: required"),
+		Entry("no asset", "asset", "asset: required"),
+		Entry("no channels", "channels", "channels"),
+	)
+})

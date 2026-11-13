@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, primitive, scale, xy } from "@synnaxlabs/x";
+import { box, primitive, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -90,7 +90,7 @@ export class Diagram extends aether.Composite<
     }
     const eraseRegion = box.copy(this.state.region);
     return () => {
-      renderCtx.lower2d.fillStyle = color.hex(color.BLACK);
+      renderCtx.lower2d.fillStyle = "#000000";
       renderCtx.lower2d.fillRect(
         ...xy.couple(box.topLeft(eraseRegion)),
         box.width(eraseRegion),

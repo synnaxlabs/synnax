@@ -16,11 +16,13 @@ import { type Persist } from "@/session/persist";
  * serves them all, and the shape stays declared here rather than assumed by the store.
  */
 export const LENS: Persist.Lens = {
-  // A window's partition stores only its own windows entry. Every other field carries
-  // a schema default, so the bytes still parse through the slice's own schema. A
-  // window with no entry narrows to none: an undefined-valued key neither survives
+  // A window's partition stores only its own windows entry and the slice version, so
+  // a slice migration can tell old window bytes from new ones. Every other field
+  // carries a schema default, so the bytes still parse through the slice's own schema.
+  // A window with no entry narrows to none: an undefined-valued key neither survives
   // JSON nor parses.
-  narrow: ({ windows }, key) => ({
+  narrow: ({ version, windows }, key) => ({
+    ...(version == null ? {} : { version }),
     windows: key in windows ? { [key]: windows[key] } : {},
   }),
   shared: (slice) => ({ ...slice, windows: {} }),

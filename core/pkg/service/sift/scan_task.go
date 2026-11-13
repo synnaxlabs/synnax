@@ -11,16 +11,20 @@ package sift
 
 import (
 	"context"
+	"uuid"
 
 	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -30,8 +34,10 @@ const (
 	testConnectionCommand = "test_connection"
 	// listAssetsCommand lists the assets that a Sift device can see.
 	listAssetsCommand = "list_assets"
-	// uploadCommand queues an upload of the data of a range.
+	// uploadCommand queues an upload of the data of a range or a time range.
 	uploadCommand = "upload"
+	// listUploadsCommand lists the uploads of a range.
+	listUploadsCommand = "list_uploads"
 )
 
 type testConnectionArgs struct {
@@ -49,6 +55,25 @@ type listAssetsArgs struct {
 type listAssetsResult struct {
 	// Assets are the names of the assets, in the order Sift lists them.
 	Assets []string `json:"assets"`
+	// Last is the asset of the newest upload from the device, or empty.
+	Last string `json:"last"`
+}
+
+type listUploadsArgs struct {
+	// Range is the key of the range to list the uploads of.
+	Range ranger.Key `json:"range"`
+}
+
+// validate rejects a zero range, which names no range.
+func (a listUploadsArgs) validate() error {
+	v := validate.New("sift.list_uploads")
+	v.Ternary("range", a.Range == uuid.Nil(), "required")
+	return v.Error()
+}
+
+type listUploadsResult struct {
+	// Uploads are the keys of the statuses of the uploads, newest first.
+	Uploads []status.Key `json:"uploads"`
 }
 
 // listAssetsPageSize is the most assets Sift returns in one page.
@@ -94,6 +119,19 @@ func (s scanner) Exec(
 			}
 		}
 		return msgpack.NewEncodedJSON(uploadResult{Status: key})
+	case listUploadsCommand:
+		var args listUploadsArgs
+		if err := cmd.Args.Unmarshal(&args); err != nil {
+			return nil, errors.Wrap(err, "invalid arguments")
+		}
+		if err := args.validate(); err != nil {
+			return nil, err
+		}
+		keys, err := rangeUploads(ctx, s.cfg.DB, s.cfg.Status, args.Range)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(listUploadsResult{Uploads: keys})
 	default:
 		return nil, driver.ErrUnsupportedCommand
 	}
@@ -163,6 +201,10 @@ func (s scanner) listAssets(
 			}
 		},
 	); err != nil {
+		return nil, err
+	}
+	var err error
+	if res.Last, err = lastAsset(ctx, s.cfg.DB, s.cfg.Status, dev.Key); err != nil {
 		return nil, err
 	}
 	return msgpack.NewEncodedJSON(res)

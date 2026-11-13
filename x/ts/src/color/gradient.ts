@@ -7,34 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type Color, construct, type Crude, TRANSPARENT } from "@/color/color";
 
-import {
-  aValue,
-  bValue,
-  type Color,
-  construct,
-  crudeZ,
-  gValue,
-  rValue,
-  ZERO,
-} from "@/color/color";
+/** A color at a position along a gradient. */
+export interface Stop {
+  position: number;
+  color: Crude;
+}
 
-export const stopZ = z.object({
-  key: z.string(),
-  color: crudeZ,
-  position: z.number(),
-  switched: z.boolean().optional(),
-});
-
-export type Stop = z.infer<typeof stopZ>;
-
-export const gradientZ = z.array(stopZ);
-
-export type Gradient = Stop[];
-
-export const fromGradient = (gradient: Gradient, position: number): Color => {
-  if (gradient.length === 0) return ZERO;
+export const fromGradient = (gradient: Stop[], position: number): Color => {
+  if (gradient.length === 0) return TRANSPARENT;
 
   gradient = gradient.slice().sort((a, b) => a.position - b.position);
   if (position <= gradient[0].position) return construct(gradient[0].color);
@@ -52,18 +34,9 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
     const startColor = construct(start.color);
     const endColor = construct(end.color);
 
-    const r = Math.round(
-      rValue(startColor) + t * (rValue(endColor) - rValue(startColor)),
-    );
-    const g = Math.round(
-      gValue(startColor) + t * (gValue(endColor) - gValue(startColor)),
-    );
-    const b = Math.round(
-      bValue(startColor) + t * (bValue(endColor) - bValue(startColor)),
-    );
-    const a = aValue(startColor) + t * (aValue(endColor) - aValue(startColor));
-
-    return construct([r, g, b, a]);
+    const mix = (i: number): number =>
+      Math.round(startColor[i] + t * (endColor[i] - startColor[i]));
+    return [mix(0), mix(1), mix(2), mix(3)];
   }
 
   return construct(gradient[gradient.length - 1].color);

@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
 	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,37 +26,69 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	It("Should keep every field of a stored range", func(ctx SpecContext) {
+	migrate := func(ctx SpecContext, old v2.Range) v3.Range {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Range]{DB: db}))
+		Expect(gorp.NewCreate[v2.Key, v2.Range]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Range]{
+			DB: db, Migrations: []gorp.Migration{v3.Migration},
+		}))
+		var got v3.Range
+		Expect(gorp.NewRetrieve[v3.Key, v3.Range]().
+			Where(gorp.MatchKeys[v3.Key, v3.Range](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
+
+	DescribeTable("Should store the color alpha as a byte",
+		func(ctx SpecContext, a float64, expected uint8) {
+			old := v2.Range{
+				Key: uuid.New(), Name: "r", Color: &color.Color{R: 1, G: 2, B: 3, A: a},
+			}
+			got := migrate(ctx, old)
+			Expect(got.Name).To(Equal("r"))
+			Expect(got.Color).
+				To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: expected})))
+		},
+		Entry("a transparent alpha", 0.0, uint8(0)),
+		Entry("a faint alpha", 0.003, uint8(1)),
+		Entry("a half alpha", 0.5, uint8(128)),
+		Entry("an opaque alpha", 1.0, uint8(255)),
+	)
+
+	It("Should keep an absent color absent", func(ctx SpecContext) {
+		Expect(migrate(ctx, v2.Range{Key: uuid.New()}).Color).To(BeNil())
+	})
+
+	It("Should keep every other field of a stored range", func(ctx SpecContext) {
 		parent := uuid.New()
-		c := MustSucceed(color.FromHex("#ff0000"))
 		old := v2.Range{
 			Key:       uuid.New(),
 			Name:      "Range",
 			TimeRange: telem.NewRangeSeconds(1, 2),
-			Color:     &c,
+			Color:     &color.Color{R: 1, G: 2, B: 3, A: 1},
 			Parent:    &parent,
 			Labels:    []uuid.UUID{uuid.New()},
 		}
-		Expect(gorp.WrapWriter[v2.Key, v2.Range](db).Set(ctx, old)).To(Succeed())
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Range",
-			Migrations: []gorp.Migration{v3.Migration},
-		})).To(Succeed())
-		var r v3.Range
-		Expect(gorp.NewRetrieve[v3.Key, v3.Range]().
-			Where(gorp.MatchKeys[v3.Key, v3.Range](old.Key)).
-			Entry(&r).
-			Exec(ctx, db)).To(Succeed())
-		Expect(r).To(Equal(v3.Range{
+		Expect(migrate(ctx, old)).To(Equal(v3.Range{
 			Key:       old.Key,
 			Name:      old.Name,
 			TimeRange: old.TimeRange,
-			Color:     old.Color,
+			Color:     &colorv2.Color{R: 1, G: 2, B: 3, A: 255},
 			Parent:    old.Parent,
 			Labels:    old.Labels,
 		}))
+	})
+})
+
+var _ = Describe("MigrateRange", func() {
+	It("Should store the color alpha as a byte", func(ctx SpecContext) {
+		out := MustSucceed(
+			v3.MigrateRange(ctx, v2.Range{Color: &color.Color{R: 1, A: 0.5}}),
+		)
+		Expect(out.Color).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
 })
 

@@ -20,6 +20,6 @@ ChannelEntry = v3.ChannelEntry
 Log struct extends v3.Log {
     -range
     project project.Key? {
-        @doc value "is the project that owns the log."
+        @doc value "is the project that holds the log."
     }
 }

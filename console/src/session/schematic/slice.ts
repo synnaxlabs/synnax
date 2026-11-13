@@ -17,7 +17,7 @@ import {
   Properties,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { color, control as xcontrol, sticky, xy } from "@synnaxlabs/x";
+import { color, control as xcontrol, narrow, sticky, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -75,11 +75,52 @@ export const ZERO_STATE = stateZ.parse({});
 
 const windowStateZ = z.record(z.string(), stateZ).default({});
 
-export const sliceStateZ = z.object({
-  version: z.literal(0).default(0),
-  /** A window is a viewport, so each holds its own view of every document. */
-  windows: z.record(z.string(), windowStateZ).default({}),
-});
+// liftV0Alpha converts a version 0 legend color alpha, stored on the 0-1 scale, to a
+// byte. A non-zero alpha stays non-zero, as the Core's color migration does.
+const liftV0Alpha = (a: number): number =>
+  a > 0 ? Math.max(1, Math.round(Math.min(a, 1) * 255)) : 0;
+
+// migrateV0 lifts a version 0 slice to version 1, which stores each legend color alpha
+// as a 0-255 byte. Any other value passes through for the schema to judge.
+const migrateV0 = (raw: unknown): unknown => {
+  if (!narrow.isObject(raw) || (raw.version ?? 0) !== 0) return raw;
+  if (!narrow.isObject(raw.windows)) return { ...raw, version: 1 };
+  const windows = Object.fromEntries(
+    Object.entries(raw.windows).map(([windowKey, docs]) => {
+      if (!narrow.isObject(docs)) return [windowKey, docs];
+      return [
+        windowKey,
+        Object.fromEntries(
+          Object.entries(docs).map(([docKey, doc]) => {
+            if (!narrow.isObject(doc) || !narrow.isObject(doc.legend))
+              return [docKey, doc];
+            const colors = doc.legend.colors;
+            if (!narrow.isObject(colors)) return [docKey, doc];
+            const lifted = Object.fromEntries(
+              Object.entries(colors).map(([k, c]) => [
+                k,
+                Array.isArray(c) && c.length === 4 && typeof c[3] === "number"
+                  ? [c[0], c[1], c[2], liftV0Alpha(c[3])]
+                  : c,
+              ]),
+            );
+            return [docKey, { ...doc, legend: { ...doc.legend, colors: lifted } }];
+          }),
+        ),
+      ];
+    }),
+  );
+  return { ...raw, version: 1, windows };
+};
+
+export const sliceStateZ = z.preprocess(
+  migrateV0,
+  z.object({
+    version: z.literal(1).default(1),
+    /** A window is a viewport, so each holds its own view of every document. */
+    windows: z.record(z.string(), windowStateZ).default({}),
+  }),
+);
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 

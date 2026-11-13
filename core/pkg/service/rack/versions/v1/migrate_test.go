@@ -21,7 +21,7 @@ import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"

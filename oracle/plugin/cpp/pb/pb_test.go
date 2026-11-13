@@ -820,6 +820,37 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("Map type handling", func() {
+			DescribeTable(
+				"Should range-check a narrow map key on decode",
+				func(ctx SpecContext, field, keyType, assign string) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Pair struct {
+						value uint32
+					}
+
+					Ports struct {
+						` + field + `
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").ToContain(
+						"auto [key, key_err] = x::pb::narrow<"+keyType+">(k);",
+						"if (key_err) return {{}, key_err};",
+						assign,
+						"(*pb.mutable_items())[k] =",
+					)
+				},
+				Entry("a primitive value", "items map<uint8, uint32>",
+					"std::uint8_t", "cpp.items[key] = v;"),
+				Entry("a struct value", "items map<uint16, Pair>",
+					"std::uint16_t", "cpp.items[key] = cpp_v;"),
+				Entry("a signed key", "items map<int16, string>",
+					"std::int16_t", "cpp.items[key] = v;"),
+			)
+
 			It("Should iterate and insert for map fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -1263,7 +1294,9 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("has_value()").
-						ToContain("to_string()")
+						ToContain("to_string()").
+						ToContain("if (pb.has_parent()) {").
+						ToNotContain("pb.parent().empty()")
 				},
 			)
 		})
