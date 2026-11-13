@@ -159,8 +159,8 @@ class Base(BaseModel):
         role: Is the role that grants the rack its permissions.
     """
 
-    key: Key = Field(ge=0, le=4294967295)
-    name: str
+    key: Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
     embedded: bool = False
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
@@ -190,8 +190,8 @@ class Rack(BaseModel):
         role: Is the role that grants the rack its permissions.
     """
 
-    key: Key = Field(default=Key(0), ge=0, le=4294967295)
-    name: str
+    key: Key = Field(default=Key(0), gt=0, le=4294967295)
+    name: str = Field(min_length=1)
     embedded: bool = Field(default=False, exclude=True)
     status: Status | None = None
     integrations: list[str] = Field(default_factory=list)
