@@ -11,9 +11,10 @@
 //! place in the app lifecycle.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri::{AppHandle, Emitter, ExitRequestApi, Manager, RESTART_EXIT_CODE, Runtime, State};
 use tokio::sync::Mutex;
 
 use super::{Config, History, Status, Supervisor, diagnostics, discovery};
@@ -41,6 +42,18 @@ pub struct Discovery {
     path: PathBuf,
     /// Makes the compare and the write of each save one step.
     lock: Mutex<()>,
+}
+
+/// The exit of the app, managed as app state. The app exits only once its Core has
+/// stopped, so the next launch finds the data directory free.
+#[derive(Default)]
+pub struct Quit {
+    /// Set once the stop for the exit starts.
+    started: AtomicBool,
+    /// Set once the Core has stopped.
+    done: AtomicBool,
+    /// Set when the app is launched again during the stop.
+    relaunched: AtomicBool,
 }
 
 /// What the diagnostics dialog shows beside the status.
@@ -91,7 +104,44 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         path: discovery_path,
         lock: Mutex::new(()),
     });
+    app.manage(Quit::default());
     Ok(())
+}
+
+/// Stops the Core, then exits the app with `code`. A launch of the app during the stop
+/// makes the exit a restart. Only the first call acts.
+async fn quit<R: Runtime>(app: AppHandle<R>, code: Option<i32>) {
+    let state = app.state::<Quit>();
+    if state.started.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    app.state::<Supervisor>().stop().await;
+    state.done.store(true, Ordering::SeqCst);
+    match code {
+        Some(RESTART_EXIT_CODE) => app.request_restart(),
+        code => app.exit(code.unwrap_or(0)),
+    }
+}
+
+/// Holds an exit of the app until its Core has stopped. Call it on each
+/// `RunEvent::ExitRequested`.
+pub fn exit_requested<R: Runtime>(app: &AppHandle<R>, code: Option<i32>, api: &ExitRequestApi) {
+    let state = app.state::<Quit>();
+    if !state.done.load(Ordering::SeqCst) {
+        api.prevent_exit();
+        tauri::async_runtime::spawn(quit(app.clone(), code));
+    } else if state.relaunched.load(Ordering::SeqCst) && code != Some(RESTART_EXIT_CODE) {
+        api.prevent_exit();
+        app.request_restart();
+    }
+}
+
+/// Records a second launch of the app. One that arrives while the app exits restarts it.
+pub fn relaunched<R: Runtime>(app: &AppHandle<R>) {
+    let state = app.state::<Quit>();
+    if state.started.load(Ordering::SeqCst) {
+        state.relaunched.store(true, Ordering::SeqCst);
+    }
 }
 
 /// Stops the Core and returns once its process has exited. Call it before the app
@@ -125,6 +175,13 @@ pub async fn supervisor_restart(supervisor: State<'_, Supervisor>) -> Result<(),
 #[tauri::command]
 pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()> {
     supervisor.stop().await;
+    Ok(())
+}
+
+/// Stops the Core while the windows stay open, then exits the app.
+#[tauri::command]
+pub async fn supervisor_quit<R: Runtime>(app: AppHandle<R>) -> Result<(), ()> {
+    quit(app, Some(0)).await;
     Ok(())
 }
 

@@ -77,7 +77,7 @@ describe("Embedded.Guard", () => {
     const { commands, emitStatus } = mockSupervisor(() => live);
     await renderGuard();
     expect(await screen.findByText("workspace")).toBeTruthy();
-    await emitStatus({ state: "failed", message: "exited with 3" });
+    await emitStatus({ state: "failed", reason: "crashed", message: "exited with 3" });
     expect(await screen.findByText("Synnax stopped unexpectedly")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
@@ -86,6 +86,41 @@ describe("Embedded.Guard", () => {
       fireEvent.click(screen.getByRole("button", { name: "Diagnostics" }));
     });
     expect(await screen.findByText("Stopped unexpectedly")).toBeTruthy();
+  });
+});
+
+describe("Embedded.Guard stops and waits", () => {
+  afterEach(clearSupervisor);
+
+  it("should replace the workspace while the Core stops", async () => {
+    const { emitStatus } = mockSupervisor(() => live);
+    await renderGuard();
+    expect(await screen.findByText("workspace")).toBeTruthy();
+    await emitStatus({ state: "stopping" });
+    expect(await screen.findByText("Stopping Synnax...")).toBeTruthy();
+    expect(screen.queryByText("workspace")).toBeNull();
+  });
+
+  it("should wait for the Core of the last session to free the data", async () => {
+    const { emitStatus } = mockSupervisor(() => ({ state: "starting" }));
+    await renderGuard();
+    await emitStatus({ state: "waiting" });
+    expect(await screen.findByText("Waiting for Synnax to stop...")).toBeTruthy();
+    await emitStatus(live);
+    expect(await screen.findByText("workspace")).toBeTruthy();
+  });
+
+  it("should name the data folder when it stays in use", async () => {
+    const { commands, emitStatus } = mockSupervisor(() => ({ state: "waiting" }));
+    await renderGuard();
+    await emitStatus({
+      state: "failed",
+      reason: "locked",
+      message: "the data directory stayed locked for 60s",
+    });
+    expect(await screen.findByText("Data folder in use")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_restart"));
   });
 });
 

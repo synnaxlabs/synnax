@@ -21,7 +21,11 @@ import {
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 
-const FAILED: Status = { state: "failed", message: "failed to start" };
+const FAILED: Status = {
+  state: "failed",
+  reason: "failed_to_start",
+  message: "failed to start",
+};
 
 const NEVER_STARTED: History = {
   starts: 0,
@@ -30,7 +34,14 @@ const NEVER_STARTED: History = {
   readies: 0,
   readyAt: null,
   timeToReadyMs: null,
-  lastExit: { reason: "failed_to_start", message: "failed to start", uptimeSeconds: 0 },
+  lastExit: {
+    reason: "failed_to_start",
+    message: "failed to start",
+    uptimeSeconds: 0,
+    exitCode: null,
+  },
+  waits: 0,
+  lastWaitMs: null,
 };
 
 const EXITED_AFTER_READY: History = {
@@ -40,7 +51,14 @@ const EXITED_AFTER_READY: History = {
   readies: 1,
   readyAt: null,
   timeToReadyMs: 300,
-  lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 1 },
+  lastExit: {
+    reason: "crashed",
+    message: "exited with 3",
+    uptimeSeconds: 1,
+    exitCode: 3,
+  },
+  waits: 0,
+  lastWaitMs: null,
 };
 
 const followCore = async (initial: History) => {
@@ -72,7 +90,27 @@ describe("follow", () => {
   it("should report a give-up on a Core that never started", async () => {
     const { captured } = await followCore(NEVER_STARTED);
     expect(captured("core_restart_exhausted")).toEqual([
-      ["core_restart_exhausted", { reason: "failed_to_start" }],
+      ["core_restart_exhausted", { reason: "failed_to_start", exit_code: null }],
+    ]);
+  });
+
+  it("should report the exit code of a Core that exited on its own", async () => {
+    const { captured } = await followCore(EXITED_AFTER_READY);
+    expect(captured("core_exited")).toEqual([
+      ["core_exited", { reason: "crashed", uptime_seconds: 1, exit_code: 3 }],
+    ]);
+  });
+
+  it("should report each wait for the data directory exactly once", async () => {
+    const waited = { ...EXITED_AFTER_READY, waits: 1, lastWaitMs: 28_000 };
+    const { captured, change } = await followCore(waited);
+    await change(waited);
+    // Reports finish in order, so once the second wait lands the rest have too.
+    await change({ ...waited, waits: 2, lastWaitMs: 4_000 });
+    await waitFor(() => expect(captured("core_waited")).toHaveLength(2));
+    expect(captured("core_waited")).toEqual([
+      ["core_waited", { wait_ms: 28_000 }],
+      ["core_waited", { wait_ms: 4_000 }],
     ]);
   });
 

@@ -69,7 +69,9 @@ describe("Embedded.useConnParams", () => {
       wrapper: Embedded.Provider,
     });
     await emitStatus(RUNNING);
-    await act(async () => answer({ state: "failed", message: "stale" }));
+    await act(async () =>
+      answer({ state: "failed", reason: "crashed", message: "stale" }),
+    );
     expect(result.current).toEqual(PARAMS);
   });
 });
