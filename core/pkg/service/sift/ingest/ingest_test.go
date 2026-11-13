@@ -694,6 +694,37 @@ var _ = Describe("Engine", func() {
 			))
 		})
 
+		DescribeTable("Should name a run with no name by its key",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.Name = ""
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("Name", run.Key)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
+		DescribeTable("Should grow a span with no length to one nanosecond",
+			func(ctx SpecContext, update bool) {
+				e := open(ctx, channel.Keys{ch.Key()})
+				if update {
+					MustSucceed(e.SetRun(ctx, run))
+				}
+				run.TimeRange = telem.TimeRange{Start: at(2), End: at(2)}
+				MustSucceed(e.SetRun(ctx, run))
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("StartTime.AsTime()", time.Unix(2, 0).UTC()),
+					HaveField("StopTime.AsTime()", time.Unix(2, 1).UTC()),
+				)))
+			},
+			Entry("on create", false),
+			Entry("on update", true),
+		)
+
 		It("Should reject a run key that is not a UUID", func(ctx SpecContext) {
 			e := open(ctx, channel.Keys{ch.Key()})
 			run.Key = "hotfire"

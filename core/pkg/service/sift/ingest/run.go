@@ -44,9 +44,17 @@ type Run struct {
 
 // SetRun makes r an ad hoc run of the asset in Sift and returns its ID. When the asset
 // has a run with the key of r, SetRun updates its name, span, and tags to match r.
-// SetRun retries temporary failures as Upload does, and fails at once when the key of r
-// is not a UUID. It is safe to call while Upload or Stream runs.
+// Sift needs a name and a span with length, so SetRun names a run with no name by its
+// key and grows a span with no length to one nanosecond. SetRun retries temporary
+// failures as Upload does, and fails at once when the key of r is not a UUID. It is
+// safe to call while Upload or Stream runs.
 func (e *Engine) SetRun(ctx context.Context, r Run) (string, error) {
+	if r.Name == "" {
+		r.Name = r.Key
+	}
+	if r.TimeRange.End == r.TimeRange.Start {
+		r.TimeRange.End = r.TimeRange.Start + 1
+	}
 	rng, err := uuid.Parse(r.Key)
 	if err != nil {
 		return "", validate.Errorf("run key %q is not a UUID", r.Key)
