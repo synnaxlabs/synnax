@@ -214,7 +214,10 @@ export class Client extends query.Retriever<
     await this.fetchThrough(query.keysRequest([key]));
   }
 
-  /** Deletes the chassis with their statuses and the devices they hold. */
+  /**
+   * Deletes the chassis with their statuses and the devices they hold. The devices
+   * leave the device cache when their deletes stream in.
+   */
   async delete(keys: Key | Key[]): Promise<void> {
     const keysArr = array.toArray(keys);
     await this.cfg.unary.send(
