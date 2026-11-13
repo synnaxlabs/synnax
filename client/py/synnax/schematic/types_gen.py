@@ -2001,7 +2001,7 @@ class Schematic(BaseModel):
         configs: Contains per-element configuration keyed by node or edge key. The
             variant of each value selects the symbol or edge style it configures.
         group: Is the group the schematic sits in, if any.
-        project: Is the project that owns the schematic.
+        project: Is the project that holds the schematic.
     """
 
     key: Key = Field(default_factory=uuid4)

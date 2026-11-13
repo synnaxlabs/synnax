@@ -199,7 +199,7 @@ Node = Annotated[
 
 
 class Panel(BaseModel):
-    """Is a project-owned tree of visualization tabs.
+    """Is a tree of visualization tabs in a project.
 
     Attributes:
         key: Is the unique identifier for this panel.
@@ -209,7 +209,7 @@ class Panel(BaseModel):
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
         group: Is the group the panel sits in, if any.
-        project: Is the project that owns the panel.
+        project: Is the project that holds the panel.
     """
 
     key: Key = Field(default_factory=uuid4)

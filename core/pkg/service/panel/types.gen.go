@@ -87,7 +87,7 @@ type SplitNode = versions.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = versions.Key
 
-// Panel is a project-owned tree of visualization tabs.
+// Panel is a tree of visualization tabs in a project.
 type Panel = versions.Panel
 
 // Where is a filter that selects panels.

@@ -936,7 +936,7 @@ Schematic struct {
         @ref on_delete detach
     }
     project project.Key?               {
-        @doc value     "is the project that owns the schematic."
+        @doc value     "is the project that holds the schematic."
         @ref kind      place
         @ref on_delete cascade
     }

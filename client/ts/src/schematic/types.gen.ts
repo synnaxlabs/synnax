@@ -3340,7 +3340,7 @@ export const schematicZ = z.object({
   ),
   /** group is the group the schematic sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the schematic. */
+  /** project is the project that holds the schematic. */
   project: project.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}

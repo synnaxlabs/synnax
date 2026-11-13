@@ -168,7 +168,7 @@ class Log(BaseModel):
         timestamps_hidden: Is true when entry timestamps are hidden.
         time_zone: Is the time zone of the line times and day rows of the log.
         group: Is the group the log sits in, if any.
-        project: Is the project that owns the log.
+        project: Is the project that holds the log.
     """
 
     key: Key = Field(default_factory=uuid4)

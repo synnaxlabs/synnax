@@ -44,6 +44,6 @@ Rule = v5.Rule
 LinePlot struct extends v8.LinePlot {
     -range
     project project.Key? {
-        @doc value "is the project that owns the line plot."
+        @doc value "is the project that holds the line plot."
     }
 }

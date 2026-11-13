@@ -150,7 +150,7 @@ Panel struct {
         @ref on_delete detach
     }
     project project.Key? {
-        @doc value     "is the project that owns the panel."
+        @doc value     "is the project that holds the panel."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -294,7 +294,7 @@ Panel struct {
     }
 
     @create
-    @doc value     "is a project-owned tree of visualization tabs."
+    @doc value     "is a tree of visualization tabs in a project."
     @go marshal
     @go migrate
     @resource type "panel"

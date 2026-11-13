@@ -201,7 +201,7 @@ class Table(BaseModel):
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
         group: Is the group the table sits in, if any.
-        project: Is the project that owns the table.
+        project: Is the project that holds the table.
     """
 
     key: Key = Field(default_factory=uuid4)

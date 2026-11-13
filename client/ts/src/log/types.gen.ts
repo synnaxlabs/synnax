@@ -131,7 +131,7 @@ export const logZ = z.object({
   timeZone: telem.timeZoneZ.default("local"),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the log. */
+  /** project is the project that holds the log. */
   project: project.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}

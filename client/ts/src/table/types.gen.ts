@@ -227,7 +227,7 @@ export const tableZ = z.object({
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
   /** group is the group the table sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the table. */
+  /** project is the project that holds the table. */
   project: project.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}

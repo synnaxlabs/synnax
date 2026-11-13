@@ -368,7 +368,7 @@ class LinePlot(BaseModel):
             y-channel across every range the plot shows.
         rules: Holds annotation rules drawn over the plot.
         group: Is the group the line plot sits in, if any.
-        project: Is the project that owns the line plot.
+        project: Is the project that holds the line plot.
     """
 
     key: Key = Field(default_factory=uuid4)
