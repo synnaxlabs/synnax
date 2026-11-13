@@ -42,10 +42,13 @@ struct Where;
 struct StatusDetails;
 struct Cursor;
 struct DigitalOutputChannels;
-struct RetrieveRequest;
+struct Order;
 struct Configuration;
+struct RetrieveRequest;
 struct Device;
 struct RetrieveResponse;
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 using Key = x::uuid::UUID;
 
@@ -194,6 +197,9 @@ struct StatusDetails {
 struct Cursor {
     /// @brief key is the key of the device at the position.
     Key key;
+    /// @brief name is the name of the device at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -210,48 +216,18 @@ struct DigitalOutputChannels {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Order is a sort of devices.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the devices that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief after starts the devices strictly past this position in their order.
-    std::optional<Cursor> after;
-    /// @brief limit is the most devices to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
-
-/// @brief RetrieveRequest is a request to retrieve devices.
-struct RetrieveRequest {
-    /// @brief where selects the devices to retrieve. An absent where selects all of
-    /// them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the devices that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief after starts the devices strictly past this position in their order.
-    std::optional<Cursor> after;
-    /// @brief limit is the most devices to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .after = options.after,
-            .limit = options.limit,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Configuration holds the device fields that the user owns.
 struct Configuration {
@@ -272,6 +248,52 @@ struct Configuration {
     std::unordered_map<std::uint16_t, DigitalOutputChannels> digital_output = {};
 
     static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

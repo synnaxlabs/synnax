@@ -29,6 +29,7 @@ Chassis struct {
     name          string   {
         @doc value         "is a human-readable name for the chassis."
         @filter
+        @index sorted
         @search
         @validate required
     }
