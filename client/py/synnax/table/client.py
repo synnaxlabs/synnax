@@ -84,7 +84,7 @@ class Client:
             When omitted, a table is created from the ``name`` and ``project`` keyword
             arguments.
         :param name: The name of the table to create when ``tables`` is omitted.
-        :param project: The key of the project that owns the table when ``tables`` is
+        :param project: The key of the project that holds the table when ``tables`` is
             omitted.
         :returns: The created table, or a list of created tables when ``tables`` is a
             list.

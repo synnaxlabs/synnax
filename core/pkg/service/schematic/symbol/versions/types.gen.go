@@ -11,25 +11,25 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 
 // Key is a unique identifier for a schematic symbol.
-type Key = v3.Key
+type Key = v4.Key
 
 // Region is a visual styling area within a symbol state, targeting specific SVG
 // elements for dynamic coloring.
-type Region = v3.Region
+type Region = v4.Region
 
 // State is a named visual state of a symbol with regional styling configurations.
-type State = v3.State
+type State = v4.State
 
 // Handle is a connection point on a symbol for linking to other diagram elements.
-type Handle = v3.Handle
+type Handle = v4.Handle
 
 // Spec is the complete symbol definition including geometry, states, handles, and
 // rendering properties.
-type Spec = v3.Spec
+type Spec = v4.Spec
 
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
-type Symbol = v3.Symbol
+type Symbol = v4.Symbol

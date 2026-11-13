@@ -232,7 +232,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the line plots in any of the given groups.
         grouped: Matches the line plots in a group, or in no group when false.
-        projects: Matches the line plots owned by any of the given projects.
+        projects: Matches the line plots in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -368,7 +368,7 @@ class LinePlot(BaseModel):
             y-channel across every range the plot shows.
         rules: Holds annotation rules drawn over the plot.
         group: Is the group the line plot sits in, if any.
-        project: Is the project that owns the line plot.
+        project: Is the project that holds the line plot.
     """
 
     key: Key = Field(default_factory=uuid4)

@@ -37,7 +37,7 @@ class Colors:
         )
 
     def selection_colors(self) -> list[str]:
-        """The CSS color of each Selection swatch, such as "rgba(255, 0, 0, 1)"."""
+        """The CSS color of each Selection swatch, such as "#ff0000"."""
         return [
             swatch.evaluate("e => e.style.getPropertyValue('--pluto-swatch-color')")
             for swatch in self.selection_swatches().all()

@@ -318,9 +318,10 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 
 export interface ActionsProps {
   selectedGroup: string;
+  onSelectGroup: (group: group.Key) => void;
 }
 
-const Actions = ({ selectedGroup }: ActionsProps): ReactElement => {
+const Actions = ({ selectedGroup, onSelectGroup }: ActionsProps): ReactElement => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -341,11 +342,13 @@ const Actions = ({ selectedGroup }: ActionsProps): ReactElement => {
         icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;
-      await updateAsync({
-        key: uuid.create(),
+      const key = uuid.create();
+      const created = await updateAsync({
+        key,
         name: result,
         scope: schematic.symbol.TYPE_RESOURCE_ID.type,
       });
+      if (created) onSelectGroup(key);
     }, "Failed to create group");
   };
 
@@ -571,7 +574,7 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
             className={CSS.BE("schematic", "symbols", "search")}
           />
           <GroupList value={groupKey} onChange={setGroupKey} />
-          <Actions selectedGroup={groupKey} />
+          <Actions selectedGroup={groupKey} onSelectGroup={setGroupKey} />
         </Flex.Box>
         {symbolList}
       </Flex.Box>

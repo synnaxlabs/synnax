@@ -16,10 +16,21 @@ import synnax as sy
 from common import Channels
 from conftest import Client, core
 from github import GitHub
-from jobs import Jobs
+from jobs import Jobs, Queued
 from log import Log
 
 LABELS = ["self-hosted", "ubuntu-test-bot"]
+CREATED = "2026-11-11T00:00:00Z"
+WAITING = Queued(
+    labels=set(LABELS), since=sy.TimeStamp(1_794_355_200 * sy.TimeSpan.SECOND)
+)
+
+
+def queued(id: int, *, labels: list[str] = LABELS, created: str = CREATED) -> dict:
+    return {
+        "action": "queued",
+        "workflow_job": {"id": id, "labels": labels, "created_at": created},
+    }
 
 
 class Responses(GitHub):
@@ -38,7 +49,7 @@ def runs(*ids: int) -> dict:
 
 
 def job(id: int, *, status: str) -> dict:
-    return {"id": id, "status": status, "labels": LABELS}
+    return {"id": id, "status": status, "labels": LABELS, "created_at": CREATED}
 
 
 def delivery(action: str, *, id: int) -> dict:
@@ -97,11 +108,30 @@ class TestJobs:
         j = jobs(Responses({}), client=client)
         j.apply(
             [
-                {"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}},
-                {"action": "queued", "workflow_job": {"id": 2, "labels": ["x"]}},
+                queued(1),
+                queued(2, labels=["x"]),
             ]
         )
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_count_the_jobs_of_an_unscaled_pool(self, client: Client) -> None:
+        j = jobs(Responses({}), client=client)
+        j.apply([queued(1, labels=["self-hosted", "macos-build-bot"])])
+        assert j.counts() == {"macos-build-bot": 1}
+
+    def test_should_report_the_wait_of_the_oldest_job_per_pool(
+        self, client: Client
+    ) -> None:
+        j = jobs(Responses({}), client=client)
+        j.apply(
+            [
+                queued(1, created="2026-11-11T00:00:30Z"),
+                queued(2, created="2026-11-11T00:00:00Z"),
+                queued(3, labels=["x"]),
+            ]
+        )
+        now = WAITING.since + sy.TimeSpan.MINUTE
+        assert j.waits(now) == {"ubuntu-test-bot": 60}
 
     def test_should_rebuild_the_queue_from_in_progress_runs(
         self, client: Client
@@ -117,7 +147,7 @@ class TestJobs:
         )
         j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {2: set(LABELS)}
+        assert j.queued == {2: WAITING}
         assert j.counts() == {"ubuntu-test-bot": 1}
 
     def test_should_keep_the_queue_until_the_resync_finishes(
@@ -134,13 +164,13 @@ class TestJobs:
         )
         pool = Held(immediate=False)
         j = jobs(github, client=client, pool=pool)
-        j.apply([{"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}}])
+        j.apply([queued(1)])
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {1: set(LABELS)}
+        assert j.queued == {1: WAITING}
         assert not j.ready
         pool.release()
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {2: set(LABELS)}
+        assert j.queued == {2: WAITING}
         assert j.ready
 
     def test_should_keep_deliveries_that_arrive_during_a_resync(
@@ -160,13 +190,13 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         j.apply(
             [
-                {"action": "queued", "workflow_job": {"id": 3, "labels": LABELS}},
+                queued(3),
                 delivery("in_progress", id=2),
             ]
         )
         pool.release()
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {3: set(LABELS)}
+        assert j.queued == {3: WAITING}
 
     def test_should_not_restore_a_job_that_finished_during_a_resync(
         self, client: Client
@@ -203,7 +233,7 @@ class TestJobs:
         )
         j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {100: set(LABELS)}
+        assert j.queued == {100: WAITING}
 
     def test_should_restore_running_jobs_no_delivery_reported(
         self, client: Client

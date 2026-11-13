@@ -21,7 +21,7 @@ import (
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v1"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -37,7 +37,7 @@ var (
 			R: 6,
 			G: 7,
 			B: 8,
-			A: 8.5,
+			A: 9,
 		}),
 	}
 )

@@ -23,6 +23,6 @@ Column = v3.Column
 Table struct extends v4.Table {
     -range
     project project.Key? {
-        @doc value "is the project that owns the table."
+        @doc value "is the project that holds the table."
     }
 }

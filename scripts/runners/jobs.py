@@ -15,12 +15,13 @@ import re
 from collections import Counter
 from concurrent.futures import Executor, Future
 from datetime import datetime
+from typing import NamedTuple, Self
 
 import synnax as sy
 
 from github import GitHub
 from log import Log
-from scaler import Pool, pool_of
+from pools import Pool, pool_of
 
 # Distinct runs polled for step detail per cycle. At a 5 s cycle this is 3600 calls an
 # hour, which leaves room under GitHub's 5000 for the runner status poll.
@@ -28,6 +29,20 @@ STEP_RUNS_PER_CYCLE = 5
 # How often the queued set is rebuilt from the API, so a delivery GitHub never landed
 # cannot leave the scaler acting on a job that no longer exists.
 RESYNC_INTERVAL = 5 * sy.TimeSpan.MINUTE
+
+
+class Queued(NamedTuple):
+    """A job that waits for a runner."""
+
+    labels: set[str]
+    since: sy.TimeStamp
+
+    @classmethod
+    def of(cls, job: dict) -> Self:
+        return cls(
+            labels=set(job.get("labels", [])),
+            since=sy.TimeStamp(datetime.fromisoformat(job["created_at"])),
+        )
 
 
 def view(job: dict) -> dict:
@@ -87,7 +102,7 @@ def completed_line(job: dict) -> str:
 
 
 class Jobs:
-    """Holds the job each runner is running and the labels of every queued job. Both
+    """Holds the job each runner is running and every job that waits for one. Both
     are driven by deliveries; the step poll doubles as the reconciler, finishing a job
     whose completed delivery never arrived."""
 
@@ -95,9 +110,9 @@ class Jobs:
         self.github = github
         self.log = log
         self.pool = pool
-        self.syncing: Future[tuple[dict[int, set[str]], list[dict]]] | None = None
+        self.syncing: Future[tuple[dict[int, Queued], list[dict]]] | None = None
         self.active: dict[str, dict] = {}
-        self.queued: dict[int, set[str]] = {}
+        self.queued: dict[int, Queued] = {}
         # Rotates the step poll over the active runs when there are more than a cycle
         # can afford.
         self.cursor = 0
@@ -109,7 +124,7 @@ class Jobs:
 
     def queue(self, job: dict, *, action: object) -> None:
         if action == "queued":
-            self.queued[job["id"]] = set(job.get("labels", []))
+            self.queued[job["id"]] = Queued.of(job)
         else:
             self.queued.pop(job["id"], None)
 
@@ -186,11 +201,20 @@ class Jobs:
     def counts(self) -> dict[Pool, int]:
         """Queued jobs per pool, what the scaler starts instances against."""
         pools: Counter[Pool] = Counter()
-        for labels in self.queued.values():
-            pool = pool_of(labels)
+        for job in self.queued.values():
+            pool = pool_of(job.labels)
             if pool is not None:
                 pools[pool] += 1
         return dict(pools)
+
+    def waits(self, now: sy.TimeStamp) -> dict[Pool, int]:
+        """Seconds the oldest queued job of each pool has waited."""
+        oldest: dict[Pool, sy.TimeStamp] = {}
+        for job in self.queued.values():
+            pool = pool_of(job.labels)
+            if pool is not None:
+                oldest[pool] = min(oldest.get(pool, job.since), job.since)
+        return {p: int(now.span(since).seconds) for p, since in oldest.items()}
 
     def resync(self, now: sy.TimeStamp) -> None:
         """Rebuilds the queued jobs from the API and adds the running jobs that no
@@ -225,13 +249,13 @@ class Jobs:
             if job["id"] not in done:
                 self.active.setdefault(job["runner_name"], view(job))
 
-    def fetch(self) -> tuple[dict[int, set[str]], list[dict]]:
-        queued: dict[int, set[str]] = {}
+    def fetch(self) -> tuple[dict[int, Queued], list[dict]]:
+        queued: dict[int, Queued] = {}
         running: list[dict] = []
         for run in self.github.unfinished_runs():
             for job in self.github.run_jobs(run):
                 if job["status"] == "queued":
-                    queued[job["id"]] = set(job.get("labels", []))
+                    queued[job["id"]] = Queued.of(job)
                 elif job["status"] == "in_progress" and job.get("runner_name"):
                     running.append(job)
         return queued, running

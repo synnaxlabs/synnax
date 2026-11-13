@@ -113,6 +113,8 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
         readyAt: Date.now() - 540000,
         timeToReadyMs: 1840,
         lastExit: null,
+        waits: 0,
+        lastWaitMs: null,
       },
       dataDir: "/Users/synnax/Library/Application Support/Synnax/core",
       logDir: "/Users/synnax/Library/Logs/Synnax",

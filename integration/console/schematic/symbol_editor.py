@@ -163,7 +163,7 @@ class SymbolEditor:
         color.pick_auto(self.page, self._region_swatch(1, region_index))
 
     def get_region_fill_swatch_color(self, *, region_index: int = 0) -> str:
-        """Return the color a region's fill swatch shows, e.g. "rgba(255, 0, 0, 1)".
+        """Return the color a region's fill swatch shows, e.g. "#ff0000".
 
         :param region_index: Index of the region (0-based).
         """

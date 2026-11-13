@@ -25,11 +25,12 @@ var _ = Describe("Service", func() {
 			To(MatchError(ContainSubstring("db: must be non-nil")))
 	})
 
-	It("Should own the scan task config store", func(ctx SpecContext) {
+	It("Should own the config stores of the Sift task types", func(ctx SpecContext) {
 		svcDB := DeferClose(gorp.Wrap(memkv.New()))
 		svc := MustOpen(sift.OpenService(ctx, sift.ServiceConfig{DB: svcDB}))
 		Expect(svc.Stores()).To(HaveExactElements(
 			WithTransform(config.Store.Type, Equal(sift.ScanTaskType)),
+			WithTransform(config.Store.Type, Equal(sift.StreamTaskType)),
 		))
 	})
 })

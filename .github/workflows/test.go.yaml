@@ -77,10 +77,12 @@ env:
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
   # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk.
+  # one GOOS, which fits the Ubuntu runner's disk. Without a limit, a hung lint holds the
+  # runner for up to 6 hours.
   lint:
     name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -264,12 +266,15 @@ jobs:
           cache: false
 
       # This workflow file salts the key: cache archives store absolute paths, so one
-      # saved before a cache-path move would restore to the old spot.
+      # saved before a cache-path move would restore to the old spot. The trim keeps
+      # only what a run used, and a Ginkgo run uses no test results, so Ginkgo and go
+      # test do not share keys.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
+          PREFIX: go-${{ inputs.cached && 'test' || 'ginkgo' }}-${{ runner.os }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
@@ -277,8 +282,8 @@ jobs:
           {
             echo "build=$(go env GOCACHE)"
             echo "modules=$(go env GOMODCACHE)"
-            echo "module=go-test-${{ runner.os }}-$DIRECTORY-"
-            echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-"
+            echo "module=$PREFIX-$DIRECTORY-"
+            echo "sum=$PREFIX-$DIRECTORY-$SUM-"
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
@@ -295,6 +300,11 @@ jobs:
           restore-keys: |
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
+
+      - name: Mark the start of the build
+        id: start
+        shell: bash
+        run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Download the Go modules
         shell: bash
@@ -368,31 +378,28 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go refreshes an entry's mtime when it uses it, so
-      # deleting the oldest files first keeps the ones this run read. One compile of
-      # the Core tests reads or writes about 16 GB.
+      # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
+      # that mtime is less than an hour old, so an entry older than an hour before the
+      # build did not serve this run. A size budget below the size of one build deletes
+      # entries that the run used. A failed run used only a part of the cache, so only
+      # a run that passes trims and saves.
       - name: Trim the Go build cache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         shell: bash
         env:
-          BUDGET: 20000000000
           BUILD: ${{ steps.key.outputs.build }}
+          START: ${{ steps.start.outputs.seconds }}
         run: |
           cd "$BUILD"
           du -sh .
-          if [ "$RUNNER_OS" = macOS ]; then
-            find . -type f -exec stat -f '%m %z %N' {} +
-          else
-            find . -type f -printf '%T@ %s %p\n'
-          fi |
-            sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
-            xargs -r rm -f
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
           du -sh .
 
       # The shards restore the same cache and save under one key, so only the first
-      # saves.
+      # saves. Its cache holds no test build of the other shards, by design: it holds
+      # most of the packages they import, and a cache for each shard is about 1.8 GB.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |

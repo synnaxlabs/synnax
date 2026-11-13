@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
-	color "github.com/synnaxlabs/x/color/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 					R: 8,
 					G: 9,
 					B: 10,
-					A: 10.5,
+					A: 11,
 				}),
 				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 				Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
@@ -66,7 +66,7 @@ var _ = Describe("Codec", func() {
 					R: 8,
 					G: 9,
 					B: 10,
-					A: 10.5,
+					A: 11,
 				}),
 				Labels: []uuid.UUID{},
 				Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
@@ -255,7 +255,7 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 			R: 8,
 			G: 9,
 			B: 10,
-			A: 10.5,
+			A: 11,
 		}),
 		Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 		Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
@@ -398,7 +398,7 @@ func FuzzDecodeRange(f *testing.F) {
 				R: 8,
 				G: 9,
 				B: 10,
-				A: 10.5,
+				A: 11,
 			}),
 			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 			Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
@@ -433,7 +433,7 @@ func FuzzDecodeRange(f *testing.F) {
 				R: 8,
 				G: 9,
 				B: 10,
-				A: 10.5,
+				A: 11,
 			}),
 			Labels: []uuid.UUID{},
 			Parent: new(v3.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),

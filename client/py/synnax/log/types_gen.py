@@ -63,7 +63,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the logs in any of the given groups.
         grouped: Matches the logs in a group, or in no group when false.
-        projects: Matches the logs owned by any of the given projects.
+        projects: Matches the logs in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -116,7 +116,8 @@ class ChannelEntry(BaseModel):
 
     Attributes:
         channel: Is the channel this entry references.
-        color: Is the display color for the channel.
+        color: Is the display color for the channel. Absent uses the text color of the
+            log.
         notation: Is the numeric notation used to render samples.
         precision: Is the number of digits after the decimal point, from 0 to 17. Absent
             shows each sample as it arrives.
@@ -126,7 +127,7 @@ class ChannelEntry(BaseModel):
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
-    color: color_.Color
+    color: color_.Color | None = None
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
@@ -168,7 +169,7 @@ class Log(BaseModel):
         timestamps_hidden: Is true when entry timestamps are hidden.
         time_zone: Is the time zone of the line times and day rows of the log.
         group: Is the group the log sits in, if any.
-        project: Is the project that owns the log.
+        project: Is the project that holds the log.
     """
 
     key: Key = Field(default_factory=uuid4)

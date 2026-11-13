@@ -297,6 +297,19 @@ TEST(LoopTest, testSubMillisecondPreciseSleepSleeps) {
     brk.stop();
     EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.75);
 }
+
+/// @brief it should sleep, not spin, through a sleep.
+TEST(LoopTest, testSleepDoesNotSpin) {
+    constexpr int COUNT = 200;
+    Timer timer;
+    const auto cpu_start = thread_cpu_time();
+    const auto start = hs_clock::now();
+    for (int i = 0; i < COUNT; i++)
+        timer.sleep(telem::MILLISECOND);
+    const auto wall = telem::TimeSpan(hs_clock::now() - start);
+    EXPECT_GE(wall, telem::MILLISECOND * COUNT);
+    EXPECT_LT(thread_cpu_time() - cpu_start, wall * 0.1);
+}
 #endif
 
 /// @brief it should re-anchor after an overrun instead of catching up on the missed
@@ -371,6 +384,17 @@ TEST(LoopTest, testPreciseSleepSleepsOnTheGivenClock) {
     brk.stop();
     EXPECT_FALSE(timer.precise_sleep(telem::SECOND * 5, brk));
     EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 5);
+}
+
+/// @brief it should sleep on the given clock, and not on the host clock.
+TEST(LoopTest, testSleepSleepsOnTheGivenClock) {
+    const auto clock = fake_clock();
+    auto timer = clock.timer(telem::SECOND);
+    const auto start = clock.steady();
+    const auto host_start = hs_clock::now();
+    timer.sleep(telem::SECOND * 5);
+    EXPECT_EQ(telem::TimeSpan(clock.steady() - start), telem::SECOND * 5);
+    EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
 }
 
 /// @brief it should read the host's wall time by default.

@@ -236,7 +236,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the line plots in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the line plots owned by any of the given projects. */
+  /** projects matches the line plots in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -315,7 +315,7 @@ export const linePlotZ = z.object({
   rules: ruleZ.array().default(() => []),
   /** group is the group the line plot sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the line plot. */
+  /** project is the project that holds the line plot. */
   project: project.keyZ.optional(),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}

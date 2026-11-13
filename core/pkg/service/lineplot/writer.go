@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -51,11 +51,11 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
-	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
+	lp.Lines = v10.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
 	if err := lp.Validate(); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(lp.Project); err != nil {
+	if err := project.CheckMember(lp.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(lp).Exec(ctx, w.tx); err != nil {
@@ -144,7 +144,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return LinePlot{}, err
 			}
-			return next, project.ValidateOwner(next.Project)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

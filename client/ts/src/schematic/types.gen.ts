@@ -277,7 +277,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the schematics in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the schematics owned by any of the given projects. */
+  /** projects matches the schematics in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -3340,7 +3340,7 @@ export const schematicZ = z.object({
   ),
   /** group is the group the schematic sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the schematic. */
+  /** project is the project that holds the schematic. */
   project: project.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}

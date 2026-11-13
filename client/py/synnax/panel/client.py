@@ -87,7 +87,7 @@ class Client:
         :param panels: A single panel or a list of them. When omitted, a panel is
             created from the ``name`` and ``project`` keyword arguments.
         :param name: The name of the panel to create when ``panels`` is omitted.
-        :param project: The key of the project that owns the panel when ``panels`` is
+        :param project: The key of the project that holds the panel when ``panels`` is
             omitted.
         :returns: The created panel, or a list of created panels when ``panels`` is a
             list.
