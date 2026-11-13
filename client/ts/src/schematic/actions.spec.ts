@@ -596,6 +596,9 @@ describe("schematic reducer", () => {
         edge("e1", "a", "o", "b", "i", { segments, strokeWidth: 6 }),
       );
     });
+    it.each([0, 21])("should reject a stroke width of %d", (strokeWidth) => {
+      expect(() => schematic.setEdgeStyle({ key: "e1", strokeWidth })).toThrow();
+    });
     it("should not create an edge that does not exist", () => {
       const state = empty();
       expect(apply(state, schematic.setEdgeStyle({ key: "e1", strokeWidth: 6 }))).toBe(

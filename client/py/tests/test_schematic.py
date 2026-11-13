@@ -17,6 +17,7 @@ import synnax as sy
 from synnax import group, schematic
 from synnax.exceptions import NotFoundError
 from synnax.schematic import symbol
+from synnax.schematic.actions_gen import SetEdgeStylePayload
 from x import spatial
 from x.testutil import assert_eventually
 
@@ -164,6 +165,14 @@ class TestEdge:
         """Should reject an unknown edge variant."""
         with pytest.raises(ValidationError):
             schematic.Edge.model_validate({**EDGE_HANDLES, "variant": "teleporter"})
+
+
+class TestSetEdgeStylePayload:
+    @pytest.mark.parametrize("width", [0, 21])
+    def test_stroke_width_bounds(self, width: int) -> None:
+        """Should reject a stroke width outside 1 through 20."""
+        with pytest.raises(ValidationError):
+            SetEdgeStylePayload(key="e1", stroke_width=width)
 
 
 class TestSymbol:
