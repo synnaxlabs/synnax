@@ -472,13 +472,14 @@ class Overview(Surface):
                 self.get_child_range(name).wait_for(state="visible", timeout=10000)
 
     def click_child_range(self, name: str) -> None:
-        """Click on a child range to navigate to its overview.
+        """Click the name of a child range to navigate to its overview. A click on its
+        timeline bar zooms to it instead.
 
         :param name: The name of the child range to click.
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click()
+        item.get_by_text(name, exact=True).click()
 
     def create_child_range(self, name: str) -> None:
         """Create a child range from the Child Ranges section of the overview.
