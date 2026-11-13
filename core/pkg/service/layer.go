@@ -220,7 +220,8 @@ type Layer struct {
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
-	// LabJack owns the stored configuration records of the LabJack task types.
+	// LabJack owns the LabJack devices and the stored configuration records of the
+	// LabJack task types.
 	LabJack *labjack.Service
 	// Modbus owns the stored configuration records of the Modbus task types.
 	Modbus *modbus.Service
@@ -778,6 +779,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
 		Instrumentation: cfg.Child("labjack"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.LabJack) {
 		return nil, err
 	}
@@ -928,6 +931,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
+			resource.TypeLabjackDevice:   l.LabJack.Devices.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
 			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
