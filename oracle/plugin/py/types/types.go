@@ -1065,8 +1065,9 @@ func optionalInPython(field resolution.Field) bool {
 	return field.Optional || domain.HasExprFromField(field, "py", "optional")
 }
 
-// orderBounds moves the lower bounds and then le to the end of constraints, so the
-// output does not depend on which bounds a schema states and which its type implies.
+// orderBounds moves the lower bounds, then le, then allow_inf_nan to the end of
+// constraints, so the output does not depend on which bounds a schema states and which
+// its type implies.
 func orderBounds(constraints []string) {
 	rank := func(c string) int {
 		switch {
@@ -1074,6 +1075,8 @@ func orderBounds(constraints []string) {
 			return 1
 		case strings.HasPrefix(c, "le="):
 			return 2
+		case c == "allow_inf_nan=False":
+			return 3
 		default:
 			return 0
 		}
@@ -1154,8 +1157,8 @@ func collectValidation(
 	var constraints []string
 	isString := resolution.IsPrimitive(typeRef.Name) &&
 		resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsNumberPrimitive(typeRef.Name)
+	primitive := key.ResolvePrimitive(typeRef, table)
+	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
 			constraints = append(
@@ -1191,6 +1194,10 @@ func collectValidation(
 			} else {
 				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
+		}
+		isFloat := primitive == "float32" || primitive == "float64"
+		if isFloat && len(constraints) > 0 {
+			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
 	if defaultVal != nil {
