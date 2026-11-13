@@ -1037,6 +1037,11 @@ Channel struct {
 				))
 			})
 
+		It("Should fail a removed chain whose live file cannot be read", func() {
+			write(root, "schemas/synnax", "")
+			Expect(messages()).To(ConsistOf(ContainSubstring("not a directory")))
+		})
+
 		It("Should fail a removed chain that a remaining stored type imports", func() {
 			const holder = `
 import "schemas/synnax/versions/channel/v0"
