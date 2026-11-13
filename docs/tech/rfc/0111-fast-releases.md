@@ -33,7 +33,7 @@ UTC. Six release runs did the work:
   macOS step passes no cache flags (`build.synnax.yaml:427-435`). Bazel took 87 minutes
   for the Driver release and 110 minutes for Synnax Desktop. The Linux bot took 19.
 - **Repeat builds**: Synnax Desktop builds the Driver from source
-  (`release.desktop.yaml:150-155`), minutes after a release built the same code.
+  (`release.desktop.yaml`, now deleted), minutes after a release built the same code.
 - **Serial job graph**: The packages wait for `publish-console`, `publish-driver`, and
   `publish-core` (`release.yaml:410`), and the Core waits for both publishes
   (`release.yaml:616`). Only the Core has a real input from the other products.

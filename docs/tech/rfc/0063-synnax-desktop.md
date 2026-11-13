@@ -370,9 +370,9 @@ tell which products work together, and Desktop pairs with nothing but its own Co
 
 A person dispatches `release.yaml` with `desktop` set, a `desktop_bump`, and an optional
 candidate flag: a `minor` (the default) or `major` bump from `main`, or a `patch` from a
-`release/desktop-X.Y` branch. A run from any other branch fails. RFC 0111 §3.0 moved
-Desktop into `release.yaml` from a workflow of its own, `release.desktop.yaml`. The
-stages are those of the other products:
+`release/desktop-X.Y` branch, with every other product off, since they fail there. A run
+from any other branch fails. RFC 0111 §3.0 moved Desktop into `release.yaml` from a
+workflow of its own, `release.desktop.yaml`. The stages are those of the other products:
 
 1. **Verify**: The commit needs one green run of `ci.yaml` with `full`: every job on
    every OS it supports, plus integration on Ubuntu and Windows. It runs in parallel
@@ -385,9 +385,9 @@ stages are those of the other products:
 3. **Draft**: `draft-release` makes a draft under the tag.
 4. **Build**: `build.synnax.yaml` builds a Core with the Driver embedded and Desktop,
    for macOS arm64 and Windows x64, signed and notarized. The Driver is the one of the
-   run when the run releases the Driver and the Core. If not, the build compiles it. The
-   run passes no release tag, so the Core and Driver never appear as release assets. The
-   Desktop job places the Core at
+   run when the run releases the Driver and the Core on one minor. If not, the build
+   compiles it. The run passes no release tag, so the Core and Driver never appear as
+   release assets. The Desktop job places the Core at
    `console/src-tauri/binaries/synnax-core-<target-triple>`, which Git ignores
    (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
 5. **Publish**: A job uploads the bundles to the draft under names without a space
