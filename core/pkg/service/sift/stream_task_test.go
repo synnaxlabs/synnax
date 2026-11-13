@@ -519,6 +519,92 @@ var _ = Describe("Stream task", func() {
 				))
 			})
 
+		// removeLabel removes the task label from rng.
+		removeLabel := func(ctx context.Context, rng ranger.Range) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).
+					RemoveLabels(ctx, rng.Key, []label.Key{l.Key})
+			})).To(Succeed())
+		}
+
+		// createCold creates a label that no task has.
+		createCold := func(ctx context.Context) label.Label {
+			GinkgoHelper()
+			cold := label.Label{Name: "cold"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Create(ctx, &cold)
+			})).To(Succeed())
+			return cold
+		}
+
+		It("Should update the tags of a run when its range loses the task label",
+			func(ctx SpecContext) {
+				cold := createCold(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key, cold.Key)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("hotfire", "cold")),
+				))
+				removeLabel(ctx, rng)
+				Eventually(server.Runs).Should(HaveExactElements(
+					HaveField("Tags", ConsistOf("cold")),
+				))
+			})
+
+		It("Should not make a run of a range that loses the task label before its run",
+			func(ctx SpecContext) {
+				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key)
+				Eventually(taskStatus).WithArguments(ctx, t).
+					Should(HaveField("Message", "Failed to set Sift run"))
+				removeLabel(ctx, rng)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantSuccess),
+					HaveField("Message", "Started task"),
+				))
+				Consistently(server.Runs).
+					WithTimeout(200 * time.Millisecond).
+					Should(BeEmpty())
+			})
+
+		It("Should warn until the range changes when Sift rejects its new tags",
+			func(ctx SpecContext) {
+				cold := createCold(ctx)
+				start(ctx, streamConfig(l.Key))
+				rng := endedRange(ctx, l.Key, cold.Key)
+				Eventually(server.Runs).Should(HaveLen(1))
+				server.FailRunUpdates(
+					grpcstatus.Error(codes.InvalidArgument, "bad tags"),
+				)
+				removeLabel(ctx, rng)
+				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", "Failed to set Sift run"),
+					HaveField("Description", "Sift rejected the run of "+rng.Name+
+						": bad tags. Change the range to try again."),
+				))
+				send(ctx, 3)
+				Eventually(values).Should(ContainElement(3.0))
+				Consistently(taskStatus).WithArguments(ctx, t).
+					WithTimeout(200 * time.Millisecond).
+					Should(HaveField("Message", "Failed to set Sift run"))
+				rename := ranger.NewSetAction(ranger.SetPayload{
+					Path:  []string{"name"},
+					Value: "renamed",
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangerSvc.NewWriter(tx).Apply(ctx, rng.Key, rename)
+				})).To(Succeed())
+				Eventually(server.Runs).Should(HaveExactElements(SatisfyAll(
+					HaveField("Name", "renamed"),
+					HaveField("Tags", ConsistOf("cold")),
+				)))
+				Eventually(taskStatus).WithArguments(ctx, t).
+					Should(HaveField("Message", "Started task"))
+			})
+
 		It("Should update the tags of a run when a task label is renamed",
 			func(ctx SpecContext) {
 				start(ctx, streamConfig(l.Key))

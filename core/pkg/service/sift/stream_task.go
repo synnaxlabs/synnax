@@ -419,58 +419,107 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		Exec(ctx, r.task.factoryCfg.DB); err != nil {
 		return err
 	}
-	var rejection string
+	labeled := make(set.Set[ranger.Key], len(ranges))
 	for _, rng := range ranges {
+		labeled.Add(rng.Key)
 		// The names of the labels of a range are the tags of its run.
 		if slices.ContainsFunc(rng.Labels, labels.Contains) {
 			changed.Add(rng.Key)
 		}
-		if changed.Contains(rng.Key) {
-			delete(r.rejected, rng.Key)
+	}
+	var lost []ranger.Key
+	for key := range changed {
+		delete(r.rejected, key)
+		if !labeled.Contains(key) {
+			lost = append(lost, key)
 		}
-		if why, ok := r.rejected[rng.Key]; ok {
-			rejection = cmp.Or(rejection, why)
-			continue
-		}
-		end := rng.TimeRange.End
-		// Sift has every sample before since, also when sent falls behind it after a
-		// restart or a catch-up. So a range that ends by since does not wait for sent.
-		ready := end <= sent
-		if end <= since {
-			ready = !r.synced || changed.Contains(rng.Key)
-		}
-		// Sift has no data of a range that ends by start.
-		if end <= start || !ready {
-			continue
-		}
-		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
-		if err != nil {
+	}
+	// A range that loses its last task label keeps its run, whose tags still change.
+	var unlabeled []ranger.Range
+	if len(lost) > 0 {
+		if err = r.task.factoryCfg.Ranger.NewRetrieve().
+			Where(ranger.MatchKeys(lost...)).
+			SkipMissingKeys().
+			Entries(&unlabeled).
+			Exec(ctx, r.task.factoryCfg.DB); err != nil {
 			return err
 		}
-		if _, err = r.engine.SetRun(ctx, ingest.Run{
-			Key:       rng.Key.String(),
-			Name:      rng.Name,
-			TimeRange: rng.TimeRange,
-			Tags:      tags,
-		}); err != nil {
-			st, ok := statusOf(err)
-			if !ok || denied(st) {
-				return err
-			}
-			why := fmt.Sprintf(
-				"Sift rejected the run of %s: %s. Change the range to try again.",
-				rng.Name,
-				st.Message(),
-			)
-			r.rejected[rng.Key] = why
-			rejection = cmp.Or(rejection, why)
+	}
+	ready := func(rng ranger.Range) bool {
+		end := rng.TimeRange.End
+		// Sift has no data of a range that ends by start.
+		if end <= start {
+			return false
+		}
+		// Sift has every sample before since, also when sent falls behind it after a
+		// restart or a catch-up. So a range that ends by since does not wait for sent.
+		if end <= since {
+			return !r.synced || changed.Contains(rng.Key)
+		}
+		return end <= sent
+	}
+	for _, rng := range ranges {
+		if _, ok := r.rejected[rng.Key]; ok || !ready(rng) {
+			continue
+		}
+		if err = r.put(ctx, rng, true); err != nil {
+			return err
+		}
+	}
+	for _, rng := range unlabeled {
+		if !ready(rng) {
+			continue
+		}
+		if err = r.put(ctx, rng, false); err != nil {
+			return err
 		}
 	}
 	if sent > since {
 		r.progress.setRunsThrough(ctx, sent)
 	}
 	r.synced = true
+	var rejection string
+	if len(r.rejected) > 0 {
+		first := slices.MinFunc(
+			slices.Collect(maps.Keys(r.rejected)),
+			ranger.Key.Compare,
+		)
+		rejection = r.rejected[first]
+	}
 	r.health.setRun(ctx, rejection)
+	return nil
+}
+
+// put sets the run of rng, or only updates an existing run when create is false. It
+// returns nil when Sift rejects the run, which waits in rejected until rng changes.
+func (r *runSync) put(ctx context.Context, rng ranger.Range, create bool) error {
+	tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
+	if err != nil {
+		return err
+	}
+	run := ingest.Run{
+		Key:       rng.Key.String(),
+		Name:      rng.Name,
+		TimeRange: rng.TimeRange,
+		Tags:      tags,
+	}
+	if create {
+		_, err = r.engine.SetRun(ctx, run)
+	} else {
+		_, err = r.engine.UpdateRun(ctx, run)
+	}
+	if err == nil {
+		return nil
+	}
+	st, ok := statusOf(err)
+	if !ok || denied(st) {
+		return err
+	}
+	r.rejected[rng.Key] = fmt.Sprintf(
+		"Sift rejected the run of %s: %s. Change the range to try again.",
+		rng.Name,
+		st.Message(),
+	)
 	return nil
 }
 
