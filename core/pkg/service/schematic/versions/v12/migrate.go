@@ -257,7 +257,8 @@ func migrateRollingAverage(n *int32) *uint16 {
 }
 
 // MigrateStalenessConfig lifts a v11 staleness config into v12. It converts the timeout
-// from seconds to a span. A NaN timeout, or one under 1 second, becomes 5 seconds.
+// from seconds to a span. A timeout under 1 second becomes 1 second. A NaN timeout, or
+// one of 0 or less, becomes 5 seconds.
 func MigrateStalenessConfig(
 	ctx context.Context,
 	old v11.StalenessConfig,
@@ -273,10 +274,10 @@ func MigrateStalenessConfig(
 const defaultStalenessTimeout = 5 * telem.Second
 
 func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
-	if math.IsNaN(seconds) || seconds < 1 {
+	if math.IsNaN(seconds) || seconds <= 0 {
 		return defaultStalenessTimeout
 	}
-	return migrateSpan(seconds, telem.Second)
+	return migrateSpan(max(seconds, 1), telem.Second)
 }
 
 // maxOnClickDelay is the longest delay, in milliseconds, that a browser timer waits.
