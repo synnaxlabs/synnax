@@ -338,9 +338,11 @@ void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) const {
         task_status.details.data = this->status_data();
     } else {
         task_status.variant = synnax::status::VARIANT_SUCCESS;
-        task_status.message = "Turned off the DewesoftX filter";
-        task_status.description = "Synnax looks for modules on the adapter again "
-                                  "within a few scans.";
+        task_status.message = "Started to turn off the DewesoftX filter";
+        task_status.description = "If Windows asks for administrator access on the "
+                                  "computer that runs the Driver, click Yes. Synnax "
+                                  "looks for modules on the adapter again within a "
+                                  "few scans.";
     }
     this->ctx->set_status(task_status);
 }

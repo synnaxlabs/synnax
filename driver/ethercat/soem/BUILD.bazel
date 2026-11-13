@@ -119,10 +119,6 @@ cc_library(
 cc_test(
     name = "filter_test",
     srcs = ["filter_test.cpp"],
-    linkopts = select({
-        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
-        "//conditions:default": [],
-    }),
     deps = [
         ":filter",
         "//driver/ethercat/errors",

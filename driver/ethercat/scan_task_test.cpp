@@ -440,10 +440,12 @@ TEST_F(EtherCATScanFilterTest, TurnsOffTheFilterOnTheReportedInterfaces) {
     ASSERT_EQ(this->disabled.size(), 1);
     EXPECT_EQ(this->disabled[0], std::vector<std::string>{"eth0"});
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(status.message, "Turned off the DewesoftX filter");
+    EXPECT_EQ(status.message, "Started to turn off the DewesoftX filter");
     EXPECT_EQ(
         status.description,
-        "Synnax looks for modules on the adapter again within a few scans."
+        "If Windows asks for administrator access on the computer that runs the "
+        "Driver, click Yes. Synnax looks for modules on the adapter again within a few "
+        "scans."
     );
     EXPECT_EQ(status.details.cmd, "1");
 }
@@ -452,7 +454,7 @@ TEST_F(EtherCATScanFilterTest, TurnsOffTheFilterOnTheReportedInterfaces) {
 TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
     this->disable_err = x::errors::Error(
         errors::FILTER_ERROR,
-        "Windows did not give the Driver administrator access."
+        "Windows could not start PowerShell (error 5)."
     );
     ASSERT_OCCURRED_AS_P(
         this->scanner->scan({.devices = &this->saved}),

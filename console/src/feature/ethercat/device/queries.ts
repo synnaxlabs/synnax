@@ -178,8 +178,9 @@ export interface DisableFilterParams {
 }
 
 /**
- * Turns off the DewesoftX filter on the adapters that the last scan found it blocks.
- * Windows can ask for administrator access on the computer that runs the Driver.
+ * Starts to turn off the DewesoftX filter on the adapters that the last scan found it
+ * blocks. Windows can ask for administrator access on the computer that runs the
+ * Driver, and the next scans show whether the filter is off.
  */
 export const { useUpdate: useDisableFilter } = Flux.createUpdate<DisableFilterParams>({
   name: "the DewesoftX filter",
@@ -187,7 +188,6 @@ export const { useUpdate: useDisableFilter } = Flux.createUpdate<DisableFilterPa
   update: async ({ data }) => {
     const res = await data.scanner.executeCommandSync({
       type: DISABLE_DEWESOFT_FILTER_COMMAND,
-      timeout: TimeSpan.seconds(60),
     });
     if (res.variant === "error") throw status.toError(res);
     return data;
