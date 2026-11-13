@@ -112,6 +112,21 @@ describe("Stack", () => {
   describe("triggers", () => {
     const Noop: Modals.Content = () => null;
 
+    interface ListenerProps {
+      onTrigger: () => void;
+    }
+
+    const Listener: Modals.Content<ListenerProps, void> = ({ onTrigger }) => {
+      Triggers.use({
+        triggers: [["Control", "Enter"]],
+        loose: true,
+        callback: ({ stage }) => {
+          if (stage === "start") onTrigger();
+        },
+      });
+      return null;
+    };
+
     const press = (...codes: string[]): void => {
       codes.forEach((code) => fireEvent.keyDown(window, { code }));
       [...codes].reverse().forEach((code) => fireEvent.keyUp(window, { code }));
@@ -151,6 +166,22 @@ describe("Stack", () => {
       act(() => modals.closeTop());
       press("ControlLeft", "KeyT");
       expect(callback).toHaveBeenCalledOnce();
+    });
+
+    it("should let only the top modal hear its triggers", () => {
+      const { modals } = renderPage(["Control", "T"]);
+      const below = vi.fn();
+      const above = vi.fn();
+      act(() => {
+        modals.push(Listener, { onTrigger: below }, () => {});
+        modals.push(Listener, { onTrigger: above }, () => {});
+      });
+      press("ControlLeft", "Enter");
+      expect(above).toHaveBeenCalledOnce();
+      expect(below).not.toHaveBeenCalled();
+      act(() => modals.closeTop());
+      press("ControlLeft", "Enter");
+      expect(below).toHaveBeenCalledOnce();
     });
 
     it("should close the top modal on the close trigger, out of the page's hearing", () => {

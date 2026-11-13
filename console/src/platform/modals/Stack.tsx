@@ -16,9 +16,24 @@ import { Session } from "@/session";
 
 const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
 
+interface LayerProps {
+  entry: Session.Modals.Entry;
+  store: Session.Modals.Store;
+}
+
+const Layer = ({ entry, store }: LayerProps): ReactElement => {
+  const { key, ...rest } = entry;
+  const top = () => store.getState().at(-1)?.key === key;
+  return (
+    <Triggers.Scope active={top}>
+      <Modal key={key} {...rest} />
+    </Triggers.Scope>
+  );
+};
+
 /**
- * Renders the open modals over its children. While a modal is open, the children hear
- * no triggers, and the close trigger closes the top modal.
+ * Renders the open modals over its children. Only the top modal hears triggers, and the
+ * close trigger closes it.
  */
 export const Stack = ({ children }: PropsWithChildren): ReactElement => {
   const stack = Session.Modals.useStack();
@@ -36,8 +51,8 @@ export const Stack = ({ children }: PropsWithChildren): ReactElement => {
   });
   return (
     <>
-      {stack.map(({ key, ...rest }) => (
-        <Modal key={key} {...rest} />
+      {stack.map((entry) => (
+        <Layer key={entry.key} entry={entry} store={store} />
       ))}
       <Triggers.Scope active={() => !store.isAnyOpen()}>{children}</Triggers.Scope>
     </>
