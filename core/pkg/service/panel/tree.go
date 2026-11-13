@@ -61,10 +61,10 @@ var resourceTabTypes = set.New(
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:
-// every node has a variant, split sizes are within [0, 1], tab keys are unique across
-// the tree, every resource backs at most one tab, and every resource tab displays a
-// type in resourceTabTypes. Called before any tree is persisted, both for
-// caller-provided trees on create and for reduced trees on dispatch.
+// every node has a variant, tab keys are unique across the tree, every resource backs
+// at most one tab, and every resource tab displays a type in resourceTabTypes. Called
+// before any tree is persisted, both for caller-provided trees on create and for
+// reduced trees on dispatch.
 func validateTree(root Node) error {
 	return validateNode(root, set.New[uuid.UUID](), set.New[resource.ID]())
 }
@@ -104,9 +104,6 @@ func validateNode(
 		}
 		return nil
 	case SplitNode:
-		if v.Size < 0 || v.Size > 1 {
-			return errInvalidSize
-		}
 		if err := validateNode(v.First, seen, seenResources); err != nil {
 			return err
 		}

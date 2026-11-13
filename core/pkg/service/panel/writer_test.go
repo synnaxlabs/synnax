@@ -99,7 +99,7 @@ var _ = Describe("Writer", func() {
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
-			}, "split size must be in [0, 1]"),
+			}, "size: must be less than or equal to 1"),
 			Entry("nil child node", func() panel.Node {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(uuid.New())), panel.Node{})
