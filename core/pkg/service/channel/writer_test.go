@@ -1231,6 +1231,20 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring("name: required")))
 			})
+			It("Should reject renaming to an empty name", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        "named",
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+				})).To(MatchError(ContainSubstring("name: required")))
+			})
 			It(
 				"Should allow renaming to a name with special characters",
 				func(ctx SpecContext) {
