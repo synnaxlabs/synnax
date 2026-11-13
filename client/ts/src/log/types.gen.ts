@@ -46,8 +46,10 @@ export type Key = z.infer<typeof keyZ>;
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
   channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
-  /** color is the display color for the channel. */
-  color: color.colorZ,
+  /**
+   * color is the display color for the channel. Absent uses the text color of the log.
+   */
+  color: color.colorZ.optional(),
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**

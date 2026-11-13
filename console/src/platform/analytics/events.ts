@@ -9,7 +9,13 @@
 
 import { z } from "zod";
 
-const exitReasonZ = z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]);
+const exitReasonZ = z.enum([
+  "failed_to_start",
+  "crashed",
+  "not_ready",
+  "unresponsive",
+  "locked",
+]);
 
 /**
  * The properties of every event, keyed by event name. The schemas are strict, so a
@@ -42,9 +48,18 @@ export const schemas = {
   core_exited: z.strictObject({
     reason: exitReasonZ,
     uptime_seconds: z.number(),
+    exit_code: z.number().nullable(),
   }),
-  /** The reason is that of the last exit before the app gave up. */
-  core_restart_exhausted: z.strictObject({ reason: exitReasonZ }),
+  /** The reason and code are those of the last exit before the app gave up. */
+  core_restart_exhausted: z.strictObject({
+    reason: exitReasonZ,
+    exit_code: z.number().nullable(),
+  }),
+  /**
+   * The Core waited for another process to free its data directory. A wait that timed
+   * out is followed by `core_restart_exhausted` with the reason `locked`.
+   */
+  core_waited: z.strictObject({ wait_ms: z.number() }),
   core_reset: z.strictObject({ data_size_bytes: z.number() }),
 } as const;
 

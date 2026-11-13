@@ -19,7 +19,6 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -111,8 +110,6 @@ type Panel struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the panel.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Owner is the user whose draft the panel is. Nil for a shared panel.
-	Owner *user.Key `json:"owner,omitzero" msgpack:"owner,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -154,7 +151,6 @@ func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

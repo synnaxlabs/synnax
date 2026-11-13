@@ -56,11 +56,12 @@ var _ = Describe("Stored v7 line plots", func() {
 		func(ctx SpecContext) {
 			db, keys := openChannels(ctx, 1)
 			ch := keys[0]
-			// Mark the chain through v7 as applied, so only the v8 steps run on open.
+			// Mark the chain through v7 as applied, so only the later steps run on
+			// open.
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-6],
+				Migrations: versions.Migrations[:len(versions.Migrations)-7],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),

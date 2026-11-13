@@ -17,6 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
+import { Sift } from "@/feature/sift";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
@@ -100,6 +101,13 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
         onFavorite={handleFavorite}
         onUnfavorite={handleUnfavorite}
       />
+      <Menu.Divider />
+      {isSingle && (
+        <Sift.Range.UploadMenuItem
+          rangeKey={ranges[0].key}
+          rangeName={ranges[0].name}
+        />
+      )}
       <Menu.Divider />
       {isSingle && (
         <Link.CopyContextMenuItem

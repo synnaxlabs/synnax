@@ -41,7 +41,7 @@ var _ = Describe("Writer", func() {
 				Channels: []log.ChannelEntry{
 					{
 						Channel: ch1,
-						Color:   MustSucceed(color.FromHex("#ff0000")),
+						Color:   new(MustSucceed(color.Parse("#ff0000"))),
 					},
 				},
 			})
@@ -477,10 +477,10 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
-					red := color.Color{R: 255, G: 0, B: 0, A: 1}
+					red := color.Color{R: 255, G: 0, B: 0, A: 255}
 					Expect(dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
-							log.SetChannelColorPayload{Channel: ch5, Color: red},
+							log.SetChannelColorPayload{Channel: ch5, Color: &red},
 						),
 						log.NewSetChannelNotationAction(
 							log.SetChannelNotationPayload{
@@ -511,7 +511,7 @@ var _ = Describe("Writer", func() {
 						),
 					})).To(Succeed())
 					entry := retrieve(ctx, l.Key).Channels[0]
-					Expect(entry.Color).To(Equal(red))
+					Expect(entry.Color).To(HaveValue(Equal(red)))
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
 					Expect(entry.Precision).To(Equal(new(uint8(4))))
 					Expect(entry.Alias).To(Equal("volts"))
@@ -561,6 +561,24 @@ var _ = Describe("Writer", func() {
 					),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Channels[0].Precision).To(BeNil())
+			})
+
+			It("Should clear a channel color", func(ctx SpecContext) {
+				red := color.Color{R: 255, A: 255}
+				l := defaults.Fill(log.Log{
+					Project:  &proj.Key,
+					Name:     "test",
+					Channels: []log.ChannelEntry{{Channel: ch5, Color: &red}},
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &l)
+				})).To(Succeed())
+				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelColorAction(
+						log.SetChannelColorPayload{Channel: ch5},
+					),
+				})).To(Succeed())
+				Expect(retrieve(ctx, l.Key).Channels[0].Color).To(BeNil())
 			})
 
 			DescribeTable("Should reject an out-of-range channel precision",

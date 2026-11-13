@@ -12,6 +12,11 @@
       "tests": [{ "case": "hitl/ethercat_perf" }]
     },
     {
+      "sequence_name": "LabJack",
+      "isolated": true,
+      "tests": [{ "case": "hitl/labjack_perf" }]
+    },
+    {
       "sequence_name": "cRIO",
       "isolated": true,
       "tests": [{ "case": "hitl/crio_perf" }]

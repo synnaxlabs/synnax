@@ -95,6 +95,7 @@ func Analyze(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validatePatternRules(table, diag)
 	return table, diag
 }
 
@@ -131,6 +132,7 @@ func AnalyzeSeeded(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validatePatternRules(table, diag)
 	return diag
 }
 

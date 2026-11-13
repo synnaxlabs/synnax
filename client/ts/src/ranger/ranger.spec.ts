@@ -98,7 +98,7 @@ describe("range", () => {
       });
       expect(range.key).not.toHaveLength(0);
       expect(timeRange).toEqual(range.timeRange);
-      expect(range.color).toEqual([231, 116, 208, 1]);
+      expect(range.color).toEqual([231, 116, 208, 255]);
     });
     it("should create multiple ranges", async () => {
       const ranges: ranger.New[] = [
