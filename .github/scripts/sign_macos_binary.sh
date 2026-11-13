@@ -80,7 +80,10 @@ for ATTEMPT in 1 2 3; do
     if RESULT=$(xcrun notarytool wait "$ID" "${NOTARY[@]}" --timeout 6m); then
         break
     fi
-    echo "$RESULT"
+    [ "$ATTEMPT" = 3 ] || {
+        echo "$RESULT"
+        sleep 10
+    }
 done
 echo "$RESULT"
 if [ "$(jq -r .status <<< "$RESULT")" != "Accepted" ]; then
