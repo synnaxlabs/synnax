@@ -20,9 +20,8 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -55,11 +54,10 @@ var _ = Describe("Codec", func() {
 					R: 12,
 					G: 13,
 					B: 14,
-					A: 15,
+					A: 14.5,
 				}),
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 			}),
 			Entry("zero values", v4.Panel{
 				Key:     uuid.Nil(),
@@ -69,7 +67,6 @@ var _ = Describe("Codec", func() {
 				Color:   nil,
 				Group:   nil,
 				Project: nil,
-				Range:   nil,
 			}),
 		)
 	})
@@ -92,11 +89,10 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 			R: 12,
 			G: 13,
 			B: 14,
-			A: 15,
+			A: 14.5,
 		}),
 		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -131,11 +127,10 @@ func FuzzDecodePanel(f *testing.F) {
 				R: 12,
 				G: 13,
 				B: 14,
-				A: 15,
+				A: 14.5,
 			}),
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -152,7 +147,6 @@ func FuzzDecodePanel(f *testing.F) {
 			Color:   nil,
 			Group:   nil,
 			Project: nil,
-			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

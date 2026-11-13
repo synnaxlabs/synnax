@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
+import "schemas/synnax/device"
+import "schemas/synnax/label"
+import "schemas/synnax/ranger"
 import "schemas/synnax/secret"
 import "schemas/synnax/task"
+import "schemas/x/telem"
 
 @go output "core/pkg/service/sift"
 
@@ -32,4 +37,110 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+}
+
+StreamConfig struct extends task.StartConfig {
+    device   device.Key = "" {
+        @doc value     "is the key of the Sift device the task sends to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    asset    string = "" {
+        @doc value "is the name of the Sift asset that receives the data."
+    }
+    channels channel.Key[] {
+        @doc value     "are the channels the task sends."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    labels   label.Key[]   {
+        @doc value     """
+            are the labels that make a range a Sift run. A range with any of them
+            becomes a run once Sift has its data. Empty makes no runs.
+        """
+        @ref kind      use
+        @ref on_delete detach
+    }
+
+    @doc value           "configures a task that streams live data to Sift."
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
+
+Position struct {
+    index channel.Key     {
+        @doc value "is the index channel the position belongs to."
+    }
+    time  telem.TimeStamp {
+        @doc value """
+            is the time before which Sift confirmed every sample of the channels on the
+            index.
+        """
+    }
+
+    @doc value "is how far a transfer to Sift has reached on one index."
+}
+
+ChannelPosition struct {
+    channel channel.Key     {
+        @doc value "is the data channel the position belongs to."
+    }
+    time    telem.TimeStamp {
+        @doc value "is the time before which Sift confirmed every value of the channel."
+    }
+
+    @doc value "is how far Sift has confirmed the values of one data channel."
+}
+
+UploadDetails struct {
+    device     device.Key      {
+        @doc value "is the key of the Sift device the upload sends to."
+    }
+    range      ranger.Key      {
+        @doc value "is the key of the range whose data the upload sends."
+    }
+    time_range telem.TimeRange {
+        @doc value "is the span of data the upload sends."
+    }
+    channels   channel.Key[]   {
+        @doc value "are the channels the upload sends."
+    }
+    asset      string          {
+        @doc value "is the name of the Sift asset that receives the data."
+    }
+    positions  Position[]      {
+        @doc value "holds, for each index, how far Sift has confirmed the upload."
+    }
+    samples    int64 = 0 {
+        @doc value "is the number of values Sift has confirmed."
+    }
+
+    @doc value "is the state of an upload to Sift, held in the details of its status."
+}
+
+StreamDetails struct {
+    start        telem.TimeStamp   {
+        @doc value """
+            is the time the task started to send from, so a range that ends at or before
+            it gets no run.
+        """
+    }
+    positions    Position[]        {
+        @doc value "holds, for each index, how far Sift has confirmed the stream."
+    }
+    runs_through telem.TimeStamp   {
+        @doc value "is the time before which every labeled range that ended has a run."
+    }
+    behind       ChannelPosition[] {
+        @doc value """
+            holds each data channel that was written without its index and whose values
+            Sift has not confirmed. It is empty while every channel arrives with its
+            index.
+        """
+    }
+
+    @doc value "is the progress of a stream to Sift, held in the details of its status."
 }

@@ -28,7 +28,6 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
 
@@ -45,7 +44,6 @@ import {
   createSelectedPanel,
   createTaskStatus,
 } from "@/platform/task/testutil";
-import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditing,
@@ -437,29 +435,6 @@ describe("task/Toolbar Arc rows", () => {
       await openContextMenuUntil(a.name, "Reload Console");
       expect(screen.queryByText("Delete")).toBeNull();
     });
-
-    it("leaves the Arc out of a snapshot to the active range", async () => {
-      const { arc: a } = await createBoundArc();
-      const t = await createTask();
-      const start = TimeStamp.now();
-      const rng = await client.ranges.create({
-        name: uniqueName("range"),
-        timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
-      });
-      const { store } = await renderToolbar();
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-      store.dispatch(Session.Range.select(rng.key));
-      await selectRows(t.name, a.name);
-      await openContextMenuUntil(a.name, `Snapshot to ${rng.name}`);
-      fireEvent.click(screen.getByText(`Snapshot to ${rng.name}`));
-      const snapshots = await waitFor(async () => {
-        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
-        expect(tasks).not.toHaveLength(0);
-        return tasks;
-      });
-      createdTasks.push(...snapshots.map((s) => s.key));
-      expect(snapshots.map(({ type }) => type)).toEqual([NI.Task.ANALOG_READ_TYPE]);
-    });
   });
 });
 
@@ -714,27 +689,6 @@ describe("task/Toolbar", () => {
           NotFoundError.matches(e),
         );
       });
-    });
-
-    it("snapshots the task to the active range", async () => {
-      const t = await createTask();
-      const start = TimeStamp.now();
-      const rng = await client.ranges.create({
-        name: uniqueName("range"),
-        timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
-      });
-      const { store } = await renderToolbar();
-      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
-      store.dispatch(Session.Range.select(rng.key));
-      await openContextMenu(t.name);
-      fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
-      const snapshots = await waitFor(async () => {
-        const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
-        expect(tasks).not.toHaveLength(0);
-        return tasks;
-      });
-      // The snapshot is a task on the same rack, which cannot go while it remains.
-      createdTasks.push(...snapshots.map((s) => s.key));
     });
   });
 

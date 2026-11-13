@@ -13,14 +13,31 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
 )
 
-// MigrateTable lifts a v4 table to v5, which stores every color alpha as a 0-255
-// byte.
+// MigrateTable lifts a v4 table into v5, which drops the range owner.
 func MigrateTable(ctx context.Context, old v4.Table) (Table, error) {
 	return autoMigrateTable(ctx, old)
 }
 
-// Migration lifts stored tables from v4 to v5.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateTable)
+// RangeMigration deletes each stored v4 table that a range owns, and logs a warning
+// for each.
+var RangeMigration = projectv3.NewDeleteMigration(
+	projectv3.DeleteConfig[v4.Key, v4.Table]{
+		Name:   "v62_table_delete_range_owned",
+		Type:   resource.TypeTable,
+		NameOf: func(e v4.Table) string { return e.Name },
+		Reason: func(e v4.Table) string {
+			if e.Range != nil {
+				return "owned by a range"
+			}
+			return ""
+		},
+	},
+)
+
+// Migration lifts each stored table from v4 to v5.
+var Migration = migrate.NewEntry("v62_table_drop_range", MigrateTable)

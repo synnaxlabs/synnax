@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
-import "schemas/synnax/versions/ranger/v1"
-import "schemas/x/versions/color/v2"
-import "schemas/x/versions/notation/v0"
-import "schemas/x/versions/text/v0"
 
 Key = v0.Key
 
 FlexAlignment = v2.FlexAlignment
 
-CellConfig union on variant extends v2.CellConfig {}
+CellConfig = v2.CellConfig
 
 Row = v3.Row
 
 Column = v3.Column
 
-Table struct extends v4.Table {}
+Table struct extends v4.Table {
+    -range
+    project project.Key? {
+        @doc value "is the project that holds the table."
+    }
+}

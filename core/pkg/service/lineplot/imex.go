@@ -57,7 +57,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		); err != nil {
 			return resource.ID{}, err
 		}
-		lp.Group, lp.Project, lp.Range = nil, nil, nil
+		lp.Group, lp.Project = nil, nil
 		if _, err = s.table.DropDangling(ctx, tx, &lp); err != nil {
 			return resource.ID{}, err
 		}

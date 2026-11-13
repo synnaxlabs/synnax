@@ -14,24 +14,10 @@ package v9
 import (
 	"context"
 
-	"github.com/samber/lo"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
-func autoMigrateLinePlot(ctx context.Context, old v8.LinePlot) (LinePlot, error) {
-	lines, err := lo.MapErr(old.Lines, func(v v8.Line, _ int) (Line, error) {
-		return MigrateLine(ctx, v)
-	})
-	if err != nil {
-		return LinePlot{}, err
-	}
-	rules, err := lo.MapErr(old.Rules, func(v v8.Rule, _ int) (Rule, error) {
-		return MigrateRule(ctx, v)
-	})
-	if err != nil {
-		return LinePlot{}, err
-	}
+func autoMigrateLinePlot(_ context.Context, old v8.LinePlot) (LinePlot, error) {
 	return LinePlot{
 		Key:      old.Key,
 		Name:     old.Name,
@@ -40,53 +26,9 @@ func autoMigrateLinePlot(ctx context.Context, old v8.LinePlot) (LinePlot, error)
 		Channels: old.Channels,
 		Ranges:   old.Ranges,
 		Axes:     old.Axes,
-		Lines:    lines,
-		Rules:    rules,
+		Lines:    old.Lines,
+		Rules:    old.Rules,
 		Group:    old.Group,
 		Project:  old.Project,
-		Range:    old.Range,
-	}, nil
-}
-
-func autoMigrateLine(ctx context.Context, old v8.Line) (Line, error) {
-	var colorVal *color.Color
-	if old.Color != nil {
-		v, err := color.MigrateColor(ctx, *old.Color)
-		if err != nil {
-			return Line{}, err
-		}
-		colorVal = &v
-	}
-	return Line{
-		Key:         old.Key,
-		YAxis:       old.YAxis,
-		YChannel:    old.YChannel,
-		XChannel:    old.XChannel,
-		Label:       old.Label,
-		Color:       colorVal,
-		StrokeWidth: old.StrokeWidth,
-		Aggregation: old.Aggregation,
-		Detail:      old.Detail,
-	}, nil
-}
-
-func autoMigrateRule(ctx context.Context, old v8.Rule) (Rule, error) {
-	var colorVal *color.Color
-	if old.Color != nil {
-		v, err := color.MigrateColor(ctx, *old.Color)
-		if err != nil {
-			return Rule{}, err
-		}
-		colorVal = &v
-	}
-	return Rule{
-		Key:       old.Key,
-		Label:     old.Label,
-		Color:     colorVal,
-		Axis:      old.Axis,
-		LineWidth: old.LineWidth,
-		LineDash:  old.LineDash,
-		Units:     old.Units,
-		Position:  old.Position,
 	}, nil
 }

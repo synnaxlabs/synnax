@@ -14,13 +14,30 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// MigratePanel lifts a v3 panel to v4, which stores every color alpha as a 0-255
-// byte.
+// MigratePanel lifts a v3 panel into v4, which drops the range owner.
 func MigratePanel(ctx context.Context, old v3.Panel) (Panel, error) {
 	return autoMigratePanel(ctx, old)
 }
 
-// Migration lifts stored panels from v3 to v4.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigratePanel)
+// RangeMigration deletes each stored v3 panel that a range owns, and logs a warning
+// for each.
+var RangeMigration = projectv3.NewDeleteMigration(
+	projectv3.DeleteConfig[v3.Key, v3.Panel]{
+		Name:   "v62_panel_delete_range_owned",
+		Type:   resource.TypePanel,
+		NameOf: func(e v3.Panel) string { return e.Name },
+		Reason: func(e v3.Panel) string {
+			if e.Range != nil {
+				return "owned by a range"
+			}
+			return ""
+		},
+	},
+)
+
+// Migration lifts each stored panel from v3 to v4.
+var Migration = migrate.NewEntry("v62_panel_drop_range", MigratePanel)

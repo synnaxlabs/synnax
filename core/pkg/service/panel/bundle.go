@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
-	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
@@ -130,7 +130,7 @@ func decodeBundleBody(
 	ctx context.Context,
 	env imex.Envelope,
 ) (bundleBody[color.Color], error) {
-	if env.Version >= v4.Version {
+	if env.Version >= v5.Version {
 		return env.Decode[bundleBody[color.Color]](ctx)
 	}
 	old, err := env.Decode[bundleBody[colorv1.Color]](ctx)

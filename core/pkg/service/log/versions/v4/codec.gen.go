@@ -12,92 +12,11 @@
 package v4
 
 import (
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
-	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(ce.Channel))
-	if ce.Color != nil {
-		w.Bool(true)
-		if err := ce.Color.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	w.String(string(ce.Notation))
-	if ce.Precision != nil {
-		w.Bool(true)
-		w.Uint8(uint8(*ce.Precision))
-	} else {
-		w.Bool(false)
-	}
-	w.String(ce.Alias)
-	if err := ce.TimestampConfig.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		ce.Channel = channel.Key(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv color.Color
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			ce.Color = &hv
-		}
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		ce.Notation = notation.Notation(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint8
-			if hv, err = r.Uint8(); err != nil {
-				return err
-			}
-			ce.Precision = &hv
-		}
-	}
-	if ce.Alias, err = r.String(); err != nil {
-		return err
-	}
-	if err = ce.TimestampConfig.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (lv Log) EncodeOrc(w *orc.Writer) error {
@@ -125,12 +44,6 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	if lv.Project != nil {
 		w.Bool(true)
 		w.Write((*lv.Project)[:])
-	} else {
-		w.Bool(false)
-	}
-	if lv.Range != nil {
-		w.Bool(true)
-		w.Write((*lv.Range)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -204,19 +117,6 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			lv.Project = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv ranger.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			lv.Range = &hv
 		}
 	}
 	return nil

@@ -17,88 +17,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 var _ = Describe("Codec", func() {
-	Describe("CellConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v5.CellConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v5.CellConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("text variant", v5.CellConfig{Variant: v5.TextCellConfig{
-				Value:  "test_1",
-				Level:  text.Level("h1"),
-				Weight: 3.5,
-				Align:  v5.FlexAlignment("start"),
-				FillColor: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
-				TextColor: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 15,
-				}),
-			}}),
-			Entry("value variant", v5.CellConfig{Variant: v5.ValueCellConfig{
-				Channel:        channel.Key(2),
-				RollingAverage: 3,
-				Precision:      new(int32(4)),
-				Notation:       notation.Notation("standard"),
-				Redline: color.Scale{
-					Bands: []color.Band{
-						{
-							Key:       "test_7",
-							Threshold: 8.5,
-							Color:     color.Color{},
-							Flashing:  false,
-						},
-					},
-					Smooth: true,
-				},
-				FillColor: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 17,
-				}),
-				Level: text.Level("h1"),
-				TextColor: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 23,
-				}),
-				Units:            "test_23",
-				StalenessTimeout: 24.5,
-				StalenessColor: new(color.Color{
-					R: 27,
-					G: 28,
-					B: 29,
-					A: 30,
-				}),
-			}}),
-		)
-	})
 	Describe("Table", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.Table) {
@@ -129,19 +57,18 @@ var _ = Describe("Codec", func() {
 							R: 17,
 							G: 18,
 							B: 19,
-							A: 20,
+							A: 19.5,
 						}),
 						TextColor: new(color.Color{
 							R: 22,
 							G: 23,
 							B: 24,
-							A: 25,
+							A: 24.5,
 						}),
 					}},
 				},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 			}),
 			Entry("zero values", v5.Table{
 				Key:     uuid.Nil(),
@@ -151,7 +78,6 @@ var _ = Describe("Codec", func() {
 				Cells:   map[string]v5.CellConfig{},
 				Group:   nil,
 				Project: nil,
-				Range:   nil,
 			}),
 			Entry("empty collections", v5.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -161,45 +87,10 @@ var _ = Describe("Codec", func() {
 				Cells:   map[string]v5.CellConfig{},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			}),
 		)
 	})
 })
-
-func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
-	seed := v5.CellConfig{Variant: v5.TextCellConfig{
-		Value:  "test_1",
-		Level:  text.Level("h1"),
-		Weight: 3.5,
-		Align:  v5.FlexAlignment("start"),
-		FillColor: new(color.Color{
-			R: 7,
-			G: 8,
-			B: 9,
-			A: 10,
-		}),
-		TextColor: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 15,
-		}),
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v5.CellConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeTable(b *testing.B) {
 	seed := v5.Table{
@@ -221,19 +112,18 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 					R: 17,
 					G: 18,
 					B: 19,
-					A: 20,
+					A: 19.5,
 				}),
 				TextColor: new(color.Color{
 					R: 22,
 					G: 23,
 					B: 24,
-					A: 25,
+					A: 24.5,
 				}),
 			}},
 		},
 		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
 		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
-		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -248,99 +138,6 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func FuzzDecodeCellConfig(f *testing.F) {
-	{
-		seed := v5.CellConfig{Variant: v5.TextCellConfig{
-			Value:  "test_1",
-			Level:  text.Level("h1"),
-			Weight: 3.5,
-			Align:  v5.FlexAlignment("start"),
-			FillColor: new(color.Color{
-				R: 7,
-				G: 8,
-				B: 9,
-				A: 10,
-			}),
-			TextColor: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 15,
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v5.CellConfig{Variant: v5.ValueCellConfig{
-			Channel:        channel.Key(2),
-			RollingAverage: 3,
-			Precision:      new(int32(4)),
-			Notation:       notation.Notation("standard"),
-			Redline: color.Scale{
-				Bands: []color.Band{
-					{
-						Key:       "test_7",
-						Threshold: 8.5,
-						Color:     color.Color{},
-						Flashing:  false,
-					},
-				},
-				Smooth: true,
-			},
-			FillColor: new(color.Color{
-				R: 14,
-				G: 15,
-				B: 16,
-				A: 17,
-			}),
-			Level: text.Level("h1"),
-			TextColor: new(color.Color{
-				R: 20,
-				G: 21,
-				B: 22,
-				A: 23,
-			}),
-			Units:            "test_23",
-			StalenessTimeout: 24.5,
-			StalenessColor: new(color.Color{
-				R: 27,
-				G: 28,
-				B: 29,
-				A: 30,
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v5.CellConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v5.CellConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeTable(f *testing.F) {
@@ -364,19 +161,18 @@ func FuzzDecodeTable(f *testing.F) {
 						R: 17,
 						G: 18,
 						B: 19,
-						A: 20,
+						A: 19.5,
 					}),
 					TextColor: new(color.Color{
 						R: 22,
 						G: 23,
 						B: 24,
-						A: 25,
+						A: 24.5,
 					}),
 				}},
 			},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -393,7 +189,6 @@ func FuzzDecodeTable(f *testing.F) {
 			Cells:   map[string]v5.CellConfig{},
 			Group:   nil,
 			Project: nil,
-			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -410,7 +205,6 @@ func FuzzDecodeTable(f *testing.F) {
 			Cells:   map[string]v5.CellConfig{},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

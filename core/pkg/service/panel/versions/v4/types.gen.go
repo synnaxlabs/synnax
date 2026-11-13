@@ -19,8 +19,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -94,7 +93,7 @@ type SplitNode = v3.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = v3.Key
 
-// Panel is a project-owned tree of visualization tabs.
+// Panel is a tree of visualization tabs in a project.
 type Panel struct {
 	// Key is the unique identifier for this panel.
 	Key Key `json:"key" msgpack:"key"`
@@ -109,12 +108,8 @@ type Panel struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Group is the group the panel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the panel, if any. Exactly one of project and
-	// range is set.
+	// Project is the project that holds the panel.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the panel, if any. Exactly one of project and range
-	// is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -156,7 +151,6 @@ func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

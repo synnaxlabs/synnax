@@ -20,7 +20,6 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	border "github.com/synnaxlabs/x/border/versions/v0"
@@ -1628,49 +1627,43 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v12.Schematic{
-				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:     "test_2",
-				Snapshot: true,
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
 				Nodes: []v12.Node{
 					{
-						Key:      "test_5",
-						Position: spatial.XY{X: 7.5, Y: 8.5},
-						ZIndex:   10,
+						Key:      "test_4",
+						Position: spatial.XY{X: 6.5, Y: 7.5},
+						ZIndex:   9,
 					},
 				},
 				Edges: []v12.Edge{
 					{
-						Key:    "test_11",
-						Source: v12.Handle{Node: "test_13", Param: "test_14"},
-						Target: v12.Handle{Node: "test_16", Param: "test_17"},
+						Key:    "test_10",
+						Source: v12.Handle{Node: "test_12", Param: "test_13"},
+						Target: v12.Handle{Node: "test_15", Param: "test_16"},
 					},
 				},
-				Configs: map[string]v12.ElementConfig{"test_18": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+				Configs: map[string]v12.ElementConfig{"test_17": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
 			}),
 			Entry("zero values", v12.Schematic{
-				Key:      uuid.Nil(),
-				Name:     "",
-				Snapshot: false,
-				Nodes:    []v12.Node{},
-				Edges:    []v12.Edge{},
-				Configs:  map[string]v12.ElementConfig{},
-				Group:    nil,
-				Project:  nil,
-				Range:    nil,
+				Key:     uuid.Nil(),
+				Name:    "",
+				Nodes:   []v12.Node{},
+				Edges:   []v12.Edge{},
+				Configs: map[string]v12.ElementConfig{},
+				Group:   nil,
+				Project: nil,
 			}),
 			Entry("empty collections", v12.Schematic{
-				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:     "test_2",
-				Snapshot: true,
-				Nodes:    []v12.Node{},
-				Edges:    []v12.Edge{},
-				Configs:  map[string]v12.ElementConfig{},
-				Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-				Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:    "test_2",
+				Nodes:   []v12.Node{},
+				Edges:   []v12.Edge{},
+				Configs: map[string]v12.ElementConfig{},
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
 			}),
 		)
 	})
@@ -1746,27 +1739,25 @@ func BenchmarkEncodeDecodeScaleIndicatorConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	seed := v12.Schematic{
-		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:     "test_2",
-		Snapshot: true,
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
 		Nodes: []v12.Node{
 			{
-				Key:      "test_5",
-				Position: spatial.XY{X: 7.5, Y: 8.5},
-				ZIndex:   10,
+				Key:      "test_4",
+				Position: spatial.XY{X: 6.5, Y: 7.5},
+				ZIndex:   9,
 			},
 		},
 		Edges: []v12.Edge{
 			{
-				Key:    "test_11",
-				Source: v12.Handle{Node: "test_13", Param: "test_14"},
-				Target: v12.Handle{Node: "test_16", Param: "test_17"},
+				Key:    "test_10",
+				Source: v12.Handle{Node: "test_12", Param: "test_13"},
+				Target: v12.Handle{Node: "test_15", Param: "test_16"},
 			},
 		},
-		Configs: map[string]v12.ElementConfig{"test_18": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+		Configs: map[string]v12.ElementConfig{"test_17": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -4761,27 +4752,25 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 func FuzzDecodeSchematic(f *testing.F) {
 	{
 		seed := v12.Schematic{
-			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:     "test_2",
-			Snapshot: true,
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
 			Nodes: []v12.Node{
 				{
-					Key:      "test_5",
-					Position: spatial.XY{X: 7.5, Y: 8.5},
-					ZIndex:   10,
+					Key:      "test_4",
+					Position: spatial.XY{X: 6.5, Y: 7.5},
+					ZIndex:   9,
 				},
 			},
 			Edges: []v12.Edge{
 				{
-					Key:    "test_11",
-					Source: v12.Handle{Node: "test_13", Param: "test_14"},
-					Target: v12.Handle{Node: "test_16", Param: "test_17"},
+					Key:    "test_10",
+					Source: v12.Handle{Node: "test_12", Param: "test_13"},
+					Target: v12.Handle{Node: "test_15", Param: "test_16"},
 				},
 			},
-			Configs: map[string]v12.ElementConfig{"test_18": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
+			Configs: map[string]v12.ElementConfig{"test_17": {Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4791,15 +4780,13 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v12.Schematic{
-			Key:      uuid.Nil(),
-			Name:     "",
-			Snapshot: false,
-			Nodes:    []v12.Node{},
-			Edges:    []v12.Edge{},
-			Configs:  map[string]v12.ElementConfig{},
-			Group:    nil,
-			Project:  nil,
-			Range:    nil,
+			Key:     uuid.Nil(),
+			Name:    "",
+			Nodes:   []v12.Node{},
+			Edges:   []v12.Edge{},
+			Configs: map[string]v12.ElementConfig{},
+			Group:   nil,
+			Project: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4809,15 +4796,13 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v12.Schematic{
-			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:     "test_2",
-			Snapshot: true,
-			Nodes:    []v12.Node{},
-			Edges:    []v12.Edge{},
-			Configs:  map[string]v12.ElementConfig{},
-			Group:    new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			Project:  new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-			Range:    new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:    "test_2",
+			Nodes:   []v12.Node{},
+			Edges:   []v12.Edge{},
+			Configs: map[string]v12.ElementConfig{},
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

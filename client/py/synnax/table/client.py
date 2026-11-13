@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import group as group_, project as project_
 from synnax.table.types_gen import (
     Key,
     RetrieveRequest,
@@ -80,16 +80,15 @@ class Client:
     ) -> Table | list[Table]:
         """Create one or more tables.
 
-        :param tables: A single table or a list of them. Each one belongs to exactly one
-            of a project and a range. When omitted, a table is created from the ``name``
-            and ``project`` keyword arguments.
+        :param tables: A single table or a list of them. Each one belongs to a project.
+            When omitted, a table is created from the ``name`` and ``project`` keyword
+            arguments.
         :param name: The name of the table to create when ``tables`` is omitted.
-        :param project: The key of the project that owns the table when ``tables`` is
+        :param project: The key of the project that holds the table when ``tables`` is
             omitted.
         :returns: The created table, or a list of created tables when ``tables`` is a
             list.
-        :raises ValidationError: If a table does not belong to exactly one of a project
-            and a range.
+        :raises ValidationError: If a table does not belong to a project.
         """
         is_single = not isinstance(tables, list)
         if tables is None:
@@ -104,7 +103,6 @@ class Client:
         *,
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -120,7 +118,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -137,7 +134,6 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -168,7 +164,6 @@ class Client:
         :param where: A filter tree that the tables must also match.
         :param keys: Keeps tables with one of these keys.
         :param projects: Keeps the tables owned by any of these projects.
-        :param ranges: Keeps the tables owned by any of these ranges.
         :param groups: Keeps tables in any of these groups.
         :param grouped: Keeps only tables in a group when True, and only tables in no
             group when False.

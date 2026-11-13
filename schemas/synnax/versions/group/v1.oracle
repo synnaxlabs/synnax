@@ -12,8 +12,7 @@ import "schemas/synnax/versions/resource/v0"
 Key = v0.Key
 
 Group struct extends v0.Group {
-    name   string        {
-        @doc value         "is a human-readable name for the group."
+    name   {
         @validate required
     }
     scope  resource.Type {

@@ -12,19 +12,11 @@
 package v5
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
-	color "github.com/synnaxlabs/x/color/versions/v2"
-	"github.com/synnaxlabs/x/errors"
-	notation "github.com/synnaxlabs/x/notation/versions/v0"
-	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -45,239 +37,28 @@ const (
 	FlexAlignmentStretch FlexAlignment = v4.FlexAlignmentStretch
 )
 
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig = v4.CellConfig
+
+// CellConfigVariant is implemented by every CellConfig variant.
+type CellConfigVariant = v4.CellConfigVariant
+
 // CellConfigType is the "variant" value that selects a variant of CellConfig.
-type CellConfigType string
+type CellConfigType = v4.CellConfigType
 
 const (
 	// TextCellConfigType is the configuration for static text cells.
-	TextCellConfigType CellConfigType = "text"
+	TextCellConfigType CellConfigType = v4.TextCellConfigType
 	// ValueCellConfigType is the configuration for live telemetry value cells.
-	ValueCellConfigType CellConfigType = "value"
+	ValueCellConfigType CellConfigType = v4.ValueCellConfigType
 )
 
-// CellConfigVariant is implemented by every CellConfig variant.
-type CellConfigVariant interface {
-	isCellConfigVariant()
-}
-
 // TextCellConfig is the configuration for static text cells.
-type TextCellConfig struct {
-	// Value is the text content of the cell.
-	Value string `json:"value" msgpack:"value"`
-	// Level is the typography level of the cell text.
-	Level text.Level `json:"level" msgpack:"level"`
-	// Weight is the font weight of the cell text.
-	Weight float64 `json:"weight" msgpack:"weight"`
-	// Align is the alignment of the cell text along the row axis.
-	Align FlexAlignment `json:"align" msgpack:"align"`
-	// FillColor is the background color of the cell. When absent the theme picks the
-	// fill; a fully transparent value paints nothing.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// TextColor is the color of the cell text. When absent the theme picks the color.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-}
-
-func (TextCellConfig) isCellConfigVariant() {}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (t *TextCellConfig) SetDefaults() {
-	t.Level = text.LevelH5
-	t.Weight = 400
-	t.Align = FlexAlignmentCenter
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextCellConfig) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH5
-	}
-	if t.Weight == 0 {
-		t.Weight = 400
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t TextCellConfig) Validate() error {
-	v := validate.New("TextCellConfig")
-	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
-	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
-	v.GreaterThanEq("weight", t.Weight, 1)
-	v.LessThanEq("weight", t.Weight, 1000)
-	return v.Error()
-}
+type TextCellConfig = v4.TextCellConfig
 
 // ValueCellConfig is the configuration for live telemetry value cells.
-type ValueCellConfig struct {
-	// Channel is the channel whose value the cell displays.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
-	// Precision is the number of decimal places shown. When absent the formatter picks
-	// the precision; zero shows whole numbers.
-	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Redline is the threshold band mapping applied to the background.
-	Redline color.Scale `json:"redline" msgpack:"redline"`
-	// FillColor is the fill behind the value where no redline band paints. When absent
-	// the cell paints no fill.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// Level is the typography level of the displayed value.
-	Level text.Level `json:"level" msgpack:"level"`
-	// TextColor is the color of the displayed text. When absent the value renders with
-	// a theme-derived legible color.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale. When absent the
-	// value renders with the theme warning color.
-	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
-}
-
-func (ValueCellConfig) isCellConfigVariant() {}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (va *ValueCellConfig) SetDefaults() {
-	va.RollingAverage = 1
-	va.Notation = notation.NotationStandard
-	va.Level = text.LevelH5
-	va.StalenessTimeout = 5
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueCellConfig) ApplyDefaults() {
-	if va.RollingAverage == 0 {
-		va.RollingAverage = 1
-	}
-	if va.Notation == "" {
-		va.Notation = notation.NotationStandard
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH5
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (va ValueCellConfig) Validate() error {
-	v := validate.New("ValueCellConfig")
-	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
-	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
-	v.GreaterThanEq("rolling_average", va.RollingAverage, 1)
-	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1)
-	return v.Error()
-}
-
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
-type CellConfig struct {
-	Variant CellConfigVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "variant" tag injected.
-func (u CellConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case TextCellConfig:
-		return json.MarshalEncode(enc, struct {
-			Type CellConfigType `json:"variant"`
-			TextCellConfig
-		}{Type: TextCellConfigType, TextCellConfig: v})
-	case ValueCellConfig:
-		return json.MarshalEncode(enc, struct {
-			Type CellConfigType `json:"variant"`
-			ValueCellConfig
-		}{Type: ValueCellConfigType, ValueCellConfig: v})
-	default:
-		return errors.Newf("CellConfig: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
-func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type CellConfigType `json:"variant"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case TextCellConfigType:
-		var v struct {
-			Type CellConfigType `json:"variant"`
-			TextCellConfig
-		}
-		v.TextCellConfig.SetDefaults()
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.TextCellConfig
-	case ValueCellConfigType:
-		var v struct {
-			Type CellConfigType `json:"variant"`
-			ValueCellConfig
-		}
-		v.ValueCellConfig.SetDefaults()
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.ValueCellConfig
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"CellConfig: unknown variant %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *CellConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case TextCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u CellConfig) Validate() error {
-	switch variant := u.Variant.(type) {
-	case TextCellConfig:
-		return variant.Validate()
-	case ValueCellConfig:
-		return variant.Validate()
-	}
-	return nil
-}
+type ValueCellConfig = v4.ValueCellConfig
 
 // Row is a single row in a table, with a key, height, and ordered cell keys.
 type Row = v4.Row
@@ -303,12 +84,8 @@ type Table struct {
 	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 	// Group is the group the table sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the table, if any. Exactly one of project and
-	// range is set.
+	// Project is the project that holds the table.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the table, if any. Exactly one of project and range
-	// is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -329,7 +106,6 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
 	for i := range t.Rows {
 		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
 	}

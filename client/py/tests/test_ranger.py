@@ -513,6 +513,19 @@ class TestRangeClient:
                 assert r[two_channels[1].key].key == two_channels[1].key
             assert counter.count == 2
 
+        def test_channel_not_found(self, rng: sy.Range) -> None:
+            """Should raise NotFoundError when no channel has the name"""
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
+                rng["not_found"]
+
+        def test_pattern(self, rng: sy.Range, two_channels: list[sy.Channel]) -> None:
+            """Should read a pattern as an exact name and find no channel"""
+            prefix = two_channels[0].name.removesuffix("_1")
+            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
+                rng[f"{prefix}_.*"].to_numpy()
+
     @pytest.mark.ranger
     class TestRangeKV:
         def test_set_get_delete_single(self, client: sy.Synnax) -> None:
@@ -569,105 +582,6 @@ class TestRangeClient:
 
             rng.meta_data["key"] = Test()
             assert rng.meta_data["key"] == "test"
-
-    @pytest.mark.ranger
-    class TestRangeAlias:
-        def test_basic_alias(self, client: sy.Synnax) -> None:
-            ch = client.channels.create(
-                name=random_name(), data_type=sy.DataType.INT8, virtual=True
-            )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            rng.set_alias(ch.key, "alt_test")
-            assert rng["alt_test"].key == ch.key
-            assert rng["alt_test"].name == ch.name
-
-        def test_alias_moved_to_another_channel(self, client: sy.Synnax) -> None:
-            """Should resolve an alias to the channel it moved to."""
-            first, second = client.channels.create(
-                [
-                    sy.Channel(
-                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
-                    ),
-                    sy.Channel(
-                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
-                    ),
-                ]
-            )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            moved, other = random_name(), random_name()
-            rng.set_alias(first.key, moved)
-            assert rng[moved].key == first.key
-            rng.set_alias(first.key, other)
-            rng.set_alias(second.key, moved)
-            assert rng[moved].key == second.key
-
-        def test_alias_not_found(self, client: sy.Synnax) -> None:
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match="Channel matching not_found not found"
-            ):
-                rng["not_found"]
-
-        def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match='Found no channel where name = "not_found"'
-            ):
-                rng.set_alias("not_found", "test")
-
-        def test_scoped_channel_pattern(self, client: sy.Synnax) -> None:
-            """Should read a scoped channel pattern as an exact name and find none."""
-            prefix = random_name()
-            for suffix in ("a", "b"):
-                client.channels.create(
-                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
-                )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(sy.NotFoundError, match=f"Channel matching {prefix}_"):
-                rng[f"{prefix}_.*"].to_numpy()
-
-        def test_set_alias_pattern(self, client: sy.Synnax) -> None:
-            """Should read a pattern as an exact name when it sets an alias."""
-            prefix = random_name()
-            for suffix in ("a", "b"):
-                client.channels.create(
-                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
-                )
-            rng = client.ranges.create(
-                name=random_name(),
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            with pytest.raises(
-                sy.NotFoundError, match=f'Found no channel where name = "{prefix}_'
-            ):
-                rng.set_alias(f"{prefix}_.*", "test")
-
-        def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
-            """Should raise NotFoundError when a single alias has no channel."""
-            rng = client.ranges.create(
-                name="test",
-                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-            )
-            aliases = ranger.alias.Client(rng=rng.key, client=client._transport.unary)
-            with pytest.raises(
-                sy.NotFoundError, match="Alias matching not_found not found"
-            ):
-                aliases.resolve("not_found")
 
     @pytest.mark.ranger
     class TestRangeChildren:

@@ -44,6 +44,7 @@ type recorder struct {
 	mu          sync.Mutex
 	checkpoints []ingest.Checkpoint
 	retries     []error
+	runRetries  []error
 }
 
 func (r *recorder) onCheckpoint(_ context.Context, cp ingest.Checkpoint) error {
@@ -57,6 +58,12 @@ func (r *recorder) onRetry(_ context.Context, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.retries = append(r.retries, err)
+}
+
+func (r *recorder) onRunRetry(_ context.Context, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.runRetries = append(r.runRetries, err)
 }
 
 func (r *recorder) last() ingest.Checkpoint {
@@ -82,6 +89,12 @@ func (r *recorder) retryErrors() []error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]error(nil), r.retries...)
+}
+
+func (r *recorder) runRetryErrors() []error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]error(nil), r.runRetries...)
 }
 
 // at returns the timestamp s seconds after the epoch.
@@ -174,6 +187,7 @@ var _ = Describe("Engine", func() {
 			Keys:         keys,
 			OnCheckpoint: rec.onCheckpoint,
 			OnRetry:      rec.onRetry,
+			OnRunRetry:   rec.onRunRetry,
 			Retry: breaker.Config{
 				BaseInterval: 5 * time.Millisecond,
 				MaxRetries:   breaker.InfiniteRetries,
@@ -313,6 +327,40 @@ var _ = Describe("Engine", func() {
 					Keys:         channel.Keys{channel.Key(1<<16 | 60000)},
 					OnCheckpoint: rec.onCheckpoint,
 				})).Error().To(MatchError(query.ErrNotFound))
+			})
+	})
+
+	Describe("Validate", func() {
+		It("Should accept stored channels", func(ctx SpecContext) {
+			ch := createData(ctx, createIndex(ctx), telem.Float64T)
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(Succeed())
+		})
+
+		It("Should reject a channel that New rejects", func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     "virtual_" + uuid.New().String()[:8],
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(ingest.Validate(ctx, db, channelSvc, channel.Keys{ch.Key()})).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("channel "+ch.Name+" is virtual")),
+				))
+		})
+
+		It("Should return not found for a channel that does not exist",
+			func(ctx SpecContext) {
+				Expect(ingest.Validate(
+					ctx,
+					db,
+					channelSvc,
+					channel.Keys{channel.Key(1<<16 | 60000)},
+				)).To(MatchError(query.ErrNotFound))
 			})
 	})
 
@@ -752,7 +800,7 @@ var _ = Describe("Engine", func() {
 					ingest.Config{Conn: racingConn{conn}},
 				)
 				id := MustSucceed(e.SetRun(ctx, run))
-				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(rec.runRetryErrors()).To(BeEmpty())
 				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
 					HaveField("RunId", id),
 					HaveField("Name", "hotfire 1"),
@@ -766,20 +814,21 @@ var _ = Describe("Engine", func() {
 				server.FailRuns(status.Error(codes.AlreadyExists, "run exists"))
 				e := open(ctx, channel.Keys{ch.Key()})
 				id := MustSucceed(e.SetRun(ctx, run))
-				Expect(rec.retryErrors()).To(HaveExactElements(
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
 					MatchError("Sift reported a run that it does not list"),
 				))
 				Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
 			},
 		)
 
-		It("Should retry a temporary failure", func(ctx SpecContext) {
+		It("Should report a temporary failure to OnRunRetry", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
 			e := open(ctx, channel.Keys{ch.Key()})
 			MustSucceed(e.SetRun(ctx, run))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
+			Expect(rec.retryErrors()).To(BeEmpty())
 			Expect(server.Runs()).To(HaveLen(1))
 		})
 
@@ -789,7 +838,7 @@ var _ = Describe("Engine", func() {
 			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
 			run.Name = "renamed"
 			Expect(e.SetRun(ctx, run)).To(Equal(id))
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveExactElements(HaveField("Name", "renamed")))
@@ -802,7 +851,7 @@ var _ = Describe("Engine", func() {
 				server.FailRunUpdates(status.Error(codes.NotFound, "run not found"))
 				run.Name = "renamed"
 				Expect(e.SetRun(ctx, run)).To(Equal(id))
-				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(rec.runRetryErrors()).To(BeEmpty())
 				Expect(
 					server.Runs(),
 				).To(HaveExactElements(HaveField("Name", "renamed")))
@@ -818,7 +867,7 @@ var _ = Describe("Engine", func() {
 				)
 				run.Name = "renamed"
 				Expect(e.SetRun(ctx, run)).To(Equal(id))
-				Expect(rec.retryErrors()).To(HaveExactElements(
+				Expect(rec.runRetryErrors()).To(HaveExactElements(
 					MatchError("Sift could not find a run that it listed"),
 				))
 				Expect(
@@ -934,7 +983,7 @@ var _ = Describe("Engine", func() {
 			e := open(ctx, channel.Keys{ch.Key()})
 			Expect(e.SetRun(ctx, run)).Error().
 				To(MatchError(ContainSubstring("no permission")))
-			Expect(rec.retryErrors()).To(BeEmpty())
+			Expect(rec.runRetryErrors()).To(BeEmpty())
 		})
 	})
 
@@ -982,7 +1031,7 @@ var _ = Describe("Engine", func() {
 			server.FailRunUpdates(status.Error(codes.Unavailable, "sift is down"))
 			run.Tags = []string{"cold"}
 			Expect(e.UpdateRun(ctx, run)).To(BeTrue())
-			Expect(rec.retryErrors()).To(HaveExactElements(
+			Expect(rec.runRetryErrors()).To(HaveExactElements(
 				MatchError(ContainSubstring("sift is down")),
 			))
 			Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
@@ -1168,11 +1217,52 @@ var _ = Describe("Engine", func() {
 				done := make(chan error, 1)
 				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
 				Eventually(server.Streams).Should(Equal(1))
-				// Gives the sends time to fill the stream that Sift does not read.
 				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
 				cancel()
-				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Succeed()))
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 				Expect(rec.last().Positions[idx.Key()]).To(Equal(at(0)))
+			})
+
+		It("Should stop within the stop timeout when Sift stops reading",
+			func(ctx SpecContext) {
+				idx := createIndex(ctx)
+				ch := createData(ctx, idx, telem.Float64T)
+				const count = 50_000
+				stamps := make([]telem.TimeStamp, count)
+				for i := range stamps {
+					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
+				}
+				write(ctx, idx, stamps, map[channel.Key]telem.Series{
+					ch.Key(): telem.NewSeries(make([]float64, count)),
+				})
+				e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+					StopTimeout: 100 * telem.Millisecond,
+				})
+				server.Pause()
+				DeferCleanup(server.Resume)
+				sCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() { done <- e.Stream(sCtx, ingest.Positions{idx.Key(): at(0)}, nil) }()
+				Eventually(server.Streams).Should(Equal(1))
+				Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+				cancel()
+				// The stop returns nil when a blocked send fails first, and the error
+				// of the final confirm otherwise.
+				Eventually(done).WithTimeout(2 * time.Second).Should(Receive(Or(
+					BeNil(),
+					WithTransform(status.Code, BeElementOf(
+						codes.Canceled,
+						codes.DeadlineExceeded,
+					)),
+				)))
 			})
 
 		It("Should read from storage when it falls behind the live samples",
@@ -1756,6 +1846,8 @@ var _ = Describe("Engine", func() {
 				live()
 				// The index alone sends nothing, so no stream is open at the stop.
 				write(ctx, idx, stamps, nil)
+				server.Pause()
+				DeferCleanup(server.Resume)
 				keys := channel.Keys{ch.Key()}
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  keys,
@@ -1765,8 +1857,6 @@ var _ = Describe("Engine", func() {
 					telem.NewSeries(make([]float64, count)),
 				})))).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
-				server.Pause()
-				DeferCleanup(server.Resume)
 				// Gives the engine time to receive the values of ch.
 				Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
 				cancel()

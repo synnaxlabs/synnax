@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
@@ -51,7 +51,7 @@ func channelsReference() *gorp.KeyReference[Key, LinePlot, channel.Key] {
 			for _, y := range []*[]channel.Key{&c.Y1, &c.Y2, &c.Y3, &c.Y4} {
 				*y = slices.DeleteFunc(*y, held)
 			}
-			p.Lines = v9.ReconcileLines(p.Key, p.Channels, p.Lines)
+			p.Lines = v10.ReconcileLines(p.Key, p.Channels, p.Lines)
 		},
 	})
 }

@@ -12,8 +12,7 @@ import "schemas/synnax/versions/group/v1"
 Key = v0.Key
 
 Project struct extends v2.Project {
-    name  string     {
-        @doc value         "is a human-readable name for the project."
+    name  {
         @validate required
     }
     group group.Key? {

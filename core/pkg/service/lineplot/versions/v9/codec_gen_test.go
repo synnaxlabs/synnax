@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -30,46 +30,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Line", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v9.Line) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v9.Line
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v9.Line{
-				Key:      "test_1",
-				YAxis:    v9.YAxisKey("y1"),
-				YChannel: channel.Key(4),
-				XChannel: channel.Key(5),
-				Label:    new(string("test_5")),
-				Color: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				StrokeWidth: 11.5,
-				Aggregation: v9.Aggregation("min_max"),
-				Detail:      v9.Detail("low"),
-			}),
-			Entry("zero values", v9.Line{
-				Key:         "",
-				YAxis:       v9.YAxisKey(""),
-				YChannel:    channel.Key(0),
-				XChannel:    channel.Key(0),
-				Label:       nil,
-				Color:       nil,
-				StrokeWidth: 0,
-				Aggregation: v9.Aggregation(""),
-				Detail:      v9.Detail(""),
-			}),
-		)
-	})
 	Describe("LinePlot", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v9.LinePlot) {
@@ -179,7 +139,7 @@ var _ = Describe("Codec", func() {
 							R: 113,
 							G: 114,
 							B: 115,
-							A: 116,
+							A: 115.5,
 						}),
 						StrokeWidth: 116.5,
 						Aggregation: v9.Aggregation("min_max"),
@@ -194,7 +154,7 @@ var _ = Describe("Codec", func() {
 							R: 124,
 							G: 125,
 							B: 126,
-							A: 127,
+							A: 126.5,
 						}),
 						Axis:      v9.AxisKey("x1"),
 						LineWidth: 128.5,
@@ -205,7 +165,6 @@ var _ = Describe("Codec", func() {
 				},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 			}),
 			Entry("zero values", v9.LinePlot{
 				Key:   uuid.Nil(),
@@ -295,7 +254,6 @@ var _ = Describe("Codec", func() {
 				Rules:   []v9.Rule{},
 				Group:   nil,
 				Project: nil,
-				Range:   nil,
 			}),
 			Entry("empty collections", v9.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -388,81 +346,10 @@ var _ = Describe("Codec", func() {
 				Rules:   []v9.Rule{},
 				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
 				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
-				Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
-			}),
-		)
-	})
-	Describe("Rule", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v9.Rule) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v9.Rule
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v9.Rule{
-				Key:   "test_1",
-				Label: "test_2",
-				Color: new(color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 8,
-				}),
-				Axis:      v9.AxisKey("x1"),
-				LineWidth: 9.5,
-				LineDash:  10.5,
-				Units:     "test_11",
-				Position:  12.5,
-			}),
-			Entry("zero values", v9.Rule{
-				Key:       "",
-				Label:     "",
-				Color:     nil,
-				Axis:      v9.AxisKey(""),
-				LineWidth: 0,
-				LineDash:  0,
-				Units:     "",
-				Position:  0,
 			}),
 		)
 	})
 })
-
-func BenchmarkEncodeDecodeLine(b *testing.B) {
-	seed := v9.Line{
-		Key:      "test_1",
-		YAxis:    v9.YAxisKey("y1"),
-		YChannel: channel.Key(4),
-		XChannel: channel.Key(5),
-		Label:    new(string("test_5")),
-		Color: new(color.Color{
-			R: 8,
-			G: 9,
-			B: 10,
-			A: 11,
-		}),
-		StrokeWidth: 11.5,
-		Aggregation: v9.Aggregation("min_max"),
-		Detail:      v9.Detail("low"),
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v9.Line
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	seed := v9.LinePlot{
@@ -563,7 +450,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 					R: 113,
 					G: 114,
 					B: 115,
-					A: 116,
+					A: 115.5,
 				}),
 				StrokeWidth: 116.5,
 				Aggregation: v9.Aggregation("min_max"),
@@ -578,7 +465,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 					R: 124,
 					G: 125,
 					B: 126,
-					A: 127,
+					A: 126.5,
 				}),
 				Axis:      v9.AxisKey("x1"),
 				LineWidth: 128.5,
@@ -589,7 +476,6 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		},
 		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
-		Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -604,101 +490,6 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func BenchmarkEncodeDecodeRule(b *testing.B) {
-	seed := v9.Rule{
-		Key:   "test_1",
-		Label: "test_2",
-		Color: new(color.Color{
-			R: 5,
-			G: 6,
-			B: 7,
-			A: 8,
-		}),
-		Axis:      v9.AxisKey("x1"),
-		LineWidth: 9.5,
-		LineDash:  10.5,
-		Units:     "test_11",
-		Position:  12.5,
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v9.Rule
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func FuzzDecodeLine(f *testing.F) {
-	{
-		seed := v9.Line{
-			Key:      "test_1",
-			YAxis:    v9.YAxisKey("y1"),
-			YChannel: channel.Key(4),
-			XChannel: channel.Key(5),
-			Label:    new(string("test_5")),
-			Color: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			StrokeWidth: 11.5,
-			Aggregation: v9.Aggregation("min_max"),
-			Detail:      v9.Detail("low"),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Line{
-			Key:         "",
-			YAxis:       v9.YAxisKey(""),
-			YChannel:    channel.Key(0),
-			XChannel:    channel.Key(0),
-			Label:       nil,
-			Color:       nil,
-			StrokeWidth: 0,
-			Aggregation: v9.Aggregation(""),
-			Detail:      v9.Detail(""),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v9.Line
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v9.Line
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeLinePlot(f *testing.F) {
@@ -801,7 +592,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 						R: 113,
 						G: 114,
 						B: 115,
-						A: 116,
+						A: 115.5,
 					}),
 					StrokeWidth: 116.5,
 					Aggregation: v9.Aggregation("min_max"),
@@ -816,7 +607,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 						R: 124,
 						G: 125,
 						B: 126,
-						A: 127,
+						A: 126.5,
 					}),
 					Axis:      v9.AxisKey("x1"),
 					LineWidth: 128.5,
@@ -827,7 +618,6 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567886"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -924,7 +714,6 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Rules:   []v9.Rule{},
 			Group:   nil,
 			Project: nil,
-			Range:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1024,7 +813,6 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Rules:   []v9.Rule{},
 			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
 			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b"))),
-			Range:   new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786c"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1044,68 +832,6 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v9.LinePlot
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeRule(f *testing.F) {
-	{
-		seed := v9.Rule{
-			Key:   "test_1",
-			Label: "test_2",
-			Color: new(color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 8,
-			}),
-			Axis:      v9.AxisKey("x1"),
-			LineWidth: 9.5,
-			LineDash:  10.5,
-			Units:     "test_11",
-			Position:  12.5,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v9.Rule{
-			Key:       "",
-			Label:     "",
-			Color:     nil,
-			Axis:      v9.AxisKey(""),
-			LineWidth: 0,
-			LineDash:  0,
-			Units:     "",
-			Position:  0,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v9.Rule
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v9.Rule
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

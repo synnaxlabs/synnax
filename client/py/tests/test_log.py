@@ -147,17 +147,6 @@ class TestClient:
         retrieved = client.logs.retrieve(projects=[project.key])
         assert {r.key for r in retrieved} == {a.key, b.key}
 
-    def test_retrieve_by_range_without_logs(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should return no logs when the range owns none."""
-        client.logs.create(name="Project Owned", project=project.key)
-        rng = client.ranges.create(
-            name="Empty Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        assert client.logs.retrieve(ranges=[rng.key]) == []
-
     def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should filter the logs by group."""
         made = client.logs.create(name="Ungrouped", project=project.key)

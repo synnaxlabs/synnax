@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
@@ -117,7 +117,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Channel)
-	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v10.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -137,7 +137,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		*slice,
 		func(c channel.Key) bool { return c == p.Channel },
 	)
-	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v10.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -155,7 +155,7 @@ func (p SetChannelsPayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
 	*slice = slices.Clone(p.Channels)
-	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v10.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -173,7 +173,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 			p.AxisKey,
 		)
 	}
-	state.Lines = v9.ReconcileLines(state.Key, state.Channels, state.Lines)
+	state.Lines = v10.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 

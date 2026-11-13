@@ -15,103 +15,16 @@ import (
 	"context"
 
 	v4 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
-	color "github.com/synnaxlabs/x/color/versions/v2"
-	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateTable(ctx context.Context, old v4.Table) (Table, error) {
-	cells := make(map[string]CellConfig, len(old.Cells))
-	for k, v := range old.Cells {
-		nv, err := autoMigrateCellConfig(ctx, v)
-		if err != nil {
-			return Table{}, err
-		}
-		cells[k] = nv
-	}
+func autoMigrateTable(_ context.Context, old v4.Table) (Table, error) {
 	return Table{
 		Key:     old.Key,
 		Name:    old.Name,
 		Rows:    old.Rows,
 		Columns: old.Columns,
-		Cells:   cells,
+		Cells:   old.Cells,
 		Group:   old.Group,
 		Project: old.Project,
-		Range:   old.Range,
 	}, nil
-}
-
-func autoMigrateCellConfig(ctx context.Context, old v4.CellConfig) (CellConfig, error) {
-	switch variant := old.Variant.(type) {
-	case nil:
-		return CellConfig{}, nil
-	case v4.TextCellConfig:
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return CellConfig{}, err
-			}
-			fillColor = &v
-		}
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return CellConfig{}, err
-			}
-			textColor = &v
-		}
-		return CellConfig{Variant: TextCellConfig{
-			Value:     variant.Value,
-			Level:     variant.Level,
-			Weight:    variant.Weight,
-			Align:     variant.Align,
-			FillColor: fillColor,
-			TextColor: textColor,
-		}}, nil
-	case v4.ValueCellConfig:
-		redline, err := color.MigrateScale(ctx, variant.Redline)
-		if err != nil {
-			return CellConfig{}, err
-		}
-		var fillColor *color.Color
-		if variant.FillColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.FillColor)
-			if err != nil {
-				return CellConfig{}, err
-			}
-			fillColor = &v
-		}
-		var textColor *color.Color
-		if variant.TextColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.TextColor)
-			if err != nil {
-				return CellConfig{}, err
-			}
-			textColor = &v
-		}
-		var stalenessColor *color.Color
-		if variant.StalenessColor != nil {
-			v, err := color.MigrateColor(ctx, *variant.StalenessColor)
-			if err != nil {
-				return CellConfig{}, err
-			}
-			stalenessColor = &v
-		}
-		return CellConfig{Variant: ValueCellConfig{
-			Channel:          variant.Channel,
-			RollingAverage:   variant.RollingAverage,
-			Precision:        variant.Precision,
-			Notation:         variant.Notation,
-			Redline:          redline,
-			FillColor:        fillColor,
-			Level:            variant.Level,
-			TextColor:        textColor,
-			Units:            variant.Units,
-			StalenessTimeout: variant.StalenessTimeout,
-			StalenessColor:   stalenessColor,
-		}}, nil
-	default:
-		return CellConfig{}, errors.Newf("unknown CellConfig variant %T", variant)
-	}
 }

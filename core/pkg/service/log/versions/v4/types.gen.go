@@ -17,13 +17,9 @@ import (
 	"reflect"
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
-	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -36,76 +32,7 @@ type Key = v3.Key
 type TimestampConfig = v3.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry struct {
-	// Channel is the channel this entry references.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Color is the display color for the channel. Absent uses the text color of the
-	// log.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Notation is the numeric notation used to render samples.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of digits after the decimal point, from 0 to 17. Absent
-	// shows each sample as it arrives.
-	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
-	// Alias is a human-readable alias displayed in place of the channel name.
-	Alias string `json:"alias" msgpack:"alias"`
-	// TimestampConfig formats the values of a timestamp channel. It has no effect on
-	// line times.
-	TimestampConfig TimestampConfig `json:"timestamp_config" msgpack:"timestamp_config"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelEntry) ApplyDefaults() {
-	if c.Notation == "" {
-		c.Notation = "standard"
-	}
-	if c.TimestampConfig.Format == "" {
-		c.TimestampConfig.Format = "preciseDate"
-	}
-	if c.TimestampConfig.TimeZone == "" {
-		c.TimestampConfig.TimeZone = "local"
-	}
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (c *ChannelEntry) SetDefaults() {
-	c.Notation = "standard"
-	c.TimestampConfig.Format = "preciseDate"
-	c.TimestampConfig.TimeZone = "local"
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (c *ChannelEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain ChannelEntry
-	if reflect.ValueOf(*c).IsZero() {
-		c.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(c))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain ChannelEntry
-	if reflect.ValueOf(*c).IsZero() {
-		c.SetDefaults()
-	}
-	return dec.Decode((*plain)(c))
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c ChannelEntry) Validate() error {
-	v := validate.New("ChannelEntry")
-	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
-	v.NonZero("channel", c.Channel)
-	if c.Precision != nil {
-		v.LessThanEq("precision", *c.Precision, 17)
-	}
-	v.MaxLength("alias", c.Alias, 64)
-	v.Exec(func() error { return validate.PathedError(c.TimestampConfig.Validate(), "timestamp_config") })
-	return v.Error()
-}
+type ChannelEntry = v3.ChannelEntry
 
 // Log is a visualization that shows the samples of its channels as text, one line per
 // sample, in time order.
@@ -126,12 +53,8 @@ type Log struct {
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 	// Group is the group the log sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the log, if any. Exactly one of project and
-	// range is set.
+	// Project is the project that holds the log.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the log, if any. Exactly one of project and range is
-	// set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -173,8 +96,6 @@ func (l *Log) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
-	v.NotEmptyString("name", l.Name)
-	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

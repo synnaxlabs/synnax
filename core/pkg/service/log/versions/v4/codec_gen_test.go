@@ -21,8 +21,7 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -30,46 +29,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("ChannelEntry", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v4.ChannelEntry) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v4.ChannelEntry
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v4.ChannelEntry{
-				Channel: channel.Key(2),
-				Color: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
-				Notation:  notation.Notation("standard"),
-				Precision: new(uint8(9)),
-				Alias:     "test_9",
-				TimestampConfig: v4.TimestampConfig{
-					Format:   telem.TimestampFormat("ISO"),
-					TimeZone: telem.TimeZone("local"),
-				},
-			}),
-			Entry("zero values", v4.ChannelEntry{
-				Channel:   channel.Key(0),
-				Color:     nil,
-				Notation:  notation.Notation(""),
-				Precision: nil,
-				Alias:     "",
-				TimestampConfig: v4.TimestampConfig{
-					Format:   telem.TimestampFormat(""),
-					TimeZone: telem.TimeZone(""),
-				},
-			}),
-		)
-	})
 	Describe("Log", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v4.Log) {
@@ -87,12 +46,12 @@ var _ = Describe("Codec", func() {
 				Channels: []v4.ChannelEntry{
 					{
 						Channel: channel.Key(5),
-						Color: new(color.Color{
+						Color: color.Color{
 							R: 7,
 							G: 8,
 							B: 9,
-							A: 10,
-						}),
+							A: 9.5,
+						},
 						Notation:  notation.Notation("standard"),
 						Precision: new(uint8(12)),
 						Alias:     "test_12",
@@ -108,7 +67,6 @@ var _ = Describe("Codec", func() {
 				TimeZone:           telem.TimeZone("local"),
 				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
-				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 			}),
 			Entry("zero values", v4.Log{
 				Key:                uuid.Nil(),
@@ -120,7 +78,6 @@ var _ = Describe("Codec", func() {
 				TimeZone:           telem.TimeZone(""),
 				Group:              nil,
 				Project:            nil,
-				Range:              nil,
 			}),
 			Entry("empty collections", v4.Log{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -132,43 +89,10 @@ var _ = Describe("Codec", func() {
 				TimeZone:           telem.TimeZone("local"),
 				Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 				Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-				Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 			}),
 		)
 	})
 })
-
-func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
-	seed := v4.ChannelEntry{
-		Channel: channel.Key(2),
-		Color: new(color.Color{
-			R: 4,
-			G: 5,
-			B: 6,
-			A: 7,
-		}),
-		Notation:  notation.Notation("standard"),
-		Precision: new(uint8(9)),
-		Alias:     "test_9",
-		TimestampConfig: v4.TimestampConfig{
-			Format:   telem.TimestampFormat("ISO"),
-			TimeZone: telem.TimeZone("local"),
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v4.ChannelEntry
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeLog(b *testing.B) {
 	seed := v4.Log{
@@ -177,12 +101,12 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		Channels: []v4.ChannelEntry{
 			{
 				Channel: channel.Key(5),
-				Color: new(color.Color{
+				Color: color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
-					A: 10,
-				}),
+					A: 9.5,
+				},
 				Notation:  notation.Notation("standard"),
 				Precision: new(uint8(12)),
 				Alias:     "test_12",
@@ -198,7 +122,6 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		TimeZone:           telem.TimeZone("local"),
 		Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 		Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
-		Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -215,70 +138,6 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 	}
 }
 
-func FuzzDecodeChannelEntry(f *testing.F) {
-	{
-		seed := v4.ChannelEntry{
-			Channel: channel.Key(2),
-			Color: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
-			Notation:  notation.Notation("standard"),
-			Precision: new(uint8(9)),
-			Alias:     "test_9",
-			TimestampConfig: v4.TimestampConfig{
-				Format:   telem.TimestampFormat("ISO"),
-				TimeZone: telem.TimeZone("local"),
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v4.ChannelEntry{
-			Channel:   channel.Key(0),
-			Color:     nil,
-			Notation:  notation.Notation(""),
-			Precision: nil,
-			Alias:     "",
-			TimestampConfig: v4.TimestampConfig{
-				Format:   telem.TimestampFormat(""),
-				TimeZone: telem.TimeZone(""),
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v4.ChannelEntry
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v4.ChannelEntry
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeLog(f *testing.F) {
 	{
 		seed := v4.Log{
@@ -287,12 +146,12 @@ func FuzzDecodeLog(f *testing.F) {
 			Channels: []v4.ChannelEntry{
 				{
 					Channel: channel.Key(5),
-					Color: new(color.Color{
+					Color: color.Color{
 						R: 7,
 						G: 8,
 						B: 9,
-						A: 10,
-					}),
+						A: 9.5,
+					},
 					Notation:  notation.Notation("standard"),
 					Precision: new(uint8(12)),
 					Alias:     "test_12",
@@ -308,7 +167,6 @@ func FuzzDecodeLog(f *testing.F) {
 			TimeZone:           telem.TimeZone("local"),
 			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
-			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -327,7 +185,6 @@ func FuzzDecodeLog(f *testing.F) {
 			TimeZone:           telem.TimeZone(""),
 			Group:              nil,
 			Project:            nil,
-			Range:              nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -346,7 +203,6 @@ func FuzzDecodeLog(f *testing.F) {
 			TimeZone:           telem.TimeZone("local"),
 			Group:              new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			Project:            new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-			Range:              new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

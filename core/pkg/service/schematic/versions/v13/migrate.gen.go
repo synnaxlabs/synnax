@@ -32,15 +32,13 @@ func autoMigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, er
 		configs[k] = nv
 	}
 	return Schematic{
-		Key:      old.Key,
-		Name:     old.Name,
-		Snapshot: old.Snapshot,
-		Nodes:    old.Nodes,
-		Edges:    old.Edges,
-		Configs:  configs,
-		Group:    old.Group,
-		Project:  old.Project,
-		Range:    old.Range,
+		Key:     old.Key,
+		Name:    old.Name,
+		Nodes:   old.Nodes,
+		Edges:   old.Edges,
+		Configs: configs,
+		Group:   old.Group,
+		Project: old.Project,
 	}, nil
 }
 

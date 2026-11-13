@@ -111,6 +111,11 @@ func (c *ChannelEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.NonZero("channel", c.Channel)
+	if c.Precision != nil {
+		v.LessThanEq("precision", *c.Precision, 17)
+	}
+	v.MaxLength("alias", c.Alias, 64)
 	v.Exec(func() error { return validate.PathedError(c.TimestampConfig.Validate(), "timestamp_config") })
 	return v.Error()
 }

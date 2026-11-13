@@ -30,7 +30,7 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			v2Chain := versions.Migrations[:len(versions.Migrations)-5]
+			v2Chain := versions.Migrations[:len(versions.Migrations)-7]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,
@@ -101,6 +101,8 @@ var _ = Describe("Migrations", func() {
 			"v61_add_group",
 			"v61_table_group_membership",
 			"v61_table_owner",
+			"v62_table_delete_range_owned",
+			"v62_table_drop_range",
 			"v61_color_alpha_byte",
 		}))
 	})

@@ -25,6 +25,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -128,7 +129,9 @@ var _ = Describe("Migrations", func() {
 			p3 := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
-			want := MustSucceed(v4.MigratePanel(ctx, p3))
+			want := MustSucceed(
+				v5.MigratePanel(ctx, MustSucceed(v4.MigratePanel(ctx, p3))),
+			)
 			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
@@ -160,9 +163,10 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			owner := own(stored.Key)
 			openTable()
-			want := MustSucceed(
-				v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
-			)
+			want := MustSucceed(v5.MigratePanel(
+				ctx,
+				MustSucceed(v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored)))),
+			))
 			want.Project = &owner
 			got := retrieve(stored.Key)
 			Expect(got).To(Equal(want))
@@ -282,6 +286,8 @@ var _ = Describe("Migrations", func() {
 			"v61_panel_group_membership",
 			"v61_panel_owner",
 			"v61_strip_arc_explorer_tabs",
+			"v62_panel_delete_range_owned",
+			"v62_panel_drop_range",
 			"v61_color_alpha_byte",
 		}))
 	})

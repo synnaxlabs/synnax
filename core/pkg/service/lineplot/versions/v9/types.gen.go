@@ -17,12 +17,10 @@ import (
 	"reflect"
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -129,140 +127,10 @@ type Axis = v8.Axis
 type Axes = v8.Axes
 
 // Line is the per-line styling and reduction configuration.
-type Line struct {
-	// Key is the line's stable identity, a UUID string. It is a function of the plot's
-	// key and the line's y-axis, y-channel, and x-channel, so the Core and the Console
-	// derive the same key for the same line.
-	Key string `json:"key" msgpack:"key"`
-	// YAxis is the y-axis the line is drawn against.
-	YAxis YAxisKey `json:"y_axis" msgpack:"y_axis"`
-	// YChannel is the channel plotted on the y-axis.
-	YChannel channel.Key `json:"y_channel" msgpack:"y_channel"`
-	// XChannel is the channel plotted on the x-axis, or 0 to plot against time.
-	XChannel channel.Key `json:"x_channel" msgpack:"x_channel"`
-	// Label is the user-specified line label. Null means derive from the channel name
-	// at render time; non-null is an override.
-	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
-	// Color is the line color. When null, the Console assigns one from the
-	// visualization palette at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// StrokeWidth is the line stroke width in pixels.
-	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
-	// Aggregation selects how the line reduces the samples of one pixel group.
-	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
-	// Detail selects how many sample groups the line draws per pixel column.
-	Detail Detail `json:"detail" msgpack:"detail"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-	if l.Detail == "" {
-		l.Detail = DetailMedium
-	}
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (l *Line) SetDefaults() {
-	l.StrokeWidth = 2
-	l.Aggregation = AggregationMinMax
-	l.Detail = DetailMedium
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (l *Line) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain Line
-	if reflect.ValueOf(*l).IsZero() {
-		l.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(l))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (l *Line) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain Line
-	if reflect.ValueOf(*l).IsZero() {
-		l.SetDefaults()
-	}
-	return dec.Decode((*plain)(l))
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (l Line) Validate() error {
-	v := validate.New("Line")
-	v.Ternaryf("y_axis", !l.YAxis.IsValid(), "invalid y_axis: %v", l.YAxis)
-	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
-	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
-	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
-	return v.Error()
-}
+type Line = v8.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule struct {
-	// Key is the unique rule identifier within the line plot.
-	Key string `json:"key" msgpack:"key"`
-	// Label is the human-readable label rendered alongside the rule.
-	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule. When null, the Console assigns a default
-	// at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Axis is the axis the rule is anchored to.
-	Axis AxisKey `json:"axis" msgpack:"axis"`
-	// LineWidth is the rule line width in pixels.
-	LineWidth float64 `json:"line_width" msgpack:"line_width"`
-	// LineDash is the dash length in pixels; 0 renders a solid line.
-	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
-	// Units is the unit label displayed next to the position value.
-	Units string `json:"units" msgpack:"units"`
-	// Position is the value-space position of the rule along its anchored axis.
-	Position float64 `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
-	}
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (r *Rule) SetDefaults() {
-	r.LineWidth = 1
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (r *Rule) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain Rule
-	if reflect.ValueOf(*r).IsZero() {
-		r.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(r))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (r *Rule) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain Rule
-	if reflect.ValueOf(*r).IsZero() {
-		r.SetDefaults()
-	}
-	return dec.Decode((*plain)(r))
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Rule) Validate() error {
-	v := validate.New("Rule")
-	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
-	return v.Error()
-}
+type Rule = v8.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
@@ -290,12 +158,8 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 	// Group is the group the line plot sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the line plot, if any. Exactly one of project
-	// and range is set.
+	// Project is the project that holds the line plot.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-	// Range is the range that owns the line plot, if any. Exactly one of project and
-	// range is set.
-	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -341,7 +205,6 @@ func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })

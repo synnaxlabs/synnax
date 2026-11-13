@@ -19,7 +19,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
@@ -309,22 +309,15 @@ const loadSchematic = async (
 
 interface SetupParams {
   editable: boolean;
-  snapshot?: boolean;
   userClient?: Synnax;
   scoped?: boolean;
 }
 
-const setup = async ({
-  editable,
-  snapshot = false,
-  userClient = client,
-  scoped = true,
-}: SetupParams) => {
+const setup = async ({ editable, userClient = client, scoped = true }: SetupParams) => {
   const created = await client.schematics.create({
     project: projectKey,
     key: uuid.create(),
     name: id.create(),
-    snapshot,
   });
   const { wrapper: Wrapper } = await createConsoleWrapper({
     client: userClient,
@@ -346,7 +339,6 @@ const setup = async ({
   const { result } = renderHook(
     () => ({
       editable: Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
-      granted: Access.useUpdateGranted(schematic.resourceID(created.key)),
     }),
     { wrapper: scoped ? ScopedWrapper : Wrapper },
   );
@@ -374,13 +366,6 @@ describe("useSelectEditable", () => {
     expect(result.current.editable.isCurrentlyEditable).toBe(false);
   });
 
-  it("blocks editing of a snapshot even with permission and edit mode on", async () => {
-    const result = await setup({ editable: true, snapshot: true });
-    await waitFor(() => expect(result.current.granted).toBe(true));
-    expect(result.current.editable.canEdit).toBe(false);
-    expect(result.current.editable.isCurrentlyEditable).toBe(false);
-  });
-
   it("blocks editing when the user lacks update permission", async () => {
     const userClient = await createTestClientWithPolicy(client, {
       name: id.create(),
@@ -394,10 +379,11 @@ describe("useSelectEditable", () => {
     });
   });
 
-  it("honors an explicit key override for the snapshot check without a scope", async () => {
-    const result = await setup({ editable: true, snapshot: true, scoped: false });
-    await waitFor(() => expect(result.current.granted).toBe(true));
-    expect(result.current.editable.canEdit).toBe(false);
-    expect(result.current.editable.isCurrentlyEditable).toBe(false);
+  it("honors an explicit key override without a scope", async () => {
+    const result = await setup({ editable: true, scoped: false });
+    await waitFor(() => {
+      expect(result.current.editable.canEdit).toBe(true);
+      expect(result.current.editable.isCurrentlyEditable).toBe(true);
+    });
   });
 });

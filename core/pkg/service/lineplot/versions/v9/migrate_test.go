@@ -14,63 +14,42 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
-	color "github.com/synnaxlabs/x/color/versions/v0"
-	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var alphaEntries = []TableEntry{
-	Entry("a transparent alpha", 0.0, uint8(0)),
-	Entry("a faint alpha", 0.003, uint8(1)),
-	Entry("a half alpha", 0.5, uint8(128)),
-	Entry("an opaque alpha", 1.0, uint8(255)),
-}
-
-var _ = Describe("Migrate", func() {
-	DescribeTable("Should store the line color alpha as a byte",
-		func(ctx SpecContext, a float64, expected uint8) {
-			l := MustSucceed(v9.MigrateLine(ctx, v8.Line{
-				Key: "l1", Color: &color.Color{B: 3, A: a},
-			}))
-			Expect(l.Key).To(Equal("l1"))
-			Expect(l.Color).To(HaveValue(Equal(colorv2.Color{B: 3, A: expected})))
-		},
-		alphaEntries,
-	)
-
-	DescribeTable("Should store the rule color alpha as a byte",
-		func(ctx SpecContext, a float64, expected uint8) {
-			r := MustSucceed(v9.MigrateRule(ctx, v8.Rule{
-				Key: "r", Color: &color.Color{R: 9, A: a},
-			}))
-			Expect(r.Key).To(Equal("r"))
-			Expect(r.Color).To(HaveValue(Equal(colorv2.Color{R: 9, A: expected})))
-		},
-		alphaEntries,
-	)
-
+var _ = Describe("Migration", func() {
 	It(
-		"Should convert the colors of every line and rule of a plot",
+		"Should delete each range-owned LinePlot and lift the rest",
 		func(ctx SpecContext) {
-			key := uuid.New()
-			group := uuid.New()
-			old := v8.LinePlot{
-				Key:   key,
-				Name:  "plot",
-				Lines: []v8.Line{{Key: "l1", Color: &color.Color{R: 1, A: 0.5}}},
-				Rules: []v8.Rule{{Key: "r1", Color: &color.Color{G: 2, A: 1}}},
-				Group: &group,
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v8.Key, v8.LinePlot]{DB: db}))
+			proj := uuid.New()
+			owned := v8.LinePlot{Key: uuid.New(), Name: "Owned", Project: &proj}
+			ranged := v8.LinePlot{
+				Key:   uuid.New(),
+				Name:  "Ranged",
+				Range: new(uuid.New()),
 			}
-			lp := MustSucceed(v9.MigrateLinePlot(ctx, old))
-			Expect(lp.Key).To(Equal(key))
-			Expect(lp.Name).To(Equal("plot"))
-			Expect(lp.Group).To(HaveValue(Equal(group)))
-			Expect(lp.Lines).To(HaveLen(1))
-			Expect(lp.Lines[0].Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
-			Expect(lp.Rules).To(HaveLen(1))
-			Expect(lp.Rules[0].Color).To(HaveValue(Equal(colorv2.Color{G: 2, A: 255})))
+			Expect(gorp.NewCreate[v8.Key, v8.LinePlot]().
+				Entries(&[]v8.LinePlot{owned, ranged}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "LinePlot",
+				Migrations: []gorp.Migration{v9.RangeMigration, v9.Migration},
+			})).To(Succeed())
+			var stored []v9.LinePlot
+			Expect(gorp.NewRetrieve[v9.Key, v9.LinePlot]().
+				Entries(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored).To(ConsistOf(SatisfyAll(
+				HaveField("Key", owned.Key),
+				HaveField("Project", HaveValue(Equal(proj))),
+			)))
 		},
 	)
 })

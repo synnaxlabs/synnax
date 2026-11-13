@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
-import "schemas/x/versions/color/v2"
 
 Key = v0.Key
 
@@ -39,8 +37,13 @@ Axis = v5.Axis
 
 Axes = v5.Axes
 
-Line struct extends v8.Line {}
+Line = v8.Line
 
-Rule struct extends v5.Rule {}
+Rule = v5.Rule
 
-LinePlot struct extends v8.LinePlot {}
+LinePlot struct extends v8.LinePlot {
+    -range
+    project project.Key? {
+        @doc value "is the project that holds the line plot."
+    }
+}

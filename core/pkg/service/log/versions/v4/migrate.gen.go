@@ -14,37 +14,19 @@ package v4
 import (
 	"context"
 
-	"github.com/samber/lo"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 )
 
-func autoMigrateLog(ctx context.Context, old v3.Log) (Log, error) {
-	channels, err := lo.MapErr(old.Channels, func(v v3.ChannelEntry, _ int) (ChannelEntry, error) {
-		return MigrateChannelEntry(ctx, v)
-	})
-	if err != nil {
-		return Log{}, err
-	}
+func autoMigrateLog(_ context.Context, old v3.Log) (Log, error) {
 	return Log{
 		Key:                old.Key,
 		Name:               old.Name,
-		Channels:           channels,
+		Channels:           old.Channels,
 		TimestampPrecision: old.TimestampPrecision,
 		ChannelNamesHidden: old.ChannelNamesHidden,
 		TimestampsHidden:   old.TimestampsHidden,
 		TimeZone:           old.TimeZone,
 		Group:              old.Group,
 		Project:            old.Project,
-		Range:              old.Range,
-	}, nil
-}
-
-func autoMigrateChannelEntry(_ context.Context, old v3.ChannelEntry) (ChannelEntry, error) {
-	return ChannelEntry{
-		Channel:         old.Channel,
-		Notation:        old.Notation,
-		Precision:       old.Precision,
-		Alias:           old.Alias,
-		TimestampConfig: old.TimestampConfig,
 	}, nil
 }

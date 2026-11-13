@@ -73,7 +73,7 @@ class Console:
             layout=self.layout, client=self.client, project=self.project
         )
         self.panels = PanelsClient(self.layout)
-        self.ranges = RangesClient(layout=self.layout, pages=self.pages)
+        self.ranges = RangesClient(self.layout)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 

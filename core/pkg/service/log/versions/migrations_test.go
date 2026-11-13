@@ -32,6 +32,8 @@ var _ = Describe("Migrations", func() {
 			"v61_optional_channel_precision",
 			"v61_log_group_membership",
 			"v61_log_owner",
+			"v62_log_delete_range_owned",
+			"v62_log_drop_range",
 			"v61_color_alpha_byte",
 		}))
 	})

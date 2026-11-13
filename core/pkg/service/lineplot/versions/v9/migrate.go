@@ -14,23 +14,30 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// MigrateLinePlot lifts a v8 line plot to v9, which stores every color alpha as a 0-255
-// byte.
+// MigrateLinePlot lifts a v8 line plot into v9, which drops the range owner.
 func MigrateLinePlot(ctx context.Context, old v8.LinePlot) (LinePlot, error) {
 	return autoMigrateLinePlot(ctx, old)
 }
 
-// Migration lifts stored line plots from v8 to v9.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateLinePlot)
+// RangeMigration deletes each stored v8 line plot that a range owns, and logs a warning
+// for each.
+var RangeMigration = projectv3.NewDeleteMigration(
+	projectv3.DeleteConfig[v8.Key, v8.LinePlot]{
+		Name:   "v62_lineplot_delete_range_owned",
+		Type:   resource.TypeLineplot,
+		NameOf: func(e v8.LinePlot) string { return e.Name },
+		Reason: func(e v8.LinePlot) string {
+			if e.Range != nil {
+				return "owned by a range"
+			}
+			return ""
+		},
+	},
+)
 
-// MigrateLine lifts a v8 line to v9.
-func MigrateLine(ctx context.Context, old v8.Line) (Line, error) {
-	return autoMigrateLine(ctx, old)
-}
-
-// MigrateRule lifts a v8 rule to v9.
-func MigrateRule(ctx context.Context, old v8.Rule) (Rule, error) {
-	return autoMigrateRule(ctx, old)
-}
+// Migration lifts each stored line plot from v8 to v9.
+var Migration = migrate.NewEntry("v62_lineplot_drop_range", MigrateLinePlot)

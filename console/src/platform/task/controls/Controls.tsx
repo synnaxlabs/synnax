@@ -17,17 +17,14 @@ import { type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
-import { type Values } from "@/platform/task/types";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
 import { useIsRunning, useStatus } from "@/platform/task/useStatus";
 
-const path = deep.path<
-  Pick<Values, "snapshot"> & {
-    config: { dataSavingDisabled: boolean; autoStart: boolean };
-  }
->();
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 interface SettingProps {
   label: string;
@@ -94,7 +91,6 @@ export interface ControlsProps extends Flex.BoxProps {
 export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const running = useIsRunning();
-  const isSnapshot = Form.useFieldValue(path.snapshot);
   const key = useKey();
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
@@ -113,7 +109,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
       status={taskStatus}
       running={running}
       drifted={drifted}
-      hideActions={isSnapshot || !canControl}
+      hideActions={!canControl}
       startStopVariant={status.keepVariants(taskStatus?.variant, "loading")}
       settings={<Settings />}
       onDeploy={handleDeploy}

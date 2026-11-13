@@ -14,51 +14,35 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v4"
-	color "github.com/synnaxlabs/x/color/versions/v0"
-	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = Describe("Migrate", func() {
-	DescribeTable("Should store the channel color alpha as a byte",
-		func(ctx SpecContext, a float64, expected uint8) {
-			old := v3.ChannelEntry{Channel: 1, Color: color.Color{R: 1, G: 2, A: a}}
-			e := MustSucceed(v4.MigrateChannelEntry(ctx, old))
-			Expect(e.Channel).To(BeEquivalentTo(1))
-			Expect(e.Color).To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, A: expected})))
-		},
-		Entry("a transparent alpha", 0.0, uint8(0)),
-		Entry("a faint alpha", 0.003, uint8(1)),
-		Entry("a half alpha", 0.5, uint8(128)),
-		Entry("an opaque alpha", 1.0, uint8(255)),
-	)
-
-	It("Should store a zero channel color as no color", func(ctx SpecContext) {
-		e := MustSucceed(v4.MigrateChannelEntry(ctx, v3.ChannelEntry{Channel: 1}))
-		Expect(e.Channel).To(BeEquivalentTo(1))
-		Expect(e.Color).To(BeNil())
-	})
-
-	It("Should convert the color of every channel of a log", func(ctx SpecContext) {
-		key := uuid.New()
-		group := uuid.New()
-		old := v3.Log{
-			Key:  key,
-			Name: "log",
-			Channels: []v3.ChannelEntry{
-				{Channel: 1, Color: color.Color{R: 1, A: 0.5}},
-				{Channel: 2, Color: color.Color{B: 2, A: 1}},
-			},
-			Group: &group,
-		}
-		l := MustSucceed(v4.MigrateLog(ctx, old))
-		Expect(l.Key).To(Equal(key))
-		Expect(l.Name).To(Equal("log"))
-		Expect(l.Group).To(HaveValue(Equal(group)))
-		Expect(l.Channels).To(HaveLen(2))
-		Expect(l.Channels[0].Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
-		Expect(l.Channels[1].Color).To(HaveValue(Equal(colorv2.Color{B: 2, A: 255})))
+var _ = Describe("Migration", func() {
+	It("Should delete each range-owned Log and lift the rest", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Log]{DB: db}))
+		proj := uuid.New()
+		owned := v3.Log{Key: uuid.New(), Name: "Owned", Project: &proj}
+		ranged := v3.Log{Key: uuid.New(), Name: "Ranged", Range: new(uuid.New())}
+		Expect(gorp.NewCreate[v3.Key, v3.Log]().
+			Entries(&[]v3.Log{owned, ranged}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Log",
+			Migrations: []gorp.Migration{v4.RangeMigration, v4.Migration},
+		})).To(Succeed())
+		var stored []v4.Log
+		Expect(gorp.NewRetrieve[v4.Key, v4.Log]().
+			Entries(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored).To(ConsistOf(SatisfyAll(
+			HaveField("Key", owned.Key),
+			HaveField("Project", HaveValue(Equal(proj))),
+		)))
 	})
 })
