@@ -336,6 +336,24 @@ var _ = Describe("Service", func() {
 			Entry("NaN", math.NaN(), "unsupported value: NaN"),
 		)
 
+		It("Should reject an edit that sets a stored frequency to 0", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.AnalogWrite, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":      "ao_func_gen",
+					"key":       "gen",
+					"frequency": 2.5,
+				}},
+			}))
+			c := MustSucceed(patch.Begin(patch.Set{
+				Path:  []string{"config", "channels", "gen", "frequency"},
+				Value: 0.0,
+			})).Next()
+			Expect(svc.AnalogWrite.Edit(ctx, db, key, "", []patch.Cursor{c})).
+				Error().To(MatchError(ContainSubstring("must be greater than 0")))
+		})
+
 		It("Should accept a positive function generator frequency", func(
 			ctx SpecContext,
 		) {
