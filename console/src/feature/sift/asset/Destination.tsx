@@ -103,7 +103,7 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
     [client, deviceKey, mode],
   );
   return (
-    <Form.Field<string> {...rest} label="Asset" required>
+    <Form.Field<string> {...rest} label="Asset">
       {({ value, onChange, preview }) => (
         <Flex.Box x gap="small" grow>
           <Select.Simple<string>
@@ -139,7 +139,7 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
                     label: "Asset name",
                     icon: <Icon.Logo.Sift />,
                   });
-                  if (name != null) onChange(name);
+                  if (name != null) onChange(name.trim());
                 }, "Failed to name the new asset")
               }
             >
