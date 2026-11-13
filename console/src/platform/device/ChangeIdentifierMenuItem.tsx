@@ -12,7 +12,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 import type { ComponentType, ReactElement } from "react";
 
-import { type Adapter, type SaveParams } from "@/platform/device/adapter";
+import { type Adapter, type ChangeIdentifierParams } from "@/platform/device/adapter";
 import { Modals } from "@/platform/modals";
 import type { Tree } from "@/platform/tree";
 
@@ -23,15 +23,13 @@ export interface ChangeIdentifierMenuItemProps extends Pick<
 
 interface InternalProps extends Pick<ChangeIdentifierMenuItemProps, "handleError"> {
   icon: string;
-  name: string;
   deviceKey: string;
   identifier: string;
-  save: (params: SaveParams) => Promise<boolean>;
+  save: (params: ChangeIdentifierParams) => Promise<boolean>;
 }
 
 const Internal = ({
   icon,
-  name,
   deviceKey,
   identifier,
   save,
@@ -48,7 +46,7 @@ const Internal = ({
         icon: Icon.resolve(icon),
       });
       if (newIdentifier == null) return;
-      await save({ key: deviceKey, name, identifier: newIdentifier });
+      await save({ key: deviceKey, identifier: newIdentifier });
     }, "Failed to change identifier");
   return (
     <Menu.Item itemKey="changeIdentifier" onClick={handleClick}>
@@ -66,7 +64,7 @@ export interface CreateChangeIdentifierMenuItemArgs {
 
 /** Creates the menu item that changes the identifier of a configured device. */
 export const createChangeIdentifierMenuItem = ({
-  adapter: { use: useConfigurable, useSave, resourceID },
+  adapter: { use: useConfigurable, useChangeIdentifier, resourceID },
   icon,
 }: CreateChangeIdentifierMenuItemArgs): ComponentType<ChangeIdentifierMenuItemProps> => {
   const ChangeIdentifierMenuItem = ({
@@ -74,13 +72,12 @@ export const createChangeIdentifierMenuItem = ({
     handleError,
   }: ChangeIdentifierMenuItemProps): ReactElement | null => {
     const dev = useConfigurable(ids[0].key);
-    const { updateAsync } = useSave();
+    const { updateAsync } = useChangeIdentifier();
     const hasUpdatePermission = Access.useUpdateGranted(resourceID(ids[0].key));
     if (ids.length !== 1 || !dev.configured || !hasUpdatePermission) return null;
     return (
       <Internal
         icon={icon}
-        name={dev.name}
         deviceKey={dev.key}
         identifier={dev.identifier}
         save={updateAsync}
