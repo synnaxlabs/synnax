@@ -471,8 +471,8 @@ TEST_F(EtherCATScanFilterTest, ReportsNoFilterUntilTheProbeAfterATurnOff) {
     EXPECT_NE(this->scanner->status_data(), std::nullopt);
 }
 
-/// @brief it should report no filter on an interface that a command started to turn
-/// off during the scan.
+/// @brief it should report no filter on an interface that a command started to turn off
+/// during the scan.
 TEST_F(EtherCATScanFilterTest, ReportsNoFilterTurnedOffDuringAScan) {
     ASSERT_OCCURRED_AS_P(
         this->scanner->scan({.devices = &this->saved}),
