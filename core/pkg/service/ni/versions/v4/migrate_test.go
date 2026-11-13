@@ -45,6 +45,7 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 		Entry("missing", 0.0, 1.0),
 		Entry("negative", -20.0, 1.0),
 		Entry("NaN", math.NaN(), 1.0),
+		Entry("infinite", math.Inf(1), 1.0),
 		Entry("positive", 12.5, 12.5),
 	)
 
