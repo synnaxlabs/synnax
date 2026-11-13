@@ -49,8 +49,9 @@ runs:
       run: |
         cargo install trusted-signing-cli --version "$VERSION" --locked \
           --root "$RUNNER_TEMP/trusted-signing-cli"
-        mkdir -p .trusted-signing-cli
-        mv "$RUNNER_TEMP/trusted-signing-cli/bin" .trusted-signing-cli/bin
+        mkdir -p .trusted-signing-cli/bin
+        mv -f "$RUNNER_TEMP/trusted-signing-cli/bin/trusted-signing-cli.exe" \
+          .trusted-signing-cli/bin
 
     # Merge queue caches are unreachable from later runs, so the queue never saves.
     - name: Save trusted-signing-cli
