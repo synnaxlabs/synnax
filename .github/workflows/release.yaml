@@ -75,8 +75,8 @@ env:
 # Driver from the drafts of the run. One publish job follows the CI verdict, the
 # migration audit, and every build, so a run that fails any of them leaves only drafts,
 # and the next run clears them. An `if` with `!cancelled()` drops the implicit success
-# check, so each job states the results it needs. The packages, the image, and the docs
-# follow the publish.
+# check, so each job states the results it needs. The packages build at dispatch too,
+# as workflow artifacts. Their publish jobs, the image, and the docs follow the publish.
 jobs:
   # A commit that passed the full CI does not run it again. The nightly run and each
   # attempt of a release run count.
@@ -439,23 +439,19 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  # Packages have no candidate channel, so a candidate run never publishes them. The
-  # registries trust this file by name, so the publish jobs live here and not in a called
-  # workflow.
-  publish-ts:
-    name: Publish TypeScript packages
-    needs: [resolve, verify, migration-audit, publish]
-    # Packages go out after the products of the run, and never after the publish fails.
-    # A run with no product has no publish job, so Verify and the audit gate it here.
-    if: >-
-      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
-      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success') && (!inputs.console && !inputs.driver
-      && !inputs.core || needs.publish.result == 'success')
+  # Packages have no candidate channel, so a candidate run never builds or publishes
+  # them. The package builds read nothing from the products, so they start at dispatch
+  # and hold no permission to publish. Each publish job takes the built packages from
+  # the artifact of its build job and builds nothing.
+  build-ts:
+    name: Build TypeScript packages
+    needs: resolve
+    if: inputs.typescript && !inputs.prerelease
     permissions:
-      contents: write
-      id-token: write
+      contents: read
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     env:
       SYNNAX_TS_ENV: prod
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -471,8 +467,9 @@ jobs:
       # only after a stage succeeds, and a run whose tag already names this commit has
       # nothing to stage. While the newest version overall or on this train waits for
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
-      # is approved last.
-      - name: Claim the version
+      # is approved last. The check only reads, and the publish job runs it again.
+      - &claim-ts
+        name: Check the version claim
         id: claim
         shell: bash
         env:
@@ -532,18 +529,80 @@ jobs:
       - name: Build
         run: pnpm build:client
 
+      # The pack writes the internal dependency ranges, so a tarball needs no workspace.
+      - name: Pack
+        run: |
+          for name in x alamos freighter client; do
+            pnpm -C "$name/ts" pack --pack-destination "$GITHUB_WORKSPACE/npm-packages"
+          done
+
+      - name: Upload packages
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: npm-packages
+          path: npm-packages/*.tgz
+          if-no-files-found: error
+          overwrite: true
+
+  # The registries trust this file by name, so the publish jobs live here and not in a
+  # called workflow.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, verify, migration-audit, build-ts, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so Verify and the audit gate it here.
+    if: >-
+      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && needs.build-ts.result == 'success'
+      && (!inputs.console && !inputs.driver && !inputs.core || needs.publish.result ==
+      'success')
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The stage reads only the tarballs, so no dependency code runs in this job.
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+        with:
+          cache: false
+          install: false
+
+      - *claim-ts
+
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
+      - name: Download packages
+        if: steps.claim.outputs.staged != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build-ts.outputs.artifact_id }}
+          path: npm-packages
+          merge-multiple: true
+
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
-      # pnpm cannot stage a batch, so each package stages on its own.
+      # pnpm cannot stage a batch, so each package stages on its own, in dependency
+      # order.
       - name: Stage
         id: stage
         if: steps.claim.outputs.staged != 'true'
         env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG:
             ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
-        # The stamp dirties the tree, and the resolve job already checked the branch.
-        run: pnpm stage publish -r --tag "$TAG" --no-git-checks
+        # The tarballs dirty the tree, and the resolve job already checked the branch.
+        run: |
+          for name in x alamos freighter client; do
+            pnpm stage publish "npm-packages/synnaxlabs-$name-$VERSION.tgz" \
+              --tag "$TAG" --no-git-checks
+          done
 
       # No tag guards the packages that a failed stage left on the registry.
       - name: Ask for a reject
@@ -581,20 +640,15 @@ jobs:
             echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  publish-py:
-    name: Publish Python packages
-    needs: [resolve, verify, migration-audit, publish]
-    # Packages go out after the products of the run, and never after the publish fails.
-    # A run with no product has no publish job, so Verify and the audit gate it here.
-    if: >-
-      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
-      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
-      needs.migration-audit.result == 'success') && (!inputs.console && !inputs.driver
-      && !inputs.core || needs.publish.result == 'success')
+  build-py:
+    name: Build Python packages
+    needs: resolve
+    if: inputs.python && !inputs.prerelease
     permissions:
-      contents: write
-      id-token: write
+      contents: read
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -604,18 +658,23 @@ jobs:
         with:
           version: latest-known
 
-      # The tag claims the version before anything publishes. A run at the same commit
-      # resolves the claimed version again and finishes a partial publish, since the
+      # A run at the commit that the tag names finishes a partial publish, since the
       # registry skips what already went up. Any other run stops, so one version never
-      # holds packages from two commits.
-      - name: Claim the version
+      # holds packages from two commits. The check only reads, and the publish job runs
+      # it again.
+      - &claim-py
+        name: Check the version claim
+        id: claim
         shell: bash
         env:
           VERSION: ${{ needs.resolve.outputs.py_version }}
           TAG: ${{ needs.resolve.outputs.py_tag }}
         run: |
           claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
-          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ "$claimed" = "$GITHUB_SHA" ]; then
+            echo "claimed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -n "$claimed" ]; then
             echo "$TAG names $claimed, not this commit" >&2
             exit 1
@@ -635,7 +694,6 @@ jobs:
                 ;;
             esac
           done
-          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Stamp package versions
         env:
@@ -650,6 +708,60 @@ jobs:
           for package in alamos/py x/py freighter/py client/py; do
             (cd "$package" && uv build)
           done
+
+      - name: Upload packages
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pypi-packages
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          overwrite: true
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, verify, migration-audit, build-py, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so Verify and the audit gate it here.
+    if: >-
+      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && needs.build-py.result == 'success'
+      && (!inputs.console && !inputs.driver && !inputs.core || needs.publish.result ==
+      'success')
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - *claim-py
+
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
+      - name: Download packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build-py.outputs.artifact_id }}
+          path: dist
+          merge-multiple: true
+
+      # The tag claims the version before anything publishes.
+      - name: Tag
+        if: steps.claim.outputs.claimed != 'true'
+        env:
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Prune already-published distributions
         run: uv run --no-project python .github/scripts/prune_published.py
@@ -804,6 +916,8 @@ jobs:
         manifest-console,
         build-driver,
         windows-installer,
+        build-ts,
+        build-py,
       ]
     if: >-
       !cancelled() && (inputs.console || inputs.driver || inputs.core) &&
@@ -811,7 +925,9 @@ jobs:
       (!inputs.migration_audit || needs.migration-audit.result == 'success') &&
       (!inputs.console || needs.manifest-console.result == 'success') && (!inputs.driver
       || needs.build-driver.result == 'success') && (!inputs.core ||
-      needs.windows-installer.result == 'success')
+      needs.windows-installer.result == 'success') && (!inputs.typescript ||
+      inputs.prerelease || needs.build-ts.result == 'success') && (!inputs.python ||
+      inputs.prerelease || needs.build-py.result == 'success')
     permissions:
       actions: read
       contents: write

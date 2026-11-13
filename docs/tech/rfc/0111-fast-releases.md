@@ -103,8 +103,11 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   today (`release.yaml:211-238`).
 - **Desktop**: The Desktop build takes the Driver that §3.0 names, builds its Core on a
   bot, and compiles the Tauri app.
-- **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
-  upload move to the publish stage.
+- **Packages build early**: A build job per language starts at dispatch and uploads the
+  npm tarballs or the PyPI distributions as a workflow artifact. It also checks that the
+  run can claim the version, so a version that is taken fails at dispatch. The stage and
+  the upload move to the publish stage, in jobs that build nothing. Of the package jobs,
+  only those hold `id-token: write`.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
   pushes the image, stages npm, and uploads to PyPI. The Core publishes last, so a
   public Core never embeds a release that is still a draft. A failed build leaves only
