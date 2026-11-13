@@ -99,11 +99,8 @@ func nodeCtx(ctx context.Context) node.Context {
 	return node.Context{Context: ctx, MarkChanged: func(int) {}}
 }
 
-// matchesColor reports whether a diagnostic message is a color.FromCSS rejection.
-func matchesColor(msg string) bool {
-	return strings.Contains(msg, "hex value") ||
-		strings.Contains(msg, "invalid hex color")
-}
+// matchesColor reports whether a diagnostic message is a color.Parse rejection.
+func matchesColor(msg string) bool { return strings.Contains(msg, "invalid color") }
 
 func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 	uid, err := uuid.Parse(key)
