@@ -56,6 +56,13 @@ const valueIssue = (field: payload.WriteField): string | null => {
 };
 
 /**
+ * Reports whether a value at one JSON pointer replaces or blocks a value at the other,
+ * because they are equal or one sits inside the other.
+ */
+export const pointersOverlap = (a: string, b: string): boolean =>
+  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+
+/**
  * Validates a write field of a task to deploy: its pointer is set, and its value can go
  * into a payload.
  */

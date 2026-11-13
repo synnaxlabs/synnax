@@ -66,11 +66,10 @@ std::string compact(const std::string &text) {
     return out;
 }
 
-/// @brief reports whether a value at one of others sits inside or above pointer.
-bool nests(const std::string &pointer, const std::vector<std::string> &others) {
-    return std::ranges::any_of(others, [&](const std::string &other) {
-        return other.starts_with(pointer + "/") || pointer.starts_with(other + "/");
-    });
+/// @brief reports whether a value at one pointer replaces or blocks a value at the
+/// other, because they are equal or one sits inside the other.
+bool overlaps(const std::string &a, const std::string &b) {
+    return a == b || a.starts_with(b + "/") || b.starts_with(a + "/");
 }
 
 /// @brief returns the JSON value that a fixed write field places in every body, or
@@ -132,15 +131,15 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
     ) = ::synnax::http::WriteConfig::parse(parser);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
-    std::set<std::string> all_pointers;
+    std::vector<std::string> pointers;
 
     bool some_enabled = false;
     for (const auto &ep: cfg.endpoints) {
         validate_request(ep, parser);
 
-        all_pointers.clear();
+        pointers.clear();
         validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
-        all_pointers.insert(ep.channel.pointer);
+        if (!ep.channel.pointer.empty()) pointers.push_back(ep.channel.pointer);
         if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
             parser.field_err("endpoints.channel.json_type", type_err);
         if (ep.channel.channel == 0)
@@ -179,11 +178,19 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     "endpoints.fields.pointer",
                     "field pointer cannot be empty"
                 );
-            else if (!all_pointers.insert(*pointer).second)
+            else if (
+                const auto other = std::ranges::find_if(
+                    pointers,
+                    [&](const std::string &p) { return overlaps(p, *pointer); }
+                );
+                other != pointers.end()
+            )
                 parser.field_err(
                     "endpoints.fields.pointer",
-                    "pointer '" + *pointer + "' is already used"
+                    "pointer '" + *pointer + "' overlaps pointer '" + *other + "'"
                 );
+            else
+                pointers.push_back(*pointer);
         }
 
         // Validate bare primitive: if channel pointer is root, no other fields.
@@ -269,17 +276,11 @@ WriteTaskSink::WriteTaskSink(
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
             state.enum_values.emplace_back(entry.value, entry.label);
-        std::vector<std::string> pointers{ep.channel.pointer};
-        for (const auto &field: ep.fields)
-            pointers.push_back(::x::payload::base(field).pointer);
         for (const auto &field: ep.fields) {
             const auto pointer = x::json::json::json_pointer(
                 ::x::payload::base(field).pointer
             );
-            // A value nested inside or above the field must merge with its parsed
-            // value, so only a field that stands alone keeps its text as written.
-            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field);
-                jf != nullptr && !nests(jf->pointer, pointers)) {
+            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field)) {
                 state.static_fields.push_back({
                     .pointer = pointer,
                     .value = x::uuid::create().to_string(),
