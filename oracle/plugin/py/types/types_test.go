@@ -3361,8 +3361,8 @@ var _ = Describe("Collection type aliases and maps", func() {
 					"Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=255)]]",
-				"pair: list[Tuple[Annotated[int, Field(ge=0, le=255)], "+
-					"Annotated[int, Field(ge=0, le=255)]]]",
+				"Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]",
 				"small: list[Annotated[int, Field(ge=0, le=255)]]",
 				"port: list[Annotated[int, Field(ge=0, le=65535)]]",
 				"wide: list[Annotated[int, Field(ge=-9223372036854775808, "+
