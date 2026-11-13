@@ -39,8 +39,16 @@ const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
  * Returns the IDs of the resources that use the secret and that the caller can read.
  * Suspends while the uses load.
  */
-export const useUses = (key: secret.Key): resource.ID[] =>
+const useUses = (key: secret.Key): resource.ID[] =>
   Secret.useMultiple(ALL_USES).find((s) => s.key === key)?.uses ?? NO_USES;
+
+/**
+ * Returns the count of the resources that use the secret and that the caller can read,
+ * or zero while the uses load. Never suspends.
+ */
+export const useUsesCount = (key: secret.Key): number =>
+  Secret.useResultMultiple(ALL_USES).data?.find((s) => s.key === key)?.uses?.length ??
+  0;
 
 interface UseProps {
   resource: resource.Resource;
