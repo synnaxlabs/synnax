@@ -19,11 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 )
 
 // Latest is the portable schema version stamped on exported Table envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v4.Version
+const Latest = v5.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Table
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -47,7 +48,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateTable(ctx, t4)
+		if err != nil {
+			return Table{}, err
+		}
+		return t5, nil
 	case v2.Version:
 		t2, err := env.Decode[v2.Table](ctx)
 		if err != nil {
@@ -61,7 +66,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateTable(ctx, t4)
+		if err != nil {
+			return Table{}, err
+		}
+		return t5, nil
 	case v3.Version:
 		t3, err := env.Decode[v3.Table](ctx)
 		if err != nil {
@@ -71,8 +80,22 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateTable(ctx, t4)
+		if err != nil {
+			return Table{}, err
+		}
+		return t5, nil
 	case v4.Version:
+		t4, err := env.Decode[v4.Table](ctx)
+		if err != nil {
+			return Table{}, err
+		}
+		t5, err := v5.MigrateTable(ctx, t4)
+		if err != nil {
+			return Table{}, err
+		}
+		return t5, nil
+	case v5.Version:
 		return env.Decode[Table](ctx)
 	}
 	return Table{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -93,5 +116,9 @@ func liftFirst(ctx context.Context, t1 v1.Table) (Table, error) {
 	if err != nil {
 		return Table{}, err
 	}
-	return t4, nil
+	t5, err := v5.MigrateTable(ctx, t4)
+	if err != nil {
+		return Table{}, err
+	}
+	return t5, nil
 }

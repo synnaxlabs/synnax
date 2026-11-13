@@ -54,14 +54,6 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchKeys(l.In...))
 		}
 	}
-	if l := w.Snapshot; l != nil {
-		if l.Eq == nil {
-			return nil, validate.PathedError(filter.ErrNoOperator, "snapshot")
-		}
-		if l.Eq != nil {
-			fs = append(fs, MatchSnapshot(*l.Eq))
-		}
-	}
 	if l := w.Groups; l != nil {
 		fs = append(fs, MatchGroups(l...))
 	}
@@ -70,9 +62,6 @@ func MatchWhere(w Where) (Filter, error) {
 	}
 	if l := w.Projects; l != nil {
 		fs = append(fs, MatchProjects(l...))
-	}
-	if l := w.Ranges; l != nil {
-		fs = append(fs, MatchRanges(l...))
 	}
 	return And(fs...), nil
 }

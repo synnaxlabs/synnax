@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import group as group_, project as project_
 from synnax.lineplot.types_gen import (
     Key,
     LinePlot,
@@ -56,7 +56,7 @@ class _DispatchRequest(BaseModel):
 
 class Client:
     """Client for creating, retrieving, renaming, and deleting line plots on a Synnax
-    Core. A line plot belongs to exactly one of a project and a range.
+    Core. A line plot belongs to a project.
     """
 
     _client: UnaryClient
@@ -82,16 +82,15 @@ class Client:
     ) -> LinePlot | list[LinePlot]:
         """Create one or more line plots.
 
-        :param line_plots: A single line plot or a list of them. Each one belongs to
-            exactly one of a project and a range. When omitted, a line plot is created
-            from the ``name`` and ``project`` keyword arguments.
+        :param line_plots: A single line plot or a list of them. Each one belongs to a
+            project. When omitted, a line plot is created from the ``name`` and
+            ``project`` keyword arguments.
         :param name: The name of the line plot to create when ``line_plots`` is omitted.
         :param project: The key of the project that owns the line plot when
             ``line_plots`` is omitted.
         :returns: The created line plot, or a list of created line plots when
             ``line_plots`` is a list.
-        :raises ValidationError: If a line plot does not belong to exactly one of a
-            project and a range.
+        :raises ValidationError: If a line plot does not belong to a project.
         """
         is_single = not isinstance(line_plots, list)
         if line_plots is None:
@@ -106,7 +105,6 @@ class Client:
         *,
         key: Key,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -122,7 +120,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -139,7 +136,6 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         projects: project_.Key | list[project_.Key] = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         groups: group_.Key | list[group_.Key] = ...,
         grouped: bool = ...,
         and_: list[WhereInput] = ...,
@@ -170,7 +166,6 @@ class Client:
         :param where: A filter tree that the line plots must also match.
         :param keys: Keeps line plots with one of these keys.
         :param projects: Keeps the line plots owned by any of these projects.
-        :param ranges: Keeps the line plots owned by any of these ranges.
         :param groups: Keeps line plots in any of these groups.
         :param grouped: Keeps only line plots in a group when True, and only line plots
             in no group when False.

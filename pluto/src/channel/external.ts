@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/channel/AliasInput";
 export * from "@/channel/Icons";
 export * from "@/channel/queries";
 export * from "@/channel/resolveIcon";

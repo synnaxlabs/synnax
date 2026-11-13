@@ -161,17 +161,6 @@ class TestClient:
         retrieved = client.line_plots.retrieve(projects=[project.key])
         assert {r.key for r in retrieved} == {a.key, b.key}
 
-    def test_retrieve_by_range_without_line_plots(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should return no line plots when the range owns none."""
-        client.line_plots.create(name="Project Owned", project=project.key)
-        rng = client.ranges.create(
-            name="Empty Range",
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        assert client.line_plots.retrieve(ranges=[rng.key]) == []
-
     def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should filter the line plots by group."""
         made = client.line_plots.create(name="Ungrouped", project=project.key)

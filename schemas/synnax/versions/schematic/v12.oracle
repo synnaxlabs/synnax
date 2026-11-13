@@ -76,4 +76,10 @@ NodeConfig union on variant extends v10.NodeConfig {}
 
 ElementConfig union on variant extends v10.ElementConfig {}
 
-Schematic struct extends v11.Schematic {}
+Schematic struct extends v11.Schematic {
+    -snapshot
+    -range
+    project project.Key? {
+        @doc value "is the project that owns the schematic."
+    }
+}

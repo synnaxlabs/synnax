@@ -32,8 +32,7 @@ TEST(TaskTests, testCreateTask) {
         .name = "test_module",
         .type = "pagerduty_alert",
         .config = x::json::json{{"auto_start", false}},
-        .internal = false,
-        .snapshot = true
+        .internal = false
     };
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
@@ -51,15 +50,13 @@ TEST(TaskTests, testRetrieveTask) {
         .name = "test_module",
         .type = "pagerduty_alert",
         .config = {{"auto_start", false}},
-        .internal = false,
-        .snapshot = true
+        .internal = false
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
     ASSERT_EQ(t2.key, t.key);
-    ASSERT_TRUE(t2.snapshot);
 }
 
 /// @brief it should retrieve a task by its name

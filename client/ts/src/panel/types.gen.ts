@@ -14,7 +14,6 @@ import { z } from "zod";
 
 import { group } from "@/group";
 import { project } from "@/project";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
 export const ORDER_FIELDS = ["name"] as const;
@@ -66,7 +65,6 @@ export type Where = {
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
-  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -89,8 +87,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   grouped: z.boolean().optional(),
   /** projects matches the panels owned by any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
-  /** ranges matches the panels owned by any of the given ranges. */
-  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /**
@@ -228,16 +224,8 @@ export const panelZ = z.object({
   color: color.colorZ.optional(),
   /** group is the group the panel sits in, if any. */
   group: group.keyZ.optional(),
-  /**
-   * project is the project that owns the panel, if any. Exactly one of project and
-   * range is set.
-   */
+  /** project is the project that owns the panel. */
   project: project.keyZ.optional(),
-  /**
-   * range is the range that owns the panel, if any. Exactly one of project and range is
-   * set.
-   */
-  range: ranger.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

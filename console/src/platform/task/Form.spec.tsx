@@ -13,7 +13,7 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { deep, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -25,7 +25,6 @@ import {
   awaitCommand,
   clickDeploy,
   commitFieldInput,
-  renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -162,24 +161,6 @@ describe("wrapForm", () => {
     expect(
       screen.getByRole("button", { name: "Start" }).getAttribute("aria-disabled"),
     ).toBeNull();
-  });
-
-  it("should show the range of a snapshot", async () => {
-    const client = createTestClient();
-    const source = await createTask(client);
-    const range = await client.ranges.create({
-      name: uniqueName("rng"),
-      timeRange: new TimeRange(1, 2),
-    });
-    const snap = await client.tasks.copy(
-      source.key,
-      uniqueName("snap"),
-      true,
-      range.key,
-    );
-    await renderTaskFormTab(createRenderer(), { client, taskKey: snap.key });
-    await waitFor(() => expect(screen.getByText("Snapshotted to")).toBeTruthy());
-    expect(screen.getByText(range.name)).toBeTruthy();
   });
 
   describe("rack", () => {
@@ -671,21 +652,5 @@ describe("wrapForm", () => {
       }
       expect(onConfigure).not.toHaveBeenCalled();
     });
-  });
-});
-
-describe("useIsSnapshot", () => {
-  it("should return the value of the snapshot field", async () => {
-    const { result } = await renderTaskFormHook({ snapshot: true }, (ctx) =>
-      Task.useIsSnapshot(ctx),
-    );
-    expect(result.current.value).toBe(true);
-  });
-
-  it("should return false for a non-snapshot task", async () => {
-    const { result } = await renderTaskFormHook({ snapshot: false }, (ctx) =>
-      Task.useIsSnapshot(ctx),
-    );
-    expect(result.current.value).toBe(false);
   });
 });

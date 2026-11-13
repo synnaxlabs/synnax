@@ -24,8 +24,8 @@ from console.range.toolbar import Toolbar
 
 
 class Overview(Surface):
-    """A range's overview page: times, stage, labels, metadata, child ranges,
-    and snapshots."""
+    """A range's overview page: times, stage, labels, metadata, and child
+    ranges."""
 
     METADATA_SECTION_SELECTOR = ".console-range__metadata"
     METADATA_ITEM_SELECTOR = ".console-metadata__list-item"
@@ -614,54 +614,3 @@ class Overview(Surface):
         self._deselect_all_child_ranges()
         for name in names:
             self.toolbar.wait_for_removed(name)
-
-    # ── Snapshots ────────────────────────────────────────────────────────
-
-    def get_snapshot(self, name: str) -> Locator:
-        """Get a snapshot item locator from the Snapshots section by name.
-
-        :param name: The name of the snapshot to find.
-        :returns: Locator for the snapshot item.
-        """
-        return self.layout.page.locator(".console-snapshots__list-item").filter(
-            has_text=name
-        )
-
-    def snapshot_exists(self, name: str) -> bool:
-        """Check if a snapshot exists in the Snapshots section of the
-        overview."""
-        return self.layout.locator_exists(self.get_snapshot(name))
-
-    def open_snapshot(self, name: str) -> None:
-        """Open a snapshot from the Snapshots section in the range overview.
-
-        :param name: The name of the snapshot to open.
-        """
-        item = self.get_snapshot(name)
-        item.wait_for(state="visible", timeout=5000)
-        item.click()
-
-    def get_snapshot_names(self) -> list[str]:
-        """Get all snapshot names in the Snapshots section.
-
-        :returns: List of snapshot names.
-        """
-        items = self.layout.page.locator(".console-snapshots__list-item")
-        return [items.nth(i).inner_text().strip() for i in range(items.count())]
-
-    def delete_snapshot(self, name: str) -> None:
-        """Delete a snapshot from the Snapshots section in the range overview.
-
-        :param name: The name of the snapshot to delete.
-        """
-        item = self.get_snapshot(name)
-        item.wait_for(state="visible", timeout=5000)
-        item.get_by_role("button", name=f"Delete {name}", exact=True).click()
-        self.layout.confirm_delete()
-
-    def wait_for_snapshot_removed(self, name: str) -> None:
-        """Wait for a snapshot to be removed from the Snapshots section.
-
-        :param name: The name of the snapshot that should be removed.
-        """
-        self.get_snapshot(name).wait_for(state="hidden", timeout=5000)
