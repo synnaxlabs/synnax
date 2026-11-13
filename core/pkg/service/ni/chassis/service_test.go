@@ -341,6 +341,92 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Apply", func() {
+		It("Should write identity fields and keep configuration", func(
+			ctx SpecContext,
+		) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
+					Rack:         rackKey,
+					Serial:       "02B",
+					ResourceName: "Mod2",
+					Model:        "PXIe-1062",
+				}},
+			})).To(Succeed())
+			got := retrieve(ctx, c.Key)
+			Expect(got.Serial).To(Equal("02B"))
+			Expect(got.ResourceName).To(Equal("Mod2"))
+			Expect(got.Model).To(Equal("PXIe-1062"))
+			Expect(got.Name).To(Equal(c.Name))
+		})
+
+		It("Should accept an identity with no serial", func(ctx SpecContext) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
+					Rack:         rackKey,
+					ResourceName: c.ResourceName,
+					Model:        c.Model,
+				}},
+			})).To(Succeed())
+			Expect(retrieve(ctx, c.Key).Serial).To(BeEmpty())
+		})
+
+		It("Should reject an identity without a resource name", func(ctx SpecContext) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
+					Rack:   rackKey,
+					Serial: c.Serial,
+					Model:  c.Model,
+				}},
+			})).To(MatchError(ContainSubstring("resource_name: required")))
+		})
+
+		It("Should write configuration fields and keep identity", func(
+			ctx SpecContext,
+		) {
+			c := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+				Variant: chassis.ConfigurationUpdate{
+					Configuration: chassis.Configuration{Name: "Renamed"},
+				},
+			})).To(Succeed())
+			got := retrieve(ctx, c.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Serial).To(Equal(c.Serial))
+		})
+
+		It("Should return not found for a missing chassis", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), chassis.Update{
+				Variant: chassis.ConfigurationUpdate{
+					Configuration: chassis.Configuration{Name: "Renamed"},
+				},
+			})).To(MatchError(query.ErrNotFound))
+		})
+
+		DescribeTable(
+			"Should reject an invalid update",
+			func(ctx SpecContext, update chassis.Update, message string) {
+				c := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, c.Key, update)).
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry("no group", chassis.Update{}, "no field group"),
+			Entry(
+				"identity",
+				chassis.Update{Variant: chassis.IdentityUpdate{}},
+				"required",
+			),
+			Entry(
+				"configuration",
+				chassis.Update{Variant: chassis.ConfigurationUpdate{}},
+				"required",
+			),
+		)
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the chassis and its modules", func(ctx SpecContext) {
 			c := create(ctx)

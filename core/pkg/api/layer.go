@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
@@ -208,6 +209,12 @@ type Transport struct {
 	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
 	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
 	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
+
+	// NI CHASSIS
+	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
+	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
+	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
+	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -294,6 +301,7 @@ type Layer struct {
 	Task         *task.Service
 	Device       *device.Service
 	NIDevice     *nidevice.Service
+	NIChassis    *nichassis.Service
 	Policy       *policy.Service
 	Role         *role.Service
 	Arc          *arc.Service
@@ -490,6 +498,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIDeviceRetrieve,
 		t.NIDeviceUpdate,
 		t.NIDeviceDelete,
+
+		// NI CHASSIS
+		t.NIChassisCreate,
+		t.NIChassisRetrieve,
+		t.NIChassisUpdate,
+		t.NIChassisDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -738,6 +752,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIDeviceUpdate.BindHandler(bind.Write(l.binder, l.NIDevice.Update))
 	t.NIDeviceDelete.BindHandler(bind.Write(l.binder, l.NIDevice.Delete))
 
+	// NI CHASSIS
+	t.NIChassisCreate.BindHandler(bind.Write(l.binder, l.NIChassis.Create))
+	t.NIChassisRetrieve.BindHandler(bind.Read(l.binder, l.NIChassis.Retrieve))
+	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
+	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -958,6 +978,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.NIChassis, err = nichassis.NewService(nichassis.ServiceConfig{
+		Chassis: cfg.Service.NI.Chassis,
+		Status:  cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

@@ -145,6 +145,26 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/ni/device/delete",
 			),
+			Entry(
+				"unary NI chassis create",
+				http.MethodPost,
+				"/api/v1/ni/chassis/create",
+			),
+			Entry(
+				"unary NI chassis retrieve",
+				http.MethodPost,
+				"/api/v1/ni/chassis/retrieve",
+			),
+			Entry(
+				"unary NI chassis update",
+				http.MethodPost,
+				"/api/v1/ni/chassis/update",
+			),
+			Entry(
+				"unary NI chassis delete",
+				http.MethodPost,
+				"/api/v1/ni/chassis/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
