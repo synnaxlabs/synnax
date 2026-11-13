@@ -92,9 +92,9 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     while the review posts. Findings on lines of the diff become one review of inline
     threads, skipping any finding an unresolved thread of the bot already holds. Such a
     thread gets the finding's new heading when its severity or follow-up mark changed,
-    and keeps the rest of its comment.
-    The rest go in one comment the bot edits on each review. The summary in the pull
-    request body is replaced, and the check run completes.
+    and keeps the rest of its comment. The findings outside the diff go in one comment
+    the bot edits on each review. The summary in the pull request body is replaced, and
+    the check run completes.
     """
     t = target
     found = threads(t, gh)
