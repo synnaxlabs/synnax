@@ -93,12 +93,13 @@ func (t *Table[K, E]) Close() error {
 // asynchronously by a background goroutine that scans the table once and feeds every
 // index from the same scan.
 //
-// idx.Filter inside Retrieve blocks the query until the index has finished populating.
-// After populate completes the index serves queries normally. If populate fails, the
-// failure is logged via cfg.Instrumentation, and idx.Filter and Referenced fall back to
-// a sequential scan so queries continue to return correct results. Every other read of
-// a failed index returns ErrIndexInvalid: idx.Get, Dependents, and the reference checks
-// of each write and delete.
+// idx.Filter and SortedIndex.FilterRange inside Retrieve block the query until the
+// index has finished populating. After populate completes the index serves queries
+// normally. If populate fails, the failure is logged via cfg.Instrumentation, and
+// idx.Filter, SortedIndex.FilterRange, and Referenced fall back to a sequential scan so
+// queries continue to return correct results. Every other read of a failed index
+// returns ErrIndexInvalid: idx.Get, Dependents, and the reference checks of each write
+// and delete.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
