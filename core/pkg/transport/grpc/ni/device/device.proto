@@ -1,0 +1,52 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.ni_device;
+
+import "core/pkg/api/ni/device/pb/ni_device.proto";
+import "core/pkg/service/ni/device/pb/ni_device.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device";
+
+service NIDeviceCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service NIDeviceRetrieveService {
+  rpc Exec(api.ni_device.pb.RetrieveRequest) returns (api.ni_device.pb.RetrieveResponse);
+}
+
+service NIDeviceUpdateService {
+  rpc Exec(UpdateRequest) returns (google.protobuf.Empty);
+}
+
+service NIDeviceDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.ni_device.pb.Device devices = 1;
+}
+
+message CreateResponse {
+  repeated service.ni_device.pb.Device devices = 1;
+}
+
+// UpdateRequest writes one field group to the device with the given key.
+message UpdateRequest {
+  string key = 1;
+  service.ni_device.pb.Update update = 2;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}
