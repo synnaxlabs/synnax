@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
+import "schemas/synnax/rack"
 import "schemas/synnax/ranger"
 import "schemas/synnax/secret"
 import "schemas/synnax/task"
@@ -73,6 +74,11 @@ UploadDetails struct {
     }
     samples    int64 = 0 {
         @doc value "is the number of values Sift has confirmed."
+    }
+    rack       rack.Key?       {
+        @doc value """
+            is the rack that runs the upload. It is empty until a rack starts it.
+        """
     }
 
     @doc value "is the state of an upload to Sift, held in the details of its status."
