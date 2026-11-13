@@ -244,23 +244,23 @@ unsigned type that holds its bound, or with no bound the unsigned type of its ol
 Floats stay `float64`, because DAQmx and LJM take `double`, except where DAQmx takes an
 integer.
 
-| Schema        | Field                             | Old            | New                              | Validation         | Reason                                                                               |
-| ------------- | --------------------------------- | -------------- | -------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
-| OPC UA        | `Sampling.array.size`             | `int32 = 1`    | `uint32 = 1`                     | `min 1`            | `ArrayDimensions` is `UInt32`, and 0 samples reads nothing                           |
-| Modbus        | `RegisterString.length`           | `int32 = 0`    | `uint16`                         | `min 1`, `max 250` | One request reads 125 registers at most (`driver/modbus/channels.h:71`)              |
-| Modbus        | `bytes_swapped`, `words_swapped`  | `bool?`        | `bool?`                          | -                  | Absent inherits the device's order (`driver/modbus/channels.h:97`)                   |
-| Modbus device | `swap_bytes`, `swap_words`        | `bool`         | `bytes_swapped`, `words_swapped` | -                  | Booleans are adjectival (`driver/modbus/device/device.h:243`)                        |
-| NI            | Channel and `CJC.chan` `port`     | `int32 = 0`    | `uint16 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign; migration clamps it to 0 to 65535            |
-| NI            | DI and DO `line`                  | `int32 = 0`    | `uint8 = 0`                      | `max 31`           | A DAQmx port has 32 lines at most                                                    |
-| NI            | Counter `divisor`                 | `int32 = 4`    | `uint32 = 4`                     | `min 1`            | `DAQmxCreateCIFreqChan` takes `uInt32`, and 0 has no meaning                         |
-| NI            | `pulses_per_rev`                  | `float64 = 24` | `uint32 = 24`                    | `min 1`            | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1419`) |
-| NI            | `initial_count`                   | `float64 = 0`  | `uint32 = 0`                     | -                  | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1589`) |
-| NI device     | `Hardware` `port` and `negative?` | `int32`        | `uint32`                         | -                  | The same DAQmx numbers; absent `negative` still means no pair                        |
-| NI device     | `DigitalPort.lines`               | `int32`        | `uint8`                          | `max 32`           | A DAQmx port has 32 lines at most                                                    |
-| LabJack       | `neg_chan`                        | `int32 = 199`  | `uint16?`                        | `max 127`          | LJM register is `UINT16`; absent writes `LJM_GND` (199); `AIN127` is last            |
-| LabJack       | `*_scan_backlog_warn_on_count`    | `uint32 = 0`   | `uint32?`                        | `min 1`            | Absent lets the Driver pick, not an in-band 0                                        |
-| LabJack       | `tcp_scan_multiplier`             | `int32 = 10`   | `uint32 = 10`                    | `min 1`            | The Driver rejects 0 and below (`driver/labjack/scan_task.h:36`)                     |
-| Kafka device  | `tls`                             | `bool`         | `secure`                         | -                  | Adjectival, and the HTTP and MQTT name                                               |
+| Schema        | Field                            | Old            | New                              | Validation         | Reason                                                                               |
+| ------------- | -------------------------------- | -------------- | -------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| OPC UA        | `Sampling.array.size`            | `int32 = 1`    | `uint32 = 1`                     | `min 1`            | `ArrayDimensions` is `UInt32`, and 0 samples reads nothing                           |
+| Modbus        | `RegisterString.length`          | `int32 = 0`    | `uint16`                         | `min 1`, `max 250` | One request reads 125 registers at most (`driver/modbus/channels.h:71`)              |
+| Modbus        | `bytes_swapped`, `words_swapped` | `bool?`        | `bool?`                          | -                  | Absent inherits the device's order (`driver/modbus/channels.h:97`)                   |
+| Modbus device | `swap_bytes`, `swap_words`       | `bool`         | `bytes_swapped`, `words_swapped` | -                  | Booleans are adjectival (`driver/modbus/device/device.h:243`)                        |
+| NI            | Channel and `CJC.chan` `port`    | `int32 = 0`    | `uint16 = 0`                     | -                  | A DAQmx name such as `ai3` has no sign; migration clamps it to 0 to 65535            |
+| NI            | DI and DO `line`                 | `int32 = 0`    | `uint8 = 0`                      | `max 31`           | A DAQmx port has 32 lines at most                                                    |
+| NI            | Counter `divisor`                | `int32 = 4`    | `uint32 = 4`                     | `min 1`            | `DAQmxCreateCIFreqChan` takes `uInt32`, and 0 has no meaning                         |
+| NI            | `pulses_per_rev`                 | `float64 = 24` | `uint32 = 24`                    | `min 1`            | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1419`) |
+| NI            | `initial_count`                  | `float64 = 0`  | `uint32 = 0`                     | -                  | DAQmx takes `uInt32`, and the Driver truncates (`driver/ni/channel/channels.h:1589`) |
+| NI device     | `Hardware` `port` and `negative` | `int32`        | `uint16`, `negative uint16 = 0`  | -                  | The same DAQmx numbers as task ports; a `negative` of 0 means no pair                |
+| NI device     | `DigitalPort.lines`              | `int32`        | `uint8`                          | `max 32`           | A DAQmx port has 32 lines at most                                                    |
+| LabJack       | `neg_chan`                       | `int32 = 199`  | `uint16?`                        | `max 127`          | LJM register is `UINT16`; absent writes `LJM_GND` (199); `AIN127` is last            |
+| LabJack       | `*_scan_backlog_warn_on_count`   | `uint32 = 0`   | `uint32?`                        | `min 1`            | Absent lets the Driver pick, not an in-band 0                                        |
+| LabJack       | `tcp_scan_multiplier`            | `int32 = 10`   | `uint32 = 10`                    | `min 1`            | The Driver rejects 0 and below (`driver/labjack/scan_task.h:36`)                     |
+| Kafka device  | `tls`                            | `bool`         | `secure`                         | -                  | Adjectival, and the HTTP and MQTT name                                               |
 
 The rest are correct: MQTT `authority uint8` is `control.Authority`, EtherCAT
 `index uint16` and `sub_index uint8` are CoE's, and Modbus `address uint16` and
