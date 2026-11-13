@@ -39,6 +39,11 @@ func validateReadConfig(c *ReadConfig) error {
 	}
 	for i, rec := range c.Records {
 		for j, fld := range rec.Fields {
+			if fld.Variant == nil {
+				return validate.PathedError(errors.Wrap(
+					validate.ErrValidation, "type: must be set",
+				), fieldPath(i, j)...)
+			}
 			opts := optionsOf(fld)
 			labels := make(set.Set[string], len(opts.entries))
 			for _, e := range opts.entries {

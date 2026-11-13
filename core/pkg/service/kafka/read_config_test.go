@@ -201,6 +201,15 @@ var _ = Describe("ReadConfig", func() {
 			},
 		)
 
+		It("Should reject a null field", func(ctx SpecContext) {
+			Expect(prepare(ctx, msgpack.EncodedJSON{
+				"records": []any{map[string]any{"key": "r", "fields": []any{nil}}},
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("records.0.fields.0")),
+			))
+		})
+
 		It("Should save a draft bytes field with no pointer", func(ctx SpecContext) {
 			Expect(prepare(ctx, configOf(
 				map[string]any{"key": "raw", "type": "bytes"},
