@@ -19,6 +19,7 @@ import { createRunningRack } from "@/platform/device/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
+  createTaskReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -127,6 +128,24 @@ describe("Sift stream form", () => {
     fireEvent.click(await findDialogTriggerByText("rig"));
     expect(await screen.findByText("stand")).toBeTruthy();
     expect(await findDialogTriggerByText("rig")).toBeTruthy();
+  });
+
+  it("should show the saved asset without New asset to a user who cannot edit", async () => {
+    const dev = await createSiftDevice(client);
+    const t = await client.tasks.create(
+      {
+        ...ZERO_DRAFT,
+        config: { ...ZERO_DRAFT.config, device: dev.key, asset: "Test stand 1" },
+      },
+      Sift.Task.STREAM_SCHEMAS,
+    );
+    await renderTaskFormTab(Sift.Task.Stream, {
+      client,
+      taskKey: t.key,
+      as: await createTaskReadOnlyClient(client),
+    });
+    expect(await screen.findByText("Test stand 1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /New asset/ })).toBeNull();
   });
 
   it("should keep the asset when another client changes the device", async () => {
