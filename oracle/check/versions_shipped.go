@@ -32,11 +32,12 @@ type Release struct {
 	Root string
 }
 
-// checkShipped fails on every version file whose stored types no longer decode the
-// data a stable release wrote. It compares filled-in shapes, so a type may move to
-// another file or chain, and an enum or union may gain members. A chain removed with
-// its live file under repoRoot passes unless a current chain stores a type of the same
-// name. resolver resolves the current chains, and is nil when there are none.
+// checkShipped fails on every version file whose stored types no longer decode the data
+// a stable release wrote. It compares filled-in shapes, so a type may move to another
+// file or chain, and an enum or union may gain members. A chain removed with its live
+// file under repoRoot passes unless a current chain gained one of its stored types
+// since the release. resolver resolves the current chains, and is nil when there are
+// none.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
@@ -69,7 +70,9 @@ func checkShipped(
 			}
 			if !live {
 				if owners == nil {
-					owners = storedOwners(ctx, r, chains, resolver)
+					owners = gainedOwners(
+						ctx, chains, resolver, shippedChains, shipped,
+					)
 				}
 				checkRemoved(ctx, r, shipped, chain, owners, release)
 				continue
@@ -116,33 +119,39 @@ func checkShipped(
 	}
 }
 
-// storedOwners returns the live path of the current chain that stores each type name.
-func storedOwners(
+// gainedOwners returns, for each stored type name that a current chain did not store at
+// the release, the live path of that chain. It skips a chain that does not resolve,
+// because checkChain and the shipped comparison report it.
+func gainedOwners(
 	ctx context.Context,
-	r *GateReport,
 	chains map[string]versions.Chain,
 	resolver *versions.Resolver,
+	shippedChains map[string]versions.Chain,
+	shipped *versions.Resolver,
 ) map[string]string {
 	owners := make(map[string]string)
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
 		names, err := storedNames(ctx, resolver, chains[livePath])
 		if err != nil {
-			r.fail(Finding{
-				Path:     livePath + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
-			})
 			continue
 		}
+		var had []string
+		if old, ok := shippedChains[livePath]; ok {
+			if had, err = storedNames(ctx, shipped, old); err != nil {
+				continue
+			}
+		}
 		for _, name := range names {
-			owners[name] = livePath
+			if !slices.Contains(had, name) {
+				owners[name] = livePath
+			}
 		}
 	}
 	return owners
 }
 
-// checkRemoved fails a removed chain whose stored types a current chain still stores
-// under the same names, since the Core would read the shipped data with them.
+// checkRemoved fails a removed chain when a current chain gained one of its stored
+// types, because the chain moved and the Core would read the shipped data with it.
 func checkRemoved(
 	ctx context.Context,
 	r *GateReport,
@@ -170,7 +179,7 @@ func checkRemoved(
 			Path:     livePath + ".oracle",
 			Severity: SeverityError,
 			Message: fmt.Sprintf(
-				"%s is gone, but %s still stores %s, which %s shipped",
+				"%s is gone, but %s now stores %s, which %s shipped",
 				livePath, owner, name, release.Tag,
 			),
 			FixHint: fmt.Sprintf(
