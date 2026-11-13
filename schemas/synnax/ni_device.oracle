@@ -236,8 +236,8 @@ Identity struct {
     }
     hardware      Hardware?       {
         @doc value """
-            is what the Driver read from DAQmx about the device. Absent until the Driver
-            reads it.
+            is what the Driver read from DAQmx about the device. An update without it
+            keeps the stored value.
         """
     }
 

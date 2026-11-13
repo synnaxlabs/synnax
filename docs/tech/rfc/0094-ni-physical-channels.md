@@ -48,10 +48,9 @@ Port field.
 
 ### 3.0 Device data
 
-`ni.oracle` gets a `Hardware` struct (NEW). Oracle generates it to Go, TypeScript,
-Python, and C++, like the task configs in that file (`schemas/synnax/ni.oracle:15-18`).
-The device properties store it under `hardware`. RFC 0081 Phase 4 makes it a field of
-`ni.Device` with no change of shape.
+`ni_device.oracle` gets a `Hardware` struct (NEW). Oracle generates it to Go,
+TypeScript, Python, and C++. The device properties store it under `hardware`. RFC 0081
+Phase 3 makes it the `hardware` field of `ni.Device` with no change of shape.
 
 | Field                                                                                         | DAQmx source                                                                               | Use in the form          |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
@@ -74,10 +73,10 @@ a custom scale and a current channel with an external shunt. NI gives ranges per
 not per terminal configuration, so they are a superset: a USB-6008 lists ±20 V although
 only Differential reaches it.
 
-The Console's `propertiesZ` gets `hardware: ni.hardwareZ.optional()`. Without it, every
+The Console's `propertiesZ` gets `hardware: ni.device.hardwareZ.optional()`. Without it, every
 Console write deletes the key, because `propertiesZ` drops unknown keys. EtherCAT keeps
 its scanned `pdos` the same way (`console/src/feature/ethercat/device/types.ts:24`).
-Python reads the generated `ni.Hardware`.
+Python reads the generated `sy.ni.device.Hardware`.
 
 ### 3.1 Reading the device
 

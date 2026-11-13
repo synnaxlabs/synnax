@@ -322,8 +322,8 @@ export const identityZ = z.object({
   /** chassis is the chassis that holds the device. Absent for a standalone device. */
   chassis: niChassis.keyZ.optional(),
   /**
-   * hardware is what the Driver read from DAQmx about the device. Absent until the
-   * Driver reads it.
+   * hardware is what the Driver read from DAQmx about the device. An update without it
+   * keeps the stored value.
    */
   hardware: hardwareZ.optional(),
 });
