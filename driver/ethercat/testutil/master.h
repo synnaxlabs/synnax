@@ -106,6 +106,12 @@ class Master final : public master::Master {
     std::condition_variable recorded_cv;
     /// @brief what name() returns.
     std::string network_name = "eth0";
+    std::mutex activate_mu;
+    std::condition_variable activate_cv;
+    /// @brief whether each activate() blocks until release_activate().
+    bool activate_held{false};
+    /// @brief whether an activate() is blocked now.
+    bool activating{false};
 
 public:
     /// @param clock stamps the host time at which a frame is sent.
@@ -136,6 +142,17 @@ public:
         result.properties = std::move(props);
         result.status.state = slave::State::INIT;
         this->slave_list.push_back(std::move(result));
+    }
+
+    /// @brief replaces the slave at position with props. A scan sees the change only
+    /// after deactivate(), as a restarted slave on a real bus.
+    void replace_slave(const uint16_t position, slave::Properties props) {
+        std::lock_guard lock(this->mu);
+        const auto it = std::ranges::find_if(
+            this->slave_list,
+            [position](const auto &s) { return s.properties.position == position; }
+        );
+        it->properties = std::move(props);
     }
 
     /// @brief makes the PDO discovery of the slave at position fail with error and find
@@ -196,6 +213,27 @@ public:
     void set_activate_duration(const x::telem::TimeSpan span) {
         std::lock_guard lock(this->mu);
         this->activate_duration = span;
+    }
+
+    /// @brief makes activate() wait for release_activate(), which holds a bus start.
+    void hold_activate() {
+        std::lock_guard lock(this->activate_mu);
+        this->activate_held = true;
+    }
+
+    /// @brief waits until an activate() waits after hold_activate().
+    void wait_until_activating() {
+        std::unique_lock lock(this->activate_mu);
+        this->activate_cv.wait(lock, [this] { return this->activating; });
+    }
+
+    /// @brief lets the activate() that hold_activate() holds go on.
+    void release_activate() {
+        {
+            std::lock_guard lock(this->activate_mu);
+            this->activate_held = false;
+        }
+        this->activate_cv.notify_all();
     }
 
     /// @brief makes activate() return err after the bus cycle starts, as when a slave
@@ -404,6 +442,13 @@ public:
             duration = this->activate_duration;
         }
         this->clock.sleep(duration);
+        {
+            std::unique_lock lock(this->activate_mu);
+            this->activating = this->activate_held;
+            this->activate_cv.notify_all();
+            this->activate_cv.wait(lock, [this] { return !this->activate_held; });
+            this->activating = false;
+        }
         size_t sent = 0;
         master::Image image;
         {
