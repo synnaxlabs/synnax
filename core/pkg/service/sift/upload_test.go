@@ -11,6 +11,7 @@ package sift_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 
@@ -46,6 +47,7 @@ var _ = Describe("Upload", func() {
 		t      task.Task
 		dt     driver.Task
 		dev    device.Device
+		idx    channel.Channel
 		ch     channel.Channel
 		rng    ranger.Range
 	)
@@ -56,7 +58,7 @@ var _ = Describe("Upload", func() {
 	}
 
 	BeforeEach(func(ctx SpecContext) {
-		f = MustSucceed(sift.NewFactory(factoryConfig()))
+		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
@@ -65,7 +67,7 @@ var _ = Describe("Upload", func() {
 			URI:    server.Address(),
 			APIKey: createAPIKey(ctx, apiKey),
 		})
-		idx := createIndex(ctx)
+		idx = createIndex(ctx)
 		ch = createData(ctx, idx)
 		write(ctx, idx, ch,
 			[]telem.TimeStamp{at(1), at(2), at(3), at(4)},
@@ -148,6 +150,15 @@ var _ = Describe("Upload", func() {
 		))
 	})
 
+	It("Should upload while scanning is off", func(ctx SpecContext) {
+		Expect(dt.Stop(false)).To(Succeed())
+		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"disabled": true})
+		configure(ctx)
+		key := upload(ctx)
+		statusOf(ctx, key).Should(HaveField("Message", "Uploaded to Sift"))
+		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+	})
+
 	It("Should count a single sample in the singular", func(ctx SpecContext) {
 		idx := createIndex(ctx)
 		ch = createData(ctx, idx)
@@ -189,6 +200,71 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(HaveLen(1))
 	})
 
+	It("Should start the waiting uploads of a device oldest first",
+		func(ctx SpecContext) {
+			server.Pause()
+			want := []string{rng.Name}
+			upload(ctx)
+			Eventually(server.Streams).Should(Equal(1))
+			for range 3 {
+				rng = createRange(ctx, telem.TimeRange{Start: at(1), End: at(5)})
+				want = append(want, rng.Name)
+				upload(ctx)
+			}
+			server.Resume()
+			Eventually(func() []string {
+				var names []string
+				for _, r := range server.Runs() {
+					names = append(names, r.Name)
+				}
+				return names
+			}).WithTimeout(10 * time.Second).Should(Equal(want))
+		})
+
+	It("Should not run the uploads of a device on another rack",
+		func(ctx SpecContext) {
+			other := rack.Rack{Name: "other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			moved := dev
+			moved.Key = uuid.New().String()
+			moved.Rack = other.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &moved)
+			})).To(Succeed())
+			foreign := createRange(ctx, telem.TimeRange{Start: at(1), End: at(5)})
+			s := sift.UploadStatus{
+				Key:     "sift_upload:" + uuid.NewV7().String(),
+				Name:    foreign.Name,
+				Variant: status.VariantLoading,
+				Message: "Waiting to upload to Sift",
+				Time:    telem.Now(),
+				Details: sift.UploadDetails{
+					Device:    moved.Key,
+					Range:     &foreign.Key,
+					TimeRange: foreign.TimeRange,
+					Channels:  []channel.Key{ch.Key()},
+					Asset:     "stand",
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &s)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Delete(ctx, s.Key)
+				})).To(Succeed())
+			})
+			upload(ctx)
+			Eventually(server.Runs).WithTimeout(10 * time.Second).
+				Should(ContainElement(HaveField("Name", rng.Name)))
+			Consistently(server.Runs, 300*time.Millisecond).
+				Should(HaveExactElements(HaveField("Name", rng.Name)))
+			Expect(uploadStatus(ctx, s.Key)).
+				To(HaveField("Message", "Waiting to upload to Sift"))
+		})
+
 	It("Should cancel an upload whose status is deleted", func(ctx SpecContext) {
 		server.Pause()
 		key := upload(ctx)
@@ -207,6 +283,42 @@ var _ = Describe("Upload", func() {
 		}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
 		Expect(server.Runs()).To(BeEmpty())
 	})
+
+	It("Should finish without a run when its range is deleted during the upload",
+		func(ctx SpecContext) {
+			server.Pause()
+			key := upload(ctx)
+			Eventually(server.Streams).Should(Equal(1))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Delete(ctx, rng.Key)
+			})).To(Succeed())
+			server.Resume()
+			statusOf(ctx, key).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Message", "Uploaded to Sift"),
+			))
+			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
+			Expect(server.Runs()).To(BeEmpty())
+		})
+
+	It("Should not write back the status of an upload deleted as it ends",
+		func(ctx SpecContext) {
+			server.FailRuns(grpcstatus.Error(codes.Unavailable, "runs are down"))
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantWarning))
+			// The open transaction holds the write lock, so the final status write
+			// waits for the delete to commit.
+			tx := DeferClose(db.OpenTx())
+			Expect(statusSvc.NewWriter(tx).Delete(ctx, key)).To(Succeed())
+			Eventually(server.Runs).WithTimeout(10 * time.Second).Should(HaveLen(1))
+			// Lets the upload reach the final status write.
+			Consistently(server.Runs, 100*time.Millisecond).Should(HaveLen(1))
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Consistently(func() error {
+				_, err := uploadStatus(ctx, key)
+				return err
+			}).WithTimeout(300 * time.Millisecond).Should(MatchError(query.ErrNotFound))
+		})
 
 	It("Should not start a waiting upload whose status is deleted",
 		func(ctx SpecContext) {
@@ -272,11 +384,57 @@ var _ = Describe("Upload", func() {
 		Expect(server.Runs()).To(HaveLen(1))
 	})
 
+	It("Should resume from its saved positions an upload that was retrying",
+		func(ctx SpecContext) {
+			server.FailRuns(
+				grpcstatus.Error(codes.Unavailable, "runs are down"),
+				grpcstatus.Error(codes.Unavailable, "runs are down"),
+			)
+			key := upload(ctx)
+			statusOf(ctx, key).Should(HaveField("Variant", status.VariantWarning))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(uploadStatus(ctx, key)).To(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Details.Samples", BeEquivalentTo(4)),
+				HaveField(
+					"Details.Positions",
+					HaveExactElements(HaveField("Index", idx.Key())),
+				),
+			))
+			received := server.Received()
+			configure(ctx)
+			statusOf(ctx, key).Should(SatisfyAll(
+				HaveField("Variant", status.VariantSuccess),
+				HaveField("Description", "Sent 4 samples to asset stand."),
+			))
+			Expect(server.Received()).To(Equal(received))
+			Expect(server.Runs()).To(HaveLen(1))
+		})
+
+	It("Should fail a waiting upload whose device is deleted", func(ctx SpecContext) {
+		server.Pause()
+		first := upload(ctx)
+		statusOf(ctx, first).Should(HaveField("Message", "Uploading to Sift"))
+		second := upload(ctx)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
+		})).To(Succeed())
+		server.Resume()
+		statusOf(ctx, second).Should(SatisfyAll(
+			HaveField("Variant", status.VariantError),
+			HaveField("Message", "Failed to upload to Sift"),
+			HaveField("Description", ContainSubstring(
+				fmt.Sprintf("Devices with keys [%s] not found", dev.Key),
+			)),
+		))
+	})
+
 	It("Should hand the uploads to a scan task configured while the last one stops",
 		func(ctx SpecContext) {
 			server.Pause()
 			key := upload(ctx)
-			statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
+			// The stop waits for Sift to confirm only what the upload sent.
+			Eventually(server.Streams).Should(Equal(1))
 			last := dt
 			stopped := make(chan error, 1)
 			go func() { stopped <- last.Stop(false) }()
@@ -312,13 +470,70 @@ var _ = Describe("Upload", func() {
 		))
 	})
 
+	It("Should reject upload arguments that do not decode", func(ctx SpecContext) {
+		stat := execCommand(ctx, dt, t, "upload", map[string]any{
+			"device":   dev.Key,
+			"range":    "not-a-uuid",
+			"channels": []channel.Key{ch.Key()},
+			"asset":    "stand",
+		})
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Failed to upload to Sift"))
+		// The JSON decoder words the start of its errors in more than one way.
+		Expect(stat.Description).To(SatisfyAll(
+			HavePrefix("invalid arguments: json: "),
+			HaveSuffix(`JSON string into Go uuid.UUID within "/range": invalid uuid`),
+		))
+	})
+
+	missingDevice, missingRange := uuid.New().String(), uuid.New()
+
 	DescribeTable("Should reject an invalid upload",
 		func(ctx SpecContext, args func() map[string]any, msg string) {
 			stat := execCommand(ctx, dt, t, "upload", args())
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to upload to Sift"))
-			Expect(stat.Description).To(HaveSuffix(msg))
+			Expect(stat.Description).To(ContainSubstring(msg))
 		},
+		Entry("no device", func() map[string]any {
+			return map[string]any{
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "device: required"),
+		Entry("a device that does not exist", func() map[string]any {
+			return map[string]any{
+				"device":   missingDevice,
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, fmt.Sprintf("Devices with keys [%s] not found", missingDevice)),
+		Entry("a device that is not a Sift device", func() map[string]any {
+			GinkgoHelper()
+			ctx := context.Background()
+			other := dev
+			other.Key = uuid.New().String()
+			other.Make = "other"
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return deviceSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			return map[string]any{
+				"device":   other.Key,
+				"range":    rng.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "is not a Sift device"),
+		Entry("a range that does not exist", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"range":    missingRange,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, fmt.Sprintf("Ranges with keys [%s] not found", missingRange)),
 		Entry("no asset", func() map[string]any {
 			return map[string]any{
 				"device":   dev.Key,
@@ -361,6 +576,7 @@ var _ = Describe("Upload", func() {
 			}
 		}, "time range starts in the future, so it has no data yet"),
 		Entry("a channel that Sift cannot take", func() map[string]any {
+			GinkgoHelper()
 			ctx := context.Background()
 			virtual := channel.Channel{
 				Name:     "virtual_" + uuid.New().String()[:8],
@@ -378,6 +594,7 @@ var _ = Describe("Upload", func() {
 			}
 		}, "is virtual, and the Core stores no data for virtual channels"),
 		Entry("a device on another rack", func() map[string]any {
+			GinkgoHelper()
 			ctx := context.Background()
 			other := rack.Rack{Name: "other"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

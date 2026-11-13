@@ -218,7 +218,8 @@ type Layer struct {
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
-	// NI owns the stored configuration records of the NI task types.
+	// NI owns the NI chassis, devices, and stored configuration records of the NI task
+	// types.
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
@@ -766,6 +767,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
@@ -939,6 +942,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
+			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
@@ -1055,7 +1060,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
-	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
 		Instrumentation: cfg.Child("sift"),
 		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
@@ -1065,8 +1070,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Label:           l.Label,
+		Task:            l.Task,
 	})
-	if !ok(err, nil) {
+	if !ok(err, siftFactory) {
 		return nil, err
 	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{

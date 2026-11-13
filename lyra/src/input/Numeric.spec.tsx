@@ -41,6 +41,13 @@ const release = (el: HTMLElement, x: number): void => {
   fireEvent.pointerUp(el, pointer(x));
 };
 
+// Loads mathjs and lets every evaluation that started settle.
+const settle = async (): Promise<void> =>
+  await act(async () => {
+    await import("mathjs");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
 describe("Input.Numeric", () => {
   it("should mark its input as numeric so forms can narrow it", () => {
     const c = render(<Input.Numeric value={0} onChange={vi.fn()} />);
@@ -217,13 +224,6 @@ describe("Input.Numeric", () => {
   });
 
   describe("escape", () => {
-    // Loads mathjs and lets every evaluation that started settle.
-    const settle = async (): Promise<void> =>
-      await act(async () => {
-        await import("mathjs");
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
     const enterExpression = (c: RenderResult): HTMLInputElement => {
       const input = c.getByRole("textbox") as HTMLInputElement;
       input.focus();
@@ -291,6 +291,68 @@ describe("Input.Numeric", () => {
       c.rerender(<Input.Numeric {...rest} bounds={{ lower: 0, upper: 50 }} />);
       dragTo(dragButtonOf(c), 100);
       expect(onChange).toHaveBeenLastCalledWith(50);
+    });
+  });
+
+  describe("integer", () => {
+    const commit = (typed: string, integer?: boolean) => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          integer={integer}
+          bounds={{ lower: 1, upper: 20 }}
+        />,
+      );
+      const input = c.getByRole("textbox");
+      fireEvent.change(input, { target: { value: typed } });
+      fireEvent.blur(input);
+      return onChange;
+    };
+
+    it("should commit a typed fraction as is by default", () => {
+      expect(commit("2.4")).toHaveBeenCalledWith(2.4);
+    });
+
+    it.each([
+      { typed: "2.4", expected: 2 },
+      { typed: "2.5", expected: 3 },
+      { typed: "0.4", expected: 1 },
+      { typed: "20.6", expected: 20 },
+    ])("should round a typed $typed to $expected", ({ typed, expected }) => {
+      expect(commit(typed, true)).toHaveBeenCalledWith(expected);
+    });
+
+    it("should round an evaluated expression", async () => {
+      const onChange = commit("7 / 2", true);
+      await settle();
+      expect(onChange).toHaveBeenCalledWith(4);
+    });
+
+    it("should round a pasted fraction", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={0} onChange={onChange} integer />);
+      const input = c.getByRole("textbox");
+      fireEvent.paste(input, { clipboardData: { getData: () => "3.7" } });
+      fireEvent.change(input, { target: { value: "3.7" } });
+      fireEvent.blur(input);
+      expect(onChange).toHaveBeenCalledWith(4);
+    });
+
+    it("should commit a dragged value as a whole number", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          integer
+          dragScale={{ x: 0.5, y: 0.5 }}
+        />,
+      );
+      dragTo(dragButtonOf(c), THRESHOLD + 5);
+      for (const [v] of onChange.mock.calls) expect(Number.isInteger(v)).toBe(true);
+      expect(onChange).toHaveBeenCalled();
     });
   });
 });

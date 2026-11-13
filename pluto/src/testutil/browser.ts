@@ -13,5 +13,6 @@ import "@synnaxlabs/lyra/dist/base.css";
 import { setupBrowser } from "@synnaxlabs/lyra/styletest";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
-failOnConsoleOutput();
+// Monaco warns when a startup step is slow, which depends on the machine.
+failOnConsoleOutput({ ignore: [/Creation of workbench contribution '.+' took \d+ms/] });
 setupBrowser();

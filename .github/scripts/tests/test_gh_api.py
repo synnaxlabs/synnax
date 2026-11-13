@@ -63,15 +63,15 @@ class TestGhAPI:
         assert TEXT not in result.stderr
         assert len(gh.calls()) == 2
 
-    def test_gives_up_after_three_attempts(self, gh: FakeGH) -> None:
+    def test_gives_up_after_five_attempts(self, gh: FakeGH) -> None:
         """Should fail with gh's error when every attempt gets an empty response."""
         gh.serve("api */pulls/7", {"state": "open"})
-        gh.fail("api */pulls/7", EMPTY, times=3)
+        gh.fail("api */pulls/7", EMPTY, times=5)
         result = run(gh, "repos/a/b/pulls/7")
         assert result.returncode == 1
         assert result.stdout == ""
         assert result.stderr.endswith(f"{EMPTY}\n")
-        assert len(gh.calls()) == 3
+        assert len(gh.calls()) == 5
 
     def test_keeps_a_real_error_loud(self, gh: FakeGH) -> None:
         """Should fail at once with gh's error when GitHub rejects the request."""

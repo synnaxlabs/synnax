@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Config configures a Server.
@@ -566,15 +567,8 @@ func (s *Server) CreateAdhocRun(
 		s.runFails = s.runFails[1:]
 		return nil, err
 	}
-	if req.Name == "" {
-		return nil, status.Error(codes.InvalidArgument, "name is required")
-	}
-	if req.StartTime == nil || req.StopTime == nil ||
-		!req.StartTime.AsTime().Before(req.StopTime.AsTime()) {
-		return nil, status.Error(
-			codes.InvalidArgument,
-			"start_time must be before stop_time",
-		)
+	if err := checkRun(req.Name, req.StartTime, req.StopTime); err != nil {
+		return nil, err
 	}
 	assets := s.assetNames()
 	for _, id := range req.AssetIds {
@@ -630,7 +624,8 @@ func (s *Server) ListRuns(
 }
 
 // UpdateRun implements runsv2.RunServiceServer. It updates the name, start_time,
-// stop_time, and tags fields that the update mask names.
+// stop_time, and tags fields that the update mask names, and rejects the values that
+// CreateAdhocRun rejects.
 func (s *Server) UpdateRun(
 	_ context.Context,
 	req *runsv2.UpdateRunRequest,
@@ -669,12 +664,24 @@ func (s *Server) UpdateRun(
 			return nil, status.Errorf(codes.InvalidArgument, "cannot update %q", path)
 		}
 	}
-	if !run.StartTime.AsTime().Before(run.StopTime.AsTime()) {
-		return nil, status.Error(
+	if err := checkRun(run.Name, run.StartTime, run.StopTime); err != nil {
+		return nil, err
+	}
+	s.runs[i] = run
+	return &runsv2.UpdateRunResponse{Run: run}, nil
+}
+
+// checkRun returns the error Sift gives for a run with no name, or with a span that
+// does not stop after it starts.
+func checkRun(name string, start, stop *timestamppb.Timestamp) error {
+	if name == "" {
+		return status.Error(codes.InvalidArgument, "name is required")
+	}
+	if start == nil || stop == nil || !start.AsTime().Before(stop.AsTime()) {
+		return status.Error(
 			codes.InvalidArgument,
 			"start_time must be before stop_time",
 		)
 	}
-	s.runs[i] = run
-	return &runsv2.UpdateRunResponse{Run: run}, nil
+	return nil
 }

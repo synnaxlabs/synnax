@@ -44,6 +44,8 @@ env:
   GH_REPO: ${{ github.repository }}
   GH_TOKEN: ${{ github.token }}
 
+# The draft and the build start at dispatch. CI gates only the publish, so a run that
+# fails CI leaves only a draft, and the next run clears it.
 jobs:
   ci:
     name: CI
@@ -117,7 +119,7 @@ jobs:
 
   draft:
     name: Draft Desktop
-    needs: [resolve, ci]
+    needs: resolve
     permissions:
       actions: read
       contents: write
@@ -177,7 +179,7 @@ jobs:
 
   publish:
     name: Publish Desktop
-    needs: [resolve, build]
+    needs: [resolve, ci, build]
     permissions:
       actions: read
       contents: write

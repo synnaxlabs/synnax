@@ -59,7 +59,7 @@ func stableTags(
 
 // shippedTag returns the release whose data HEAD must still decode: the newest stable
 // tag on the train of the newest stable tag that HEAD descends from. On main, that is
-// the newest release. On a release/core-X.Y branch, it is the newest X.Y patch.
+// the newest release. On a release/X.Y branch, it is the newest X.Y patch.
 func shippedTag(ctx context.Context, repoRoot string) (string, error) {
 	reachable, err := stableTags(ctx, repoRoot, "core/v*", "--merged", "HEAD")
 	if err != nil {
