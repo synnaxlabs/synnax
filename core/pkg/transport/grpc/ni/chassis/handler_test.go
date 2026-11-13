@@ -115,6 +115,6 @@ var _ = Describe("Handler", func() {
 		Expect(grpcchassis.NewNIChassisDeleteServiceClient(conn).Exec(
 			ctx,
 			&grpcchassis.DeleteRequest{Keys: []string{"not-a-uuid"}},
-		)).Error().To(HaveOccurred())
+		)).Error().To(MatchError(ContainSubstring("invalid uuid")))
 	})
 })
