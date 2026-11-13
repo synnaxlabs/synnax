@@ -78,7 +78,10 @@ ButtonMode = v9.ButtonMode
 
 LabelConfig struct extends v9.LabelConfig {
     max_inline_size uint16 = 150 {
-        @doc value "is the maximum inline size of the label in pixels before wrapping."
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
     }
 }
 

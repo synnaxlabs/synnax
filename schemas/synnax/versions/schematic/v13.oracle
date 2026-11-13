@@ -35,9 +35,9 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig = v9.LabelConfig
+LabelConfig = v12.LabelConfig
 
-LabeledConfig = v9.LabeledConfig
+LabeledConfig = v12.LabeledConfig
 
 ScaledConfig = v9.ScaledConfig
 
@@ -47,13 +47,13 @@ NumericTelemConfig = v12.NumericTelemConfig
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig struct extends v9.ToggleConfig {}
+ToggleConfig struct extends v12.ToggleConfig {}
 
-StaticSymbolConfig struct extends v9.StaticSymbolConfig {}
+StaticSymbolConfig struct extends v12.StaticSymbolConfig {}
 
-ToggleSymbolConfig struct extends v9.ToggleSymbolConfig {}
+ToggleSymbolConfig struct extends v12.ToggleSymbolConfig {}
 
-DummyToggleSymbolConfig struct extends v9.DummyToggleSymbolConfig {}
+DummyToggleSymbolConfig struct extends v12.DummyToggleSymbolConfig {}
 
 ScaleIndicatorConfig struct extends v12.ScaleIndicatorConfig {}
 
