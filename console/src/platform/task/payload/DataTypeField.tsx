@@ -10,6 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -96,7 +97,11 @@ export const ReadDataTypeField = <F extends ReadOptions>({
       <Select value={dataTypeOf(field)} onChange={handleChange} {...rest} />
     </Input.Item>
   );
-  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+  return channel === 0 ? (
+    unbound
+  ) : (
+    <Bound channel={channel} unbound={unbound} status={kind?.status} />
+  );
 };
 
 const Select = ({
@@ -112,13 +117,21 @@ interface BoundProps {
   channel: channel.Key;
   /** Renders once the channel no longer exists. */
   unbound: ReactElement;
+  /** The status of the field's kind, which replaces the hint when it has a message. */
+  status?: { variant?: Status.Variant; message?: string };
 }
 
-const Bound = ({ channel, unbound }: BoundProps): ReactElement => {
+const Bound = ({ channel, unbound, status }: BoundProps): ReactElement => {
   const result = Channel.useResultDataType({ key: channel });
   if (isMissing(result)) return unbound;
+  const shown = status?.message != null && status.message !== "";
   return (
-    <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
+    <Input.Item
+      label="Data type"
+      padHelpText={false}
+      helpText={shown ? status.message : "Set on the channel"}
+      status={shown ? status.variant : undefined}
+    >
       <Telem.SelectDataType
         value={result.data?.toString() ?? ""}
         onChange={NO_CHANGE}

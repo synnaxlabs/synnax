@@ -1120,6 +1120,42 @@ describe("MQTT Read form", () => {
       ).toBeTruthy();
     });
 
+    it("should show a deploy error on the data type of a bound field", async () => {
+      const str = await client.channels.create({
+        name: uniqueName("mqtt_mode"),
+        dataType: "string",
+        virtual: true,
+      });
+      const dev = await createBroker(client, {
+        properties: {
+          read: { "plant/bound": { index: 0, channels: { "/s": str.key } } },
+        },
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          createReadEntry("e1", "plant/bound", {
+            fields: [
+              createReadField("f1", "/n"),
+              createReadField("f2", "/s", { dataType: "string", channel: str.key }),
+            ],
+          }),
+        ]),
+      );
+      const { container } = await renderTaskFormTab(MQTT.Task.Read, {
+        client,
+        taskKey: draft.key,
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/s/ }));
+      await screen.findByText("Set on the channel");
+      await clickDeploy(container);
+      expect(
+        await screen.findByText(
+          "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
+        ),
+      ).toBeTruthy();
+    });
+
     it("should create virtual channels with no index for string fields", async () => {
       const { container, dev, draft } = await renderRead([
         createReadEntry("e1", "plant/mode", {
