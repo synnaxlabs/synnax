@@ -10,6 +10,7 @@
 package device_test
 
 import (
+	"bytes"
 	"slices"
 	"uuid"
 
@@ -294,9 +295,17 @@ var _ = Describe("Service", func() {
 					).Key
 				}
 				beta := named("beta")
-				alpha := named("Alpha")
-				gamma := named("gamma")
-				byName = []device.Key{alpha, beta, gamma}
+				upper := named("Alpha")
+				gamma := named("Gamma")
+				lower := named("alpha")
+				tie := []device.Key{upper, lower}
+				// Gorp orders equal names by the trailing bytes of the key.
+				slices.SortFunc(tie, func(a, b device.Key) int {
+					slices.Reverse(a[:])
+					slices.Reverse(b[:])
+					return bytes.Compare(a[:], b[:])
+				})
+				byName = append(tie, beta, gamma)
 				grantRetrieve(ctx)
 			})
 			page := func(ctx SpecContext, order apidevice.Order) []device.Key {
@@ -313,7 +322,8 @@ var _ = Describe("Service", func() {
 								In: []string{
 									prefix + "beta",
 									prefix + "Alpha",
-									prefix + "gamma",
+									prefix + "Gamma",
+									prefix + "alpha",
 								},
 							}},
 							Order: &order,
