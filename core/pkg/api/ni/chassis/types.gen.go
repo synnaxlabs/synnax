@@ -22,6 +22,41 @@ import (
 type Cursor struct {
 	// Key is the key of the chassis at the position.
 	Key nichassis.Key `json:"key" msgpack:"key"`
+	// Name is the name of the chassis at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that chassis can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the chassis by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of chassis.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
 }
 
 // RetrieveRequest is a request to retrieve chassis.
@@ -30,12 +65,24 @@ type RetrieveRequest struct {
 	Where *nichassis.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the chassis that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the chassis. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
 	// After starts the chassis strictly past this position in their order.
 	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most chassis to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the chassis a RetrieveRequest selects.

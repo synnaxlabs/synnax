@@ -10,6 +10,8 @@
 package device_test
 
 import (
+	"bytes"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -276,6 +278,115 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Devices).To(HaveLen(1))
+		})
+
+		Describe("Order", func() {
+			var (
+				prefix string
+				byName []device.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = uuid.New().String()
+				named := func(name string) device.Key {
+					GinkgoHelper()
+					return createDevice(
+						ctx,
+						func(d *device.Device) { d.Name = prefix + name },
+					).Key
+				}
+				beta := named("beta")
+				upper := named("Alpha")
+				gamma := named("Gamma")
+				lower := named("alpha")
+				tie := []device.Key{upper, lower}
+				// Gorp orders equal names by the trailing bytes of the key.
+				slices.SortFunc(tie, func(a, b device.Key) int {
+					slices.Reverse(a[:])
+					slices.Reverse(b[:])
+					return bytes.Compare(a[:], b[:])
+				})
+				byName = append(tie, beta, gamma)
+				grantRetrieve(ctx)
+			})
+			page := func(ctx SpecContext, order apidevice.Order) []device.Key {
+				GinkgoHelper()
+				var (
+					keys  []device.Key
+					after *apidevice.Cursor
+				)
+				for {
+					res := MustSucceed(retrieve(
+						testutil.AuthedCtx(ctx, u),
+						apidevice.RetrieveRequest{
+							Where: &device.Where{Name: &filter.String{
+								In: []string{
+									prefix + "beta",
+									prefix + "Alpha",
+									prefix + "Gamma",
+									prefix + "alpha",
+								},
+							}},
+							Order: &order,
+							After: after,
+							Limit: new(uint32(1)),
+						},
+					))
+					if len(res.Devices) == 0 {
+						return keys
+					}
+					last := res.Devices[len(res.Devices)-1]
+					keys = append(keys, last.Key)
+					after = &apidevice.Cursor{Key: last.Key, Name: &last.Name}
+				}
+			}
+
+			It("Should page by name, ignoring case", func(ctx SpecContext) {
+				order := apidevice.Order{Field: apidevice.OrderFieldName}
+				Expect(page(ctx, order)).To(Equal(byName))
+			})
+
+			It("Should page by name in descending order", func(ctx SpecContext) {
+				order := apidevice.Order{
+					Field:      apidevice.OrderFieldName,
+					Descending: true,
+				}
+				desc := slices.Clone(byName)
+				slices.Reverse(desc)
+				Expect(page(ctx, order)).To(Equal(desc))
+			})
+
+			DescribeTable("Should reject a request",
+				func(ctx SpecContext, req apidevice.RetrieveRequest, message string) {
+					Expect(
+						retrieve(testutil.AuthedCtx(ctx, u), req),
+					).Error().
+						To(SatisfyAll(
+							BeAssignableToTypeOf(validate.PathError{}),
+							MatchError(message),
+						))
+				},
+				Entry(
+					"that resumes an order without the order's value",
+					apidevice.RetrieveRequest{
+						Order: &apidevice.Order{Field: apidevice.OrderFieldName},
+						After: &apidevice.Cursor{Key: uuid.New()},
+					},
+					"after.name: is required to resume an order by name: validation error",
+				),
+				Entry(
+					"that sorts a search",
+					apidevice.RetrieveRequest{
+						SearchTerm: "PXI",
+						Order:      &apidevice.Order{Field: apidevice.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"that sorts by an unknown field",
+					apidevice.RetrieveRequest{Order: &apidevice.Order{Field: "color"}},
+					`order.field: "color" is not a field to sort by: validation error`,
+				),
+			)
 		})
 
 		It("Should page past the after key", func(ctx SpecContext) {
