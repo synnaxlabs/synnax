@@ -9,34 +9,30 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/chassis/json.gen.h"
-#include "client/cpp/ni/chassis/proto.gen.h"
+#include "client/cpp/synnax.h"
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ni::chassis {
-/// @brief it should keep the field group of an update through JSON.
-TEST(Update, RoundTripsGroup) {
-    ConfigurationUpdate configuration;
-    configuration.name = "PXIe-1071";
-    const auto j = to_json(Update(configuration));
-    ASSERT_EQ(j["group"], "configuration");
-    x::json::Parser parser(j);
-    const auto parsed = parse_update(parser);
-    ASSERT_TRUE(parser.ok());
-    ASSERT_EQ(std::get<ConfigurationUpdate>(parsed).name, "PXIe-1071");
-}
-
-/// @brief it should round trip a chassis through protobuf.
-TEST(Chassis, RoundTripsProto) {
-    const Chassis chassis{
-        .key = x::uuid::create(),
-        .rack = 65537,
+/// @brief it should create, rename, and delete a chassis.
+TEST(Client, CreatesUpdatesAndDeletes) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "ni_chassis_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto chassis = Chassis{
+        .rack = r.key,
         .name = "cDAQ-9189",
-        .resource_name = "{GUID}",
+        .resource_name = x::uuid::create().to_string(),
         .model = "cDAQ-9189",
     };
-    const auto pb = ASSERT_NIL_P(chassis.to_proto());
-    const auto parsed = ASSERT_NIL_P(Chassis::from_proto(pb));
-    ASSERT_EQ(parsed.to_json(), chassis.to_json());
+    ASSERT_NIL(client.ni.chassis.create(chassis));
+    ConfigurationUpdate configuration;
+    configuration.name = "Bench chassis";
+    ASSERT_NIL(client.ni.chassis.update(chassis.key, Update(configuration)));
+    const auto got = ASSERT_NIL_P(client.ni.chassis.retrieve(chassis.key));
+    ASSERT_EQ(got.name, "Bench chassis");
+    ASSERT_EQ(got.resource_name, chassis.resource_name);
+    ASSERT_NIL(client.ni.chassis.del({chassis.key}));
+    ASSERT_OCCURRED_AS_P(client.ni.chassis.retrieve(chassis.key), x::errors::NOT_FOUND);
 }
 }
