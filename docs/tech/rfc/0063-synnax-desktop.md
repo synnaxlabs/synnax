@@ -15,9 +15,10 @@ Core, a host, or a port. A supervisor in the Rust shell starts the Core on a fre
 loopback port with a root password made for each launch, watches it, restarts it after a
 crash, and stops it when the app exits. Desktop and the Console are one package: static
 build flags select the features that each app wires in. Desktop has its own version
-numbers and its own release workflow, apart from the Console, Core, and Driver, and each
-Desktop release builds its own Core and Driver. The Core gets two small changes: a
-loopback bind option and a flag that stops the Core when its stdin closes.
+numbers, apart from the Console, Core, and Driver, and releases through `release.yaml`.
+Each Desktop release builds its own Core, and its own Driver unless the run releases the
+Driver and the Core on one minor. The Core gets two small changes: a loopback bind
+option and a flag that stops the Core when its stdin closes.
 
 ## 1 Motivation
 
@@ -371,12 +372,15 @@ tell which products work together, and Desktop pairs with nothing but its own Co
 A person dispatches `release.yaml` with `desktop` set, a `desktop_bump`, and an optional
 candidate flag: a `minor` (the default) or `major` bump from `main`, or a `patch` from a
 `release/desktop-X.Y` branch, with every other product off, since they fail there. A run
-from any other branch fails. RFC 0111 §3.0 moved Desktop into `release.yaml` from a
-workflow of its own, `release.desktop.yaml`. The stages are those of the other products:
+from `main` without the Core also turns off `typescript` and `python`, which release
+from `main` only with the Core. A run from any other branch fails. RFC 0111 §3.0 moved
+Desktop into `release.yaml` from a workflow of its own, `release.desktop.yaml`. The
+stages are those of the other products:
 
 1. **Verify**: The commit needs one green run of `ci.yaml` with `full`: every job on
-   every OS it supports, plus integration on Ubuntu and Windows. It runs in parallel
-   with the draft and the build, and gates only the publish.
+   every OS it supports, plus integration on Ubuntu and Windows. An earlier nightly or
+   release run counts. If none exists, CI runs in parallel with the draft and the build.
+   Verify gates only the publish.
 2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
    the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
    bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
