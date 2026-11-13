@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            ReadTaskType,
-			Ladder:          readLadder(cfg.Instrumentation),
+			Ladder:          versions.ReadConfigLadder,
 			Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
