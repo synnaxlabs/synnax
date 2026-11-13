@@ -173,17 +173,17 @@ TypeScript uses the same fields in camel case, such as `recordKey`.
 
 The data type of the channel sets which types it can be written as:
 
-| Channel data type | Output type (`type`)                                |
-| ----------------- | --------------------------------------------------- |
-| Float             | **Number** (`float`), **String**, or **Boolean**    |
-| Signed integer    | **Number** (`integer`), **String**, or **Boolean**  |
-| Unsigned integer  | **Number** (`unsigned`), **String**, or **Boolean** |
-| Boolean           | **Boolean**, **Number** (`unsigned`), or **String** |
-| Timestamp         | `timestamp`, in its time format                     |
-| String            | **String**                                          |
-| JSON              | `json`, as its JSON value                           |
-| UUID              | `uuid`, as a string                                 |
-| Bytes             | `bytes`, as base64 text                             |
+| Channel data type                     | Output type (`type`)                                |
+| ------------------------------------- | --------------------------------------------------- |
+| `float32`, `float64`                  | **Number** (`float`), **String**, or **Boolean**    |
+| `int8`, `int16`, `int32`, `int64`     | **Number** (`integer`), **String**, or **Boolean**  |
+| `uint8`, `uint16`, `uint32`, `uint64` | **Number** (`unsigned`), **String**, or **Boolean** |
+| `boolean`                             | **Boolean**, **Number** (`unsigned`), or **String** |
+| `timestamp`                           | `timestamp`, in its time format                     |
+| `string`                              | **String**                                          |
+| `json`                                | `json`, as its JSON value                           |
+| `uuid`                                | `uuid`, as a string                                 |
+| `bytes`                               | `bytes`, as base64 text                             |
 
 Each type has its own enum mapping, with values of that type. **Boolean** writes a
 nonzero sample as the label of `true`.

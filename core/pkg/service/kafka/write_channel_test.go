@@ -430,6 +430,7 @@ var _ = Describe("Stored write configs", func() {
 				})).To(Succeed())
 				return ch.Key()
 			}
+			unixNs := payload.TimeFormatUnixNs
 			old := v0.WriteConfig{
 				Key:   uuid.New(),
 				Topic: "samples",
@@ -451,6 +452,12 @@ var _ = Describe("Stored write configs", func() {
 						JSONType: payload.JSONTypeString,
 					},
 					{Key: "c4", Channel: 999999, JSONType: "object"},
+					{
+						Key:        "c5",
+						Channel:    create(telem.TimestampT),
+						JSONType:   payload.JSONTypeString,
+						TimeFormat: &unixNs,
+					},
 				},
 			}
 			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
@@ -472,6 +479,10 @@ var _ = Describe("Stored write configs", func() {
 				),
 				HaveKeyWithValue("type", "string"),
 				HaveKeyWithValue("type", "float"),
+				SatisfyAll(
+					HaveKeyWithValue("type", "timestamp"),
+					HaveKeyWithValue("time_format", "unix_ns"),
+				),
 			))
 			var stored []kafka.WriteConfig
 			Expect(gorp.NewRetrieve[uuid.UUID, kafka.WriteConfig]().
