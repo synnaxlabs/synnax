@@ -9,8 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Fails unless every package manifest shares one minor that is the Core's latest stable
-# minor or the next one. Usage: check_versions.sh [root], root defaulting to the repo.
+# Fails unless every package manifest shares one minor: that of the latest stable Core
+# tag reachable from HEAD, or the next one. Usage: check_versions.sh [root], root
+# defaulting to the repo.
 
 set -euo pipefail
 
@@ -39,13 +40,15 @@ major_minor() {
 }
 
 # The train rule: every package shares one minor, and that minor is the Core's latest
-# stable minor or the next one.
+# stable minor or the next one. Only tags reachable from HEAD count, so a hotfix branch
+# on an older train is checked against its own Core, not the newest one in the repo.
 get_allowed_mm() {
     local core
-    core="$(git -C "$ROOT_DIR" tag --list 'core/v*' \
+    core="$(git -C "$ROOT_DIR" tag --list 'core/v*' --merged HEAD \
         | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
         | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
-    [[ -n $core ]] || fail "no stable core tag found; fetch tags first"
+    [[ -n $core ]] \
+        || fail "no stable core tag reachable from HEAD; fetch full history and tags"
     local major minor
     IFS=. read -r major minor _ <<< "$core"
     CORE_MM="$major.$minor"

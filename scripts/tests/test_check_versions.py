@@ -130,6 +130,14 @@ class TestTags:
         repo.manifests("0.60.0")
         assert repo.check().returncode != 0
 
+    def test_should_ignore_tags_head_cannot_reach(self, repo: Repo) -> None:
+        repo.git("switch", "-q", "-c", "newer")
+        repo.git("commit", "-q", "--allow-empty", "-m", "newer")
+        repo.tag("core/v0.60.0")
+        repo.git("switch", "-q", "main")
+        result = repo.check()
+        assert result.returncode == 0, result.stderr
+
     def test_should_fail_without_a_stable_core_tag(self, tmp_path: Path) -> None:
         repo = Repo(tmp_path)
         repo.tag("core/v0.59.0-rc.1")
