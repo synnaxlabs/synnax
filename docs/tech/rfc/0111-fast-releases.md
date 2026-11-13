@@ -79,7 +79,7 @@ the Driver releases it, or with build flags of its own:
 - **Version stamp**: The Core, the clients, and a Driver built from source carry one
   version, so the compatibility check passes (`client/cpp/connection/checker.cpp:36`).
   It is the Core version of the run, or else the newest stable Core tag reachable from
-  `HEAD`, as today (`release.desktop.yaml:104-116`).
+  `HEAD`, as today (`.github/scripts/desktop_build_inputs.sh`).
 
 ### 3.1 Job graph
 
@@ -128,11 +128,10 @@ a green run exists or `ci` passed, and every publish needs it. A retry of a fail
 release finds the green run and skips CI.
 
 The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
-`nightly.yaml`, `release.yaml`, and `release.desktop.yaml` on the commit and accepts one
-whose `CI / OK` job passed in any attempt, so a rerun of all jobs finds the first
-attempt of its own run. A full run has about 185 jobs, so the script pages the job list,
-50 jobs per page: a page of 100 at times gets an HTTP 502. An API error counts as no
-green run, and CI runs.
+`nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
+passed in any attempt, so a rerun of all jobs finds the first attempt of its own run. A
+full run has about 185 jobs, so the script pages the job list, 50 jobs per page: a page
+of 100 at times gets an HTTP 502. An API error counts as no green run, and CI runs.
 
 ### 3.3 macOS builds on the build bots, signing on hosted runners
 

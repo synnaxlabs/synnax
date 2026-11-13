@@ -368,37 +368,42 @@ version numbers. The train rule of RFC 0058 §2.2 does not apply: Desktop 1.4.0 
 beside Core 0.59.2. RFC 0058 §4 rejected independent numbers because users could not
 tell which products work together, and Desktop pairs with nothing but its own Core.
 
-A person dispatches `release.desktop.yaml` with a bump and an optional candidate flag: a
-`minor` (the default) or `major` bump from `main`, or a `patch` from a
-`release/desktop-X.Y` branch. A run from any other branch fails. It reuses the parts of
-`release.yaml`:
+A person dispatches `release.yaml` with `desktop` set, a `desktop_bump`, and an optional
+candidate flag: a `minor` (the default) or `major` bump from `main`, or a `patch` from a
+`release/desktop-X.Y` branch. A run from any other branch fails. RFC 0111 §3.0 moved
+Desktop into `release.yaml` from a workflow of its own, `release.desktop.yaml`. The
+stages are those of the other products:
 
-1. **Test**: `ci.yaml` runs with `full`: every job on every OS it supports, plus
-   integration on Ubuntu and Windows. It runs in parallel with the draft and the build,
-   and gates only the publish.
+1. **Verify**: The commit needs one green run of `ci.yaml` with `full`: every job on
+   every OS it supports, plus integration on Ubuntu and Windows. It runs in parallel
+   with the draft and the build, and gates only the publish.
 2. **Resolve**: `resolve_version.sh desktop` skips the train rule. From `main`, it bumps
    the highest `desktop/` tag reachable from `HEAD`, and the first release is a `major`
    bump from `0.0.0`. From a release branch, it takes the next patch on X.Y. The branch
    needs a stable `desktop/` tag on X.Y and must hold the newest one, so no patch drops
    an earlier fix. Candidates count up as for the other products.
 3. **Draft**: `draft-release` makes a draft under the tag.
-4. **Build**: `build.synnax.yaml` builds the Driver, a Core with the Driver embedded,
-   and Desktop, for macOS arm64 and Windows x64, signed and notarized. The run passes no
-   release tag, so the Core and Driver never appear as release assets. The Desktop job
-   places the Core at `console/src-tauri/binaries/synnax-core-<target-triple>`, which
-   Git ignores (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
-5. **Publish**: The job uploads the bundles under names without a space
-   (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, writes the
-   updater manifest `latest.json` from their signatures, and publishes the release.
+4. **Build**: `build.synnax.yaml` builds a Core with the Driver embedded and Desktop,
+   for macOS arm64 and Windows x64, signed and notarized. The Driver is the one of the
+   run when the run releases the Driver and the Core. If not, the build compiles it. The
+   run passes no release tag, so the Core and Driver never appear as release assets. The
+   Desktop job places the Core at
+   `console/src-tauri/binaries/synnax-core-<target-triple>`, which Git ignores
+   (`.gitignore:236`), and Tauri signs the bundle with the sidecar inside.
+5. **Publish**: A job uploads the bundles to the draft under names without a space
+   (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset name, and writes
+   the updater manifest `latest.json` from their signatures. The `publish` job of the
+   run then makes the release public.
 
 The Desktop version names a Desktop release and nothing else. It is on the tag, the app,
-and the updater manifest. The Core and Driver of the run carry the newest stable Core
-version reachable from the commit, and the build stamps the same version into the
-bundled clients. So the client checks (`client/ts/src/connection/status.ts:246`) compare
-two versions of the same code, and they need no special case for Desktop. The bundled
-Core shares its number with a Core release but is a different build. Its Git commit
-(`synnax version`) identifies it. Desktop licenses carry no maximum version (RFC 0062
-§5.8), so the license ceiling never reads the number.
+and the updater manifest. The bundled Core carries the Core version of the run, or else
+the newest stable Core version reachable from the commit. The build stamps the same
+version into the bundled clients and into a Driver that it compiles. So the client
+checks (`client/ts/src/connection/status.ts:246`) compare two versions of the same code,
+and they need no special case for Desktop. The bundled Core shares its number with a
+Core release but is a different build. Its Git commit (`synnax version`) identifies it.
+Desktop licenses carry no maximum version (RFC 0062 §5.8), so the license ceiling never
+reads the number.
 
 The docs site serves `/releases/desktop/latest.json` and `/releases/desktop/next.json`.
 Each one redirects to the `latest.json` of the highest `desktop/` release on its
