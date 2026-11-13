@@ -113,8 +113,8 @@ struct Scanner {
     scan(const ScannerContext &ctx) = 0;
 
     /// @brief returns the data that the status of the scan task carries, such as a
-    /// problem of the last scan that the user can fix from the Console. Implementations
-    /// must allow a call from one thread while another runs scan().
+    /// problem of the last scan that the user can fix from the Console. The scan task
+    /// reads it right after each scan(), and sends it with the result of that scan.
     [[nodiscard]] virtual std::optional<x::json::json::object_t> status_data() const {
         return std::nullopt;
     }
@@ -235,8 +235,10 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
     /// @brief whether the scanner answered a command with a status of its own since the
-    /// last scan.
+    /// last scan started.
     std::atomic<bool> status_replaced = false;
+    /// @brief the scanner data that the last scan read with its result. Guarded by mu.
+    std::optional<x::json::json::object_t> scan_data;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
@@ -272,29 +274,37 @@ class ScanTask final : public task::Task, public pipeline::Base {
     void send_status(
         const std::string &variant,
         const std::string &message,
-        const std::string &description = ""
+        const std::string &description = "",
+        const std::optional<x::json::json::object_t> &data = std::nullopt
     ) {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
-        this->status.details.data = this->scanner->status_data();
+        this->status.details.data = data;
         this->send_status();
     }
 
+    [[nodiscard]] std::optional<x::json::json::object_t> last_scan_data() {
+        std::lock_guard lock(this->mu);
+        return this->scan_data;
+    }
+
     /// @brief sends a warning when the scan error changes, and a success once scans
-    /// recover.
-    void report_scan(const x::errors::Error &err) {
-        const bool replaced = this->status_replaced.exchange(false);
+    /// recover. replaced is whether a command answer replaced the status before the
+    /// scan started, since a scan that started earlier can report stale data.
+    void report_scan(const x::errors::Error &err, const bool replaced) {
+        const auto data = this->last_scan_data();
         if (err) {
             if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
                 this->status.description == err.data &&
-                this->status.details.data == this->scanner->status_data())
+                this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
-                err.data
+                err.data,
+                data
             );
         } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
             this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
@@ -591,7 +601,9 @@ public:
         this->status.details.running = true;
         this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
-            this->report_scan(this->scan());
+            const bool replaced = this->status_replaced.exchange(false);
+            const auto err = this->scan();
+            this->report_scan(err, replaced);
             this->timer.wait(this->breaker);
         }
 
@@ -634,7 +646,8 @@ public:
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
-                    err.data
+                    err.data,
+                    this->last_scan_data()
                 );
             else
                 this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
@@ -665,6 +678,7 @@ public:
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
+            this->scan_data = this->scanner->status_data();
             if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
             scan_err = err;
             this->scanner_ctx.count++;
