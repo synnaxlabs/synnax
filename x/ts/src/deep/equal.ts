@@ -33,6 +33,8 @@ export const equal = <
     for (let i = 0; i < aArr.length; i++) if (!equal(aArr[i], bArr[i])) return false;
     return true;
   }
+  if (typeof a === "number" && typeof b === "number")
+    return a === b || (Number.isNaN(a) && Number.isNaN(b));
   if (a == null || b == null || typeof a !== "object" || typeof b !== "object")
     return a === b;
   if ("equals" in a) return (a.equals as (other: unknown) => boolean)(b);
@@ -44,9 +46,7 @@ export const equal = <
     const aVal = a[key];
     // @ts-expect-error - indexing nested value.
     const bVal = b[key];
-    if (typeof aVal === "object" && typeof bVal === "object") {
-      if (!equal(aVal, bVal)) return false;
-    } else if (aVal !== bVal) return false;
+    if (!equal(aVal, bVal)) return false;
   }
   return true;
 };

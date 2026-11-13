@@ -37,14 +37,69 @@ export const dataTypeOf = (field: ReadField): DataType =>
     ? new DataType(field.dataType)
     : KIND_DATA_TYPES[field.type];
 
+type NumericKind = "float" | "integer" | "unsigned";
+
+type NumericField = Extract<ReadField, { type: NumericKind }>;
+
+const isNumericKind = (kind: payload.Kind): kind is NumericKind =>
+  kind === "float" || kind === "integer" || kind === "unsigned";
+
+const isNumeric = (field: ReadField): field is NumericField =>
+  isNumericKind(field.type);
+
+const MAX_FLOAT32 = 3.4028234663852886e38;
+
 /**
- * @returns the field with the kind of the data type. A field of another kind keeps only
- * its base fields.
+ * @returns v, a float or the decimal text of an integer, as a value of the kind of the
+ * data type, or undefined when a channel of the data type cannot hold it exactly.
+ */
+const convertNumber = (
+  v: number | string,
+  kind: NumericKind,
+  dataType: DataType,
+): number | string | undefined => {
+  if (kind === "float") {
+    const f = typeof v === "number" ? v : Number(v);
+    if (typeof v === "string" && BigInt(f) !== BigInt(v)) return undefined;
+    if (
+      dataType.equals(DataType.FLOAT32) &&
+      Number.isFinite(f) &&
+      Math.abs(f) > MAX_FLOAT32
+    )
+      return undefined;
+    return f;
+  }
+  if (typeof v === "number" && !Number.isInteger(v)) return undefined;
+  const n = BigInt(v);
+  const bits = BigInt(dataType.density.valueOf() * 8);
+  const [min, max] =
+    kind === "integer"
+      ? [-(2n ** (bits - 1n)), 2n ** (bits - 1n) - 1n]
+      : [0n, 2n ** bits - 1n];
+  return n >= min && n <= max ? n.toString() : undefined;
+};
+
+/**
+ * @returns the field with the kind of the data type. Between float, integer, and
+ * unsigned kinds, the fill and enum entries convert when a channel of the data type
+ * holds them exactly, as the Core does. A field of another kind keeps only its base
+ * fields.
  */
 export const retype = (field: ReadField, dataType: DataType): ReadField => {
   const type = kindOf(dataType);
   if (type === field.type) return "dataType" in field ? { ...field, dataType } : field;
   const { key, name, disabled, channel, pointer } = field;
+  const converted =
+    isNumeric(field) && isNumericKind(type)
+      ? {
+          fill:
+            field.fill == null ? undefined : convertNumber(field.fill, type, dataType),
+          enumValues: field.enumValues.flatMap(({ label, value }) => {
+            const v = convertNumber(value, type, dataType);
+            return v == null ? [] : [{ label, value: v }];
+          }),
+        }
+      : {};
   return http.READ_FIELD_SCHEMAS[type].parse({
     key,
     name,
@@ -54,6 +109,7 @@ export const retype = (field: ReadField, dataType: DataType): ReadField => {
     type,
     dataType: dataType.toString(),
     timeFormat: "iso8601",
+    ...converted,
   });
 };
 

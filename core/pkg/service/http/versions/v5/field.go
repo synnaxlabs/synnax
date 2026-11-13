@@ -153,9 +153,23 @@ func convertNumber[From xpayload.Number](v From, k payload.Kind) (any, bool) {
 	return nil, false
 }
 
+// withoutEmptyLabels drops each entry with an empty label, with a warning, when k is
+// not string. Only a string field reads an empty response.
+func withoutEmptyLabels(entries []entry, k payload.Kind, warn Warn) []entry {
+	if k == payload.KindString {
+		return entries
+	}
+	return lo.Filter(entries, func(e entry, _ int) bool {
+		if e.label != "" {
+			return true
+		}
+		warn("dropped an enum entry with an empty label", zap.Any("value", e.value))
+		return false
+	})
+}
+
 // assemble builds a read field of kind k from o. An entry or fill that k, or a channel
-// of data type dt when dt is not nil, cannot hold drops with a warning, as does an
-// entry with an empty label on a kind other than string.
+// of data type dt when dt is not nil, cannot hold drops with a warning.
 func assemble(
 	k payload.Kind,
 	base BaseReadField,
@@ -165,10 +179,6 @@ func assemble(
 ) ReadField {
 	var entries []entry
 	for _, e := range o.entries {
-		if e.label == "" && k != payload.KindString {
-			warn("dropped an enum entry with an empty label", zap.Any("value", e.value))
-			continue
-		}
 		v, ok := convert(e.value, k, dt)
 		if !ok {
 			warn(

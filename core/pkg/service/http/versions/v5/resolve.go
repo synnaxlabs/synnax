@@ -107,6 +107,7 @@ func ReconcileReadConfig(
 			if o.timeFormat == "" {
 				o.timeFormat = payload.TimeFormatISO8601
 			}
+			o.entries = withoutEmptyLabels(o.entries, kind, fieldWarn)
 			ep.Fields[i] = assemble(kind, base, o, &ch.DataType, fieldWarn)
 		}
 	}

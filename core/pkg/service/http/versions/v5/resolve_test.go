@@ -18,7 +18,6 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -49,6 +48,7 @@ var _ = Describe("Resolve", func() {
 
 	Describe("ReconcileReadConfig", func() {
 		reconcile := func(ctx SpecContext, f v5.ReadField) v5.ReadField {
+			GinkgoHelper()
 			cfg := readConfig(f)
 			Expect(v5.ReconcileReadConfig(ctx, nil, channels, &cfg, ignoreWarnings)).
 				To(Succeed())
@@ -186,30 +186,51 @@ var _ = Describe("Resolve", func() {
 	})
 
 	Describe("ResolveReadConfig", func() {
-		resolve := func(ctx SpecContext, f v5.ReadField) (v5.ReadField, error) {
+		resolve := func(ctx SpecContext, f v5.ReadField) error {
 			cfg := readConfig(f)
-			err := v5.ResolveReadConfig(ctx, nil, channels, &cfg)
-			return cfg.Endpoints[0].Fields[0], err
+			return v5.ResolveReadConfig(ctx, nil, channels, &cfg)
+		}
+
+		resolved := func(ctx SpecContext, f v5.ReadField) v5.ReadField {
+			GinkgoHelper()
+			cfg := readConfig(f)
+			Expect(v5.ResolveReadConfig(ctx, nil, channels, &cfg)).To(Succeed())
+			return cfg.Endpoints[0].Fields[0]
 		}
 
 		It("Should drop the data type of a field", func(ctx SpecContext) {
-			f := MustSucceed(resolve(ctx, v5.ReadField{Variant: v5.IntegerReadField{
+			f := resolved(ctx, v5.ReadField{Variant: v5.IntegerReadField{
 				BaseReadField: base(2),
 				IntegerRead: payload.IntegerRead{
 					DataType: new(telem.Int64T),
 					Fill:     new(payload.Integer(-5)),
 				},
-			}}))
+			}})
 			integer := f.Variant.(v5.IntegerReadField)
 			Expect(integer.DataType).To(BeNil())
 			Expect(*integer.Fill).To(Equal(payload.Integer(-5)))
 		})
 
+		It("Should keep an empty enum label for validation to reject", func(
+			ctx SpecContext,
+		) {
+			cfg := readConfig(v5.ReadField{Variant: v5.IntegerReadField{
+				BaseReadField: base(2),
+				IntegerRead: payload.IntegerRead{
+					EnumValues: []payload.IntegerEntry{{Label: "", Value: 1}},
+				},
+			}})
+			Expect(v5.ResolveReadConfig(ctx, nil, channels, &cfg)).To(Succeed())
+			Expect(v5.ValidateReadConfig(&cfg)).
+				To(MatchError(ContainSubstring("enum label is empty")))
+		})
+
 		DescribeTable("Should reject a field that does not fit its channel",
 			func(ctx SpecContext, f v5.ReadField, msg string) {
-				_, err := resolve(ctx, f)
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(ContainSubstring(msg)))
+				Expect(resolve(ctx, f)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 			},
 			Entry("a kind that is not the channel's",
 				v5.ReadField{Variant: v5.FloatReadField{BaseReadField: base(2)}},
@@ -239,15 +260,15 @@ var _ = Describe("Resolve", func() {
 		It("Should skip a disabled field", func(ctx SpecContext) {
 			b := base(2)
 			b.Disabled = true
-			MustSucceed(resolve(ctx, v5.ReadField{Variant: v5.FloatReadField{
+			Expect(resolve(ctx, v5.ReadField{Variant: v5.FloatReadField{
 				BaseReadField: b,
-			}}))
+			}})).To(Succeed())
 		})
 
 		It("Should skip a field whose channel does not exist", func(ctx SpecContext) {
-			MustSucceed(resolve(ctx, v5.ReadField{Variant: v5.StringReadField{
+			Expect(resolve(ctx, v5.ReadField{Variant: v5.StringReadField{
 				BaseReadField: base(99),
-			}}))
+			}})).To(Succeed())
 		})
 	})
 

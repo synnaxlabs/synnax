@@ -332,6 +332,15 @@ var _ = Describe("Read field migration", func() {
 				Entry("a boolean label",
 					optionalField(telem.BooleanT, "ON", onOff...), true),
 				Entry("a string", optionalField(telem.StringT, "idle"), "idle"),
+				Entry("a number on a string field as its JSON text",
+					optionalField(telem.StringT, float64(5)), "5"),
+				Entry("numeric text on a float field",
+					optionalField(telem.Float64T, "1.5"), payload.Float(1.5)),
+				Entry("numeric text on an integer field",
+					optionalField(telem.Int64T, "-5"), payload.Integer(-5)),
+				Entry("non-finite text on a float field",
+					optionalField(telem.Float64T, "-Infinity"),
+					payload.Float(math.Inf(-1))),
 				Entry("a timestamp in ISO 8601",
 					optionalField(telem.TimestampT, "1970-01-01T00:00:01Z"),
 					telem.SecondTS),
@@ -362,8 +371,8 @@ var _ = Describe("Read field migration", func() {
 					optionalField(telem.Int8T, float64(200))),
 				Entry("a label no entry has",
 					optionalField(telem.Uint8T, "MAYBE", onOff...)),
-				Entry("a number on a string field",
-					optionalField(telem.StringT, float64(1))),
+				Entry("text that is not a number on a float field",
+					optionalField(telem.Float64T, "warm")),
 				Entry("a bad timestamp",
 					optionalField(telem.TimestampT, "yesterday")),
 				Entry("on a JSON field", optionalField(telem.JSONT, "{}")),
@@ -380,6 +389,7 @@ var _ = Describe("Read field migration", func() {
 			channels map[channel.Key]v5.Channel,
 			migrations ...gorp.Migration,
 		) v5.ReadConfig {
+			GinkgoHelper()
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "http_read_config",
@@ -396,6 +406,7 @@ var _ = Describe("Read field migration", func() {
 		}
 
 		storeV4 := func(ctx context.Context, cfg v4.ReadConfig) {
+			GinkgoHelper()
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v4.ReadConfig]{DB: db},
 			))
@@ -546,6 +557,46 @@ var _ = Describe("Read field migration", func() {
 			)
 			timestamp := got.Endpoints[0].Fields[0].Variant.(v5.TimestampReadField)
 			Expect(timestamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
+		})
+
+		It("Should read a fill by the data type of the field's channel", func(
+			ctx SpecContext,
+		) {
+			storeV4(ctx, v4.ReadConfig{
+				Key: uuid.New(),
+				Endpoints: []v4.ReadEndpoint{{
+					Key:    "ep",
+					Fields: []v4.ReadField{optionalField(telem.Float64T, "off")},
+				}},
+			})
+			got := migrateStored(
+				ctx, map[channel.Key]v5.Channel{7: {DataType: telem.StringT}},
+			)
+			Expect(fillOf(got.Endpoints[0].Fields[0])).To(Equal("off"))
+		})
+
+		It("Should read entries by the data type of the field's channel", func(
+			ctx SpecContext,
+		) {
+			storeV4(ctx, v4.ReadConfig{
+				Key: uuid.New(),
+				Endpoints: []v4.ReadEndpoint{{
+					Key: "ep",
+					Fields: []v4.ReadField{untypedField(
+						telem.Float64T,
+						payload.EnumEntry{Label: "ON", Value: 1},
+						payload.EnumEntry{Label: "OFF", Value: 0},
+					)},
+				}},
+			})
+			got := migrateStored(
+				ctx, map[channel.Key]v5.Channel{7: {DataType: telem.BooleanT}},
+			)
+			boolean := got.Endpoints[0].Fields[0].Variant.(v5.BooleanReadField)
+			Expect(boolean.EnumValues).To(Equal([]payload.BooleanEntry{
+				{Label: "ON", Value: true},
+				{Label: "OFF", Value: false},
+			}))
 		})
 
 		It("Should reconcile each field with its channel", func(ctx SpecContext) {
