@@ -172,7 +172,7 @@ describe("Sift.Range.useUploadModal", () => {
     expect(await screen.findByText("stand")).toBeTruthy();
     const { answered: listedSecond } = await answerNextCommand(client, scan, {
       type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
-      data: { assets: ["pad"], last: "" },
+      data: { assets: ["pad"], last: "pad" },
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
     fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
@@ -180,7 +180,8 @@ describe("Sift.Range.useUploadModal", () => {
     });
     fireEvent.click(await screen.findByText(second.name));
     await listedSecond;
-    await waitFor(() => expect(screen.queryByText("stand")).toBeNull());
+    expect(await findDialogTriggerByText("pad")).toBeTruthy();
+    expect(screen.queryByText("stand")).toBeNull();
   });
 
   it("should leave the asset empty when the assets of a new device fail to list", async () => {
