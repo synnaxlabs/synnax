@@ -74,52 +74,39 @@ QueryParam struct {
     @go marshal
 }
 
-ReadField struct {
-    key         string = create {
-        @doc value "uniquely identifies the field within the endpoint."
-        @key
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a float."
     }
-    name        string = "" {
-        @doc value "is the human-readable field name."
+    integer extends payload.IntegerRead {
+        @doc value "reads a signed integer."
     }
-    disabled    bool = false {
-        @doc value "is true when the field is excluded from polling."
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads an unsigned integer."
     }
-    optional    bool = false {
-        @doc value """
-            is true when a missing value is normal for this field. The task writes
-            fill_value, or NaN on a float channel, and sends no warning.
-        """
+    string extends payload.StringRead {
+        @doc value "reads a string."
     }
-    fill_value  any?                {
-        @doc value """
-            is the value written when an optional field is missing, typed by the
-            channel. Unset writes NaN, which needs a float channel.
-        """
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean."
     }
-    channel     channel.Key = 0 {
-        @doc value     "is the Synnax channel the extracted value is written to."
-        @ref kind      use
-        @ref on_delete restrict
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp."
     }
-    pointer     string = "" {
-        @doc value "is the JSON Pointer to the value within the response body."
+    json {
+        @doc value "reads any JSON value."
     }
-    data_type   telem.DataType = "float64" {
-        @doc value "is the data type of the extracted value."
-        @ts type   "string"
+    uuid {
+        @doc value "reads a UUID."
     }
-    time_format payload.TimeFormat? {
-        @doc value """
-            is the encoding of the JSON value when the target channel holds timestamps.
-            Required for timestamp channels.
-        """
-    }
-    enum_values payload.EnumEntry[] {
-        @doc value "maps string labels in the response to numeric channel values."
+    bytes {
+        @doc value "reads bytes."
     }
 
-    @doc value  "is a single value extracted from an endpoint's JSON response."
+    @doc value  """
+        is a single value extracted from an endpoint's JSON response. The type field is
+        the kind of the value, which matches the kind of the channel's data type.
+    """
     @go marshal
 }
 
@@ -332,4 +319,28 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+}
+
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the endpoint."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from polling."
+    }
+    channel  channel.Key = 0 {
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    pointer  string = "" {
+        @doc value "is the JSON Pointer to the value within the response body."
+    }
+
+    @doc value  "carries the fields every read field shares."
+    @go marshal
 }

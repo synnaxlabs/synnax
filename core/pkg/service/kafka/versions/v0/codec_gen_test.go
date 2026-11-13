@@ -18,7 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -189,8 +190,8 @@ var _ = Describe("Codec", func() {
 				ChannelPointer:   new(string("test_2")),
 				TimestampPointer: new(string("test_3")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
+				Fields: []httpv4.WriteField{
+					{Variant: httpv4.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 						JSONType:       payload.JSONType("number"),
 						Value:          any(map[string]any{"key_9": "value_9"}),
@@ -202,14 +203,14 @@ var _ = Describe("Codec", func() {
 				ChannelPointer:   nil,
 				TimestampPointer: nil,
 				TimeFormat:       payload.TimeFormat(""),
-				Fields:           []http.WriteField{},
+				Fields:           []httpv4.WriteField{},
 			}),
 			Entry("empty collections", v0.Record{
 				ValuePointer:     "test_1",
 				ChannelPointer:   new(string("test_2")),
 				TimestampPointer: new(string("test_3")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
+				Fields:           []httpv4.WriteField{},
 			}),
 		)
 	})
@@ -295,8 +296,8 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
 					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields: []http.WriteField{
-						{Variant: http.StaticWriteField{
+					Fields: []httpv4.WriteField{
+						{Variant: httpv4.StaticWriteField{
 							BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 							JSONType:       payload.JSONType("number"),
 							Value:          any(map[string]any{"key_15": "value_15"}),
@@ -325,7 +326,7 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   nil,
 					TimestampPointer: nil,
 					TimeFormat:       payload.TimeFormat(""),
-					Fields:           []http.WriteField{},
+					Fields:           []httpv4.WriteField{},
 				},
 				Channels: []v0.WriteChannel{},
 			}),
@@ -340,7 +341,7 @@ var _ = Describe("Codec", func() {
 					ChannelPointer:   new(string("test_8")),
 					TimestampPointer: new(string("test_9")),
 					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields:           []http.WriteField{},
+					Fields:           []httpv4.WriteField{},
 				},
 				Channels: []v0.WriteChannel{},
 			}),
@@ -457,8 +458,8 @@ func BenchmarkEncodeDecodeRecord(b *testing.B) {
 		ChannelPointer:   new(string("test_2")),
 		TimestampPointer: new(string("test_3")),
 		TimeFormat:       payload.TimeFormat("iso8601"),
-		Fields: []http.WriteField{
-			{Variant: http.StaticWriteField{
+		Fields: []httpv4.WriteField{
+			{Variant: httpv4.StaticWriteField{
 				BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 				JSONType:       payload.JSONType("number"),
 				Value:          any(map[string]any{"key_9": "value_9"}),
@@ -537,8 +538,8 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			ChannelPointer:   new(string("test_8")),
 			TimestampPointer: new(string("test_9")),
 			TimeFormat:       payload.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
+			Fields: []httpv4.WriteField{
+				{Variant: httpv4.StaticWriteField{
 					BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 					JSONType:       payload.JSONType("number"),
 					Value:          any(map[string]any{"key_15": "value_15"}),
@@ -817,8 +818,8 @@ func FuzzDecodeRecord(f *testing.F) {
 			ChannelPointer:   new(string("test_2")),
 			TimestampPointer: new(string("test_3")),
 			TimeFormat:       payload.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
+			Fields: []httpv4.WriteField{
+				{Variant: httpv4.StaticWriteField{
 					BaseWriteField: http.BaseWriteField{Key: "test_6", Pointer: "test_7"},
 					JSONType:       payload.JSONType("number"),
 					Value:          any(map[string]any{"key_9": "value_9"}),
@@ -837,7 +838,7 @@ func FuzzDecodeRecord(f *testing.F) {
 			ChannelPointer:   nil,
 			TimestampPointer: nil,
 			TimeFormat:       payload.TimeFormat(""),
-			Fields:           []http.WriteField{},
+			Fields:           []httpv4.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -851,7 +852,7 @@ func FuzzDecodeRecord(f *testing.F) {
 			ChannelPointer:   new(string("test_2")),
 			TimestampPointer: new(string("test_3")),
 			TimeFormat:       payload.TimeFormat("iso8601"),
-			Fields:           []http.WriteField{},
+			Fields:           []httpv4.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1009,8 +1010,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
+				Fields: []httpv4.WriteField{
+					{Variant: httpv4.StaticWriteField{
 						BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
 						JSONType:       payload.JSONType("number"),
 						Value:          any(map[string]any{"key_15": "value_15"}),
@@ -1046,7 +1047,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   nil,
 				TimestampPointer: nil,
 				TimeFormat:       payload.TimeFormat(""),
-				Fields:           []http.WriteField{},
+				Fields:           []httpv4.WriteField{},
 			},
 			Channels: []v0.WriteChannel{},
 		}
@@ -1068,7 +1069,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				ChannelPointer:   new(string("test_8")),
 				TimestampPointer: new(string("test_9")),
 				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
+				Fields:           []httpv4.WriteField{},
 			},
 			Channels: []v0.WriteChannel{},
 		}

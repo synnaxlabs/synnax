@@ -2200,6 +2200,21 @@ describe("TimeRange", () => {
 });
 
 describe("Density", () => {
+  describe("equals", () => {
+    it("should equal a data type with the same value", () => {
+      expect(DataType.INT32.equals(new DataType("int32"))).toBe(true);
+    });
+    it("should equal a string of the same value", () => {
+      expect(DataType.INT32.equals("int32")).toBe(true);
+    });
+    it("should equal a structured clone of itself", () => {
+      expect(DataType.INT32.equals(structuredClone(DataType.INT32))).toBe(true);
+    });
+    it("should not equal a different data type", () => {
+      expect(DataType.INT32.equals(DataType.FLOAT32)).toBe(false);
+    });
+  });
+
   describe("construct", () => {
     test("construct from CrudeValueExtension", () => {
       const density = new Density({ value: 8 });

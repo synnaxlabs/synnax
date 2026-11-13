@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { patch } from "@/patch";
+import { DataType } from "@/telem";
 
 const schema = z.discriminatedUnion("variant", [
   z.object({
@@ -29,6 +30,12 @@ describe("diff", () => {
   it("should list no action when nothing differs", () => {
     const value = { variant: "valve", size: 1, label: { text: "a", color: "b" } };
     expect(patch.diff(schema, value, structuredClone(value))).toEqual([]);
+  });
+
+  it("should list no action for a structured clone of a data type", () => {
+    const typed = z.object({ dataType: DataType.z });
+    const base = { dataType: DataType.FLOAT64 };
+    expect(patch.diff(typed, base, structuredClone(base))).toEqual([]);
   });
 
   it("should set only the fields that differ", () => {

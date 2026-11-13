@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -95,6 +96,8 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// Only thermocouples ever read pos_chan, and the rewrite folds its value into the
 	// port they now read from.
 	"labjack_read": set.New("pos_chan"),
+	// A read field's data type picks its kind, and a kind holds only its own options.
+	"http_read": set.New("data_type", "enum_values", "time_format"),
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
@@ -112,6 +115,7 @@ var legacySecrets = map[string]struct{ key, plain string }{
 var legacyReimportErrors = map[string]string{
 	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
 	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"http_read":      `decode v3 http.ReadConfig`,
 }
 
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
@@ -373,8 +377,9 @@ func rekeyed(raw []byte, keys map[float64]float64) []byte {
 }
 
 // createFixtureTargets creates the channels, devices, and statuses that the fixtures in
-// testdata reference, so an import keeps every key. It returns the key of the channel
-// created for each channel key in the fixtures.
+// testdata reference, so an import keeps every key. A channel takes the data type that
+// the first fixture object naming it declares, or float64. It returns the key of the
+// channel created for each channel key in the fixtures.
 func createFixtureTargets(
 	ctx context.Context,
 	db *gorp.DB,
@@ -383,7 +388,7 @@ func createFixtureTargets(
 ) map[float64]float64 {
 	GinkgoHelper()
 	var (
-		fixtureChannels = make(set.Set[float64])
+		fixtureChannels = make(map[float64]telem.DataType)
 		devices         = make(set.Set[device.Key])
 		statuses        = make(set.Set[status.Key])
 		walk            func(v any)
@@ -391,11 +396,16 @@ func createFixtureTargets(
 	walk = func(v any) {
 		switch v := v.(type) {
 		case map[string]any:
+			dt, _ := v["data_type"].(string)
+			if dt == "" {
+				dt, _ = v["dataType"].(string)
+			}
 			for k, f := range v {
 				switch key := f.(type) {
 				case float64:
-					if isChannelField(k) && key != 0 {
-						fixtureChannels.Add(key)
+					if _, seen := fixtureChannels[key]; isChannelField(k) && key != 0 &&
+						!seen {
+						fixtureChannels[key] = telem.DataType(dt)
 					}
 				case string:
 					if k == "device" && key != "" {
@@ -427,12 +437,20 @@ func createFixtureTargets(
 		walk(stored)
 	}
 	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
-	created := MustSucceed(
-		channeltestutil.CreateVirtual(ctx, db, channels, len(fixtureKeys)),
-	)
+	created := make([]channel.Channel, len(fixtureKeys))
+	for i, key := range fixtureKeys {
+		created[i] = channel.Channel{
+			Name:     channeltestutil.UniqueChannelName(),
+			DataType: lo.CoalesceOrEmpty(fixtureChannels[key], telem.Float64T),
+			Virtual:  true,
+		}
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channels.NewWriter(tx).CreateMany(ctx, &created)
+	})).To(Succeed())
 	keys := make(map[float64]float64, len(fixtureKeys))
 	for i, key := range fixtureKeys {
-		keys[key] = float64(created[i])
+		keys[key] = float64(created[i].Key())
 	}
 	for d := range devices {
 		Expect(targets.CreateDevice(ctx, d)).To(Succeed())

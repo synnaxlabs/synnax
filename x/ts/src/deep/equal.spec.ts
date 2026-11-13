@@ -48,6 +48,12 @@ describe("deepEqual", () => {
       const b = { a: 1, b: { c: 2 } };
       expect(deep.equal(a, b)).toBe(false);
     });
+    it("should treat NaN as equal to NaN", () => {
+      expect(deep.equal({ fill: NaN }, { fill: NaN })).toBe(true);
+    });
+    it("should not treat NaN as equal to a number", () => {
+      expect(deep.equal({ fill: NaN }, { fill: 0 })).toBe(false);
+    });
     it("should return true for primitive arrays that are equal", () => {
       const a = [1, 2, 3];
       const b = [1, 2, 3];
