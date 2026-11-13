@@ -53,18 +53,6 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     return True
 
 
-def changed(t: Target, gh: GH, old: str) -> tuple[set[str], set[str]] | None:
-    """Compares the diff from the base to an older commit with the diff to the head.
-    Line numbers do not count. Returns each file of the head's diff whose changes
-    differ, and each file that only the older diff changes, or None when GitHub cannot
-    compare every file."""
-    before, after = _diff(t, gh, old), _diff(t, gh, t.head)
-    if before is None or after is None:
-        return None
-    kept = {f[0] for f in after}
-    return {f[0] for f in set(after) - set(before)}, {f[0] for f in before} - kept
-
-
 def _diff(t: Target, gh: GH, commit: str) -> list[tuple[str, ...]] | None:
     """Returns each file of the diff from the base to a commit, without line numbers,
     or None when the comparison cannot show every file. GitHub leaves out the patch of a

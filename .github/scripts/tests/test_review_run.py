@@ -961,16 +961,9 @@ class TestMain:
         assert json.loads(out.read_text())["review"]["score"] == 5
 
     @staticmethod
-    def review_after_reviews_of(
-        tmp_path: Path,
-        *commits: str,
-        compare: dict[str, list[dict[str, Any]]] | None = None,
-    ) -> dict[str, Any]:
+    def review_after_reviews_of(tmp_path: Path, *commits: str) -> dict[str, Any]:
         """Runs a review whose pull request body says that Sedosaur reviewed the
-        commits, newest first, and returns its record.
-
-        :param compare: The files of the comparison of the base to each commit.
-        """
+        commits, newest first, and returns its record."""
         edits = "".join(
             json.dumps(
                 {
@@ -984,12 +977,7 @@ class TestMain:
         )
         executable(
             tmp_path / "bin" / "gh",
-            f"compare = {compare or {}!r}\n"
-            "path = next((a for a in sys.argv if '/compare/' in a), None)\n"
-            "if path is not None:\n"
-            "    files = compare.get(path.rsplit('.', 1)[1], [])\n"
-            "    print(''.join(json.dumps(f) + '\\n' for f in files), end='')\n"
-            "elif 'graphql' not in sys.argv:\n"
+            "if 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('userContentEdits' in a for a in sys.argv):\n"
             f"    print({edits!r}, end='')\n",
@@ -999,15 +987,10 @@ class TestMain:
         record: dict[str, Any] = json.loads(out.read_text())
         return record
 
-    def prompt_after_reviews_of(
-        self,
-        tmp_path: Path,
-        *commits: str,
-        compare: dict[str, list[dict[str, Any]]] | None = None,
-    ) -> str:
+    def prompt_after_reviews_of(self, tmp_path: Path, *commits: str) -> str:
         """Runs a review after reviews of the commits, newest first, and returns the
         section of changes since the last review in the prompt."""
-        self.review_after_reviews_of(tmp_path, *commits, compare=compare)
+        self.review_after_reviews_of(tmp_path, *commits)
         text = (tmp_path / "prompt.txt").read_text()
         _, found, new = text.partition("# Changes since your last review")
         return new.split("# Diff")[0] if found else ""
@@ -1031,66 +1014,55 @@ class TestMain:
         new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
         assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
 
+    @staticmethod
+    def side(head: Path, base: str, files: dict[str, str]) -> str:
+        """Commits files on a new branch from the base, returns to the branch before, and
+        returns the commit, which is not in that branch's history."""
+        git(head, "checkout", "-qb", "side", base)
+        for name, text in files.items():
+            (head / name).write_text(text)
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "side")
+        commit = git(head, "rev-parse", "HEAD")
+        git(head, "checkout", "-q", "-")
+        return commit
+
     def test_should_show_the_files_that_changed_after_a_force_push(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         head = Path(env["HEAD_DIR"])
+        dropped = self.side(head, env["BASE_SHA"], {"a.go": "one\ntwo\n"})
         (head / "b.go").write_text("three\n")
         git(head, "add", ".")
         git(head, "commit", "-qm", "more")
-        tip = git(head, "rev-parse", "HEAD")
-        monkeypatch.setenv("HEAD_SHA", tip)
-        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
-        b = {"filename": "b.go", "status": "added", "patch": "@@ -0,0 +1 @@\n+three"}
-        dropped = "d" * 40
-        new = self.prompt_after_reviews_of(
-            tmp_path, dropped, compare={dropped: [a], tip: [a, b]}
-        )
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
         assert "diff --git a/b.go b/b.go" in new
         assert "a.go" not in new
 
-    def test_should_show_the_whole_diff_when_github_cannot_compare_a_force_push(
+    def test_should_show_the_whole_diff_when_a_force_push_lost_the_commit(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
-        dropped = "d" * 40
-        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
-        new = self.prompt_after_reviews_of(
-            tmp_path,
-            dropped,
-            compare={dropped: [a | {"patch": None}], env["HEAD_SHA"]: [a]},
-        )
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40)
         assert "diff --git a/a.go b/a.go" in new
 
     def test_should_show_the_files_that_a_merge_changed(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         head = Path(env["HEAD_DIR"])
-        git(head, "checkout", "-qb", "side", env["BASE_SHA"])
-        (head / "b.go").write_text("three\n")
-        git(head, "add", ".")
-        git(head, "commit", "-qm", "side")
-        git(head, "checkout", "-q", "-")
+        self.side(head, env["BASE_SHA"], {"b.go": "three\n"})
         git(head, "merge", "-q", "--no-ff", "-m", "merge", "side")
-        tip = git(head, "rev-parse", "HEAD")
-        monkeypatch.setenv("HEAD_SHA", tip)
-        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
-        b = {"filename": "b.go", "status": "added", "patch": "@@ -0,0 +1 @@\n+three"}
-        reviewed = env["HEAD_SHA"]
-        new = self.prompt_after_reviews_of(
-            tmp_path, reviewed, compare={reviewed: [a], tip: [a, b]}
-        )
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"])
         assert "diff --git a/b.go b/b.go" in new
         assert "a.go" not in new
 
     def test_should_name_the_files_that_left_the_pull_request(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
-        dropped = "d" * 40
-        a = {"filename": "a.go", "status": "modified", "patch": "@@ -1 +1,2 @@\n+two"}
-        b = {"filename": "b.go", "status": "added", "patch": "@@ -0,0 +1 @@\n+three"}
-        new = self.prompt_after_reviews_of(
-            tmp_path, dropped, compare={dropped: [a, b], env["HEAD_SHA"]: [a]}
-        )
+        files = {"a.go": "one\ntwo\n", "b.go": "three\n"}
+        dropped = self.side(Path(env["HEAD_DIR"]), env["BASE_SHA"], files)
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
         assert "no longer changes these files:\n- `b.go`" in new
         assert "None:" not in new
 

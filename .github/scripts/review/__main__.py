@@ -50,7 +50,6 @@ from review import (
     PullRequest,
     Target,
     carry,
-    changed,
     compare,
     dismiss,
     dismissed,
@@ -64,6 +63,8 @@ from review import (
 )
 
 _FILE = re.compile(r"diff --git a/.* b/(.*)")
+_INDEX = re.compile(r"(?m)^index .*\n")
+_HUNK = re.compile(r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
 
 def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
@@ -102,15 +103,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     config = load(Path(os.environ["POLICY_DIR"]))
     head = Path(os.environ["HEAD_DIR"]).resolve()
     excluded = [f":(glob,exclude){g}" for g in config.excluded]
-    diff = subprocess.run(
-        [
-            *("git", "-C", str(head), "diff", "--no-color", "--no-ext-diff"),
-            *(f"{target.base}...{target.head}", "--", ".", *excluded),
-        ],
-        stdout=subprocess.PIPE,
-        text=True,
-        check=True,
-    ).stdout
+    diff = _diff(head, target.base, target.head, excluded)
     earlier = [c for c in reviewed(target, gh) if c != target.head]
     since = next((c for c in earlier if _before(head, c, target.head)), None)
     # A replay cannot tell a commit that a force push dropped from a later one.
@@ -135,7 +128,10 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
             check=True,
         ).stdout
     elif since is not None or rewritten:
-        new, dropped = _changes(target, diff, since or earlier[0])
+        old = since or earlier[0]
+        new = diff
+        if _fetched(head, old):
+            new, dropped = _changes(diff, _diff(head, target.base, old, excluded))
     meta = json.loads(
         gh(
             "api",
@@ -173,17 +169,47 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
     path.write_text(json.dumps(record))
 
 
-def _changes(target: Target, diff: str, old: str) -> tuple[str, list[str]]:
-    """Returns the files of a diff whose changes differ from those at an older commit,
-    and the files that only the older commit changes. Returns the whole diff when GitHub
-    cannot compare every file."""
-    found = changed(target, gh, old)
-    if found is None:
-        return diff, []
-    files, dropped = found
-    chunks = re.split(r"(?m)^(?=diff --git )", diff)
-    kept = (c for c in chunks if (m := _FILE.match(c)) is not None and m[1] in files)
-    return "".join(kept), sorted(dropped)
+def _diff(head: Path, base: str, commit: str, excluded: list[str]) -> str:
+    """Returns the diff from the merge base of the base and a commit to the commit."""
+    return subprocess.run(
+        [
+            *("git", "-C", str(head), "diff", "--no-color", "--no-ext-diff"),
+            *(f"{base}...{commit}", "--", ".", *excluded),
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def _fetched(head: Path, commit: str) -> bool:
+    """Fetches a commit into a checkout when it is not there, as after a force push.
+    Returns False when the remote no longer has it."""
+    git = ("git", "-C", str(head))
+    there = [*git, "cat-file", "-e", f"{commit}^{{commit}}"]
+    if subprocess.run(there, capture_output=True).returncode == 0:
+        return True
+    fetch = [*git, "fetch", "--no-tags", "-q", "origin", commit]
+    return subprocess.run(fetch, capture_output=True).returncode == 0
+
+
+def _files(diff: str) -> dict[str, tuple[str, str]]:
+    """Splits a diff by file. Maps each path to its patch, and to the patch without
+    its blob IDs and line numbers."""
+    out: dict[str, tuple[str, str]] = {}
+    for chunk in re.split(r"(?m)^(?=diff --git )", diff):
+        if m := _FILE.match(chunk):
+            out[m[1]] = chunk, _HUNK.sub("@@", _INDEX.sub("", chunk))
+    return out
+
+
+def _changes(diff: str, before: str) -> tuple[str, list[str]]:
+    """Returns the files of a diff whose patches differ from those of an earlier diff,
+    and the files that only the earlier diff changes. Blob IDs and line numbers do not
+    count."""
+    was, now = _files(before), _files(diff)
+    kept = (c for p, (c, key) in now.items() if p not in was or was[p][1] != key)
+    return "".join(kept), sorted(was.keys() - now.keys())
 
 
 def _merges(head: Path, since: str, tip: str) -> bool:
