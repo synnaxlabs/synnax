@@ -102,7 +102,7 @@ Status struct<Details?, V extends Variant = Variant> {
         """
         @ref kind      place
         @ref on_delete cascade
-        @ref types     rack task device channel arc ni_device ni_chassis certificate
+        @ref types     rack task device channel arc ni_device ni_chassis labjack_device certificate
         @ref unique
     }
 
