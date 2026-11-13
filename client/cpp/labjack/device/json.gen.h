@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "client/cpp/labjack/device/types.gen.h"
@@ -25,8 +26,9 @@ inline Device Device::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.field<std::string>("name"),
-        .serial = parser.field<std::string>("serial"),
+        .serial = parser.field<std::uint32_t>("serial"),
         .model = parser.field<std::string>("model"),
+        .connection = parser.field<std::string>("connection"),
         .identifier = parser.field<std::string>("identifier", ""),
         .status = parser.field<std::optional<Status>>("status"),
     };
@@ -39,6 +41,7 @@ inline x::json::json Device::to_json() const {
     j["name"] = this->name;
     j["serial"] = this->serial;
     j["model"] = this->model;
+    j["connection"] = this->connection;
     j["identifier"] = this->identifier;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;

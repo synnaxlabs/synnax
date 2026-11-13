@@ -45,6 +45,27 @@ func (m Model) IsValid() bool {
 	}
 }
 
+// Connection is the connection of a LabJack device, named by its LJM connection type.
+type Connection string
+
+const (
+	// ConnectionUsb is a USB connection.
+	ConnectionUsb Connection = "LJM_ctUSB"
+	// ConnectionTCP is a TCP connection over Ethernet or Wi-Fi.
+	ConnectionTCP Connection = "LJM_ctTCP"
+)
+
+// IsValid reports whether c is one of the defined Connection
+// values.
+func (c Connection) IsValid() bool {
+	switch c {
+	case ConnectionUsb, ConnectionTCP:
+		return true
+	default:
+		return false
+	}
+}
+
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails struct {
 	// Rack is the key of the rack the device belongs to.
@@ -65,9 +86,11 @@ type Device struct {
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the device.
-	Serial string `json:"serial" msgpack:"serial"`
+	Serial uint32 `json:"serial" msgpack:"serial"`
 	// Model is the model of the device.
 	Model Model `json:"model" msgpack:"model"`
+	// Connection is the connection the scanner last found the device on.
+	Connection Connection `json:"connection" msgpack:"connection"`
 	// Identifier is the prefix of the device's channel names. The device is
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
@@ -80,7 +103,8 @@ type Device struct {
 func (d Device) Validate() error {
 	v := validate.New("Device")
 	v.Ternaryf("model", !d.Model.IsValid(), "invalid model: %v", d.Model)
+	v.Ternaryf("connection", !d.Connection.IsValid(), "invalid connection: %v", d.Connection)
 	v.NotEmptyString("name", d.Name)
-	v.NotEmptyString("serial", d.Serial)
+	v.NonZero("serial", d.Serial)
 	return v.Error()
 }

@@ -675,7 +675,11 @@ class TestLabJackDeviceResource:
     def test_defaults(self) -> None:
         """Should leave a new device unconfigured."""
         device = sy.labjack.device.Device(
-            rack=1, name="T7-0001", serial="470010001", model="LJM_dtT7"
+            rack=1,
+            name="T7-0001",
+            serial=470010001,
+            model="LJM_dtT7",
+            connection="LJM_ctUSB",
         )
         assert device.identifier == ""
         assert device.status is None
@@ -684,14 +688,38 @@ class TestLabJackDeviceResource:
         """Should reject a model that the schema does not name."""
         with pytest.raises(ValidationError):
             sy.labjack.device.Device.model_validate(
-                {"rack": 1, "name": "D", "serial": "1", "model": "LJM_dtDIGIT"}
+                {
+                    "rack": 1,
+                    "name": "D",
+                    "serial": 1,
+                    "model": "LJM_dtDIGIT",
+                    "connection": "LJM_ctUSB",
+                }
             )
 
     def test_requires_serial(self) -> None:
         """Should reject a device without a serial number."""
         with pytest.raises(ValidationError):
             sy.labjack.device.Device.model_validate(
-                {"rack": 1, "name": "T7-0001", "model": "LJM_dtT7"}
+                {
+                    "rack": 1,
+                    "name": "T7-0001",
+                    "model": "LJM_dtT7",
+                    "connection": "LJM_ctUSB",
+                }
+            )
+
+    def test_rejects_unknown_connection(self) -> None:
+        """Should reject a connection that the schema does not name."""
+        with pytest.raises(ValidationError):
+            sy.labjack.device.Device.model_validate(
+                {
+                    "rack": 1,
+                    "name": "T7-0001",
+                    "serial": 470010001,
+                    "model": "LJM_dtT7",
+                    "connection": "LJM_ctWIFI",
+                }
             )
 
     def test_resource_id(self) -> None:
