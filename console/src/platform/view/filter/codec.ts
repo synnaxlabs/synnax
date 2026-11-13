@@ -69,24 +69,15 @@ export const encode = <W extends { and?: W[] }>(
   return { and } as W;
 };
 
-/** @returns the condition on the property, or null for none. */
-export const find = <W>(conditions: Condition<W>[], property: string): unknown => {
-  const condition = conditions.find((c) => c.property === property);
-  return condition == null || condition.property == null ? null : condition.value;
-};
-
-/** @returns the conditions with one condition on the property, in place of the rest. */
-export const put = <W>(
+/**
+ * @returns the conditions with the condition at the index set to next, or without it
+ * when next is null.
+ */
+export const replace = <W>(
   conditions: Condition<W>[],
-  property: string,
-  value: unknown,
-): Condition<W>[] => {
-  const index = conditions.findIndex((c) => c.property === property);
-  const next = drop(conditions, property);
-  next.splice(index === -1 ? next.length : index, 0, { property, value });
-  return next;
-};
-
-/** @returns the conditions without any condition on the property. */
-export const drop = <W>(conditions: Condition<W>[], property: string): Condition<W>[] =>
-  conditions.filter((c) => c.property !== property);
+  index: number,
+  next: Condition<W> | null,
+): Condition<W>[] =>
+  next == null
+    ? conditions.filter((_, i) => i !== index)
+    : conditions.map((c, i) => (i === index ? next : c));
