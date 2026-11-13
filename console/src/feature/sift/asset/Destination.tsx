@@ -57,17 +57,27 @@ interface FieldProps extends DestinationProps {
   picked: RefObject<boolean>;
 }
 
+type ListState = "listing" | "failed" | "listed";
+
+const EMPTY_CONTENT: Record<ListState, string> = {
+  listing: "Listing assets",
+  failed: "Failed to list assets",
+  listed: "No assets in Sift",
+};
+
 const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const deviceKey = Form.useFieldValue(devicePath);
   const { get, set, mode } = Form.useContext();
   const [assets, setAssets] = useState<string[]>([]);
+  const [listState, setListState] = useState<ListState>("listing");
   const listed = useRef(false);
   const rename = Modals.useRename();
   useAsyncEffect(
     async (signal) => {
       setAssets([]);
+      setListState("listing");
       if (client == null || deviceKey === "" || mode === "preview") return;
       handleError(async () => {
         let res: ListResult;
@@ -76,11 +86,14 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
         } catch (e) {
           // A failure after the user moved to another connection or closed the form is
           // stale.
-          if (!signal.aborted) handleError(e, "Failed to list Sift assets");
+          if (signal.aborted) return;
+          setListState("failed");
+          handleError(e, "Failed to list Sift assets");
           return;
         }
         if (signal.aborted) return;
         setAssets(res.assets);
+        setListState("listed");
         const fill = !listed.current || picked.current;
         listed.current = true;
         picked.current = false;
@@ -98,7 +111,11 @@ const Field = ({ devicePath, picked, ...rest }: FieldProps) => {
             onChange={onChange}
             preview={preview}
             resourceName="asset"
-            emptyContent="No assets in Sift"
+            emptyContent={
+              listState === "listed" && assets.length > 0
+                ? "No matching assets"
+                : EMPTY_CONTENT[listState]
+            }
             disabled={deviceKey === ""}
             grow
           >
