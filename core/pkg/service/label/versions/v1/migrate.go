@@ -23,4 +23,4 @@ func MigrateLabel(ctx context.Context, old v0.Label) (Label, error) {
 }
 
 // Migration lifts stored labels from v0 to v1.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateLabel)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateLabel)

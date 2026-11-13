@@ -28,7 +28,7 @@ var _ = Describe("Migrations", func() {
 		)).To(Equal([]string{
 			"normalize_keys",
 			"msgpack_to_orc",
-			"v61_color_alpha_byte",
+			"v62_color_alpha_byte",
 		}))
 	})
 })

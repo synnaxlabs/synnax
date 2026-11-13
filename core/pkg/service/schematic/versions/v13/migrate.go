@@ -86,7 +86,7 @@ func clearThemeColors(v reflect.Value) {
 }
 
 // Migration lifts stored schematics from v12 to v13.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSchematic)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateSchematic)
 
 // MigrateElementConfig lifts a v12 element config to v13.
 func MigrateElementConfig(

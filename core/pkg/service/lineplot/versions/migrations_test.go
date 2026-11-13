@@ -37,7 +37,7 @@ var _ = Describe("Migrations", func() {
 			"v61_lineplot_owner",
 			"v62_lineplot_delete_range_owned",
 			"v62_lineplot_drop_range",
-			"v61_color_alpha_byte",
+			"v62_color_alpha_byte",
 		}))
 	})
 })

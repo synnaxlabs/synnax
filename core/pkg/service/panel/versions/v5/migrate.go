@@ -22,4 +22,4 @@ func MigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
 }
 
 // Migration lifts stored panels from v4 to v5.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigratePanel)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigratePanel)

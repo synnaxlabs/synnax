@@ -103,7 +103,7 @@ var _ = Describe("Migrations", func() {
 			"v61_table_owner",
 			"v62_table_delete_range_owned",
 			"v62_table_drop_range",
-			"v61_color_alpha_byte",
+			"v62_color_alpha_byte",
 		}))
 	})
 })
