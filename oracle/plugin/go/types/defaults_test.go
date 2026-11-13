@@ -1078,12 +1078,29 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 
 			Windows = Window[]
 
+			Rate struct { hz int32 = 1 }
+
+			Rates = Rate[]
+
+			Holder struct { window Window }
+
+			Shape union on kind {
+				grid {
+					cells Windows[]
+					rates Rates[]
+				}
+				held Holder
+			}
+
 			Container struct {
-				window   Window
-				fallback Window?
-				windows  Window[]
-				named    Windows
-				grid     Windows[]
+				window    Window
+				fallback  Window?
+				windows   Window[]
+				named     Windows
+				grid      Windows[]
+				by_name   map<string, Window>
+				rates     Rates
+				rate_grid Rates[]
 			}
 		`
 
@@ -1092,11 +1109,10 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					"func (u Window) Validate() error {",
-					`v.Ternary("variant", u.Variant == nil, "required")`,
-				)
-				ExpectContent(resp, "types.gen.go").ToNotContain(
-					"switch variant := u.Variant.(type) {",
+					"func (u Window) Validate() error {\n" +
+						"\tv := validate.New(\"Window\")\n" +
+						"\tv.Ternary(\"variant\", u.Variant == nil, \"required\")\n" +
+						"\treturn v.Error()\n}",
 				)
 			},
 		)
@@ -1117,6 +1133,45 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					"for j := range c.Grid[i] {",
 					`validate.PathedError(c.Grid[i][j].Validate(), "grid", `+
 						`strconv.Itoa(i), strconv.Itoa(j))`,
+					`validate.PathedError(value.Validate(), "by_name", key)`,
+				)
+			},
+		)
+
+		It(
+			"Should apply defaults through aliased and nested arrays",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Container) ApplyDefaults() {",
+					"c.Rates[i].ApplyDefaults()",
+					"c.RateGrid[i][j].ApplyDefaults()",
+				)
+			},
+		)
+
+		It(
+			"Should recurse nested arrays in an inline variant",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (g GridShape) Validate() error {",
+					`validate.PathedError(g.Cells[i][j].Validate(), "cells", `+
+						`strconv.Itoa(i), strconv.Itoa(j))`,
+					"func (g *GridShape) ApplyDefaults() {",
+					"g.Rates[i][j].ApplyDefaults()",
+				)
+			},
+		)
+
+		It(
+			"Should validate a variant whose payload holds a union",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (h HeldShape) Validate() error {",
+					"v.Exec(h.Holder.Validate)",
+					"case HeldShape:",
 				)
 			},
 		)
