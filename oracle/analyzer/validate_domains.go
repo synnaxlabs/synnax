@@ -475,21 +475,8 @@ func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 				))
 			}
 		case resolution.StructForm:
-			// An inherited field is checked by its parent, unless the parent types it
-			// with a type parameter that this struct substitutes.
-			generic := set.New[string]()
-			for _, ext := range form.Extends {
-				if parent, _, ok := resolution.Dealias(ext, table); ok {
-					for _, f := range resolution.UnifiedFields(parent, table) {
-						if f.Type.IsTypeParam() {
-							generic.Add(f.Name)
-						}
-					}
-				}
-			}
-			for _, f := range resolution.UnifiedFields(t, table) {
-				_, declared := form.Field(f.Name)
-				if !hasPattern(f.Domains) || (!declared && !generic.Contains(f.Name)) {
+			for _, f := range ownedFields(t, form, table) {
+				if !hasPattern(f.Domains) {
 					continue
 				}
 				chain := validation.TypeChain(f.Type, table)
@@ -502,6 +489,85 @@ func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
 			}
 		}
 	}
+}
+
+// ownedFields returns the unified fields of t that t checks: the fields it declares,
+// and the inherited fields its parents type with a type parameter that t substitutes.
+// A parent checks the rest.
+func ownedFields(
+	t resolution.Type,
+	form resolution.StructForm,
+	table *resolution.Table,
+) []resolution.Field {
+	generic := set.New[string]()
+	for _, ext := range form.Extends {
+		if parent, _, ok := resolution.Dealias(ext, table); ok {
+			for _, f := range resolution.UnifiedFields(parent, table) {
+				if f.Type.IsTypeParam() {
+					generic.Add(f.Name)
+				}
+			}
+		}
+	}
+	return lo.Filter(
+		resolution.UnifiedFields(t, table),
+		func(f resolution.Field, _ int) bool {
+			_, declared := form.Field(f.Name)
+			return declared || generic.Contains(f.Name)
+		},
+	)
+}
+
+// validateRuleRanges errors on a field or a type whose merged rules no value can
+// satisfy, and on a length rule on a type that is not a string.
+func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			own := validation.Parse(t.Domains["validate"])
+			if validation.IsEmpty(own) {
+				continue
+			}
+			ref := resolution.TypeRef{Name: t.QualifiedName}
+			if (own.MinLength != nil || own.MaxLength != nil) &&
+				resolution.PrimitiveBase(ref, table) != "string" {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a length rule, but its type is not a string",
+					t.QualifiedName,
+				))
+			}
+			if isEmptyRange(validation.TypeRules(validation.TypeChain(ref, table))) {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has rules that no value can satisfy",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				if isEmptyRange(validation.FieldRules(f, table)) {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s has rules that no value can satisfy",
+						t.QualifiedName, f.Name,
+					))
+				}
+			}
+		}
+	}
+}
+
+// isEmptyRange reports whether a lower bound of rules exceeds its upper bound.
+func isEmptyRange(rules *validation.Rules) bool {
+	if rules.Max != nil {
+		upper := rules.Max.Value()
+		if rules.Min != nil && rules.Min.Value() > upper {
+			return true
+		}
+		if rules.GT != nil && rules.GT.Value() >= upper {
+			return true
+		}
+	}
+	return rules.MinLength != nil && rules.MaxLength != nil &&
+		*rules.MinLength > *rules.MaxLength
 }
 
 func hasPattern(domains map[string]resolution.Domain) bool {

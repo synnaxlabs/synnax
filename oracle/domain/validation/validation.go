@@ -144,7 +144,7 @@ func Merge(a, b *Rules) *Rules {
 	out.GT = tighterNumber(a.GT, b.GT, true)
 	out.Max = tighterNumber(a.Max, b.Max, false)
 	if out.Min != nil && out.GT != nil {
-		if out.GT.value() >= out.Min.value() {
+		if out.GT.Value() >= out.Min.Value() {
 			out.Min = nil
 		} else {
 			out.GT = nil
@@ -164,14 +164,15 @@ func tighterLength(a, b *int64, lower bool) *int64 {
 }
 
 func tighterNumber(a, b *Number, lower bool) *Number {
-	if a == nil || (b != nil && (b.value() > a.value()) == lower &&
-		b.value() != a.value()) {
+	if a == nil || (b != nil && (b.Value() > a.Value()) == lower &&
+		b.Value() != a.Value()) {
 		return b
 	}
 	return a
 }
 
-func (n Number) value() float64 {
+// Value returns n as a float64.
+func (n Number) Value() float64 {
 	if n.IsInt {
 		return float64(n.Int)
 	}

@@ -93,6 +93,7 @@ func Analyze(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return table, diag
 }
 
@@ -128,6 +129,7 @@ func AnalyzeSeeded(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return diag
 }
 
