@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -121,6 +122,13 @@ var _ = Describe("Service", func() {
 				c.Status = nil
 			}),
 		)
+
+		It("Should let a later config override an earlier one", func() {
+			base := apidevice.ServiceConfig{Device: svc.LabJack.Devices}
+			Expect(apidevice.NewService(base, apidevice.ServiceConfig{
+				Status: svc.Status,
+			})).ToNot(BeNil())
+		})
 	})
 
 	Describe("Create", func() {
@@ -162,6 +170,31 @@ var _ = Describe("Service", func() {
 				testutil.AuthedCtx(ctx, u),
 				apidevice.CreateRequest{Devices: []device.Device{newDevice()}},
 			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should replace an existing device", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Base().Rack)
+			d = edit(d, func(b *device.Base) { b.Name = "Replaced" })
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{d}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieveDevice(ctx, d.Base().Key).Base().Name).To(Equal("Replaced"))
+		})
+
+		It("Should not replace a device without update access", func(
+			ctx SpecContext,
+		) {
+			d := createDevice(ctx)
+			replaced := edit(d, func(b *device.Base) { b.Name = "Replaced" })
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{replaced}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(
+				retrieveDevice(ctx, d.Base().Key).Base().Name,
+			).To(Equal(d.Base().Name))
 		})
 	})
 
@@ -211,6 +244,112 @@ var _ = Describe("Service", func() {
 			Expect(res.Devices).To(HaveLen(1))
 			Expect(res.Devices[0].Model()).To(Equal(device.ModelT7))
 		})
+
+		It("Should leave out the devices the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			serial := createDevice(ctx).Base().Serial
+			res := MustSucceed(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{
+					Where: &device.Where{Serial: &filter.Ordered[uint32]{Eq: &serial}},
+				},
+			))
+			Expect(res.Devices).To(BeEmpty())
+		})
+
+		It("Should find a device by its name", func(ctx SpecContext) {
+			d := createDevice(ctx, func(b *device.Base) { b.Name = "Pump LabJack" })
+			grantRetrieve(ctx)
+			res := MustSucceed(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{SearchTerm: "pump labjack"},
+			))
+			Expect(lo.Map(res.Devices, func(d device.Device, _ int) device.Key {
+				return d.Base().Key
+			})).To(ContainElement(d.Base().Key))
+		})
+
+		It("Should cap the results at the limit", func(ctx SpecContext) {
+			a := createDevice(ctx)
+			b := createDevice(ctx)
+			grantRetrieve(ctx)
+			res := MustSucceed(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{
+					Where: &device.Where{Key: &filter.Set[device.Key]{
+						In: []device.Key{a.Base().Key, b.Base().Key},
+					}},
+					Limit: new(uint32(1)),
+				},
+			))
+			Expect(res.Devices).To(HaveLen(1))
+		})
+
+		It("Should page past the after key", func(ctx SpecContext) {
+			a := createDevice(ctx)
+			b := createDevice(ctx)
+			grantRetrieve(ctx)
+			authed := testutil.AuthedCtx(ctx, u)
+			req := apidevice.RetrieveRequest{
+				Where: &device.Where{Key: &filter.Set[device.Key]{
+					In: []device.Key{a.Base().Key, b.Base().Key},
+				}},
+				Limit: new(uint32(1)),
+			}
+			first := MustSucceed(retrieve(authed, req))
+			Expect(first.Devices).To(HaveLen(1))
+			req.After = &apidevice.Cursor{Key: first.Devices[0].Base().Key}
+			second := MustSucceed(retrieve(authed, req))
+			Expect(second.Devices).To(HaveLen(1))
+			Expect(second.Devices[0].Base().Key).
+				ToNot(Equal(first.Devices[0].Base().Key))
+		})
+
+		It("Should reject a search that resumes after a key", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantRetrieve(ctx)
+			Expect(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{
+					SearchTerm: d.Base().Name,
+					After:      &apidevice.Cursor{Key: d.Base().Key},
+				},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should return a path error for a malformed where", func(ctx SpecContext) {
+			grantRetrieve(ctx)
+			Expect(retrieve(testutil.AuthedCtx(ctx, u), apidevice.RetrieveRequest{
+				Where: &device.Where{Name: &filter.String{Regex: new("(a")}},
+			})).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(ContainSubstring("where.name.regex: error parsing regexp")),
+				MatchError(validate.ErrValidation),
+			))
+		})
+
+		It("Should return no devices for a zero limit", func(ctx SpecContext) {
+			createDevice(ctx)
+			grantRetrieve(ctx)
+			res := MustSucceed(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{Limit: new(uint32(0))},
+			))
+			Expect(res.Devices).To(BeEmpty())
+		})
+
+		It("Should return no devices for a missing key", func(ctx SpecContext) {
+			grantRetrieve(ctx)
+			missing := uuid.New()
+			res := MustSucceed(retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{
+					Where: &device.Where{Key: &filter.Set[device.Key]{Eq: &missing}},
+				},
+			))
+			Expect(res.Devices).To(BeEmpty())
+		})
 	})
 
 	Describe("Update", func() {
@@ -226,6 +365,17 @@ var _ = Describe("Service", func() {
 			got := retrieveDevice(ctx, d.Base().Key)
 			Expect(got.Model()).To(Equal(device.ModelT4))
 			Expect(got.Base().Name).To(Equal("Renamed"))
+		})
+
+		It("Should reject a device with no model", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.UpdateRequest{},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("model: required")),
+			))
 		})
 
 		It("Should return not found for a missing device", func(ctx SpecContext) {

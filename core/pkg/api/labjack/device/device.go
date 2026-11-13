@@ -155,14 +155,21 @@ type UpdateRequest struct {
 	Device device.Device `json:"device" msgpack:"device"`
 }
 
-// Update replaces the device stored under the key of req.Device. It returns an error
-// wrapping query.ErrNotFound when no device is stored under that key. A device built
-// from an earlier retrieve overwrites every change committed since that retrieve.
+// Update replaces the device stored under the key of req.Device. It returns a
+// validation
+// error when req.Device has no model, and an error wrapping query.ErrNotFound when no
+// device is stored under its key. A device built from an earlier retrieve overwrites
+// every change committed since that retrieve.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
 ) (struct{}, error) {
+	v := validate.New("device")
+	v.Ternary("model", req.Device.Model() == "", "required")
+	if err := v.Error(); err != nil {
+		return struct{}{}, err
+	}
 	next := withoutStatus(req.Device)
 	return struct{}{}, s.cfg.Device.NewWriter(tx).Update(
 		ctx,
