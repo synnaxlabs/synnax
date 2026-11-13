@@ -158,7 +158,8 @@ timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
 timestamps only count milliseconds, so a record with a Kafka timestamp in the same
 millisecond as the last written timestamp goes 1 ns after it.
 
-In code, a record value timestamp is a field whose channel is the index channel, with a
+In code, a record value timestamp is a `timestamp` field, such as
+`kafka.TimestampReadField` in Python, whose channel is the index channel and that has a
 `time_format`. Put the key of that field in `index` on the record.
 
 <Divider.Divider x />

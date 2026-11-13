@@ -87,6 +87,12 @@ func migrateReadField(old v0.ReadField, index bool) (ReadField, []string) {
 		)
 		dt, kind = telem.Float64T, payload.KindFloat
 	}
+	if old.TimeFormat != nil && kind != payload.KindTimestamp {
+		changes = append(
+			changes,
+			"dropped time_format "+strconv.Quote(string(*old.TimeFormat)),
+		)
+	}
 	base := BaseReadField{
 		Key:      old.Key,
 		Disabled: old.Disabled,
