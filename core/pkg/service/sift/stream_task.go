@@ -119,14 +119,16 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 			t.factoryCfg.L.Warn("failed to close connection", zap.Error(err))
 		}
 	}
+	h := &health{task: t}
 	runs := &runSync{
 		task:     t,
 		uri:      props.URI,
 		progress: p,
+		health:   h,
 		wake:     make(chan struct{}, 1),
 		changed:  make(set.Set[ranger.Key]),
 		labels:   make(set.Set[label.Key]),
-		rejected: make(set.Set[ranger.Key]),
+		rejected: make(map[ranger.Key]string),
 	}
 	e, err := ingest.New(ctx, ingest.Config{
 		DB:                 t.factoryCfg.DB,
@@ -139,14 +141,12 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		CheckpointInterval: t.factoryCfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
 			if p.advance(ctx, cp) {
-				t.Report(ctx, "", nil)
+				h.setSend(ctx, nil)
 			}
 			runs.signal()
 			return nil
 		},
-		OnRetry: func(ctx context.Context, err error) {
-			t.Report(ctx, "Failed to send data to Sift", err)
-		},
+		OnRetry: func(ctx context.Context, err error) { h.setSend(ctx, err) },
 	})
 	if err != nil {
 		closeConn()
@@ -321,12 +321,14 @@ type runSync struct {
 	uri      string
 	engine   *ingest.Engine
 	progress *progress
+	health   *health
 	wake     chan struct{}
 	// synced is set once a sync succeeds. Until then, every sync checks the run of each
 	// ended range, since a range can change while the task is stopped.
 	synced bool
-	// rejected holds the ranges whose run Sift rejected, which wait until they change.
-	rejected set.Set[ranger.Key]
+	// rejected holds why Sift rejected the run of each range that waits until it
+	// changes.
+	rejected map[ranger.Key]string
 	mu       sync.Mutex
 	// changed holds the ranges that changed since the last sync, and labels holds the
 	// labels that changed since then. They are guarded by mu.
@@ -376,7 +378,7 @@ func (r *runSync) run(ctx context.Context) error {
 		if st, ok := statusOf(err); ok && denied(st) {
 			return failure(r.uri, st.Err())
 		}
-		r.task.ReportError(ctx, "Failed to set Sift run", err.Error())
+		r.health.setRun(ctx, err.Error())
 	}
 }
 
@@ -401,13 +403,18 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 		Exec(ctx, r.task.factoryCfg.DB); err != nil {
 		return err
 	}
+	var rejection string
 	for _, rng := range ranges {
 		// The names of the labels of a range are the tags of its run.
 		if slices.ContainsFunc(rng.Labels, labels.Contains) {
 			changed.Add(rng.Key)
 		}
 		if changed.Contains(rng.Key) {
-			r.rejected.Remove(rng.Key)
+			delete(r.rejected, rng.Key)
+		}
+		if why, ok := r.rejected[rng.Key]; ok {
+			rejection = cmp.Or(rejection, why)
+			continue
 		}
 		end := rng.TimeRange.End
 		// Sift has every sample before since, also when sent falls behind it after a
@@ -417,7 +424,7 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			ready = !r.synced || changed.Contains(rng.Key)
 		}
 		// Sift has no data of a range that ends by start.
-		if end <= start || !ready || r.rejected.Contains(rng.Key) {
+		if end <= start || !ready {
 			continue
 		}
 		tags, err := rangeTags(ctx, r.task.factoryCfg, rng)
@@ -434,19 +441,64 @@ func (r *runSync) sync(ctx context.Context) (err error) {
 			if !ok || denied(st) {
 				return err
 			}
-			r.rejected.Add(rng.Key)
-			r.task.ReportError(ctx, "Failed to set Sift run", fmt.Sprintf(
+			why := fmt.Sprintf(
 				"Sift rejected the run of %s: %s. Change the range to try again.",
 				rng.Name,
 				st.Message(),
-			))
+			)
+			r.rejected[rng.Key] = why
+			rejection = cmp.Or(rejection, why)
 		}
 	}
 	if sent > since {
 		r.progress.setRunsThrough(ctx, sent)
 	}
 	r.synced = true
+	r.health.setRun(ctx, rejection)
 	return nil
+}
+
+// health reports the problems of a running stream task as its one warning. A failed
+// send shows before a failed run, since Sift then gets no data at all.
+type health struct {
+	task *streamTask
+	mu   sync.Mutex
+	// send is the error of the last attempt to send data, and is nil once Sift confirms
+	// data. It is guarded by mu.
+	send error
+	// run says why the last sync left a run unset, and is empty when it set each run.
+	// It is guarded by mu.
+	run string
+}
+
+func (h *health) setSend(ctx context.Context, err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.send = err
+	h.report(ctx)
+}
+
+func (h *health) setRun(ctx context.Context, why string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.run = why
+	h.report(ctx)
+}
+
+// report writes the warning of the first problem, or clears the warning when there is
+// none. h.mu must be held.
+func (h *health) report(ctx context.Context) {
+	switch {
+	case h.send != nil:
+		h.task.Report(ctx, "Failed to send data to Sift", h.send)
+	case h.run != "":
+		h.task.Report(ctx, "", driver.Warning{
+			Message:     "Failed to set Sift run",
+			Description: h.run,
+		}.Degraded())
+	default:
+		h.task.Report(ctx, "", nil)
+	}
 }
 
 // statusOf returns the gRPC status that err wraps.

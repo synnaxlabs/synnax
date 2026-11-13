@@ -451,7 +451,7 @@ var _ = Describe("Stream task", func() {
 				Eventually(func() task.Status {
 					return taskStatus(ctx, t)
 				}).Should(SatisfyAll(
-					HaveField("Variant", status.VariantError),
+					HaveField("Variant", status.VariantWarning),
 					HaveField("Message", "Failed to set Sift run"),
 					HaveField("Description", "Sift rejected the run of "+rng.Name+
 						": bad name. Change the range to try again."),
@@ -462,6 +462,8 @@ var _ = Describe("Stream task", func() {
 				Consistently(server.Runs).
 					WithTimeout(200 * time.Millisecond).
 					Should(BeEmpty())
+				Expect(taskStatus(ctx, t)).
+					To(HaveField("Message", "Failed to set Sift run"))
 				rename := ranger.NewSetAction(ranger.SetPayload{
 					Path:  []string{"name"},
 					Value: "renamed",
@@ -471,6 +473,12 @@ var _ = Describe("Stream task", func() {
 				})).To(Succeed())
 				Eventually(server.Runs).Should(HaveExactElements(
 					HaveField("Name", "renamed"),
+				))
+				Eventually(func() task.Status {
+					return taskStatus(ctx, t)
+				}).Should(SatisfyAll(
+					HaveField("Variant", status.VariantSuccess),
+					HaveField("Message", "Started task"),
 				))
 			},
 		)
