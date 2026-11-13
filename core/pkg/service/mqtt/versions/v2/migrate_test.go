@@ -206,16 +206,31 @@ var _ = Describe("MigrateReadField", func() {
 		))
 	})
 
-	It("Should lift a typed field with a time format to the timestamp kind", func() {
+	It("Should keep the kind and entries of a typed field with a time format", func() {
 		old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
 		old.TimeFormat = new(payload.TimeFormatUnixSec)
 		f, changes := v2.MigrateReadField(old, false)
-		stamp, ok := f.Variant.(v2.TimestampReadField)
+		unsigned, ok := f.Variant.(v2.UnsignedReadField)
 		Expect(ok).To(BeTrue())
-		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixSec))
+		Expect(unsigned.EnumValues).To(Equal(
+			[]payload.UnsignedEntry{{Label: "ON", Value: 1}},
+		))
 		Expect(changes).To(ConsistOf(
-			"data type uint8 became the timestamp kind of an index or time format",
-			`enum label "ON" was dropped: a timestamp field takes no numeric entries`,
+			"time format unix_sec was dropped, because the field is unsigned",
+		))
+	})
+
+	It("Should keep a float64 field with a left-over time format and an entry", func() {
+		old := storedField(telem.Float64T, payload.EnumEntry{Label: "ON", Value: 1})
+		old.TimeFormat = new(payload.TimeFormatUnixSec)
+		f, changes := v2.MigrateReadField(old, false)
+		float, ok := f.Variant.(v2.FloatReadField)
+		Expect(ok).To(BeTrue())
+		Expect(float.EnumValues).To(Equal(
+			[]payload.FloatEntry{{Label: "ON", Value: 1}},
+		))
+		Expect(changes).To(ConsistOf(
+			"time format unix_sec was dropped, because the field is float",
 		))
 	})
 
@@ -243,10 +258,28 @@ var _ = Describe("MigrateReadField", func() {
 			old := storedField("complex128")
 			old.TimeFormat = new(payload.TimeFormatUnixSec)
 			f, changes := v2.MigrateReadField(old, false)
-			Expect(f.Type()).To(Equal(payload.KindTimestamp))
+			stamp, ok := f.Variant.(v2.TimestampReadField)
+			Expect(ok).To(BeTrue())
+			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixSec))
 			Expect(changes).To(ConsistOf(
 				`unknown data type "complex128" became the float kind`,
 				"data type complex128 became the timestamp kind of an index or time format",
+			))
+		},
+	)
+
+	It("Should keep an int16 field with a left-over time format an integer field",
+		func() {
+			old := storedField(telem.Int16T, payload.EnumEntry{Label: "ON", Value: 1})
+			old.TimeFormat = new(payload.TimeFormatUnixSec)
+			f, changes := v2.MigrateReadField(old, false)
+			integer, ok := f.Variant.(v2.IntegerReadField)
+			Expect(ok).To(BeTrue())
+			Expect(integer.EnumValues).To(Equal(
+				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
+			))
+			Expect(changes).To(ConsistOf(
+				"time format unix_sec was dropped, because the field is integer",
 			))
 		},
 	)
