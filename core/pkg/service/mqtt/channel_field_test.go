@@ -341,6 +341,18 @@ var _ = Describe("Channel fields", func() {
 		)
 
 		It(
+			"Should give a field with no channel and an unknown data type the type of its kind",
+			func(ctx SpecContext) {
+				f := field("integer", 0)
+				f["data_type"] = ""
+				f = firstField(MustSucceed(
+					svc.Write.Normalize(ctx, db, svc.Write.Version(), config(f)),
+				))
+				Expect(f).To(HaveKeyWithValue("data_type", "int64"))
+			},
+		)
+
+		It(
 			"Should give a field with no channel or data type the type of its kind",
 			func(
 				ctx SpecContext,
@@ -498,7 +510,7 @@ var _ = Describe("Stored write configs", func() {
 			Expect(field(targets[6])).To(HaveKeyWithValue("type", "unsigned"))
 			Expect(field(targets[7])).To(SatisfyAll(
 				HaveKeyWithValue("type", "timestamp"),
-				HaveKeyWithValue("time_format", "unix_ms"),
+				HaveKeyWithValue("time_format", "iso8601"),
 			))
 		},
 	)

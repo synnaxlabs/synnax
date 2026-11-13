@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, mqtt } from "@synnaxlabs/client";
+import { channel, DisconnectedError, mqtt, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -18,7 +18,14 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type DataType, deep, id, type payload, primitive } from "@synnaxlabs/x";
+import {
+  type DataType,
+  deep,
+  errors,
+  id,
+  type payload,
+  primitive,
+} from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { use, useFromConfig } from "@/feature/mqtt/device/queries";
@@ -169,7 +176,10 @@ const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
   );
 };
 
-/** Returns field written as kind, with the defaults of kind. */
+/**
+ * Returns field written as kind, with the defaults of kind. Between numeric kinds,
+ * each entry that stays exact carries over.
+ */
 const asKind = (field: ChannelField, kind: payload.Kind): ChannelField =>
   mqtt.channelFieldZ.parse({
     pointer: field.pointer,
@@ -177,7 +187,7 @@ const asKind = (field: ChannelField, kind: payload.Kind): ChannelField =>
     name: field.name,
     dataType: field.dataType,
     type: kind,
-    ...(kind === "timestamp" ? { timeFormat: "iso8601" } : {}),
+    ...Task.Payload.kindOptions(field, kind),
   });
 
 /** A command channel can hold any data type a payload writes. */
@@ -316,10 +326,9 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const handleError = Status.useErrorHandler();
 
   // The Core clears the data type of a target with a channel, so a copy, which gets a
-  // new channel, reads the data type of the channel it copies. That channel exists: the
-  // Core rejects a config that names a missing channel, and a used one is not deleted.
-  // The read sets the data type only while the copy still holds the one it started
-  // with, so it does not replace a type the user picked.
+  // new channel, reads the data type of the channel it copies. A copy of a target whose
+  // channel is gone keeps no data type. The read sets the data type only while the copy
+  // still holds the one it started with, so it does not replace a type the user picked.
   const handleDuplicate = (all: WriteTarget[], keys: string[]): WriteTarget[] => {
     const copies = duplicateTargets(all, keys);
     const sources = all.filter(({ key }) => keys.includes(key));
@@ -332,7 +341,13 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       const path = deep.variant(root.config.targets[copy.key], "type", "plain");
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const ch = await client.channels.retrieve(key);
+        let ch: channel.Channel;
+        try {
+          ch = await client.channels.retrieve(key);
+        } catch (e) {
+          if (NotFoundError.matches(e)) return;
+          throw errors.fromUnknown(e);
+        }
         const current = get(root.config.targets[copy.key], { optional: true })?.value;
         if (
           current?.type !== "plain" ||
@@ -431,18 +446,22 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       if (target.disabled) continue;
       if (target.type === "plain") {
         const { channel: field, topic } = target;
-        field.channel = await Task.configureCommandChannel(
-          client,
-          dev.properties.write,
-          {
-            propertiesKey: topic,
-            channel: field.channel,
-            name: primitive.isNonZero(field.name)
-              ? field.name
-              : defaultCommandName(dev.name, target),
-            dataType: field.dataType,
-          },
-        );
+        const key = await Task.configureCommandChannel(client, dev.properties.write, {
+          propertiesKey: topic,
+          channel: field.channel,
+          name: primitive.isNonZero(field.name)
+            ? field.name
+            : defaultCommandName(dev.name, target),
+          dataType: field.dataType,
+        });
+        // The device can hold a channel for the topic whose data type the field's kind
+        // does not fit, so the field takes the first kind that channel allows.
+        if (key !== field.channel) {
+          const { dataType } = await client.channels.retrieve(key);
+          const kinds = Task.Payload.channelKinds(dataType);
+          if (!kinds.includes(field.type)) target.channel = asKind(field, kinds[0]);
+        }
+        target.channel.channel = key;
       } else
         target.channel = await Task.configureCommandChannel(
           client,
