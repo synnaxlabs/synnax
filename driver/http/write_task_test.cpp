@@ -744,7 +744,7 @@ TEST(HTTPWriteTask, FixedFieldKinds) {
     b.value = true;
     ::x::payload::JsonWriteField j;
     j.pointer = "/j";
-    j.value = R"({"a": [1, null]})";
+    j.value = R"({"a": [18446744073709551616, 0.12345678901234567890, " x "]})";
     ::x::payload::BytesWriteField y;
     y.pointer = "/y";
     y.value = "AQI=";
@@ -764,7 +764,8 @@ TEST(HTTPWriteTask, FixedFieldKinds) {
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(
         reqs[0].body,
-        R"({"b":true,"f":0.5,"i":-9223372036854775808,"j":{"a":[1,null]},)"
+        R"({"b":true,"f":0.5,"i":-9223372036854775808,)"
+        R"("j":{"a":[18446744073709551616,0.12345678901234567890," x "]},)"
         R"("u":18446744073709551615,"value":2.0,"y":"AQI="})"
     );
 }

@@ -57,6 +57,10 @@ class WriteTaskSink final : public common::Sink {
         x::json::json::json_pointer pointer;
         /// @brief fixed value to write.
         x::json::json value;
+        /// @brief compact JSON text that replaces value, a unique placeholder string,
+        /// in the body, so the text reaches the server as written. Empty for other
+        /// fields.
+        std::string text;
     };
 
     /// @brief a generated body field (UUID or timestamp).

@@ -41,6 +41,30 @@ std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &st
     };
 }
 
+/// @brief returns valid JSON text with the whitespace outside its strings removed.
+std::string compact(const std::string &text) {
+    std::string out;
+    out.reserve(text.size());
+    bool in_string = false;
+    bool escaped = false;
+    for (const char c: text) {
+        if (in_string) {
+            out.push_back(c);
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                in_string = false;
+            continue;
+        }
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
+        if (c == '"') in_string = true;
+        out.push_back(c);
+    }
+    return out;
+}
+
 /// @brief returns the JSON value that a fixed write field places in every body, or
 /// nullopt for a field that generates its value.
 std::pair<std::optional<x::json::json>, x::errors::Error>
@@ -241,6 +265,14 @@ WriteTaskSink::WriteTaskSink(
             const auto pointer = x::json::json::json_pointer(
                 ::x::payload::base(field).pointer
             );
+            if (const auto *jf = std::get_if<::x::payload::JsonWriteField>(&field)) {
+                state.static_fields.push_back({
+                    .pointer = pointer,
+                    .value = x::uuid::create().to_string(),
+                    .text = compact(jf->value),
+                });
+                continue;
+            }
             if (auto value = fixed_value(field).first; value.has_value()) {
                 state.static_fields.push_back({pointer, std::move(*value)});
                 continue;
@@ -282,7 +314,13 @@ WriteTaskSink::build_body(const Endpoint &ep, const x::json::json &sample_val) {
             body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
     }
 
-    return body.dump();
+    auto text = body.dump();
+    for (const auto &sf: ep.static_fields) {
+        if (sf.text.empty()) continue;
+        const auto placeholder = sf.value.dump();
+        text.replace(text.find(placeholder), placeholder.size(), sf.text);
+    }
+    return text;
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
