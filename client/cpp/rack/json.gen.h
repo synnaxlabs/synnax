@@ -36,7 +36,7 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Rack Rack::parse(x::json::Parser parser) {
     return Rack{
-        .key = parser.required_field<Key>("key"),
+        .key = parser.field<Key>("key"),
         .name = parser.required_field<std::string>("name"),
         .embedded = parser.field<bool>("embedded", false),
         .status = parser.field<std::optional<Status>>("status"),
