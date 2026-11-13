@@ -139,7 +139,9 @@ string.
 With a pointer, bytes are base64 text, as `AppendSampleText` writes. An empty pointer
 stays the JSON root value on other kinds. Only on `bytes` is it a raw, non-JSON payload,
 and then the field is the only one enabled. On Kafka, a raw write is an empty
-`value_pointer`.
+`value_pointer`. It is allowed only when every enabled channel is `bytes` and the record
+places nothing else: no channel pointers, no timestamp pointer, and no extra record
+fields.
 
 - **`x/go/json`**: `NewDecoder` accepts `BytesT` as base64 text, and `Encoder` writes it
   as base64, where it quotes raw bytes today.
@@ -206,17 +208,17 @@ device stores for it: the pointer's channel for a read field and the target's ch
 for a channel field. It binds only when that channel exists and holds the field's
 `data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
 one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
-that becomes unbound again takes its channel's name without a `_<data_type>` suffix, so
-suffixes do not stack. A new channel takes the name when it is free, or else the name
-with its data type as a suffix, such as `temp_int32`. When that is taken too, configure
-fails, and the message tells the user to rename the field. Configure never binds by
-name. Each source picks one index: the channel of a bound index field, else the first
-non-zero index of its bound channels, else the stored index, else a new one. An unbound
-index field binds to it, each new fixed-density channel takes it, and the device stores
-it. On HTTP and MQTT, a new variable-density channel (string, JSON, or bytes) stays
-virtual, as today. On Kafka it takes the index, as today. `onConfigure` then saves the
-field as bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15
-deletes it.
+that becomes unbound again takes its channel's name without the data type and counter
+suffixes, so suffixes do not stack. A new channel takes the name when it is free, else
+the name with its data type as a suffix, such as `temp_int32`, else that name with a
+counter, such as `temp_int32_2`, until a name is free. A taken name never fails
+configure, and configure never binds by name. Each source picks one index: the channel
+of a bound index field, else the first non-zero index of its bound channels, else the
+stored index, else a new one. An unbound index field binds to it, each new fixed-density
+channel takes it, and the device stores it. On HTTP and MQTT, a new variable-density
+channel (string, JSON, or bytes) stays virtual, as today. On Kafka it takes the index,
+as today. `onConfigure` then saves the field as bound. An adapter keeps the atomic Phase
+13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
@@ -354,7 +356,7 @@ carries a config keeps the `Float` text form; check C++ `to_json`.
 | 17    | Convert JSON, UUID, and bytes samples in the Driver   | `x/cpp/json`, `x/cpp/base64`, `x/cpp/telem`, `driver/opcua/telem`                                                                                                                   | -                              |
 | 18    | Read JSON, UUID, and bytes channels on HTTP           | `driver/http`, `console/src/feature/http/task`                                                                                                                                      | 15, 17                         |
 | 19    | Write JSON, UUID, and bytes channels on HTTP          | `driver/http`, `console/src/feature/http/task`                                                                                                                                      | 15, 17                         |
-| 20    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`                                                                                                                                   | 8, 9, 10, 11                   |
+| 20    | Read and write raw bytes payloads on Kafka and MQTT   | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `console/src/feature/kafka`                                                                                                      | 8, 9, 10, 11                   |
 | 21    | Read and write raw bytes payloads on HTTP             | `driver/http`                                                                                                                                                                       | 18, 19                         |
 | 22    | Add Modbus v3 string register variants                | `schemas/synnax/versions/modbus`, `core/pkg/service/modbus`, `driver/modbus`, `console/src/feature/modbus`, `client`                                                                | -                              |
 | 23    | Remove config-only checks from the Driver             | `driver/http`                                                                                                                                                                       | 13, 14                         |
