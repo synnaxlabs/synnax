@@ -519,6 +519,20 @@ describe("range/explorer/Explorer", () => {
       expect(await menuItem("Delete")).toBeTruthy();
     });
 
+    it("should hide the create range button from a subject who cannot create ranges", async () => {
+      await renderExplorer(
+        await createTestClientWithGrants(client, {
+          retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+          create: [view.TYPE_RESOURCE_ID],
+          update: [ranger.TYPE_RESOURCE_ID],
+          delete: [ranger.TYPE_RESOURCE_ID],
+        }),
+      );
+      // Both grants answer from one policy read, so this button shows that it landed.
+      await screen.findByRole("button", { name: "Create view" });
+      expect(screen.queryByRole("button", { name: "Create range" })).toBeNull();
+    });
+
     it("should let a subject who cannot update views sort and lay out all ranges", async () => {
       await renderExplorer(await createReader());
       fireEvent.click(await screen.findByRole("button", { name: /Newest first/ }));

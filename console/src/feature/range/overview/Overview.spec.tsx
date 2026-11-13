@@ -36,8 +36,10 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createTestClientWithGrants,
+  createTestStore,
   findTagCloseButton,
   type Grants,
   openContextMenu,
@@ -53,10 +55,19 @@ const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
 
 const Deleted = ({ name }: Flux.Tombstone): ReactElement => <>{name} was deleted</>;
 
+const CORE = createCore("overview");
+
+interface RenderOverviewResult {
+  store: TestStore;
+  project: project.Key;
+  /** Points the tab of the overview at the range. */
+  setTabResource: (rangeKey: ranger.Key) => Promise<void>;
+}
+
 const renderOverview = async (
   rangeKey: ranger.Key,
   as: Client = client,
-): Promise<{ store: TestStore; project: project.Key }> => {
+): Promise<RenderOverviewResult> => {
   const { panelKey, tabKey } = await createResourceTab(
     client,
     ranger.resourceID(rangeKey),
@@ -64,6 +75,7 @@ const renderOverview = async (
   const proj = await client.projects.create({ name: uniqueName("proj") });
   const { wrapper, store } = await createPanelWrapper({
     client: as,
+    store: await createTestStore({ preloadedState: createCoreState([CORE], CORE.key) }),
     panelKey,
     tabKey,
     project: proj.key,
@@ -80,7 +92,13 @@ const renderOverview = async (
     </>,
     { wrapper },
   );
-  return { store, project: proj.key };
+  const setTabResource = async (next: ranger.Key): Promise<void> =>
+    await act(async () => {
+      await client.panels.dispatch(panelKey, [
+        panel.setTabResource({ key: tabKey, resource: ranger.resourceID(next) }),
+      ]);
+    });
+  return { store, project: proj.key, setTabResource };
 };
 
 const createChannel = async (): Promise<channel.Channel> =>
@@ -218,6 +236,18 @@ describe("range/overview", () => {
       await waitFor(() =>
         expect(writeText).toHaveBeenLastCalledWith(
           `const rng = await client.ranges.retrieve("${rng.key}");`,
+        ),
+      );
+    });
+
+    it("should copy a link to the range", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      fireEvent.click(await screen.findByRole("button", { name: "Copy link" }));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `synnax://cluster/${CORE.clusterKey}/range/${rng.key}`,
         ),
       );
     });
@@ -425,6 +455,16 @@ describe("range/overview", () => {
   });
 
   describe("tab", () => {
+    it("should list the children of the range that the tab swaps to", async () => {
+      const parent = await createTestRange(client);
+      const child = await createChild(parent);
+      const { setTabResource } = await renderOverview(child.key);
+      await screen.findByDisplayValue(child.name);
+      await setTabResource(parent.key);
+      await screen.findByDisplayValue(parent.name);
+      await screen.findByRole("listitem", { name: child.name });
+    });
+
     it("should show the tombstone in place of the overview once the range is deleted", async () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
