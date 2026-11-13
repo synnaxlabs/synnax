@@ -2243,6 +2243,13 @@ func (p *Plugin) typeRefToTSInternal(
 			forStructArg,
 			needsTypeImports,
 		)
+		if record, _ := recordFunc(
+			&typeRef.TypeArgs[0],
+			"",
+			table,
+		); record != "record" {
+			return fmt.Sprintf("Partial<Record<%s, %s>>", keyType, valueType)
+		}
 		return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
 	}
 	resolved, ok := typeRef.Resolve(table)
