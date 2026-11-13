@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -22,6 +23,7 @@ import { Session } from "@/session";
 export const Controls = memo((): ReactElement => {
   const key = Base.useKey();
   const hold = Session.Log.useSelectHold();
+  const newLines = Base.useNewLines();
   const dispatch = Session.useDispatch();
   const handleHoldChange = (hold: boolean): void => {
     dispatch(Session.Log.setHold({ key, hold }));
@@ -43,6 +45,11 @@ export const Controls = memo((): ReactElement => {
         }
       >
         {hold ? <Icon.Play /> : <Icon.Pause />}
+        {hold && newLines > 0 && (
+          <Badge.Badge status="success">
+            {`${newLines} new ${newLines === 1 ? "line" : "lines"}`}
+          </Badge.Badge>
+        )}
       </Button.Toggle>
     </Vis.Controls>
   );

@@ -148,6 +148,17 @@ describe("StreamMultiChannelLog", () => {
     expect(stampsOf(live)).toEqual(timesOf(core, 10));
   });
 
+  it("should count the lines that stream in after the first read", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    expect(log.streamedLines).toBe(0);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(log.streamedLines).toBe(10);
+  });
+
   it("should show stored samples of any age", async () => {
     const core = createCore({ now: START.add(TimeSpan.days(2)), rate: Rate.hz(0.01) });
     const [a] = core.data.map((c) => c.key);
@@ -898,6 +909,36 @@ describe("StreamMultiChannelLog", () => {
       );
       expectRun(core, a, log);
       expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+    });
+
+    it("should count each line that streamed past it while not live once", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let streaming = false;
+      let streamed = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          const frame = core.readLatest(keys, count, tr);
+          if (streaming) {
+            core.advance(TimeSpan.seconds(1));
+            streamed += 10;
+          }
+          return frame;
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, 2_000);
+      await settle(log, 1_800);
+      await until(
+        () => log.loadOlder(),
+        () => !log.live,
+      );
+      streaming = true;
+      await until(
+        () => log.loadNewer(),
+        () => log.live,
+      );
+      streaming = false;
+      await expect.poll(() => log.streamedLines, POLL).toBe(streamed);
     });
 
     it("should find samples that passed in one burst while not live", async () => {

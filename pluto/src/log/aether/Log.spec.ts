@@ -316,6 +316,67 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("newLines", () => {
+    const pausedAfter = (streamedLines: number) => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const result = setup(entries);
+      result.source.streamedLines = streamedLines;
+      result.updateState({ scrolling: false, empty: false });
+      result.updateState({ scrolling: true, empty: false });
+      return result;
+    };
+
+    it("should count the lines that stream in while paused", () => {
+      const { log, source } = pausedAfter(40);
+      expect(log.state.newLines).toBe(0);
+      source.streamedLines = 47;
+      source.notify();
+      expect(log.state.newLines).toBe(7);
+    });
+
+    it("should stay at zero while live", () => {
+      const { log, source, updateState } = setup([makeEntry(0)]);
+      updateState({ scrolling: false, empty: false });
+      source.streamedLines = 5;
+      source.notify();
+      expect(log.state.newLines).toBe(0);
+    });
+
+    it("should clear the count on resume", () => {
+      const { log, source, updateState } = pausedAfter(0);
+      source.streamedLines = 3;
+      source.notify();
+      updateState({ scrolling: false, empty: false });
+      expect(log.state.newLines).toBe(0);
+    });
+
+    it("should count from a source that replaces the one it paused on", () => {
+      const { h } = pausedAfter(40);
+      const testId = `log-test-${++testIdCounter}`;
+      const replaced = new MockLogSource();
+      registerMockLogSource(testId, replaced);
+      h.setState(() =>
+        logStateZ.parse(
+          baseInput(testId, REGION_500, { scrolling: true, empty: false }),
+        ),
+      );
+      replaced.streamedLines = 3;
+      replaced.notify();
+      expect(h.component.state.newLines).toBe(3);
+    });
+
+    it("should count from the next pause after a resume", () => {
+      const { log, source, updateState } = pausedAfter(0);
+      source.streamedLines = 3;
+      source.notify();
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false });
+      source.streamedLines = 5;
+      source.notify();
+      expect(log.state.newLines).toBe(2);
+    });
+  });
+
   describe("entries", () => {
     it("should store entries from telem source", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));

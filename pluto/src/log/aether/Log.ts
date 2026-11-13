@@ -48,6 +48,8 @@ export const logStateZ = log.logZ
     wheelPos: z.number(),
     scrolling: z.boolean(),
     resumedAt: z.number().default(0),
+    // The count of lines that streamed in since the log paused.
+    newLines: z.number().default(0),
     empty: z.boolean(),
     loading: z.boolean().default(false),
     blank: z.boolean().default(false),
@@ -281,6 +283,8 @@ export class Log
   private anchors: Anchors = {};
   // The position to return to, until the entries reach it.
   private seeking: bigint | null = null;
+  // The source and its streamed line count when the log paused. Null while live.
+  private pause: { source: LogSource; streamed: number } | null = null;
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -422,10 +426,12 @@ export class Log
       this.entries = data;
       this.reanchor();
       this.syncStatus(status);
+      this.syncNewLines();
       this.loadNearEdges();
       if (this.state.visible) this.requestRender();
     });
     if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume?.();
+    this.syncNewLines();
     this.loadNearEdges();
     if (!this.state.visible && !wasVisible) return;
     this.requestRender();
@@ -437,6 +443,16 @@ export class Log
     const { offset } = this.scrollState;
     if (offset - this.visibleLineCount <= LOAD_MARGIN) wrapped.loadOlder?.();
     if (this.entries.length - offset <= LOAD_MARGIN) wrapped.loadNewer?.();
+  }
+
+  private syncNewLines(): void {
+    const source = this.internal.telem.wrapped;
+    const streamed = source.streamedLines ?? 0;
+    if (!this.state.scrolling) this.pause = null;
+    // A new source counts from zero, so the count restarts from it.
+    else if (this.pause?.source !== source) this.pause = { source, streamed };
+    const newLines = this.pause == null ? 0 : streamed - this.pause.streamed;
+    if (newLines !== this.state.newLines) this.setState((s) => ({ ...s, newLines }));
   }
 
   // A loading log is not empty, since its stored entries have not arrived yet.

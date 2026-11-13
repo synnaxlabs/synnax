@@ -37,6 +37,8 @@ export interface LogSource extends Source<LogEntry[]> {
   readonly live?: boolean;
   /** Moves a source that is not live back to the newest samples. */
   resume?: () => void;
+  /** The count of lines streamed in after the first read of their channel. */
+  readonly streamedLines?: number;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });
