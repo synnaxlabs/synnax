@@ -32,11 +32,13 @@ type Release struct {
 
 // checkShipped fails on every version file whose stored types no longer decode the
 // data a stable release wrote. It compares filled-in shapes, so a type may move to
-// another file or chain, and an enum or union may gain members. resolver resolves the
-// current chains, and is nil when there are none.
+// another file or chain, and an enum or union may gain members. A chain that repoRoot
+// marks as removed passes. resolver resolves the current chains, and is nil when there
+// are none.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
+	repoRoot string,
 	chains map[string]versions.Chain,
 	resolver *versions.Resolver,
 	release Release,
@@ -46,10 +48,18 @@ func checkShipped(
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
 		return
 	}
+	removed, err := versions.Removed(repoRoot)
+	if err != nil {
+		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
+		return
+	}
 	shipped := versions.NewResolver(
 		shippedChains, analyzer.NewStandardFileLoader(release.Root),
 	)
 	for _, livePath := range slices.Sorted(maps.Keys(shippedChains)) {
+		if removed.Contains(livePath) {
+			continue
+		}
 		chain := shippedChains[livePath]
 		for _, n := range chain.Numbers {
 			filePath := chain.FilePath(n) + ".oracle"

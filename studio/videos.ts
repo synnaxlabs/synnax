@@ -73,7 +73,6 @@ export default manifest.define([
     id: "console/schematics/symbol-import-svg",
     script: "scripts/schematic-symbol-import-svg.ts",
   },
-  { id: "console/schematics/snapshot", script: "scripts/schematic-snapshot.ts" },
   { id: "console/schematics/valve", script: "scripts/schematic-valve.ts" },
   // The shot puts the Core's address on screen, so it runs on the port the docs quote.
   {
@@ -90,7 +89,6 @@ export default manifest.define([
   { id: "client/channels/toolbar", script: "scripts/channels-toolbar.ts" },
   { id: "client/channels/rename", script: "scripts/channels-rename.ts" },
   { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
-  { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
     id: "client/calculated-channels/create",
     script: "scripts/calculated-channels-create.ts",

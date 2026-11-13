@@ -15,7 +15,6 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
@@ -6394,7 +6393,6 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
-	w.Bool(s.Snapshot)
 	w.Bool(s.Nodes != nil)
 	if s.Nodes != nil {
 		w.Uint32(uint32(len(s.Nodes)))
@@ -6435,12 +6433,6 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if s.Range != nil {
-		w.Bool(true)
-		w.Write((*s.Range)[:])
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -6451,9 +6443,6 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if s.Name, err = r.String(); err != nil {
-		return err
-	}
-	if s.Snapshot, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -6540,19 +6529,6 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			s.Project = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv ranger.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			s.Range = &hv
 		}
 	}
 	return nil

@@ -16,7 +16,6 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
@@ -27,7 +26,6 @@ var _ = Describe("ServiceConfig", func() {
 			RBAC:    &rbac.Service{},
 			Channel: &channel.Service{},
 			Status:  &status.Service{},
-			Alias:   &alias.Service{},
 		}
 	}
 
@@ -63,11 +61,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apichannel.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
 			),
-			Entry(
-				"alias",
-				func(c *apichannel.ServiceConfig) { c.Alias = nil },
-				"alias: must be non-nil",
-			),
 		)
 	})
 
@@ -79,7 +72,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -89,7 +81,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
-			Expect(merged.Alias).To(BeIdenticalTo(cfg.Alias))
 		})
 	})
 })

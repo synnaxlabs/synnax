@@ -99,8 +99,8 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
- * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning,
- * useIsSnapshot) be exercised in isolation without mounting the full task Form UI.
+ * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
+ * exercised in isolation without mounting the full task Form UI.
  */
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
@@ -180,7 +180,6 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
-  snapshot: false,
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",

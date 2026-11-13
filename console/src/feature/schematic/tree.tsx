@@ -11,10 +11,9 @@ import { resource, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
-import { array, strings } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -22,7 +21,6 @@ import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
-import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -55,47 +53,8 @@ const useDuplicate = (props: Tree.ContextMenuProps): (() => void) => {
   return () =>
     ids.map((id) => {
       const name = `${getResource(id).name} (copy)`;
-      copy.update({ key: id.key, name, snapshot: false });
+      copy.update({ key: id.key, name });
     });
-};
-
-const useRangeSnapshot = () => {
-  const addStatus = Status.useAdder();
-  const rng = Range.useResolve();
-  const { update } = Base.useSnapshot({
-    afterSuccess: ({
-      data: { schematics },
-    }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
-      const names = array.toArray(schematics).map((s) => s.name);
-      const joined = strings.naturalLanguageJoin(names);
-      const single = names.length === 1;
-      addStatus({
-        variant: "success",
-        name: rng?.name ?? "",
-        message: single
-          ? "Snapshotted schematic"
-          : `Snapshotted ${names.length} schematics`,
-        description: single
-          ? `Created a snapshot of ${joined}.`
-          : `Created snapshots of ${joined}.`,
-      });
-    },
-    afterFailure: ({ status }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
-      addStatus({ ...status, name: rng?.name ?? "" }),
-  });
-  return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
-    if (rng == null)
-      return addStatus({
-        variant: "error",
-        message: "Failed to snapshot schematics",
-        description: "No range is active.",
-      });
-    const schematics = ids.map((id) => ({
-      key: id.key,
-      name: getResource(id).name,
-    }));
-    update({ schematics, range: rng.key });
-  };
 };
 
 const useRename = Tree.createUseRename({
@@ -111,14 +70,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID, parentID },
     state,
   } = props;
-  const activeRange = Range.useResolve();
-  const schematics = Base.useMultiple({ keys: ids.map(({ key }) => key) });
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleDuplicate = useDuplicate(props);
-  const snapshot = useRangeSnapshot();
   const handleExport = Export.useResource();
   const handleLink = Core.useCopyLinkToClipboard();
   const rename = useRename(props);
@@ -142,14 +98,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {schematics.every((s) => !s.snapshot) && hasCreatePermission && (
-        <>
-          <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
-          <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
-            <Icon.Copy />
-            Duplicate
-          </Menu.Item>
-        </>
+      {hasCreatePermission && (
+        <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
+          <Icon.Copy />
+          Duplicate
+        </Menu.Item>
       )}
       <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
