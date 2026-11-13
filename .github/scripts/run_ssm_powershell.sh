@@ -9,9 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs the PowerShell script on stdin on the Windows instance INSTANCE through SSM,
-# prints its output, and exits non-zero when the script fails or runs longer than
-# TIMEOUT seconds. COMMENT names the command in the SSM history.
+# Runs the PowerShell script on stdin on INSTANCE through SSM and prints its output.
 
 set -euo pipefail
 
@@ -19,8 +17,7 @@ set -euo pipefail
 
 encoded=$(iconv -t UTF-16LE | base64 | tr -d '\n')
 command="powershell -NoProfile -EncodedCommand $encoded"
-# SSM fails a command only on the exit code of its own script, so that script exits
-# with the code of ours.
+# SSM reports the exit code of its own script, so that script exits with ours.
 id=$(aws ssm send-command --instance-ids "$INSTANCE" \
     --document-name AWS-RunPowerShellScript --comment "$COMMENT" \
     --parameters "{\"commands\":[\"$command\",\"exit \$LASTEXITCODE\"]}" \

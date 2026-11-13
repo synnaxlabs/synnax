@@ -9,11 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Prints the PowerShell variables that tell deploy_core.ps1 which Core binary to
-# install. A release version gives the binary of that release. The URL of a workflow run
-# or job gives the Windows Core artifact of that run, through a link that is valid for
-# one minute, and no version.
-# Usage: runner_core_source.sh <release version | run URL | job URL>
+# Prints $Url and $Version for core.ps1 from a release version or a run or job URL.
 
 set -euo pipefail
 
@@ -30,7 +26,7 @@ if [[ $core =~ /actions/runs/([0-9]+) ]]; then
         echo "::error::Run $run has $count Windows Core artifacts, not 1." >&2
         exit 1
     fi
-    # The API answers with a redirect to the link.
+    # The API answers with a redirect to a link that is valid for one minute.
     url=$(curl -sS -o /dev/null -w '%{redirect_url}' \
         -H "Authorization: Bearer ${GH_TOKEN:?}" \
         "https://api.github.com/repos/$repo/actions/artifacts/$ids/zip")

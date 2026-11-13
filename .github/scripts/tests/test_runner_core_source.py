@@ -86,7 +86,8 @@ class TestRunnerCoreSource:
         assert result.stdout.splitlines() == [f"$Url = '{LINK}'", "$Version = ''"]
         assert calls == [
             "gh api --paginate repos/synnaxlabs/synnax/actions/runs/123/artifacts",
-            "curl https://api.github.com/repos/synnaxlabs/synnax/actions/artifacts/9/zip",
+            "curl https://api.github.com/repos/synnaxlabs/synnax/actions/artifacts/9"
+            "/zip",
         ]
 
     @pytest.mark.parametrize("ids", [(), (9, 10)])

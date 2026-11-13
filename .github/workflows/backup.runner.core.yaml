@@ -7,8 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Backs up the Synnax Core on Sandbox-Windows to a zip on that box. The Core stops while
-# its data is copied.
+# Backs up the Synnax Core on Sandbox-Windows to a zip on that box.
 
 name: Backup - Runner Core
 
@@ -47,4 +46,7 @@ jobs:
         env:
           COMMENT: Back up the Core at ${{ github.sha }}
           TIMEOUT: 1800
-        run: .github/scripts/run_ssm_powershell.sh < scripts/runners/backup.ps1
+        run: |
+          echo "\$Backup = \$true" > "$RUNNER_TEMP/core.ps1"
+          cat scripts/runners/core.ps1 >> "$RUNNER_TEMP/core.ps1"
+          .github/scripts/run_ssm_powershell.sh < "$RUNNER_TEMP/core.ps1"

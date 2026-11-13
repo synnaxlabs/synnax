@@ -24,8 +24,7 @@ DENIED = (
     "GetCommandInvocation operation"
 )
 
-# Answers each status poll with the next line of the statuses file, and repeats the
-# last line. A line that starts with "error: " fails the poll with the rest of the line.
+# Answers each status poll with the next line of STATUSES and repeats the last one.
 AWS = """#!/usr/bin/env bash
 echo "aws $*" >> "$LOG"
 case "$2" in
