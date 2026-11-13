@@ -25,6 +25,7 @@ import {
 } from "@xyflow/react";
 import { type ReactElement, useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
@@ -36,7 +37,11 @@ const RIGHT = "2";
 const UNITS = "mbar";
 const WIDE_UNITS = "mbar per square second";
 const RIGHT_HANDLE = `.react-flow__node[data-id="a"] [data-handleid="${RIGHT}"]`;
+const NODE_DRAG_HANDLE = `.react-flow__node[data-id="a"] .${Grid.DRAG_HANDLE_CLASS}`;
 const RING_PROBE_RATIO = 0.8;
+const DOT_SIZE = 8;
+const TARGET_SIZE = 13;
+const TRANSPARENT = "rgba(0, 0, 0, 0)";
 const ZOOMS = [0.5, 0.75, 1, 1.5];
 const COLOR = color.construct("#00ff00");
 
@@ -172,6 +177,15 @@ const handleWidth = (store: Store, nodeKey: string, handle: string): number => {
   return bounds.width;
 };
 
+const screenSize = (handle: HTMLElement, pseudo: string, zoom: number): number => {
+  const style = getComputedStyle(handle, pseudo);
+  const outer =
+    parseFloat(style.width) +
+    parseFloat(style.borderLeftWidth) +
+    parseFloat(style.borderRightWidth);
+  return outer * parseFloat(style.scale) * zoom;
+};
+
 const zoomOf = (store: Store): number => store.getState().transform[2];
 
 const toFlow = (store: Store, nodeKey: string, screen: xy.XY): xy.XY => {
@@ -224,6 +238,19 @@ describe("value symbol connection points", () => {
     expect(document.elementFromPoint(x, y - probe)).toBe(handle);
     expect(document.elementFromPoint(x + probe, y)).toBe(handle);
   });
+
+  it.each(ZOOMS)(
+    "should draw a dot smaller than its target on hover at zoom %s",
+    async (zoom) => {
+      await renderFlow(zoom, true);
+      await userEvent.hover(queryElement(NODE_DRAG_HANDLE));
+      const handle = queryElement(RIGHT_HANDLE);
+      const dot = getComputedStyle(handle, "::after");
+      await vi.waitFor(() => expect(dot.backgroundColor).not.toBe(TRANSPARENT));
+      expect(screenSize(handle, "::after", zoom)).toBeCloseTo(DOT_SIZE, 0);
+      expect(screenSize(handle, "::before", zoom)).toBeCloseTo(TARGET_SIZE, 0);
+    },
+  );
 
   it("should keep a level pipe straight when the value widens at a new zoom", async () => {
     const { store, widen, rezoom } = await renderFlow(1, false);
