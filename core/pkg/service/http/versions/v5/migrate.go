@@ -45,20 +45,19 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 }
 
 // MigrateReadEndpoint lifts a v4 read endpoint to v5, as MigrateReadField does for each
-// field. The field that indexes the endpoint is a timestamp field whenever it has a
-// time format, because the v4 Console marked its timing field that way.
+// field. The field that indexes the endpoint is a timestamp field.
 func MigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
 	return liftReadEndpoint(old, nil, ignore), nil
 }
 
 // MigrateReadField lifts a v4 read field to v5. The stored data type picks the kind. A
-// field with a time format that is not optional and has no enum entries is a timestamp
-// field, because v4 used a time format only on a timestamp channel and defaulted the
-// data type to float64. A float, integer, or unsigned field keeps the data type for a
-// new channel. An enum entry converts when the kind holds its value, and a boolean
-// entry is true when its value is not 0. A string or timestamp field drops its entries,
-// and a timestamp field with no time format takes ISO 8601. Of entries that repeat a
-// label, the first stays, and an empty label drops on a kind other than string.
+// field with a time format is a timestamp field, because v4 used a time format only on
+// a timestamp channel and defaulted the data type to float64. A float, integer, or
+// unsigned field keeps the data type for a new channel. An enum entry converts when the
+// kind holds its value, and a boolean entry is true when its value is not 0. A string
+// or timestamp field drops its entries, and a timestamp field with no time format takes
+// ISO 8601. Of entries that repeat a label, the first stays, and an empty label drops
+// on a kind other than string.
 //
 // An optional field's fill converts to the kind as the v4 Driver read it: an enum label
 // converts to the value of its entry, other text on a numeric field reads as a number,
@@ -170,8 +169,7 @@ func liftReadField(
 	switch {
 	case channelType != nil:
 		old.DataType = *channelType
-	case old.TimeFormat != nil &&
-		(index || (!old.Optional && len(old.EnumValues) == 0)):
+	case index || old.TimeFormat != nil:
 		old.DataType = telem.TimestampT
 	}
 	kind, ok := xpayload.KindOf(old.DataType)
