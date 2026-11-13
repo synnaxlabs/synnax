@@ -84,12 +84,19 @@ func Parse(domain resolution.Domain) *Rules {
 	return rules
 }
 
-// FieldRules returns the rules that apply to field: the rules of each type in its alias
-// and distinct chain, merged with the field's own. Merged rules keep the tighter bound,
-// so a field rule can only add constraints. Skip comes from the field alone.
+// FieldRules returns the rules that apply to field: its own rules merged with the
+// TypeRules of its type chain. Skip comes from the field alone.
 func FieldRules(field resolution.Field, table *resolution.Table) *Rules {
-	rules := Parse(field.Domains["validate"])
-	ref := field.Type
+	return Merge(
+		Parse(field.Domains["validate"]),
+		TypeRules(TypeChain(field.Type, table)),
+	)
+}
+
+// TypeChain returns the type that ref names, followed by each type its aliases and
+// distinct bases reach. It stops at a primitive, a type parameter, or a cycle.
+func TypeChain(ref resolution.TypeRef, table *resolution.Table) []resolution.Type {
+	var chain []resolution.Type
 	visited := set.New[string]()
 	for !ref.IsTypeParam() && !resolution.IsPrimitive(ref.Name) &&
 		!visited.Contains(ref.Name) {
@@ -98,27 +105,36 @@ func FieldRules(field resolution.Field, table *resolution.Table) *Rules {
 		if !ok {
 			break
 		}
-		if domain, ok := t.Domains["validate"]; ok {
-			typeRules := Parse(domain)
-			typeRules.Skip = false
-			rules = merge(rules, typeRules)
-		}
+		chain = append(chain, t)
 		switch form := t.Form.(type) {
 		case resolution.AliasForm:
 			ref = form.Target
 		case resolution.DistinctForm:
 			ref = form.Base
 		default:
-			return rules
+			return chain
 		}
 	}
+	return chain
+}
+
+// TypeRules returns the merged type-level rules of types. Skip never applies to a type.
+func TypeRules(types []resolution.Type) *Rules {
+	rules := &Rules{}
+	for _, t := range types {
+		if domain, ok := t.Domains["validate"]; ok {
+			rules = Merge(rules, Parse(domain))
+		}
+	}
+	rules.Skip = false
 	return rules
 }
 
-// merge returns the rules that hold when both a and b hold. A bound that another bound
-// implies is dropped. The analyzer rejects a field pattern whose type sets one, so at
-// most one of a and b sets a pattern.
-func merge(a, b *Rules) *Rules {
+// Merge returns the rules that hold when both a and b hold. A merged bound keeps the
+// tighter value, and a bound that another bound implies is dropped, so merging can only
+// add constraints. The analyzer rejects a second pattern on a field or in a type chain,
+// so at most one of a and b sets a pattern.
+func Merge(a, b *Rules) *Rules {
 	out := *a
 	out.Required = a.Required || b.Required
 	out.Skip = a.Skip || b.Skip
