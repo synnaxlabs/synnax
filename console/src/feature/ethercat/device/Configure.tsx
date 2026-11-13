@@ -359,8 +359,8 @@ export const Configure = ({
   const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
-  // Only a configured slave can be in a task.
-  const running = useRunningOnNetwork(opened.configured ? opened.rack : null, network);
+  // The bus applies the settings of each slave on the network, configured or not.
+  const running = useRunningOnNetwork(opened.rack, network);
   const handleError = Status.useErrorHandler();
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =

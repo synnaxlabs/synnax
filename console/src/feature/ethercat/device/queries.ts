@@ -121,20 +121,15 @@ const retrieveRunningOnNetwork = async (
   return onNetwork(running, slaves, network);
 };
 
-/**
- * The EtherCAT read and write tasks that run on the network of the rack, kept live.
- * Watches no tasks when rackKey is null.
- */
+/** The EtherCAT read and write tasks that run on the network of the rack, kept live. */
 export const useRunningOnNetwork = (
-  rackKey: rack.Key | null,
+  rackKey: rack.Key,
   network: string,
 ): task.Task[] => {
   const tasks =
-    PTask.useResultMultiple(
-      rackKey == null
-        ? null
-        : { where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } } },
-    ).data ?? [];
+    PTask.useResultMultiple({
+      where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } },
+    }).data ?? [];
   const running = tasks.filter(isRunning);
   const slaves = useSlavesByKeys(unique.unique(running.flatMap(devicesOf))) ?? [];
   return onNetwork(running, slaves, network);
