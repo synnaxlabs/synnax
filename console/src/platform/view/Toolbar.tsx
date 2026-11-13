@@ -17,8 +17,8 @@ import { useContext } from "@/platform/view/context";
 export interface ToolbarProps extends Flex.BoxProps {}
 
 export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => {
-  const { editable, searchInViews } = useContext("View.Toolbar");
-  if (!editable) return <Divider.Divider x />;
+  const { editing, searchInViews } = useContext("View.Toolbar");
+  if (!editing) return <Divider.Divider x />;
   return (
     <Flex.Box
       x
