@@ -141,7 +141,7 @@ stays the JSON root value on other kinds. Only on `bytes` is it a raw, non-JSON 
 and then the field is the only one enabled. On Kafka, a raw write is an empty
 `value_pointer`. It is allowed only when every enabled channel is `bytes` and the record
 places nothing else: no channel pointers, no timestamp pointer, and no extra record
-fields.
+fields. The one-field rule does not apply to it, and `ValidateEntry` (§5) checks it.
 
 - **`x/go/json`**: `NewDecoder` accepts `BytesT` as base64 text, and `Encoder` writes it
   as base64, where it quotes raw bytes today.
@@ -182,11 +182,11 @@ values that collide only after narrowing, such as `0.1` and `0.1000000001` on a
 
 **Core config**, in `ValidateEntry`, which has no channel and checks every field: Read
 field labels are unique, channel field values are unique on the stored value, so two
-`"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, and a raw
-`bytes` field is alone. Only a static `float` write value must be finite, because it
-goes into a payload as a JSON number. Fills and float entries may be non-finite. Kafka
-and MQTT check kinds at task configure and gain fill (Kafka skips an absent value today,
-`read_task.go:767`).
+`"NaN"` entries or `0` and `-0.0` collide, `json` and `bytes` text is valid, a raw
+`bytes` read field is alone, and a raw Kafka write follows §3. Only a static `float`
+write value must be finite, because it goes into a payload as a JSON number. Fills and
+float entries may be non-finite. Kafka and MQTT check kinds at task configure and gain
+fill (Kafka skips an absent value today, `read_task.go:767`).
 
 **Non-finite samples**, when no entry matches: A `float` channel field fails the write.
 A `string` one writes `NaN`, `Infinity`, or `-Infinity`, as `payload.Float` does. A
@@ -208,17 +208,18 @@ device stores for it: the pointer's channel for a read field and the target's ch
 for a channel field. It binds only when that channel exists and holds the field's
 `data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
 one, and its key replaces the stored one. `unbound.name` holds the user's name. A field
-that becomes unbound again takes its channel's name without the data type and counter
-suffixes, so suffixes do not stack. A new channel takes the name when it is free, else
-the name with its data type as a suffix, such as `temp_int32`, else that name with a
-counter, such as `temp_int32_2`, until a name is free. A taken name never fails
-configure, and configure never binds by name. Each source picks one index: the channel
-of a bound index field, else the first non-zero index of its bound channels, else the
-stored index, else a new one. An unbound index field binds to it, each new fixed-density
-channel takes it, and the device stores it. On HTTP and MQTT, a new variable-density
-channel (string, JSON, or bytes) stays virtual, as today. On Kafka it takes the index,
-as today. `onConfigure` then saves the field as bound. An adapter keeps the atomic Phase
-13 near 400 lines, and Phase 15 deletes it.
+that becomes unbound again takes its channel's name without a `_<data_type>` or
+`_<data_type>_<n>` suffix that configure added, so suffixes do not stack. An empty name
+first takes the name the Console generates today. A new channel takes the name when it
+is free, else the name with its data type as a suffix, such as `temp_int32`, else that
+name with a counter, such as `temp_int32_2`, until a name is free. A taken name never
+fails configure, and configure never binds by name. Each source picks one index: the
+channel of a bound index field, else the first non-zero index of its bound channels,
+else the stored index when it still exists, else a new one. An unbound index field binds
+to it, each new fixed-density channel takes it, and the device stores it. On HTTP and
+MQTT, a new variable-density channel (string, JSON, or bytes) stays virtual, as today.
+On Kafka it takes the index, as today. `onConfigure` then saves the field as bound. An
+adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
