@@ -23,26 +23,36 @@ import (
 
 // NumberEntry maps a payload label to a channel value of a numeric kind.
 type NumberEntry struct {
+	// Label is the string label in the payload.
 	Label string
+	// Value is the channel value the label maps to.
 	Value Number
 }
 
 // NumberRead holds the options of a field that reads a float, an integer, or an
 // unsigned integer.
 type NumberRead struct {
-	DataType   *telem.DataType
+	// DataType is the data type of a new channel. Nil for an existing one.
+	DataType *telem.DataType
+	// EnumValues maps payload labels to channel values.
 	EnumValues []NumberEntry
-	Fill       *Number
+	// Fill is written when the payload has no value. Nil requires one.
+	Fill *Number
 }
 
 // Read is the kind and the options of a read field. Number holds the options of a
 // numeric kind, and String, Boolean, and Timestamp those of their kinds. The options of
 // other kinds are zero.
 type Read struct {
-	Kind      Kind
-	Number    NumberRead
-	String    StringRead
-	Boolean   BooleanRead
+	// Kind is the kind of the value that the field reads.
+	Kind Kind
+	// Number holds the options of a float, integer, or unsigned field.
+	Number NumberRead
+	// String holds the options of a string field.
+	String StringRead
+	// Boolean holds the options of a boolean field.
+	Boolean BooleanRead
+	// Timestamp holds the options of a timestamp field.
 	Timestamp TimestampRead
 }
 

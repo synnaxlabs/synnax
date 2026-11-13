@@ -99,18 +99,19 @@ func NewReadField(base BaseReadField, r payload.Read) ReadField {
 	panic("unknown read field kind " + string(r.Kind))
 }
 
-// PlainFields calls fn with the path and the fields of each plain entry of cfg, and
-// returns the first error that fn returns.
+// PlainFields calls fn with the path of the fields of each plain entry of cfg, and the
+// entry, and returns the first error that fn returns. A change fn makes to an element
+// of the entry's fields changes cfg.
 func PlainFields(
 	cfg *ReadConfig,
-	fn func(path string, fields []ReadField) error,
+	fn func(path string, entry PlainReadEntry) error,
 ) error {
 	for i, e := range cfg.Entries {
 		plain, ok := e.Variant.(PlainReadEntry)
 		if !ok {
 			continue
 		}
-		if err := fn("entries."+strconv.Itoa(i)+".fields", plain.Fields); err != nil {
+		if err := fn("entries."+strconv.Itoa(i)+".fields", plain); err != nil {
 			return err
 		}
 	}
@@ -126,8 +127,8 @@ func FieldChannels(
 	cfg *ReadConfig,
 ) (map[channel.Key]Channel, error) {
 	var keys []channel.Key
-	if err := PlainFields(cfg, func(_ string, fields []ReadField) error {
-		for _, f := range fields {
+	if err := PlainFields(cfg, func(_ string, entry PlainReadEntry) error {
+		for _, f := range entry.Fields {
 			if k := f.Base().Channel; k != 0 {
 				keys = append(keys, k)
 			}
@@ -156,8 +157,8 @@ func ReconcileReadConfig(
 	if err != nil {
 		return err
 	}
-	return PlainFields(cfg, func(path string, fields []ReadField) error {
-		for i, f := range fields {
+	return PlainFields(cfg, func(path string, entry PlainReadEntry) error {
+		for i, f := range entry.Fields {
 			base := f.Base()
 			ch, ok := found[base.Channel]
 			if !ok {
@@ -174,7 +175,7 @@ func ReconcileReadConfig(
 					zap.String("change", change),
 				)
 			}
-			fields[i] = NewReadField(base, r)
+			entry.Fields[i] = NewReadField(base, r)
 		}
 		return nil
 	})

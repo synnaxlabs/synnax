@@ -95,18 +95,20 @@ var _ = Describe("Read field", func() {
 				plainEntry(field),
 			}}
 			var paths []string
-			Expect(v2.PlainFields(&cfg, func(path string, fields []v2.ReadField) error {
-				paths = append(paths, path)
-				Expect(fields).To(Equal([]v2.ReadField{field}))
-				return nil
-			})).To(Succeed())
+			Expect(
+				v2.PlainFields(&cfg, func(path string, entry v2.PlainReadEntry) error {
+					paths = append(paths, path)
+					Expect(entry.Fields).To(Equal([]v2.ReadField{field}))
+					return nil
+				}),
+			).To(Succeed())
 			Expect(paths).To(Equal([]string{"entries.1.fields"}))
 		})
 
 		It("Should return the first error of fn", func() {
 			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{plainEntry(), plainEntry()}}
 			calls := 0
-			Expect(v2.PlainFields(&cfg, func(string, []v2.ReadField) error {
+			Expect(v2.PlainFields(&cfg, func(string, v2.PlainReadEntry) error {
 				calls++
 				return errors.New("stop")
 			})).To(MatchError("stop"))

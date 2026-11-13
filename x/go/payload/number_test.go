@@ -16,14 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Number", func() {
 	DescribeTable(
 		"should convert a number that the kind holds exactly",
 		func(n payload.Number, k payload.Kind, expected string) {
-			v, ok := n.To(k)
-			Expect(ok).To(BeTrue())
+			v := MustBeOk(n.To(k))
 			Expect(v.Kind()).To(Equal(k))
 			Expect(v.String()).To(Equal(expected))
 		},

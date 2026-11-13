@@ -23,6 +23,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -79,6 +80,21 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 	drop := func(e payload.EnumEntry, why string) {
 		note("enum label %q was dropped: %s", e.Label, why)
 	}
+	seen := set.New[string]()
+	// usable reports whether e is an entry the lifted field can keep: its label is not
+	// empty, and no earlier entry has it.
+	usable := func(e payload.EnumEntry) bool {
+		if e.Label == "" {
+			drop(e, "it is empty")
+			return false
+		}
+		if seen.Contains(e.Label) {
+			drop(e, "it repeats an earlier label")
+			return false
+		}
+		seen.Add(e.Label)
+		return true
+	}
 	switch kind {
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
 		if known && ch == nil {
@@ -87,14 +103,12 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		for _, e := range old.EnumValues {
 			v, ok := payload.FloatNumber(payload.Float(e.Value)).To(kind)
 			switch {
-			case e.Label == "":
-				drop(e, "it is empty")
 			case !ok:
 				drop(
 					e,
 					strconv.FormatFloat(e.Value, 'g', -1, 64)+" is not "+string(kind),
 				)
-			default:
+			case usable(e):
 				r.Number.EnumValues = append(
 					r.Number.EnumValues,
 					payload.NumberEntry{Label: e.Label, Value: v},
@@ -103,8 +117,7 @@ func migrateReadField(old v1.ReadField, ch *Channel) (ReadField, []string) {
 		}
 	case payload.KindBoolean:
 		for _, e := range old.EnumValues {
-			if e.Label == "" {
-				drop(e, "it is empty")
+			if !usable(e) {
 				continue
 			}
 			r.Boolean.EnumValues = append(

@@ -29,7 +29,8 @@ func validateReadConfig(cfg *ReadConfig) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	return v2.PlainFields(cfg, func(path string, fields []ReadField) error {
+	return v2.PlainFields(cfg, func(path string, entry PlainReadEntry) error {
+		fields := entry.Fields
 		enabled := lo.CountBy(
 			fields,
 			func(f ReadField) bool { return !f.Base().Disabled },
@@ -86,8 +87,9 @@ func readChannels(svc *channel.Service) v2.Channels {
 	}
 }
 
-// resolveReadConfig checks each enabled field of cfg against its channel and clears
-// its data type. It skips a field with no channel, or one that does not exist.
+// resolveReadConfig checks each enabled field of an enabled entry of cfg against its
+// channel and clears its data type. It skips a field with no channel, or one that does
+// not exist.
 func resolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -98,7 +100,11 @@ func resolveReadConfig(
 	if err != nil {
 		return err
 	}
-	return v2.PlainFields(cfg, func(path string, fields []ReadField) error {
+	return v2.PlainFields(cfg, func(path string, entry PlainReadEntry) error {
+		if entry.Disabled {
+			return nil
+		}
+		fields := entry.Fields
 		for i, f := range fields {
 			base := f.Base()
 			ch, ok := found[base.Channel]
