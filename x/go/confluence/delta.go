@@ -69,54 +69,78 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(
 
 // DynamicDeltaMultiplier is a segment that reads values from an input stream and
 // dynamically distributes them to multiple output streams. It supports runtime
-// connection and disconnection of output streams, with optional timeout handling
-// for sending values to downstream consumers.
+// connection and disconnection of output streams, with optional timeout handling for
+// sending values to downstream consumers. Once Flow exits, the multiplier has stopped:
+// every connected inlet is closed, and it closes any inlet connected later.
 type DynamicDeltaMultiplier[V Value] struct {
 	alamos.Instrumentation
 	UnarySink[V]
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
-	Source         AbstractMultiSource[V]
-	timeout        time.Duration
+	stopped        chan struct{}
+	// sending is the inlet of an unfinished send. Only the Flow goroutine accesses it.
+	sending Inlet[V]
+	Source  AbstractMultiSource[V]
+	timeout time.Duration
 }
 
 // NewDynamicDeltaMultiplier creates a new DynamicDeltaMultiplier with the specified
-// timeout duration and instrumentation. The connectionBuffers parameter optionally
-// specifies the buffer size for connection and disconnection channels.
+// timeout duration and instrumentation.
 func NewDynamicDeltaMultiplier[V Value](
 	timeout time.Duration,
 	instrumentation alamos.Instrumentation,
-	connectionBuffers ...int,
 ) *DynamicDeltaMultiplier[V] {
-	buf := parseBuffer(connectionBuffers)
 	return &DynamicDeltaMultiplier[V]{
 		Instrumentation: instrumentation,
-		connections:     make(chan []Inlet[V], buf),
-		disconnections:  make(chan []Inlet[V], buf),
+		connections:     make(chan []Inlet[V]),
+		disconnections:  make(chan []Inlet[V]),
+		stopped:         make(chan struct{}),
 		timeout:         timeout,
 	}
 }
 
-// Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams.
-// The inlets will receive values from the input stream until they are disconnected.
+// Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams. The
+// inlets will receive values from the input stream until they are disconnected. If the
+// multiplier has stopped, Connect closes the inlets.
 func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
-	d.connections <- inlets
+	select {
+	case d.connections <- inlets:
+	case <-d.stopped:
+		for _, inlet := range inlets {
+			inlet.Acquire(1)
+			inlet.Close()
+		}
+	}
 }
 
 // Disconnect removes one or more inlets from the DynamicDeltaMultiplier's output
-// streams. The inlets will no longer receive values from the input stream.
+// streams. The inlets will no longer receive values from the input stream. It is a
+// no-op if the multiplier has stopped, since stopping closes every inlet.
 func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
-	d.disconnections <- inlets
+	select {
+	case d.disconnections <- inlets:
+	case <-d.stopped:
+	}
 }
+
+// Stopped returns a channel that is closed once Flow has exited and will not retry.
+func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped }
 
 // Flow implements the Segment interface. It continuously reads values from the input
 // stream and distributes them to all connected output streams. If a timeout is
 // configured, it will attempt to send values to downstream consumers within the timeout
 // period. The Flow method handles dynamic connection and disconnection of output
-// streams through the connections and disconnections channels.
+// streams through the connections and disconnections channels. If a send panics and
+// WithRetryOnPanic retries Flow, the retry disconnects the inlet that panicked and
+// keeps every other connection.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
+	o.Signal = append(o.Signal, signal.Defer(d.stop, signal.WithKey("stop")))
 	ctx.Go(func(ctx context.Context) error {
+		if d.sending != nil {
+			d.disconnect([]Inlet[v]{d.sending})
+			d.sending = nil
+		}
 		var timer *time.Timer
 		if d.timeout > 0 {
 			timer = time.NewTimer(d.timeout)
@@ -125,7 +149,6 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 			if timer != nil && !timer.Stop() {
 				<-timer.C
 			}
-			d.disconnectAll()
 		}()
 		for {
 			select {
@@ -139,14 +162,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				if !ok {
 					return nil
 				}
-				var err error
-				if timer != nil {
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
-				}
-				if err != nil {
+				if err := d.send(ctx, res, timer); err != nil {
 					if !errors.Is(err, timeout.ErrTimeout) {
 						return err
 					}
@@ -157,12 +173,48 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	}, o.Signal...)
 }
 
-// disconnectAll closes all connected inlets and clears the output streams.
-func (d *DynamicDeltaMultiplier[V]) disconnectAll() {
+// send sends v to each inlet. With a timer, an inlet that does not receive v before the
+// timer fires is skipped, the remaining inlets still receive v, and send returns
+// timeout.ErrTimeout.
+func (d *DynamicDeltaMultiplier[V]) send(
+	ctx context.Context,
+	v V,
+	timer *time.Timer,
+) error {
+	var expired <-chan time.Time
+	if timer != nil {
+		timer.Reset(d.timeout)
+		expired = timer.C
+	}
+	var timedOut Inlet[V]
+	for _, inlet := range d.Source.Out {
+		d.sending = inlet
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-expired:
+			timer.Reset(d.timeout)
+			timedOut = inlet
+		case inlet.Inlet() <- v:
+		}
+	}
+	d.sending = nil
+	if timedOut != nil {
+		return errors.Wrapf(
+			timeout.ErrTimeout,
+			"timed out sending to inlet %s",
+			timedOut.InletAddress(),
+		)
+	}
+	return nil
+}
+
+func (d *DynamicDeltaMultiplier[V]) stop() {
 	for _, inlet := range d.Source.Out {
 		inlet.Close()
 	}
 	d.Source.Out = nil
+	close(d.stopped)
 }
 
 // disconnect removes the specified inlets from the output streams and closes them.

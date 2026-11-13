@@ -56,7 +56,8 @@ type StreamerResponse struct {
 // subscribes to.
 //
 // To stop receiving values, simply close the inlet of the streamer. The streamer will
-// then gracefully exit and close its output channel.
+// then gracefully exit and close its output channel. If the DB closes first, the
+// streamer exits with ErrDBClosed and closes its output channel.
 type Streamer[RQ any, RS any] = confluence.Segment[RQ, RS]
 
 func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {
@@ -121,11 +122,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
 		if s.sendOpenAck {
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				s.translateResponse(StreamerResponse{}),
-			); err != nil {
+			if err := s.send(ctx, s.translateResponse(StreamerResponse{})); err != nil {
 				return err
 			}
 		}
@@ -138,24 +135,36 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				s.keys = set.New(s.translateRequest(req).Channels...)
-			case rf := <-frames.Outlet():
+			case rf, ok := <-frames.Outlet():
+				if !ok {
+					return ErrDBClosed
+				}
 				if !s.applyPendingRequests() {
 					return nil
 				}
 				if filtered := rf.frame.KeepKeys(s.keys); !filtered.Empty() {
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						s.translateResponse(
-							StreamerResponse{Frame: filtered, Group: rf.group},
-						),
-					); err != nil {
+					if err := s.send(ctx, s.translateResponse(
+						StreamerResponse{Frame: filtered, Group: rf.group},
+					)); err != nil {
 						return err
 					}
 				}
 			}
 		}
 	}, o.Signal...)
+}
+
+// send delivers res to the output. A closed relay ends the send, so a stalled consumer
+// cannot hold the streamer open.
+func (s *streamer[I, O]) send(ctx context.Context, res O) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.relay.delta.Stopped():
+		return ErrDBClosed
+	case s.Out.Inlet() <- res:
+		return nil
+	}
 }
 
 // applyPendingRequests applies every key update already sent, so a frame written after
