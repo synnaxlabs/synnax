@@ -337,20 +337,22 @@ whose values collide, on the stored value or after narrowing. Each drop is logge
   and turns each bound key into `unbound` from the map when no local channel has that
   key, or when `cluster` is another Core's, because two Cores hand out the same channel
   keys. From another Core, a Sparkplug write target's `channel` and an edge tag's
-  `command_channel` become 0. Configure then binds the device's stored channel for the
-  tag, or else creates one under the §5 rename rule, which Phase 30 also applies to
-  `configureCommandChannel`. Each takes its channel name from `$channels`, or else the
-  name that the Console derives today, such as `<tag>_cmd`. A Kafka write channel or an
-  edge tag's published `channel` becomes disabled, because configure cannot create it.
-  The import logs each one, with any name it set. A map built from a version before
-  `Binding` holds no real channel values, so it unbinds only a missing key, and it skips
-  command channels, whose raw body already holds their names. With no map entry for a
-  missing `Binding` key, `ReconcileEntry` removes the field, or for a channel field its
-  target or endpoint, and logs what it removed. `ReconcileEntry` skips a missing key
-  that is not a `Binding`, such as a Kafka write channel, and `DropDangling` removes it
-  as today. `bound.key` 0 is invalid. Phase 27 adds `ChannelKeys`, the `Decode` and hook
-  arguments, the order, and a `cluster.Identity` input to the task service. Phases 28 to
-  31 apply the rule.
+  `command_channel` become 0, and the import writes the target's `name` or the tag's
+  `command_channel_name` from `$channels`, or else the name that the Console derives
+  today, such as `<tag>_cmd`. Configure then binds the device's stored channel for the
+  tag, or else creates one under the §5 rename rule. Phase 30 applies that rule in
+  `configureCommandChannel`, to the channel and its `_time` index, so HTTP write
+  configure changes too. A Kafka write channel or an edge tag's published `channel`
+  becomes disabled, because configure cannot create it. A disabled edge tag gets its
+  command channel when the user enables it again. The import logs each one, with any
+  name it set. A map built from a version before `Binding` holds no real channel values,
+  so it unbinds only a missing key, and a command channel with no stored name takes the
+  derived one. With no map entry for a missing `Binding` key, `ReconcileEntry` removes
+  the field, or for a channel field its target or endpoint, and logs what it removed.
+  `ReconcileEntry` skips a missing key that is not a `Binding`, such as a Kafka write
+  channel, and `DropDangling` removes it as today. `bound.key` 0 is invalid. Phase 27
+  adds `ChannelKeys`, the `Decode` and hook arguments, the order, and a
+  `cluster.Identity` input to the task service. Phases 28 to 31 apply the rule.
 
 OPC UA v1 `array_mode: true` lifts to `array`. A Modbus `string` data type lifts to the
 string variant. Each field in §6 clamps and logs, and an identifier also disables its
@@ -405,5 +407,5 @@ carries a config keeps the `Float` text form; check C++ `to_json`.
 | 27    | Add `task.Binding` and the payload `*Options` types   | `schemas/x`, `schemas/synnax/task.oracle`, `schemas/synnax/versions/task`, `x/go/payload`, `x/ts/src/payload`, `x/py/x/payload`, `x/cpp/payload`, `core/pkg/service/task`, `client` | 11                             |
 | 28    | Bind Kafka read fields to `task.Binding`              | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/task`, `console/src/feature/kafka`, `client`, `site/docs/src/pages/reference/hardware`                                | 7, 27                          |
 | 29    | Bind MQTT read fields and Sparkplug entries           | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`, `site/docs/src/pages/reference/hardware`                                             | 9, 27                          |
-| 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client`, `site/docs/src/pages/reference/hardware`                                             | 10, 27                         |
+| 30    | Bind MQTT write channel fields                        | `schemas/synnax/versions/mqtt`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `console/src/platform/task`, `client`, `site/docs/src/pages/reference/hardware`                | 10, 27                         |
 | 31    | Bind HTTP read fields and the `ChannelField`          | `schemas/synnax/versions/http`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http/task`, `client`, `site/docs/src/pages/reference/hardware`                         | 12, 13, 14, 27                 |
