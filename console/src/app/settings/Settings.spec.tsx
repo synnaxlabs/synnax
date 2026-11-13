@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { label, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  RoleClients,
 } from "@synnaxlabs/client/testutil";
+import { Access } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -26,14 +28,22 @@ import { describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
 import { renderPalette } from "@/feature/command/testutil";
+import { findCommand } from "@/platform/command/testutil";
 import {
   createPanelWrapper,
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
-import { awaitGranted, createConsoleWrapper, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  awaitGranted,
+  createConsoleWrapper,
+  renderHookWithConsole,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 // Can read users and nothing else, so it can neither open tabs nor read the license.
 // Every grant check reads the role's policies, which awaitGranted caches, so the checks
@@ -122,5 +132,28 @@ describe("Settings", () => {
     await act(async () => {});
     expect(result.current).toBe(false);
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  });
+
+  it("should offer Edit labels to an Engineer", async () => {
+    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
+    assertDefined(visible);
+    const { result } = await renderHookWithConsole(visible, {
+      client: await roles.get("Engineer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Edit labels from a Viewer", async () => {
+    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
+    assertDefined(visible);
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: visible(),
+        loaded: Access.useRetrieveGranted(label.TYPE_RESOURCE_ID),
+      }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });

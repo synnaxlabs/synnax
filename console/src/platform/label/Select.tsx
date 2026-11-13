@@ -9,6 +9,7 @@
 
 import { label } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Access, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
@@ -42,10 +43,14 @@ export const SelectMultiple = ({
   ...rest
 }: Label.SelectMultipleProps): ReactElement => {
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
+  // The create dialog can stay open while the value changes.
+  const valueRef = useSyncedRef(value);
   // The select moves its border onto a wrapper once it has a footer, so a user who
   // cannot create labels gets no footer rather than an empty one.
   const footer = canCreate ? (
-    <CreateButton onCreate={(key) => onChange([...value, key], { clicked: key })} />
+    <CreateButton
+      onCreate={(key) => onChange([...valueRef.current, key], { clicked: key })}
+    />
   ) : undefined;
   return (
     <Label.SelectMultiple {...rest} value={value} onChange={onChange} footer={footer} />

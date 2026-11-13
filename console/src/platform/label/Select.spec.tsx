@@ -51,6 +51,43 @@ describe("Label.Select", () => {
     expect(onChange.mock.calls[0][0]).toEqual([label.key]);
   });
 
+  it("should add a created label to the value the field holds when it closes", async () => {
+    const createdBefore = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const addedMeanwhile = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#0000FF",
+    });
+    const onChange = vi.fn();
+    const renderField = (value: label.Key[]): ReactElement => (
+      <>
+        <Label.SelectMultiple value={value} onChange={onChange} />
+        <Modals.Stack />
+      </>
+    );
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { rerender } = render(renderField([createdBefore.key]), { wrapper });
+    fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
+    fireEvent.click(await screen.findByText("Create label"));
+    const name = uniqueName("label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    rerender(renderField([createdBefore.key, addedMeanwhile.key]));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [created] = await client.labels.retrieve({ name: [name] });
+    expect(onChange.mock.calls[0][0]).toEqual([
+      createdBefore.key,
+      addedMeanwhile.key,
+      created.key,
+    ]);
+  });
+
   it("should add a label created from the field to the selection", async () => {
     const existing = await client.labels.create({
       name: uniqueName("label"),

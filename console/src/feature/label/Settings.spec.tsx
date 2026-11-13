@@ -13,6 +13,7 @@ import {
   createTestClientWithPolicy,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
+import { color } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -104,6 +105,23 @@ describe("Label.Settings", () => {
     await expect
       .poll(async () => (await client.labels.retrieve(l.key)).name)
       .toBe(name);
+  });
+
+  it("should recolor a label from its swatch", async () => {
+    const l = await createLabel();
+    await renderLabels();
+    await search(l.name);
+    const line = screen.getByRole("option", { name: l.name });
+    fireEvent.click(within(line).getByRole("button", { name: "Color" }));
+    fireEvent.change(await screen.findByLabelText("Hex"), {
+      target: { value: "123456" },
+    });
+    await act(async () => {
+      fireEvent.keyDown(screen.getByLabelText("Hex"), { code: "Escape" });
+    });
+    await expect
+      .poll(async () => color.hex((await client.labels.retrieve(l.key)).color))
+      .toBe("#123456");
   });
 
   it("should delete every selected label at once after confirming", async () => {
