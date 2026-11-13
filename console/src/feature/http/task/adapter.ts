@@ -89,10 +89,11 @@ const convertNumber = (
 
 /**
  * @returns v as a boolean that is true when v is not 0, or undefined for NaN or text
- * that is not an integer.
+ * that is neither an integer nor a non-finite float.
  */
 const toBoolean = (v: number | string): boolean | undefined => {
-  if (typeof v === "string" && !INTEGER_TEXT.test(v)) return undefined;
+  if (typeof v === "string" && !INTEGER_TEXT.test(v) && !NON_FINITE.has(v))
+    return undefined;
   const f = typeof v === "number" ? v : Number(v);
   return Number.isNaN(f) ? undefined : f !== 0;
 };
