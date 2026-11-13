@@ -407,14 +407,13 @@ var _ = Describe("Upload", func() {
 		})
 
 	It("Should resume an upload after the task restarts", func(ctx SpecContext) {
-		server.Pause()
+		// The upload cannot finish before the stop: Sift holds its run.
+		server.PauseRuns()
 		key := upload(ctx)
-		statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
-		stopped := make(chan error, 1)
-		go func() { stopped <- dt.Stop(false) }()
-		server.Resume()
-		Eventually(stopped).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		statusOf(ctx, key).Should(HaveField("Details.Samples", BeEquivalentTo(4)))
+		Expect(dt.Stop(false)).To(Succeed())
 		Expect(uploadStatus(ctx, key)).To(HaveField("Variant", status.VariantLoading))
+		server.ResumeRuns()
 		configure(ctx)
 		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
 		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
