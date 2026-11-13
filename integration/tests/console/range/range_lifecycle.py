@@ -527,12 +527,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_python_code()
-        notifications = self.console.notifications.check(timeout=10)
-        messages = [n.message for n in notifications]
-        assert "Copied Python code to clipboard" in messages, (
-            "Should show Python code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'rng = client.ranges.retrieve(key="{key}")', (
+            f"Clipboard should hold the Python code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_typescript_code(self) -> None:
         """Test copying TypeScript code from the range overview."""
@@ -543,12 +542,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_typescript_code()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied TypeScript code to clipboard" in messages, (
-            "Should show TypeScript code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'const rng = await client.ranges.retrieve("{key}");', (
+            f"Clipboard should hold the TypeScript code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
         """Test copying link from the range overview."""
@@ -559,12 +557,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_link()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied link to clipboard" in messages, (
-            "Should show link copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert f"range/{key}" in clipboard, (
+            f"Clipboard should hold a link to the range, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_download_csv(self) -> None:
         """Test downloading CSV data from the range overview."""
