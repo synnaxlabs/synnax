@@ -21,9 +21,11 @@ import (
 	"sync"
 	"time"
 
+	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
+	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,6 +38,9 @@ type Config struct {
 	// APIKey is the bearer token every call must carry. An empty APIKey accepts every
 	// call.
 	APIKey string
+	// Assets are the names of assets that exist before any ingestion config creates
+	// one.
+	Assets []string
 }
 
 // Point is one value Sift stores for a channel.
@@ -59,6 +64,8 @@ type channelKey struct{ asset, channel string }
 type Server struct {
 	ingestv1.UnimplementedIngestServiceServer
 	ingestionconfigsv2.UnimplementedIngestionConfigServiceServer
+	pingv1.UnimplementedPingServiceServer
+	assetsv1.UnimplementedAssetServiceServer
 	cfg      Config
 	grpc     *grpc.Server
 	listener net.Listener
@@ -78,6 +85,8 @@ type Server struct {
 var (
 	_ ingestv1.IngestServiceServer                    = (*Server)(nil)
 	_ ingestionconfigsv2.IngestionConfigServiceServer = (*Server)(nil)
+	_ pingv1.PingServiceServer                        = (*Server)(nil)
+	_ assetsv1.AssetServiceServer                     = (*Server)(nil)
 )
 
 // Open starts a Server on a free local port. The caller must Close it.
@@ -97,6 +106,8 @@ func Open(cfg Config) (*Server, error) {
 	)
 	ingestv1.RegisterIngestServiceServer(s.grpc, s)
 	ingestionconfigsv2.RegisterIngestionConfigServiceServer(s.grpc, s)
+	pingv1.RegisterPingServiceServer(s.grpc, s)
+	assetsv1.RegisterAssetServiceServer(s.grpc, s)
 	s.served = make(chan error, 1)
 	go func() { s.served <- s.grpc.Serve(lis) }()
 	return s, nil
@@ -267,6 +278,59 @@ func (s *Server) ListIngestionConfigs(
 		if key == nil || c.ClientKey == *key {
 			res.IngestionConfigs = append(res.IngestionConfigs, c.IngestionConfig)
 		}
+	}
+	return res, nil
+}
+
+// Ping implements pingv1.PingServiceServer.
+func (s *Server) Ping(
+	context.Context,
+	*pingv1.PingRequest,
+) (*pingv1.PingResponse, error) {
+	return &pingv1.PingResponse{Response: "pong"}, nil
+}
+
+// ListAssets implements assetsv1.AssetServiceServer. It lists the assets in
+// Config.Assets and the assets of each ingestion config by name, in pages of
+// PageSize.
+func (s *Server) ListAssets(
+	_ context.Context,
+	req *assetsv1.ListAssetsRequest,
+) (*assetsv1.ListAssetsResponse, error) {
+	s.mu.Lock()
+	names := slices.Clone(s.cfg.Assets)
+	for _, c := range s.configs {
+		names = append(names, c.asset)
+	}
+	s.mu.Unlock()
+	slices.Sort(names)
+	names = slices.Compact(names)
+	start := 0
+	if req.PageToken != "" {
+		var err error
+		start, err = strconv.Atoi(req.PageToken)
+		if err != nil || start < 0 || start > len(names) {
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"bad page token %q",
+				req.PageToken,
+			)
+		}
+	}
+	size := int(req.PageSize)
+	if size == 0 {
+		size = 50
+	}
+	end := min(start+size, len(names))
+	res := &assetsv1.ListAssetsResponse{}
+	for _, name := range names[start:end] {
+		res.Assets = append(
+			res.Assets,
+			&assetsv1.Asset{AssetId: "asset-" + name, Name: name},
+		)
+	}
+	if end < len(names) {
+		res.NextPageToken = strconv.Itoa(end)
 	}
 	return res, nil
 }

@@ -1392,3 +1392,88 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		},
 	)
 })
+
+var _ = Describe("References", func() {
+	var (
+		db      *gorp.DB
+		labels  *label.Service
+		rackSvc *rack.Service
+		svc     *device.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		labels = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+		}))
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+			DB:     db,
+			Status: stat,
+			Rack:   rackSvc,
+			References: []gorp.Reference[device.Key, device.Device]{
+				gorp.NewKeyReference(
+					gorp.KeyReferenceConfig[device.Key, device.Device, label.Key]{
+						Name:     "properties.label",
+						Table:    "label",
+						OnDelete: gorp.Restrict,
+						Kind:     gorp.Use,
+						Targets: func(d *device.Device) []label.Key {
+							var props struct {
+								Label label.Key `json:"label"`
+							}
+							if err := d.Properties.Unmarshal(&props); err != nil ||
+								props.Label == uuid.Nil() {
+								return nil
+							}
+							return []label.Key{props.Label}
+						},
+					},
+				),
+			},
+		}))
+	})
+
+	create := func(ctx context.Context, rk rack.Key, lbl label.Key) error {
+		d := device.Device{
+			Key:        "referencing",
+			Rack:       rk,
+			Location:   "loc",
+			Name:       "Referencing",
+			Make:       "Test Make",
+			Model:      "Test Model",
+			Properties: msgpack.EncodedJSON{"label": lbl},
+		}
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &d)
+		})
+	}
+
+	It("Should create a device whose reference names a target", func(ctx SpecContext) {
+		l := label.Label{Name: "Label"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return labels.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
+		Expect(create(ctx, rackSvc.EmbeddedKey, l.Key)).To(Succeed())
+	})
+
+	It("Should refuse a device whose reference names a missing target",
+		func(ctx SpecContext) {
+			key := uuid.NewV7()
+			Expect(create(ctx, rackSvc.EmbeddedKey, key)).To(MatchError(fmt.Sprintf(
+				"properties.label: label %s does not exist: validation error",
+				key,
+			)))
+		})
+
+	It("Should refuse a device on a rack that does not exist", func(ctx SpecContext) {
+		Expect(create(ctx, rack.NewKey(1, 999), uuid.Nil())).To(MatchError(fmt.Sprintf(
+			"rack: rack %d does not exist: validation error",
+			rack.NewKey(1, 999),
+		)))
+	})
+})

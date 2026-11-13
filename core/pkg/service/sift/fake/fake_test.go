@@ -15,9 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv2 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v2"
+	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -34,6 +36,8 @@ var _ = Describe("Server", func() {
 		server  *fake.Server
 		ingest  ingestv1.IngestServiceClient
 		configs ingestionconfigsv2.IngestionConfigServiceClient
+		pinger  pingv1.PingServiceClient
+		assets  assetsv1.AssetServiceClient
 	)
 
 	open := func(cfg fake.Config) {
@@ -45,6 +49,8 @@ var _ = Describe("Server", func() {
 		))
 		ingest = ingestv1.NewIngestServiceClient(conn)
 		configs = ingestionconfigsv2.NewIngestionConfigServiceClient(conn)
+		pinger = pingv1.NewPingServiceClient(conn)
+		assets = assetsv1.NewAssetServiceClient(conn)
 	}
 
 	createConfig := func(ctx context.Context, clientKey string) string {
@@ -290,6 +296,52 @@ var _ = Describe("Server", func() {
 				},
 			)).Error().To(MatchError(ContainSubstring("bad filter")))
 		})
+	})
+
+	Describe("Ping", func() {
+		It("Should answer", func(ctx SpecContext) {
+			open(fake.Config{})
+			Expect(MustSucceed(pinger.Ping(ctx, &pingv1.PingRequest{})).Response).
+				To(Equal("pong"))
+		})
+	})
+
+	Describe("ListAssets", func() {
+		It("Should list each asset once, by name, in pages", func(ctx SpecContext) {
+			open(fake.Config{Assets: []string{"pad", "stand"}})
+			createConfig(ctx, "")
+			first := MustSucceed(assets.ListAssets(
+				ctx,
+				&assetsv1.ListAssetsRequest{PageSize: 1},
+			))
+			Expect(first.Assets).To(HaveExactElements(HaveField("Name", "pad")))
+			second := MustSucceed(assets.ListAssets(
+				ctx,
+				&assetsv1.ListAssetsRequest{
+					PageSize:  1,
+					PageToken: first.NextPageToken,
+				},
+			))
+			Expect(second.Assets).To(HaveExactElements(SatisfyAll(
+				HaveField("Name", "stand"),
+				HaveField("AssetId", "asset-stand"),
+			)))
+			Expect(second.NextPageToken).To(BeEmpty())
+		})
+
+		DescribeTable("Should reject a page it cannot list",
+			func(ctx SpecContext, req *assetsv1.ListAssetsRequest, msg string) {
+				open(fake.Config{Assets: []string{"pad"}})
+				Expect(assets.ListAssets(ctx, req)).Error().
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("a token it did not make",
+				&assetsv1.ListAssetsRequest{PageToken: "x"}, "bad page token"),
+			Entry("a negative token",
+				&assetsv1.ListAssetsRequest{PageToken: "-1"}, "bad page token"),
+			Entry("a token past the last asset",
+				&assetsv1.ListAssetsRequest{PageToken: "2"}, "bad page token"),
+		)
 	})
 
 	Describe("APIKey", func() {
