@@ -213,7 +213,7 @@ class Panel(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
     icon: str | None = None
     color: color_.Color | None = None

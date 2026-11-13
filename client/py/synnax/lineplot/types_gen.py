@@ -372,7 +372,7 @@ class LinePlot(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     title: Title = Field(default_factory=lambda: Title())
     legend: Legend = Field(default_factory=lambda: Legend())
     channels: Channels = Field(default_factory=lambda: Channels())

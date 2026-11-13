@@ -912,7 +912,12 @@ func (p *Plugin) parseExprForField(
 				)
 			}
 		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+		return fmt.Sprintf(
+			`parser.%s<%s>("%s")`,
+			fieldFunc(field, data.table),
+			cppType,
+			jsonName,
+		)
 	}
 
 	if field.Optional {
@@ -950,7 +955,30 @@ func (p *Plugin) parseExprForField(
 			)
 		}
 	}
-	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	return fmt.Sprintf(
+		`parser.%s<%s>("%s")`,
+		fieldFunc(field, data.table),
+		cppType,
+		jsonName,
+	)
+}
+
+// fieldFunc returns the parser method that reads field. A string or number field with
+//
+//	@validate	required also refuses its zero value, as Go and TypeScript do.
+func fieldFunc(field resolution.Field, table *resolution.Table) string {
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
+	if isKey || field.Optional ||
+		!validation.Parse(field.Domains["validate"]).Required {
+		return "field"
+	}
+	base := resolution.PrimitiveBase(field.Type, table)
+	if resolution.IsPrimitive(base) &&
+		(resolution.IsStringPrimitive(base) || resolution.IsNumberPrimitive(base)) {
+		return "required_field"
+	}
+	return "field"
 }
 
 // compositeFallback renders a struct or array default as a value of cppType. It returns

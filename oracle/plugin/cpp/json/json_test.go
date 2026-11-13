@@ -705,6 +705,36 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should refuse the zero value of a required string or number",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Serial = uint32
+
+					Device struct {
+						key      uint32 {
+							@key
+							@validate required
+						}
+						name     string @validate required
+						serial   Serial @validate required
+						label    string?
+						identity string = ""
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`.key = parser.field<std::uint32_t>("key"),`,
+							`.name = parser.required_field<std::string>("name"),`,
+							`.serial = parser.required_field<Serial>("serial"),`,
+							`.label = parser.field<std::optional<std::string>>("label"),`,
+							`.identity = parser.field<std::string>("identity", ""),`,
+						)
+				},
+			)
+			It(
 				"Should write the UUID keys of a map of scalars as strings",
 				func(ctx SpecContext) {
 					source := `

@@ -31,7 +31,7 @@ namespace synnax::arc {
 inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
-        .name = parser.field<std::string>("name"),
+        .name = parser.required_field<std::string>("name"),
         .source = parser.has("source") ? parse_source(parser.child("source"))
                                        : Source{TextSource{}},
         .directory = parser.field<std::optional<x::uuid::UUID>>("directory"),

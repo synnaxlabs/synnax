@@ -57,6 +57,7 @@ TEST(Update, RoundTripsGroup) {
     identity.rack = 1;
     identity.serial = "01A";
     identity.resource_name = "Mod1";
+    identity.model = "PXI-6255";
     const auto j = to_json(Update(identity));
     ASSERT_EQ(j["group"], "identity");
     x::json::Parser parser(j);

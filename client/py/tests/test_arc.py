@@ -434,7 +434,7 @@ class TestArcTask:
             client.tasks.create(
                 name=f"Test Arc Task {uuid4()}",
                 type="arc",
-                config=sy.arc.Task(name="", arc_key=a.key).to_payload().config,
+                config=sy.arc.Task(name="Arc", arc_key=a.key).to_payload().config,
             )
             for a in arcs
         ]

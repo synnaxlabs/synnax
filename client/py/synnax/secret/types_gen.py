@@ -59,7 +59,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     updated: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
     uses: list[resource.ID] | None = None
 
