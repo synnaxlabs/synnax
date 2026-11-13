@@ -217,6 +217,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build_matrix: ${{ steps.set-matrix.outputs.build_matrix }}
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
@@ -275,6 +276,9 @@ jobs:
         run: |
           MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}")
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          # build-macos builds macOS.
+          BUILD_MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" false "${{ inputs.ubuntu }}")
+          echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
 
       - name: Generate Console Tauri matrix
         id: set-console-tauri-matrix
@@ -331,13 +335,13 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: setup
-    if: needs.setup.outputs.matrix != '[]'
+    if: needs.setup.outputs.build_matrix != '[]'
     timeout-minutes: 75
     permissions: &build_permissions
       actions: read
       contents: write
       packages: write
-    env:
+    env: &build_env
       # A hosted runner signs the macOS binaries and uploads them under their final
       # names, since the Developer ID key must never reach a build bot.
       SIGNING_DEFERRED: ${{ inputs.sign_binaries && matrix.os-name == 'macos' }}
@@ -365,7 +369,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+        include: ${{ fromJSON(needs.setup.outputs.build_matrix) }}
     runs-on: ${{ matrix.os }}
     steps: &build_steps
       - name: Checkout repository
@@ -866,9 +870,27 @@ jobs:
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
+  # macOS builds in a job of its own, so the signing jobs do not wait for the builds of
+  # the other systems.
+  build-macos:
+    name: Build (${{ matrix.os }})
+    needs: setup
+    if: inputs.macos
+    timeout-minutes: 75
+    permissions: *build_permissions
+    env: *build_env
+    strategy: &macos_strategy
+      matrix:
+        include:
+          - os: macos-build-bot
+            os-name: macos
+            executable: ""
+    runs-on: ${{ matrix.os }}
+    steps: *build_steps
+
   sign-macos-driver:
     name: Sign Driver (macOS)
-    needs: [setup, build]
+    needs: [setup, build-macos]
     if: inputs.sign_binaries && inputs.macos && inputs.driver
     timeout-minutes: 30
     permissions: &sign_macos_permissions
@@ -953,23 +975,18 @@ jobs:
       CONSOLE_REF_ARTIFACT:
         ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-macos' ||
         format('synnax-console-assets-v{0}-macos', needs.setup.outputs.VERSION) }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-build-bot
-            os-name: macos
-            executable: ""
+    strategy: *macos_strategy
     runs-on: ${{ matrix.os }}
     steps: *build_steps
 
   sign-macos-core:
     name: Sign Core (macOS)
-    needs: [setup, build, build-macos-core]
+    needs: [setup, build-macos, build-macos-core]
     # build-macos-core skips when the run builds no Driver for the Core to embed.
     if: >-
       ${{ !cancelled() && inputs.sign_binaries && inputs.macos && inputs.core &&
-      needs.build.result == 'success' && needs.build-macos-core.result == (inputs.driver
-      && 'success' || 'skipped') }}
+      needs.build-macos.result == 'success' && needs.build-macos-core.result ==
+      (inputs.driver && 'success' || 'skipped') }}
     timeout-minutes: 30
     permissions: *sign_macos_permissions
     runs-on: macos-latest
@@ -1084,13 +1101,15 @@ jobs:
 
   # synnax update checks these signatures before it runs a downloaded binary. The job
   # runs after the build and the macOS signing, so it signs the files that each OS
-  # signed. A macOS signing job skips when the run has nothing for it to sign.
+  # signed. A build job skips when the run has no system for it, and a macOS signing job
+  # skips when the run has nothing for it to sign.
   sign:
     name: Sign release binaries
-    needs: [setup, build, sign-macos-driver, build-macos-core, sign-macos-core]
+    needs:
+      [setup, build, build-macos, sign-macos-driver, build-macos-core, sign-macos-core]
     if: >-
       ${{ !cancelled() && inputs.release_tag != '' && (inputs.core || inputs.driver) &&
-      needs.build.result == 'success' && !contains(needs.*.result, 'failure') &&
+      needs.setup.outputs.matrix != '[]' && !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     permissions:
@@ -1121,13 +1140,15 @@ jobs:
 
   docker:
     name: Build Docker image
-    needs: [setup, build, republish]
+    needs: [setup, build, build-macos, republish]
     # A release builds the image alone from the Console and Driver releases, with no
-    # platform, so build and republish skip.
+    # platform, so the builds and republish skip. With a platform, republish runs, and a
+    # build job skips only when the run has no system for it.
     if: >-
       ${{ !cancelled() && inputs.docker && needs.setup.result == 'success' &&
       (needs.setup.outputs.matrix == '[]' && !inputs.driver && !inputs.console ||
-      needs.build.result == 'success' && needs.republish.result == 'success') }}
+      needs.republish.result == 'success' && !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1299,16 +1320,22 @@ jobs:
   build-desktop-tauri:
     name: Build Synnax Desktop
     needs:
-      [setup, build, republish, sign-macos-driver, build-macos-core, sign-macos-core]
+      - setup
+      - build
+      - build-macos
+      - republish
+      - sign-macos-driver
+      - build-macos-core
+      - sign-macos-core
     # build.tauri.yaml uploads the bundles to the draft release.
     permissions:
       contents: write
-    # Desktop bundles the signed macOS Core. A macOS signing job skips when the run has
-    # nothing for it to sign.
+    # Desktop bundles the signed macOS Core. A build job skips when the run has no
+    # system for it, and a macOS signing job skips when the run has nothing to sign.
     if: >-
       ${{ !cancelled() && inputs.desktop && needs.setup.outputs.console_tauri_matrix !=
-      '[]' && needs.build.result == 'success' && !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled') }}
+      '[]' && !contains(needs.*.result, 'failure') && !contains(needs.*.result,
+      'cancelled') }}
     uses: ./.github/workflows/build.tauri.yaml
     with:
       desktop: true
