@@ -77,10 +77,12 @@ env:
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
   # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk.
+  # one GOOS, which fits the Ubuntu runner's disk. Without a limit, a hung lint holds the
+  # runner for up to 6 hours.
   lint:
     name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
