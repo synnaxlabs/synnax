@@ -89,20 +89,6 @@ TEST(LJMDeviceTest, testFailedStartAllowsNextStart) {
     ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
 }
 
-/// @brief it should stop the stream when the stream callback cannot be set, and allow a
-/// new stream.
-TEST(LJMDeviceTest, testFailedCallbackStopsStream) {
-    const LJMDevice dev(open_fake_api(), FAILING_CALLBACK_HANDLE);
-    ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
-    x::lib::Shared lib("./driver/labjack/device/libfake_ljm.so");
-    ASSERT_TRUE(lib.load());
-    const auto last_stopped_handle = reinterpret_cast<int (*)()>(
-        const_cast<void *>(lib.get_func_ptr(LAST_STOPPED_HANDLE_FUNC))
-    );
-    EXPECT_EQ(last_stopped_handle(), FAILING_CALLBACK_HANDLE);
-    ASSERT_OCCURRED_AS(start_stream(dev), FAKE_FAILURE);
-}
-
 /// @brief it should allow a new stream after a stop that failed.
 TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     const LJMDevice dev(open_fake_api(), FAILING_STOP_HANDLE);
@@ -111,14 +97,20 @@ TEST(LJMDeviceTest, testFailedStopAllowsNextStart) {
     ASSERT_NIL(start_stream(dev));
 }
 
-/// @brief it should wait for scans that have not arrived.
+/// @brief it should wait one poll interval after each read that finds no scans, and
+/// return the scans once they arrive.
 TEST(LJMDeviceTest, testStreamReadWaitsForScans) {
     const LJMDevice dev(open_fake_api(), LATE_SCANS_HANDLE);
     ASSERT_NIL(start_stream(dev));
     double value = 0;
     int dev_backlog = 0;
     int ljm_backlog = 0;
+    const auto start = x::telem::TimeStamp::now();
     ASSERT_NIL(dev.e_stream_read(&value, &dev_backlog, &ljm_backlog));
+    EXPECT_GE(
+        x::telem::TimeStamp::now() - start,
+        STREAM_POLL_INTERVAL * LATE_SCANS_EMPTY_READS
+    );
     EXPECT_EQ(value, READ_VALUE);
 }
 

@@ -12,11 +12,6 @@
 namespace driver::labjack::device {
 /// @brief a device handle whose stream starts fail in the fake LJM library.
 constexpr int FAILING_START_HANDLE = 1;
-/// @brief a device handle whose stream callbacks cannot be set in the fake LJM library.
-constexpr int FAILING_CALLBACK_HANDLE = 6;
-/// @brief the name of a function of the fake library that returns the handle of its
-/// last stream stop.
-constexpr const char *LAST_STOPPED_HANDLE_FUNC = "fake_ljm_last_stopped_handle";
 /// @brief a device handle whose stream stops fail in the fake LJM library.
 constexpr int FAILING_STOP_HANDLE = 2;
 /// @brief an error code that the fake library names STREAM_BUFFER_FULL, a device error.
@@ -27,11 +22,11 @@ constexpr int DEFAULT_CALIBRATION_HANDLE = 3;
 constexpr const char *DEFAULT_CALIBRATION_SERIAL = "470000003";
 /// @brief the value that every read of the fake library returns.
 constexpr double READ_VALUE = 1.5;
-/// @brief a device handle whose stream reads return LJME_NO_SCANS_RETURNED for the
-/// first 10 ms. The fake library then calls the stream callback.
+/// @brief a device handle whose first LATE_SCANS_EMPTY_READS stream reads return
+/// LJME_NO_SCANS_RETURNED.
 constexpr int LATE_SCANS_HANDLE = 4;
+constexpr int LATE_SCANS_EMPTY_READS = 3;
 /// @brief a device handle whose first stream read returns LJME_NO_SCANS_RETURNED, and
-/// whose next reads return LJME_NO_RESPONSE_BYTES_RECEIVED. The fake library never
-/// calls the stream callback.
+/// whose next reads return LJME_NO_RESPONSE_BYTES_RECEIVED.
 constexpr int LOST_STREAM_HANDLE = 5;
 }
