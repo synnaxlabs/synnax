@@ -48,6 +48,17 @@ func (n Number) Integer() Integer { return Integer(n.i) }
 // Unsigned returns n, which must be of the unsigned kind.
 func (n Number) Unsigned() Unsigned { return Unsigned(n.u) }
 
+// Boolean returns whether n is not 0. ok is false when n is NaN, which has no boolean.
+func (n Number) Boolean() (v, ok bool) {
+	switch n.kind {
+	case KindInteger:
+		return n.i != 0, true
+	case KindUnsigned:
+		return n.u != 0, true
+	}
+	return n.f != 0, !math.IsNaN(n.f)
+}
+
 // String implements fmt.Stringer.
 func (n Number) String() string {
 	switch n.kind {

@@ -252,9 +252,11 @@ func (r Read) Check(dt telem.DataType, index bool) error {
 // Reconcile returns r changed to agree with a channel of data type dt, and a
 // description of each change. It sets the kind that dt takes and clears the data type.
 // Between numeric kinds, it keeps each entry and the fill that the new kind holds
-// exactly and that fits dt. It drops them on other changes of kind, the fill of an
-// index channel, each entry after the first with a label, and an empty label on a kind
-// other than string. Reconcile returns r unchanged when dt is not a known data type.
+// exactly and that fits dt. From a numeric kind to boolean, each entry and the fill
+// become true when they are not 0, and a NaN drops. It drops them on other changes of
+// kind, the fill of an index channel, each entry after the first with a label, and an
+// empty label on a kind other than string. Reconcile returns r unchanged when dt is not
+// a known data type.
 func (r Read) Reconcile(dt telem.DataType, index bool) (Read, []string) {
 	k, ok := KindOf(dt)
 	if !ok {
@@ -310,6 +312,26 @@ func (r Read) Reconcile(dt telem.DataType, index bool) (Read, []string) {
 				out.Number.Fill = &v
 			} else {
 				note("fill %s was dropped: it does not fit %s", f, dt)
+			}
+		}
+	case k == KindBoolean && isNumeric(r.Kind):
+		for _, e := range r.Number.EnumValues {
+			v, ok := e.Value.Boolean()
+			if !ok {
+				note("enum label %q was dropped: %s is not a boolean", e.Label, e.Value)
+				continue
+			}
+			if unique(e.Label) {
+				out.Boolean.EnumValues = append(
+					out.Boolean.EnumValues, BooleanEntry{Label: e.Label, Value: v},
+				)
+			}
+		}
+		if f := r.Number.Fill; f != nil {
+			if v, ok := f.Boolean(); ok {
+				out.Boolean.Fill = &v
+			} else {
+				note("fill %s was dropped: it is not a boolean", f)
 			}
 		}
 	case k == r.Kind && k == KindString:
