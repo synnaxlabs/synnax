@@ -870,7 +870,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, fd)...,
+			goConstraintChecks(field, defaultOnly.Contains(field.Name), fd)...,
 		)
 		if step, ok := goRecurseStep(field, fd, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)

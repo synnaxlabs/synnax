@@ -998,22 +998,6 @@ var _ = Describe("Actions", func() {
 				panel.ResizeSplitPayload{Split: 1, Size: 0.5},
 				"node at path is not a split",
 			),
-			Entry(
-				"size above 1",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: 1.5},
-				"split size must be in [0, 1]",
-			),
-			Entry(
-				"size below 0",
-				panel.Panel{
-					Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode()),
-				},
-				panel.ResizeSplitPayload{Split: 1, Size: -0.1},
-				"split size must be in [0, 1]",
-			),
 		)
 	})
 

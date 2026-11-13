@@ -250,6 +250,8 @@ func (SplitNode) isNodeVariant() {}
 func (s SplitNode) Validate() error {
 	v := validate.New("SplitNode")
 	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	v.GreaterThanEq("size", s.Size, 0)
+	v.LessThanEq("size", s.Size, 1)
 	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
 	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
 	return v.Error()
