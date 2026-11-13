@@ -128,6 +128,28 @@ var _ = Describe("Ranger", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.HasChildren).To(BeFalse())
 		})
+
+		It(
+			"Should mark a range that its batch nests a range in",
+			func(ctx SpecContext) {
+				tr := telem.SecondTS.SpanRange(telem.Second)
+				parentKey := uuid.New()
+				batch := []ranger.Range{
+					{Key: parentKey, Name: "Parent", TimeRange: tr, HasChildren: true},
+					{
+						Name:        "Child",
+						TimeRange:   tr,
+						Parent:      &parentKey,
+						HasChildren: true,
+					},
+					{Name: "Other", TimeRange: tr, HasChildren: true},
+				}
+				Expect(w.CreateMany(ctx, &batch)).To(Succeed())
+				Expect(lo.Map(batch, func(r ranger.Range, _ int) bool {
+					return r.HasChildren
+				})).To(Equal([]bool{true, false, false}))
+			},
+		)
 	})
 
 	Describe("RetrieveParentKey", func() {
