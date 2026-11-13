@@ -33,7 +33,7 @@ UTC. Six release runs did the work:
   macOS step passes no cache flags (`build.synnax.yaml:427-435`). Bazel took 87 minutes
   for the Driver release and 110 minutes for Synnax Desktop. The Linux bot took 19.
 - **Repeat builds**: Synnax Desktop builds the Driver from source
-  (`release.desktop.yaml:150-155`), minutes after a release built the same code.
+  (`release.desktop.yaml`, now deleted), minutes after a release built the same code.
 - **Serial job graph**: The packages wait for `publish-console`, `publish-driver`, and
   `publish-core` (`release.yaml:410`), and the Core waits for both publishes
   (`release.yaml:616`). Only the Core has a real input from the other products.
@@ -79,7 +79,7 @@ the Driver releases it, or with build flags of its own:
 - **Version stamp**: The Core, the clients, and a Driver built from source carry one
   version, so the compatibility check passes (`client/cpp/connection/checker.cpp:36`).
   It is the Core version of the run, or else the newest stable Core tag reachable from
-  `HEAD`, as today (`release.desktop.yaml:104-116`).
+  `HEAD`, as today (`.github/scripts/desktop_build_inputs.sh`).
 
 ### 3.1 Job graph
 
@@ -103,8 +103,11 @@ resolve ─┬─ verify (green run lookup, else full CI) ───────�
   today (`release.yaml:211-238`).
 - **Desktop**: The Desktop build takes the Driver that §3.0 names, builds its Core on a
   bot, and compiles the Tauri app.
-- **Packages build early**: The npm and PyPI jobs build at dispatch. The stage and the
-  upload move to the publish stage.
+- **Packages build early**: A build job per language starts at dispatch and uploads the
+  npm tarballs or the PyPI distributions as a workflow artifact. It also checks that the
+  run can claim the version, so a version that is taken fails at dispatch. The stage and
+  the upload move to the publish stage, in jobs that build nothing. Of the package jobs,
+  only those hold `id-token: write`.
 - **Publish**: One stage, after `verify` and every build pass. It clears the drafts,
   pushes the image, stages npm, and uploads to PyPI. The Core publishes last, so a
   public Core never embeds a release that is still a draft. A failed build leaves only
@@ -125,11 +128,10 @@ a green run exists or `ci` passed, and every publish needs it. A retry of a fail
 release finds the green run and skips CI.
 
 The lookup is a new script, `.github/scripts/green_run.sh`. It lists the runs of
-`nightly.yaml`, `release.yaml`, and `release.desktop.yaml` on the commit and accepts one
-whose `CI / OK` job passed in any attempt, so a rerun of all jobs finds the first
-attempt of its own run. A full run has about 185 jobs, so the script pages the job list,
-50 jobs per page: a page of 100 at times gets an HTTP 502. An API error counts as no
-green run, and CI runs.
+`nightly.yaml` and `release.yaml` on the commit and accepts one whose `CI / OK` job
+passed in any attempt, so a rerun of all jobs finds the first attempt of its own run. A
+full run has about 185 jobs, so the script pages the job list, 50 jobs per page: a page
+of 100 at times gets an HTTP 502. An API error counts as no green run, and CI runs.
 
 ### 3.3 macOS builds on the build bots, signing on hosted runners
 
