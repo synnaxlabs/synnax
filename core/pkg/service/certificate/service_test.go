@@ -234,6 +234,20 @@ var _ = Describe("Service", func() {
 			).
 				To(Equal([]resource.Resource{{ID: c.ResourceID(), Name: "Plant"}}))
 		})
+		It("Should list the certificate as a use of its private key",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				key := newKey()
+				c := e.create(
+					ctx,
+					stored("Plant", newCertificate(key, "a", time.Hour)),
+					encodeKey(key),
+				)
+				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				Expect(e.secrets.Uses(ctx, e.db, secretKey)).
+					To(Equal([]resource.ID{c.ResourceID()}))
+			},
+		)
 		It("Should convert between keys and resource IDs", func() {
 			c := certificate.Certificate{Variant: certificate.FileCertificate{
 				Base: certificate.Base{Key: uuid.New()},

@@ -172,7 +172,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},
@@ -183,7 +183,7 @@ var _ = Describe("Service", func() {
 	DescribeTable(
 		"Should reject a read config with an invalid rate",
 		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"sample_rate": sampleRate,
 				"stream_rate": streamRate,
 			})).Error().To(MatchError(ContainSubstring(msg)))
@@ -205,7 +205,7 @@ var _ = Describe("Service", func() {
 	)
 
 	It("Should accept a zero stream rate under array sampling", func(ctx SpecContext) {
-		Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+		Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 			"sample_rate": 10,
 			"stream_rate": 0,
 			"sampling":    map[string]any{"type": "array", "size": 1},

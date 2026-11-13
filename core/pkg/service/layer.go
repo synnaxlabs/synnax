@@ -217,7 +217,8 @@ type Layer struct {
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
-	// NI owns the stored configuration records of the NI task types.
+	// NI owns the NI chassis, devices, and stored configuration records of the NI task
+	// types.
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
@@ -733,6 +734,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Table) {
 		return nil, err
 	}
+	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
+		Instrumentation: cfg.Child("grant"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Grant) {
+		return nil, err
+	}
+	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
+		Instrumentation: cfg.Child("secret"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		Grant:           l.Grant,
+		EncryptionKey:   cfg.SecretsKey,
+	}); !ok(err, l.Secret) {
+		return nil, err
+	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		Instrumentation: cfg.Child("device"),
 		DB:              cfg.Distribution.DB,
@@ -745,6 +761,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
@@ -813,6 +831,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
+		Secret:          l.Secret,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -891,21 +910,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.View) {
 		return nil, err
 	}
-	if l.Grant, err = grant.OpenService(ctx, grant.ServiceConfig{
-		Instrumentation: cfg.Child("grant"),
-		DB:              cfg.Distribution.DB,
-	}); !ok(err, l.Grant) {
-		return nil, err
-	}
-	if l.Secret, err = secret.OpenService(ctx, secret.ServiceConfig{
-		Instrumentation: cfg.Child("secret"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-		Grant:           l.Grant,
-		EncryptionKey:   cfg.SecretsKey,
-	}); !ok(err, l.Secret) {
-		return nil, err
-	}
 	if l.Certificate, err = certificate.OpenService(ctx, certificate.ServiceConfig{
 		Instrumentation: cfg.Child("certificate"),
 		DB:              cfg.Distribution.DB,
@@ -926,6 +930,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
+			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
@@ -1015,6 +1021,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
+		Secret:          l.Secret,
 	})
 	if !ok(err, nil) {
 		return nil, err

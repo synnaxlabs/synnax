@@ -178,7 +178,8 @@ A field has these settings:
 | Channel <small>`channel`</small>          |           | The channel that records the value.         |
 | Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the payload to numbers. |
 
-An enum mapping in code is a list of `mqtt.EnumEntry(label="ON", value=1)`.
+An enum mapping in code is a list of `payload.EnumEntry(label="ON", value=1)`, with
+`from x import payload`.
 
 <Divider.Divider x />
 

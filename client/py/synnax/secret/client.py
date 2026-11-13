@@ -157,7 +157,7 @@ class Client:
         ).grant
 
     @overload
-    def retrieve(self, key: Key) -> Secret: ...
+    def retrieve(self, key: Key, *, include_uses: bool = ...) -> Secret: ...
 
     @overload
     def retrieve(
@@ -170,6 +170,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Secret: ...
 
@@ -184,6 +185,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Secret: ...
 
@@ -199,6 +201,7 @@ class Client:
         where: Where | None = ...,
         keys: list[Key] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Secret: ...
 
@@ -217,6 +220,7 @@ class Client:
         limit: int | None = ...,
         order: Order | None = ...,
         after: Cursor | None = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Secret]: ...
 
@@ -230,6 +234,7 @@ class Client:
         limit: int | None = None,
         order: Order | None = None,
         after: Cursor | None = None,
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Secret | list[Secret]:
@@ -252,6 +257,9 @@ class Client:
         :param order: The order of the secrets. Defaults to key order.
         :param after: Retrieves the secrets past this position in the order: the key of
             the last secret of the page before, and its value of the order field.
+        :param include_uses: Whether to fill each secret's uses with the resource IDs of
+            the resources that use it and that the caller can read. Secrets come back
+            with no uses when false.
         :param one: Returns one secret for any filter.
         :returns: One secret for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of secrets. The list leaves out keys that no secret has.
@@ -271,6 +279,7 @@ class Client:
             limit=limit,
             order=order,
             after=after,
+            include_uses=include_uses,
         )
         res = self._client.send("/secret/retrieve", req, RetrieveResponse)
         return sole("secret", req, res.secrets) if single else res.secrets

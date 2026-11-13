@@ -19,7 +19,9 @@ import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
 import { Schematic } from "@/feature/schematic";
+import { Secret } from "@/feature/secret";
 import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 
@@ -47,7 +49,9 @@ const TREE_ITEMS: Tree.Items = {
   ...Project.TREE_ITEMS,
   ...Rack.TREE_ITEMS,
   ...Schematic.TREE_ITEMS,
+  ...Secret.TREE_ITEMS,
   ...Table.TREE_ITEMS,
+  ...Task.TREE_ITEMS,
 };
 
 export interface ContextProps extends PropsWithChildren<{}> {}

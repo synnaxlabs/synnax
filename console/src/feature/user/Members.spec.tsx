@@ -184,17 +184,17 @@ describe("User.Members", () => {
     await openMenu(a.name);
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
-    expect(screen.queryByText("Manage credentials")).toBeNull();
+    expect(screen.queryByText("Manage sign-in")).toBeNull();
   });
 
-  it("should open the credentials of another user", async () => {
+  it("should open the sign-in of another user", async () => {
     const u = await createUser("Operator");
     const name = uniqueName("key");
     await client.auth.createKey({ subject: user.resourceID(u.key), name });
     await renderMembers();
     await search(u.name);
     await openMenu(u.name);
-    await clickAndSettle("Manage credentials");
+    await clickAndSettle("Manage sign-in");
     expect(await screen.findByText(name)).toBeTruthy();
   });
 
@@ -222,7 +222,7 @@ describe("User.Members", () => {
     await search(root.name);
     const line = screen.getByRole("option", { name: root.name });
     await openMenu(root.name);
-    expect(await screen.findByText("Manage credentials")).toBeTruthy();
+    expect(await screen.findByText("Manage sign-in")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
     const picker = within(line).getByRole("button", { name: /Owner/ });
     expect(picker.getAttribute("aria-disabled")).toBe("true");
@@ -243,7 +243,7 @@ describe("User.Members", () => {
       await renderMembers(as);
       await search(owner.name);
       await openMenu(owner.name);
-      expect(await screen.findByText("Manage credentials")).toBeTruthy();
+      expect(await screen.findByText("Manage sign-in")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();
     });
 

@@ -448,8 +448,8 @@ var _ = Describe("Write", func() {
 							ctx,
 							t.Key,
 							task.NewSetAction(task.SetPayload{
-								Path:  []string{"config", "routing_key"},
-								Value: "changed",
+								Path:  []string{"config", "auto_start"},
+								Value: true,
 							}),
 						)
 						return err

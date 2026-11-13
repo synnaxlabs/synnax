@@ -123,16 +123,16 @@ const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
       )}
       {single != null && (canUpdate || self) && (
         <Menu.Item
-          itemKey="credentials"
+          itemKey="signIn"
           onClick={() =>
             openCredentials({
               subject: user.resourceID(single.key),
-              title: ["Credentials", single.name],
+              title: ["Sign-in", single.name],
             })
           }
         >
           <Icon.Lock />
-          Manage credentials
+          Manage sign-in
         </Menu.Item>
       )}
       <Menu.Divider />
@@ -149,7 +149,7 @@ const menu = Component.renderProp(MembersMenu);
 
 /**
  * Every user, with their role. The menu of the selected users renames them, manages
- * their credentials, or deletes them.
+ * their sign-in, or deletes them.
  */
 export const Members = (): ReactElement => {
   const { data, getItem, subscribe, more, search } = Flux.useList(

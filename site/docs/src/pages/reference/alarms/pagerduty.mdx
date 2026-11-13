@@ -34,7 +34,8 @@ key, open **Services** -> **Service Directory** in PagerDuty, select the service
 
 1. Run the "Create PagerDuty alert task" command from the
    [command palette](/reference/get-started/ui-overview#search-and-command-palette).
-2. Enter the **Routing key**.
+2. Under **Routing key**, select the secret that holds the key. To add one, select **New
+   secret** and paste the key.
 3. In **Connect from**, select the rack of the Core, such as **Node 1**. The list shows
    only the racks that run PagerDuty tasks.
 4. Click **Add alert**. Under **Trigger**, select the **Status** to watch.
@@ -68,9 +69,14 @@ client.statuses.set(
     )
 )
 
+routing_key = client.secrets.set(
+    name="Engine alerts routing key",
+    value="<your-32-character-integration-key>",
+)
+
 alert_task = sy.pagerduty.AlertTask(
     name="Engine alerts",
-    routing_key="<your-32-character-integration-key>",
+    routing_key=routing_key.key,
     auto_start=False,
     alerts=[
         sy.pagerduty.Alert(
@@ -123,6 +129,11 @@ await client.statuses.set({
   message: "Running",
 });
 
+const routingKey = await client.secrets.set({
+  name: "Engine alerts routing key",
+  source: "stored",
+  value: "<your-32-character-integration-key>",
+});
 const [rack] = await client.racks.retrieve({
   where: { integrations: { any: ["pagerduty"] } },
 });
@@ -131,7 +142,7 @@ const alertTask = await client.tasks.create({
   rack: rack.key,
   type: "pagerduty_alert",
   config: pagerduty.taskConfigZ.parse({
-    routingKey: "<your-32-character-integration-key>",
+    routingKey: routingKey.key,
     alerts: [
       {
         status: "engine-1",
@@ -184,12 +195,12 @@ needs internet access to `events.pagerduty.com`. The task follows the standard
 
 ## Task options
 
-| Console label | Python field  | Default | Notes                                                             |
-| ------------- | ------------- | ------- | ----------------------------------------------------------------- |
-| Routing key   | `routing_key` | -       | The 32-character Events API v2 integration key.                   |
-| Connect from  | -             | -       | The rack of the Core, such as **Node 1**. The Core runs the task. |
-| Auto start    | `auto_start`  | Off     | Starts the task when you configure it.                            |
-| Alerts        | `alerts`      | -       | At least one alert must be enabled.                               |
+| Console label | Python field  | Default | Notes                                                                 |
+| ------------- | ------------- | ------- | --------------------------------------------------------------------- |
+| Routing key   | `routing_key` | -       | The secret that holds the 32-character Events API v2 integration key. |
+| Connect from  | -             | -       | The rack of the Core, such as **Node 1**. The Core runs the task.     |
+| Auto start    | `auto_start`  | Off     | Starts the task when you configure it.                                |
+| Alerts        | `alerts`      | -       | At least one alert must be enabled.                                   |
 
 <Divider.Divider x />
 
@@ -213,13 +224,15 @@ needs internet access to `events.pagerduty.com`. The task follows the standard
 <Problem.Body>
 <Problem.Cause>
 
-The routing key is not 32 characters long. In code, the error is
+The value of the routing key secret is not 32 characters long. In code, the error is
 `must be exactly 32 characters`.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Copy the integration key again from the **Events API v2** integration in PagerDuty.
+Copy the integration key again from the **Events API v2** integration in PagerDuty. Then
+open the **Credentials** toolbar, right-click the secret, select **Replace value**, and
+paste the key. Start the task again to use the new value.
 
 </Problem.Fix>
 </Problem.Body>

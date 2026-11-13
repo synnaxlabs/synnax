@@ -13,6 +13,7 @@ import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
+import { Secret } from "@/feature/secret";
 import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
 import { type Nav } from "@/platform/nav";
@@ -27,6 +28,7 @@ export const LEFT: Nav.Toolbar[] = [
   Task.TOOLBAR,
   Arc.TOOLBAR,
   Status.TOOLBAR,
+  Secret.TOOLBAR,
 ];
 
 export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;

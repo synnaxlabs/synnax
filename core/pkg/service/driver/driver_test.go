@@ -41,6 +41,13 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+// routingKey1 and routingKey2 are the keys of the secrets that the suite creates for
+// the routing keys of alert configs.
+const (
+	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
+	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
+)
+
 var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		GinkgoHelper()
@@ -509,7 +516,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Create(ctx, &t)
@@ -533,7 +540,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 				Expect(stopCount.Load()).To(BeZero())
 
-				setTask(ctx, t.Key, []string{"config", "routing_key"}, "rk-2")
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, routingKey2)
 
 				writeCommand(
 					ctx,
@@ -577,7 +584,7 @@ var _ = Describe("Driver", func() {
 				})).To(Succeed())
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{
-					"routing_key": "rk-1",
+					"routing_key": routingKey1,
 					"alerts": []any{
 						map[string]any{"key": "a", "status": "st-detach"},
 					},
@@ -636,7 +643,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Create(ctx, &t)
@@ -1733,7 +1740,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"routing_key": "rk-1"}
+				t.Config = map[string]any{"routing_key": routingKey1}
 				taskKey.Store(t.Key)
 				countBeforeCreate := configCount.Load()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1748,7 +1755,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(BeNumerically(">", countBeforeCreate))
 
-				setTask(ctx, t.Key, []string{"config", "routing_key"}, "rk-2")
+				setTask(ctx, t.Key, []string{"config", "routing_key"}, routingKey2)
 				writeCommand(
 					ctx,
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
