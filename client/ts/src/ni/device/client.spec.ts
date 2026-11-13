@@ -61,7 +61,25 @@ describe("NI device", async () => {
       const d = await create();
       await client.ni.devices.delete(d.key);
       await client.ni.devices.create(d);
-      expect((await client.ni.devices.retrieve({ key: d.key })).name).toBe(d.name);
+      await expect
+        .poll(async () => (await client.ni.devices.retrieve({ key: d.key })).name)
+        .toBe(d.name);
+    });
+
+    it("should drop a device another client deletes after its create", async () => {
+      await client.connect();
+      await waitForStreamLive(client.connection);
+      const gone = async (key: string): Promise<boolean> =>
+        await client.ni.devices.retrieve({ key }).then(
+          () => false,
+          (e: unknown) => e instanceof NotFoundError,
+        );
+      const d = await create();
+      await other.ni.devices.delete(d.key);
+      await expect.poll(async () => await gone(d.key)).toBe(true);
+      await client.ni.devices.create({ ...d, name: "Again" });
+      await other.ni.devices.delete(d.key);
+      await expect.poll(async () => await gone(d.key)).toBe(true);
     });
 
     it("should add a created device to a watched search", async () => {
