@@ -229,14 +229,11 @@ var _ = Describe("Upload", func() {
 				To(HaveField("Message", "Waiting to upload to Sift"))
 		})
 
-	It("Should finish an upload on its rack after its device moves",
+	It("Should stop an upload whose device moves to another rack",
 		func(ctx SpecContext) {
 			server.Pause()
 			key := upload(ctx)
-			statusOf(ctx, key).Should(SatisfyAll(
-				HaveField("Message", "Uploading to Sift"),
-				HaveField("Details.Rack", HaveValue(Equal(dev.Rack))),
-			))
+			statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
 			other := rack.Rack{Name: "other"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return rackSvc.NewWriter(tx).Create(ctx, &other)
@@ -246,46 +243,10 @@ var _ = Describe("Upload", func() {
 				return deviceSvc.NewWriter(tx).Apply(ctx, dev.Key, move)
 			})).To(Succeed())
 			server.Resume()
-			statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
+			Consistently(server.Runs, 300*time.Millisecond).Should(BeEmpty())
+			Expect(uploadStatus(ctx, key)).
+				To(HaveField("Variant", status.VariantLoading))
 		})
-
-	It("Should not start an upload that another rack claimed", func(ctx SpecContext) {
-		other := rack.Rack{Name: "other"}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return rackSvc.NewWriter(tx).Create(ctx, &other)
-		})).To(Succeed())
-		claimed := createRange(ctx, telem.TimeRange{Start: at(1), End: at(5)})
-		s := sift.UploadStatus{
-			Key:     "sift_upload:" + uuid.NewV7().String(),
-			Name:    claimed.Name,
-			Variant: status.VariantLoading,
-			Message: "Uploading to Sift",
-			Time:    telem.Now(),
-			Details: sift.UploadDetails{
-				Device:    dev.Key,
-				Range:     claimed.Key,
-				TimeRange: claimed.TimeRange,
-				Channels:  []channel.Key{ch.Key()},
-				Asset:     "stand",
-				Rack:      &other.Key,
-			},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return statusSvc.NewWriter(tx).Set(ctx, &s)
-		})).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return statusSvc.NewWriter(tx).Delete(ctx, s.Key)
-			})).To(Succeed())
-		})
-		upload(ctx)
-		Eventually(server.Runs).WithTimeout(10 * time.Second).
-			Should(ContainElement(HaveField("Name", rng.Name)))
-		Consistently(server.Runs, 300*time.Millisecond).
-			Should(HaveExactElements(HaveField("Name", rng.Name)))
-		Expect(uploadStatus(ctx, s.Key)).
-			To(HaveField("Details.Rack", HaveValue(Equal(other.Key))))
-	})
 
 	It("Should cancel an upload whose status is deleted", func(ctx SpecContext) {
 		server.Pause()

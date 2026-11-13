@@ -141,16 +141,17 @@ func queueUpload(
 
 // uploader runs the pending uploads to the Sift devices of one rack, one at a time
 // per device, oldest first. The pending statuses are its queue: it resumes them after
-// a restart, and deleting one cancels its upload. The rack that starts an upload claims
-// it and finishes it, also when its device moves to another rack.
+// a restart, and deleting one cancels its upload. A device that leaves the rack takes
+// its upload with it, and the uploader of its new rack resumes it.
 type uploader struct {
-	cfg        FactoryConfig
-	rack       rack.Key
-	sCtx       signal.Context
-	cancel     context.CancelFunc
-	disconnect observe.Disconnect
-	wake       chan struct{}
-	mu         sync.Mutex
+	cfg               FactoryConfig
+	rack              rack.Key
+	sCtx              signal.Context
+	cancel            context.CancelFunc
+	disconnect        observe.Disconnect
+	disconnectDevices observe.Disconnect
+	wake              chan struct{}
+	mu                sync.Mutex
 	// running holds the upload in progress on each device.
 	running map[device.Key]*upload
 }
@@ -172,6 +173,7 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 		running: make(map[device.Key]*upload),
 	}
 	u.disconnect = cfg.Status.Observe().OnChange(u.observe)
+	u.disconnectDevices = cfg.Device.Observe().OnChange(u.observeDevices)
 	u.signal()
 	sCtx.Go(u.run, signal.RecoverWithErrOnPanic())
 	return u
@@ -181,6 +183,7 @@ func openUploader(cfg FactoryConfig, rk rack.Key) *uploader {
 // the next uploader of the rack resumes it from there.
 func (u *uploader) Close() error {
 	u.disconnect()
+	u.disconnectDevices()
 	u.cancel()
 	return errors.Skip(u.sCtx.Wait(), context.Canceled)
 }
@@ -211,6 +214,24 @@ func (u *uploader) observe(
 			}
 		}
 		u.mu.Unlock()
+	}
+}
+
+func (u *uploader) observeDevices(
+	_ context.Context,
+	r gorp.TxReader[device.Key, device.Device],
+) {
+	for c := range r {
+		if c.Kind != gorp.ChangeDelete && c.Value.Make != Make {
+			continue
+		}
+		u.mu.Lock()
+		if up, ok := u.running[c.Key]; ok &&
+			(c.Kind == gorp.ChangeDelete || c.Value.Rack != u.rack) {
+			up.cancel()
+		}
+		u.mu.Unlock()
+		u.signal()
 	}
 }
 
@@ -264,54 +285,13 @@ func (u *uploader) schedule(ctx context.Context) error {
 		if _, busy := u.running[dev]; busy {
 			continue
 		}
-		if owner := s.Details.Rack; owner != nil {
-			if *owner != u.rack {
-				continue
-			}
-		} else if rk, ok := racks[dev]; ok && rk != u.rack {
-			// The first rack to claim an upload whose device is gone fails it.
+		// Each rack that finds an upload whose device is gone fails it.
+		if rk, ok := racks[dev]; ok && rk != u.rack {
 			continue
 		}
-		claimed, err := u.claim(ctx, &s)
-		if err != nil {
-			return err
-		}
-		if claimed {
-			u.start(s)
-		}
+		u.start(s)
 	}
 	return nil
-}
-
-// claim makes u.rack the rack that runs s and reloads s, unless s is gone or another
-// rack claimed it first.
-func (u *uploader) claim(ctx context.Context, s *UploadStatus) (bool, error) {
-	claimed := false
-	err := u.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var stored UploadStatus
-		err := u.cfg.Status.NewRetrieve[UploadDetails]().
-			Where(status.MatchKeys[UploadDetails](s.Key)).
-			Entry(&stored).
-			Exec(ctx, tx)
-		if errors.Is(err, query.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if owner := stored.Details.Rack; owner != nil {
-			if *owner != u.rack {
-				return nil
-			}
-			*s, claimed = stored, true
-			return nil
-		}
-		rk := u.rack
-		stored.Details.Rack = &rk
-		*s, claimed = stored, true
-		return u.cfg.Status.NewWriter(tx).Set(ctx, &stored)
-	})
-	return claimed && err == nil, err
 }
 
 // start runs the upload of s. u.mu must be held.

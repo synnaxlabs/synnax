@@ -14,7 +14,6 @@ package sift
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/versions"
@@ -58,6 +57,4 @@ type UploadDetails struct {
 	Positions []Position `json:"positions" msgpack:"positions"`
 	// Samples is the number of values Sift has confirmed.
 	Samples int64 `json:"samples" msgpack:"samples"`
-	// Rack is the rack that runs the upload. It is empty until a rack starts it.
-	Rack *rack.Key `json:"rack,omitzero" msgpack:"rack,omitempty"`
 }
