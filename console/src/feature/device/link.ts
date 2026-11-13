@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { getMake, useConfigureModal } from "@/feature/device/make";
+import { getIntegration, useConfigureModal } from "@/feature/device/make";
 import { type Link } from "@/platform/link";
 
 export const useLink = (): Link.Handler => {
   const configure = useConfigureModal();
   return async ({ client, key }) => {
     const device = await client.devices.retrieve(key);
-    const make = getMake(device.make);
-    if (make == null) return;
-    configure(make, device.key);
+    const integration = getIntegration(device.make);
+    if (integration == null) return;
+    configure(integration, device.key);
   };
 };

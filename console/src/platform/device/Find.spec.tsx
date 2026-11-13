@@ -10,7 +10,7 @@
 import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
@@ -29,6 +29,7 @@ const createHardware = (): Device.Hardware => ({
   icon: <Icon.Device />,
   make: uniqueName("make"),
   scanType: uniqueName("scan"),
+  location: { shape: "plain" },
   checks: [],
   Configure: Device.createConfigure({ icon: <Icon.Device />, zeroProperties: {} }),
 });
@@ -76,6 +77,27 @@ describe("Device.useFindModal", () => {
     await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
     expect(await screen.findByText("Failed to scan for devices")).toBeTruthy();
     expect(screen.getByText("Cannot open en1 for raw Ethernet access.")).toBeTruthy();
+  });
+
+  it("should turn on a disabled scanner", async () => {
+    const hardware = { ...createHardware(), scanType: "ethercat_scan" };
+    const rack = await createRunningRack(client, hardware.key);
+    const scanner = await rack.createTask({
+      name: uniqueName("scanner"),
+      type: hardware.scanType,
+      config: { disabled: true },
+      internal: true,
+    });
+    // A client that did not create the scanner caches it only through the modal.
+    await renderModalOpener(Device.useFindModal, [{ hardware }], {
+      client: createTestClient(),
+    });
+    await screen.findByText("Scanning is off on this Driver");
+    fireEvent.click(findButton("Turn on"));
+    await waitFor(async () => {
+      const { config } = await createTestClient().tasks.retrieve(scanner.key);
+      expect(config).toMatchObject({ disabled: false });
+    });
   });
 
   it("should list only the devices the filter accepts", async () => {

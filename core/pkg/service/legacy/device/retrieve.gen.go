@@ -13,12 +13,12 @@ package device
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Device table for references. Pass it as
@@ -221,8 +221,9 @@ func MatchRacks(vals ...rack.Key) Filter {
 // provided values.
 func MatchLocations(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Location), nil
+			return want.Contains(e.Location), nil
 		})
 	}
 }
@@ -232,8 +233,9 @@ func MatchLocations(vals ...string) Filter {
 // provided values.
 func MatchMakes(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Make), nil
+			return want.Contains(e.Make), nil
 		})
 	}
 }
@@ -243,8 +245,9 @@ func MatchMakes(vals ...string) Filter {
 // provided values.
 func MatchModels(vals ...string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Device] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Model), nil
+			return want.Contains(e.Model), nil
 		})
 	}
 }
@@ -258,10 +261,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}

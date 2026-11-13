@@ -33,7 +33,8 @@ class Config(task.PersistConfig):
 
     Attributes:
         arc_key: Is the key of the Arc module the task executes.
-        hash: Is the semantic hash of the Arc module at deploy time.
+        hash: Is the hash of the automation's compiled program, or of its source when it
+            does not compile.
         performance: Sets how closely the runtime holds timer deadlines.
     """
 

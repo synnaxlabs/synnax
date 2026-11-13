@@ -61,9 +61,8 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const value = PForm.useFieldValue(entry);
   const device = useChannelDevice(entry);
   const { port, type, channel, disabled } = value;
-  const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
-  const hasTareButton = channel !== 0 && !isSnapshot;
+  const hasTareButton = channel !== 0;
   const canTare = !disabled && isRunning;
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = CI_CHANNEL_TYPE_ICONS[type];
@@ -106,9 +105,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : COUNTER_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />
@@ -197,6 +198,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
+    const before = deep.copy(dev.properties);
     let devModified = false;
 
     let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
@@ -253,7 +255,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev, SCHEMAS);
+      if (devModified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
     }
   }
 

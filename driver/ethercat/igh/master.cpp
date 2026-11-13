@@ -21,6 +21,7 @@
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -31,31 +32,36 @@ constexpr auto SYSFS_PATH = "/sys/class/EtherCAT";
 /// @brief the device of the first IgH master.
 constexpr auto DEVICE_PATH = "/dev/EtherCAT0";
 
+/// @brief returns a read of the object dictionary of the slave at position.
+coe::Read sdo_reader(const API &api, ec_master_t *master, const uint16_t position) {
+    return [&api, master, position](const uint16_t index, const uint8_t sub_index)
+               -> std::pair<uint32_t, x::errors::Error> {
+        std::array<uint8_t, 4> data{};
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (api.master_sdo_upload(
+                master,
+                position,
+                index,
+                sub_index,
+                data.data(),
+                data.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return {0, coe::read_error(index, sub_index, abort_code)};
+        uint32_t value = 0;
+        for (size_t i = 0; i < size; i++)
+            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        return {value, x::errors::NIL};
+    };
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
     return coe::read_layout(
-        [&](const uint16_t index,
-            const uint8_t sub_index) -> std::pair<uint32_t, x::errors::Error> {
-            std::array<uint8_t, 4> data{};
-            size_t size = 0;
-            uint32_t abort_code = 0;
-            if (api.master_sdo_upload(
-                    master,
-                    position,
-                    index,
-                    sub_index,
-                    data.data(),
-                    data.size(),
-                    &size,
-                    &abort_code
-                ) < 0)
-                return {0, coe::read_error(index, sub_index, abort_code)};
-            uint32_t value = 0;
-            for (size_t i = 0; i < size; i++)
-                value |= static_cast<uint32_t>(data[i]) << (8 * i);
-            return {value, x::errors::NIL};
-        },
+        sdo_reader(api, master, position),
         EC_MAX_SYNC_MANAGERS,
         coe::OnError::FAIL
     );
@@ -190,6 +196,15 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
+        auto [settings, settings_err] = esi::read_settings(
+            slave_info.vendor_id,
+            slave_info.product_code,
+            slave_info.revision_number,
+            result.properties.op_modes,
+            sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
+        );
+        result.status.settings_error = settings_err.data;
+        result.properties.settings = std::move(settings);
         this->cached_slaves.push_back(std::move(result));
     }
 
@@ -216,32 +231,94 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {info.slave_count, x::errors::NIL};
 }
 
+x::errors::Error
+Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
+    const auto data = param.bytes();
+    uint32_t abort_code = 0;
+    if (this->api->master_sdo_download(
+            this->ec_master,
+            ring_position(slave.position),
+            param.index,
+            param.sub_index,
+            data.data(),
+            data.size(),
+            &abort_code
+        ) >= 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        errors::STARTUP_PARAMETER_ERROR,
+        "slave " + std::to_string(slave.position) + " (" + slave.name +
+            ") rejected startup parameter " + param.to_string() + ": " +
+            errors::sdo_abort_reason(abort_code)
+    );
+}
+
+x::errors::Error Master::write(
+    const uint16_t position,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    if (position == 0 || position > this->cached_slaves.size())
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "no slave at position " + std::to_string(position)
+        );
+    const auto &slave = this->cached_slaves[position - 1].properties;
+    if (!this->activated) {
+        for (const auto &param: parameters)
+            if (auto err = this->download(slave, param)) return err;
+        return x::errors::NIL;
+    }
+    for (const auto &param: parameters) {
+        const auto want = param.bytes();
+        std::vector<uint8_t> held(want.size());
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (this->api->master_sdo_upload(
+                this->ec_master,
+                ring_position(position),
+                param.index,
+                param.sub_index,
+                held.data(),
+                held.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return x::errors::Error(
+                errors::STARTUP_PARAMETER_ERROR,
+                "slave " + std::to_string(position) + " (" + slave.name +
+                    ") failed to read startup parameter " + param.to_string() + ": " +
+                    errors::sdo_abort_reason(abort_code)
+            );
+        if (size != want.size() || held != want)
+            return x::errors::Error(
+                errors::SETTING_CONFLICT,
+                "the IgH master cannot change " + param.to_string() + " of slave " +
+                    std::to_string(position) + " (" + slave.name +
+                    ") while other tasks run the bus. Stop them, then start this "
+                    "task first"
+            );
+    }
+    return x::errors::NIL;
+}
+
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t position, const uint16_t index, const uint8_t sub_index) {
+    return sdo_reader(*this->api, this->ec_master, ring_position(position))(
+        index,
+        sub_index
+    );
+}
+
 x::errors::Error Master::add_startup_parameters(
     const slave::Properties &slave,
     ec_slave_config_t *sc,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    const auto slave_name = "slave " + std::to_string(slave.position) + " (" +
-                            slave.name + ")";
     for (const auto &param: parameters) {
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        uint32_t abort_code = 0;
-        if (this->api->master_sdo_download(
-                this->ec_master,
-                ring_position(slave.position),
-                param.index,
-                param.sub_index,
-                data.data(),
-                data.size(),
-                &abort_code
-            ) < 0)
-            return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
-                slave_name + " rejected startup parameter " + param.to_string() + ": " +
-                    errors::sdo_abort_reason(abort_code)
-            );
+        if (auto err = this->download(slave, param)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -251,8 +328,8 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to " +
-                    slave_name
+                "failed to add startup parameter " + param.to_string() + " to slave " +
+                    std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
     return x::errors::NIL;

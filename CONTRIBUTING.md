@@ -18,8 +18,8 @@ made before the hooks, run `pnpm prepare` once. Hooks in `.git/hooks` no longer 
 
 `main` is the only long-lived branch and is always releasable. A branch is named after
 its Linear issue (`sy-4892-review-tiers`) and returns to `main` by pull request. A
-hotfix lands on `main` first, then a cherry-pick PR targets `release/<product>-X.Y`. A
-person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
+hotfix lands on `main` first, then a cherry-pick PR targets `release/X.Y`. A person
+dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.md)).
 
 - Title: `SY-####: Sentence case description`, or a prefix such as `[docs]` with no
   issue.
@@ -32,8 +32,8 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   while the label stays deploys it again. Add it when the PR changes the Console UI or
   needs a live Core to review. `preview/docs`, `preview/foundation`, `preview/landing`,
   and `preview/portal` do the same for each site on Vercel.
-- A version bump rides the PR that ships the change. Test-only and docs-only changes
-  bump nothing.
+- A PR never bumps a version. Every manifest carries `0.0.0`, and Release resolves each
+  version from Git tags.
 
 ### Pull requests from forks
 
@@ -89,9 +89,10 @@ GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
-already on `main` do not block. The rule waits for the CodeQL scan of each language, so
-every pull request scans all of them. GitHub does not apply the rule to a merge queue
-group.
+already on `main` do not block. The rule waits for a CodeQL analysis of each language. A
+pull request scans every language, except that it uploads an empty analysis for C++ or
+Rust when it changes no input of that language. GitHub does not apply the rule to a
+merge queue group.
 
 ## Size
 
@@ -110,9 +111,11 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` (or `site/docs/src/flags.ts`) is on in dev and Desktop builds and
-off in the Console build; its entry names the owner, the Linear umbrella issue, and the
-release that removes it. A flag past that release is a bug: promote or delete.
+`console/src/flags.ts` is on only where its expression says. To ship in Desktop, its
+expression names `DESKTOP`, so it is on in Desktop builds and off in the Console build.
+A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the owner,
+the Linear umbrella issue, and the release that removes it. A flag past that release is
+a bug: promote or delete.
 
 1. **Land dark** in `review/human` PRs. The reviewer confirms the Console build
    tree-shakes the code out.

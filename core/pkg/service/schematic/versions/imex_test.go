@@ -37,7 +37,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
@@ -62,7 +61,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
-		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
@@ -99,7 +97,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
-		Expect(sch.Snapshot).To(BeFalse())
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges[0].Source).
 			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
@@ -120,7 +117,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		func(ctx SpecContext, path string, nodes int) {
 			s := decode(ctx, path)
 			Expect(s.Nodes).To(HaveLen(nodes))
-			Expect(s.Snapshot).To(BeFalse())
 			// The Console's per-node render state — id, type, selected, measured — does
 			// not survive: a stored node keeps only key, position, and z-index.
 			for _, n := range s.Nodes {
@@ -167,7 +163,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Edges[0].Source.Param).To(Equal("outlet"))
 		Expect(s.Edges[0].Target.Param).To(Equal("inlet"))
 		Expect(s.Configs).To(HaveKey("n1"))
-		Expect(s.Snapshot).To(BeFalse())
 	})
 
 	It("Should lift the Console state that added a legend", func(ctx SpecContext) {
@@ -178,6 +173,40 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Edges).To(HaveLen(1))
 		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
 	})
+
+	DescribeTable("Should keep an explicit zero and default an omitted field", func(
+		ctx SpecContext,
+		path string,
+	) {
+		sch := decode(ctx, path)
+		gauge := func(node string) versions.GaugeElementConfig {
+			GinkgoHelper()
+			cfg, ok := sch.Configs[node].Variant.(versions.GaugeElementConfig)
+			Expect(ok).To(BeTrue())
+			return cfg
+		}
+		Expect(gauge("g1").Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		Expect(gauge("g2").Bounds).To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
+	},
+		Entry("current version", "testdata/import_v10_zeros.json"),
+		Entry("older version", "testdata/import_v8_zeros.json"),
+	)
+
+	DescribeTable("Should import a zero scale as 1 and keep the other zeros", func(
+		ctx SpecContext,
+		path string,
+	) {
+		sch := decode(ctx, path)
+		valve := valveConfig(sch, "v1")
+		Expect(valve.Scale).To(Equal(1.0))
+		Expect(valve.StalenessTimeout).To(BeZero())
+		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+	},
+		Entry("current version", "testdata/import_v10_zero_scale.json"),
+		Entry("older version", "testdata/import_v8_zero_scale.json"),
+	)
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))

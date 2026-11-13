@@ -47,6 +47,10 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 			}
 		}
 	}
+	// An import's children are the module's members, positioned in the module's text.
+	if scope.Kind == symbol.KindModuleAlias {
+		return
+	}
 	for _, child := range scope.Children() {
 		collectFoldingRanges(child, ranges)
 	}

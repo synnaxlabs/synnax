@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,11 +46,11 @@ func createGroup(ctx SpecContext, parent *group.Group) group.Group {
 
 func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	GinkgoHelper()
-	sym := symbol.Symbol{
+	sym := defaults.Fill(symbol.Symbol{
 		Name:  "Inlet",
 		Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		Group: &g.Key,
-	}
+	})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).Create(ctx, &sym)
 	})).To(Succeed())
@@ -98,7 +99,7 @@ var _ = Describe("DeleteGroup", func() {
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -117,10 +118,10 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			created := symbol.Symbol{
+			created := defaults.Fill(symbol.Symbol{
 				Name: "concurrent",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &created)
 			})).To(Succeed())
@@ -146,9 +147,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := created
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							return svc.NewWriter(tx).Rename(ctx, created.Key, "renamed")
 						})).
 							To(Succeed())
 					}

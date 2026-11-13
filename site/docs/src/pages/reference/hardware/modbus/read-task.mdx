@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Modbus read task"
-description: "Read the coils and registers of a Modbus TCP server into channels."
+description: "Read the coils and registers of a Modbus server into channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -25,12 +25,12 @@ Before you start, you need a
 
 A read task reads four types of data, each with its own address range:
 
-| Console label    | Modbus name      | Function code | Value                         |
-| ---------------- | ---------------- | ------------- | ----------------------------- |
-| Coil             | Coil             | 01            | 0 or 1                        |
-| Discrete         | Discrete input   | 02            | 0 or 1                        |
-| Holding register | Holding register | 03            | A number, in 1 to 4 registers |
-| Register         | Input register   | 04            | A number, in 1 to 4 registers |
+| Console label    | Function code | Value                         |
+| ---------------- | ------------- | ----------------------------- |
+| Coil             | 01            | 0 or 1                        |
+| Discrete input   | 02            | 0 or 1                        |
+| Holding register | 03            | A number, in 1 to 4 registers |
+| Input register   | 04            | A number, in 1 to 4 registers |
 
 A register holds 16 bits. An 8-bit or 16-bit value uses one register, and an 8-bit value
 is the low byte. A 32-bit value uses two registers, and a 64-bit value uses four. The
@@ -53,17 +53,21 @@ CDAB). Many devices send the high word first (big-endian, ABCD). The **Byte orde
 the [server](/reference/hardware/modbus/connect-server#connection-options) sets the
 order for every register channel of the server.
 
-To change the order of one channel, use its **Bytes** and **Words** selects. Each select
-has three options:
+To change the order of one channel, select its **Byte order** in the channel list.
+**From device** uses the order of the server, and names it. The other options set the
+order of the channel, whatever the server sets:
 
-- **device** -> uses the byte order of the server, and shows its value, such as **device
-  (swapped)**.
-- **swapped** -> swaps the order of this channel, whatever the server sets.
-- **not swapped** -> does not swap the order of this channel, whatever the server sets.
+| Byte order           | `bytes_swapped` | `words_swapped` |
+| -------------------- | --------------- | --------------- |
+| From device          | Unset           | Unset           |
+| Big-endian (ABCD)    | `False`         | `True`          |
+| Byte swap (BADC)     | `True`          | `True`          |
+| Word swap (CDAB)     | `False`         | `False`         |
+| Little-endian (DCBA) | `True`          | `False`         |
 
-The Console hides **Words** for 8-bit and 16-bit data types, because they fit in one
-register. In code, leave `bytes_swapped` and `words_swapped` unset to use the order of
-the server.
+An 8-bit or 16-bit value fits in one register, so its channel offers only **Big-endian**
+and **Little-endian**, which set `bytes_swapped`. In code, leave `bytes_swapped` and
+`words_swapped` unset to use the order of the server.
 
 <Divider.Divider x />
 
@@ -74,10 +78,17 @@ the server.
 
 1. In the devices toolbar, right-click the server and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**. Select the type, then enter the address. For a register,
-   select the **Data type**. For a string, set the **Length**. For a bit, set the
-   **Bit**.
-4. Click <Icon.Play /> (**Start**).
+3. The task starts with one coil channel. To add more, click **Add channel**, or click a
+   free address in the register map above the channel list.
+4. In the channel list, set the **Type** and the **Address** of each channel. For a
+   register, select the **Data type**. For a string, set the **Length**. For a bit, set
+   the **Bit**.
+5. Click <Icon.Play /> (**Start**).
+
+The register map shows a lane for each register type, on one address scale. An address
+that a channel uses is filled. A hatched band marks an address that two channels use.
+Click a used address to select its channel, or right-click it to open the menu of the
+channel.
 
 The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
 register at address 0 gives `Pump_skid_PLC_holding_register_input_0_f32`, and a coil at
@@ -206,7 +217,7 @@ Reads a coil as 0 or 1, as `uint8`.
 </Channel.Type>
 
 <Channel.Type
-  name="Discrete"
+  name="Discrete input"
   type="discrete_input"
   python="DiscreteInputReadChannel"
 >
@@ -223,27 +234,25 @@ Reads a discrete input as 0 or 1, as `uint8`.
 
 Reads a number from one or more holding registers.
 
-| Setting                              | Default  | Notes                                                                                           |
-| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
-| Words <small>`words_swapped`</small> | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
+| Setting                                                    | Default     | Notes                                                                                           |
+| ---------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small>                       | `uint16`    | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| Byte order <small>`bytes_swapped`, `words_swapped`</small> | From device | See [byte and word order](#byte-and-word-order).                                                |
 
 </Channel.Type>
 
 <Channel.Type
-  name="Register"
+  name="Input register"
   type="input_register"
   python="InputRegisterReadChannel"
 >
 
 Reads a number from one or more input registers.
 
-| Setting                              | Default  | Notes                                                                                           |
-| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
-| Words <small>`words_swapped`</small> | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
+| Setting                                                    | Default     | Notes                                                                                           |
+| ---------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small>                       | `uint16`    | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| Byte order <small>`bytes_swapped`, `words_swapped`</small> | From device | See [byte and word order](#byte-and-word-order).                                                |
 
 </Channel.Type>
 
@@ -255,10 +264,10 @@ Reads a number from one or more input registers.
 
 Reads a string from consecutive holding registers. See [strings](#strings).
 
-| Setting                              | Default | Notes                                                                                              |
-| ------------------------------------ | ------- | -------------------------------------------------------------------------------------------------- |
-| Length <small>`length`</small>       |         | The number of characters, from 1 to 250.                                                           |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
+| Setting                                   | Default     | Notes                                                                                              |
+| ----------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| Length <small>`length`</small>            |             | The number of characters, from 1 to 250.                                                           |
+| Byte order <small>`bytes_swapped`</small> | From device | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
 
 </Channel.Type>
 
@@ -270,10 +279,10 @@ Reads a string from consecutive holding registers. See [strings](#strings).
 
 Reads a string from consecutive input registers. See [strings](#strings).
 
-| Setting                              | Default | Notes                                                                                              |
-| ------------------------------------ | ------- | -------------------------------------------------------------------------------------------------- |
-| Length <small>`length`</small>       |         | The number of characters, from 1 to 250.                                                           |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
+| Setting                                   | Default     | Notes                                                                                              |
+| ----------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| Length <small>`length`</small>            |             | The number of characters, from 1 to 250.                                                           |
+| Byte order <small>`bytes_swapped`</small> | From device | `True` swaps the two characters in each register. See [byte and word order](#byte-and-word-order). |
 
 </Channel.Type>
 
@@ -292,7 +301,7 @@ Reads one bit of a holding register as 0 or 1, as `uint8`.
 </Channel.Type>
 
 <Channel.Type
-  name="Register bit"
+  name="Input register bit"
   type="input_register_bit"
   python="InputRegisterBitReadChannel"
 >
@@ -309,9 +318,10 @@ Reads one bit of an input register as 0 or 1, as `uint8`.
 
 ### Strings
 
-Each register holds two characters, the high byte first. **Bytes** set to swapped puts
-the low byte first. The string ends at the first NUL character. The Synnax channel of a
-string must have the `string` data type.
+Each register holds two characters, the high byte first. A **Byte order** of
+**Little-endian** (`bytes_swapped` set to `True`) puts the low byte first. The string
+ends at the first NUL character. The Synnax channel of a string must have the `string`
+data type.
 
 <Divider.Divider x />
 

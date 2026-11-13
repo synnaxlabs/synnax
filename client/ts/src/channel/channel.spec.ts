@@ -7,26 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  control,
-  DataType,
-  id,
-  sleep,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { control, DataType, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
-import { type ranger } from "@/ranger";
 import {
   createProxiedTestClient,
   createTestClient,
   expectDeleted,
   expectLive,
+  failRequests,
   FAST_RETRY,
   spyOnSend,
   waitForStreamLive,
@@ -223,6 +215,65 @@ describe("Channel", () => {
         expect(channelTwo.length).toEqual(2);
         expect(channelTwo[0].key).toEqual(channel.key);
         expect(channelTwo[1].key).not.toEqual(channel.key);
+      });
+      it("should not create a duplicate channel with the same name", async () => {
+        const name = id.create();
+        const props = {
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        };
+        const channel = await client.channels.create(props);
+        await client.channels.create(props, { retrieveIfNameExists: true });
+        const retrieved = await client.channels.retrieve({
+          where: { name: { eq: name } },
+        });
+        expect(retrieved.map((c) => c.key)).toEqual([channel.key]);
+      });
+      it("should create one channel when creates of the same name run at once", async () => {
+        const name = id.create();
+        const props = {
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        };
+        const created = await Promise.all(
+          Array.from({ length: 10 }, () =>
+            client.channels.create(props, { retrieveIfNameExists: true }),
+          ),
+        );
+        const keys = new Set(created.map((c) => c.key));
+        expect(keys.size).toEqual(1);
+        const retrieved = await client.channels.retrieve({
+          where: { name: { eq: name } },
+        });
+        expect(retrieved.map((c) => c.key)).toEqual([...keys]);
+      });
+      it("should return the channels in the order they were passed", async () => {
+        const name = id.create();
+        const channel = await client.channels.create({
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        });
+        const newName = id.create();
+        const created = await client.channels.create(
+          [
+            {
+              name: newName,
+              leaseholder: 1,
+              virtual: true,
+              dataType: DataType.FLOAT32,
+            },
+            { name, leaseholder: 1, virtual: true, dataType: DataType.FLOAT32 },
+          ],
+          { retrieveIfNameExists: true },
+        );
+        expect(created.map((c) => c.name)).toEqual([newName, name]);
+        expect(created[1].key).toEqual(channel.key);
       });
     });
   });
@@ -471,61 +522,123 @@ describe("Channel", () => {
         virtual: true,
       });
       const g = await client.groups.create({ name: id.create(), scope: "channel" });
-      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      await client.batch.send(client.channels.setGroupRequest(ch.key, g.key));
       expect((await client.channels.retrieve(ch.key)).group).toEqual(g.key);
       expect(
         (await client.channels.retrieve({ groups: [g.key] })).map((c) => c.key),
       ).toEqual([ch.key]);
-      await client.batch.send([client.channels.setGroupRequest(ch.key, null)]);
+      await client.batch.send(client.channels.setGroupRequest(ch.key, null));
       expect(await client.channels.retrieve({ groups: [g.key] })).toEqual([]);
+    });
+  });
+  describe("dispatch", () => {
+    it("should apply the actions to the channel", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        virtual: true,
+      });
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      const name = id.create();
+      await client.channels.dispatch(ch.key, [
+        channel.rename({ name }),
+        channel.set({ path: ["group"], value: g.key }),
+      ]);
+      expect(await createTestClient().channels.retrieve(ch.key)).toMatchObject({
+        name,
+        group: g.key,
+      });
+    });
+
+    it("should cache the channel as the Core holds it before it resolves", async () => {
+      // A client with no change stream gets no echo of the dispatch.
+      const unstreamed = createTestClient({ cache: false });
+      const ch = await unstreamed.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      await unstreamed.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 1.5" }),
+      );
+      const cached = unstreamed.channels.store.get(ch.key);
+      expect(cached?.expression).toEqual("return 1.5");
+      expect(cached?.dataType).toEqual(DataType.FLOAT64);
+    });
+
+    it("should resolve and report a failed fetch after the send", async () => {
+      const onInternalError = vi.fn();
+      const local = createTestClient({ onInternalError });
+      const ch = await local.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      const fetchError = new Error("fetch failed");
+      failRequests(local, "/channel/retrieve", fetchError);
+      await local.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 2" }),
+      );
+      expect(onInternalError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "failed to fetch a dispatched channel",
+          cause: fetchError,
+        }),
+      );
+    });
+
+    it("should keep the cached channel when the Core rejects the actions", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.INT64,
+        virtual: true,
+        expression: "return 1",
+      });
+      const before = client.channels.store.get(ch.key);
+      await expect(
+        client.channels.dispatch(
+          ch.key,
+          channel.set({ path: ["expression"], value: "" }),
+        ),
+      ).rejects.toThrow("its expression cannot be empty");
+      expect(client.channels.store.get(ch.key)).toBe(before);
     });
   });
   describe("update calculations", () => {
     test("update virtual channel expression", async () => {
-      const channel = await client.channels.create({
+      const ch = await client.channels.create({
         name: id.create(),
         virtual: true,
         dataType: DataType.INT64,
         expression: "return 1",
       });
-
-      const updated = await client.channels.create({
-        key: channel.key,
-        name: channel.name,
-        dataType: channel.dataType,
-        leaseholder: channel.leaseholder,
-        virtual: true,
-        expression: "return 2",
-      });
-
-      const channelsWithName = await client.channels.retrieve([channel.name]);
+      await client.channels.dispatch(
+        ch.key,
+        channel.set({ path: ["expression"], value: "return 2" }),
+      );
+      const fresh = createTestClient();
+      const channelsWithName = await fresh.channels.retrieve([ch.name]);
       expect(channelsWithName.length).toEqual(1);
-
-      expect(updated.expression).toEqual("return 2");
-
-      const retrieved = await client.channels.retrieve(channel.key);
+      const retrieved = await fresh.channels.retrieve(ch.key);
       expect(retrieved.expression).toEqual("return 2");
     });
 
     test("update calculated channel name", async () => {
-      const channel = await client.channels.create({
+      const ch = await client.channels.create({
         name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: "return 1",
       });
-
-      const updated = await client.channels.create({
-        key: channel.key,
-        name: id.create(),
-        dataType: channel.dataType,
-        virtual: true,
-        expression: channel.expression,
-      });
-      expect(updated.name).toEqual(updated.name);
-
-      const retrieved = await client.channels.retrieve(channel.key);
-      expect(retrieved.name).toEqual(updated.name);
+      const name = id.create();
+      await client.channels.rename(ch.key, name);
+      const retrieved = await client.channels.retrieve(ch.key);
+      expect(retrieved.name).toEqual(name);
+      expect(retrieved.expression).toEqual("return 1");
     });
   });
 
@@ -585,14 +698,6 @@ const createVirtual = async (c = client) =>
     dataType: DataType.FLOAT32,
     virtual: true,
   });
-
-const createRange = async (c = client) => {
-  const start = TimeStamp.now();
-  return await c.ranges.create({
-    name: `qry-${id.create()}`,
-    timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
-  });
-};
 
 describe("cached reads", () => {
   // Changes made while the stream is still opening are lost (epoch
@@ -878,7 +983,9 @@ describe("cached reads", () => {
         await client.channels.rename(ch.key, name);
         expect(list.getCached()?.records.map((c) => c.key)).toEqual([ch.key]);
         await sleep.sleep(TimeSpan.milliseconds(250));
-        expect(send.mock.calls.map(([target]) => target)).toEqual(["/channel/rename"]);
+        expect(send.mock.calls.map(([target]) => target)).toEqual([
+          "/channel/dispatch",
+        ]);
       } finally {
         send.mockRestore();
         off();
@@ -982,17 +1089,6 @@ describe("cached reads", () => {
       const stop = local.channels.watch(calc.key).onChange(() => {});
       stop();
       const retrieved = await local.channels.retrieve(calc.key);
-      expect(retrieved.status?.message).toBe("invalid expression");
-    });
-
-    it("should fetch the status for a query under a range", async () => {
-      const calc = await createCalculatedWithStatus();
-      const rng = await createRange();
-      const local = createTestClient();
-      await local.channels.retrieve([calc.key]);
-      const params = { key: calc.key, rangeKey: rng.key };
-      expect(local.channels.watch(params).getCached()).toBeUndefined();
-      const retrieved = await local.channels.retrieve(params);
       expect(retrieved.status?.message).toBe("invalid expression");
     });
 
@@ -1132,188 +1228,6 @@ describe("cached reads", () => {
       } finally {
         off();
       }
-    });
-  });
-
-  describe("aliases", () => {
-    it("composes the alias for a single query under a range", async () => {
-      const ch = await createVirtual();
-      const rng = await createRange();
-      const alias = `qry_alias_${id.create()}`;
-      await client.ranges.setAlias(rng.key, ch.key, alias);
-      const res = await client.channels.retrieve(ch.key, { rangeKey: rng.key });
-      expect(res.alias).toEqual(alias);
-      const bare = await client.channels.retrieve(ch.key);
-      expect(bare.alias).toBeUndefined();
-    });
-
-    it.each([
-      {
-        name: "single",
-        retrieve: async (key: channel.Key, rangeKey: ranger.Key) =>
-          await client.channels.retrieve(key, { rangeKey }),
-      },
-      {
-        name: "where",
-        retrieve: async (key: channel.Key, rangeKey: ranger.Key) => {
-          const res = await client.channels.retrieve({ key: [key], rangeKey });
-          return res[0];
-        },
-      },
-    ])(
-      "falls back to the parent alias on a $name query once the child's is deleted",
-      async ({ retrieve }) => {
-        const ch = await createVirtual();
-        const parent = await createRange();
-        const start = TimeStamp.now();
-        const child = await client.ranges.create({
-          name: `qry-${id.create()}`,
-          timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
-          parent: parent.key,
-        });
-        const inherited = `qry_alias_${id.create()}`;
-        await client.ranges.setAlias(parent.key, ch.key, inherited);
-        await client.ranges.setAlias(child.key, ch.key, `qry_alias_${id.create()}`);
-        await client.ranges.deleteAlias(child.key, ch.key);
-        // The delete's own echo can drop one read, and the next read restores it.
-        await expect
-          .poll(async () => (await retrieve(ch.key, child.key)).alias)
-          .toEqual(inherited);
-      },
-    );
-
-    it("delivers remote alias changes to a subscribed single query", async () => {
-      const ch = await createVirtual();
-      const rng = await createRange();
-      const params = { key: ch.key, rangeKey: rng.key };
-      const off = client.channels.watch(params).onChange(() => {});
-      try {
-        await client.channels.retrieve(ch.key, { rangeKey: rng.key });
-        const alias = `qry_alias_${id.create()}`;
-        await remote.ranges.setAlias(rng.key, ch.key, alias);
-        await expect
-          .poll(() => {
-            const cached = client.channels.watch(params).getCached();
-            return query.isLive(cached) ? cached.alias : undefined;
-          })
-          .toBe(alias);
-        await remote.ranges.deleteAlias(rng.key, ch.key);
-        await expect
-          .poll(() => {
-            const cached = client.channels.watch(params).getCached();
-            return query.isLive(cached) ? cached.alias : undefined;
-          })
-          .toBeUndefined();
-      } finally {
-        off();
-      }
-    });
-
-    it("composes aliases for a keys request under a range", async () => {
-      const a = await createVirtual();
-      const b = await createVirtual();
-      const rng = await createRange();
-      const alias = `qry_alias_${id.create()}`;
-      await client.ranges.setAlias(rng.key, a.key, alias);
-      const res = await client.channels.retrieve({
-        key: [a.key, b.key],
-        rangeKey: rng.key,
-      });
-      expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
-      expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
-    });
-
-    it("puts the channels whose alias matches a search first", async () => {
-      const term = id.create();
-      const named = await client.channels.create({
-        name: `${term}_named`,
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const aliased = await createVirtual();
-      const excluded = await client.channels.create({
-        name: `qry_${id.create()}`,
-        dataType: DataType.FLOAT64,
-        virtual: true,
-      });
-      const rng = await createRange();
-      await client.ranges.setAlias(rng.key, aliased.key, `${term}_alias`);
-      await client.ranges.setAlias(rng.key, excluded.key, `${term}_excluded`);
-      await expect
-        .poll(async () => {
-          const res = await client.channels.retrieve({
-            searchTerm: term,
-            rangeKey: rng.key,
-            dataType: DataType.FLOAT32,
-          });
-          return res.map((ch) => [ch.key, ch.alias]);
-        })
-        .toEqual([
-          [aliased.key, `${term}_alias`],
-          [named.key, undefined],
-        ]);
-    });
-
-    it("does not serve an unfetched keys request under a range", async () => {
-      const ch = await createVirtual();
-      const rng = await createRange();
-      await client.channels.retrieve(ch.key);
-      expect(
-        client.channels.watch({ key: [ch.key], rangeKey: rng.key }).getCached(),
-      ).toBeUndefined();
-    });
-
-    describe("single query on a row cached without a range", () => {
-      const createAliased = async () => {
-        const ch = await createVirtual();
-        const rng = await createRange();
-        const alias = `qry_alias_${id.create()}`;
-        await client.ranges.setAlias(rng.key, ch.key, alias);
-        const local = createTestClient();
-        await local.channels.retrieve(ch.key);
-        return { local, params: { key: ch.key, rangeKey: rng.key }, alias };
-      };
-
-      it("should not answer getCached from the row", async () => {
-        const { local, params, alias } = await createAliased();
-        expect(local.channels.watch(params).getCached()).toBeUndefined();
-        await local.channels.retrieve(params);
-        expect(expectLive(local.channels.watch(params).getCached()).alias).toBe(alias);
-      });
-
-      it("should fetch the alias for a subscribed query", async () => {
-        const { local, params, alias } = await createAliased();
-        const stop = local.channels.watch(params).onChange(() => {});
-        try {
-          const res = await local.channels.retrieve(params);
-          expect(res.alias).toBe(alias);
-        } finally {
-          stop();
-        }
-      });
-
-      it("should fetch once for a channel with no alias", async () => {
-        const ch = await createVirtual();
-        const rng = await createRange();
-        const local = createTestClient();
-        await local.channels.retrieve(ch.key);
-        await waitForStreamLive(local.connection);
-        const send = spyOnSend(local);
-        const params = { key: ch.key, rangeKey: rng.key };
-        const stop = local.channels.watch(params).onChange(() => {});
-        try {
-          expect((await local.channels.retrieve(params)).alias).toBeUndefined();
-          await local.channels.retrieve(params);
-          expect(
-            expectLive(local.channels.watch(params).getCached()).alias,
-          ).toBeUndefined();
-          expect(
-            send.mock.calls.filter(([target]) => target === "/range/alias/retrieve"),
-          ).toHaveLength(1);
-        } finally {
-          stop();
-        }
-      });
     });
   });
 });

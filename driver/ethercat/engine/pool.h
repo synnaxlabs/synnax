@@ -28,10 +28,11 @@ const LibraryInfo PCAP_LIBRARY_INFO = {
     "https://npcap.com/#download"
 };
 
-/// @brief returns the settings of each slave on a network, keyed by position.
-using SlaveConfigs = std::function<
-    std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>(const std::string
-                                                                       &network)>;
+/// @brief returns the settings of each slave on a network, keyed by position. It gets
+/// the key of the network and the name that messages to the user give it.
+using SlaveConfigs = std::function<std::pair<
+    std::map<uint16_t, slave::Config>,
+    x::errors::Error>(const std::string &network, const std::string &name)>;
 
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {

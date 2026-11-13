@@ -62,6 +62,7 @@ cc_test(
     srcs = ["engine_test.cpp"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/coe",
         "//driver/ethercat/engine",
         "//driver/ethercat/testutil",
         "//x/cpp/defer",

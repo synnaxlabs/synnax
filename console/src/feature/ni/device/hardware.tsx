@@ -9,20 +9,21 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
+import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { SCAN_TYPE } from "@/feature/ni/task/types";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.NI />;
 
 export const HARDWARE: Device.Hardware = {
-  key: INTEGRATION,
+  key: INTEGRATION_KEY,
   name: "NI",
   title: "NI hardware",
   description: "DAQ cards, cDAQ chassis, and other NI-DAQmx devices.",
   icon: ICON,
   make: MAKE,
   scanType: SCAN_TYPE,
+  location: { shape: "plain" },
   Configure: Device.createConfigure({ icon: ICON, zeroProperties: ZERO_PROPERTIES }),
   checks: [
     "NI-DAQmx is installed on that computer. NI hardware needs Windows or Linux.",

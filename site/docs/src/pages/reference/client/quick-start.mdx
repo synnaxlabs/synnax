@@ -20,9 +20,9 @@ file `synnax.py`, because that name hides the `synnax` package.
 
 You need:
 
-- [Synnax Desktop](/reference/get-started/install-desktop) on your computer, or a Core
-  in [Synnax Enterprise](/reference/enterprise) that your computer can reach, and a
-  username and password for it.
+- [Synnax Desktop](/reference/get-started/install-desktop) open on your computer. You
+  can also use a Core in [Synnax Enterprise](/reference/enterprise) that your computer
+  can reach, with a username and password for it.
 - Python 3.12 or later, or Node.js 22 or later.
 
 <Divider.Divider x />
@@ -54,31 +54,33 @@ npm install @synnaxlabs/client tsx
 </Client.Tabs>
 
 Install the client version that matches the major and minor version of your Core, such
-as client 0.58 for Core 0.58. The client prints a warning when the versions differ.
+as client 0.61 for Core 0.61. The client prints a warning when the versions differ. The
+**Connect from code** dialog of Synnax Desktop gives the install command that matches.
 
 <Divider.Divider x />
 
 ## Connect to the Core
 
-Replace the address and credentials with the values of your Core. For TLS and other
-options, see [Connect to a Core](/reference/client/connect).
-
-With Synnax Desktop, the Python client finds the Core by itself: call `sy.Synnax()` with
-no arguments. For TypeScript, copy the code from the **Connect from code** dialog. See
-[Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
-
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
+With Synnax Desktop open, the Python client finds its Core by itself:
+
 ```python
 import synnax as sy
 
+client = sy.Synnax()
+```
+
+For a Core in Synnax Enterprise, give its address and your credentials:
+
+```python
 client = sy.Synnax(
-    host="localhost",
+    host="core.example.com",
     port=9090,
-    username="synnax",
-    password="seldon",
+    username="operator",
+    password="secret",
 )
 ```
 
@@ -86,20 +88,28 @@ client = sy.Synnax(
 
   <Fragment slot="typescript">
 
+For Synnax Desktop, copy the `host`, `port`, and `apiKey` from the **Connect from code**
+dialog:
+
 ```typescript
 import { DataType, Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax({
   host: "localhost",
   port: 9090,
-  username: "synnax",
-  password: "seldon",
+  apiKey: "syk_...",
 });
 ```
+
+For a Core in Synnax Enterprise, give its address and your credentials in place of
+`apiKey`: `username: "operator"` and `password: "secret"`.
 
   </Fragment>
 
 </Client.Tabs>
+
+To open the dialog, click the code button in the top bar of Synnax Desktop. For TLS, API
+keys, and other options, see [Connect to a Core](/reference/client/connect).
 
 <Divider.Divider x />
 

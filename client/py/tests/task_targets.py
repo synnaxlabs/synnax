@@ -23,10 +23,11 @@ class TaskTargets:
         self._client = client
         self._rack = client.racks.create(name=random_name()).key
         self._channels: dict[sy.channel.Key, sy.channel.Key] = {}
+        self._devices: dict[sy.device.Key, sy.device.Key] = {}
 
     def attach(self, config: BaseModel) -> None:
-        """Points each channel field of config at a new virtual channel, one for each
-        distinct key, and creates each device and status that config names."""
+        """Points each channel and device field of config at a new channel or device,
+        one for each distinct key, and creates each status that config names."""
         for name in type(config).model_fields:
             value = getattr(config, name)
             if isinstance(value, BaseModel):
@@ -40,7 +41,7 @@ class TaskTargets:
             elif name in CHANNEL_FIELDS and isinstance(value, int):
                 setattr(config, name, self._channel(value))
             elif name == "device" and isinstance(value, str):
-                self._device(value)
+                setattr(config, name, self._device(value))
             elif name == "status" and isinstance(value, str):
                 self._status(value)
 
@@ -51,17 +52,19 @@ class TaskTargets:
             ).key
         return self._channels[key]
 
-    def _device(self, key: sy.device.Key) -> None:
-        self._client.devices.create(
-            sy.Device(
-                key=key,
-                name=key,
-                rack=self._rack,
-                location="test",
-                make="test",
-                model="test",
-            )
-        )
+    def _device(self, key: sy.device.Key) -> sy.device.Key:
+        if key not in self._devices:
+            self._devices[key] = self._client.devices.create(
+                sy.Device(
+                    key=f"{key}-{random_name()}",
+                    name=key,
+                    rack=self._rack,
+                    location="test",
+                    make="test",
+                    model="test",
+                )
+            ).key
+        return self._devices[key]
 
     def _status(self, key: sy.status.Key) -> None:
         self._client.statuses.set(

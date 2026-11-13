@@ -90,7 +90,7 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "slave {} ({}) is not on the bus",
+                        "Slave {} ({}) is not on the bus.",
                         saved.position,
                         saved.name
                     )
@@ -100,7 +100,7 @@ struct Slaves {
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
                     std::format(
-                        "slave {} ({}): expected {} {:#010x}, found {:#010x}",
+                        "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
                         saved.position,
                         saved.name,
                         field,

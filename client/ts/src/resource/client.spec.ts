@@ -240,6 +240,96 @@ describe("Resource", () => {
     });
   });
 
+  describe("a list of IDs", () => {
+    it("should call the handler with the new name of a renamed resource", async () => {
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create({
+        project: proj.key,
+        name: randomToken(),
+      });
+      const ids = [lineplot.resourceID(plot.key), group.resourceID(uuid.create())];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.watch(ids).onChange((answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.lineplots.rename(plot.key, "renamed");
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual(["renamed"]);
+    });
+
+    it("should drop a deleted resource from the answer", async () => {
+      const proj = await client.projects.create({ name: randomToken() });
+      const plot = await client.lineplots.create({
+        project: proj.key,
+        name: randomToken(),
+      });
+      const ids = [lineplot.resourceID(plot.key)];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.watch(ids).onChange((answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.lineplots.delete(plot.key);
+      await expect.poll(() => latest).toEqual([]);
+    });
+
+    it("should add a resource created again with the key of a deleted one", async () => {
+      const key = uuid.create();
+      const name = randomToken();
+      const set = async () =>
+        await client.statuses.set({ key, name, variant: "info", message: "a" });
+      await set();
+      const ids = [status.resourceID(key)];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.watch(ids).onChange((answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.statuses.delete(key);
+      await expect.poll(() => latest).toEqual([]);
+      await set();
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([name]);
+    });
+
+    it("should keep the order of the IDs when a resource is created again", async () => {
+      const first = uuid.create();
+      const second = uuid.create();
+      const set = async (key: string) =>
+        await client.statuses.set({ key, name: key, variant: "info", message: "a" });
+      await set(first);
+      await set(second);
+      const ids = [status.resourceID(first), status.resourceID(second)];
+      let latest: resource.Resource[] | undefined;
+      const off = client.resources.watch(ids).onChange((answer) => {
+        if (query.isLive(answer)) latest = answer;
+      });
+      onTestFinished(off);
+      await client.resources.retrieve(ids);
+      await client.statuses.delete(first);
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([second]);
+      await set(first);
+      await expect.poll(() => latest?.map((r) => r.name)).toEqual([first, second]);
+    });
+
+    it("should name a resource once when the IDs repeat it", async () => {
+      const l = await createLabel(randomToken());
+      const ids = [l, l];
+      expect((await client.resources.retrieve(ids)).map((r) => r.id)).toEqual([l]);
+      const cached = client.resources.watch(ids).getCached();
+      expect(query.isLive(cached) && cached.map((r) => r.id)).toEqual([l]);
+    });
+
+    it("should return the cached answer of a list read before", async () => {
+      const l = await createLabel(randomToken());
+      await client.resources.retrieve([l]);
+      const cached = client.resources.watch([l]).getCached();
+      expect(query.isLive(cached) && cached.map((r) => r.id)).toEqual([l]);
+    });
+  });
+
   describe("retrieve", () => {
     it("should retrieve the name of a single resource", async () => {
       const name = randomToken();

@@ -466,7 +466,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
           tool: cargo-llvm-cov
 
@@ -513,6 +513,8 @@ jobs:
       inputs.full || needs.changes.outputs.docs == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
+    with:
+      strict: *full
     secrets:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
@@ -642,8 +644,6 @@ jobs:
           version: latest-known
 
       - name: Check names that are public without need
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: uv run --project scripts scripts/check_exports_py.py
 
   format:
@@ -853,8 +853,6 @@ jobs:
         run: pnpm knip
 
       - name: Check exports that only their own module's specs use
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
         run: python3 scripts/check_exports_ts.py
 
   lint-integration:
@@ -1082,9 +1080,6 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
   vite-plugin:
     needs: changes
     if:
@@ -1209,6 +1204,7 @@ jobs:
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners
   # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
+  # A job that no runner takes ends as cancelled, and counts as failed.
   fail-fast:
     name: Fail fast
     if: github.event_name == 'merge_group'
@@ -1229,7 +1225,8 @@ jobs:
               continue
             fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out") | .name' <<< "$jobs")
+              or .conclusion == "timed_out" or .conclusion == "cancelled")
+              | .name' <<< "$jobs")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
@@ -1305,7 +1302,6 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
-      - versions
       - vite-plugin
       - www
       - www-site

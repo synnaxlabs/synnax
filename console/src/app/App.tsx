@@ -10,13 +10,12 @@
 import "@/app/App.css";
 import "@synnaxlabs/lyra/dist/base.css";
 
-import { Fragment, type PropsWithChildren, type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 
 import { Analytics } from "@/app/analytics";
 import { Haul } from "@/app/haul";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
-import { Range } from "@/app/range";
 import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
@@ -25,7 +24,6 @@ import { Embedded } from "@/feature/embedded";
 import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
 import { Runtime } from "@/platform/runtime";
-import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
@@ -36,15 +34,7 @@ const SideEffect = (): null => {
   return null;
 };
 
-const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
-  <Embedded.Provider>
-    <Version.InstallProvider middleware={Embedded.installMiddleware}>
-      {children}
-    </Version.InstallProvider>
-  </Embedded.Provider>
-);
-
-const BuildContext = DESKTOP ? DesktopContext : Fragment;
+const BuildContext = DESKTOP ? Embedded.Provider : Fragment;
 
 const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
@@ -61,13 +51,11 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
                 <Errors.OverlayWithStore>
                   <Panel.Context>
                     <Tree.Context>
-                      <Range.Context>
-                        <Task.Context>
-                          <Vis.Canvas>
-                            <Window.Window />
-                          </Vis.Canvas>
-                        </Task.Context>
-                      </Range.Context>
+                      <Task.Context>
+                        <Vis.Canvas>
+                          <Window.Window />
+                        </Vis.Canvas>
+                      </Task.Context>
                     </Tree.Context>
                   </Panel.Context>
                 </Errors.OverlayWithStore>

@@ -15,6 +15,8 @@ from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     TYPE_RESOURCE_ID,
+    Change,
+    ChangeKind,
     Cursor,
     GraphSource,
     Key,
@@ -33,6 +35,8 @@ __all__ = [
     "TYPE_RESOURCE_ID",
     "Arc",
     "Automation",
+    "Change",
+    "ChangeKind",
     "Client",
     "Cursor",
     "Edge",

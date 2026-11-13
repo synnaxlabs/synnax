@@ -86,4 +86,19 @@ describe("arc useCreate", () => {
     const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
     expect(retrieved.type).toBe("module");
   });
+
+  it("should reject a module name that is not an identifier", async () => {
+    const { open } = await setup();
+    await open();
+    const input = await screen.findByPlaceholderText("Arc name");
+    fireEvent.change(input, { target: { value: "bad name" } });
+    fireEvent.click(await screen.findByText("Module"));
+    const create = await screen.findByRole("button", { name: "Create" });
+    await act(async () => {
+      fireEvent.click(create);
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/must start with a letter or underscore/)).toBeTruthy(),
+    );
+  });
 });

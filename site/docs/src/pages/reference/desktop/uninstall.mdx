@@ -28,6 +28,10 @@ When you uninstall Synnax Desktop, your data stays on the computer unless you de
 If you did not select it, delete the folders `%LOCALAPPDATA%\com.synnaxlabs.desktop` and
 `%APPDATA%\com.synnaxlabs.desktop`.
 
+The uninstaller does not delete `%USERPROFILE%\.synnax\desktop.json`, which holds the
+API key that scripts use. Delete it too. The `.synnax` folder also holds the settings
+that `sy login` saved, so delete the whole folder only if you no longer use them.
+
 </Fragment>
 
 <Fragment slot="macOS">
@@ -40,6 +44,9 @@ If you did not select it, delete the folders `%LOCALAPPDATA%\com.synnaxlabs.desk
    - `~/Library/Caches/com.synnaxlabs.desktop`
    - `~/Library/WebKit/com.synnaxlabs.desktop`
    - `~/Library/Preferences/com.synnaxlabs.desktop.plist`
+   - `~/.synnax/desktop.json`, which holds the API key that scripts use. The `~/.synnax`
+     folder also holds the settings that `sy login` saved, so delete the whole folder
+     only if you no longer use them.
 
 </Fragment>
 

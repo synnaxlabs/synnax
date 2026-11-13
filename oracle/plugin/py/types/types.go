@@ -284,17 +284,23 @@ func generatePyFile(
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
-	if len(data.missingIncludes) > 0 {
-		missing := data.missingIncludes.Slice()
-		slices.Sort(missing)
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"types with no generated Python declaration need a @py include "+
-				"module: %s",
-			strings.Join(missing, ", "),
-		)
+	if err := data.missingIncludesErr(); err != nil {
+		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// missingIncludesErr returns an error naming the hand-written types that the file
+// references with no @py include module, or nil when there are none.
+func (d *templateData) missingIncludesErr() error {
+	if len(d.missingIncludes) == 0 {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"types with no generated Python declaration need a @py include module: %s",
+		sortedJoin(d.missingIncludes),
+	)
 }
 
 func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
@@ -603,7 +609,7 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -965,7 +971,7 @@ func processField(
 	fd := fieldData{
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
-		IsOptional: field.Optional,
+		IsOptional: optionalInPython(field),
 		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
@@ -983,13 +989,13 @@ func processField(
 	)
 
 	if bounds, ok := sizedIntBounds(field.Type, table); ok {
-		hasGe := lo.ContainsBy(fieldConstraints, func(c string) bool {
-			return strings.HasPrefix(c, "ge=")
+		hasLower := lo.ContainsBy(fieldConstraints, func(c string) bool {
+			return strings.HasPrefix(c, "ge=") || strings.HasPrefix(c, "gt=")
 		})
 		hasLe := lo.ContainsBy(fieldConstraints, func(c string) bool {
 			return strings.HasPrefix(c, "le=")
 		})
-		if !hasGe {
+		if !hasLower {
 			fieldConstraints = append(fieldConstraints, "ge="+bounds.min)
 		}
 		if !hasLe {
@@ -1022,7 +1028,7 @@ func processField(
 	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
-	optional := field.Optional || isOptionalTypeParam || excludedRequired
+	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType = fd.PyType + " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
@@ -1041,7 +1047,7 @@ func processField(
 // requiredInPython reports whether a Python model must be given field: it is not
 // optional and has no default.
 func requiredInPython(field resolution.Field, table *resolution.Table) bool {
-	if field.Optional || field.Default != nil {
+	if optionalInPython(field) || field.Default != nil {
 		return false
 	}
 	if field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
@@ -1052,15 +1058,25 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 	return !isCollection
 }
 
-// orderBounds moves ge and le to the end of constraints, so the output does not depend
-// on which bounds a schema states and which its type implies.
+// optionalInPython reports whether field is optional in Python. `@py optional` makes a
+// field optional in Python alone, such as an any field that the JSON codec drops when
+// it is None.
+func optionalInPython(field resolution.Field) bool {
+	return field.Optional || domain.HasExprFromField(field, "py", "optional")
+}
+
+// orderBounds moves the lower bounds, then le, then allow_inf_nan to the end of
+// constraints, so the output does not depend on which bounds a schema states and which
+// its type implies.
 func orderBounds(constraints []string) {
 	rank := func(c string) int {
 		switch {
-		case strings.HasPrefix(c, "ge="):
+		case strings.HasPrefix(c, "ge="), strings.HasPrefix(c, "gt="):
 			return 1
 		case strings.HasPrefix(c, "le="):
 			return 2
+		case c == "allow_inf_nan=False":
+			return 3
 		default:
 			return 0
 		}
@@ -1141,8 +1157,8 @@ func collectValidation(
 	var constraints []string
 	isString := resolution.IsPrimitive(typeRef.Name) &&
 		resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsNumberPrimitive(typeRef.Name)
+	primitive := key.ResolvePrimitive(typeRef, table)
+	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
 			constraints = append(
@@ -1165,12 +1181,23 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("ge=%f", rules.Min.Float))
 			}
 		}
+		if rules.GT != nil {
+			if rules.GT.IsInt {
+				constraints = append(constraints, fmt.Sprintf("gt=%d", rules.GT.Int))
+			} else {
+				constraints = append(constraints, fmt.Sprintf("gt=%f", rules.GT.Float))
+			}
+		}
 		if rules.Max != nil {
 			if rules.Max.IsInt {
 				constraints = append(constraints, fmt.Sprintf("le=%d", rules.Max.Int))
 			} else {
 				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
+		}
+		isFloat := primitive == "float32" || primitive == "float64"
+		if isFloat && len(constraints) > 0 {
+			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
 	if defaultVal != nil {
@@ -1601,6 +1628,28 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// mapKeyToPython returns the Python type of a map key. A sized integer key carries
+// its range in its type, since the bounds of a field do not reach its dict keys.
+func mapKeyToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	keyType := typeToPython(typeRef, table, data)
+	bounds, ok := sizedIntBounds(typeRef, table)
+	if !ok {
+		return keyType
+	}
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("Field")
+	return fmt.Sprintf(
+		"Annotated[%s, Field(ge=%s, le=%s)]",
+		keyType,
+		bounds.min,
+		bounds.max,
+	)
+}
+
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. It returns the name to reference, which is an alias when the
@@ -1687,7 +1736,7 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
 		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
@@ -1792,7 +1841,7 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			typeToPython(typeRef.TypeArgs[0], table, data),
+			mapKeyToPython(typeRef.TypeArgs[0], table, data),
 			typeToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}
@@ -2274,23 +2323,6 @@ func formatVariantDocstring(v unionVariantData) string {
 	return googleDocstring(v.Doc, nil)
 }
 
-// pyDocComment renders doc text as a Python line comment, capitalizing the first
-// letter (Python convention omits the identifier name) and prefixing every line
-// with "# ". It is used to document module-level aliases that cannot carry a
-// docstring, such as a discriminated union's Annotated alias.
-func pyDocComment(docText string) string {
-	if docText == "" {
-		return ""
-	}
-	r := []rune(docText)
-	docText = strings.ToUpper(string(r[0])) + string(r[1:])
-	lines := strings.Split(docText, "\n")
-	for i := range lines {
-		lines[i] = "# " + lines[i]
-	}
-	return strings.Join(lines, "\n")
-}
-
 // genericArg returns the Python type argument for a type parameter in Generic[...].
 func genericArg(tpd typeParamData) string {
 	return tpd.Name
@@ -2319,7 +2351,7 @@ var templateFuncs = template.FuncMap{
 	"formatGoogleDocstring":  formatGoogleDocstring,
 	"hasDocumentation":       hasDocumentation,
 	"formatVariantDocstring": formatVariantDocstring,
-	"pyDocComment":           pyDocComment,
+	"pyDocComment":           doc.FormatPyComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
 	"fieldName":              fieldName,
@@ -2331,40 +2363,7 @@ var fileTemplate = template.Must(
 		Parse(`# Code generated by Oracle. DO NOT EDIT.
 
 from __future__ import annotations
-{{- if .UUIDImports }}
-from uuid import {{ join .UUIDImports ", " }}
-{{- end }}
-{{- if .TypingImports }}
-from typing import {{ join .TypingImports ", " }}
-{{- end }}
-{{- if .TypingExtensionsImports }}
-from typing_extensions import {{ join .TypingExtensionsImports ", " }}
-{{- end }}
-{{- if .EnumImports }}
-from enum import {{ join .EnumImports ", " }}
-{{- end }}
-{{- if .PydanticImports }}
-from pydantic import {{ join .PydanticImports ", " }}
-{{- end }}
-{{- if .SynnaxImports }}
-from synnax.telem import {{ join .SynnaxImports ", " }}
-{{- end }}
-{{- if .ResourceImports }}
-from synnax.resource import {{ join .ResourceImports ", " }}
-{{- end }}
-{{- if .CodecImports }}
-from x.codec import {{ join .CodecImports ", " }}
-{{- end }}
-{{- range .NamespaceImports }}
-from {{ .Path }} import {{ .Alias }}
-{{- end }}
-{{- range .ModuleImports }}
-{{- if eq .Module .Alias }}
-from {{ .Parent }} import {{ .Module }}
-{{- else }}
-from {{ .Parent }} import {{ .Module }} as {{ .Alias }}
-{{- end }}
-{{- end }}
+{{- template "imports" . }}
 {{- range .TypeDefs }}
 {{- if .IsDistinct }}
 
@@ -2538,5 +2537,40 @@ TYPE_RESOURCE_ID = ID(type="{{ .Resource.TypeName }}")
 def resource_id(key: {{ .Resource.KeyType }}) -> ID:
     return ID(type="{{ .Resource.TypeName }}", key=str(key))
 {{- end }}
-`),
+{{ define "imports" }}
+{{- if .UUIDImports }}
+from uuid import {{ join .UUIDImports ", " }}
+{{- end }}
+{{- if .TypingImports }}
+from typing import {{ join .TypingImports ", " }}
+{{- end }}
+{{- if .TypingExtensionsImports }}
+from typing_extensions import {{ join .TypingExtensionsImports ", " }}
+{{- end }}
+{{- if .EnumImports }}
+from enum import {{ join .EnumImports ", " }}
+{{- end }}
+{{- if .PydanticImports }}
+from pydantic import {{ join .PydanticImports ", " }}
+{{- end }}
+{{- if .SynnaxImports }}
+from synnax.telem import {{ join .SynnaxImports ", " }}
+{{- end }}
+{{- if .ResourceImports }}
+from synnax.resource import {{ join .ResourceImports ", " }}
+{{- end }}
+{{- if .CodecImports }}
+from x.codec import {{ join .CodecImports ", " }}
+{{- end }}
+{{- range .NamespaceImports }}
+from {{ .Path }} import {{ .Alias }}
+{{- end }}
+{{- range .ModuleImports }}
+{{- if eq .Module .Alias }}
+from {{ .Parent }} import {{ .Module }}
+{{- else }}
+from {{ .Parent }} import {{ .Module }} as {{ .Alias }}
+{{- end }}
+{{- end }}
+{{- end }}`),
 )

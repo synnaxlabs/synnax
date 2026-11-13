@@ -122,7 +122,7 @@ var _ = Describe("Graph", func() {
 				"00a45a6f6f6dca00000000a36b6579c41096e1d792008a4905a3bc5c9fc103cdda",
 		))
 		var a v0.Arc
-		Expect(xmsgpack.Codec.Decode(ctx, stored, &a)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(stored, &a)).To(Succeed())
 		Expect(a.Name).To(Equal("graph arc"))
 		Expect(a.Graph.Nodes).To(HaveLen(2))
 		Expect(a.Graph.Nodes[0]).To(And(

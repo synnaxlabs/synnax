@@ -70,12 +70,6 @@ func (w Writer) Move(
 				validate.ErrValidation, "%q is not in the source directory", e.name,
 			)
 		}
-		if e.id.Type != resource.TypeArc {
-			continue
-		}
-		if err = w.validateEntry(ctx, to, e.id, e.name, e.identifier); err != nil {
-			return err
-		}
 	}
 	for _, key := range dirKeys {
 		if err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
@@ -84,28 +78,11 @@ func (w Writer) Move(
 			return err
 		}
 	}
-	if len(arcKeys) == 0 {
-		return nil
-	}
-	var moved []Arc
-	if err = w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Arc](arcKeys...)).
-		Change(func(_ gorp.Context, a Arc) Arc {
-			b := a.Base()
-			b.Directory = &to
-			a.SetBase(b)
-			moved = append(moved, a)
-			return a
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, a := range moved {
-		w.dispatcher.Attach(
-			w.tx,
-			a.Base().Key,
-			NewCreateAction(CreatePayload{Arc: a}),
-		)
+	set := NewSetDirectoryAction(SetDirectoryPayload{Directory: to})
+	for _, key := range arcKeys {
+		if err = w.Apply(ctx, key, set); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -115,8 +92,6 @@ type entry struct {
 	id     resource.ID
 	name   string
 	parent *directory.Key
-	// identifier is whether the name must be an identifier.
-	identifier bool
 }
 
 func (w Writer) retrieveEntries(
@@ -155,58 +130,11 @@ func (w Writer) retrieveEntries(
 
 func arcEntry(a Arc) entry {
 	b := a.Base()
-	return entry{
-		id:         a.ResourceID(),
-		name:       b.Name,
-		parent:     b.Directory,
-		identifier: a.Type() == TypeModule,
-	}
+	return entry{id: a.ResourceID(), name: b.Name, parent: b.Directory}
 }
 
 func directoryEntry(d directory.Directory) entry {
-	return entry{id: d.ResourceID(), name: d.Name, parent: d.Parent, identifier: true}
-}
-
-// validateName checks name for the entry id in the directory that holds it. An entry
-// in no directory is not checked.
-func (w Writer) validateName(
-	ctx context.Context,
-	id resource.ID,
-	name string,
-	identifier bool,
-) error {
-	parent, err := w.parentOf(ctx, id)
-	if err != nil || parent == nil {
-		return err
-	}
-	return w.validateEntry(ctx, *parent, id, name, identifier)
-}
-
-// parentOf returns the directory that holds the Arc or directory id, or nil when no
-// directory does.
-func (w Writer) parentOf(ctx context.Context, id resource.ID) (*directory.Key, error) {
-	key, err := resource.ParseUUIDKey(id)
-	if err != nil {
-		return nil, err
-	}
-	if id.Type == resource.TypeArc {
-		var a Arc
-		if err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](key)).
-			Entry(&a).
-			Exec(ctx, w.tx); err != nil {
-			return nil, err
-		}
-		return a.Base().Directory, nil
-	}
-	var d directory.Directory
-	if err = w.directories.NewRetrieve().
-		Where(directory.MatchKeys(key)).
-		Entry(&d).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	return d.Parent, nil
+	return entry{id: d.ResourceID(), name: d.Name, parent: d.Parent}
 }
 
 // validateEntry checks name for the entry id placed in the directory parent. The name

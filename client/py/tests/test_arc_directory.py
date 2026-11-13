@@ -51,9 +51,9 @@ class TestArcDirectory:
         module = client.arcs.create(
             name=f"mod_{uuid4().hex}", mode="text", type="module"
         )
-        dirs.move(root, d.key, module.resource_id)
+        dirs.move(d.key, module.resource_id)
         assert client.arcs.retrieve(key=module.key).directory == d.key
-        dirs.move(d.key, root, module.resource_id)
+        dirs.move(root, module.resource_id)
         assert client.arcs.retrieve(key=module.key).directory == root
         client.arcs.delete(module.key)
         dirs.delete(d.key)

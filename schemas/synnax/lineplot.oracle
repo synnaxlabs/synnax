@@ -330,18 +330,7 @@ LinePlot struct {
         @ref on_delete detach
     }
     project  project.Key? {
-        @doc value     """
-            is the project that owns the line plot, if any. Exactly one of project and
-            range is set.
-        """
-        @ref kind      place
-        @ref on_delete cascade
-    }
-    range    ranger.Key?  {
-        @doc value     """
-            is the range that owns the line plot, if any. Exactly one of project and
-            range is set.
-        """
+        @doc value     "is the project that owns the line plot."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -616,21 +605,21 @@ LinePlot struct {
         @doc value "removes the rule with the given key, if present."
     }
 
-    action Set extends patch.Set {
+    action Set = patch.Set {
         @doc value "replaces the value at a path in the line plot."
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the line plot.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value "adds an entry to a list in the line plot."
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value "moves an entry in a list in the line plot."
     }
 
@@ -657,9 +646,6 @@ Where filter LinePlot {
     }
     projects project.Key[] {
         @doc value "matches the line plots owned by any of the given projects."
-    }
-    ranges   ranger.Key[]  {
-        @doc value "matches the line plots owned by any of the given ranges."
     }
 
     @doc value         "is a filter that selects line plots."

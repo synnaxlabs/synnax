@@ -12,15 +12,27 @@ description: Resolves the next version of a product from its Git tags
 
 inputs:
   product:
-    description: console, core, driver, or desktop
-    required: true
-  bump:
-    description: patch, minor, or major (desktop only)
+    description: console, core, driver, desktop, ts, or py
     required: true
   prerelease:
     description: Tag a release candidate (-rc.N)
     required: false
     default: "false"
+  ref:
+    description:
+      The branch the release runs from. It is main, release/X.Y, or release/desktop-X.Y
+      for Desktop. Any other branch fails.
+    required: true
+  bump:
+    description: patch, minor, or major (Desktop only)
+    required: false
+    default: ""
+  core:
+    description:
+      The stable Core version the same run releases. ts and py take its minor from main,
+      and fail from main without it.
+    required: false
+    default: ""
 
 outputs:
   version:
@@ -49,8 +61,10 @@ runs:
       shell: bash
       env:
         PRODUCT: ${{ inputs.product }}
-        BUMP: ${{ inputs.bump }}
         PRERELEASE: ${{ inputs.prerelease }}
+        REF: ${{ inputs.ref }}
+        BUMP: ${{ inputs.bump }}
+        CORE: ${{ inputs.core }}
       run:
-        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" >>
-        "$GITHUB_OUTPUT"
+        .github/scripts/resolve_version.sh "$PRODUCT" "$PRERELEASE" "$REF" "$BUMP"
+        "$CORE" >> "$GITHUB_OUTPUT"

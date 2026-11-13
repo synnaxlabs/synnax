@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -121,12 +122,15 @@ func (c Config) Validate() error {
 
 const translateSource = "arc-analyzer"
 
+// ErrAnalysisPanic is returned by a request whose analysis panics.
+var ErrAnalysisPanic = errors.New("internal error while analyzing the program")
+
 // Server implements the Language Server Protocol for arc
 type Server struct {
 	protocol.UnimplementedServer
 	capabilities             protocol.ServerCapabilities
 	client                   protocol.Client
-	documents                map[uri.URI]*Document
+	documents                map[uri.URI]*document
 	cfg                      Config
 	mu                       sync.RWMutex
 	republishMu              sync.Mutex
@@ -145,7 +149,7 @@ func New(cfgs ...Config) (*Server, error) {
 	}
 	return &Server{
 		cfg:       cfg,
-		documents: make(map[uri.URI]*Document),
+		documents: make(map[uri.URI]*document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: new(true),
@@ -212,7 +216,7 @@ func (s *Server) SetClient(client protocol.Client) {
 // the write lock, and a reader holding the snapshot is unaffected. Callers must not
 // mutate the returned document — writes do not reach the live document and would be
 // lost.
-func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[docURI]
@@ -274,7 +278,7 @@ func (s *Server) Shutdown(context.Context) error {
 	s.republishMu.Unlock()
 	s.republishWG.Wait()
 	s.mu.RLock()
-	docs := make([]*Document, 0, len(s.documents))
+	docs := make([]*document, 0, len(s.documents))
 	for _, doc := range s.documents {
 		docs = append(docs, doc)
 	}
@@ -297,7 +301,7 @@ func (s *Server) DidOpen(
 		zap.String("uri", string(docURI)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
-	doc := &Document{
+	doc := &document{
 		URI:      docURI,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
@@ -400,7 +404,7 @@ func (s *Server) DidClose(
 
 func (s *Server) runAnalysis(
 	ctx context.Context,
-	doc *Document,
+	doc *document,
 	docURI uri.URI,
 ) {
 	if ctx.Err() != nil {
@@ -421,6 +425,7 @@ func (s *Server) runAnalysis(
 	if _, ok := s.documents[docURI]; ok {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
+		doc.analyzed = content
 	}
 	s.mu.Unlock()
 
@@ -452,20 +457,40 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 	}
 }
 
+// recoverAnalysis recovers a panic in analysis, logs it, and calls onPanic with
+// ErrAnalysisPanic. Callers must defer it directly, since recover only works there.
+func (s *Server) recoverAnalysis(onPanic func(error)) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	s.cfg.L.Error(
+		"recovered from panic in Arc analysis",
+		zap.Any("panic", r),
+		zap.ByteString("stack", debug.Stack()),
+	)
+	onPanic(ErrAnalysisPanic)
+}
+
 // analyze performs parse+analyze on the given content and returns protocol diagnostics,
-// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields.
+// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields. A
+// panic in analysis becomes an error diagnostic, as analysis runs on goroutines that
+// nothing else recovers.
 func (s *Server) analyze(
 	ctx context.Context,
 	content string,
 	meta documentMetadata,
-) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
+	defer s.recoverAnalysis(func(err error) {
+		docIR = ir.IR{}
+		docDiag = diagnostics.Diagnostics{{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  err.Error(),
+		}}
+		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
+	})
 	s.cfg.L.Debug("analyzing program")
-	var (
-		pDiagnostics []protocol.Diagnostic
-		docIR        ir.IR
-		docDiag      diagnostics.Diagnostics
-		cfg          = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
-	)
+	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 
 	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
@@ -521,6 +546,7 @@ func (s *Server) publishDiagnostics(
 	if _, stillOpen := s.documents[docURI]; stillOpen {
 		doc.IR = docIR
 		doc.Diagnostics = docDiag
+		doc.analyzed = content
 	}
 	s.mu.Unlock()
 

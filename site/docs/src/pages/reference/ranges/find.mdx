@@ -49,12 +49,7 @@ because the toolbar is the only place it lives.
 
 ## Active range
 
-The Console uses the active range in these places:
-
-- A new line plot shows the active range instead of the last 30 seconds.
-- **Set alias** and **Remove alias** in the channels toolbar apply to the active range.
-  Channel searches show its [aliases](/reference/ranges/aliases).
-- **Snapshot to** attaches [snapshots](/reference/ranges/snapshots) to it.
+A new line plot shows the active range instead of the last 30 seconds.
 
 To make a range active, click it in the ranges toolbar, or right-click it and select
 **Set as active range**. Opening a link to a range also makes it active. To clear it,
@@ -71,7 +66,7 @@ these steps:
 
 - Click the range in the range explorer.
 - Right-click the range in the ranges toolbar and select **View details**.
-- Right-click a range annotation on a line plot and select **View details**.
+- Right-click a range bar on a line plot and select **View details**.
 
 The range overview has these parts:
 
@@ -82,7 +77,6 @@ The range overview has these parts:
 - **Labels** -> add or remove [labels](/reference/ranges/metadata#labels).
 - **Child ranges** -> lists the child ranges. Click <Icon.Add /> to add one.
 - **Metadata** -> lists the [metadata](/reference/ranges/metadata) of the range.
-- **Snapshots** -> lists the [snapshots](/reference/ranges/snapshots) of the range.
 
 The Console saves each change at once. Buttons in the header download the data as CSV
 (see [export data](/reference/ranges/export)), copy Python or TypeScript code that
@@ -96,7 +90,8 @@ button.
 ### Single
 
 Retrieve a range by its name or key. The client raises `NotFoundError` when no range
-matches, and `MultipleFoundError` when more than one range has the name.
+matches, and `MultipleFoundError` when more than one range has the name. To get one
+range for any other filter, pass `one=True` in Python or `one: true` in TypeScript.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -127,8 +122,10 @@ const sameRange = await client.ranges.retrieve(myRange.key);
 
 ### Multiple
 
-Pass a list of names or keys to retrieve several ranges. A name or key that matches no
-range is left out of the result.
+Pass a list of names or keys, or a filter, to retrieve several ranges. A name or key
+that matches no range is left out of the result. Results match all the filters. A name
+pattern takes the same [operators](/reference/channels/find#by-pattern) as a channel
+name.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -136,16 +133,39 @@ range is left out of the result.
 
 ```python
 # By name
-my_ranges = client.ranges.retrieve(names=["My Range", "My Other Range"])
+my_ranges = client.ranges.retrieve(name=["My Range", "My Other Range"])
 
 # By key
-my_ranges = client.ranges.retrieve(keys=[my_range.key, my_other_range.key])
+my_ranges = client.ranges.retrieve(key=[my_range.key, my_other_range.key])
 
 # By search term
 ranges = client.ranges.retrieve(search_term="Hotfire")
 
+# By name pattern
+hotfires = client.ranges.retrieve(
+    name=sy.filter.String(contains="hotfire", case_insensitive=True)
+)
+
 # By label
-passed = client.ranges.retrieve(has_labels=[pass_label.key])
+passed = client.ranges.retrieve(labels=[pass_label.key])
+
+# By time: the ranges that overlap a time range
+today = client.ranges.retrieve(overlaps=sy.TimeRange(start, end))
+
+# By parent: the child ranges of one or more ranges
+children = client.ranges.retrieve(parents=[my_range.key])
+```
+
+To read past the first page, sort with `order` and pass the position of the last range
+as `after`:
+
+```python
+order = sy.ranger.Order(field="time_range_start")
+page = client.ranges.retrieve(order=order, limit=100)
+if len(page) == 100:
+    last = page[-1]
+    after = sy.ranger.Cursor(key=last.key, time_range_start=last.time_range.start)
+    next_page = client.ranges.retrieve(order=order, after=after, limit=100)
 ```
 
   </Fragment>
@@ -157,13 +177,37 @@ passed = client.ranges.retrieve(has_labels=[pass_label.key])
 const myRanges = await client.ranges.retrieve(["My Range", "My Other Range"]);
 
 // By key
-const myRanges = await client.ranges.retrieve([myRange.key, myOtherRange.key]);
+const sameRanges = await client.ranges.retrieve([myRange.key, myOtherRange.key]);
 
 // By search term
 const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
 
+// By name pattern
+const hotfires = await client.ranges.retrieve({
+  where: { name: { contains: "hotfire", caseInsensitive: true } },
+});
+
 // By label
 const passed = await client.ranges.retrieve({ where: { labels: [passLabel.key] } });
+
+// By time: the ranges that overlap a time range
+const today = await client.ranges.retrieve(new TimeRange(start, end));
+
+// By parent: the child ranges of one or more ranges
+const children = await client.ranges.retrieve({ where: { parents: [myRange.key] } });
+```
+
+To read past the first page, sort with `order` and pass the position of the last range
+as `after`:
+
+```typescript
+const order = { field: "time_range_start" } as const;
+const page = await client.ranges.retrieve({ order, limit: 100 });
+if (page.length === 100) {
+  const last = page[page.length - 1];
+  const after = { key: last.key, timeRangeStart: last.timeRange.start };
+  const nextPage = await client.ranges.retrieve({ order, after, limit: 100 });
+}
 ```
 
   </Fragment>

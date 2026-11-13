@@ -14,13 +14,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
-// NotExportedError is returned when a user module holds the member but does not
+// ErrImportFailed is returned for a member of an import that did not resolve. The
+// import already reports why.
+var ErrImportFailed = errors.Wrap(diagnostics.ErrReported, "import failed")
+
+// notExportedError is returned when a user module holds the member but does not
 // export it.
-type NotExportedError struct {
+type notExportedError struct {
 	// Name is the member that the module does not export.
 	Name string
 	// Module is the import path of the module that holds the member.
@@ -28,7 +33,7 @@ type NotExportedError struct {
 }
 
 // Error implements the error interface.
-func (e *NotExportedError) Error() string {
+func (e *notExportedError) Error() string {
 	return fmt.Sprintf("'%s' is not exported by module %q", e.Name, e.Module)
 }
 
@@ -52,7 +57,7 @@ func isUndefined(err error) bool {
 	return errors.Is(err, query.ErrNotFound) || errors.As(err, &undefined)
 }
 
-// GetHint implements diagnostics.HintProvider. It looks for two kinds of
+// GetHint implements the hint interface of diagnostics. It looks for two kinds of
 // helpful information: (1) similar names visible in scope, surfaced as a
 // "did you mean ...?" suggestion; and (2) when the name (or its dotted
 // prefix) matches a module symbol available in the ambient prelude but

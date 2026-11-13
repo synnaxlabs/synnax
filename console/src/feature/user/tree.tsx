@@ -93,13 +93,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {singleResource && first != null && (hasUpdatePermission || isSelf) && (
         <Menu.Item
-          itemKey="credentials"
+          itemKey="signIn"
           onClick={() =>
-            openCredentials({ subject: ids[0], title: ["Credentials", first.name] })
+            openCredentials({ subject: ids[0], title: ["Sign-in", first.name] })
           }
         >
           <Icon.Lock />
-          Manage credentials
+          Manage sign-in
         </Menu.Item>
       )}
       <Menu.Divider />

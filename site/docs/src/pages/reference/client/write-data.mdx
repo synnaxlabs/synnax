@@ -65,7 +65,8 @@ await client.write(start, {
 </Client.Tabs>
 
 `start` is the timestamp of the first sample. The write fails when any of the channels
-already has data in the time range of the samples.
+already has data in the time range of the samples, or when another writer, such as a
+running task, holds that time.
 
 Each call opens a writer, writes, and closes the writer. Streamers do not get these
 samples. Do not call `write` in a loop to send live data: each call is a full round trip
@@ -239,6 +240,10 @@ writes. For more about frames, see
 `write`, `commit`, or `close` raises the error. After an error, the writer accepts no
 more writes: close it, and open a new writer.
 
+After you close the writer, `write` and `commit` raise `sy.WriterClosed` in Python and
+`framer.WriterClosedError` in TypeScript. When the Core ends the stream first, Python
+raises `EOF`, and in TypeScript the next `write` returns with no error.
+
 <Divider.Divider x />
 
 ## Auto-commit
@@ -249,6 +254,12 @@ each write.
 To make a group of writes available together, turn auto-commit off and call `commit`
 after the group. `commit` waits for the Core and returns the end of the committed time
 range. Samples that you did not commit are lost when the writer closes.
+
+The <Client.Var py="commit_result" ts="commitResult" /> method commits in the same way,
+and also tells you if the writer had control. It returns `end` and `authorized`. When
+`authorized` is false, another writer controls one or more of the channels, and `end` is
+not valid. The writer stays open, so it can write again when it gets control back. See
+[control authority](/reference/control/authority).
 
 <Client.Tabs exclude={["console"]}>
 
@@ -401,9 +412,10 @@ read each sample.
 <Field.List>
 
 <Field.Item name="start" id="python-start" type="TimeStamp">
-  Where the writer's control region begins. Defaults to the time the writer opens on the
-  Core. The writer fails to open when existing data holds it. A writer on data channels
-  without their index needs a start, and it must be a sample of that index.
+  The time from which the writer controls its channels. Defaults to the time the writer
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
@@ -459,12 +471,33 @@ read each sample.
 >
   Fail to open when another writer controls one of the channels. When false, the writer
   opens, and the Core drops its writes to channels that it does not control, with no
-  error.
+  error. To check for control, see [auto-commit](#auto-commit).
 </Field.Item>
 
 <Field.Item name="strict" id="python-strict" type="bool" default="False">
   Fail when the data type of the samples does not match the channel. When false, the
   writer converts the samples.
+</Field.Item>
+
+<Field.Item
+  name="suppress_warnings"
+  id="python-suppress-warnings"
+  type="bool"
+  default="True"
+>
+  When false, the writer prints a warning each time it converts samples to the data type
+  of the channel.
+</Field.Item>
+
+<Field.Item
+  name="err_on_extra_chans"
+  id="python-err-on-extra-chans"
+  type="bool"
+  default="True"
+>
+  Raise a `ValidationError` when a write holds a channel that the writer is not open on.
+  When false, a write of a `Frame` or a DataFrame leaves out a channel name that the
+  writer is not open on. Other writes still raise.
 </Field.Item>
 
 </Field.List>
@@ -476,9 +509,10 @@ read each sample.
 <Field.List>
 
 <Field.Item name="start" id="typescript-start" type="TimeStamp">
-  Where the writer's control region begins. Defaults to the time the writer opens on the
-  Core. The writer fails to open when existing data holds it. A writer on data channels
-  without their index needs a start, and it must be a sample of that index.
+  The time from which the writer controls its channels. Defaults to the time the writer
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
@@ -535,7 +569,7 @@ read each sample.
 >
   Fail to open when another writer controls one of the channels. When false, the writer
   opens, and the Core drops its writes to channels that it does not control, with no
-  error.
+  error. To check for control, see [auto-commit](#auto-commit).
 </Field.Item>
 
 </Field.List>

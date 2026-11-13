@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@go output "x/go/patch"
-@ts output "x/ts/src/patch"
+@cpp output "x/cpp/patch"
+@go output  "x/go/patch"
+@py output  "x/py/x/patch"
+@ts output  "x/ts/src/patch"
 
 Guard struct {
     path  string[] {
@@ -32,6 +34,7 @@ Set struct {
     }
     value  any      {
         @doc value        "is the new value."
+        @py optional
         @ts preserve_case
     }
     guards Guard[] = [] {
@@ -64,6 +67,7 @@ Insert struct {
     }
     value  any      {
         @doc value        "is the new entry. It is an object with a string key."
+        @py optional
         @ts preserve_case
     }
     after  string?  {

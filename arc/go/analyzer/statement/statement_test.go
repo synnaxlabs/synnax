@@ -12,9 +12,11 @@ package statement_test
 import (
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
@@ -25,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // readWriteChan builds the read+write channel type a bare channel alias carries.
@@ -490,6 +493,15 @@ var _ = Describe("Statement", func() {
 			return ctx
 		}
 
+		inIndex := func(node antlr.Tree) bool {
+			for ; node != nil; node = node.GetParent() {
+				if _, ok := node.(parser.IIndexOrSliceContext); ok {
+					return true
+				}
+			}
+			return false
+		}
+
 		DescribeTable(
 			"Should give every numeric literal the element type",
 			func(specCtx SpecContext, code string, expected types.Type, count int) {
@@ -498,7 +510,7 @@ var _ = Describe("Statement", func() {
 				literals := 0
 				for node, t := range ctx.TypeMap {
 					lit, ok := node.(parser.ILiteralContext)
-					if !ok || lit.NumericLiteral() == nil {
+					if !ok || lit.NumericLiteral() == nil || inIndex(lit) {
 						continue
 					}
 					literals++
@@ -745,6 +757,44 @@ var _ = Describe("Statement", func() {
 			},
 			Entry("a float series", "f32", ""),
 			Entry("an integer series", "i32", "cannot return"),
+		)
+
+		DescribeTable("Should reject a series returned from a scalar function",
+			func(specCtx SpecContext, code string) {
+				ast := MustSucceed(parser.Parse(
+					"func g() f64 {\ndata := [1.0, 2.0, 3.0]\n" + code + "\n}",
+				))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					"cannot return series f64 from 'g': expected f64",
+				))
+			},
+			Entry("an untyped slice variable", "sub := data[1:3]\nreturn sub"),
+			Entry("a series variable", "return data"),
+			Entry("a slice", "return data[1:3]"),
+		)
+
+		DescribeTable("Should reject a series and a scalar mixed in a declaration",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, "data := [1.0, 2.0, 3.0]\n"+code)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"a slice into a scalar",
+				"x f64 := data[1:3]",
+				"cannot assign series f64 to 'x' (type f64)",
+			),
+			Entry(
+				"a scalar into a series",
+				"y f64 := 2.0\nz series f64 := y",
+				"cannot assign f64 to 'z' (type series f64)",
+			),
+			Entry(
+				"a slice into a stateful scalar",
+				"x f64 $= data[1:3]",
+				"cannot assign series f64 to 'x' (type f64)",
+			),
 		)
 
 		DescribeTable(
@@ -1125,34 +1175,80 @@ var _ = Describe("Statement", func() {
 
 		DescribeTable(
 			"numeric condition deprecation warnings",
-			func(bCtx SpecContext, code string, warningCount int) {
+			func(bCtx SpecContext, code string, fixes ...string) {
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				warnings := testutil.Warnings(ctx.Diagnostics)
-				Expect(warnings).To(HaveLen(warningCount))
-				for _, w := range warnings {
+				Expect(warnings).To(HaveLen(len(fixes)))
+				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"numeric conditions are deprecated; use an explicit " +
+						"non-boolean conditions are deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
+					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
+					Expect(w.Fixes).To(HaveLen(1))
+					Expect(w.Fixes[0].Edits).To(Equal([]protocol.TextEdit{
+						{Range: w.Range, NewText: fixes[i]},
+					}))
 				}
 			},
-			Entry("integer literal condition", `if 1 { x := 42 }`, 1),
-			Entry("float literal condition", `if 1.5 { x := 42 }`, 1),
+			Entry(
+				"integer literal condition",
+				`if 1 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"float literal condition",
+				`if 1.5 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"negative literal condition",
+				`if -3 { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"unit literal condition",
+				`if 5s { x := 42 }`,
+				"true",
+			),
+			Entry(
+				"zero integer literal condition",
+				`if 0 { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"zero float literal condition",
+				`if 0.0 { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"zero unit literal condition",
+				`if 0s { x := 42 }`,
+				"false",
+			),
+			Entry(
+				"calculation condition",
+				`if 1 + 2 { x := 42 }`,
+				"1 + 2 != 0",
+			),
 			Entry(
 				"numeric else-if condition",
 				`if false { x := 1 } else if 2 { y := 2 }`,
-				1,
+				"true",
 			),
 			Entry(
 				"numeric if and else-if conditions",
 				`if 1 { x := 1 } else if 2 { y := 2 }`,
-				2,
+				"true",
+				"true",
 			),
-			Entry("bool literal condition", `if true { x := 42 }`, 0),
-			Entry("comparison condition", `if 1 > 0 { x := 42 }`, 0),
+			Entry("string literal condition", `if "a" { x := 42 }`, "true"),
+			Entry("empty string literal condition", `if "" { x := 42 }`, "false"),
+			Entry("bool literal condition", `if true { x := 42 }`),
+			Entry("comparison condition", `if 1 > 0 { x := 42 }`),
 		)
 
 		It("should warn on a numeric variable condition", func(bCtx SpecContext) {
@@ -1163,7 +1259,11 @@ var _ = Describe("Statement", func() {
 			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(testutil.Warnings(ctx.Diagnostics)).To(HaveLen(1))
+			warnings := testutil.Warnings(ctx.Diagnostics)
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0].Notes).To(HaveLen(1))
+			Expect(warnings[0].Notes[0].Message).
+				To(Equal("hint: change `x` to `x != 0`"))
 		})
 
 		It("should not warn on a bool variable condition", func(bCtx SpecContext) {
@@ -1306,6 +1406,39 @@ var _ = Describe("Statement", func() {
 					output = value
 				}`, true, ""),
 				Entry("type mismatch", `{ output = "hello" }`, false, "type mismatch"),
+			)
+
+			DescribeTable("should reject a series written to a scalar channel",
+				func(bCtx SpecContext, value string) {
+					block := MustSucceed(parser.ParseBlock(
+						"{\ndata series f64 := [1.0, 2.0, 3.0]\noutput = " + value + "\n}",
+					))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil, channels...))
+					setupChannelFunctionContext(ctx)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+						"cannot write series f64 to channel 'output' (type f64)",
+					))
+				},
+				Entry("a slice", "data[1:3]"),
+				Entry("an open slice", "data[1:]"),
+				Entry("a slice of a slice", "data[0:3][1:2]"),
+				Entry("the series", "data"),
+			)
+
+			DescribeTable("should accept a scalar written to a scalar channel",
+				func(bCtx SpecContext, value string) {
+					block := MustSucceed(parser.ParseBlock(
+						"{\ndata series f64 := [1.0, 2.0, 3.0]\noutput = " + value + "\n}",
+					))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil, channels...))
+					setupChannelFunctionContext(ctx)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("an index", "data[1]"),
+				Entry("an index of a slice", "data[1:3][0]"),
+				Entry("a channel read", "sensor"),
 			)
 
 			It("should detect undefined channel in assignment", func(bCtx SpecContext) {
@@ -1688,6 +1821,56 @@ var _ = Describe("Statement", func() {
 						(*ctx.Diagnostics)[0].Message,
 					).To(ContainSubstring("undefined symbol: undefined_var"))
 				},
+			)
+
+			DescribeTable("should reject a series in a scalar compound assignment",
+				func(bCtx SpecContext, statements string) {
+					block := MustSucceed(parser.ParseBlock(
+						"{\ndata series f64 := [1.0, 2.0, 3.0]\nx f64 := 1.0\n" +
+							statements + "\n}",
+					))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+						"cannot use series f64 in compound assignment to f64",
+					))
+				},
+				Entry("a slice added", "x += data[1:3]"),
+				Entry("a slice subtracted", "x -= data[1:3]"),
+				Entry("an open slice", "x *= data[:2]"),
+				Entry("the series", "x += data"),
+			)
+
+			DescribeTable("should reject a series in an indexed compound assignment",
+				func(bCtx SpecContext, statements string) {
+					block := MustSucceed(parser.ParseBlock(
+						"{\ndata series f64 := [1.0, 2.0, 3.0]\n" + statements + "\n}",
+					))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+						"cannot use series f64 in compound assignment to series " +
+							"element of type f64",
+					))
+				},
+				Entry("a slice added", "data[0] += data[1:3]"),
+				Entry("a slice multiplied", "data[0] *= data[1:3]"),
+				Entry("the series", "data[0] += data"),
+			)
+
+			DescribeTable("should accept an element in a compound assignment",
+				func(bCtx SpecContext, statements string) {
+					block := MustSucceed(parser.ParseBlock(
+						"{\ndata series f64 := [1.0, 2.0, 3.0]\nx f64 := 1.0\n" +
+							statements + "\n}",
+					))
+					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("an index into a scalar", "x += data[1]"),
+				Entry("an index of a slice into a scalar", "x += data[1:3][0]"),
+				Entry("an index of a slice into an element", "data[0] += data[1:3][0]"),
 			)
 
 			DescribeTable("valid indexed compound assignments",
@@ -3104,6 +3287,25 @@ var _ = Describe("Statement", func() {
 			},
 		)
 
+		DescribeTable("should reject a non-integer index",
+			func(bCtx SpecContext, stmt string) {
+				block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				i f32 := 1.0
+				` + stmt + `
+			}`))
+				ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+				setupFunctionContext(ctx)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"series index must be an integer type, got f32",
+				))
+			},
+			Entry("indexed assignment", "data[i] = 10"),
+			Entry("indexed compound assignment", "data[i] += 10"),
+		)
+
 		It("should detect slice assignment (not supported)", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				data series i64 := [1, 2, 3]
@@ -3129,6 +3331,36 @@ var _ = Describe("Statement", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
+
+		DescribeTable("should reject a series assigned to a series element",
+			func(bCtx SpecContext, value string) {
+				block := MustSucceed(parser.ParseBlock(
+					"{\ndata series f64 := [1.0, 2.0, 3.0]\ndata[0] = " + value + "\n}",
+				))
+				ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+				setupFunctionContext(ctx)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					"cannot assign series f64 to series element of type f64",
+				))
+			},
+			Entry("a slice", "data[1:3]"),
+			Entry("an open slice", "data[1:]"),
+			Entry("the series", "data"),
+		)
+
+		It("should accept an index of a slice as a series element",
+			func(bCtx SpecContext) {
+				block := MustSucceed(parser.ParseBlock(`{
+				data series f64 := [1.0, 2.0, 3.0]
+				data[0] = data[1:3][0]
+			}`))
+				ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+				setupFunctionContext(ctx)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 	})
 
 	Describe("For Loops", func() {
@@ -3201,6 +3433,17 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+			})
+
+			It("should reject an index after range", func(bCtx SpecContext) {
+				stmt := MustSucceed(
+					parser.ParseStatement(`for i := range(10)[1:] { x := i }`),
+				)
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).
+					To(Equal("undefined symbol: range"))
 			})
 
 			It("should reject range with float arguments", func(bCtx SpecContext) {

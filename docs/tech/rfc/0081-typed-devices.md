@@ -104,7 +104,7 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, model, alias, simulation flag, bus topology.
+  serial, NI-MAX resource name, model, chassis, bus topology.
 - **Configuration group**: The fields a user owns: name, identifier, index channel keys,
   channel maps, enabled flags, connection settings.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
@@ -157,10 +157,10 @@ Each resource is a struct in its own `.oracle` file with its own package, such a
 `ni_device.oracle` and `core/pkg/service/ni/device`, because Oracle allows one
 `@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
 struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
-`@ontology type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
-`@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
-`Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
-three fields repeat.
+`@resource type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
+`@ref kind place` and `@ref on_delete restrict`, `name string` with `@filter` and
+`@search`, and a `status` of its own `Status` type with `@go marshal omit`. A base
+struct would carry nothing else, so the three fields repeat.
 
 Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
 `ni.Device` shares a table with the legacy `Device`.
@@ -169,37 +169,35 @@ The NI resources are the pattern for every discovered make:
 
 ```
 Chassis struct {
-    key       Key = create        { @key }
-    rack      rack.Key            { @filter }
-    name      string              { @filter @search }
-    serial    string              { @index lookup }
-    model     string              { @filter }
-    alias     string
-    simulated bool = false
-    status    Status?             { @go marshal omit }
+    key           Key = create    { @key }
+    rack          rack.Key        { @ref }
+    name          string          { @filter @search }
+    serial        string = ""     { @filter @index lookup }
+    resource_name string          { @filter @index lookup }
+    model         string          { @filter }
+    status        Status?         { @go marshal omit }
 
     @create
     @go marshal
     @go migrate
-    @ontology type "ni_chassis"
+    @resource type "ni_chassis"
     @retrieve
 }
 
 Device struct {
     key        Key = create       { @key }
-    rack       rack.Key           { @filter }
+    rack       rack.Key           { @ref }
     name       string             { @filter @search }
-    serial     string             { @index lookup }
+    serial     string = ""        { @filter @index lookup }
+    resource_name string          { @filter @index lookup }
     model      string             { @filter }
-    alias      string
-    simulated  bool = false
-    chassis    Chassis.Key?
+    chassis    Chassis.Key?       { @ref }
     identifier string = ""
     analog_input    AnalogInputPorts
-    analog_output   AnalogOutputPorts
-    counter_input   CounterInputPorts
-    digital_input   DigitalPorts
-    digital_output  DigitalPorts
+    analog_output   map<uint16, AnalogOutputChannels>
+    counter_input   map<uint16, CounterInputChannels>
+    digital_input   map<uint16, DigitalInputChannels>
+    digital_output  map<uint16, DigitalOutputChannels>
     status     Status?            { @go marshal omit }
     ...
 }
@@ -247,21 +245,22 @@ resource has a concrete writer and generated retrieve, in the shape of
 `core/pkg/service/rack`. No generic device store exists.
 
 Opening a resource opens its Gorp table with its migration chain and Oracle-generated
-indexes, registers its ontology service, and publishes `sy_<type>_set` and
-`sy_<type>_delete` through `signals.PublishFromGorp`. Its writer exposes `Create`,
-`Update`, and `Delete`. `Create` writes the row, an initial unknown status, the ontology
-resource, and the `parent_of` edge to its parent key, or to the rack when there is no
-parent. `Update` takes a function over the stored row, so a caller changes one field
-group and leaves the other as stored. `Delete` refuses with a `validate.ErrValidation`
-wrap while a task references the resource, then deletes children, status, resource, and
-row in one transaction.
+indexes and references, and publishes `sy_<type>_set` and `sy_<type>_delete` through
+`signals.PublishTable`. `Resources` returns its provider for the resource service. Its
+writer runs in the transaction of the caller and exposes `Create`, `Update`, and
+`Delete`. `Create` writes the row and an initial unknown status. The `@ref` fields put
+the resource under its chassis or rack. `Update` takes a function over the stored row,
+so a caller changes one field group and leaves the other as stored. `Delete` removes the
+row. Gorp deletes its status, and the modules of a chassis, through the references. The
+API binder checks delete access on each record that the delete removes.
 
-The referrer check for `ni.Device` scans the five NI config stores for a channel whose
-`device` is the key. Both tables belong to one service, so no cross-service query
-exists.
+Phase 22 gives each NI config channel a `device` field that references `ni.Device` with
+`@ref on_delete restrict`. Gorp then refuses to delete a device that a task uses, also
+when a chassis delete cascades to it. Until then, no check refuses the delete.
 
-Status stays in the status service under `<type>:<key>`. Each resource defines its own
-`Status` and `StatusDetails`; a server reports different fields from a slave.
+Status stays in the status service, with the resource as its owner. Each resource
+defines its own `Status` and `StatusDetails`; a server reports different fields from a
+slave.
 
 ### 4.3 Writes
 
@@ -275,10 +274,11 @@ path is `Update` over the configuration group. The shallow merge in
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
-- **NI chassis, NI device, LabJack device**: `serial` through the lookup index. A vendor
-  serial is unique within its make. A simulated NI resource has no serial, so the
-  scanner stores its NI-MAX resource name in `serial`, as it does for the key today
-  (`driver/ni/scan_task.cpp:49-64,106`).
+- **NI chassis, NI device**: `serial` through the lookup index when set, else
+  `resource_name` through its lookup index. Simulated hardware has no serial, and its
+  resource name survives renames.
+- **LabJack device**: `serial` through the lookup index. A vendor serial is unique
+  within its make.
 - **EtherCAT slave**: `serial` through the lookup index, then `vendor_id` and
   `product_code` must match; today's key already carries all three
   (`driver/ethercat/scan_task.cpp:190-201`). A slave with serial zero matches by
@@ -290,11 +290,10 @@ deletes.
 
 ### 4.4 Hierarchy
 
-`ni.Device.chassis` and `ethercat.Slave.master` are stored keys. The service defines the
-`parent_of` edge from them on every write, so the tree shows modules under their chassis
-and slaves under their master through ontology children, as now. A resource with no
-parent key is a child of its rack. When Gorp references land, each key becomes
-`@ref on_delete cascade acyclic` with no data change.
+`ni.Device.chassis` and `ethercat.Slave.master` are `@ref kind place` fields with
+`@ref on_delete cascade`, so the tree shows modules under their chassis and slaves under
+their master, and a deleted parent takes its children. A resource with no parent key
+sits under its rack.
 
 The master holds an ordered `slaves Slave.Key[]`. A slave's position is its index, so
 two slaves cannot share one, and a scan writes the bus order as one update of the master
@@ -334,8 +333,9 @@ in Phase 23.
 `common::ScanTask` becomes a template over the resource type; `Scanner` returns
 `std::vector<D>` and `ClusterAPI` is parameterized the same way
 (`driver/common/scan_task.h:81-130`). Read and write tasks take the generated struct in
-place of `parser.field` reads. NI keeps `alias` for physical channel names. LabJack
-opens by `serial` (`driver/labjack/read_task.h:535` uses the key today).
+place of `parser.field` reads. NI looks up the DAQmx alias for physical channel names
+from `resource_name` when a task starts. LabJack opens by `serial`
+(`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
 
@@ -442,8 +442,6 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 
 - Device import and export. The typed structs are shaped for a later `@go imex`.
 - A secret store for server credentials.
-- Gorp references and the ontology's replacement; the parent keys become `@ref` fields
-  when that lands.
 - Kafka clusters (RFC 0079) and integrations that do not exist yet; each follows §4.1.
 
 ## 8 Resolved decisions

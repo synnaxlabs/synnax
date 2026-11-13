@@ -406,23 +406,21 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
+		It("Should error with a zero state when Type is unrecognized", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			out, err := arc.Reduce(state, arc.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+			Expect(arc.Reduce(state, arc.Action{Type: "made_up"})).
+				Error().To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
 			"Should error when Type names a variant whose payload pointer is nil",
 			func(actionType string) {
 				state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-				out, err := arc.Reduce(state, arc.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
+				Expect(arc.Reduce(state, arc.Action{Type: actionType})).
+					Error().To(MatchError(union.ErrMissingPayload))
 			},
 			Entry("set", arc.ActionTypeSet),
 			Entry("set_node", arc.ActionTypeSetNode),

@@ -275,6 +275,16 @@ void send_start(
     );
 }
 
+/// @brief applies the actions to the stored task, then reads task back from the Core.
+void edit_task(
+    const std::shared_ptr<synnax::Synnax> &client,
+    synnax::task::Task &task,
+    const std::vector<synnax::task::Action> &actions
+) {
+    ASSERT_NIL(client->tasks.dispatch(task.key, actions));
+    task = ASSERT_NIL_P(client->tasks.retrieve(task.key));
+}
+
 synnax::task::Status wait_for_task_status(
     synnax::framer::Streamer &streamer,
     const synnax::task::Task &task,
@@ -511,8 +521,11 @@ TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
-    task.rack = other.key;
-    ASSERT_NIL(other.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
     // The redeploy start lands on the new rack; here it silently frees the
     // instance this driver still holds.
     send_start(client, task, "s2");
@@ -615,19 +628,6 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
         return s.message == "stopped";
     });
     ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
-}
-
-TEST_F(TaskManagerTest, IgnoresSnapshot) {
-    start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task{
-        .rack = rack.key,
-        .name = "t",
-        .type = SYNTHETIC_TASK_TYPE,
-    };
-    task.snapshot = true;
-    ASSERT_NIL(rack.tasks.create(task));
-    send_start(client, task);
-    expect_no_driver_status(task);
 }
 
 TEST_F(TaskManagerTest, ParallelConfig) {
@@ -828,8 +828,11 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = x::json::json{{"rate", i + 1}};
-        ASSERT_NIL(rack.tasks.create(task));
+        edit_task(
+            client,
+            task,
+            {synnax::task::set({.path = {"config", "rate"}, .value = i + 1})}
+        );
         send_start(client, task, "start-" + std::to_string(i + 1));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -873,8 +876,11 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_FALSE(state->stopped.load());
 
     // Changed config: the third start rebuilds the task first.
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     send_start(client, task, "s3");
     EVENTUALLY(
         [&] {
@@ -914,8 +920,11 @@ TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
 
     // A start naming the deployed hash cannot hold the fast path once the
     // stored config has moved on: the new revision deploys.
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     ASSERT_NE(task.config_hash, deployed_hash);
     send_start(client, task, "s2", deployed_hash);
     EVENTUALLY(
@@ -1020,8 +1029,11 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
     const auto seen_hash = task.config_hash;
 
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     ASSERT_NE(task.config_hash, seen_hash);
     send_cmd(
         client,
@@ -1065,8 +1077,11 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     });
     const auto deployed_hash = task.config_hash;
 
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     ASSERT_NE(task.config_hash, deployed_hash);
     send_cmd(
         client,
@@ -1263,8 +1278,11 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         [] { return "first not created"; },
     );
 
-    task.config = x::json::json{{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 2})}
+    );
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
@@ -1349,8 +1367,11 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
 
-    task.config = {{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 2})}
+    );
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);
@@ -1710,9 +1731,10 @@ TEST_F(TaskManagerTest, RackRenameUpdatesContext) {
     start_manager(std::move(factory));
     ASSERT_NE(f->captured_ctx, nullptr);
     ASSERT_EQ(f->captured_ctx->rack_name(), "test_rack");
-    auto renamed = rack;
-    renamed.name = "renamed_rack";
-    ASSERT_NIL(client->racks.create(renamed));
+    ASSERT_NIL(client->racks.dispatch(
+        rack.key,
+        {synnax::rack::set({.path = {"name"}, .value = "renamed_rack"})}
+    ));
     ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "renamed_rack");
 }
 
@@ -1909,8 +1931,11 @@ TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
     });
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
-    moved.rack = other.key;
-    ASSERT_NIL(other.tasks.create(moved));
+    edit_task(
+        client,
+        moved,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
     // The set event that moves the task carries no signal that it was handled.
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
@@ -1947,15 +1972,17 @@ TEST_F(TaskManagerTest, RackMoveBackWritesStatusesAgain) {
     const auto first = f->task_states[0];
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
-    task.rack = other.key;
-    ASSERT_NIL(other.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
     send_start(client, task, "s2");
     EVENTUALLY([&] { return first->stopped.load(); }, [] { return "not stopped"; });
     // The worker drops the status after the instance stops and is destroyed.
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
-    task.rack = rack.key;
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(client, task, {synnax::task::set({.path = {"rack"}, .value = rack.key})});
     const auto since = x::telem::TimeStamp::now();
     send_start(client, task, "s3");
     WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {

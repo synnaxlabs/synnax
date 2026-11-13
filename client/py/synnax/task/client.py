@@ -28,9 +28,10 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_, ranger
+from synnax import device as device_, exceptions, framer, rack as rack_
 from synnax.resource import ID
-from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
+from synnax.status import VARIANT_ERROR, VARIANT_LOADING
+from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -47,6 +48,7 @@ from synnax.task.types_gen import (
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 from x.timing import Timer
 
 # synnax.arc imports synnax.task at load time.
@@ -61,9 +63,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -73,8 +76,6 @@ class _DeleteRequest(BaseModel):
 class _CopyRequest(BaseModel):
     key: Key
     name: str
-    snapshot: bool
-    range: ranger.Key | None = None
 
 
 class _CopyResponse(BaseModel):
@@ -115,7 +116,6 @@ class Task:
     type: str
     config: Mapping[str, object]
     config_hash: str
-    snapshot: bool
     status: Status | None
     _cached_frame_client: framer.Client | None
 
@@ -128,7 +128,6 @@ class Task:
         type: str = "",
         config: Mapping[str, object] | None = None,
         config_hash: str = "",
-        snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
         _frame_client: framer.Client | None = None,
@@ -140,7 +139,6 @@ class Task:
         self.config = config if config is not None else {}
         self.config_hash = config_hash
         self.internal = internal
-        self.snapshot = snapshot
         self.status = status
         self._cached_frame_client = _frame_client
 
@@ -169,7 +167,6 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.config_hash = task.config_hash
-        self.snapshot = task.snapshot
         self._cached_frame_client = task._cached_frame_client
 
     @property
@@ -189,6 +186,7 @@ class Task:
         """
         return None
 
+    @deprecate_positional("args")
     def execute_command(
         self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
@@ -211,6 +209,7 @@ class Task:
         w.close()
         return cmd.key
 
+    @deprecate_positional("args", "timeout")
     def execute_command_sync(
         self,
         type_: str,
@@ -273,6 +272,15 @@ class Task:
                             timer = Timer()
 
 
+def _config_devices(config: Mapping[str, Any]) -> list[str]:
+    """Returns the keys of the devices that a config or its channels name."""
+    channels = config.get("channels")
+    named = [config.get("device")]
+    if isinstance(channels, list):
+        named.extend(ch.get("device") for ch in channels if isinstance(ch, dict))
+    return list(dict.fromkeys(d for d in named if isinstance(d, str) and d))
+
+
 def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
     """Raises a status of the rack as an error when it reports that the Driver of the
     rack is down. A down Driver never replies, so the status ends the wait.
@@ -281,9 +289,9 @@ def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
         rack_status = rack_.Status.model_validate(sample)
     except ValidationError:
         return
-    # Only the Core writes warnings to rack statuses, when it stops hearing from the
-    # Driver.
-    if rack_status.owner != rack_id or rack_status.variant != VARIANT_WARNING:
+    if rack_status.owner != rack_id or (
+        rack_status.details is not None and rack_status.details.running
+    ):
         return
     raise _status_error(rack_status.message, rack_status.description)
 
@@ -327,6 +335,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
+    @deprecate_positional("timeout")
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the driver sends the final status of the
         start.
@@ -341,6 +350,7 @@ class StarterStopperMixin:
         """
         _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
+    @deprecate_positional("timeout")
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the driver sends the final status of the
         stop.
@@ -356,6 +366,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
 
+    @deprecate_positional("timeout")
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
@@ -475,6 +486,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
+    @deprecate_positional("rack")
     def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
@@ -487,23 +499,42 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task with no rack goes on the rack
-        of the device that its config names, or on the embedded rack when it names no
-        device.
+        to the driver on the next start command. A task that names devices, in its
+        config or its channels, goes on their rack, whatever rack it holds. A task
+        that names no device goes on its rack, or on the embedded rack when it has
+        none. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
+        :raises ValidationError: If the devices are on different racks, or if the task
+            exists and the config has a field that its type does not declare.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
-        device = pld.config.get("device")
-        if pld.rack == 0 and isinstance(device, str) and device:
-            pld.rack = self._device_client.retrieve(key=device).rack
+        stored = self.retrieve(keys=[pld.key])
+        if devices := _config_devices(pld.config):
+            racks = {self._device_client.retrieve(key=d).rack for d in devices}
+            if len(racks) > 1:
+                raise exceptions.ValidationError(
+                    f"The devices {devices} of task {pld.name} must be on one rack, "
+                    f"but they are on the racks {sorted(racks)}"
+                )
+            pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
-        req = _CreateRequest(tasks=[pld])
-        tasks = self._exec_create(req)
-        task.set_internal(self.sugar(tasks)[0])
+        if not stored:
+            created = self._exec_create(_CreateRequest(tasks=[pld]))
+            task.set_internal(self.sugar(created)[0])
+            return task
+        actions: list[actions_gen.Action] = [
+            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        ]
+        req = _DispatchRequest(key=pld.key, actions=actions)
+        self._client.send("/task/dispatch", req, Empty)
+        task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
@@ -517,7 +548,9 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/task/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...
@@ -531,8 +564,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -552,8 +583,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -573,8 +602,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -597,8 +624,6 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        snapshot: filter.BoolInput = ...,
-        ranges: ranger.Key | list[ranger.Key] = ...,
         arcs: arc.Key | list[arc.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -643,9 +668,6 @@ class Client:
         :param rack: Keeps tasks on this rack.
         :param internal: Keeps only internal tasks when true, or only user tasks when
             false.
-        :param snapshot: Keeps only snapshot tasks when true, or only live tasks when
-            false.
-        :param ranges: Keeps the snapshots in any of these ranges.
         :param arcs: Keeps the tasks that run any of these Arcs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
@@ -699,7 +721,6 @@ class Client:
                 config=t.config,
                 config_hash=t.config_hash,
                 internal=t.internal,
-                snapshot=t.snapshot,
                 status=t.status,
                 _frame_client=self._frame_client,
             )
@@ -720,38 +741,13 @@ class Client:
 
         return self.retrieve(rack=rack, internal=False)
 
-    @overload
-    def copy(
-        self, key: Key, name: str, *, snapshot: Literal[False] = False
-    ) -> Task: ...
-
-    @overload
-    def copy(
-        self,
-        key: Key,
-        name: str,
-        *,
-        snapshot: Literal[True],
-        range_key: ranger.Key | None = None,
-    ) -> Task: ...
-
-    def copy(
-        self,
-        key: Key,
-        name: str,
-        *,
-        snapshot: bool = False,
-        range_key: ranger.Key | None = None,
-    ) -> Task:
+    def copy(self, key: Key, name: str) -> Task:
         """Copies an existing task with a new name.
 
         :param key: The key of the task to copy.
         :param name: The name for the new task.
-        :param snapshot: Whether the copy is a snapshot of the task.
-        :param range_key: The key of the range that a snapshot copy sits in. Only a
-            snapshot copy can sit in a range.
         :returns: The newly created task.
         """
-        req = _CopyRequest(key=key, name=name, snapshot=snapshot, range=range_key)
+        req = _CopyRequest(key=key, name=name)
         res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

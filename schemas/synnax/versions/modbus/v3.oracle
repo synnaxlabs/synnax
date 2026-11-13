@@ -9,10 +9,38 @@
 
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
 
-RegisterValue = v2.RegisterValue
+RegisterValue struct {
+    data_type     telem.DataType = "uint16" {
+        @doc value "is the data type the register contents are interpreted as."
+    }
+    bytes_swapped bool?          {
+        @doc value """
+            is true when the byte order within each 16-bit word is swapped. When absent,
+            the device's byte order applies.
+        """
+    }
+    words_swapped bool?          {
+        @doc value """
+            is true when the word order of multi-register values is swapped. When
+            absent, the device's word order applies.
+        """
+    }
 
-RegisterBit = v2.RegisterBit
+    @doc value  "interprets one or more 16-bit registers as a single typed value."
+    @go marshal
+}
+
+RegisterBit struct {
+    bit uint8 = 0 {
+        @doc value    "is the bit index, from 0 (least significant) to 15."
+        @validate max 15
+    }
+
+    @doc value  "addresses one bit of a 16-bit register."
+    @go marshal
+}
 
 RegisterString struct {
     length        uint16 {
@@ -68,7 +96,23 @@ ReadChannel union on type extends v1.BaseReadChannel {
 
 BaseWriteChannel = v1.BaseWriteChannel
 
-WriteChannel = v2.WriteChannel
+WriteChannel union on type extends v1.BaseWriteChannel {
+    coil {
+        @doc value "writes a single bit to a coil."
+    }
+    holding_register extends RegisterValue {
+        @doc value "writes a typed value to one or more holding registers."
+    }
+    holding_register_bit extends RegisterBit {
+        @doc value "writes one bit of a holding register."
+    }
+
+    @doc value  """
+        is a single Modbus write channel. The type field selects the register space the
+        channel writes to and the fields that accompany it.
+    """
+    @go marshal
+}
 
 ReadConfig struct extends task.ReadConfig {
     device   device.Key = "" {
@@ -84,6 +128,15 @@ ReadConfig struct extends task.ReadConfig {
     @go migrate
 }
 
-WriteConfig = v2.WriteConfig
+WriteConfig struct extends task.WriteConfig {
+    channels WriteChannel[] {
+        @doc value "are the channels the task drives."
+    }
+
+    @doc value  "configures a Modbus write task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
 
 ScanConfig = v1.ScanConfig

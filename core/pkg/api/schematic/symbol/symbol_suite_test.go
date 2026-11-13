@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -55,7 +56,6 @@ var (
 		apisymbol.CreateRequest,
 		apisymbol.CreateResponse,
 	]
-	rename      freighter.UnaryHandler[apisymbol.RenameRequest, struct{}]
 	dispatch    freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
 	del         freighter.UnaryHandler[apisymbol.DeleteRequest, struct{}]
 	deleteGroup freighter.UnaryHandler[apisymbol.DeleteGroupRequest, struct{}]
@@ -63,7 +63,6 @@ var (
 		apisymbol.ImportGroupRequest,
 		apisymbol.ImportGroupResponse,
 	]
-	setGroup freighter.UnaryHandler[apisymbol.SetGroupRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apisymbol.RetrieveRequest,
 		apisymbol.RetrieveResponse,
@@ -117,12 +116,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Held: apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
-	rename = bind.Write(binder, apiSvc.Rename)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	del = bind.Write(binder, apiSvc.Delete)
 	deleteGroup = bind.Write(binder, apiSvc.DeleteGroup)
 	importGroup = bind.Write(binder, apiSvc.ImportGroup)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	exportGroup = bind.Read(binder, apiSvc.ExportGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
@@ -156,7 +153,9 @@ func groupSymbols(ctx SpecContext, key group.Key) []resource.ID {
 
 // newSymbol returns an unsaved symbol a create request can carry.
 func newSymbol(name string) symbol.Symbol {
-	return symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
+	return defaults.Fill(
+		symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}},
+	)
 }
 
 // createSymbol creates a symbol in g, committing it for the same reason createGroup

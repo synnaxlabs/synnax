@@ -13,10 +13,10 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
 import { renderHookSuspended } from "@/testutil/render";
@@ -45,7 +45,7 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const name = { in: [ch.name, project.SET_CHANNEL_NAME] };
+      const name = { in: [ch.name, project.ACTION_CHANNEL_NAME] };
       const { result } = renderHook(
         () => ({
           visible: Channel.useList({ query: { where: { name } } }),
@@ -64,67 +64,6 @@ describe("queries", () => {
         expect(result.current.internal.data.length).toBeGreaterThan(0);
       });
       expect(result.current.internal.data).not.toContain(ch.key);
-    });
-
-    it("should update the alias of a listed channel when a range alias is set", async () => {
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
-      });
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      await client.ranges.setAlias(range.key, ch.key, "alias");
-      const { result } = renderHook(
-        () =>
-          Channel.useList({
-            query: { rangeKey: range.key, where: { name: { eq: ch.name } } },
-          }),
-        { wrapper },
-      );
-      act(() => result.current.more());
-      await waitFor(() => expect(result.current.data).toEqual([ch.key]));
-      expect(result.current.getItem(ch.key)?.alias).toEqual("alias");
-      await act(async () => {
-        await client.ranges.setAlias(range.key, ch.key, "new_alias");
-      });
-      await waitFor(() =>
-        expect(result.current.getItem(ch.key)?.alias).toEqual("new_alias"),
-      );
-    });
-
-    it("should resolve the alias of a channel outside the list", async () => {
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
-      });
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      await client.ranges.setAlias(range.key, ch.key, "alias");
-      const missing = id.create();
-      const { result } = renderHook(
-        () =>
-          Channel.useList({
-            query: { rangeKey: range.key, where: { name: { eq: missing } } },
-          }),
-        { wrapper },
-      );
-      const callback = vi.fn();
-      const release = result.current.subscribe(callback, ch.key);
-      await waitFor(() => expect(callback).toHaveBeenCalled());
-      expect(result.current.getItem(ch.key)?.alias).toEqual("alias");
-      await act(async () => {
-        await client.ranges.setAlias(range.key, ch.key, "new_alias");
-      });
-      await waitFor(() =>
-        expect(result.current.getItem(ch.key)?.alias).toEqual("new_alias"),
-      );
-      release();
     });
   });
 
@@ -369,31 +308,6 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(ch.key);
       expect(result.current?.name).toEqual(name);
-    });
-
-    it("should retrieve channel with range alias", async () => {
-      const indexCh = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: indexCh.key,
-      });
-      const range = await client.ranges.create({
-        name: "alias_range",
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
-      });
-      await client.ranges.setAlias(range.key, ch.key, "custom_alias");
-
-      const { result } = await renderHookSuspended(
-        () => Channel.use({ key: ch.key, rangeKey: range.key }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.alias).toEqual("custom_alias");
     });
 
     it("should update when channel is renamed", async () => {
@@ -757,44 +671,6 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).toHaveLength(2));
     });
 
-    it("should retrieve channels with range aliases", async () => {
-      const indexCh = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const ch1 = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: indexCh.key,
-      });
-      const ch2 = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT64,
-        index: indexCh.key,
-      });
-      const range = await client.ranges.create({
-        name: "many_alias_range",
-        timeRange: new TimeRange({ start: 1n, end: 2000n }),
-      });
-      await client.ranges.setAlias(range.key, ch1.key, "alias_1");
-      await client.ranges.setAlias(range.key, ch2.key, "alias_2");
-
-      const { result } = await renderHookSuspended(
-        () =>
-          Channel.useMultiple({
-            where: { key: { in: [ch1.key, ch2.key] } },
-            rangeKey: range.key,
-          }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current).not.toBeNull());
-      const ch1Result = result.current?.find((c) => c.key === ch1.key);
-      const ch2Result = result.current?.find((c) => c.key === ch2.key);
-      expect(ch1Result?.alias).toEqual("alias_1");
-      expect(ch2Result?.alias).toEqual("alias_2");
-    });
-
     it("should update when a channel in the list is renamed", async () => {
       const ch1 = await client.channels.create({
         name: id.create(),
@@ -908,221 +784,6 @@ describe("queries", () => {
     });
   });
 
-  describe("useUpdateAlias", () => {
-    it("should update channel alias in a range", async () => {
-      const indexCh = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: indexCh.key,
-      });
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 3000n }),
-      });
-
-      const { result } = await renderHookSuspended(
-        () => {
-          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
-          const updateAlias = Channel.useUpdateAlias();
-          return { retrieve, updateAlias };
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
-
-      await act(async () => {
-        await result.current.updateAlias.updateAsync({
-          range: range.key,
-          channel: ch.key,
-          alias: "new_alias",
-        });
-      });
-      await waitFor(() => {
-        expect(result.current.retrieve?.alias).toEqual("new_alias");
-      });
-
-      await act(async () => {
-        await result.current.updateAlias.updateAsync({
-          range: range.key,
-          channel: ch.key,
-          alias: "updated_alias",
-        });
-      });
-      await waitFor(() => {
-        expect(result.current.retrieve?.alias).toEqual("updated_alias");
-      });
-    });
-
-    it("should run afterOptimistic before the write commits", async () => {
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 3000n }),
-      });
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Channel.useUpdateAlias({
-            afterOptimistic: ({ data }) => {
-              order.push(`optimistic:${data.alias}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.updateAsync({
-          range: range.key,
-          channel: ch.key,
-          alias: "optimistic_alias",
-        });
-      });
-
-      expect(order).toEqual(["optimistic:optimistic_alias", "success"]);
-    });
-  });
-
-  describe("useDeleteAlias", () => {
-    it("should delete a single channel alias", async () => {
-      const indexCh = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: indexCh.key,
-      });
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 4000n }),
-      });
-      await client.ranges.setAlias(range.key, ch.key, "to_delete");
-
-      const { result } = await renderHookSuspended(
-        () => {
-          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
-          const deleteAlias = Channel.useDeleteAlias();
-          return { retrieve, deleteAlias };
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
-      expect(result.current.retrieve?.alias).toEqual("to_delete");
-
-      await act(async () => {
-        await result.current.deleteAlias.updateAsync({
-          range: range.key,
-          channels: ch.key,
-        });
-      });
-      await waitFor(() => {
-        expect(result.current.retrieve?.alias).toBeUndefined();
-      });
-    });
-
-    it("should delete multiple channel aliases", async () => {
-      const indexCh = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const ch1 = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        index: indexCh.key,
-      });
-      const ch2 = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.INT32,
-        index: indexCh.key,
-      });
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 5000n }),
-      });
-      await client.ranges.setAlias(range.key, ch1.key, "multi_alias_1");
-      await client.ranges.setAlias(range.key, ch2.key, "multi_alias_2");
-
-      const { result } = await renderHookSuspended(
-        () => {
-          const retrieve = Channel.useMultiple({
-            where: { key: { in: [ch1.key, ch2.key] } },
-            rangeKey: range.key,
-          });
-          const deleteAlias = Channel.useDeleteAlias();
-          return { retrieve, deleteAlias };
-        },
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.retrieve).not.toBeNull();
-      });
-      const ch1Before = result.current.retrieve?.find((c) => c.key === ch1.key);
-      const ch2Before = result.current.retrieve?.find((c) => c.key === ch2.key);
-      expect(ch1Before?.alias).toEqual("multi_alias_1");
-      expect(ch2Before?.alias).toEqual("multi_alias_2");
-
-      await act(async () => {
-        await result.current.deleteAlias.updateAsync({
-          range: range.key,
-          channels: [ch1.key, ch2.key],
-        });
-      });
-      await waitFor(() => {
-        const ch1After = result.current.retrieve?.find((c) => c.key === ch1.key);
-        const ch2After = result.current.retrieve?.find((c) => c.key === ch2.key);
-        expect(ch1After?.alias).toBeUndefined();
-        expect(ch2After?.alias).toBeUndefined();
-      });
-    });
-
-    it("should run afterOptimistic before the write commits", async () => {
-      const ch = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const range = await client.ranges.create({
-        name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 4000n }),
-      });
-      await client.ranges.setAlias(range.key, ch.key, "optimistic_delete");
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Channel.useDeleteAlias({
-            afterOptimistic: ({ data }) => {
-              order.push(`optimistic:${data.channels as channel.Key}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.updateAsync({ range: range.key, channels: ch.key });
-      });
-
-      expect(order).toEqual([`optimistic:${ch.key}`, "success"]);
-    });
-  });
-
   describe("useCalculatedForm", () => {
     it("should create a new calculated channel", async () => {
       const sourceChannel = await client.channels.create({
@@ -1189,10 +850,54 @@ describe("queries", () => {
         result.current.save({ signal: controller.signal });
       });
 
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(result.current.form.value().expression).toEqual(
           `return ${sourceChannel.name} * 3`,
         );
+        const stored = await client.channels.retrieve(existingCalculated.key);
+        expect(stored.expression).toEqual(`return ${sourceChannel.name} * 3`);
+      });
+    });
+
+    it("should save a rename and new operations of a calculated channel", async () => {
+      const sourceChannel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const resetChannel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.UINT8,
+        virtual: true,
+      });
+      const existing = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${sourceChannel.name}`,
+      });
+      const { result } = await renderHookSuspended(
+        () => Channel.useCalculatedForm({ query: { key: existing.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const name = id.create();
+      const operations: channel.Operation[] = [
+        { type: "avg", resetChannel: resetChannel.key, duration: TimeSpan.seconds(5) },
+      ];
+      act(() => {
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.operations, operations);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.variant).toEqual("success");
+      await waitFor(async () => {
+        const stored = await client.channels.retrieve(existing.key);
+        expect(stored.name).toEqual(name);
+        expect(stored.expression).toEqual(`return ${sourceChannel.name}`);
+        expect(stored.operations).toEqual(operations);
       });
     });
 

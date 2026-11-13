@@ -756,8 +756,8 @@ func ApplyRetrieve(r RetrieveRequest, q {{$.Service}}Retrieve{{$.Args}}) ({{$.Se
 	}
 	return q, nil
 }
-
 {{- if .Orders}}
+
 // order returns the walk that the request's order selects, starting past the request's
 // cursor when it has one.
 func (r RetrieveRequest) order() ({{$.Service}}Order{{$.Args}}, error) {
@@ -798,8 +798,8 @@ func (r RetrieveRequest) order() ({{$.Service}}Order{{$.Args}}, error) {
 		"field",
 	)
 }
+{{- end}}
 
-{{end -}}
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // at any depth, so a client that sends a field the Core removed fails.
 func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {

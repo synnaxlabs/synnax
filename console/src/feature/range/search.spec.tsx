@@ -20,8 +20,12 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/feature/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
-import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
+import {
+  createConsoleWrapper,
+  resolveFocusedTab,
+  selectRange,
+  selectTestProject,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -74,7 +78,7 @@ describe("range/search", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource).toEqual(ranger.resourceID(rng.key));
-      expect(Session.Range.selectState(store.getState(), rng.key)).toEqual({
+      expect(selectRange(store.getState(), rng.key)).toEqual({
         variant: "persisted",
         key: rng.key,
       });

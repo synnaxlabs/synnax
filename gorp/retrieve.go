@@ -23,13 +23,13 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// RawFilter is a predicate that operates on the raw encoded bytes of an entry
+// rawFilter is a predicate that operates on the raw encoded bytes of an entry
 // before it is decoded. The filter receives both the pebble key and the
 // encoded value, so callers can filter on key-shaped data without ever
 // touching the value (or vice versa). Returning false skips the entry without
 // allocating a decoded value. Returning true allows normal decode + filter
 // processing.
-type RawFilter func(key, value []byte) (bool, error)
+type rawFilter func(key, value []byte) (bool, error)
 
 // Validator is a batch check that runs on the final result set after Exec
 // populates entries. A non-nil error from any validator causes Exec to return
@@ -135,7 +135,7 @@ func (r Retrieve[K, E]) SkipMissingKeys() Retrieve[K, E] {
 // allocating a decoded value, so a key-shaped predicate can drop most rows
 // without paying decode cost. Use in tandem with WherePrefix when the
 // keyspace itself can be narrowed.
-func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
+func (r Retrieve[K, E]) WhereRaw(filter rawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
 
@@ -295,6 +295,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 	}
 	e := make([]E, 0, 1)
 	r.entries.bindMultiple(&e)
+	r.limit = 1
 	if err := r.execFilter(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
@@ -502,7 +503,7 @@ func storageOrder[K Key](keys []K, after *K) []K {
 	return sorted
 }
 
-func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
+func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err error) {
 	var (
 		validCount int
 		match      bool
@@ -538,8 +539,9 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 		}
 		if match {
 			validCount += 1
-			if r.limit == 0 || validCount <= r.limit {
-				r.entries.add(*v)
+			r.entries.add(*v)
+			if validCount == r.limit {
+				break
 			}
 		}
 	}
@@ -581,9 +583,8 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 	if r.limit > 0 {
 		batch = max(r.limit, minWalkBatch)
 	}
-	// One snapshot of the index finds each key once, so the walk keeps an entry that
-	// moved after the snapshot and sorts it into place at the end.
-	snapshot := r.HasFilterKeys() || batch == 0
+	// A walk with no limit keeps every match and sorts them into place at the end.
+	snapshot := batch == 0
 	for k, holds := range r.orderBy.walk(bounded, batch) {
 		// A commit between two batches can move a counted key ahead of the walk.
 		if counted.Contains(k) {

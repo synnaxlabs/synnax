@@ -15,9 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -69,8 +67,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Panels are the panels to create. Each panel belongs to exactly one of a
-		// project and a range.
+		// Panels are the panels to create. Each panel belongs to a project.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
@@ -81,8 +78,8 @@ type (
 	}
 )
 
-// Create creates the panels, and overwrites each one whose key exists. It returns a
-// validation error when a panel does not belong to exactly one project or range.
+// Create creates the panels. It returns a validation error when a panel does not belong
+// to a project, or when a panel with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -130,16 +127,24 @@ func (s *Service) Retrieve(
 // its own broadcast echo.
 type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the project that a move into a group of another project needs.
+type DispatchResponse = actions.DispatchResponse[panel.Action]
+
 // Dispatch applies the action sequence to the target panel in tx. Subscribers to the
 // panel action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
+) (DispatchResponse, error) {
+	added, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: added}, nil
 }
 
 type DeleteRequest struct {
@@ -154,37 +159,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves panels into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key  `json:"group" msgpack:"group"`
-	Keys  []panel.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the panels with the given keys into a group. A move into a group under
-// another project moves the panels into that project.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
-}
-
-// SetProjectRequest moves panels into Project.
-type SetProjectRequest struct {
-	Project project.Key `json:"project" msgpack:"project"`
-	Keys    []panel.Key `json:"keys"    msgpack:"keys"`
-}
-
-// SetProject moves the panels with the given keys out of their group and into a
-// project.
-func (s *Service) SetProject(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetProjectRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		SetProject(ctx, req.Project, req.Keys...)
 }

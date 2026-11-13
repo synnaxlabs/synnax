@@ -7,7 +7,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Video } from "@/components/media/Media";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -24,7 +24,9 @@ To create a panel, click <Icon.Add /> at the right of the panel selector. The Co
 opens a new panel named **New panel**.
 
 To switch panels, click the name of a panel in the panel selector. To change the order
-of the panels, drag a name to a new position.
+of the panels, drag a name to a new position. To create a panel and its tabs from a
+Python or TypeScript script, see
+[visualizations in code](/reference/visualize/code#show-visualizations-in-a-panel).
 
 <Video id="console/panels/create" />
 
@@ -56,7 +58,7 @@ You can also run the "Change panel icon" command for the selected panel. The col
 applies to the icon only, not to the name of the panel. The icon shows in the panel
 selector, in the projects toolbar, and in the **Move to panel** list.
 
-{/* Still to capture: console/panels/change-icon -- the icon picker with a color */}
+<Image id="console/panels/change-icon/296a8df1977f/window" extension="webp" />
 
 <Divider.Divider x />
 
@@ -64,12 +66,15 @@ selector, in the projects toolbar, and in the **Move to panel** list.
 
 1. Press **Ctrl+T** (**Cmd+T** on macOS), or click <Icon.Add /> at the right of the tab
    bar. A **Create component** tab opens.
-2. Select **Line plot**, **Schematic**, **Log**, or **Table**.
+2. Under **Visualization**, select **Line plot**, **Schematic**, **Log**, or **Table**.
 
 <Video id="console/panels/open-tab" />
 
-The tab shows the new visualization. The list also has an item for each kind of
-[task](/reference/hardware/tasks) and for an [Arc automation](/reference/control/arc).
+The tab shows the new visualization. The **Create component** tab also has an
+**Automation** section for an [Arc automation](/reference/control/arc), and a **Tasks**
+section with each kind of [task](/reference/hardware/tasks), grouped by integration.
+Type in **Search components** to find an item. An item shows only when you have
+permission to create that kind of component.
 
 <Divider.Divider x />
 

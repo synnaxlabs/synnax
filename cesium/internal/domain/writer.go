@@ -11,6 +11,7 @@ package domain
 
 import (
 	"context"
+	"math"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -87,10 +88,10 @@ func (w WriterConfig) Validate() error {
 	v := validate.New("domain.writer_config")
 	v.Ternary(
 		"end",
-		w.End.Before(w.Start),
+		!w.End.IsZero() && w.End.Before(w.Start),
 		"end timestamp must be after or equal to start timestamp",
 	)
-	return nil
+	return v.Error()
 }
 
 func (w WriterConfig) Override(other WriterConfig) WriterConfig {
@@ -253,7 +254,8 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	// The writer gave up its handle, so a canceled wait would leave it with none.
 	key, size, internal, err := w.fc.acquireWriter(context.WithoutCancel(ctx))
 	if err != nil {
-		return err
+		// The writer has no file handle, so it can no longer write.
+		return errors.Combine(err, w.release())
 	}
 	w.fileKey = key
 	w.internal = internal
@@ -333,6 +335,9 @@ func (w *Writer) commit(
 		return span.Error(err)
 	}
 
+	if w.internal.Offset()+length > math.MaxUint32 {
+		return span.Error(ErrOffsetOverflow)
+	}
 	ptr := pointer{
 		Start:   w.Start,
 		End:     commitEnd,
@@ -342,13 +347,20 @@ func (w *Writer) commit(
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	err := span.Error(f(ctx, ptr, shouldPersist))
+	write, err := f(ctx, ptr, shouldPersist)
 	if err != nil {
 		return span.Error(err)
 	}
+	// The index holds the pointer even when persisting it fails, so a retry updates it.
+	w.prevCommit = commitEnd
+	if shouldPersist {
+		if err := w.idx.run(write); err != nil {
+			return span.Error(err)
+		}
+	}
 
 	if switchingFile {
-		if err = w.switchFile(ctx); err != nil {
+		if err := w.switchFile(ctx); err != nil {
 			return span.Error(err)
 		}
 		w.Start = commitEnd
@@ -356,8 +368,6 @@ func (w *Writer) commit(
 		if w.OnRollover != nil {
 			w.OnRollover(commitEnd)
 		}
-	} else {
-		w.prevCommit = commitEnd
 	}
 
 	return nil
@@ -384,16 +394,15 @@ func (w *Writer) Close() error {
 	if w.closed {
 		return nil
 	}
+	return errors.Combine(w.internal.Close(), w.release())
+}
+
+// release closes a writer that no longer holds a file handle.
+func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
-	if err := w.internal.Close(); err != nil {
-		return err
-	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
-		w.idx.mu.Lock()
-		write := w.idx.indexPersist.prepare(w.idx.persistHead)
-		w.idx.mu.Unlock()
-		return write.run()
+		return w.idx.persist()
 	}
 	return nil
 }

@@ -89,7 +89,7 @@ var (
 		tokenParamPrefix,
 	)
 	errNoAuthenticationParam = errors.Wrapf(
-		auth.ErrAuth,
+		auth.ErrMissingCredentials,
 		"no authentication token provided",
 	)
 )

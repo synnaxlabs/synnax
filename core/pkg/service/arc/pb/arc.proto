@@ -16,21 +16,30 @@ package service.arc.pb;
 import "arc/go/graph/pb/graph.proto";
 import "arc/go/program/pb/program.proto";
 import "arc/go/text/pb/text.proto";
+import "core/pkg/service/status/pb/status.proto";
 import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
-
-// Mode specifies whether an Arc module uses text-based or graph-based representation.
-enum Mode {
-  MODE_TEXT = 0;
-  MODE_GRAPH = 1;
-}
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.
 enum Type {
   TYPE_AUTOMATION = 0;
   TYPE_MODULE = 1;
+}
+
+// ChangeKind is how a piece of an automation's content differs from what its task last
+// ran.
+enum ChangeKind {
+  CHANGE_KIND_CHANGED = 0;
+  CHANGE_KIND_ADDED = 1;
+  CHANGE_KIND_REMOVED = 2;
+}
+
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
+enum Mode {
+  MODE_TEXT = 0;
+  MODE_GRAPH = 1;
 }
 
 // Base carries the fields that every Arc shares.
@@ -43,6 +52,16 @@ message Base {
   Source source = 3;
   // directory is the key of the directory that holds the Arc.
   optional string directory = 4;
+}
+
+// Change is one difference between an automation's content and what its task last ran.
+message Change {
+  // type is whether the automation's own text or a module changed.
+  Type type = 1;
+  // path is the import path of the module. Empty for the automation.
+  string path = 2;
+  // kind is how the content differs from what the task last ran.
+  ChangeKind kind = 3;
 }
 message WhereList {
   repeated Where values = 1;
@@ -83,11 +102,19 @@ message SourceGraphPayload {
   // graph is the visual dataflow graph representation of the module.
   .arc.graph.pb.Graph graph = 1;
 }
+message ChangeList {
+  repeated Change values = 1;
+}
 message ArcAutomationPayload {
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 1;
+  // changes is what changed in the automation since its task was deployed.
+  ChangeList changes = 2;
 }
-message ArcModulePayload {}
+message ArcModulePayload {
+  // status is the result of the module's last compile on the Core.
+  optional .service.status.pb.Status status = 1;
+}
 
 // Source is the source code of an Arc. The mode selects text or a graph.
 message Source {

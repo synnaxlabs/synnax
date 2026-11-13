@@ -33,8 +33,8 @@ to active plot**. See [line plots](/reference/visualize/line-plots#choose-a-time
 
   <Fragment slot="python">
 
-Use a channel name or [alias](/reference/ranges/aliases) as a property or a key of the
-range. The result acts as a NumPy array:
+Use a channel name as a property or a key of the range. The result acts as a NumPy
+array:
 
 ```python
 my_range = client.ranges.retrieve(name="My Interesting Test")
@@ -67,8 +67,8 @@ const frame = await myRange.read(["my_precise_tc", "my_precise_pt"]);
 
 ## Write to a range
 
-A write to a range starts at the start time of the range. Include the index channel of
-the data with timestamps inside the range.
+Data lands at the timestamps of its index channel. Include the index channel in the
+write, with timestamps inside the range.
 
 <Client.Tabs exclude={["console"]}>
 

@@ -12,16 +12,16 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
+from typing import Any, Literal, cast, overload, override
 
 import numpy as np
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, JsonValue, PrivateAttr
 
 from freighter import UnaryClient
 from synnax import channel, framer, label, node
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
-from synnax.ranger import alias as alias_, kv
+from synnax.ranger import actions_gen, kv
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Cursor,
@@ -39,23 +39,35 @@ from synnax.signals.signals import Registry
 from synnax.state import Latest
 from synnax.telem import (
     CrudeSeries,
+    CrudeTimeStamp,
     DataType,
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
 from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
 
-# synnax.task imports this module through its range field.
-if TYPE_CHECKING:
-    from synnax.task import Client as TaskClient, Task
-
 _RANGE_SET_CHANNEL = "sy_range_set"
+
+
+def _set(path: list[str], value: JsonValue) -> actions_gen.SetAction:
+    return actions_gen.set(actions_gen.SetPayload(path=path, value=value))
+
+
+def _remove(field: str) -> actions_gen.RemoveAction:
+    return actions_gen.remove(actions_gen.RemovePayload(key=field))
+
+
+# A string holds every 64-bit timestamp exactly.
+def _nanoseconds(time: CrudeTimeStamp) -> str:
+    return str(int(TimeStamp(time)))
+
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -66,11 +78,8 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    _aliaser: alias_.Client | None = PrivateAttr(None)
-    """An aliaser for setting the channel's alias."""
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
-    _tasks: TaskClient | None = PrivateAttr(None)
 
     # ArrayOperators clears __hash__, but writes can key data by channel payload.
     __hash__ = channel.Payload.__hash__
@@ -79,15 +88,11 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self,
         rng: Range,
         frame_client: framer.Client,
-        tasks: TaskClient,
         payload: channel.Payload,
-        _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
         self._cached_range = rng
         self._cached_frame_client = frame_client
-        self._aliaser = _aliaser
-        self._tasks = tasks
 
     @property
     def _range(self) -> Range:
@@ -126,9 +131,6 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         if self._cache is None:
             self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
-
-    def set_alias(self, alias: str) -> None:
-        self._range.set_alias(self.key, alias)
 
     @override
     def __str__(self) -> str:
@@ -219,10 +221,6 @@ class ScopedChannel(ArrayOperators):
         self._guard()
         return self._internal[0].leaseholder
 
-    def set_alias(self, alias: str) -> None:
-        self._guard()
-        self._internal[0].set_alias(alias)
-
     def __iter__(self) -> Iterator[_InternalScopedChannel]:
         return iter(self._internal)
 
@@ -249,16 +247,14 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
-    """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr({})
     """A writer for creating child ranges"""
     _scoped: dict[channel.Key | str, ScopedChannel] = PrivateAttr({})
     """Resolved channel queries, so each name or key is retrieved once."""
     _cached_client: Client | None = PrivateAttr(None)
-    _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
+    @deprecate_positional("name", "time_range", "key", "color", "parent")
     def __init__(
         self,
         *,
@@ -271,9 +267,7 @@ class Range(Payload):
         _frame_client: framer.Client | None = None,
         _channel_retriever: channel.Retriever | None = None,
         _kv: kv.Client | None = None,
-        _aliaser: alias_.Client | None = None,
         _client: Client | None = None,
-        _tasks: TaskClient | None = None,
         _label_client: label.Client | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
@@ -309,9 +303,7 @@ class Range(Payload):
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self._cached_aliaser = _aliaser
         self._cached_client = _client
-        self._cached_tasks = _tasks
         self._cached_label_client = _label_client
 
     def _get_scoped_channel(
@@ -331,8 +323,6 @@ class Range(Payload):
         if scoped is not None:
             return scoped
         channels = self._channel_retriever.retrieve(query)
-        aliases = self._aliaser.resolve([query])
-        channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         scoped = self._get_scoped_channel(channels, query)
         self._scoped[query] = scoped
         return scoped
@@ -358,7 +348,6 @@ class Range(Payload):
                     rng=self,
                     frame_client=self._frame_client,
                     payload=pld,
-                    tasks=self._tasks,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
@@ -375,12 +364,6 @@ class Range(Payload):
         return self._kv
 
     @property
-    def _aliaser(self) -> alias_.Client:
-        if self._cached_aliaser is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_aliaser
-
-    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
@@ -393,12 +376,6 @@ class Range(Payload):
         return self._cached_client
 
     @property
-    def _tasks(self) -> TaskClient:
-        if self._cached_tasks is None:
-            raise _RANGE_NOT_CREATED
-        return self._cached_tasks
-
-    @property
     def _label_client(self) -> label.Client:
         if self._cached_label_client is None:
             raise _RANGE_NOT_CREATED
@@ -409,30 +386,6 @@ class Range(Payload):
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
-
-    @overload
-    def set_alias(self, channel: channel.Key | str, alias: str) -> None: ...
-
-    @overload
-    def set_alias(self, channel: dict[channel.Key | str, str]) -> None: ...
-
-    def set_alias(
-        self,
-        channel: channel.Key | str | dict[channel.Key | str, str],
-        alias: str | None = None,
-    ) -> None:
-        if not isinstance(channel, dict):
-            if alias is None:
-                raise ValueError("Alias must be provided if channel is not a dict")
-            channel = {channel: alias}
-        corrected = {}
-        for ch, alias in channel.items():
-            if isinstance(ch, str):
-                corrected[self._channel_retriever.retrieve_one(ch).key] = alias
-            else:
-                corrected[ch] = alias
-        self._aliaser.set(corrected)
-        self._scoped.clear()
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -506,10 +459,6 @@ class Range(Payload):
         """
         self._label_client.remove(self.resource_id, list(labels))
 
-    def snapshots(self) -> list[Task]:
-        """Returns the task snapshots in this range."""
-        return self._tasks.retrieve(ranges=[self.key])
-
 
 class Client:
     _frame_client: framer.Client
@@ -518,7 +467,6 @@ class Client:
     _writer: Writer
     _unary_client: UnaryClient
     _signals: Registry
-    _tasks: TaskClient
     _labels: label.Client
 
     def __init__(
@@ -530,7 +478,6 @@ class Client:
         retriever: Retriever,
         channel_retriever: channel.Retriever,
         signals: Registry,
-        tasks: TaskClient,
         labels: label.Client,
     ) -> None:
         self._unary_client = unary_client
@@ -539,7 +486,6 @@ class Client:
         self._retriever = retriever
         self._channels = channel_retriever
         self._signals = signals
-        self._tasks = tasks
         self._labels = labels
 
     @overload
@@ -807,13 +753,78 @@ class Client:
     ) -> None:
         self._writer.delete(normalize(key))
 
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a range, in order, in one transaction.
+
+        :param key: The key of the range.
+        :param actions: The actions to apply, such as ``ranger.set`` and
+            ``ranger.remove``. A timestamp in an action is a string of its exact
+            nanoseconds.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        self._writer.dispatch(key, normalize(actions))
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a range.
 
         :param key: The key of the range to rename.
         :param name: The new name for the range.
         """
-        self._writer.rename(key, name)
+        self.dispatch(key, _set(["name"], name))
+
+    def set_end(self, key: Key, end: CrudeTimeStamp) -> None:
+        """Sets the end of the time range of a range.
+
+        :param key: The key of the range.
+        :param end: The new end of the time range.
+        :raises NotFoundError: If no range has the given key.
+        """
+        self.dispatch(key, _set(["time_range", "end"], _nanoseconds(end)))
+
+    def set_time_range(self, key: Key, time_range: TimeRange) -> None:
+        """Sets the start and end of a range.
+
+        :param key: The key of the range.
+        :param time_range: The new time range.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the start is after the end.
+        """
+        value: JsonValue = {
+            "start": _nanoseconds(time_range.start),
+            "end": _nanoseconds(time_range.end),
+        }
+        self.dispatch(key, _set(["time_range"], value))
+
+    def set_color(self, key: Key, color: color_.Crude | None) -> None:
+        """Sets the color of a range, or clears it when color is None.
+
+        :param key: The key of the range.
+        :param color: The new color, such as ``"#FF0000"``.
+        :raises NotFoundError: If no range has the given key.
+        """
+        if color is None:
+            self.dispatch(key, _remove("color"))
+        else:
+            self.dispatch(key, _set(["color"], color_.Color(color).model_dump()))
+
+    def set_parent(self, key: Key, parent: Key | Payload | None) -> None:
+        """Nests a range in a parent range, or makes it a top-level range when parent
+        is None.
+
+        :param key: The key of the range.
+        :param parent: The parent range, or its key.
+        :raises NotFoundError: If no range has the given key.
+        :raises ValidationError: If the parent is the range itself or a range nested
+            in it.
+        """
+        if parent is None:
+            self.dispatch(key, _remove("parent"))
+            return
+        parent_key = parent.key if isinstance(parent, Payload) else parent
+        self.dispatch(key, _set(["parent"], str(parent_key)))
 
     def search(
         self,
@@ -829,9 +840,7 @@ class Client:
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=kv.Client(rng=r.key, client=self._unary_client),
-                _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
-                _tasks=self._tasks,
                 _label_client=self._labels,
             )
             result.append(rng)

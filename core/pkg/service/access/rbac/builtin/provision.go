@@ -11,7 +11,6 @@ package builtin
 
 import (
 	"context"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -102,50 +101,68 @@ func Provision(
 
 func provisionRole(
 	ctx context.Context,
-	rol role.Role,
+	desired role.Role,
 	policies []policy.Policy,
 	tx gorp.Tx,
 	policySvc *policy.Service,
 	roleSvc *role.Service,
 ) (role.Key, error) {
-	policies = slices.Clone(policies)
-	desired := rol
-	if err := roleSvc.NewRetrieve().
-		Where(role.MatchNames(storedNames(rol.Name)...)).
+	roles := roleSvc.NewWriter(tx, true)
+	var rol role.Role
+	err := roleSvc.NewRetrieve().
+		Where(role.MatchNames(storedNames(desired.Name)...)).
 		Where(role.MatchInternal(true)).
 		Entry(&rol).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		rol = desired
+		err = roles.Create(ctx, &rol)
+	} else if err == nil && rol.Name != desired.Name {
+		err = roles.Apply(
+			ctx,
+			rol.Key,
+			role.NewSetAction(
+				role.SetPayload{Path: []string{"name"}, Value: desired.Name},
+			),
+			role.NewSetAction(role.SetPayload{
+				Path:  []string{"description"},
+				Value: desired.Description,
+			}),
+		)
+	}
+	if err != nil {
 		return uuid.Nil(), err
 	}
-	if rol.Key == uuid.Nil() || rol.Name != desired.Name {
-		rol.Name = desired.Name
-		rol.Description = desired.Description
-		if err := roleSvc.NewWriter(tx, true).Create(ctx, &rol); err != nil {
-			return uuid.Nil(), err
-		}
-	}
-	for i := range policies {
-		pol := &policies[i]
-		desiredName := pol.Name
-		desiredObjects := pol.Objects
-		desiredActions := pol.Actions
-		if err := policySvc.NewRetrieve().
+	writer := policySvc.NewWriter(tx, true)
+	for _, pol := range policies {
+		pol.Role = rol.Key
+		var stored policy.Policy
+		err = policySvc.NewRetrieve().
 			Where(policy.MatchNames(storedNames(pol.Name)...)).
 			Where(policy.MatchInternal(true)).
 			Where(policy.MatchRoles(rol.Key)).
-			Entry(pol).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return uuid.Nil(), err
+			Entry(&stored).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			err = writer.Create(ctx, &pol)
+		} else if err == nil {
+			err = writer.Apply(
+				ctx,
+				stored.Key,
+				setPolicy("name", pol.Name),
+				setPolicy("objects", pol.Objects),
+				setPolicy("actions", pol.Actions),
+			)
 		}
-		pol.Name = desiredName
-		pol.Objects = desiredObjects
-		pol.Actions = desiredActions
-		pol.Role = rol.Key
-		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
+		if err != nil {
 			return uuid.Nil(), err
 		}
 	}
 	return rol.Key, nil
+}
+
+func setPolicy(member string, value any) policy.Action {
+	return policy.NewSetAction(policy.SetPayload{Path: []string{member}, Value: value})
 }
 
 func storedNames(name string) []string {

@@ -27,7 +27,11 @@ const (
 )
 
 // Prefix returns the prefix of every key in the table of entry type E.
-func Prefix[E any]() []byte { return []byte(tablePrefix + types.Name[E]()) }
+func Prefix[E any]() []byte { return NamedPrefix(types.Name[E]()) }
+
+// NamedPrefix returns the prefix of every key in the table whose entry type is named
+// typeName.
+func NamedPrefix(typeName string) []byte { return []byte(tablePrefix + typeName) }
 
 // Migrations returns the key that records the migrations applied to namespace.
 func Migrations(namespace string) []byte { return []byte(migrationPrefix + namespace) }
@@ -35,7 +39,7 @@ func Migrations(namespace string) []byte { return []byte(migrationPrefix + names
 // LegacyPrefix returns the key prefix that releases before v0.54 used for the table of
 // typeName: the type name encoded with msgpack.
 func LegacyPrefix(ctx context.Context, typeName string) ([]byte, error) {
-	return msgpack.Codec.Encode(ctx, typeName)
+	return msgpack.Codec.Encode(typeName)
 }
 
 // primitive is a primary key type that a Codec can encode.

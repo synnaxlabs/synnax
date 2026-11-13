@@ -137,7 +137,7 @@ var _ = Describe("Completion", func() {
 			func(ctx SpecContext) {
 				list := completionAt(ctx, 2, 12)
 				Expect(labels(list.Items)).To(ContainElements(
-					"required", "min_length", "max_length",
+					"required", "min_length", "max_length", "min", "gt", "max",
 				))
 			},
 		)

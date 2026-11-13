@@ -50,8 +50,8 @@ SYNNAX_EXPORT int32_t synnax_client_open(
 /// @brief closes and frees a client. Safe on NULL.
 SYNNAX_EXPORT void synnax_client_close(SynnaxClient *client);
 
-/// @brief returns the static Synnax client library version string (the analog of the
-/// other clients' clientVersion / __version__). The caller must not free it.
+/// @brief returns the version of the Driver build the library came from, or 0.0.0 for
+/// a dev build. The caller must not free it.
 SYNNAX_EXPORT const char *synnax_client_version(void);
 
 #ifdef __cplusplus

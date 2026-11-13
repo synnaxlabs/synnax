@@ -22,7 +22,19 @@ var _ = Describe("TimeStamp", func() {
 		It("Should return the current time", func() {
 			Expect(
 				telem.Now().Time(),
-			).To(BeTemporally("~", time.Now(), time.Millisecond))
+			).To(BeTemporally("~", time.Now(), 20*time.Millisecond))
+		})
+
+		It("Should advance in steps finer than 0.1 ms", func() {
+			start := telem.Now()
+			var step telem.TimeSpan
+			for range 10_000_000 {
+				if step = start.Span(telem.Now()); step > 0 {
+					break
+				}
+			}
+			Expect(step).To(BeNumerically(">", 0))
+			Expect(step).To(BeNumerically("<", 100*telem.Microsecond))
 		})
 	})
 

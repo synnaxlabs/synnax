@@ -112,7 +112,10 @@ class ReadTask(
             )
             channels[_port_key(ch.type, ch.port)] = ch.channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -175,7 +178,10 @@ class WriteTask(
                 "state": ch.state_channel,
             }
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class Device(device.Device):

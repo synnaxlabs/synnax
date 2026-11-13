@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -51,19 +52,25 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 }
 
 // RangeFromPB converts Range to Range.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RangeFromPB(pb *Range) (ranger.Range, error) {
 	var r ranger.Range
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.TimeRange, err = telempb.TimeRangeFromPB(pb.TimeRange)
-	if err != nil {
-		return ranger.Range{}, err
+	if pb.TimeRange != nil {
+		r.TimeRange, err = telempb.TimeRangeFromPB(pb.TimeRange)
+		if err != nil {
+			return ranger.Range{}, err
+		}
 	}
 	r.Labels, err = func() ([]label.Key, error) {
 		result := make([]label.Key, len(pb.Labels))
@@ -94,6 +101,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		}
 		r.Parent = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

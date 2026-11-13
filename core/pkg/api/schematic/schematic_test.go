@@ -141,100 +141,6 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("SetProject", func() {
-		It(
-			"Should reject the request when the subject has no update policy",
-			func(ctx SpecContext) {
-				s := createSchematic(ctx, "move-denied")
-				Expect(setProject(
-					AuthedCtx(ctx, author),
-					apischematic.SetProjectRequest{
-						Project: proj.Key,
-						Keys:    []schematic.Key{s.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-			},
-		)
-
-		It(
-			"Should reject the request without update on the destination project",
-			func(ctx SpecContext) {
-				dest := project.Project{Name: "denied destination"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return projectSvc.NewWriter(tx).Create(ctx, &dest)
-				})).To(Succeed())
-				s := createSchematic(ctx, "move-denied")
-				grantUpdateOn(
-					ctx,
-					author.ResourceID(),
-					s.ResourceID(),
-					project.ResourceID(proj.Key),
-				)
-				Expect(setProject(
-					AuthedCtx(ctx, author),
-					apischematic.SetProjectRequest{
-						Project: dest.Key,
-						Keys:    []schematic.Key{s.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveSchematic(ctx, s.Key).Project).To(Equal(&proj.Key))
-			},
-		)
-
-		It("Should move the schematics into the project", func(ctx SpecContext) {
-			dest := project.Project{Name: "destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return projectSvc.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			s := createSchematic(ctx, "moved")
-			grantUpdateOn(
-				ctx,
-				author.ResourceID(),
-				s.ResourceID(),
-				project.ResourceID(proj.Key),
-				project.ResourceID(dest.Key),
-			)
-			Expect(setProject(
-				AuthedCtx(ctx, author),
-				apischematic.SetProjectRequest{
-					Project: dest.Key,
-					Keys:    []schematic.Key{s.Key},
-				},
-			)).Error().To(Succeed())
-			var res schematic.Schematic
-			Expect(schematicSvc.NewRetrieve().
-				Where(schematic.MatchKeys(s.Key)).
-				Entry(&res).Exec(ctx, db)).To(Succeed())
-			Expect(res.Project).To(HaveValue(Equal(dest.Key)))
-		})
-
-		It(
-			"Should refuse a move out of a group the subject cannot update",
-			func(ctx SpecContext) {
-				s := createSchematic(ctx, "grouped")
-				g := createGroup(ctx, "grouped")
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)
-				})).
-					To(Succeed())
-				grantUpdateOn(
-					ctx,
-					author.ResourceID(),
-					s.ResourceID(),
-					project.ResourceID(proj.Key),
-				)
-				Expect(setProject(
-					AuthedCtx(ctx, author),
-					apischematic.SetProjectRequest{
-						Project: proj.Key,
-						Keys:    []schematic.Key{s.Key},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveSchematic(ctx, s.Key).Group).To(Equal(&g.Key))
-			},
-		)
-	})
-
 	Describe("Dispatch", func() {
 		Describe("access control", func() {
 			It(
@@ -373,36 +279,6 @@ var _ = Describe("Service", func() {
 			)
 
 			It(
-				"Should bubble up validate.ErrValidation when dispatching to a snapshot",
-				func(ctx SpecContext) {
-					s := createSchematic(ctx, "snap-source")
-					var snap schematic.Schematic
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return schematicSvc.NewWriter(tx).
-							Copy(ctx, s.Key, "snap", true, nil, &snap)
-					})).To(Succeed())
-					grantUpdateOn(ctx, author.ResourceID(), snap.ResourceID())
-					Expect(
-						dispatch(
-							AuthedCtx(ctx, author),
-							apischematic.DispatchRequest{
-								Key:         snap.Key,
-								DispatchKey: "sess-1",
-								Actions: []schematic.Action{
-									schematic.NewRemoveNodeAction(
-										schematic.RemoveNodePayload{
-											Key: "n1",
-										},
-									),
-								},
-							},
-						),
-					).Error().
-						To(MatchError(validate.ErrValidation))
-				},
-			)
-
-			It(
 				"Should bubble up query.ErrNotFound when the target schematic does not exist",
 				func(ctx SpecContext) {
 					missing := uuid.New()
@@ -492,110 +368,6 @@ func retrieveSchematic(ctx SpecContext, key schematic.Key) schematic.Schematic {
 	return s
 }
 
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			s := createSchematic(ctx, "Set group denied")
-			g := createGroup(ctx, "Set group denied")
-			grantUpdateOn(ctx, author.ResourceID(), schematic.ResourceID(s.Key))
-			Expect(setGroup(
-				AuthedCtx(ctx, author),
-				apischematic.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []schematic.Key{s.Key},
-				},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveSchematic(ctx, s.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the schematic with update on the destination group",
-		func(ctx SpecContext) {
-			s := createSchematic(ctx, "Set group granted")
-			g := createGroup(ctx, "Set group granted")
-			grantUpdateOn(
-				ctx,
-				author.ResourceID(),
-				schematic.ResourceID(s.Key),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, author),
-				apischematic.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []schematic.Key{s.Key},
-				},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveSchematic(ctx, s.Key).Group).To(Equal(&g.Key))
-		},
-	)
-	Context("Into a group under another project", func() {
-		var (
-			u    user.User
-			x    schematic.Schematic
-			dest project.Project
-			g    group.Group
-		)
-		BeforeEach(func(ctx SpecContext) {
-			u = newUser(ctx)
-			x = createSchematic(ctx, "Cross project")
-			dest = project.Project{Name: "Destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return projectSvc.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return groupSvc.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-		})
-		move := func(ctx SpecContext) (struct{}, error) {
-			return setGroup(
-				AuthedCtx(ctx, u),
-				apischematic.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []schematic.Key{x.Key},
-				},
-			)
-		}
-		DescribeTable(
-			"Should refuse the move without update on both projects",
-			func(ctx SpecContext, projects func() []resource.ID) {
-				objects := projects()
-				grantUpdateOn(ctx, u.ResourceID(), append(
-					objects,
-					schematic.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveSchematic(ctx, x.Key).Project).To(Equal(&proj.Key))
-			},
-			Entry("without the destination", func() []resource.ID {
-				return []resource.ID{project.ResourceID(proj.Key)}
-			}),
-			Entry("without the source", func() []resource.ID {
-				return []resource.ID{dest.ResourceID()}
-			}),
-		)
-		It(
-			"Should move the schematic with update on both projects",
-			func(ctx SpecContext) {
-				objects := []resource.ID{
-					project.ResourceID(proj.Key),
-					dest.ResourceID(),
-				}
-				grantUpdateOn(ctx, u.ResourceID(), append(
-					objects,
-					schematic.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				MustSucceed(move(ctx))
-				Expect(retrieveSchematic(ctx, x.Key).Project).To(Equal(&dest.Key))
-			},
-		)
-	})
-})
-
 var _ = Describe("Create in a group", func() {
 	BeforeEach(func(ctx SpecContext) {
 		grantOn(
@@ -617,28 +389,6 @@ var _ = Describe("Create in a group", func() {
 					},
 				},
 			)).Error().To(MatchError(access.ErrDenied))
-		},
-	)
-	It(
-		"Should keep an existing schematic in its group without update on a group",
-		func(ctx SpecContext) {
-			g := createGroup(ctx, "Create keeps group")
-			sc := schematic.Schematic{Project: &proj.Key, Name: "Kept", Group: &g.Key}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return schematicSvc.NewWriter(tx).Create(ctx, &sc)
-			})).To(Succeed())
-			ignored := createGroup(ctx, "Create ignores group")
-			sc.Name, sc.Group = "Renamed", &ignored.Key
-			grantUpdateOn(ctx, author.ResourceID(), sc.ResourceID())
-			Expect(create(
-				AuthedCtx(ctx, author),
-				apischematic.CreateRequest{
-					Schematics: []schematic.Schematic{sc},
-				},
-			)).Error().ToNot(HaveOccurred())
-			stored := retrieveSchematic(ctx, sc.Key)
-			Expect(stored.Name).To(Equal("Renamed"))
-			Expect(stored.Group).To(Equal(&g.Key))
 		},
 	)
 	It("Should create the schematic with update on the group", func(ctx SpecContext) {
@@ -747,9 +497,7 @@ var _ = Describe("Owner access", func() {
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should refuse to overwrite a schematic without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a schematic whose key exists", func(ctx SpecContext) {
 		u := newUser(ctx)
 		grantOn(
 			ctx,
@@ -762,7 +510,10 @@ var _ = Describe("Owner access", func() {
 			Schematics: []schematic.Schematic{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
 			},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("schematic %s already exists", stored.Key)),
+		))
 		Expect(retrieveSchematic(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 
@@ -872,5 +623,208 @@ var _ = Describe("Delete", func() {
 				Entry(&schematic.Schematic{}).
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
+	)
+})
+
+var _ = Describe("Dispatch of a move", func() {
+	var (
+		u      user.User
+		target schematic.Schematic
+		g      group.Group
+		dest   project.Project
+		destG  group.Group
+		rec    *Recorder[schematic.Key, schematic.Action]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		target = createSchematic(ctx, "Moved")
+		g = createGroup(ctx, "Source")
+		dest = project.Project{Name: "Destination"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projectSvc.NewWriter(tx).Create(ctx, &dest)
+		})).To(Succeed())
+		destG = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &destG)
+		})).To(Succeed())
+		rec = &Recorder[schematic.Key, schematic.Action]{}
+	})
+	setGroup := func(k group.Key) schematic.Action {
+		return schematic.NewSetAction(
+			schematic.SetPayload{Path: []string{"group"}, Value: k},
+		)
+	}
+	setProject := func(k project.Key) schematic.Action {
+		return schematic.NewSetAction(
+			schematic.SetPayload{Path: []string{"project"}, Value: k},
+		)
+	}
+	removeGroup := schematic.NewRemoveAction(schematic.RemovePayload{Key: "group"})
+	// inGroup moves the schematic into g.
+	inGroup := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := schematicSvc.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))
+			return err
+		})).To(Succeed())
+	}
+	// moveAs grants u update on the schematic and on objects, records the broadcasts
+	// that follow, and dispatches acts as u.
+	moveAs := func(
+		ctx SpecContext,
+		acts []schematic.Action,
+		objects ...resource.ID,
+	) (apischematic.DispatchResponse, error) {
+		GinkgoHelper()
+		grantUpdateOn(ctx, u.ResourceID(), append(objects, target.ResourceID())...)
+		DeferCleanup(schematicSvc.OnAction(rec.Record))
+		return dispatch(AuthedCtx(ctx, u), apischematic.DispatchRequest{
+			Key:         target.Key,
+			DispatchKey: "dk-move",
+			Actions:     acts,
+		})
+	}
+	It("Should move the schematic into a group", func(ctx SpecContext) {
+		Expect(moveAs(ctx, []schematic.Action{setGroup(g.Key)}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveSchematic(ctx, target.Key).Group).To(Equal(&g.Key))
+		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
+			HaveField("DispatchKey", "dk-move"),
+			HaveField("Actions", []schematic.Action{setGroup(g.Key)}),
+		)))
+	})
+	It(
+		"Should move the schematic into the project of a group in another project",
+		func(ctx SpecContext) {
+			res := MustSucceed(moveAs(
+				ctx,
+				[]schematic.Action{setGroup(destG.Key)},
+				destG.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]schematic.Action{setProject(dest.Key)}))
+			moved := retrieveSchematic(ctx, target.Key)
+			Expect(moved.Group).To(Equal(&destG.Key))
+			Expect(moved.Project).To(Equal(&dest.Key))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]schematic.Action{setGroup(destG.Key), setProject(dest.Key)},
+			)))
+		},
+	)
+	It("Should move the schematic out of its group", func(ctx SpecContext) {
+		inGroup(ctx)
+		Expect(moveAs(ctx, []schematic.Action{removeGroup}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveSchematic(ctx, target.Key).Group).To(BeNil())
+	})
+	It("Should move the schematic into another project", func(ctx SpecContext) {
+		Expect(moveAs(
+			ctx,
+			[]schematic.Action{setProject(dest.Key)},
+			project.ResourceID(proj.Key),
+			dest.ResourceID(),
+		)).To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveSchematic(ctx, target.Key).Project).To(Equal(&dest.Key))
+	})
+	It(
+		"Should move the schematic out of its group when it moves into another project",
+		func(ctx SpecContext) {
+			inGroup(ctx)
+			res := MustSucceed(moveAs(
+				ctx,
+				[]schematic.Action{setProject(dest.Key)},
+				g.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]schematic.Action{removeGroup}))
+			moved := retrieveSchematic(ctx, target.Key)
+			Expect(moved.Group).To(BeNil())
+			Expect(moved.Project).To(Equal(&dest.Key))
+		},
+	)
+	It("Should refuse a move into a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(
+			moveAs(ctx, []schematic.Action{setGroup(missing)}),
+		).Error().
+			To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group: group %s does not exist", missing)),
+			))
+		Expect(retrieveSchematic(ctx, target.Key).Group).To(BeNil())
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+	DescribeTable(
+		"Should refuse a move without update on a record it changes",
+		func(
+			ctx SpecContext,
+			grouped bool,
+			move func() ([]schematic.Action, []resource.ID, resource.ID),
+		) {
+			if grouped {
+				inGroup(ctx)
+			}
+			before := retrieveSchematic(ctx, target.Key)
+			acts, granted, refused := move()
+			Expect(moveAs(ctx, acts, granted...)).Error().
+				To(denied(u, access.ActionUpdate, refused))
+			Expect(retrieveSchematic(ctx, target.Key)).To(Equal(before))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+		Entry(
+			"into a group without the group",
+			false,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setGroup(g.Key)}, nil, g.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without that project",
+			false,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without the source project",
+			false,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"into another project without that project",
+			false,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into another project without the source project",
+			false,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setProject(dest.Key)},
+					[]resource.ID{dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"out of a group without the group",
+			true,
+			func() ([]schematic.Action, []resource.ID, resource.ID) {
+				return []schematic.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key), dest.ResourceID()},
+					g.ResourceID()
+			},
+		),
 	)
 })

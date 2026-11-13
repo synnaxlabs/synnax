@@ -171,27 +171,17 @@ Channel struct {
 
         @doc value """
             replaces the channel with the given created state. Emitted by the Core when
-            a channel is created or overwritten whole; clients never dispatch it.
+            a channel is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the channel."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the channel.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the channel."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the channel."
-    }
+    action Move = patch.Move
 
     action Rename {
         name Name
@@ -256,11 +246,6 @@ APIChannel struct {
         @doc value """
             is the channel used to index this channel's values, associating each value
             with a timestamp.
-        """
-    }
-    alias       string?             {
-        @doc value """
-            is an optional alternate name for the channel within a specific context.
         """
     }
     virtual     bool = false {

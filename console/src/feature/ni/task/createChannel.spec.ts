@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -162,50 +163,57 @@ describe("createChannel", () => {
       const result = createNextAOChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key.length).toBeGreaterThan(0);
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
     });
 
     it("should create a new AI channel with the next available port number", () => {
       const channels: NI.Task.AOChannel[] = [
-        {
-          ...NI.Task.createAOChannel(),
+        ni.aoVoltageChannelZ.parse({
+          type: "ao_voltage",
           key: "1",
           port: 0,
           cmdChannel: 3,
           stateChannel: 10,
-        },
-        {
-          ...NI.Task.createAOChannel(),
+        }),
+        ni.aoVoltageChannelZ.parse({
+          type: "ao_voltage",
           key: "2",
           port: 1,
           cmdChannel: 4,
           stateChannel: 11,
-        },
+        }),
       ];
       const result = createNextAOChannel(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
     });
 
-    it("should copy properties from the specified index channel", () => {
+    it("should copy a commanded channel without its Synnax channels", () => {
       const channels: NI.Task.AOChannel[] = [
-        {
-          ...NI.Task.createAOChannel("ao_func_gen"),
+        ni.aoCurrentChannelZ.parse({
+          type: "ao_current",
           key: "1",
           port: 0,
           cmdChannel: 3,
           stateChannel: 10,
-        },
-        {
-          ...NI.Task.createAOChannel("ao_current"),
-          key: "2",
-          port: 1,
-          cmdChannel: 4,
-          stateChannel: 11,
-        },
+          cmdChannelName: "named_cmd",
+        }),
+      ];
+      const result = createNextAOChannel(channels, { copy: "1" });
+      expect(result).toMatchObject({
+        type: "ao_current",
+        port: 1,
+        cmdChannel: 0,
+        stateChannel: 0,
+        cmdChannelName: "",
+      });
+    });
+
+    it("should copy properties from the specified index channel", () => {
+      const channels: NI.Task.AOChannel[] = [
+        { ...NI.Task.createAOChannel("ao_func_gen"), key: "1", port: 0 },
+        { ...NI.Task.createAOChannel("ao_current"), key: "2", port: 1 },
       ];
       const result = createNextAOChannel(channels, { copy: "1" });
       expect(result.type).toBe("ao_func_gen");
@@ -213,8 +221,7 @@ describe("createChannel", () => {
       expect(result.key).not.toBe("2");
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.port).toBe(2);
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).not.toHaveProperty("cmdChannel");
     });
   });
 

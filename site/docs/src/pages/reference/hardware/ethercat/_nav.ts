@@ -29,5 +29,9 @@ export const ETHERCAT_NAV: Nav.PageNavNode = {
       href: "/reference/hardware/ethercat/dewesoft",
       name: "Dewesoft devices",
     },
+    {
+      href: "/reference/hardware/ethercat/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };

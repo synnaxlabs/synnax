@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -549,6 +550,49 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		Describe("channel.ErrLookupsChanged", func() {
+			// changingGetter returns channel.ErrLookupsChanged for the first changes
+			// calls, and counts each call in calls.
+			changingGetter := func(changes int, calls *int) arctask.GetProgramFunc {
+				return func(
+					_ context.Context,
+					key uuid.UUID,
+				) (svcarc.AutomationArc, error) {
+					*calls++
+					if *calls <= changes {
+						return svcarc.AutomationArc{}, channel.ErrLookupsChanged
+					}
+					return svcarc.AutomationArc{Key: key}, nil
+				}
+			}
+
+			It("Should get the program again until the lookups hold", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				Expect(newTask(ctx, newFactoryWith(changingGetter(2, &calls)))).
+					ToNot(BeNil())
+				Expect(calls).To(Equal(3))
+			})
+
+			It("Should fail the configure when the lookups keep changing", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				factory := newFactoryWith(changingGetter(math.MaxInt, &calls))
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-lookups-changed",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(channel.ErrLookupsChanged))
+				Expect(calls).To(Equal(3))
+			})
 		})
 
 		It(
@@ -3621,6 +3665,39 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
+			prog := arc.Text{Raw: `
+				func grow() {
+					s := ""
+					for i := range(100000) {
+						s = s + "x"
+					}
+				}
+				interval(period=10ms) -> grow()
+			`}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-string-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Message).To(Equal("Node failed"))
+				g.Expect(stat.Description).
+					To(ContainSubstring("too many strings in one cycle"))
+			}).Should(Succeed())
+		})
+
 		It(
 			"Should report WASM division by zero via status service",
 			func(ctx SpecContext) {

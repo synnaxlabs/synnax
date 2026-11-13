@@ -12,7 +12,12 @@ import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-import { listReleaseNotes, releaseAnchor } from "@/util/releaseNotes";
+import {
+  listReleaseNotes,
+  releaseAnchor,
+  releaseDate,
+  releaseLinks,
+} from "@/util/releaseNotes";
 
 const write = (files: Record<string, string>): string => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "release-notes-"));
@@ -51,5 +56,49 @@ describe("listReleaseNotes", () => {
     const notes = listReleaseNotes();
     expect(notes.length).toBeGreaterThan(0);
     expect(notes.find(({ name }) => name === "0-31-0")?.anchor).toBe("0-31-1");
+  });
+});
+
+describe("releaseDate", () => {
+  it("should format the day in Mountain Time", () => {
+    expect(releaseDate(new Date("2026-11-12T05:57:37Z"))).toBe("Nov 11, 2026");
+  });
+
+  it("should keep the day of a release published in the morning", () => {
+    expect(releaseDate(new Date("2026-10-07T16:00:00Z"))).toBe("Oct 7, 2026");
+  });
+});
+
+describe("releaseLinks", () => {
+  it("should link a shipped release to its tags and packages", () => {
+    expect(
+      releaseLinks({
+        version: "0.60.0",
+        date: "Oct 26, 2026",
+        desktopVersion: "1.0.0",
+      }),
+    ).toEqual({
+      github: "https://github.com/synnaxlabs/synnax/tree/core/v0.60.0",
+      python: "https://pypi.org/project/synnax/0.60/",
+      typescript: "https://npmjs.com/package/@synnaxlabs/client/v/0.60.0",
+      desktop: "https://github.com/synnaxlabs/synnax/releases/tag/desktop/v1.0.0",
+    });
+  });
+
+  it("should link a release before v0.59 to its single tag", () => {
+    expect(releaseLinks({ version: "0.58.2", date: "Sep 1, 2026" })?.github).toBe(
+      "https://github.com/synnaxlabs/synnax/tree/synnax-v0.58.2",
+    );
+  });
+
+  it("should omit the TypeScript link when no client shipped", () => {
+    expect(
+      releaseLinks({ version: "0.51.0", date: "Jan 1, 2026", npmVersion: null })
+        ?.typescript,
+    ).toBeUndefined();
+  });
+
+  it("should not link a release without a date", () => {
+    expect(releaseLinks({ version: "0.61.0", desktopVersion: "1.1.0" })).toBeNull();
   });
 });

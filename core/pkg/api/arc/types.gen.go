@@ -12,6 +12,8 @@
 package arc
 
 import (
+	"strconv"
+
 	servicearc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -71,6 +73,10 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeProgram includes the program of each record.
 	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
+	// IncludeChanges includes the changes of each record.
+	IncludeChanges bool `json:"include_changes" msgpack:"include_changes"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -87,4 +93,14 @@ func (r RetrieveRequest) Validate() error {
 type RetrieveResponse struct {
 	// Arcs are the arcs the request selects.
 	Arcs []servicearc.Arc `json:"arcs" msgpack:"arcs"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Arcs {
+		v.Exec(func() error { return validate.PathedError(r.Arcs[i].Validate(), "arcs", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

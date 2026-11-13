@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -28,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -116,6 +119,9 @@ type writeTask struct {
 	closer io.Closer
 	// sCtx is the streamer's context. A streamer that fails cancels it.
 	sCtx signal.Context
+	// promises counts produced records whose promise has not returned. The client
+	// calls promises from its own goroutines, even after it closes.
+	promises sync.WaitGroup
 	// mu guards lastErr, which produce callbacks update from client goroutines.
 	mu sync.Mutex
 	// lastErr is the last produce error reported, so a repeat is not rewritten.
@@ -132,7 +138,6 @@ func (f *factory) configureWrite(
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -199,7 +204,7 @@ func (f *factory) configureWrite(
 					wc.Key, ch.Name,
 				)
 			}
-			if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
+			if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
 				return nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q: time_format alone encodes timestamp channel %s",
@@ -232,6 +237,12 @@ func newWriteChannel(
 	f := xjson.Field{DataType: ch.DataType, Enums: enums(wc.EnumValues)}
 	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Key)
+	}
+	if len(f.Enums) > 0 && f.Type != xjson.String {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: enum values require the string JSON type", wc.Key,
+		)
 	}
 	if wc.TimeFormat != nil {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(
@@ -329,9 +340,9 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 // generatorSlot returns the slot that fills a generated field.
 func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	switch field.Generator {
-	case http.GeneratorTypeUUID:
+	case payload.GeneratorTypeUUID:
 		return slot{kind: slotUUID}, nil
-	case http.GeneratorTypeTimestamp:
+	case payload.GeneratorTypeTimestamp:
 		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
 		if field.TimeFormat != nil {
 			var err error
@@ -519,10 +530,34 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastErr = ""
-	t.closer = append(xio.MultiCloser{xio.CloserFunc(t.closeClient)}, shutdown...)
+	t.closer = xio.MultiCloser{
+		xio.CloserFunc(t.closeClient),
+		xio.CloserFunc(func() error {
+			// Produce blocks on a full buffer until its context ends, so a lost cluster
+			// would hold the graceful wait forever. The first of the drain and the
+			// deadline to settle decides the outcome.
+			timeout := t.factoryCfg.PingTimeout.Duration()
+			var settled atomic.Bool
+			deadline := time.AfterFunc(timeout, func() {
+				if settled.CompareAndSwap(false, true) {
+					cancel()
+				}
+			})
+			err := shutdown.Close()
+			deadline.Stop()
+			if settled.CompareAndSwap(false, true) {
+				return err
+			}
+			return errors.Join(
+				errors.Newf("timed out producing records after %s", timeout),
+				errors.Skip(err, context.Canceled),
+			)
+		}),
+	}
 	sCtx.Go(func(ctx context.Context) error {
 		// The client has finished with a record by the time it calls the promise.
 		promise := func(rec *kgo.Record, err error) {
+			defer t.promises.Done()
 			if err != nil {
 				t.reportError(ctx, "Produce failed: "+err.Error())
 			}
@@ -536,7 +571,8 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	return nil
 }
 
-// closeClient flushes the buffered records and closes the producer.
+// closeClient flushes the buffered records, closes the producer, and waits for every
+// promise to return.
 func (t *writeTask) closeClient() error {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -544,6 +580,10 @@ func (t *writeTask) closeClient() error {
 	defer cancel()
 	err := t.client.Flush(ctx)
 	t.client.Close()
+	// Close fails the buffered records without waiting for their promises, and a
+	// promise that reports after the stop status would overwrite it. The closer runs
+	// this after the relay exits, so nothing adds to promises during the wait.
+	t.promises.Wait()
 	return err
 }
 
@@ -581,6 +621,7 @@ func (t *writeTask) produce(
 				t.reportError(ctx, "Record build failed: "+err.Error())
 				continue
 			}
+			t.promises.Add(1)
 			t.client.Produce(ctx, rec, promise)
 		}
 	}

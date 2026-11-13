@@ -12,9 +12,14 @@
 package v4
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Performance sets how closely the Arc runtime holds timer deadlines. A higher level is
@@ -48,7 +53,8 @@ type Config struct {
 	task.PersistConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
-	// Hash is the semantic hash of the Arc module at deploy time.
+	// Hash is the hash of the automation's compiled program, or of its source when it
+	// does not compile.
 	Hash string `json:"hash" msgpack:"hash"`
 	// Performance sets how closely the runtime holds timer deadlines.
 	Performance Performance `json:"performance" msgpack:"performance"`
@@ -59,6 +65,30 @@ func (c *Config) ApplyDefaults() {
 	if c.Performance == "" {
 		c.Performance = PerformanceAuto
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (c *Config) SetDefaults() {
+	c.Performance = PerformanceAuto
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Config
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *Config) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Config
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

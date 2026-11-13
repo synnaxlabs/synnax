@@ -197,9 +197,7 @@ Arc can create a range and end it. Use the Console or a client for everything el
 | Find a range                      | [Find ranges](/reference/ranges/find)               |
 | Read the data of a range          | [Read and write range data](/reference/ranges/data) |
 | Add metadata or labels            | [Metadata and labels](/reference/ranges/metadata)   |
-| Set a channel alias               | [Channel aliases](/reference/ranges/aliases)        |
 | Rename a range or change its time | [Edit and delete ranges](/reference/ranges/edit)    |
-| Snapshot a task or a schematic    | [Snapshots](/reference/ranges/snapshots)            |
 
 Each `ranges.create` makes a new range, also when a range with the same name exists.
 
@@ -219,10 +217,14 @@ Complete the range in the Console. See
 When a `ranges` call fails, Synnax shows a warning, the call outputs an empty key, and
 the automation keeps running.
 
-| Warning                                | Cause                                                                 |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| `ranges.end: invalid range key ""`     | `ranges.end` ran before `ranges.create` stored a key in the variable. |
-| `ranges.create: invalid parent key ""` | The child range was created before the parent range stored its key.   |
+| Message                  | Description                                        | Cause                                                                 |
+| ------------------------ | -------------------------------------------------- | --------------------------------------------------------------------- |
+| `Failed to end range`    | `The key "" is not a valid range key.`             | `ranges.end` ran before `ranges.create` stored a key in the variable. |
+| `Failed to create range` | `The color "<color>" is not valid: <error>`        | The `color` is not a valid CSS color.                                 |
+| `Failed to create range` | `The parent key "<key>" is not a valid range key.` | The `parent` is text that is not a range key.                         |
+
+An empty `parent` is not an error. When a child `ranges.create` runs before the parent
+range stores its key, Synnax makes a top-level range and shows no warning.
 
 Put each `ranges.end`, and each child `ranges.create`, in a stage that runs only after
 the `ranges.create` that it needs.

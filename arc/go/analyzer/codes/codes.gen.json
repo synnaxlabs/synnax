@@ -1,0 +1,46 @@
+{
+  "ARC2004": {
+    "severity": "error",
+    "message": "%s with %s is always %t, use %s instead"
+  },
+  "ARC2005": {
+    "severity": "warning",
+    "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
+  },
+  "ARC2006": {
+    "severity": "warning",
+    "message": "bool to %s is experimental; a future release may only allow bool to u8"
+  },
+  "ARC3001": {
+    "severity": "error",
+    "message": "missing required argument for parameter '%s' of func '%s'"
+  },
+  "ARC3002": {
+    "severity": "error",
+    "message": ""
+  },
+  "ARC3003": {
+    "severity": "error",
+    "message": "too many arguments for func '%s': expected at most %d"
+  },
+  "ARC4003": {
+    "severity": "warning",
+    "message": "'%s' is deprecated, use '%s' instead"
+  },
+  "ARC4004": {
+    "severity": "warning",
+    "message": "declare variables at the top of a stage or sequence"
+  },
+  "ARC5001": {
+    "severity": "error",
+    "message": "imported module %q is unused"
+  },
+  "ARC6001": {
+    "severity": "error",
+    "message": "constant %s overflows %s"
+  },
+  "ARC6002": {
+    "severity": "error",
+    "message": "integer %s by zero"
+  }
+}

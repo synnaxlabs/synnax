@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -81,17 +82,22 @@ func OrderToPB(r device.Order) (*Order, error) {
 }
 
 // OrderFromPB converts Order to Order.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func OrderFromPB(pb *Order) (device.Order, error) {
 	var r device.Order
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Field, err = OrderFieldFromPB(pb.Field)
 	if err != nil {
 		return device.Order{}, err
 	}
 	r.Descending = pb.Descending
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -155,11 +161,15 @@ func RetrieveRequestToPB(r device.RetrieveRequest) (*RetrieveRequest, error) {
 }
 
 // RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) {
 	var r device.RetrieveRequest
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
@@ -186,6 +196,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) 
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

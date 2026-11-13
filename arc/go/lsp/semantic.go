@@ -32,22 +32,22 @@ const (
 	SemanticTokenTypeNumber
 	SemanticTokenTypeComment
 	SemanticTokenTypeFunction
-	SemanticTokenTypeParameter
+	semanticTokenTypeParameter
 	SemanticTokenTypeChannel
-	SemanticTokenTypeSequence
-	SemanticTokenTypeStage
-	SemanticTokenTypeBlock
+	semanticTokenTypeSequence
+	semanticTokenTypeStage
+	semanticTokenTypeBlock
 	SemanticTokenTypeStatefulVariable
 	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
 	SemanticTokenTypeInput
-	SemanticTokenTypeOutput
-	SemanticTokenTypeNamespace
-	SemanticTokenTypeStringRaw
-	SemanticTokenTypeStringPlaceholder
-	SemanticTokenTypeChannelVariable
-	SemanticTokenTypeBoolean
+	semanticTokenTypeOutput
+	semanticTokenTypeNamespace
+	semanticTokenTypeStringRaw
+	semanticTokenTypeStringPlaceholder
+	semanticTokenTypeChannelVariable
+	semanticTokenTypeBoolean
 )
 
 var semanticTokenTypes = []string{
@@ -352,7 +352,7 @@ func classifyTokenAt(
 	// statement are module references, not variables.
 	if inImport &&
 		(antlrType == parser.ArcLexerIDENTIFIER || antlrType == parser.ArcLexerAUTHORITY) {
-		tokenType := uint32(SemanticTokenTypeNamespace)
+		tokenType := uint32(semanticTokenTypeNamespace)
 		return &tokenType
 	}
 	// An IDENTIFIER immediately following a numeric literal is that literal's unit
@@ -395,7 +395,7 @@ func classifyTokenAt(
 	// visually distinguish module-qualified uses from local variables.
 	if antlrType == parser.ArcLexerIDENTIFIER && nextTokenType == parser.ArcLexerDOT &&
 		isImportAlias(docIR, t.GetText()) {
-		tokenType := uint32(SemanticTokenTypeNamespace)
+		tokenType := uint32(semanticTokenTypeNamespace)
 		return &tokenType
 	}
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
@@ -425,7 +425,7 @@ func classifyVarKind(sym *symbol.Symbol) *uint32 {
 	if !sym.IsChannelReadWrite() && !sym.IsReactive() {
 		return nil
 	}
-	tokenType := uint32(SemanticTokenTypeChannelVariable)
+	tokenType := uint32(semanticTokenTypeChannelVariable)
 	return &tokenType
 }
 
@@ -443,7 +443,7 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 	case symbol.KindInput:
 		tokenType = SemanticTokenTypeInput
 	case symbol.KindOutput:
-		tokenType = SemanticTokenTypeOutput
+		tokenType = semanticTokenTypeOutput
 	case symbol.KindChannel:
 		tokenType = SemanticTokenTypeChannel
 	case symbol.KindSequence, symbol.KindStage:
@@ -452,7 +452,7 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		// color keeps them visually consistent with `func` declarations.
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
-		tokenType = SemanticTokenTypeBlock
+		tokenType = semanticTokenTypeBlock
 	case symbol.KindLoopVariable:
 		tokenType = SemanticTokenTypeVariable
 	default:
@@ -494,7 +494,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerTRUE, parser.ArcLexerFALSE:
-		tokenType = SemanticTokenTypeBoolean
+		tokenType = semanticTokenTypeBoolean
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
 		tokenType = SemanticTokenTypeComment
 	case parser.ArcLexerIDENTIFIER:
@@ -616,9 +616,9 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 		// A brace can be written as an escape, so the open brace runs up to the text,
 		// and the spec and close brace run from the end of the text.
 		textStart, textEnd := seg.Offsets[0], seg.Offsets[len(seg.Text)]
-		emit(seg.Start+bodyOff, textStart+bodyOff, SemanticTokenTypeStringPlaceholder)
+		emit(seg.Start+bodyOff, textStart+bodyOff, semanticTokenTypeStringPlaceholder)
 		emitInner(seg)
-		emit(textEnd+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringPlaceholder)
+		emit(textEnd+bodyOff, seg.End+bodyOff, semanticTokenTypeStringPlaceholder)
 	}
 	emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
 	return tokens

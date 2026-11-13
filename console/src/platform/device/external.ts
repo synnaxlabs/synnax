@@ -22,6 +22,7 @@ export * from "@/platform/device/integration";
 export * from "@/platform/device/RackField";
 export * from "@/platform/device/racks";
 export * from "@/platform/device/Select";
+export * from "@/platform/device/setProperties";
 export * from "@/platform/device/TaskContextMenuItems";
 export * from "@/platform/device/types";
 export * from "@/platform/device/useChangeIdentifier";

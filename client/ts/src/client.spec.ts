@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
-import { AuthError, DisconnectedError, type Synnax } from "@/index";
+import { DisconnectedError, InvalidCredentialsError, type Synnax } from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -48,9 +48,9 @@ describe("connect", () => {
     await client.close();
   });
 
-  it("should reject with AuthError on bad credentials", async () => {
+  it("should reject with InvalidCredentialsError on bad credentials", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     await client.close();
   });
 
@@ -62,7 +62,7 @@ describe("connect", () => {
 
   it("should recover from an auth failure via reauthenticate", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
     client.reauthenticate(TEST_CREDENTIALS);
     const state = await client.connect();
@@ -72,7 +72,7 @@ describe("connect", () => {
 
   it("should reject bad credentials without a change stream", async () => {
     const client = createTestClient({ password: "definitely-wrong", cache: false });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
   });

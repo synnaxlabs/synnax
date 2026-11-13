@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -57,11 +57,10 @@ describe("Actuator", () => {
     );
     await findByText("Invalid custom symbol");
     await act(async () => {
-      await client.schematics.symbols.create({
-        key: symbol.key,
-        name: symbol.name,
-        data: createData(VALID_SVG),
-      });
+      await client.schematics.symbols.dispatch(
+        symbol.key,
+        schematic.symbol.set({ path: ["data", "svg"], value: VALID_SVG }),
+      );
     });
     await waitFor(() => {
       expect(queryByText("Invalid custom symbol")).toBeNull();

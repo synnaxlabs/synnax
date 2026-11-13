@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -16,6 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { PagerDuty } from "@/feature/pagerduty";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { awaitCommand, createTaskStatus } from "@/platform/task/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -73,11 +75,38 @@ describe("useSetDataSaving", () => {
     });
   });
 
+  it("should restart a running task with the config hash of the edit", async () => {
+    const t = await rack.createTask({
+      name: "running-read-task",
+      type: NI.Task.ANALOG_READ_TYPE,
+      config: { dataSavingDisabled: true, sampleRate: 100 },
+    });
+    await client.statuses.set(
+      createTaskStatus({
+        owner: task.resourceID(t.key),
+        details: { running: true, configHash: t.configHash, rack: t.rack },
+      }),
+    );
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: t.key, dataSaving: true });
+      });
+      const cmd = await awaitCommand(streamer, t.key, "start");
+      const updated = await createTestClient().tasks.retrieve({ key: t.key });
+      expect(updated.configHash).not.toEqual(t.configHash);
+      expect(cmd.configHash).toEqual(updated.configHash);
+    } finally {
+      streamer.close();
+    }
+  });
+
   it("should skip tasks without the field in config", async () => {
     const alertTask = await rack.createTask({
       name: "alert-task",
       type: PagerDuty.Task.ALERT_TYPE,
-      config: { routingKey: "a".repeat(32) },
+      config: {},
     });
 
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });

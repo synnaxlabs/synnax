@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, overload, override
+from typing import Any, Literal, overload, override
 
 from pydantic import PrivateAttr
 
@@ -47,10 +47,6 @@ from synnax.util import request_where, returns_one, sole
 from x import control, filter
 from x.lists import normalize
 
-# synnax.ranger imports synnax.channel at load time.
-if TYPE_CHECKING:
-    from synnax import ranger
-
 
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
@@ -74,7 +70,6 @@ class Channel(Payload):
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
-        alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
@@ -125,7 +120,6 @@ class Channel(Payload):
             expression=expression,
             operations=operations,
             concurrency=concurrency,
-            alias=alias,
             status=status,
             group=group,
         )
@@ -348,16 +342,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = []
-        if retrieve_if_name_exists:
-            created = self._sugar(
-                self._retriever.retrieve([ch.name for ch in _channels])
-            )
-            _channels = [
-                c for c in _channels if c.name not in [ch.name for ch in created]
-            ]
-
-        created.extend(self._sugar(self._creator.create(_channels)))
+        created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]
 
     @overload
@@ -380,7 +365,6 @@ class Client:
         not_data_types: list[CrudeDataType] | None = ...,
         node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -403,7 +387,6 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -426,7 +409,6 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -453,7 +435,6 @@ class Client:
         not_data_types: list[CrudeDataType] | None = ...,
         node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: ranger.Key | None = ...,
         include_status: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
@@ -480,7 +461,6 @@ class Client:
         not_data_types: list[CrudeDataType] | None = ...,
         node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: ranger.Key | None = ...,
         limit: int | None = ...,
         order: Order | None = ...,
         after: Cursor | None = ...,
@@ -497,7 +477,6 @@ class Client:
         not_data_types: list[CrudeDataType] | None = None,
         node_key: node.Key | None = None,
         search_term: str = "",
-        range_key: ranger.Key | None = None,
         limit: int | None = None,
         order: Order | None = None,
         after: Cursor | None = None,
@@ -532,9 +511,7 @@ class Client:
         :param data_types: Keeps channels with one of these data types.
         :param not_data_types: Drops channels with one of these data types.
         :param node_key: Keeps channels whose leaseholder is this node.
-        :param search_term: Fuzzy matches channel names. With range_key, the channels
-            whose alias in the range matches come first.
-        :param range_key: Sets each channel's alias from this range.
+        :param search_term: Fuzzy matches channel names.
         :param limit: The maximum number of channels to retrieve.
         :param order: The order of the channels. Defaults to key order.
         :param after: Retrieves the channels past this position in the order: the key of
@@ -583,7 +560,7 @@ class Client:
             after=after,
             include_status=include_status,
         )
-        res = self._retriever.filter(req, range_key)
+        res = self._retriever.filter(req)
         sug = self._sugar(res)
         if not single:
             return sug
@@ -631,6 +608,17 @@ class Client:
         :param group: The key of the group to move the channels into.
         """
         self._creator.set_group(normalize(keys), group)
+
+    def set_expression(self, key: Key, expression: str) -> None:
+        """Sets the expression of a calculated channel. The Core infers the data type
+        of the channel from the new expression.
+
+        :param key: The key of the calculated channel.
+        :param expression: The new expression.
+        :raises NotFoundError: If no channel has the given key.
+        :raises ValidationError: If the channel is not calculated.
+        """
+        self._creator.set_expression(key, expression)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

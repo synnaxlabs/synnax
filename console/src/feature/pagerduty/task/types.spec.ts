@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
+
+const ROUTING_KEY = uuid.create();
 
 describe("PagerDuty Alert Task Types", () => {
   describe("config schema", () => {
     it("should accept a valid config", () => {
       const config = {
-        routingKey: "a".repeat(32),
+        routingKey: ROUTING_KEY,
         autoStart: true,
         alerts: [
           {
@@ -32,7 +35,7 @@ describe("PagerDuty Alert Task Types", () => {
       const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.routingKey).toBe("a".repeat(32));
+        expect(result.data.routingKey).toBe(ROUTING_KEY);
         expect(result.data.autoStart).toBe(true);
         expect(result.data.alerts).toHaveLength(1);
         expect(result.data.alerts[0].status).toBe("my-status");
@@ -40,25 +43,30 @@ describe("PagerDuty Alert Task Types", () => {
       }
     });
 
-    it("should reject a routing key that is not 32 characters", () => {
+    it("should reject a routing key that is not a secret key", () => {
       const config = {
-        routingKey: "tooshort",
+        routingKey: "R022XIJR9M266DX570EVE6EXP1AFBN6D",
         alerts: [{ key: "a", status: "s", disabled: false }],
       };
-      expect(PagerDuty.Task.deployAlertTaskConfigZ.validate(config)).toBe(false);
+      expect(PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config).success).toBe(false);
     });
 
-    it("should reject an empty routing key", () => {
+    it("should require a routing key at deploy", () => {
       const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse({
         ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
         alerts: [{ key: "a", status: "s", disabled: false }],
       });
-      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          path: ["routingKey"],
+          message: "Routing key is required",
+        }),
+      ]);
     });
 
     it("should default autoStart to false", () => {
       const config = {
-        routingKey: "b".repeat(32),
+        routingKey: ROUTING_KEY,
         alerts: [{ key: "a", status: "s", disabled: false }],
       };
       const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
@@ -67,14 +75,14 @@ describe("PagerDuty Alert Task Types", () => {
     });
 
     it("should default alerts to an empty array", () => {
-      const config = { routingKey: "c".repeat(32) };
+      const config = { routingKey: ROUTING_KEY };
       const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) expect(result.data.alerts).toEqual([]);
     });
 
     it("should reject an empty alert list at deploy", () => {
-      const config = { routingKey: "c".repeat(32), alerts: [] };
+      const config = { routingKey: ROUTING_KEY, alerts: [] };
       const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse(config);
       // Empty array fails the refine (at least one enabled alert required)
       expect(result.success).toBe(false);
@@ -82,7 +90,7 @@ describe("PagerDuty Alert Task Types", () => {
 
     it("should reject when no alerts are enabled", () => {
       const config = {
-        routingKey: "d".repeat(32),
+        routingKey: ROUTING_KEY,
         alerts: [
           { key: "a", status: "s1", disabled: true },
           { key: "b", status: "s2", disabled: true },
@@ -95,7 +103,7 @@ describe("PagerDuty Alert Task Types", () => {
   describe("alert config schema", () => {
     it("should reject an empty status key", () => {
       const config = {
-        routingKey: "e".repeat(32),
+        routingKey: ROUTING_KEY,
         alerts: [{ key: "a", status: "", disabled: false }],
       };
       expect(PagerDuty.Task.deployAlertTaskConfigZ.validate(config)).toBe(false);
@@ -103,7 +111,7 @@ describe("PagerDuty Alert Task Types", () => {
 
     it("should default optional fields", () => {
       const config = {
-        routingKey: "f".repeat(32),
+        routingKey: ROUTING_KEY,
         alerts: [{ key: "a", status: "my-status" }],
       };
       const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);

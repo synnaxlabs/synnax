@@ -324,7 +324,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 				} else {
 					isLiteral := isLiteralExpression(ctx.Child(expression))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, varType, exprType, ctx.AST)) ||
-						(!isLiteral && !atypes.Compatible(varType, exprType)) {
+						(!isLiteral && !assignable(varType, exprType)) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
 							ctx.AST,
 							"type mismatch: cannot assign %s to '%s' (type %s)",
@@ -344,6 +344,13 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "no type declaration found"))
 	return types.Type{}
+}
+
+// assignable reports whether value can go into target. Unlike atypes.Compatible, it
+// rejects a series for a scalar and a scalar for a series.
+func assignable(target, value types.Type) bool {
+	return types.StructuralMatch(target.UnwrapChan(), value.UnwrapChan()) &&
+		atypes.Compatible(target, value)
 }
 
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
@@ -556,14 +563,13 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	}
 }
 
-// analyzeCondition validates an if or else-if condition. Numeric conditions are
-// deprecated: a future release will only accept bool.
+// analyzeCondition validates an if or else-if condition. A non-boolean condition is
+// deprecated, and a future release accepts only a bool.
 func analyzeCondition(ctx context.Context[parser.IExpressionContext]) {
 	expression.Analyze(ctx)
-	if atypes.InferFromExpression(ctx).IsNumeric() {
-		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
-			"numeric conditions are deprecated; use an explicit comparison like x != 0",
-		))
+	t := atypes.InferFromExpression(ctx)
+	if d, ok := expression.TruthyCondition(ctx.AST, ctx.AST, t); ok {
+		ctx.Diagnostics.Add(d)
 	}
 }
 
@@ -651,7 +657,7 @@ func isRangeCall(
 		return nil, false
 	}
 	calls := postfix.AllFunctionCallSuffix()
-	if len(calls) != 1 {
+	if len(calls) != 1 || len(postfix.AllIndexOrSlice()) > 0 {
 		return nil, false
 	}
 	return calls[0], true
@@ -963,7 +969,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 						return
 					}
 				} else {
-					if !atypes.Compatible(expectedReturnType, actualReturnType) {
+					if !assignable(expectedReturnType, actualReturnType) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 							"cannot return %s from '%s': expected %s",
 							actualReturnType,
@@ -1070,7 +1076,7 @@ func analyzeChannelAssignment(
 	} else {
 		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, chanValueType, exprType, ctx.AST)) ||
-			(!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
+			(!isLiteral && !assignable(chanValueType, exprType)) {
 			channelName := ctx.AST.IDENTIFIER().GetText()
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				ctx.AST, "type mismatch: cannot write %s to channel '%s' (type %s)",
@@ -1110,7 +1116,7 @@ func analyzeIndexedAssignment(
 	if len(indexExprs) != 1 {
 		return
 	}
-	expression.Analyze(ctx.Child(indexExprs[0]))
+	expression.AnalyzeIndex(ctx, indexExprs[0])
 
 	// 4. Analyze value expression and check type compatibility
 	valueExpr := ctx.AST.Expression()
@@ -1139,7 +1145,7 @@ func analyzeIndexedAssignment(
 
 	isLiteral := isLiteralExpression(ctx.Child(valueExpr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
-		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		(!isLiteral && !assignable(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to series element of type %s",
@@ -1196,7 +1202,7 @@ func analyzeIndexedCompoundAssignment(
 	if len(indexExpressions) != 1 {
 		return
 	}
-	expression.Analyze(ctx.Child(indexExpressions[0]))
+	expression.AnalyzeIndex(ctx, indexExpressions[0])
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
@@ -1219,7 +1225,7 @@ func analyzeIndexedCompoundAssignment(
 
 	isLiteral := isLiteralExpression(ctx.Child(expr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
-		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		(!isLiteral && !assignable(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"type mismatch: cannot use %s in compound assignment to series element of type %s",
@@ -1368,7 +1374,7 @@ func analyzeCompoundAssignment(
 		}
 		return
 	}
-	if atypes.Compatible(varType, exprType) {
+	if assignable(varType, exprType) {
 		return
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(

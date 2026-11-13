@@ -1119,8 +1119,7 @@
         "type": "labjack_write",
         "rack": 65538,
         "config": {},
-        "internal": false,
-        "snapshot": false
+        "internal": false
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000000b",
@@ -1128,8 +1127,7 @@
         "type": "labjack_scan",
         "rack": 65538,
         "config": {},
-        "internal": true,
-        "snapshot": false
+        "internal": true
       },
       "c": {
         "key": "00000000-0000-4000-8000-00000000000c",
@@ -1137,8 +1135,7 @@
         "type": "labjack_write",
         "rack": 131073,
         "config": {},
-        "internal": false,
-        "snapshot": true
+        "internal": false
       }
     },
     "cases": [
@@ -1296,15 +1293,6 @@
         "expected": ["a", "c"]
       },
       {
-        "name": "snapshot eq",
-        "where": {
-          "snapshot": {
-            "eq": true
-          }
-        },
-        "expected": ["c"]
-      },
-      {
         "name": "the slots on one node are ANDed",
         "where": {
           "type": {
@@ -1341,8 +1329,8 @@
             },
             {
               "not": {
-                "snapshot": {
-                  "eq": true
+                "rack": {
+                  "eq": 131073
                 }
               }
             }
@@ -1360,8 +1348,8 @@
               }
             },
             {
-              "snapshot": {
-                "eq": true
+              "rack": {
+                "eq": 131073
               }
             }
           ]
@@ -1636,6 +1624,696 @@
       },
       {
         "name": "not of an empty where matches none",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
+  },
+  "ni_devices": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000000a",
+        "rack": 65538,
+        "name": "Mod 1",
+        "serial": "01A1",
+        "resource_name": "cDAQ1Mod1",
+        "model": "NI 9205"
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000000b",
+        "rack": 65538,
+        "name": "Mod 2",
+        "serial": "01A2",
+        "resource_name": "cDAQ1Mod2",
+        "model": "NI 9263"
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000000c",
+        "rack": 131073,
+        "name": "USB DAQ",
+        "serial": "",
+        "resource_name": "Dev1",
+        "model": "USB-6001"
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every device",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-0000000000ff"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-0000000000ff"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Mod 2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Mod 1", "USB DAQ"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "name contains",
+        "where": {
+          "name": {
+            "contains": "Mod"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name contains compares case",
+        "where": {
+          "name": {
+            "contains": "mod"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name starts_with",
+        "where": {
+          "name": {
+            "starts_with": "USB"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "name eq ignores case",
+        "where": {
+          "name": {
+            "eq": "mod 1",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Mod"
+          }
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "serial eq",
+        "where": {
+          "serial": {
+            "eq": "01A2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "serial eq empty",
+        "where": {
+          "serial": {
+            "eq": ""
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "serial starts_with",
+        "where": {
+          "serial": {
+            "starts_with": "01A"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "serial contains ignores case",
+        "where": {
+          "serial": {
+            "contains": "a2",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "resource_name eq",
+        "where": {
+          "resource_name": {
+            "eq": "Dev1"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "resource_name starts_with ignores case",
+        "where": {
+          "resource_name": {
+            "starts_with": "cdaq1",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "model eq",
+        "where": {
+          "model": {
+            "eq": "NI 9263"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "model starts_with",
+        "where": {
+          "model": {
+            "starts_with": "NI"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "model contains ignores case",
+        "where": {
+          "model": {
+            "contains": "usb",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "model regex",
+        "where": {
+          "model": {
+            "regex": "^USB"
+          }
+        },
+        "expected": ["c"],
+        "server_computed": true
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "name": {
+            "contains": "Mod"
+          },
+          "serial": {
+            "eq": "01A2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every device",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "model": {
+                "starts_with": "NI"
+              }
+            },
+            {
+              "not": {
+                "serial": {
+                  "eq": "01A1"
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "model": {
+                "eq": "USB-6001"
+              }
+            },
+            {
+              "name": {
+                "eq": "Mod 1"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "model": {
+              "starts_with": "NI"
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
+  },
+  "ni_chassis": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000010a",
+        "rack": 65538,
+        "name": "Chassis 1",
+        "serial": "1A2B",
+        "resource_name": "cDAQ1",
+        "model": "cDAQ-9178"
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000010b",
+        "rack": 65538,
+        "name": "Chassis 2",
+        "serial": "1A2C",
+        "resource_name": "cDAQ2",
+        "model": "cDAQ-9174"
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000010c",
+        "rack": 131073,
+        "name": "PXI rack",
+        "serial": "",
+        "resource_name": "PXI1",
+        "model": "PXIe-1082"
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every chassis",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000010a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000010a",
+              "00000000-0000-4000-8000-00000000010c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-0000000001ff"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000010a",
+              "00000000-0000-4000-8000-0000000001ff"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Chassis 2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Chassis 1", "PXI rack"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "name contains",
+        "where": {
+          "name": {
+            "contains": "Chassis"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name contains compares case",
+        "where": {
+          "name": {
+            "contains": "chassis"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name starts_with",
+        "where": {
+          "name": {
+            "starts_with": "PXI"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "name eq ignores case",
+        "where": {
+          "name": {
+            "eq": "chassis 1",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Chassis"
+          }
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "serial eq",
+        "where": {
+          "serial": {
+            "eq": "1A2C"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "serial eq empty",
+        "where": {
+          "serial": {
+            "eq": ""
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "serial starts_with",
+        "where": {
+          "serial": {
+            "starts_with": "1A2"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "serial contains ignores case",
+        "where": {
+          "serial": {
+            "contains": "2b",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "resource_name eq",
+        "where": {
+          "resource_name": {
+            "eq": "PXI1"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "resource_name starts_with ignores case",
+        "where": {
+          "resource_name": {
+            "starts_with": "cdaq",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "model eq",
+        "where": {
+          "model": {
+            "eq": "cDAQ-9174"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "model starts_with",
+        "where": {
+          "model": {
+            "starts_with": "cDAQ"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "model contains ignores case",
+        "where": {
+          "model": {
+            "contains": "pxie",
+            "case_insensitive": true
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "model regex",
+        "where": {
+          "model": {
+            "regex": "^PXI"
+          }
+        },
+        "expected": ["c"],
+        "server_computed": true
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "name": {
+            "contains": "Chassis"
+          },
+          "resource_name": {
+            "eq": "cDAQ2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every chassis",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "model": {
+                "starts_with": "cDAQ"
+              }
+            },
+            {
+              "not": {
+                "serial": {
+                  "eq": "1A2B"
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "model": {
+                "eq": "PXIe-1082"
+              }
+            },
+            {
+              "name": {
+                "eq": "Chassis 1"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "model": {
+              "starts_with": "cDAQ"
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
         "where": {
           "not": {}
         },

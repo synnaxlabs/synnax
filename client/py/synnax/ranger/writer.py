@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient
+from synnax.ranger import actions_gen
 from synnax.ranger.types_gen import Key, Payload
 
 
@@ -26,9 +27,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class Writer:
@@ -54,6 +56,7 @@ class Writer:
         req = _DeleteRequest(keys=keys)
         self._client.send("/range/delete", req, Empty)
 
-    @trace("debug", key="range.rename")
-    def rename(self, key: Key, name: str) -> None:
-        self._client.send("/range/rename", _RenameRequest(key=key, name=name), Empty)
+    @trace("debug", key="range.dispatch")
+    def dispatch(self, key: Key, actions: list[actions_gen.Action]) -> None:
+        req = _DispatchRequest(key=key, actions=actions)
+        self._client.send("/range/dispatch", req, Empty)

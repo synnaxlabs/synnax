@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string>
 
 #include "gtest/gtest.h"
 
@@ -1852,20 +1854,181 @@ TEST(FromSampleValue, EnumNoMatchFallsThrough) {
     ASSERT_EQ(result, json("99"));
 }
 
-TEST(FromSampleValue, NaNToEnumErrors) {
+/// @brief it should write an unmatched NaN as text.
+TEST(FromSampleValue, NaNWithNoEnumToString) {
     const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
-    ASSERT_OCCURRED_AS_P(
+    const auto result = ASSERT_NIL_P(
         x::json::from_sample_value(
             x::telem::SampleValue(std::numeric_limits<double>::quiet_NaN()),
             x::json::Type::String,
             &enums
-        ),
-        x::json::CONVERSION_ERROR
+        )
     );
+    ASSERT_EQ(result, json("NaN"));
 }
 
-TEST(FromSampleValue, EnumIgnoredForNonStringTarget) {
+/// @brief it should write the infinities as text.
+TEST(FromSampleValue, InfinityToString) {
+    const auto pos = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<float>::infinity()),
+            x::json::Type::String
+        )
+    );
+    ASSERT_EQ(pos, json("Infinity"));
+    const auto neg = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(-std::numeric_limits<double>::infinity()),
+            x::json::Type::String
+        )
+    );
+    ASSERT_EQ(neg, json("-Infinity"));
+}
+
+/// @brief it should write a matched sample as its label for a number target.
+TEST(FromSampleValue, EnumMatchForNumberTarget) {
     const x::json::ReverseEnumMap enums = {{1.0, "ON"}, {0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(1.0),
+            x::json::Type::Number,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+/// @brief it should tell apart int64 enum values that a double rounds together.
+TEST(FromSampleValue, EnumMatchInt64Past2To53) {
+    constexpr int64_t past = (int64_t(1) << 53) + 1;
+    const x::json::ReverseEnumMap enums = {
+        {int64_t(past - 1), "LOW"},
+        {int64_t(past), "HIGH"},
+    };
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(past),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("HIGH"));
+}
+
+/// @brief it should tell apart uint64 enum values near the maximum.
+TEST(FromSampleValue, EnumMatchUint64Max) {
+    constexpr auto max = std::numeric_limits<uint64_t>::max();
+    const x::json::ReverseEnumMap enums = {
+        {uint64_t(max - 1), "LOW"},
+        {max, "HIGH"},
+    };
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(max),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("HIGH"));
+}
+
+/// @brief it should not match a double entry to an integer it only rounds to.
+TEST(FromSampleValue, EnumFloatEntryMatchesIntegerExactly) {
+    constexpr int64_t past = (int64_t(1) << 53) + 1;
+    const x::json::ReverseEnumMap enums = {{static_cast<double>(past), "ROUNDED"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(past),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("9007199254740993"));
+}
+
+/// @brief it should match an integer sample to a whole float entry.
+TEST(FromSampleValue, EnumMatchUint8ToFloatEntry) {
+    const x::json::ReverseEnumMap enums = {{1.0, "ON"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(uint8_t(1)),
+            x::json::Type::Boolean,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+/// @brief it should match any NaN to a NaN entry.
+TEST(FromSampleValue, EnumMatchNaN) {
+    const x::json::ReverseEnumMap enums = {
+        {std::numeric_limits<double>::quiet_NaN(), "FAULT"},
+    };
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<float>::signaling_NaN()),
+            x::json::Type::Number,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("FAULT"));
+}
+
+/// @brief it should match negative zero to a zero entry.
+TEST(FromSampleValue, EnumMatchNegativeZero) {
+    const x::json::ReverseEnumMap enums = {{0.0, "OFF"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(-0.0),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("OFF"));
+}
+
+/// @brief it should narrow a double entry to the type of a float32 sample.
+TEST(FromSampleValue, EnumMatchFloat32Narrowed) {
+    const x::json::ReverseEnumMap enums = {{0.1, "TENTH"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(0.1f),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("TENTH"));
+}
+
+/// @brief it should not match a double entry past the float32 range to infinity.
+TEST(FromSampleValue, EnumEntryPastFloat32DoesNotMatchInfinity) {
+    const x::json::ReverseEnumMap enums = {{1e39, "BIG"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::numeric_limits<float>::infinity()),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("Infinity"));
+}
+
+/// @brief it should write a string sample as its enum label.
+TEST(FromSampleValue, EnumMatchString) {
+    const x::json::ReverseEnumMap enums = {{std::string("1"), "ON"}};
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(
+            x::telem::SampleValue(std::string("1")),
+            x::json::Type::String,
+            &enums
+        )
+    );
+    ASSERT_EQ(result, json("ON"));
+}
+
+/// @brief it should not match a string entry to a number.
+TEST(FromSampleValue, EnumStringEntryDoesNotMatchNumber) {
+    const x::json::ReverseEnumMap enums = {{std::string("1"), "ON"}};
     const auto result = ASSERT_NIL_P(
         x::json::from_sample_value(
             x::telem::SampleValue(1.0),
@@ -2036,6 +2199,36 @@ TEST(FromTimestamp, UnixMicrosecondNegative) {
     ASSERT_DOUBLE_EQ(
         x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
         -1500000.0
+    );
+}
+
+/// @brief it should write a whole count of units past 2^53 as an exact integer.
+TEST(FromTimestamp, UnixMicrosecondWholePast2To53) {
+    constexpr int64_t past = (int64_t(1) << 53) + 1;
+    ASSERT_EQ(
+        x::json::from_timestamp(
+            x::telem::TimeStamp(past * 1000),
+            x::json::TimeFormat::UnixMicrosecond
+        ),
+        json(past)
+    );
+}
+
+/// @brief it should round a fraction once, from its exact decimal value.
+TEST(FromTimestamp, UnixMicrosecondRoundsOnce) {
+    const auto ts = x::telem::TimeStamp(int64_t(1767323045123456789));
+    ASSERT_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
+        std::stod("1767323045123456.789")
+    );
+}
+
+/// @brief it should pad the fraction of a negative timestamp with zeros.
+TEST(FromTimestamp, UnixSecondNegativePaddedFraction) {
+    const auto ts = x::telem::TimeStamp(int64_t(-1000000001));
+    ASSERT_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecond).get<double>(),
+        -1.000000001
     );
 }
 
@@ -2430,6 +2623,66 @@ TEST(ToSampleValueEnum, StringToInt32ViaEnum) {
         x::json::to_sample_value(json("STANDBY"), x::telem::INT32_T, {}, &enums)
     );
     ASSERT_EQ(std::get<int32_t>(sv), 2);
+}
+
+/// @brief it should keep an int64 enum value past 2^53 exact.
+TEST(ToSampleValueEnum, Int64Past2To53ViaEnum) {
+    constexpr int64_t past = (int64_t(1) << 53) + 1;
+    x::json::EnumMap enums = {{"BIG", past}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("BIG"), x::telem::INT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<int64_t>(sv), past);
+}
+
+/// @brief it should keep the largest uint64 enum value exact.
+TEST(ToSampleValueEnum, Uint64MaxViaEnum) {
+    constexpr auto max = std::numeric_limits<uint64_t>::max();
+    x::json::EnumMap enums = {{"MAX", max}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("MAX"), x::telem::UINT64_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<uint64_t>(sv), max);
+}
+
+/// @brief it should read a label as NaN for a NaN enum value.
+TEST(ToSampleValueEnum, NaNViaEnum) {
+    x::json::EnumMap enums = {{"FAULT", std::numeric_limits<double>::quiet_NaN()}};
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json("FAULT"), x::telem::FLOAT32_T, {}, &enums)
+    );
+    ASSERT_TRUE(std::isnan(std::get<float>(sv)));
+}
+
+/// @brief it should read a label as its string enum value.
+TEST(ToSampleValueEnum, StringViaEnum) {
+    x::json::EnumMap enums = {{"ON", std::string("1")}};
+    const auto on = ASSERT_NIL_P(
+        x::json::to_sample_value(json("ON"), x::telem::STRING_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<std::string>(on), "1");
+    const auto off = ASSERT_NIL_P(
+        x::json::to_sample_value(json("OFF"), x::telem::STRING_T, {}, &enums)
+    );
+    ASSERT_EQ(std::get<std::string>(off), "OFF");
+}
+
+/// @brief it should reject an enum value that does not fit the target.
+TEST(ToSampleValueEnum, EnumValueOutOfRangeFails) {
+    x::json::EnumMap enums = {{"BIG", int64_t(300)}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("BIG"), x::telem::UINT8_T, {}, &enums),
+        x::json::CONVERSION_ERROR
+    );
+}
+
+/// @brief it should reject a numeric enum value for a string target.
+TEST(ToSampleValueEnum, NumericEnumValueToStringFails) {
+    x::json::EnumMap enums = {{"ON", 1.0}};
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json("ON"), x::telem::STRING_T, {}, &enums),
+        x::json::CONVERSION_ERROR
+    );
 }
 
 TEST(ToSampleValueEnum, StringNotInEnumFallsBackToNumericParsing) {

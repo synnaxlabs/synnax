@@ -49,7 +49,9 @@ class ArcClient(ResourceClient):
         """
         self._show_arc_panel()
 
-        add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
+        add_btn = self.layout.page.locator(
+            f"{self.TOOLBAR_CLASS} button:has(.lyra-icon--add)"
+        )
         add_btn.click()
 
         name_input = self.layout.page.locator("input[placeholder='Arc name']")
@@ -242,6 +244,17 @@ class ArcClient(ResourceClient):
             return False
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         return stop_btn.count() > 0 and stop_btn.is_visible()
+
+    def wait_for_running(self) -> None:
+        """Wait for the Stop button, which shows once the Arc's task runs."""
+        self._show_arc_panel()
+        stop_btn = self._get_controls().locator("button:has(.lyra-icon--stop)")
+        stop_btn.wait_for(state="visible", timeout=5000)
+
+    def is_drifted(self) -> bool:
+        """Check if the Arc's controls show the Redeploy button."""
+        controls = self.layout.page.locator(self.CONTROLS_CLASS)
+        return controls.locator(".console-task-redeploy--visible").count() > 0
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an Arc via context menu inline edit.

@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pytest
 
@@ -135,6 +138,57 @@ class TestChannel:
         assert channel.is_index is True
         assert channel.index == channel.key
 
+    def test_create_retrieve_if_name_exists(self, client: sy.Synnax) -> None:
+        """Should return the existing channel and create no duplicate"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        again = client.channels.create(
+            name=name,
+            virtual=True,
+            data_type=sy.DataType.FLOAT32,
+            retrieve_if_name_exists=True,
+        )
+        assert again.key == ch.key
+        assert [c.key for c in client.channels.retrieve([name])] == [ch.key]
+
+    def test_create_retrieve_if_name_exists_concurrent(self, client: sy.Synnax) -> None:
+        """Should create one channel when creates of the same name run at once"""
+        name = channel_name()
+
+        def create(_: int) -> sy.Channel:
+            return client.channels.create(
+                name=name,
+                virtual=True,
+                data_type=sy.DataType.FLOAT32,
+                retrieve_if_name_exists=True,
+            )
+
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            keys = {ch.key for ch in pool.map(create, range(10))}
+        assert len(keys) == 1
+        assert {c.key for c in client.channels.retrieve([name])} == keys
+
+    def test_create_retrieve_if_name_exists_keeps_order(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should return the channels in the order they were passed"""
+        name = channel_name()
+        ch = client.channels.create(
+            name=name, virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        new_name = channel_name()
+        created = client.channels.create(
+            [
+                sy.Channel(name=new_name, virtual=True, data_type=sy.DataType.FLOAT32),
+                sy.Channel(name=name, virtual=True, data_type=sy.DataType.FLOAT32),
+            ],
+            retrieve_if_name_exists=True,
+        )
+        assert [c.name for c in created] == [new_name, name]
+        assert created[1].key == ch.key
+
     def test_create_bool(self, client: sy.Synnax) -> None:
         """Should create a channel with a BOOLEAN data type"""
         idx = client.channels.create(
@@ -195,6 +249,30 @@ class TestChannel:
         )
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
+
+    def test_set_expression(self, client: sy.Synnax) -> None:
+        """Should set the expression of a calculated channel and infer its new data
+        type."""
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.INT64,
+            expression="return 1 + 1",
+        )
+        client.channels.set_expression(ch.key, "return 1.5 * 2.0")
+        res = client.channels.retrieve(ch.key)
+        assert res.expression == "return 1.5 * 2.0"
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_set_expression_not_calculated(self, client: sy.Synnax) -> None:
+        """Should refuse an expression for a channel that is not calculated."""
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(
+            sy.ValidationError, match="only a calculated channel can change"
+        ):
+            client.channels.set_expression(ch.key, "return 1")
+        assert client.channels.retrieve(ch.key).expression == ""
 
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax) -> None:
@@ -479,6 +557,34 @@ class TestChannel:
         for name in new_names:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+    def test_multiple_rename_missing_key(self, client: sy.Synnax) -> None:
+        """Should rename no channel when one key of the batch does not exist"""
+        kept, removed = client.channels.create(
+            [
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=channel_name(),
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        client.channels.delete(removed.key)
+        with pytest.raises(
+            sy.NotFoundError,
+            match=re.escape(
+                f"requests.1: Channels with keys [{removed.key}] not found"
+            ),
+        ):
+            client.channels.rename(
+                [kept.key, removed.key], [channel_name(), channel_name()]
+            )
+        assert client.channels.retrieve(kept.key).name == kept.name
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -867,60 +973,6 @@ class TestChannelRetrieveFilters:
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""
         assert len(client.channels.retrieve(limit=1)) == 1
-
-    def test_range_key(
-        self,
-        client: sy.Synnax,
-        create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
-    ) -> None:
-        """Should set the alias of the channel in the range without caching it"""
-        data = create_channels[1]
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(data.key, "aliased")
-        assert client.channels.retrieve(data.key, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.name, range_key=rng.key).alias == (
-            "aliased"
-        )
-        assert client.channels.retrieve(data.key).alias is None
-
-    def test_range_key_search(self, client: sy.Synnax) -> None:
-        """Should put the channels whose alias in the range matches the search term
-        first, keeping only those that match the other filters
-        """
-        term = random_name()
-        named = client.channels.create(
-            name=f"{term}_named", data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        aliased = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT32, virtual=True
-        )
-        excluded = client.channels.create(
-            name=random_name(), data_type=sy.DataType.FLOAT64, virtual=True
-        )
-        rng = client.ranges.create(
-            name=random_name(),
-            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(aliased.key, f"{term}_alias")
-        rng.set_alias(excluded.key, f"{term}_excluded")
-
-        def check() -> None:
-            res = client.channels.retrieve(
-                search_term=term,
-                range_key=rng.key,
-                data_types=[sy.DataType.FLOAT32],
-            )
-            assert [(ch.key, ch.alias) for ch in res] == [
-                (aliased.key, f"{term}_alias"),
-                (named.key, None),
-            ]
-
-        assert_eventually(check)
 
     def test_include_status(
         self,

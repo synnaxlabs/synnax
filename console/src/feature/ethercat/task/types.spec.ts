@@ -7,54 +7,75 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
+import { type ethercat } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createCalibratedDescription,
+  createDewesoftXSettings,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
   createUnresolvedWriteChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 
-const roundTrip = (key: string): string =>
-  caseconv.snakeToCamel(caseconv.camelToSnake(key));
-
-describe("addressKey", () => {
-  it("should key an entry by its decimal index and subindex", () => {
-    expect(EtherCAT.Task.addressKey({ index: 0x6010, subIndex: 1 })).toBe("24592_1");
+describe("usableEntries", () => {
+  const props = (
+    inputs: EtherCAT.Device.SlaveProperties["pdos"]["inputs"],
+    settings?: EtherCAT.Device.SlaveProperties["settings"],
+  ): EtherCAT.Device.SlaveProperties => ({
+    ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+    pdos: { inputs, outputs: [] },
+    settings,
   });
 
-  it("should key the write state of an entry with a state prefix", () => {
-    expect(EtherCAT.Task.stateKey({ index: 0x6010, subIndex: 1 })).toBe(
-      "state_24592_1",
-    );
-  });
-
-  it("should survive the case conversion of the wire unchanged", () => {
-    const address = { index: 0x6010, subIndex: 1 };
-    const key = EtherCAT.Task.addressKey(address);
-    const state = EtherCAT.Task.stateKey(address);
-    expect(roundTrip(key)).toBe(key);
-    expect(roundTrip(state)).toBe(state);
-  });
-});
-
-describe("uniqueEntries", () => {
   it("should list an address that two PDOs map only once", () => {
     const value = { ...STATUS_ENTRY, name: "Value", pdoName: "Channel 1" };
-    const entries = EtherCAT.Task.uniqueEntries([
-      value,
-      { ...value, pdoName: "Other" },
-    ]);
+    const entries = EtherCAT.Task.usableEntries(
+      props([value, { ...value, pdoName: "Other" }]),
+      "inputs",
+    );
     expect(entries).toEqual([value]);
   });
 
   it("should keep entries that share a name but not an address", () => {
     const { inputs } = createRepeatedNamePDOs();
-    expect(EtherCAT.Task.uniqueEntries(inputs)).toHaveLength(8);
+    expect(EtherCAT.Task.usableEntries(props(inputs), "inputs")).toHaveLength(8);
+  });
+
+  it("should leave out the inputs that only another program reads", () => {
+    const entries = EtherCAT.Task.usableEntries(
+      props([STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], createDewesoftXSettings(true)),
+      "inputs",
+    );
+    expect(entries).toEqual([STRAIN_ENTRY]);
+  });
+});
+
+describe("isCalibrated", () => {
+  const props = (entry: ethercat.PDOEntry): EtherCAT.Device.SlaveProperties => ({
+    ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+    pdos: { inputs: [entry], outputs: [] },
+    settings: createCalibratedDescription(),
+  });
+
+  it("should calibrate an entry that sends integers", () => {
+    expect(EtherCAT.Task.isCalibrated(props(STRAIN_ENTRY), STRAIN_ENTRY)).toBe(true);
+  });
+
+  it("should not calibrate an entry that sends floats, as newer firmware does", () => {
+    const float = { ...STRAIN_ENTRY, dataType: "float32" };
+    expect(EtherCAT.Task.isCalibrated(props(float), float)).toBe(false);
+  });
+
+  it("should not calibrate an entry that the catalog does not calibrate", () => {
+    expect(
+      EtherCAT.Task.isCalibrated(props(STRAIN_SAMPLE_ENTRY), STRAIN_SAMPLE_ENTRY),
+    ).toBe(false);
   });
 });
 

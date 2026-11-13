@@ -7,11 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstdint>
+#include <optional>
+#include <string>
+
 #include "wasmtime.hh"
 
 #include "arc/cpp/stl/series/series.h"
 
 namespace arc::stl::series {
+
+namespace {
+/// @brief returns a trap when index is outside a series of size samples. A negative
+/// index counts from the end.
+std::optional<wasmtime::Trap> check_index(const uint32_t index, const size_t size) {
+    const auto i = static_cast<int32_t>(index);
+    const auto n = static_cast<int64_t>(size);
+    if (i >= -n && i < n) return std::nullopt;
+    return wasmtime::Trap(
+        "index " + std::to_string(i) + " out of bounds for series of size " +
+        std::to_string(size)
+    );
+}
+
+/// @brief returns bound as an offset into a series of size samples. A negative bound
+/// counts from the end, and a bound outside the series stops at the nearer end.
+size_t slice_bound(const uint32_t bound, const size_t size) {
+    const auto n = static_cast<int64_t>(size);
+    auto b = static_cast<int64_t>(static_cast<int32_t>(bound));
+    if (b < 0) b += n;
+    return static_cast<size_t>(std::clamp<int64_t>(b, 0, n));
+}
+
+/// @brief returns a trap for an index that does not fit in an i32.
+wasmtime::Trap index_overflow(const std::string &index) {
+    return wasmtime::Trap("index " + index + " out of bounds for an i32 series index");
+}
+}
 
 // NOLINTNEXTLINE(readability-function-size): one binding macro per host function.
 void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
@@ -43,9 +76,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "set_element_" #suffix,                                                \
-                [ss](uint32_t handle, uint32_t index, W value) -> uint32_t {           \
+                [ss](uint32_t handle, uint32_t index, W value)                         \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *s = ss->get(handle);                                         \
                     if (s == nullptr) return handle;                                   \
+                    if (auto trap = check_index(index, s->size()))                     \
+                        return std::move(*trap);                                       \
                     s->set(static_cast<int>(index), static_cast<cpptype>(value));      \
                     return handle;                                                     \
                 }                                                                      \
@@ -55,9 +91,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "index_" #suffix,                                                      \
-                [ss](uint32_t handle, uint32_t index) -> W {                           \
+                [ss](uint32_t handle, uint32_t index)                                  \
+                    -> wasmtime::Result<W, wasmtime::Trap> {                           \
                     auto *s = ss->get(handle);                                         \
                     if (s == nullptr) return W{};                                      \
+                    if (auto trap = check_index(index, s->size()))                     \
+                        return std::move(*trap);                                       \
                     return static_cast<W>(s->at<cpptype>(static_cast<int>(index)));    \
                 }                                                                      \
             )                                                                          \
@@ -477,13 +516,15 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .func_wrap(
             MODULE_NAME,
             "set_element_bool",
-            [ss](uint32_t handle, uint32_t index, uint32_t value) -> uint32_t {
+            [ss](uint32_t handle, uint32_t index, uint32_t value)
+                -> wasmtime::Result<uint32_t, wasmtime::Trap> {
                 auto *s = ss->get(handle);
-                if (s != nullptr && index < s->size())
-                    s->set(
-                        static_cast<int>(index),
-                        static_cast<uint8_t>(value != 0 ? 1 : 0)
-                    );
+                if (s == nullptr) return handle;
+                if (auto trap = check_index(index, s->size())) return std::move(*trap);
+                s->set(
+                    static_cast<int>(index),
+                    static_cast<uint8_t>(value != 0 ? 1 : 0)
+                );
                 return handle;
             }
         )
@@ -492,12 +533,14 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .func_wrap(
             MODULE_NAME,
             "index_bool",
-            [ss](uint32_t handle, uint32_t index) -> uint32_t {
+            [ss](uint32_t handle, uint32_t index)
+                -> wasmtime::Result<uint32_t, wasmtime::Trap> {
                 auto *s = ss->get(handle);
-                if (s != nullptr && index < s->size() &&
-                    s->at<uint8_t>(static_cast<int>(index)) != 0)
-                    return 1;
-                return 0;
+                if (s == nullptr) return uint32_t{0};
+                if (auto trap = check_index(index, s->size())) return std::move(*trap);
+                return static_cast<uint32_t>(
+                    s->at<uint8_t>(static_cast<int>(index)) != 0
+                );
             }
         )
         .unwrap();
@@ -603,18 +646,41 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
+            "index_from_i64",
+            [](int64_t index) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
+                if (index < INT32_MIN || index > INT32_MAX)
+                    return index_overflow(std::to_string(index));
+                return static_cast<uint32_t>(index);
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "index_from_u64",
+            [](uint64_t index) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
+                if (index > static_cast<uint64_t>(INT32_MAX))
+                    return index_overflow(std::to_string(index));
+                return static_cast<uint32_t>(index);
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
             "slice",
             [ss](uint32_t handle, uint32_t start, uint32_t end) -> uint32_t {
                 const auto *src = ss->get(handle);
                 if (src == nullptr) return 0;
-                const auto src_size = src->size();
-                if (start >= src_size || end > src_size || start >= end) return 0;
-                const auto slice_len = end - start;
+                const auto first = slice_bound(start, src->size());
+                const auto last = slice_bound(end, src->size());
+                if (first >= last) return 0;
+                const auto slice_len = last - first;
                 auto sliced = x::telem::Series(src->data_type(), slice_len);
                 const auto density = src->data_type().density();
                 std::memcpy(
                     sliced.data(),
-                    src->data() + start * density,
+                    src->data() + first * density,
                     slice_len * density
                 );
                 sliced.resize(slice_len);

@@ -91,7 +91,7 @@ You choose where each automation runs in its **Driver** list:
   `Node 1 Embedded Driver` is the Driver that runs with the Core. A standalone Driver
   shows with the name of its computer. A Driver runs the automation next to the hardware
   it connects to, and can run it on a real-time loop. When the automation has an error
-  while it runs, the Driver stops it.
+  while it runs, the Driver stops it. A warning does not stop it.
 
 <Edition.Enterprise>
 
@@ -105,8 +105,8 @@ such as an NI Linux Real-Time controller.
 
 ## Arc, calculated channels, or Python
 
-| Use                                                                                        | To                                                                        | Runs                                      |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------- |
-| [Calculated channel](/reference/channels/calculated)                                       | Show a value computed from other channels, live or over past data.        | While something streams or reads it.      |
-| Arc automation                                                                             | Run sequences and control loops, store computed values, and set statuses. | From when you start it until you stop it. |
-| [Python script](/reference/control#ways-to-control) <Edition.Badge edition="enterprise" /> | Use Python libraries, or connect to other software.                       | On your computer, while the script runs.  |
+| Use                                                  | To                                                                        | Runs                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
+| [Calculated channel](/reference/channels/calculated) | Show a value computed from other channels, live or over past data.        | While something streams or reads it.      |
+| Arc automation                                       | Run sequences and control loops, store computed values, and set statuses. | From when you start it until you stop it. |
+| [Python script](/reference/control#ways-to-control)  | Use Python libraries, or connect to other software.                       | On your computer, while the script runs.  |

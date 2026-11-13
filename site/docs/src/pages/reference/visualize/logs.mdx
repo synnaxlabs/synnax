@@ -37,7 +37,10 @@ while the log is open.
 
 You can also run the "Create log" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). In the
-channels toolbar, double-click a virtual channel to open it in a log.
+channels toolbar, double-click a virtual channel that is not
+[calculated](/reference/channels/calculated) to open it in a log. To create a log from a
+Python or TypeScript script, see
+[visualizations in code](/reference/visualize/code#create-a-log).
 
 <Video id="console/logs/create" />
 
@@ -47,11 +50,17 @@ channels toolbar, double-click a virtual channel to open it in a log.
 
 1. Press **V** to open the component toolbar, then select the **Channels** tab.
 2. Click **Add channel** and select a channel.
-3. Optional: set an **Alias** to show in place of the channel name, and a color.
+3. Optional: set an **Alias** of up to 64 characters to show in place of the channel
+   name, and a color.
 
-A number channel also has **Notation** and **Precision** settings. A `timestamp` channel
-has a timestamp format and a **Time zone**. To remove a channel and its lines, click
-**Remove channel**.
+A number channel also has **Notation** and **Precision** settings. **Precision** sets
+the number of decimal places, from 0 to 17. It is empty by default and shows **Auto**:
+each value shows as it arrives. A `timestamp` channel has a timestamp format and a
+**Time zone**.
+
+To swap a channel, select a different channel in its channel field. To remove a channel
+and its lines, move the pointer over its channel field and click the close button, or
+focus the field and press **Delete**.
 
 <Video id="console/logs/example" />
 
@@ -82,13 +91,17 @@ On the **Properties** tab of the component toolbar:
 | Time zone           | Local   | The time zone of the line times, day rows, and copied dates. |
 | Show channel names  | On      | Shows the channel name, or its alias, before the value.      |
 
+When **Show timestamps** is off, **Timestamp precision** and **Time zone** cannot
+change, and the log shows no day rows.
+
 The timestamp is the time of the sample from the channel's index. Lines show in the
 order of these times, across all channels. A virtual channel has no index, so its lines
 show the time that the Console received the value.
 
 A row with the date, such as `Wed, Nov 4, 2026`, shows above the first line of each day,
-and the top of the log always shows the day of the lines below it. Copied lines start
-with the date as `YYYY-MM-DD`.
+and the top of the log always shows the day of the lines below it. When timestamps show,
+copied lines start with the date as `YYYY-MM-DD`. A copy keeps the channel colors when
+you paste it into an editor that accepts rich text.
 
 <Divider.Divider x />
 
@@ -120,6 +133,22 @@ opened.
 <Problem.Fix>
 
 Check that a task, a script, or an Arc automation writes to the channels.
+
+</Problem.Fix>
+</Problem.Body>
+
+### I cannot change the channels or properties of a log
+
+<Problem.Body>
+<Problem.Cause>
+
+You do not have permission to change the log. You can still scroll, pause, and copy
+lines.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Ask an administrator for access.
 
 </Problem.Fix>
 </Problem.Body>

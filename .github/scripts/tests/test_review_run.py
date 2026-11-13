@@ -184,6 +184,14 @@ def at(
     return f if start is None else f | {"start_line": start}
 
 
+def rfc(title: str, start: int, line: int | None = None) -> dict[str, Any]:
+    """A P2 finding with the given title on lines of an RFC."""
+    f = finding("P2") | {"title": title, "path": "docs/tech/rfc/0111.md"}
+    return f | (
+        {"line": start} if line is None else {"start_line": start, "line": line}
+    )
+
+
 LENSES = [
     Lens(name="Races", focus="Trace each interleaving."),
     Lens(name="Edges", focus="Try empty and boundary values.", effort="medium"),
@@ -536,8 +544,54 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [f.title for f in got.findings] == ["P1 at 12", "P2 at 10"]
 
+    def test_should_keep_two_problems_of_two_passes_that_end_on_one_line(self) -> None:
+        races = FakeClaude(
+            5,
+            [
+                rfc("A failure inside the publish stage is not invisible", 91, 94),
+                rfc(
+                    "Green-run lookup does not say what state counts as green", 100, 108
+                ),
+            ],
+        )
+        edges = FakeClaude(
+            5,
+            [
+                rfc("Draft reuse contradicts draft clearing", 91, 94),
+                rfc("Green-run lookup trusts a check name only", 105, 108),
+            ],
+        )
+        _, (got, _) = self.lenses(races, edges)
+        assert len(got.findings) == 4
+
+    def test_should_join_one_problem_that_two_passes_title_alike(self) -> None:
+        races = FakeClaude(
+            5, [rfc("Every shard saving its Go cache collides on one key", 124, 125)]
+        )
+        edges = FakeClaude(
+            5, [rfc("Every shard saving its Go cache needs a key per shard", 124, 125)]
+        )
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.findings] == [
+            "Every shard saving its Go cache collides on one key"
+        ]
+
+    def test_should_ignore_case_and_punctuation_in_alike_titles(self) -> None:
+        races = FakeClaude(
+            5, [rfc("Members menu offers `Delete` for the Root user", 1)]
+        )
+        edges = FakeClaude(5, [rfc("DELETE IS OFFERED FOR THE ROOT USER", 1)])
+        _, (got, _) = self.lenses(races, edges)
+        assert len(got.findings) == 1
+
+    def test_should_keep_titles_that_share_only_function_words(self) -> None:
+        races = FakeClaude(5, [rfc("Cache is not cleared", 1)])
+        edges = FakeClaude(5, [rfc("Lock is not released", 1)])
+        _, (got, _) = self.lenses(races, edges)
+        assert len(got.findings) == 2
+
     def test_should_keep_the_finding_that_continues_an_open_thread(self) -> None:
-        races = FakeClaude(5, [at("P2", 12) | {"title": "New"}])
+        races = FakeClaude(5, [at("P2", 12) | {"title": "P2 on 12"}])
         edges = FakeClaude(5, [at("P2", 12)])
         pr = pull(open={("a.go", "P2 at 12")})
         _, (got, _) = self.lenses(races, edges, pr)

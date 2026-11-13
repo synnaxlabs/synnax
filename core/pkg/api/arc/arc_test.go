@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,11 +32,13 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -55,16 +58,51 @@ func createArc(ctx context.Context, name string) arc.Arc {
 	return a
 }
 
+// setRunning writes the status that the task t reports when it starts or stops.
+func setRunning(ctx context.Context, t task.Task, running bool) {
+	GinkgoHelper()
+	stat := task.Status{
+		Owner:   new(t.ResourceID()),
+		Variant: status.VariantSuccess,
+		Message: "Task status",
+		Time:    telem.Now(),
+		Details: task.StatusDetails{Running: running},
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Status.NewWriter(tx).Set(ctx, &stat)
+	})).To(Succeed())
+}
+
 // deploy binds a to the test rack as the Core, with no access check, and returns the
 // task of a.
 func deploy(ctx context.Context, a arc.Arc) task.Task {
+	GinkgoHelper()
+	return deployOn(ctx, a, testRack.Key)
+}
+
+// deployRunning binds a to a new rack, grants the author update on that rack, and marks
+// the task of a as running. A new rack keeps the rack monitor from marking the task as
+// not running.
+func deployRunning(ctx SpecContext, a arc.Arc) task.Task {
+	GinkgoHelper()
+	r := rack.Rack{Name: "Driver"}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rackSvc.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
+	grantUpdateOn(ctx, author.ResourceID(), r.ResourceID())
+	t := deployOn(ctx, a, r.Key)
+	setRunning(ctx, t, true)
+	return t
+}
+
+func deployOn(ctx context.Context, a arc.Arc, r rack.Key) task.Task {
 	GinkgoHelper()
 	var tsk *task.Task
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		tsk, err = arcSvc.NewWriter(tx).UpdateTask(
 			ctx,
 			a.Base().Key,
-			arc.TaskUpdate{Rack: new(testRack.Key)},
+			arc.TaskUpdate{Rack: new(r)},
 		)
 		return err
 	})).To(Succeed())
@@ -91,6 +129,88 @@ var _ = Describe("Service", func() {
 				func(a arc.Arc) arc.Key { return a.Base().Key },
 				Equal(granted.Base().Key),
 			)))
+		})
+
+		It("Should include a module's compile status", func(ctx SpecContext) {
+			module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+				Name: "status_m",
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: "export func f() i64 { return 1 }"},
+				}},
+			}}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Create(ctx, &module)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Delete(ctx, module.Base().Key)
+				})).To(Succeed())
+			})
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				access.ActionRetrieve,
+				module.ResourceID(),
+			)
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{module.Base().Key}},
+				},
+			}
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
+			req.IncludeStatus = true
+			Eventually(func(g Gomega) {
+				res, err := retrieve(AuthedCtx(ctx, author), req)
+				g.Expect(err).ToNot(HaveOccurred())
+				stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+				g.Expect(stat).ToNot(BeNil())
+				g.Expect(stat.Message).To(Equal("Compiled"))
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+		})
+
+		It("Should include what changed in a deployed automation", func(
+			ctx SpecContext,
+		) {
+			a := createArc(ctx, "changes_a")
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
+				},
+				IncludeChanges: true,
+			}
+			tsk := deploy(ctx, a)
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeEmpty())
+			stat := &task.Status{
+				Owner:   new(task.ResourceID(tsk.Key)),
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: task.StatusDetails{Running: true, ConfigHash: tsk.ConfigHash},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, stat)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Apply(
+					ctx,
+					a.Base().Key,
+					arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
+				)
+			})).To(Succeed())
+			Eventually(func(g Gomega) {
+				res, err := retrieve(AuthedCtx(ctx, author), req)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
+					[]arc.Change{
+						{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
+					},
+				))
+			}).Should(Succeed())
+			req.IncludeChanges = false
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeNil())
 		})
 
 		It(
@@ -517,6 +637,71 @@ var _ = Describe("Service", func() {
 				Expect(taskSvc.NewRetrieve().
 					Where(task.MatchKeys(tsk.Key)).
 					Exists(ctx, db)).To(BeFalse())
+			})
+
+			It("Should not stop a running task without delete access to it", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-running-denied")
+				tsk := deployRunning(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				start := time.Now()
+				Expect(del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				})).Error().To(
+					denied(author, access.ActionDelete, task.ResourceID(tsk.Key)),
+				)
+				Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+			})
+
+			It("Should take no write lock while it waits for a task to stop", func(
+				ctx SpecContext,
+			) {
+				a := createArc(ctx, "delete-running-ok")
+				tsk := deployRunning(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					task.ResourceID(tsk.Key),
+				)
+				deleted := make(chan error, 1)
+				start := time.Now()
+				go func() {
+					_, err := del(AuthedCtx(ctx, author), apiarc.DeleteRequest{
+						Keys: []arc.Key{a.Base().Key},
+					})
+					deleted <- err
+				}()
+				time.Sleep(100 * time.Millisecond)
+				setRunning(ctx, tsk, false)
+				Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+				Eventually(deleted).Should(Receive(Not(HaveOccurred())))
+				Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeFalse())
+			})
+
+			It("Should keep the Arc when the caller cancels", func(ctx SpecContext) {
+				a := createArc(ctx, "delete-running-canceled")
+				tsk := deployRunning(ctx, a)
+				grantAllButTaskDelete(ctx, a)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionDelete,
+					task.ResourceID(tsk.Key),
+				)
+				reqCtx, cancel := context.WithCancel(ctx)
+				defer time.AfterFunc(50*time.Millisecond, cancel).Stop()
+				Expect(del(AuthedCtx(reqCtx, author), apiarc.DeleteRequest{
+					Keys: []arc.Key{a.Base().Key},
+				})).Error().To(MatchError(context.Canceled))
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Exists(ctx, db)).To(BeTrue())
 			})
 		})
 	})

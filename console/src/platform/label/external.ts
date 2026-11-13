@@ -9,4 +9,4 @@
 
 export * from "@/platform/label/filter";
 export * from "@/platform/label/Select";
-export * from "@/platform/label/useEditModal";
+export * from "@/platform/label/useCreateModal";

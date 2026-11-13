@@ -18,6 +18,9 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 // in its high bits, so writes route to the Core running its Driver.
 type Key = v3.Key
 
+// StatusDetails contains rack-specific status details.
+type StatusDetails = v3.StatusDetails
+
 // Status is rack-specific status information including operational state.
 type Status = v3.Status
 

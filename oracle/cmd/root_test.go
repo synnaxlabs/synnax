@@ -12,6 +12,7 @@ package cmd_test
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -93,6 +94,27 @@ func printOnce(msg string) types.GomegaMatcher {
 	)
 }
 
+// releaseMiniRepo makes repoDir a Git repository whose HEAD is the stable release
+// core/v0.1.0, which the versions gate compares with.
+func releaseMiniRepo(repoDir string) {
+	GinkgoHelper()
+	Expect(os.RemoveAll(filepath.Join(repoDir, ".git"))).To(Succeed())
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"add", "-A"},
+		{"commit", "-q", "-m", "release"},
+		{"tag", "core/v0.1.0"},
+	} {
+		proc := exec.Command("git", append([]string{
+			"-c", "user.name=Test", "-c", "user.email=test@example.com",
+			"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
+		}, args...)...)
+		proc.Dir = repoDir
+		out, err := proc.CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(out))
+	}
+}
+
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
 //   - .git/ directory (so paths.RepoRoot finds it)
 //   - schemas/*.oracle files
@@ -165,9 +187,11 @@ var _ = Describe("check command", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo(map[string]string{
+		var repoDir string
+		repoDir, cleanup = setupMiniRepo(map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
+		releaseMiniRepo(repoDir)
 	})
 
 	AfterAll(func() { cleanup() })
@@ -406,9 +430,11 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		_, cleanup = setupMiniRepo(map[string]string{
+		var repoDir string
+		repoDir, cleanup = setupMiniRepo(map[string]string{
 			"bad.oracle": "this is not valid oracle syntax {{{{",
 		})
+		releaseMiniRepo(repoDir)
 	})
 
 	AfterAll(func() { cleanup() })

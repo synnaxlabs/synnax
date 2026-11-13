@@ -73,6 +73,16 @@ func (r *Resolver) RegisterLocal(name string, bodyIndex uint32) {
 	r.compiled[name] = compiledFunc{bodyIndex: bodyIndex}
 }
 
+// References reports whether a recorded call targets the local function name.
+func (r *Resolver) References(name string) bool {
+	for _, ref := range r.pending {
+		if ref.module == "" && ref.name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // TrackWriter registers a writer for patch tracking and returns its ID.
 func (r *Resolver) TrackWriter(w *wasm.Writer) int {
 	id := len(r.writers)
@@ -80,9 +90,9 @@ func (r *Resolver) TrackWriter(w *wasm.Writer) int {
 	return id
 }
 
-// RecordPlaceholder records that a call placeholder was written at the given
+// recordPlaceholder records that a call placeholder was written at the given
 // offset in the tracked writer.
-func (r *Resolver) RecordPlaceholder(writerID int, handle uint32, offset int) {
+func (r *Resolver) recordPlaceholder(writerID int, handle uint32, offset int) {
 	r.writers[writerID].entries = append(r.writers[writerID].entries, patchEntry{
 		handle: handle,
 		offset: offset,
@@ -138,10 +148,10 @@ func (r *Resolver) EmitImportCall(
 	})
 }
 
-// EmitImportCallWithSuffix is EmitImportCall with an explicit type suffix.
+// emitImportCallWithSuffix is EmitImportCall with an explicit type suffix.
 // Use for host functions whose WASM params are all i32 handles but whose
 // import name still needs a type suffix.
-func (r *Resolver) EmitImportCallWithSuffix(
+func (r *Resolver) emitImportCallWithSuffix(
 	w *wasm.Writer,
 	writerID int,
 	module, name string,
@@ -175,7 +185,7 @@ func (r *Resolver) record(w *wasm.Writer, writerID int, ref pendingRef) {
 	r.handleCounter++
 	r.pending = append(r.pending, ref)
 	offset := w.WriteCallPlaceholder(ref.handle)
-	r.RecordPlaceholder(writerID, ref.handle, offset)
+	r.recordPlaceholder(writerID, ref.handle, offset)
 }
 
 // Finalize partitions pending references into imports and locals, registers

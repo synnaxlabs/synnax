@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -108,8 +107,9 @@ type (
 	}
 )
 
-// Create creates or updates the racks. The response holds the status of each rack that
-// the subject can retrieve.
+// Create creates the racks. It returns an error wrapping validate.ErrValidation when a
+// rack with the key of one exists. The response holds the status of each rack that the
+// subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -137,7 +137,7 @@ func (s *Service) attachReadableStatuses(
 			Action:  access.ActionRetrieve,
 			Objects: []resource.ID{racks[i].ResourceID()},
 		})
-		// Create accepts update access, which does not grant read access.
+		// Create access does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
 			racks[i].Status = nil
 			continue
@@ -157,7 +157,7 @@ func (s *Service) attachStatuses(
 	snap gorp.Snapshot,
 	racks []rack.Rack,
 ) error {
-	statuses, err := s.status.Join[struct{}](
+	statuses, err := s.status.Join[rack.StatusDetails](
 		ctx,
 		snap,
 		rack.ResourceIDsFromRacks(racks),
@@ -221,23 +221,6 @@ func (s *Service) Dispatch(
 		Apply(ctx, req.Key, req.Actions...)
 }
 
-// RenameRequest names the rack to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the rack to rename.
-	Key rack.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the rack and its status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-}
-
 type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
@@ -250,19 +233,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.task.NewWriter(tx).DeleteRacks(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves racks into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key `json:"group" msgpack:"group"`
-	Keys  []rack.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the racks with the given keys into a group.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.rack.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
 }

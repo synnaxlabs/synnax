@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -698,6 +699,16 @@ var _ = Describe("Scope", func() {
 					).To(Equal("h"))
 				},
 			)
+
+			It("Should fail a lookup through an alias whose import failed", func(
+				bCtx SpecContext,
+			) {
+				alias := buildAlias(bCtx, nil)
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(symbol.ErrImportFailed))
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(diagnostics.ErrReported))
+			})
 
 			It(
 				"Should not reach the module's ambient through an alias",

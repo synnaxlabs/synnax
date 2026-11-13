@@ -31,9 +31,8 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = x::json::json{{"routing_key", "rk"}},
-        .internal = false,
-        .snapshot = true
+        .config = x::json::json{{"auto_start", false}},
+        .internal = false
     };
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
@@ -50,16 +49,14 @@ TEST(TaskTests, testRetrieveTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
-        .internal = false,
-        .snapshot = true
+        .config = {{"auto_start", false}},
+        .internal = false
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
     ASSERT_EQ(t2.key, t.key);
-    ASSERT_TRUE(t2.snapshot);
 }
 
 /// @brief it should retrieve a task by its name
@@ -71,7 +68,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
@@ -87,7 +84,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(
@@ -106,7 +103,7 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
         auto t = Task{
             .name = name,
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"auto_start", false}}
         };
         ASSERT_NIL(r.tasks.create(t));
     }
@@ -134,7 +131,7 @@ TEST(TaskTests, testListTasks) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(Where{}));
@@ -155,7 +152,7 @@ TEST(TaskTests, testRetrieveWhere) {
         auto t = Task{
             .name = "where_task_" + std::to_string(i),
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"auto_start", false}}
         };
         ASSERT_NIL(r.tasks.create(t));
         tasks.push_back(t);
@@ -165,7 +162,7 @@ TEST(TaskTests, testRetrieveWhere) {
     auto off_rack = Task{
         .name = tasks[0].name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(other.tasks.create(off_rack));
     const auto retrieved = ASSERT_NIL_P(
@@ -188,11 +185,46 @@ TEST(TaskTests, testDeleteTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
+}
+
+/// @brief it should set the name and config of a task with a dispatch, and keep its
+/// type.
+TEST(TaskTests, testDispatch) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task{
+        .name = "test_module",
+        .type = "pagerduty_alert",
+        .config = {{"auto_start", false}}
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_NIL(r.tasks.dispatch(
+        t.key,
+        {set({.path = {"name"}, .value = "renamed"}),
+         set({.path = {"config", "auto_start"}, .value = true})}
+    ));
+    const auto got = ASSERT_NIL_P(r.tasks.retrieve(t.key));
+    ASSERT_EQ(got.name, "renamed");
+    ASSERT_EQ(got.config.at("auto_start"), true);
+    ASSERT_EQ(got.type, "pagerduty_alert");
+    ASSERT_NE(got.config_hash, t.config_hash);
+}
+
+/// @brief it should return a not found error when it dispatches to a task that does not
+/// exist.
+TEST(TaskTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.tasks
+            .dispatch(x::uuid::create(), {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
 }
 
 /// @brief it should convert a task key to a resource ID
@@ -211,7 +243,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     auto t = Task{
         .name = "test_task_with_status",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"auto_start", false}},
         .status = Status{
             .key = "task-status-key",
             .variant = synnax::status::VARIANT_SUCCESS,
@@ -244,7 +276,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"auto_start", false}},
         .status = Status{
             .key = "task-status-by-name",
             .variant = synnax::status::VARIANT_WARNING,
@@ -268,7 +300,7 @@ TEST(TaskTests, testListTasksWithStatus) {
     auto t = Task{
         .name = "test_task_list_status",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}},
+        .config = {{"auto_start", false}},
         .status = Status{
             .key = "task-list-status",
             .variant = synnax::status::VARIANT_INFO,
@@ -295,12 +327,12 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     auto t1 = Task{
         .name = rand1,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk-1"}}
+        .config = {{"auto_start", false}}
     };
     auto t2 = Task{
         .name = rand2,
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk-2"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -325,7 +357,7 @@ TEST(TaskTests, testRetrieveTasksByNamesWithLimit) {
         auto t = Task{
             .name = std::to_string(gen_rand_task()),
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"auto_start", false}}
         };
         ASSERT_NIL(r.tasks.create(t));
         names.push_back(t.name);
@@ -360,7 +392,7 @@ TEST(TaskTests, testRetrieveWherePage) {
         auto t = Task{
             .name = std::to_string(gen_rand_task()),
             .type = "pagerduty_alert",
-            .config = {{"routing_key", "rk"}}
+            .config = {{"auto_start", false}}
         };
         ASSERT_NIL(r.tasks.create(t));
     }
@@ -383,12 +415,12 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     auto t1 = Task{
         .name = "task_by_type_1",
         .type = type1,
-        .config = {{"routing_key", "rk-1"}}
+        .config = {{"auto_start", false}}
     };
     auto t2 = Task{
         .name = "task_by_type_2",
         .type = type2,
-        .config = {{"routing_key", "rk-2"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));

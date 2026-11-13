@@ -7,64 +7,63 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import socket
 from pathlib import Path
 
 import pytest
 
 from synnax.cli import connect, console
-from synnax.cli.console.mock import Output
 from synnax.cli.flow import Context
-from synnax.options import Options
+from synnax.config import Clusters, File
+from tests.memory_keyring import MemoryKeyring
+
+
+@pytest.fixture
+def clusters(tmp_path: Path) -> Clusters:
+    return Clusters(File(config_dir=tmp_path), MemoryKeyring())
+
+
+@pytest.fixture
+def closed_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port: int = s.getsockname()[1]
+    return port
 
 
 @pytest.mark.cli
-class TestPromptClientOptions:
-    def test_responses(self) -> None:
-        """Should build options from the prompt responses."""
-        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", True])
-        assert connect.prompt_client_options(Context(console=c)) == Options(
-            host="127.0.0.1",
-            port=9091,
-            username="admin",
-            password="secret",
-            secure=True,
+class TestPromptedConnection:
+    def test_connects_to_prompted_address(
+        self, clusters: Clusters, tmp_path: Path, closed_port: int
+    ) -> None:
+        """Should connect to the host and port from the prompt responses."""
+        mock = console.Mock(
+            responses=["127.0.0.1", closed_port, "admin", "secret", False]
         )
+        desktop = tmp_path / "desktop.json"
+        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
+        messages = [e.message or "" for e in mock.output.entries]
+        assert not any("CA certificate" in m for m in messages)
+        assert messages[-1] == f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
 
-    def test_ca_cert(self) -> None:
-        """Should store the absolute CA certificate path for a secure connection."""
-        c = console.Mock(
-            responses=["127.0.0.1", 9091, "admin", "secret", True, "certs/ca.crt"]
-        )
-        opts = connect.prompt_client_options(Context(console=c))
-        assert opts.ca_cert == str(Path("certs/ca.crt").resolve())
-
-    def test_insecure_skips_ca_cert(self) -> None:
-        """Should not ask for a CA certificate for an insecure connection."""
-        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", False])
-        assert connect.prompt_client_options(Context(console=c)).ca_cert is None
-
-
-@pytest.mark.cli
-class TestFromContext:
     @pytest.mark.parametrize("contents", [None, "not a certificate"])
-    def test_bad_ca_cert(self, tmp_path: Path, contents: str | None) -> None:
-        """Should report a missing or invalid CA certificate instead of raising."""
+    def test_bad_ca_cert(
+        self,
+        clusters: Clusters,
+        tmp_path: Path,
+        closed_port: int,
+        monkeypatch: pytest.MonkeyPatch,
+        contents: str | None,
+    ) -> None:
+        """Should report a missing or invalid CA certificate by its absolute path
+        instead of raising."""
         ca_cert = tmp_path / "ca.crt"
         if contents is not None:
             ca_cert.write_text(contents)
-        output = Output()
-        opts = Options(
-            host="localhost",
-            port=9090,
-            username="synnax",
-            password="seldon",
-            secure=True,
-            ca_cert=str(ca_cert),
+        monkeypatch.chdir(tmp_path)
+        mock = console.Mock(
+            responses=["127.0.0.1", closed_port, "admin", "secret", True, "ca.crt"]
         )
-        assert (
-            connect.from_context(
-                Context(console=console.Mock(output=output)), opts=opts
-            )
-            is None
-        )
-        assert str(ca_cert) in (output.entries[-1].message or "")
+        desktop = tmp_path / "desktop.json"
+        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
+        assert str(ca_cert.resolve()) in (mock.output.entries[-1].message or "")

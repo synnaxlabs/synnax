@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -39,6 +40,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Channel holds the channels that config fields read from and write to.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	alamos.Instrumentation
 }
 
@@ -47,6 +52,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -55,6 +61,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("kafka.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
 	return v.Error()
 }
 
@@ -82,46 +89,44 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
-			DB:                 cfg.DB,
-			References:         readConfigReferences(),
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ReadTaskType,
-			Ladder:             versions.ReadConfigLadder,
-			SetEntryKey:        (*ReadConfig).SetKey,
-			PatchEntry:         (*ReadConfig).Patch,
-			HashEntry:          (*ReadConfig).HashContent,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
-			ValidateEntry:      (*ReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      readConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            ReadTaskType,
+			Ladder:          versions.ReadConfigLadder,
+			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
+			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
-			DB:                 cfg.DB,
-			References:         writeConfigReferences(),
-			Instrumentation:    cfg.Instrumentation,
-			Type:               WriteTaskType,
-			Ladder:             versions.WriteConfigLadder,
-			SetEntryKey:        (*WriteConfig).SetKey,
-			PatchEntry:         (*WriteConfig).Patch,
-			HashEntry:          (*WriteConfig).HashContent,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
-			ValidateEntry:      (*WriteConfig).Validate,
+			DB:              cfg.DB,
+			References:      writeConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            WriteTaskType,
+			Ladder:          versions.WriteConfigLadder,
+			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               ScanTaskType,
-			Ladder:             versions.ScanConfigLadder,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            ScanTaskType,
+			Ladder:          versions.ScanConfigLadder,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   validateScanConfig,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

@@ -7,9 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from pydantic import BaseModel, Field
+from uuid import UUID
+
+from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.arc import actions_gen as arc_actions
+from synnax.arc.directory import actions_gen
 from synnax.arc.directory.types_gen import (
     Directory,
     Key,
@@ -18,6 +22,7 @@ from synnax.arc.directory.types_gen import (
     Where,
 )
 from synnax.resource import ID, CrudeID
+from synnax.transport import send_requests
 from x.lists import normalize
 
 
@@ -35,19 +40,20 @@ class _CreateResponse(BaseModel):
     directory: Directory
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
+
+
+class _ArcDispatchRequest(BaseModel):
+    key: UUID
+    dispatch_key: str = ""
+    actions: list[arc_actions.Action]
 
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _MoveRequest(BaseModel):
-    from_: Key = Field(alias="from")
-    to: Key
-    ids: list[ID]
 
 
 class Client:
@@ -88,8 +94,11 @@ class Client:
 
     def rename(self, key: Key, name: str) -> None:
         """Renames the directory with key."""
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
         self._client.send(
-            "/arc/directory/rename", _RenameRequest(key=key, name=name), Empty
+            "/arc/directory/dispatch",
+            _DispatchRequest(key=key, actions=[action]),
+            Empty,
         )
 
     def delete(self, keys: Key | list[Key]) -> None:
@@ -98,14 +107,22 @@ class Client:
             "/arc/directory/delete", _DeleteRequest(keys=normalize(keys)), Empty
         )
 
-    def move(self, from_: Key, to: Key, *children: CrudeID) -> None:
-        """Moves the Arcs and directories children from the directory from_ into the
-        directory to.
+    def move(self, to: Key, *children: CrudeID) -> None:
+        """Moves the Arcs and directories children into the directory to, in one
+        transaction.
         """
-        self._client.send(
-            "/arc/move",
-            _MoveRequest.model_validate(
-                {"from": from_, "to": to, "ids": [ID(c) for c in children]}
-            ),
-            Empty,
-        )
+        requests: list[tuple[str, BaseModel]] = []
+        for child in children:
+            id_ = ID(child)
+            key = UUID(id_.key)
+            if id_.type == "arc":
+                payload = arc_actions.SetDirectoryPayload(directory=to)
+                arc_req = _ArcDispatchRequest(
+                    key=key, actions=[arc_actions.set_directory(payload)]
+                )
+                requests.append(("/arc/dispatch", arc_req))
+            else:
+                set_ = actions_gen.SetPayload(path=["parent"], value=str(to))
+                req = _DispatchRequest(key=key, actions=[actions_gen.set(set_)])
+                requests.append(("/arc/directory/dispatch", req))
+        send_requests(self._client, requests)

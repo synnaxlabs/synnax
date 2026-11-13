@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { actions, query, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { array, destructor, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -48,6 +51,7 @@ const createHarness = (send: SendFn): Harness => {
     store: docs,
     onError,
     onEpoch: () => destructor.NOOP,
+    onStreamDown: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
     send: async (_, actions) => {
@@ -764,26 +768,22 @@ describe("Flux.createDispatch", () => {
     }, 15000);
 
     it("returns false and rolls back when the cluster rejects a dispatch", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createLiveSchem();
-      // Snapshots reject dispatches server-side, giving a deterministic
-      // send failure through the production domain.
-      const snap = await client.schematics.copy({
-        key: schem.key,
-        name: `snap_${uuid.create()}`,
-        snapshot: true,
-      });
+      // A Viewer holds no update grant, so the Core rejects its dispatch.
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      await viewer.schematics.retrieve(schem.key);
+      const Wrapper = await createAsyncSynnaxWrapper({ client: viewer });
       const { result } = renderHook(() => live.useDispatch(), { wrapper: Wrapper });
       let ok = true;
       await act(async () => {
         ok = await result.current.dispatchAsync({
-          key: snap.key,
+          key: schem.key,
           actions: schematic.setNodePosition({ key: "n1", position: { x: 3, y: 3 } }),
         });
       });
       expect(ok).toBe(false);
-      expect(client.schematics.hasUndo(snap.key)).toBe(false);
-      expect(await serverPosition(snap.key)).toEqual({ x: 0, y: 0 });
+      expect(viewer.schematics.hasUndo(schem.key)).toBe(false);
+      expect(await serverPosition(schem.key)).toEqual({ x: 0, y: 0 });
     }, 15000);
 
     it("drops undo state when the schematic is deleted", async () => {

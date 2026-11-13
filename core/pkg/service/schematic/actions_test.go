@@ -11,6 +11,7 @@ package schematic_test
 
 import (
 	"encoding/json/v2"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -870,23 +871,21 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should error and leave state unchanged when Type is unrecognized", func() {
+		It("Should error with a zero state when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
-			Expect(err).To(SatisfyAll(
+			Expect(schematic.Reduce(state, schematic.Action{Type: "made_up"})).
+				Error().To(SatisfyAll(
 				MatchError(union.ErrUnknownVariant),
 				MatchError(ContainSubstring("made_up")),
 			))
-			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
 			"Should error when Type names a variant whose payload pointer is nil",
 			func(actionType string) {
 				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
-				Expect(err).To(MatchError(union.ErrMissingPayload))
-				Expect(out).To(Equal(state))
+				Expect(schematic.Reduce(state, schematic.Action{Type: actionType})).
+					Error().To(MatchError(union.ErrMissingPayload))
 			},
 			Entry("set", schematic.ActionTypeSet),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
@@ -967,14 +966,74 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.Units).To(Equal(""))
 	})
 
+	It("Should keep a zero precision", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value", "precision": 0}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Precision).To(HaveValue(BeZero()))
+	})
+
+	It("Should leave an omitted precision absent", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value"}}}`)
+		cfg := a.SetConfig.Config.Variant.(schematic.ValueElementConfig)
+		Expect(cfg.Precision).To(BeNil())
+	})
+
+	DescribeTable("Should reject a precision that is not a byte", func(p string) {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
+			"v1", "config": {"variant": "value", "precision": `+p+`}}}`), &a)).
+			To(MatchError(validate.ErrValidation))
+	},
+		Entry("fraction", "2.6"),
+		Entry("negative", "-1"),
+		Entry("above the byte range", "300"),
+	)
+
+	It("Should reject a precision above 17", func() {
+		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
+			"config": {"variant": "value", "precision": 18}}}`)
+		Expect(a.SetConfig.Config.Validate()).
+			To(MatchError(ContainSubstring("precision")))
+	})
+
 	It("Should reject a config naming no variant", func() {
 		var a schematic.Action
 		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
 			"n1", "config": {"scale": 2}}}`), &a)).To(MatchError(validate.ErrValidation))
 	})
 
+	It("Should reject a null set_config config", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_config", "set_config": {"key":
+			"n1", "config": null}}`), &a)).To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject an invalid set_node config", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
+			{"key": "v1"}, "config": {"variant": "value", "precision": 2.6}}}`), &a)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject a msgpack config that has no JSON form", func() {
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
+			"type": "set_config",
+			"set_config": map[string]any{
+				"key":    "v1",
+				"config": map[string]any{"variant": "value", "scale": math.NaN()},
+			},
+		}))
+		var a schematic.Action
+		Expect(msgpack.Codec.Decode(body, &a)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("NaN")),
+		))
+	})
+
 	It("Should decode a msgpack payload the same way", func(ctx SpecContext) {
-		body := MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{
+		body := MustSucceed(msgpack.Codec.Encode(map[string]any{
 			"type": "set_config",
 			"set_config": map[string]any{
 				"key": "l1",
@@ -985,7 +1044,7 @@ var _ = Describe("Payload decoding", func() {
 			},
 		}))
 		var a schematic.Action
-		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
+		Expect(msgpack.Codec.Decode(body, &a)).To(Succeed())
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))

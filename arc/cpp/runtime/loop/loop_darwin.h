@@ -276,11 +276,15 @@ private:
         if (block.nanoseconds() > 0 && this->arm_deadline(block)) {
             const int n = kevent(this->kqueue_fd, nullptr, 0, events, 8, nullptr);
             if (n < 0) return this->wake_reason(events, n);
+            // The block timer fires ahead of the deadline, so it is not a Timer wake.
+            int others = 0;
             for (int i = 0; i < n; i++)
-                if (events[i].filter != EVFILT_TIMER ||
-                    events[i].ident != DEADLINE_EVENT_IDENT)
-                    return this->classify_events(events, n);
-            this->deadline_armed = false;
+                if (events[i].filter == EVFILT_TIMER &&
+                    events[i].ident == DEADLINE_EVENT_IDENT)
+                    this->deadline_armed = false;
+                else
+                    events[others++] = events[i];
+            if (others > 0) return this->classify_events(events, others);
         }
         // A zero-timeout kevent sleeps about 12 us, so this spin uses about 11% CPU and
         // ends within 12 us of the deadline.

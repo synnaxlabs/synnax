@@ -76,6 +76,52 @@ TEST(RangerTests, testSetEndNotFound) {
     );
 }
 
+/// @brief it should set an end bound that a float cannot hold exactly.
+TEST(RangerTests, testSetEndExact) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        "test",
+        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
+    ));
+    const auto end = x::telem::TimeStamp(1'700'000'000'000'000'001);
+    ASSERT_NIL(client.ranges.set_end(range.key, end));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
+    ASSERT_EQ(got.time_range.end, end);
+}
+
+/// @brief it should apply each action of a dispatch to a range, and write the
+/// timestamps of a time range set exactly.
+TEST(RangerTests, testDispatch) {
+    const auto client = new_test_client();
+    const auto range = ASSERT_NIL_P(client.ranges.create(
+        "test",
+        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(100))
+    ));
+    const x::telem::TimeRange tr(
+        x::telem::TimeStamp(1'700'000'000'000'000'001),
+        x::telem::TIME_STAMP_MAX
+    );
+    ASSERT_NIL(client.ranges.dispatch(
+        range.key,
+        {set({.path = {"name"}, .value = "renamed"}),
+         set({.path = {"time_range"}, .value = tr.to_json()})}
+    ));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(range.key));
+    ASSERT_EQ(got.name, "renamed");
+    ASSERT_EQ(got.time_range, tr);
+}
+
+/// @brief it should return a not found error when it dispatches to a range that does
+/// not exist.
+TEST(RangerTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.ranges
+            .dispatch(x::uuid::create(), {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
     const auto client = new_test_client();

@@ -14,9 +14,13 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -25,11 +29,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening the NI task config service.
+// ServiceConfig is the configuration for opening the NI service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records, chassis, and devices are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Status stores the status of each chassis and device.
+	// [REQUIRED]
+	Status *status.Service
+	// Signals publishes chassis and device changes.
+	// [OPTIONAL]
+	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
@@ -38,6 +48,8 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -46,11 +58,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the NI task types.
+// Service owns the NI chassis, devices, and stored configuration records of the NI task
+// types.
 type Service struct {
+	// Chassis stores NI chassis.
+	Chassis *chassis.Service
+	// Devices stores NI devices.
+	Devices *device.Service
 	// AnalogRead stores ni_analog_read task configuration records.
 	AnalogRead *config.Service[AnalogReadConfig]
 	// AnalogWrite stores ni_analog_write task configuration records.
@@ -66,9 +84,9 @@ type Service struct {
 	closer  xio.MultiCloser
 }
 
-// OpenService opens the NI task config service with the provided configuration. If
-// error is nil, the service is ready for use and must be closed by calling Close to
-// prevent resource leaks.
+// OpenService opens the NI service with the provided configuration. If error is nil,
+// the service is ready for use and must be closed by calling Close to prevent resource
+// leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := xconfig.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -77,114 +95,140 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Chassis, err = chassis.OpenService(ctx, chassis.ServiceConfig{
+		DB:              cfg.DB,
+		Status:          cfg.Status,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Chassis) {
+		return nil, err
+	}
+	if s.Devices, err = device.OpenService(ctx, device.ServiceConfig{
+		DB:              cfg.DB,
+		Status:          cfg.Status,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Devices) {
+		return nil, err
+	}
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:                 cfg.DB,
-			References:         analogReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.AnalogReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogReadConfigLadder,
-			Legacy:             &legacy.AnalogRead,
-			SetEntryKey:        (*AnalogReadConfig).SetKey,
-			PatchEntry:         (*AnalogReadConfig).Patch,
-			HashEntry:          (*AnalogReadConfig).HashContent,
-			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      analogReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogReadConfigLadder,
+			Legacy:          &legacy.AnalogRead,
+			SetEntryKey:     (*AnalogReadConfig).SetKey,
+			PatchEntry:      (*AnalogReadConfig).Patch,
+			HashEntry:       (*AnalogReadConfig).HashContent,
+			ValidateEntry: func(c *AnalogReadConfig) error {
+				v := validate.New("ni.AnalogReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.AnalogRead) {
 		return nil, err
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:                 cfg.DB,
-			References:         analogWriteConfigReferences(),
-			Migrations:         []gorp.Migration{v3.AnalogWriteMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_analog_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.AnalogWriteConfigLadder,
-			Legacy:             &legacy.AnalogWrite,
-			SetEntryKey:        (*AnalogWriteConfig).SetKey,
-			PatchEntry:         (*AnalogWriteConfig).Patch,
-			HashEntry:          (*AnalogWriteConfig).HashContent,
-			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
-			ValidateEntry:      (*AnalogWriteConfig).Validate,
+			DB:              cfg.DB,
+			References:      analogWriteConfigReferences(),
+			Migrations:      []gorp.Migration{v3.AnalogWriteMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_analog_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.AnalogWriteConfigLadder,
+			Legacy:          &legacy.AnalogWrite,
+			SetEntryKey:     (*AnalogWriteConfig).SetKey,
+			PatchEntry:      (*AnalogWriteConfig).Patch,
+			HashEntry:       (*AnalogWriteConfig).HashContent,
+			ValidateEntry:   (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
 		return nil, err
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:                 cfg.DB,
-			References:         counterReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.CounterReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_counter_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.CounterReadConfigLadder,
-			Legacy:             &legacy.CounterRead,
-			SetEntryKey:        (*CounterReadConfig).SetKey,
-			PatchEntry:         (*CounterReadConfig).Patch,
-			HashEntry:          (*CounterReadConfig).HashContent,
-			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
-			ValidateEntry:      (*CounterReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      counterReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_counter_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.CounterReadConfigLadder,
+			Legacy:          &legacy.CounterRead,
+			SetEntryKey:     (*CounterReadConfig).SetKey,
+			PatchEntry:      (*CounterReadConfig).Patch,
+			HashEntry:       (*CounterReadConfig).HashContent,
+			ValidateEntry: func(c *CounterReadConfig) error {
+				v := validate.New("ni.CounterReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.CounterRead) {
 		return nil, err
 	}
 	if s.DigitalRead, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalReadConfig]{
-			DB:                 cfg.DB,
-			References:         digitalReadConfigReferences(),
-			Migrations:         []gorp.Migration{v3.DigitalReadMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_read",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalReadConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalReadConfig).SetKey,
-			PatchEntry:         (*DigitalReadConfig).Patch,
-			HashEntry:          (*DigitalReadConfig).HashContent,
-			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
-			ValidateEntry:      (*DigitalReadConfig).Validate,
+			DB:              cfg.DB,
+			References:      digitalReadConfigReferences(),
+			Migrations:      []gorp.Migration{v3.DigitalReadMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_read",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalReadConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalReadConfig).SetKey,
+			PatchEntry:      (*DigitalReadConfig).Patch,
+			HashEntry:       (*DigitalReadConfig).HashContent,
+			ValidateEntry: func(c *DigitalReadConfig) error {
+				v := validate.New("ni.DigitalReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
+			},
 		},
 	); !ok(err, s.DigitalRead) {
 		return nil, err
 	}
 	if s.DigitalWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[DigitalWriteConfig]{
-			DB:                 cfg.DB,
-			References:         digitalWriteConfigReferences(),
-			Migrations:         []gorp.Migration{v3.DigitalWriteMigration},
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_digital_write",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.DigitalWriteConfigLadder,
-			Legacy:             &legacy.Digital,
-			SetEntryKey:        (*DigitalWriteConfig).SetKey,
-			PatchEntry:         (*DigitalWriteConfig).Patch,
-			HashEntry:          (*DigitalWriteConfig).HashContent,
-			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
-			ValidateEntry:      (*DigitalWriteConfig).Validate,
+			DB:              cfg.DB,
+			References:      digitalWriteConfigReferences(),
+			Migrations:      []gorp.Migration{v3.DigitalWriteMigration},
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_digital_write",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.DigitalWriteConfigLadder,
+			Legacy:          &legacy.Digital,
+			SetEntryKey:     (*DigitalWriteConfig).SetKey,
+			PatchEntry:      (*DigitalWriteConfig).Patch,
+			HashEntry:       (*DigitalWriteConfig).HashContent,
+			ValidateEntry:   (*DigitalWriteConfig).Validate,
 		},
 	); !ok(err, s.DigitalWrite) {
 		return nil, err
 	}
 	if s.Scanner, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ni_scanner",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scanner,
-			Migrations:         []gorp.Migration{v3.ScanMigration},
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ni_scanner",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scanner,
+			Migrations:      []gorp.Migration{v3.ScanMigration},
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scanner) {
 		return nil, err

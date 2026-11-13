@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -60,6 +61,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Storage:         node.Storage,
 		RootCredentials: creds,
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
+		SecretsKey:      secret.NewEncryptionKey(),
 	}))
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
@@ -120,11 +122,88 @@ var _ = Describe("HTTP", func() {
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
-			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
-			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
-			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
+			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
+			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
+			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
+			Entry(
+				"unary NI device create",
+				http.MethodPost,
+				"/api/v1/ni/device/create",
+			),
+			Entry(
+				"unary NI device retrieve",
+				http.MethodPost,
+				"/api/v1/ni/device/retrieve",
+			),
+			Entry(
+				"unary NI device update",
+				http.MethodPost,
+				"/api/v1/ni/device/update",
+			),
+			Entry(
+				"unary NI device delete",
+				http.MethodPost,
+				"/api/v1/ni/device/delete",
+			),
+			Entry(
+				"unary NI chassis create",
+				http.MethodPost,
+				"/api/v1/ni/chassis/create",
+			),
+			Entry(
+				"unary NI chassis retrieve",
+				http.MethodPost,
+				"/api/v1/ni/chassis/retrieve",
+			),
+			Entry(
+				"unary NI chassis update",
+				http.MethodPost,
+				"/api/v1/ni/chassis/update",
+			),
+			Entry(
+				"unary NI chassis delete",
+				http.MethodPost,
+				"/api/v1/ni/chassis/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
-			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
+			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
+			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
+			Entry(
+				"unary secret grant create",
+				http.MethodPost,
+				"/api/v1/secret/grant/create",
+			),
+			Entry("unary certificate set", http.MethodPost, "/api/v1/certificate/set"),
+		)
+
+		DescribeTable("Should not register a route for a deleted edit endpoint",
+			func(path string) {
+				res := MustSucceed(app.Test(
+					httptest.NewRequest(http.MethodPost, "/api/v1"+path, nil),
+				))
+				Expect(res.StatusCode).To(Equal(http.StatusNotFound))
+			},
+			Entry("user rename", "/user/rename"),
+			Entry("user change username", "/user/change-username"),
+			Entry("user set role", "/user/set-role"),
+			Entry("channel rename", "/channel/rename"),
+			Entry("channel set group", "/channel/set-group"),
+			Entry("range rename", "/range/rename"),
+			Entry("range set end", "/range/set-end"),
+			Entry("group rename", "/group/rename"),
+			Entry("group set parent", "/group/set-parent"),
+			Entry("project rename", "/project/rename"),
+			Entry("project set group", "/project/set-group"),
+			Entry("schematic symbol rename", "/schematic/symbol/rename"),
+			Entry("schematic symbol set group", "/schematic/symbol/set-group"),
+			Entry("rack rename", "/rack/rename"),
+			Entry("rack set group", "/rack/set-group"),
+			Entry("device rename", "/device/rename"),
+			Entry("device set group", "/device/set-group"),
+			Entry("task rename", "/task/rename"),
+			Entry("view rename", "/view/rename"),
+			Entry("arc directory rename", "/arc/directory/rename"),
+			Entry("arc move", "/arc/move"),
 		)
 
 		It("Should not register a route for an unknown path", func() {
@@ -153,6 +232,7 @@ var _ = Describe("HTTP", func() {
 				Storage:         node.Storage,
 				RootCredentials: creds,
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
+				SecretsKey:      secret.NewEncryptionKey(),
 			}))
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
@@ -196,7 +276,7 @@ var _ = Describe("HTTP", func() {
 					http.MethodPost,
 					path,
 					bytes.NewReader(
-						MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{})),
+						MustSucceed(msgpack.Codec.Encode(map[string]any{})),
 					),
 				)
 				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
@@ -362,7 +442,7 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/channel/retrieve",
 				withCookie("localhost:9090", cookie),
-				channel.RetrieveRequest{},
+				map[string]int{"unknown": 1},
 			)
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(res.Cookies()).To(BeEmpty())
@@ -428,6 +508,9 @@ var _ = Describe("HTTP", func() {
 		It("Should refuse a request with neither header nor cookie", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(MustSucceed(io.ReadAll(res.Body))).To(
+				ContainSubstring("sy.auth.missing_credentials"),
+			)
 		})
 		It("Should read the cookie on every unary route", func() {
 			const unauthenticated = "no authentication token"

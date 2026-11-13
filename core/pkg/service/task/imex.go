@@ -86,52 +86,52 @@ var retiredTypes = set.New("sequence", "heartbeat", "opcScanner", "Rack State")
 // body is never a task.
 func (*Service) Match(map[string]any) bool { return false }
 
-// Import decodes env as a task file — the flat body is the task's config with the
-// type, name, and version headers stamped on top — and creates the task as a draft on
-// no rack. The version dispatches through the type's config store: legacy versions
+// Decode decodes env as a task file — the flat body is the task's config with the type,
+// name, and version headers stamped on top — that its Write creates as a draft on no
+// rack. The version dispatches through the type's config store: legacy versions
 // upgrade through the same rewrites as the boot migration, and a version newer than
 // the store's returns a validation error. A file with no version header is a legacy
 // Console export at version zero.
 //
-// opts.Parent is ignored: a task always parents under its config record and the task
+// The Write ignores opts: a task always parents under its config record and the task
 // group.
-func (s *Service) Import(
-	ctx context.Context,
-	tx gorp.Tx,
-	env imex.Envelope,
-	_ imex.ImportOptions,
-) (resource.ID, error) {
+func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
 		if retiredTypes.Contains(env.Type) {
-			return resource.ID{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"task type %q was removed and can no longer be imported", env.Type,
 			)
 		}
-		return resource.ID{}, errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
 	body, err := env.Decode[map[string]any](ctx)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	config, err := store.Normalize(
-		ctx,
-		tx,
-		env.Version,
-		msgpack.EncodedJSON(body),
-	)
+	decoded, err := store.Decode(ctx, env.Version, msgpack.EncodedJSON(body))
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	t := Task{Name: env.Name, Type: env.Type, Config: config}
-	if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
-		return resource.ID{}, err
-	}
-	return ResourceID(t.Key), nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		_ imex.ImportOptions,
+	) (resource.ID, error) {
+		config, err := decoded.Normalize(ctx, tx)
+		if err != nil {
+			return resource.ID{}, err
+		}
+		t := Task{Name: env.Name, Type: env.Type, Config: config}
+		if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
+			return resource.ID{}, err
+		}
+		return ResourceID(t.Key), nil
+	}, nil
 }

@@ -99,8 +99,8 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
- * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning,
- * useIsSnapshot) be exercised in isolation without mounting the full task Form UI.
+ * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
+ * exercised in isolation without mounting the full task Form UI.
  */
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
@@ -180,7 +180,6 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
-  snapshot: false,
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
@@ -588,13 +587,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
       details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -614,13 +613,13 @@ export const answerCommand = async (
   cmd: task.Command,
   { data, ...answer }: Omit<CommandAnswer, "type"> = {},
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk.payload,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
       ...answer,
+      owner: task.resourceID(tsk.key),
       details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
-  });
+  );
 };
 
 /**

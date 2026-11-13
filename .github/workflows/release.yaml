@@ -10,9 +10,10 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
-  inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3}{4}{5}{6} from {7}', inputs.console && ' Console' ||
+  '', inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.desktop &&
+  ' Desktop' || '', inputs.typescript && ' TypeScript' || '', inputs.python && ' Python'
+  || '', inputs.prerelease && ' candidate' || '', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -29,17 +30,38 @@ on:
         description: Release the Core
         type: boolean
         default: true
-      bump:
-        description: Version bump for every selected product
+      desktop:
+        description:
+          Release Synnax Desktop (with the other products only from main; alone from
+          release/desktop-X.Y)
+        type: boolean
+        default: false
+      desktop_bump:
+        description:
+          Desktop version bump (minor or major from main, patch from
+          release/desktop-X.Y)
         type: choice
         options:
-          - patch
           - minor
-        default: patch
+          - major
+          - patch
+        default: minor
+      typescript:
+        description: Publish the npm packages (from main, only with the Core)
+        type: boolean
+        default: true
+      python:
+        description: Publish the PyPI packages (from main, only with the Core)
+        type: boolean
+        default: true
       prerelease:
         description: Tag release candidates (-rc.N)
         type: boolean
         default: false
+      migration_audit:
+        description: Run the migration audit before any publish
+        type: boolean
+        default: true
       console_version:
         description:
           "Console release the Core embeds (default: this run's, else the newest on the
@@ -65,9 +87,37 @@ env:
   GH_REPO: ${{ github.repository }}
   GH_TOKEN: ${{ github.token }}
 
+# The drafts and the builds start at dispatch. The Core build reads the Console and the
+# Driver from the drafts of the run. One publish job follows the CI verdict, the
+# migration audit, and every build, so a run that fails any of them leaves only drafts,
+# and the next run clears them. An `if` with `!cancelled()` drops the implicit success
+# check, so each job states the results it needs. The packages build at dispatch too,
+# as workflow artifacts. Their publish jobs, the image, and the docs follow the publish.
 jobs:
+  # A commit that passed the full CI does not run it again. The nightly run and each
+  # attempt of a release run count.
+  green-run:
+    name: Find a green CI run
+    runs-on: ubuntu-latest
+    outputs:
+      green: ${{ steps.find.outputs.green }}
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Find a green CI run of the commit
+        id: find
+        run: .github/scripts/green_run.sh "$GITHUB_SHA"
+
   ci:
     name: CI
+    needs: green-run
+    # A lookup that failed set no output, so CI runs.
+    if: ${{ !cancelled() && needs.green-run.outputs.green != 'true' }}
     # A called workflow gets no more than its caller grants. In CI, the fail-fast job
     # asks for actions: write and the paths filter for pull-requests: read.
     permissions:
@@ -99,13 +149,38 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  # A stored shape that changed without a migration stops the release before any draft.
+  # The CI verdict of the commit: a green run exists, or CI passed in this run. A job
+  # that makes something public needs this job and never `ci`, which skips on a reuse.
+  verify:
+    name: Verify
+    needs: [green-run, ci]
+    if: ${{ !cancelled() }}
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a green full CI run of the commit
+        env:
+          GREEN: ${{ needs.green-run.outputs.green }}
+          GREEN_RUN_ID: ${{ needs.green-run.outputs.run_id }}
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          if [ "$GREEN" = "true" ]; then
+            echo "The full CI passed on $GITHUB_SHA in run $GREEN_RUN_ID."
+          elif [ "$CI_RESULT" = "success" ]; then
+            echo "The full CI passed on $GITHUB_SHA in this run."
+          else
+            echo "::error::No green full CI run of $GITHUB_SHA. CI result: $CI_RESULT."
+            exit 1
+          fi
+
+  # A stored shape that changed without a migration stops every publish of the run.
   migration-audit:
     name: Migration audit
     permissions:
       actions: read
       contents: read
       id-token: write
+    if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
       CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
@@ -129,13 +204,29 @@ jobs:
       core_tag: ${{ steps.core.outputs.tag }}
       core_previous_tag: ${{ steps.core.outputs.previous_tag }}
       core_latest: ${{ steps.core.outputs.latest }}
+      train:
+        ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
+        steps.driver.outputs.minor }}
+      ts_version: ${{ steps.ts.outputs.version }}
+      ts_tag: ${{ steps.ts.outputs.tag }}
+      ts_minor: ${{ steps.ts.outputs.minor }}
+      ts_latest: ${{ steps.ts.outputs.latest }}
+      py_version: ${{ steps.py.outputs.version }}
+      py_tag: ${{ steps.py.outputs.tag }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
+      desktop_version: ${{ steps.desktop.outputs.version }}
+      desktop_tag: ${{ steps.desktop.outputs.tag }}
+      desktop_previous_tag: ${{ steps.desktop.outputs.previous_tag }}
+      desktop_build_version: ${{ steps.desktop-build.outputs.version }}
+      desktop_driver_release: ${{ steps.desktop-build.outputs.driver_release }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        if: >-
+          !inputs.console && !inputs.driver && !inputs.core && !inputs.desktop &&
+          (inputs.prerelease || !inputs.typescript && !inputs.python)
         run: |
-          echo "no product selected" >&2
+          echo "no product selected; a candidate run never publishes packages" >&2
           exit 1
 
       - name: Checkout repository
@@ -149,8 +240,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: console
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Driver version
         id: driver
@@ -158,8 +249,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: driver
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Core version
         id: core
@@ -167,11 +258,52 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: core
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
+
+      - name: Resolve TypeScript version
+        id: ts
+        if: inputs.typescript && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: ts
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
+
+      - name: Resolve Python version
+        id: py
+        if: inputs.python && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: py
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
+
+      # Desktop versions apart from the train. Every other product fails on
+      # release/desktop-X.Y, and Desktop fails on release/X.Y, so Desktop joins the
+      # other products only on main.
+      - name: Resolve Desktop version
+        id: desktop
+        if: inputs.desktop
+        uses: ./.github/actions/resolve-version
+        with:
+          product: desktop
+          prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
+          bump: ${{ inputs.desktop_bump }}
+
+      - name: Resolve Desktop build inputs
+        id: desktop-build
+        if: inputs.desktop
+        env:
+          CORE: ${{ steps.core.outputs.version }}
+          DRIVER: ${{ steps.driver.outputs.version }}
+        run:
+          .github/scripts/desktop_build_inputs.sh "$CORE" "$DRIVER" >> "$GITHUB_OUTPUT"
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
-      # product this run releases, else the newest on the minor.
+      # product this run releases, else the newest on the minor. A release from another
+      # run must have its tag, since a draft that a failed run left has none.
       - name: Resolve embedded versions
         id: embed
         if: inputs.core
@@ -180,13 +312,14 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease }}
           CONSOLE: ${{ inputs.console_version || steps.console.outputs.version }}
           DRIVER: ${{ inputs.driver_version || steps.driver.outputs.version }}
+          RUN_CONSOLE: ${{ steps.console.outputs.version }}
+          RUN_DRIVER: ${{ steps.driver.outputs.version }}
         run: |
           latest() { .github/scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
           CONSOLE=${CONSOLE:-$(latest console)}
           DRIVER=${DRIVER:-$(latest driver)}
-          for pair in "console=$CONSOLE" "driver=$DRIVER"; do
-            product=${pair%%=*}
-            version=${pair#*=}
+          for row in "console $CONSOLE $RUN_CONSOLE" "driver $DRIVER $RUN_DRIVER"; do
+            read -r product version run <<< "$row"
             if [ -z "$version" ]; then
               echo "no $product release exists on train $MINOR" >&2
               exit 1
@@ -198,20 +331,29 @@ jobs:
                 exit 1
                 ;;
             esac
+            tag="refs/tags/$product/v$version"
+            published() { git rev-parse -q --verify "$tag" > /dev/null; }
+            if [ "$version" != "$run" ] && ! published; then
+              echo "$product $version is not published" >&2
+              exit 1
+            fi
             echo "${product}_version=$version" >> "$GITHUB_OUTPUT"
           done
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci, migration-audit]
+    needs: resolve
     if: inputs.console
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -225,6 +367,7 @@ jobs:
   build-console:
     name: Build Console
     needs: [resolve, draft-console]
+    if: ${{ !cancelled() && needs.draft-console.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -258,40 +401,41 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  publish-console:
-    name: Publish Console
+  # The Core embeds the manifest with the other Console update files, so it goes into
+  # the draft before the Core builds. Its links work when the release is public.
+  manifest-console:
+    name: Write Console updater manifest
     needs: [resolve, build-console]
+    if: ${{ !cancelled() && needs.build-console.result == 'success' }}
     permissions:
       actions: read
       contents: write
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ needs.resolve.outputs.console_tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Publish updater manifest
+      - name: Write updater manifest
         uses: ./.github/actions/publish-updater-manifest
         with:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
 
-      - name: Publish release
-        run: gh release edit "$TAG" --draft=false --latest=false
-
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci, migration-audit]
+    needs: resolve
     if: inputs.driver
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -305,6 +449,7 @@ jobs:
   build-driver:
     name: Build Driver
     needs: [resolve, draft-driver]
+    if: ${{ !cancelled() && needs.draft-driver.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -337,36 +482,355 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  publish-driver:
-    name: Publish Driver
-    needs: [resolve, build-driver]
+  # Packages have no candidate channel, so a candidate run never builds or publishes
+  # them. The package builds read nothing from the products, so they start at dispatch
+  # and hold no permission to publish. Each publish job takes the built packages from
+  # the artifact of its build job and builds nothing.
+  build-ts:
+    name: Build TypeScript packages
+    needs: resolve
+    if: inputs.typescript && !inputs.prerelease
     permissions:
-      actions: read
-      contents: write
+      contents: read
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     env:
-      TAG: ${{ needs.resolve.outputs.driver_tag }}
+      SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      - name: Publish release
-        run: gh release edit "$TAG" --draft=false --latest=false
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-  # The Core embeds the Console and Driver, so it waits for the ones this run releases
-  # and never runs after one fails.
-  draft-core:
-    name: Draft Core
-    needs: [resolve, ci, migration-audit, publish-console, publish-driver]
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      # npm hides a staged version until a maintainer approves it, so the tag goes up
+      # only after a stage succeeds, and a run whose tag already names this commit has
+      # nothing to stage. While the newest version overall or on this train waits for
+      # approval, nothing new stages, so approvals never move a dist-tag back. `client`
+      # is approved last. The check only reads, and the publish job runs it again.
+      - &claim-ts
+        name: Check the version claim
+        id: claim
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+          MINOR: ${{ needs.resolve.outputs.ts_minor }}
+        run: |
+          status() {
+            curl -s -o /dev/null -w '%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2"
+          }
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then
+            echo "staged=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in x alamos freighter client; do
+            code=$(status "$name" "$VERSION")
+            if [ "$code" != 404 ]; then
+              echo "the registry answered $code for $name $VERSION" >&2
+              exit 1
+            fi
+          done
+          newest() {
+            git ls-remote --tags --refs origin "refs/tags/ts/v$1*" \
+              | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
+          }
+          overall=$(newest "")
+          train=$(newest "$MINOR.")
+          for pending in "$overall" "$train"; do
+            [ -n "$pending" ] || continue
+            code=$(status client "$pending")
+            case "$code" in
+              200) ;;
+              404)
+                echo "client $pending is not out. Approve it, or reject it" >&2
+                echo "and delete the ts/v$pending tag." >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for client $pending" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
+
+      - name: Build
+        run: pnpm build:client
+
+      # The pack writes the internal dependency ranges, so a tarball needs no workspace.
+      - name: Pack
+        run: |
+          for name in x alamos freighter client; do
+            pnpm -C "$name/ts" pack --pack-destination "$GITHUB_WORKSPACE/npm-packages"
+          done
+
+      - name: Upload packages
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: npm-packages
+          path: npm-packages/*.tgz
+          if-no-files-found: error
+          overwrite: true
+
+  # The registries trust this file by name, so the publish jobs live here and not in a
+  # called workflow.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, verify, migration-audit, build-ts, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so Verify and the audit gate it here.
     if: >-
-      !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && needs.build-ts.result == 'success'
+      && (!inputs.console && !inputs.driver && !inputs.core && !inputs.desktop ||
+      needs.publish.result == 'success')
     permissions:
-      actions: read
       contents: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The stage reads only the tarballs, so no dependency code runs in this job.
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+        with:
+          cache: false
+          install: false
+
+      - *claim-ts
+
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
+      - name: Download packages
+        if: steps.claim.outputs.staged != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build-ts.outputs.artifact_id }}
+          path: npm-packages
+          merge-multiple: true
+
+      # A hotfix on an older train must not move `latest` back. The trusted publisher
+      # may only stage, so nothing installs until a maintainer approves it with 2FA.
+      # pnpm cannot stage a batch, so each package stages on its own, in dependency
+      # order.
+      - name: Stage
+        id: stage
+        if: steps.claim.outputs.staged != 'true'
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+          TAG:
+            ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
+            format('train-{0}', needs.resolve.outputs.ts_minor) }}
+        # The tarballs dirty the tree, and the resolve job already checked the branch.
+        run: |
+          for name in x alamos freighter client; do
+            pnpm stage publish "npm-packages/synnaxlabs-$name-$VERSION.tgz" \
+              --tag "$TAG" --no-git-checks
+          done
+
+      # No tag guards the packages that a failed stage left on the registry.
+      - name: Ask for a reject
+        if: >-
+          always() && (steps.stage.conclusion == 'failure' || steps.stage.conclusion ==
+          'cancelled')
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Reject the staged npm packages"
+            echo "The stage of \`@synnaxlabs\` $VERSION stopped part way. Before the"
+            echo "next release, reject every $VERSION version in the Staged Packages"
+            echo "tab on npmjs.com or with \`pnpm stage reject\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tag
+        if: steps.claim.outputs.staged != 'true'
+        env:
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Ask for approval
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Approve the npm packages"
+            echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
+            echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
+            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`."
+            echo "Until \`client\` is approved, no release stages on this train, or on"
+            echo "any train while $VERSION is the newest."
+            echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-py:
+    name: Build Python packages
+    needs: resolve
+    if: inputs.python && !inputs.prerelease
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      # A run at the commit that the tag names finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits. The check only reads, and the publish job runs
+      # it again.
+      - &claim-py
+        name: Check the version claim
+        id: claim
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run: |
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then
+            echo "claimed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in alamos synnax synnax-freighter synnax-x; do
+            url="https://pypi.org/pypi/$name/$VERSION/json"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: .github/scripts/stamp_versions.sh py "$VERSION"
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            (cd "$package" && uv build)
+          done
+
+      - name: Upload packages
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pypi-packages
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          overwrite: true
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, verify, migration-audit, build-py, publish]
+    # Packages go out after the products of the run, and never after the publish fails.
+    # A run with no product has no publish job, so Verify and the audit gate it here.
+    if: >-
+      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.verify.result == 'success' && (!inputs.migration_audit ||
+      needs.migration-audit.result == 'success') && needs.build-py.result == 'success'
+      && (!inputs.console && !inputs.driver && !inputs.core && !inputs.desktop ||
+      needs.publish.result == 'success')
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - *claim-py
+
+      # Any job of the run can upload an artifact under a name, so the download takes
+      # the one that the build job made, by its ID.
+      - name: Download packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build-py.outputs.artifact_id }}
+          path: dist
+          merge-multiple: true
+
+      # The tag claims the version before anything publishes.
+      - name: Tag
+        if: steps.claim.outputs.claimed != 'true'
+        env:
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Prune already-published distributions
+        run: uv run --no-project python .github/scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
+
+  draft-core:
+    name: Draft Core
+    needs: resolve
+    if: inputs.core
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -384,12 +848,18 @@ jobs:
             needs.resolve.outputs.core_driver_version }}).
           prerelease: ${{ inputs.prerelease }}
 
-  # A job with no status check skips when any ancestor skipped, so each job after
-  # draft-core has its own. Without one, a run with no Console or Driver skips the Core.
+  # The Core embeds the Console and the Driver. When the run releases one, the build
+  # downloads it from the draft, which holds every file after that build and the
+  # manifest job pass. If not, it downloads the newest published release on the train. A
+  # job with no status check skips when any ancestor skipped, so each job from here has
+  # its own. Without one, a run with no Console or Driver skips the Core.
   build-core:
     name: Build Core
-    needs: [resolve, draft-core]
-    if: ${{ !cancelled() && needs.draft-core.result == 'success' }}
+    needs: [resolve, draft-core, manifest-console, build-driver]
+    if: >-
+      !cancelled() && needs.draft-core.result == 'success' && (!inputs.console ||
+      needs.manifest-console.result == 'success') && (!inputs.driver ||
+      needs.build-driver.result == 'success')
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -399,7 +869,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      docker: true
       core: true
       sign_binaries: true
       use_simple_artifact_names: true
@@ -407,9 +876,6 @@ jobs:
       release_tag: ${{ needs.resolve.outputs.core_tag }}
       console_release: console/v${{ needs.resolve.outputs.core_console_version }}
       driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
-      docker_channel:
-        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
-        && 'latest' || '' }}
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -454,11 +920,8 @@ jobs:
           Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
           .github/scripts/synnax-server.exe
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-
-      - name: Install trusted-signing-cli
-        run: cargo install trusted-signing-cli
+      - name: Set up trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build Windows installer
         shell: powershell
@@ -483,36 +946,232 @@ jobs:
         run: |
           gh release upload --clobber "${env:TAG}" .\.github\scripts\synnax-setup-v${env:VERSION}.exe
 
-  publish-core:
-    name: Publish Core
-    needs: [resolve, build-core, windows-installer]
-    if: ${{ !cancelled() && needs.windows-installer.result == 'success' }}
+  draft-desktop:
+    name: Draft Desktop
+    needs: resolve
+    if: inputs.desktop
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Draft release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.desktop_tag }}
+          title: Synnax Desktop v${{ needs.resolve.outputs.desktop_version }}
+          previous_tag: ${{ needs.resolve.outputs.desktop_previous_tag }}
+          prerelease: ${{ inputs.prerelease }}
+
+  # Desktop bundles its own Core, built at the commit of the run with the Driver and no
+  # Console. The Core and the Driver exist only inside Desktop: no release_tag reaches
+  # the build, and its artifacts carry their version, so their names differ from those
+  # of the Core and Driver builds of the run. This job compiles the Driver, so it needs
+  # no other build.
+  build-desktop:
+    name: Build Desktop
+    needs: resolve
+    if: inputs.desktop && needs.resolve.outputs.desktop_driver_release == ''
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      driver: true
+      core: true
+      desktop: true
+      sign_binaries: true
+      version: ${{ needs.resolve.outputs.desktop_build_version }}
+      desktop_version: ${{ needs.resolve.outputs.desktop_version }}
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: &desktop_secrets
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  # When the run releases the Driver and the Core on one minor, Desktop takes the Driver
+  # from the draft of the run, which holds it after the Driver build passes. A run
+  # starts only one of the two Desktop builds.
+  build-desktop-with-driver:
+    name: Build Desktop with the Driver of the run
+    needs: [resolve, build-driver]
+    if: >-
+      !cancelled() && inputs.desktop && needs.resolve.outputs.desktop_driver_release !=
+      '' && needs.build-driver.result == 'success'
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      core: true
+      desktop: true
+      sign_binaries: true
+      version: ${{ needs.resolve.outputs.desktop_build_version }}
+      desktop_version: ${{ needs.resolve.outputs.desktop_version }}
+      driver_release: ${{ needs.resolve.outputs.desktop_driver_release }}
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: *desktop_secrets
+
+  # The bundles and the updater manifest go into the draft, so the publish only makes
+  # the draft public.
+  upload-desktop:
+    name: Upload Desktop bundles
+    needs: [resolve, draft-desktop, build-desktop, build-desktop-with-driver]
+    if: >-
+      !cancelled() && needs.draft-desktop.result == 'success' &&
+      (needs.build-desktop.result == 'success' || needs.build-desktop-with-driver.result
+      == 'success')
     permissions:
       actions: read
       contents: write
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ needs.resolve.outputs.core_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download bundles
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: synnax-desktop-*
+          merge-multiple: true
+          path: desktop-bundles
+
+      - name: Upload bundles
+        env:
+          TAG: ${{ needs.resolve.outputs.desktop_tag }}
+        run: gh release upload --clobber "$TAG" desktop-bundles/*
+
+      - name: Write updater manifest
+        uses: ./.github/actions/publish-updater-manifest
+        with:
+          tag: ${{ needs.resolve.outputs.desktop_tag }}
+          version: ${{ needs.resolve.outputs.desktop_version }}
+          app: Synnax Desktop
+
+  # The only job that makes a release public. It runs after Verify, the migration audit,
+  # and every build of the run pass. A publish of a release that is already public
+  # changes nothing, so a rerun finishes a publish that stopped part way.
+  publish:
+    name: Publish
+    needs:
+      [
+        resolve,
+        verify,
+        migration-audit,
+        manifest-console,
+        build-driver,
+        windows-installer,
+        upload-desktop,
+        build-ts,
+        build-py,
+      ]
+    if: >-
+      !cancelled() && (inputs.console || inputs.driver || inputs.core || inputs.desktop)
+      && needs.resolve.result == 'success' && needs.verify.result == 'success' &&
+      (!inputs.migration_audit || needs.migration-audit.result == 'success') &&
+      (!inputs.console || needs.manifest-console.result == 'success') && (!inputs.driver
+      || needs.build-driver.result == 'success') && (!inputs.core ||
+      needs.windows-installer.result == 'success') && (!inputs.desktop ||
+      needs.upload-desktop.result == 'success') && (!inputs.typescript ||
+      inputs.prerelease || needs.build-ts.result == 'success') && (!inputs.python ||
+      inputs.prerelease || needs.build-py.result == 'success')
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
     steps:
       # The repo has one Latest badge, and a publish takes it by default. It belongs to
       # the newest stable Core, so a Console, Driver, or Desktop publish declines it.
-      - name: Publish release
+      - name: Publish Driver
+        if: inputs.driver
         env:
+          TAG: ${{ needs.resolve.outputs.driver_tag }}
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+      - name: Publish Console
+        if: inputs.console
+        env:
+          TAG: ${{ needs.resolve.outputs.console_tag }}
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+      - name: Publish Desktop
+        if: inputs.desktop
+        env:
+          TAG: ${{ needs.resolve.outputs.desktop_tag }}
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+      # The Core goes last, so a public Core never embeds a release that is still a
+      # draft.
+      - name: Publish Core
+        if: inputs.core
+        env:
+          TAG: ${{ needs.resolve.outputs.core_tag }}
           LATEST:
             ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
         run: gh release edit "$TAG" --draft=false --latest="$LATEST"
 
+  # The image builds and pushes in one step, so it follows the publish. No job needs the
+  # image, so a failed push blocks only the image. A rerun of this job alone has every
+  # input, and it moves latest or next only to the newest Core.
+  publish-core-image:
+    name: Publish Core image
+    needs: [resolve, publish]
+    if: ${{ !cancelled() && inputs.core && needs.publish.result == 'success' }}
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      docker: true
+      core: true
+      version: ${{ needs.resolve.outputs.core_version }}
+      release_tag: ${{ needs.resolve.outputs.core_tag }}
+      console_release: console/v${{ needs.resolve.outputs.core_console_version }}
+      driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
+      docker_channel:
+        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
+        && 'latest' || '' }}
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+
   deploy-docs:
     name: Deploy docs
-    needs: [publish-console, publish-driver, publish-core]
-    # The docs read stable versions at build time, so a stable release redeploys them.
-    if: >-
-      !cancelled() && !inputs.prerelease && contains(needs.*.result, 'success')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger the docs deploy hook
-        env:
-          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
-        run: |
-          [ -n "$HOOK" ] || { echo "::error::DOCS_DEPLOY_HOOK is not set"; exit 1; }
-          curl --fail-with-body --silent --show-error --request POST "$HOOK"
+    needs: [resolve, publish]
+    # The docs read stable versions at build time. A release changes the download links
+    # of its train, next, and the newest train, and a new train moves the previous one
+    # off the root.
+    if: ${{ !cancelled() && !inputs.prerelease && needs.publish.result == 'success' }}
+    uses: ./.github/workflows/deploy.docs.yaml
+    with:
+      versions: next latest previous
+      train: ${{ needs.resolve.outputs.train }}
+    secrets:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

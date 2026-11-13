@@ -21,19 +21,19 @@ import (
 // Scale ratio thresholds for magnitude safety warnings.
 // These represent the maximum scale difference before precision loss becomes likely.
 const (
-	// ScaleRatioThresholdF64 is the maximum scale ratio for f64 additive operations
+	// scaleRatioThresholdF64 is the maximum scale ratio for f64 additive operations
 	// before warning about precision loss. Set conservatively at 1e12 (~12 orders
 	// of magnitude) to leave headroom for the value magnitudes themselves.
 	// f64 has ~15-16 significant decimal digits.
-	ScaleRatioThresholdF64 = 1e12
+	scaleRatioThresholdF64 = 1e12
 
-	// ScaleRatioThresholdF32 is the maximum scale ratio for f32 additive operations.
+	// scaleRatioThresholdF32 is the maximum scale ratio for f32 additive operations.
 	// f32 has ~7 significant decimal digits.
-	ScaleRatioThresholdF32 = 1e5
+	scaleRatioThresholdF32 = 1e5
 
-	// TruncationThreshold is the minimum scale factor below which integer assignment
+	// truncationThreshold is the minimum scale factor below which integer assignment
 	// will warn about truncation to zero.
-	TruncationThreshold = 1e-9
+	truncationThreshold = 1e-9
 )
 
 // checkAdditiveScaleSafety checks if combining two units in an additive operation
@@ -74,9 +74,9 @@ func checkAdditiveScaleSafety[AST antlr.ParserRuleContext](
 	}
 
 	// Determine threshold based on numeric type (use stricter threshold for f32)
-	threshold := ScaleRatioThresholdF64
+	threshold := scaleRatioThresholdF64
 	if left.Kind == types.KindF32 || right.Kind == types.KindF32 {
-		threshold = ScaleRatioThresholdF32
+		threshold = scaleRatioThresholdF32
 	}
 
 	if scaleRatio >= threshold {
@@ -127,7 +127,7 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 	scaleFactor := sourceType.Unit.Scale / targetType.Unit.Scale
 
 	// Check for potential truncation (scaling down to very small values)
-	if scaleFactor <= TruncationThreshold {
+	if scaleFactor <= truncationThreshold {
 		ctx.Diagnostics.Add(diagnostics.Warningf(
 			ctx.AST,
 			"unit conversion from %s to %s may truncate to zero for integer type %s (scale factor: %.2e)",

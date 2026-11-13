@@ -25,6 +25,7 @@ import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { batch } from "@/batch";
+import { certificate } from "@/certificate";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -44,6 +45,7 @@ import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { schematic } from "@/schematic";
+import { secret } from "@/secret";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
@@ -132,16 +134,20 @@ const changes = (set: string, del: string): resource.Channels => ({ set, delete:
 const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
   arc_directory: changes(
-    arc.directory.SET_CHANNEL_NAME,
+    arc.directory.ACTION_CHANNEL_NAME,
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
+  certificate: changes(
+    certificate.ACTION_CHANNEL_NAME,
+    certificate.DELETE_CHANNEL_NAME,
+  ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
-  device: changes(device.SET_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
   ethercat_slave: null,
   framer: null,
-  group: changes(group.SET_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
+  group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   http_server: null,
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   labjack_device: null,
@@ -153,22 +159,23 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   node: null,
   opcua_server: null,
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
-  policy: changes(access.policy.SET_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
-  project: changes(project.SET_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
-  rack: changes(rack.SET_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
+  policy: changes(access.policy.ACTION_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
+  project: changes(project.ACTION_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
+  rack: changes(rack.ACTION_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
   range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
   "range-alias": null,
-  role: changes(access.role.SET_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
+  role: changes(access.role.ACTION_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
   schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
   schematic_symbol: changes(
-    schematic.symbol.SET_CHANNEL_NAME,
+    schematic.symbol.ACTION_CHANNEL_NAME,
     schematic.symbol.DELETE_CHANNEL_NAME,
   ),
+  secret: changes(secret.ACTION_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
   status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
   table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
   task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
-  user: changes(user.SET_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
-  view: changes(view.SET_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+  user: changes(user.ACTION_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
+  view: changes(view.ACTION_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
 };
 
 /**
@@ -198,6 +205,8 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly secrets: secret.Client;
+  readonly certificates: certificate.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -236,13 +245,11 @@ export default class Synnax extends framer.Client {
     const parsedParams = zod.parse(constructorParamsZ, params);
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
-    const transport = new Transport(
-      new url.URL({ host, port: Number(port) }),
-      retry,
-      secure,
-      parsedParams.onRetry,
-    );
+    const address = new url.URL({ host, port: Number(port) });
+    const transport = new Transport(address, retry, secure, parsedParams.onRetry);
     transport.use(errorsMiddleware);
+    const tokenless = new Transport(address, {}, secure);
+    tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
       const result = await this.channels.retrieve(
@@ -273,6 +280,7 @@ export default class Synnax extends framer.Client {
     this.cache = cache;
     this.conn = new connection.Client({
       unary: transport.unaryNoRetry,
+      tokenless: tokenless.unaryNoRetry,
       address: `${host}:${Number(port)}`,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
@@ -303,6 +311,7 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
+    this.batch = new batch.Client(unary);
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
@@ -319,7 +328,6 @@ export default class Synnax extends framer.Client {
     this.ranges = new ranger.Client({
       framer: this,
       unary,
-      channels: retrieveChannels,
       labels: this.labels,
       cache,
     });
@@ -328,13 +336,14 @@ export default class Synnax extends framer.Client {
       unary,
       writer: chCreator,
       statuses: this.statuses,
-      ranges: this.ranges,
       cache,
+      batch: this.batch,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
       cache,
+      batch: this.batch,
       connection: this.conn,
       identity,
     });
@@ -351,7 +360,6 @@ export default class Synnax extends framer.Client {
     this.tasks = new task.Client({
       unary,
       framer: this,
-      ranges: this.ranges,
       cache,
       statuses: this.statuses,
     });
@@ -372,11 +380,19 @@ export default class Synnax extends framer.Client {
       tasks: this.tasks,
       cache,
       statuses: this.statuses,
+      batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
+    this.secrets = new secret.Client({
+      unary,
+      cache,
+      usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
+    });
+    this.certificates = new certificate.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,
+      batch: this.batch,
       setGroup: {
         channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
         device: (keys, to) => this.devices.setGroupRequest(keys, to),
@@ -391,7 +407,6 @@ export default class Synnax extends framer.Client {
         table: (keys, to) => this.tables.setGroupRequest(keys, to),
       },
     });
-    this.batch = new batch.Client(unary);
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

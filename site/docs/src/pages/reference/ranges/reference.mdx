@@ -22,8 +22,8 @@ sets its times, and what local ranges cannot do.
 <Field.List>
 
 <Field.Item name="key" type="UUID">
-  The unique ID of the range. Synnax makes one when you leave it out. Create with an
-  existing key to update that range.
+  The unique ID of the range. Synnax makes one when you leave it out. A create fails
+  when a range already has the key.
 </Field.Item>
 
 <Field.Item name="name" type="string" required>
@@ -42,13 +42,19 @@ sets its times, and what local ranges cannot do.
 </Field.Item>
 
 <Field.Item name="color" type="string">
-  A hex color such as `"#FF0000"`. The client returns it as a color object. An empty
-  string clears it. Line plots show only ranges that have a color. The Console cannot
-  set it. An [Arc automation](/reference/ranges/arc) can.
+  A hex color such as `"#FF0000"`. The client returns it as a color object. Python and
+  TypeScript can change or clear it later. Line plots show only ranges that have a
+  color. The Console cannot set it. An [Arc automation](/reference/ranges/arc) can.
 </Field.Item>
 
-<Field.Item name="parent" type="Range">
-  The parent range. Set it when you create the range.
+<Field.Item name="parent" type="Range | UUID">
+  The parent range. Python takes the range or its key. TypeScript takes the key. Set it
+  when you create the range, or change or clear it later from Python or TypeScript.
+</Field.Item>
+
+<Field.Item name="labels" type="UUID[]">
+  The keys of the [labels](/reference/ranges/metadata#labels) of the range. Set them
+  when you create the range, or add and remove them later.
 </Field.Item>
 
 <Field.Item name="retrieve_if_name_exists" type="boolean">
@@ -58,7 +64,7 @@ sets its times, and what local ranges cannot do.
 
 </Field.List>
 
-Labels and metadata are not properties of the create call. See
+Metadata is not a property of the create call. See
 [metadata and labels](/reference/ranges/metadata).
 
 <Divider.Divider x />
@@ -98,7 +104,6 @@ A local range keeps only its name and its time range. It cannot:
 
 - Open a range overview, or have child ranges, labels, or metadata.
 - Be deleted with **Delete**. Select **Unfavorite** to remove it.
-- Have channel aliases or snapshots.
 - Be shared with a link.
 
 To keep a local range, right-click it in the ranges toolbar and select **Save to Core**.
@@ -107,8 +112,8 @@ To keep a local range, right-click it in the ranges toolbar and select **Save to
 
 ## Errors
 
-| Error                | When                                                                       |
-| -------------------- | -------------------------------------------------------------------------- |
-| `NotFoundError`      | A retrieve matches no range.                                               |
-| `MultipleFoundError` | A retrieve by name matches more than one range.                            |
-| Validation error     | A create has an empty name, a zero start or end, or a start after its end. |
+| Error                | When                                                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NotFoundError`      | A retrieve matches no range.                                                                                                                                                                                 |
+| `MultipleFoundError` | A retrieve by name, or with `one`, matches more than one range.                                                                                                                                              |
+| Validation error     | A create has a key that a range already has, an empty name, a zero start or end, a start after its end, a parent or label that does not exist, or a parent that is the range itself or a range nested in it. |

@@ -147,12 +147,13 @@ interface IndexAndType {
 
 export const validateWriteChannels = (
   ctx: z.core.ParsePayload<
+    // A channel type with no Synnax channels has none of the channel fields.
     {
       key: string;
-      cmdChannel: channel.Key;
-      stateChannel: channel.Key;
-      cmdChannelName: string;
-      stateChannelName: string;
+      cmdChannel?: channel.Key;
+      stateChannel?: channel.Key;
+      cmdChannelName?: string;
+      stateChannelName?: string;
       disabled: boolean;
     }[]
   >,
@@ -162,7 +163,16 @@ export const validateWriteChannels = (
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
   const nameToIndexMap = new Map<string, IndexAndType>();
   channels.forEach(
-    ({ cmdChannel, stateChannel, cmdChannelName, stateChannelName, disabled }, i) => {
+    (
+      {
+        cmdChannel = 0,
+        stateChannel = 0,
+        cmdChannelName = "",
+        stateChannelName = "",
+        disabled,
+      },
+      i,
+    ) => {
       if (cmdChannelName !== "") {
         if (!nameToIndexMap.has(cmdChannelName)) {
           nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });

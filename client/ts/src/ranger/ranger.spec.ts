@@ -7,19 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  color,
-  DataType,
-  id,
-  math,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  uuid,
-} from "@synnaxlabs/x";
+import { color, id, math, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, type Synnax } from "@/index";
+import { NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
@@ -154,7 +145,7 @@ describe("range", () => {
       });
       expect(rng.labels).toEqual([lbl.key]);
     });
-    it("should keep the stored labels of a range that is created again", async () => {
+    it("should refuse a range whose key exists and keep its labels", async () => {
       const [held, carried] = await client.labels.create([
         { name: "Held", color: "#E774D0" },
         { name: "Carried", color: "#E774D0" },
@@ -164,34 +155,32 @@ describe("range", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         labels: [held.key],
       });
-      const again = await client.ranges.create({
-        ...rng.payload,
-        labels: [carried.key],
-      });
-      expect(again.labels).toEqual([held.key]);
+      const create = client.ranges.create({ ...rng.payload, labels: [carried.key] });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`range ${rng.key} already exists`);
+      const retrieved = await createTestClient().ranges.retrieve(rng.key);
+      expect(retrieved.labels).toEqual([held.key]);
     });
     it("should keep a label change that arrives before the create reply", async () => {
       const lbl = await client.labels.create({ name: "Late", color: "#E774D0" });
-      const rng = await client.ranges.create({
-        name: "Created again",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
+      const key = uuid.create();
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      await local.ranges.retrieve(rng.key);
       const { responded, release } = holdResponses(local, "/range/create");
-      const creating = local.ranges.create(rng.payload);
+      const creating = local.ranges.create({
+        key,
+        name: "Labeled late",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
       await responded;
-      await client.labels.label(rng.resourceID, [lbl.key]);
+      await client.labels.label(ranger.resourceID(key), [lbl.key]);
       await expect
-        .poll(() => expectLive(local.ranges.watch(rng.key).getCached()).labels)
+        .poll(() => expectLive(local.ranges.watch(key).getCached()).labels)
         .toContain(lbl.key);
       release();
       await creating;
-      expect(expectLive(local.ranges.watch(rng.key).getCached()).labels).toContain(
-        lbl.key,
-      );
+      expect(expectLive(local.ranges.watch(key).getCached()).labels).toContain(lbl.key);
     });
   });
 
@@ -434,101 +423,6 @@ describe("range", () => {
     });
   });
 
-  describe("Alias", () => {
-    describe("set + resolve", () => {
-      it("should set and resolve an alias for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        const resolved = await rng.resolveAlias("myalias");
-        expect(resolved).toEqual(ch.key);
-      });
-
-      it("should reject an alias named after an object member", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const resolve = rng.resolveAlias("constructor");
-        await expect(resolve).rejects.toThrow(NotFoundError);
-        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
-      });
-
-      it("should reject a channel name that matches no channel", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const name = id.create();
-        const set = rng.setAlias(name, "myalias");
-        await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
-      });
-
-      it("should read a name pattern as an exact channel name", async () => {
-        const prefix = `alias_${id.create()}`;
-        await client.channels.create([
-          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
-          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
-        ]);
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const name = `${prefix}_.*`;
-        const set = rng.setAlias(name, "myalias");
-        await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
-      });
-    });
-    describe("deleteAlias", () => {
-      it("should remove an alias for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        await rng.deleteAlias(ch.key);
-        const resolve = rng.resolveAlias("myalias");
-        await expect(resolve).rejects.toThrow(NotFoundError);
-        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
-        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
-        await expect(retrieve).rejects.toThrow(NotFoundError);
-        await expect(retrieve).rejects.toThrow(
-          `alias not found matching channel ${ch.key}`,
-        );
-      });
-    });
-    describe("list", () => {
-      it("should list the aliases for the range", async () => {
-        const ch = await client.channels.create({
-          name: id.create(),
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.setAlias(ch.key, "myalias");
-        const aliases = await rng.listAliases();
-        expect(aliases).toEqual({ [ch.key]: "myalias" });
-      });
-    });
-  });
-
   describe("optimistic writes", () => {
     const WRITE_FAILED = new Error("write failed");
     const fail = () => {
@@ -539,13 +433,6 @@ describe("range", () => {
       await client.ranges.create({
         name: `optimistic-${id.create()}`,
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-
-    const createChannel = async () =>
-      await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
       });
 
     describe("delete", () => {
@@ -588,60 +475,6 @@ describe("range", () => {
         } finally {
           off();
         }
-      });
-    });
-
-    describe("setAlias", () => {
-      it("should cache the alias before the write commits", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        let duringWrite: ranger.alias.Alias | undefined;
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
-          onOptimistic: () => {
-            duringWrite = client.ranges.aliases.get(key);
-          },
-        });
-        expect(duringWrite?.alias).toEqual("optimistic-alias");
-      });
-
-      it("should drop the alias when the write fails", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await expect(
-          client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
-            onOptimistic: fail,
-          }),
-        ).rejects.toBe(WRITE_FAILED);
-        expect(client.ranges.aliases.get(key)).toBeUndefined();
-      });
-    });
-
-    describe("deleteAlias", () => {
-      it("should drop the alias before the write commits", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
-        let duringWrite: ranger.alias.Alias | undefined;
-        await client.ranges.deleteAlias(rng.key, ch.key, {
-          onOptimistic: () => {
-            duringWrite = client.ranges.aliases.get(key);
-          },
-        });
-        expect(duringWrite).toBeUndefined();
-      });
-
-      it("should restore the alias when the write fails", async () => {
-        const rng = await createRange();
-        const ch = await createChannel();
-        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
-        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
-        await expect(
-          client.ranges.deleteAlias(rng.key, ch.key, { onOptimistic: fail }),
-        ).rejects.toBe(WRITE_FAILED);
-        expect(client.ranges.aliases.get(key)?.alias).toEqual("optimistic-alias");
       });
     });
 

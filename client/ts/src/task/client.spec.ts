@@ -7,59 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  EOF,
-  HTTPClient,
-  type UnaryClient,
-  WebSocketClient,
-} from "@synnaxlabs/freighter";
+import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { label } from "@/label";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
 import { status } from "@/status";
 import { task } from "@/task";
-import { TEST_CORE_ADDRESS } from "@/testutil";
-
-/** A change stream that delivers the frames the spec pushes, in push order. */
-class PushStreamer implements framer.Streamer {
-  keys: channel.Key[] = [];
-  private readonly frames: framer.Frame[] = [];
-  private done = false;
-
-  push(frame: framer.Frame): void {
-    this.frames.push(frame);
-  }
-
-  async update(): Promise<void> {}
-
-  close(): void {
-    this.done = true;
-  }
-
-  async next(): Promise<IteratorResult<framer.Frame>> {
-    while (!this.done) {
-      const frame = this.frames.shift();
-      if (frame != null) return { done: false, value: frame };
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-    return { done: true, value: undefined };
-  }
-
-  async read(): Promise<framer.Frame> {
-    const res = await this.next();
-    if (res.done) throw new EOF();
-    return res.value;
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
-    return this;
-  }
-}
+import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -78,7 +34,6 @@ const createStreamedClient = async (recordCap?: number) => {
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
@@ -86,21 +41,8 @@ const createStreamedClient = async (recordCap?: number) => {
     file: new HTTPClient(coreURL, binary.JSON_CODEC),
     retrieveChannels: async () => [],
   });
-  const ranges = new ranger.Client({
-    unary,
-    cache,
-    labels,
-    framer: frames,
-    channels: async () => [],
-  });
   const statuses = new status.Client({ unary, cache });
-  const tasks = new task.Client({
-    unary,
-    framer: frames,
-    ranges,
-    cache,
-    statuses,
-  });
+  const tasks = new task.Client({ unary, framer: frames, cache, statuses });
   await cache.ensureStreaming();
   return { stream, tasks, statuses };
 };

@@ -39,7 +39,8 @@ and drop it on the panels area of the Console.
 
 You can also run the "Create schematic" command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). The
-new schematic opens with editing on.
+new schematic opens with editing on. To copy a schematic from a Python or TypeScript
+script, see [visualizations in code](/reference/visualize/code#copy-a-schematic).
 
 <Video id="console/schematics/create" />
 
@@ -47,10 +48,10 @@ new schematic opens with editing on.
 
 ## Turn editing on and off
 
-Move the pointer over the schematic to show its controls in the top right. Click
+Move the pointer over the schematic to show its controls in the top right:
 
-<Icon.Edit /> (**Enable editing**) to add, move, and configure symbols. Click
-<Icon.EditOff /> (**Disable editing**) to stop.
+- **Enable editing** (<Icon.Edit />) -> add, move, and configure symbols.
+- **Disable editing** (<Icon.EditOff />) -> stop editing.
 
 A schematic opens with editing on the first time you open it in a window. Turn editing
 off before an operator uses it. While editing is on, a click selects a symbol and does
@@ -92,6 +93,20 @@ The symbol shows the latest value of the channel. To set the number format and w
 value shows as stale, see the [Telemetry tab](#telemetry-tab).
 
 <Video id="console/schematics/value" />
+
+<Divider.Divider x />
+
+## See the channels and last sample of a symbol
+
+With editing off, move the pointer over a symbol to show its tooltip. The tooltip lists
+the channels of the symbol and their data types, and settings such as the mode, the
+click delay, and the stale timeout. **Sample age** shows the time since the last sample
+of the channel arrived.
+
+To hide the tooltips, click <Icon.Tooltip /> (**Hide tooltips**) in the controls of the
+schematic. Click it again to show them.
+
+<Video id="console/schematics/tooltip" />
 
 <Divider.Divider x />
 
@@ -182,9 +197,8 @@ When editing is off, a click or double-click on the symbol opens the page in a t
 ### Component toolbar
 
 Press **V** or double-click the schematic to open the component toolbar. The header has
-
-<Icon.Export /> (**Export layout**) and <Icon.Link /> (**Copy link**). See
-[share](/reference/visualize/share).
+the buttons <Icon.Export /> (**Export layout**) and <Icon.Link /> (**Copy link**).
+Synnax Desktop does not show **Copy link**. See [share](/reference/visualize/share).
 
 Only users with permission to edit the schematic see the tabs **Symbols**,
 **Properties**, and **Control**.
@@ -237,7 +251,10 @@ custom symbol has **State overrides**. See
 | Format    | Notation         | Standard, scientific, or engineering.                                                 |
 | Format    | Precision        | The number of decimal places, from 0 to 10. Default 2.                                |
 | Staleness | Color            | The color of the symbol when its data is stale.                                       |
-| Staleness | Timeout          | The time with no new sample before the symbol is stale. Default 5 s, minimum 1 s.     |
+| Staleness | Timeout          | The time with no new sample before the symbol is stale, such as `5s` or `1min 30s`.   |
+
+**Timeout** is 5 seconds by default, and 1 second at least. A number with no unit is in
+seconds. A value under 1 second shows a message and does not save.
 
 <Note.Note variant="info">
   A symbol is stale when no new sample has arrived within the timeout. Give it a timeout
@@ -249,24 +266,27 @@ custom symbol has **State overrides**. See
 Valves, pumps, switches, setpoints, text inputs, selects, and other actuators have these
 fields:
 
-| Section   | Field          | Description                                                                   |
-| --------- | -------------- | ----------------------------------------------------------------------------- |
-| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.           |
-| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol.    |
-| Command   | Delay          | The time in ms that an operator must press and hold before the symbol writes. |
-| Command   | Control chip   | Shows the chip that tells who has control of the channel.                     |
-| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                           |
+| Section   | Field          | Description                                                                |
+| --------- | -------------- | -------------------------------------------------------------------------- |
+| State     | Channel        | The channel that sets how the symbol looks, such as open or closed.        |
+| Command   | Channel        | The channel that the Console writes to when an operator clicks the symbol. |
+| Command   | Delay          | The time that an operator must press and hold before the symbol writes.    |
+| Command   | Control chip   | Shows the chip that tells who has control of the channel.                  |
+| Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                        |
 
 On a setpoint, text input, or select, the state channel sets the value under the field.
 
+**Delay** is a duration, such as `500ms` or `2.5s`. A number with no unit is in
+milliseconds.
+
 A button has these fields:
 
-| Section   | Field        | Description                                                                                         |
-| --------- | ------------ | --------------------------------------------------------------------------------------------------- |
-| Command   | Channel      | The channel that the Console writes to when an operator clicks the button.                          |
-| Command   | Control chip | Shows the chip that tells who has control of the channel.                                           |
-| Actuation | Mode         | **Fire** (the default), **Momentary**, or **Pulse**.                                                |
-| Actuation | Delay        | The time in ms that an operator must press and hold before the button writes. Not on **Momentary**. |
+| Section   | Field        | Description                                                                                   |
+| --------- | ------------ | --------------------------------------------------------------------------------------------- |
+| Command   | Channel      | The channel that the Console writes to when an operator clicks the button.                    |
+| Command   | Control chip | Shows the chip that tells who has control of the channel.                                     |
+| Actuation | Mode         | **Fire** (the default), **Momentary**, or **Pulse**.                                          |
+| Actuation | Delay        | The time that an operator must press and hold before the button writes. Not on **Momentary**. |
 
 A button has no label at first. Set one under **Label** on the **Style** tab. Press
 Enter in the field to start a new line. A label stays on one line until you change
@@ -350,14 +370,12 @@ You have control of the schematic.
 <Problem.Body>
 <Problem.Cause>
 
-You cannot edit the schematic.
+You do not have permission to edit the schematic.
 
 </Problem.Cause>
 <Problem.Fix>
 
-- **You do not have permission** -> ask an administrator for access.
-- **The schematic is a snapshot** -> a snapshot cannot change. Open the schematic that
-  the snapshot came from.
+Ask an administrator for access.
 
 </Problem.Fix>
 </Problem.Body>

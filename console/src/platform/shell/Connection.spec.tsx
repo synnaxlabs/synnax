@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -54,6 +55,27 @@ describe("Connection", () => {
     const { wrapper } = await createStatusConsoleWrapper({
       client: createTestClient(),
       status: UNLICENSED_STATUS,
+    });
+    render(<Shell.Connection core={CORE} />, { wrapper });
+    expect(await screen.findByText("Connected")).toBeTruthy();
+    expect(screen.queryByText("Unreachable")).toBeNull();
+  });
+
+  it("should stay nominal when the Core reports an incompatible version", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: createTestClient(),
+      status: {
+        ...connection.DEFAULT_STATUS,
+        variant: "error",
+        message: "Core version not supported",
+        details: {
+          ...connection.DEFAULT_STATUS.details,
+          reason: "incompatible",
+          clientVersion: "0.61.0",
+          nodeVersion: "0.60.1",
+          clientServerCompatible: false,
+        },
+      },
     });
     render(<Shell.Connection core={CORE} />, { wrapper });
     expect(await screen.findByText("Connected")).toBeTruthy();

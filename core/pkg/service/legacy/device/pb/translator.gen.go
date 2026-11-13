@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -42,16 +43,21 @@ func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	var r device.StatusDetails
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Rack = rack.Key(pb.Rack)
 	r.Connected = pb.Connected
 	if pb.Data != nil {
 		r.Data = pb.Data.AsMap()
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

@@ -17,7 +17,6 @@ import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 const SEARCH_QUERY: Channel.ListQuery = {
   where: {
@@ -39,14 +38,13 @@ export const YAxisChannelSelect = ({
 }: YAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useYAxisChannels({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = (channels: channel.Key[]) =>
     dispatch(lineplot.setChannels({ axisKey, channels }));
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        query={{ ...SEARCH_QUERY, rangeKey }}
+        query={SEARCH_QUERY}
         onChange={handleChange}
         full="x"
         location="top"
@@ -95,7 +93,6 @@ export const XAxisChannelSelect = ({
 }: XAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useXAxisChannel({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = (channel: channel.Key | null) =>
     dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 }));
   return (
@@ -104,7 +101,7 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        query={{ ...SEARCH_QUERY, rangeKey }}
+        query={SEARCH_QUERY}
         variant="floating"
         location="top"
         icon={<Icon.Time />}

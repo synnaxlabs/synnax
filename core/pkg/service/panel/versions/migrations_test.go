@@ -23,6 +23,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -122,9 +123,10 @@ var _ = Describe("Migrations", func() {
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
 			p1 := MustSucceed(v1.MigratePanel(ctx, old))
-			want := MustSucceed(
+			p3 := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
+			want := MustSucceed(v4.MigratePanel(ctx, p3))
 			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
@@ -156,9 +158,73 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			owner := own(stored.Key)
 			openTable()
-			want := MustSucceed(v3.MigratePanel(ctx, stored))
+			want := MustSucceed(
+				v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
+			)
 			want.Project = &owner
 			Expect(retrieve(stored.Key)).To(Equal(want))
+		})
+
+		It("Should remove the Arc explorer tabs of a v0.58 Core", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			docs := uuid.New()
+			old := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Main",
+				Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{
+					{Variant: v0.ViewTab{Key: uuid.New(), Type: "arc_explorer"}},
+					{Variant: v0.ViewTab{Key: docs, Type: "docs"}},
+				}}},
+			}
+			Expect(gorp.WrapWriter[v0.Key, v0.Panel](db).Set(ctx, old)).To(Succeed())
+			own(old.Key)
+			recordComposition(v0.ResourceTabTypesMigration)
+			openTable()
+			tabs := retrieve(old.Key).Root.Variant.(versions.LeafNode).Tabs
+			Expect(tabs).To(HaveLen(1))
+			Expect(tabs[0].Variant.(versions.ViewTab).Key).To(Equal(docs))
+		})
+
+		It("Should remove the Arc explorer tabs of a v0.60 Core", func() {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Panel]{
+				DB:         db,
+				Migrations: []gorp.Migration{v0.Migration},
+			}))
+			docs := v2.Tab{Variant: v2.ViewTab{
+				TabBase: v2.TabBase{Key: uuid.New()},
+				View:    v2.View{Type: "docs"},
+			}}
+			stored := v2.Panel{
+				Key:  uuid.New(),
+				Name: "Main",
+				Root: v2.Node{Variant: v2.SplitNode{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{
+						{Variant: v2.ViewTab{
+							TabBase: v2.TabBase{Key: uuid.New()},
+							View:    v2.View{Type: "arc_explorer"},
+						}},
+					}}},
+					Last: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{docs}}},
+				}},
+			}
+			recordComposition(
+				v0.ResourceTabTypesMigration,
+				v1.Migration,
+				v2.Migration,
+			)
+			Expect(gorp.WrapWriter[v2.Key, v2.Panel](db).Set(ctx, stored)).
+				To(Succeed())
+			own(stored.Key)
+			openTable()
+			root := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
+			Expect(root.First.Variant.(versions.LeafNode).Tabs).To(BeEmpty())
+			Expect(root.Last.Variant.(versions.LeafNode).Tabs).
+				To(Equal([]versions.Tab{docs}))
 		})
 	})
 

@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/task"
+import "schemas/x/payload"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/http"
@@ -49,26 +50,6 @@ Method enum {
     @doc value "is the HTTP method used when requesting an endpoint."
 }
 
-TimeFormat enum {
-    iso8601  = "iso8601" {
-        @doc value "is an ISO 8601 string."
-    }
-    unix_sec = "unix_sec" {
-        @doc value "is a count of seconds since the Unix epoch."
-    }
-    unix_ms  = "unix_ms" {
-        @doc value "is a count of milliseconds since the Unix epoch."
-    }
-    unix_us  = "unix_us" {
-        @doc value "is a count of microseconds since the Unix epoch."
-    }
-    unix_ns  = "unix_ns" {
-        @doc value "is a count of nanoseconds since the Unix epoch."
-    }
-
-    @doc value "is the encoding of a timestamp value within a JSON body."
-}
-
 Header struct {
     name  string = "" {
         @doc value "is the header name, unique within a request."
@@ -93,21 +74,6 @@ QueryParam struct {
     @go marshal
 }
 
-EnumEntry struct {
-    label string = "" {
-        @doc value "is the string label in the JSON body."
-    }
-    value float64 = 0 {
-        @doc value "is the numeric channel value the label maps to."
-    }
-
-    @doc value  """
-        maps a string label in a JSON body to a numeric channel value for enum-style
-        parsing (e.g. "ON" -> 1, "OFF" -> 0).
-    """
-    @go marshal
-}
-
 ReadField struct {
     key         string = create {
         @doc value "uniquely identifies the field within the endpoint."
@@ -125,7 +91,7 @@ ReadField struct {
             fill_value, or NaN on a float channel, and sends no warning.
         """
     }
-    fill_value  any?           {
+    fill_value  any?                {
         @doc value """
             is the value written when an optional field is missing, typed by the
             channel. Unset writes NaN, which needs a float channel.
@@ -143,13 +109,13 @@ ReadField struct {
         @doc value "is the data type of the extracted value."
         @ts type   "string"
     }
-    time_format TimeFormat?    {
+    time_format payload.TimeFormat? {
         @doc value """
             is the encoding of the JSON value when the target channel holds timestamps.
             Required for timestamp channels.
         """
     }
-    enum_values EnumEntry[]    {
+    enum_values payload.EnumEntry[] {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
@@ -198,8 +164,9 @@ ReadConfig struct extends task.PersistConfig {
         @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
-        @doc value "is the polling rate applied to all endpoints, in Hertz."
-        @ts type   "number"
+        @doc value   "is the polling rate applied to all endpoints, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."
@@ -223,31 +190,6 @@ ReadConfig struct extends task.PersistConfig {
     @retrieve references
 }
 
-JSONType enum {
-    number  = "number" {
-        @doc value "writes the value as a JSON number."
-    }
-    string  = "string" {
-        @doc value "writes the value as a JSON string."
-    }
-    boolean = "boolean" {
-        @doc value "writes the value as a JSON boolean."
-    }
-
-    @doc value "is the JSON type a channel value is serialized as in a request body."
-}
-
-GeneratorType enum {
-    uuid      = "uuid" {
-        @doc value "produces a new UUID for each request."
-    }
-    timestamp = "timestamp" {
-        @doc value "produces the time of the request."
-    }
-
-    @doc value "is the kind of value produced for a generated write field."
-}
-
 ChannelField struct {
     pointer     string = "" {
         @doc value """
@@ -256,7 +198,7 @@ ChannelField struct {
             may not declare any additional fields.
         """
     }
-    json_type   JSONType = number {
+    json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
     }
     channel     channel.Key = 0 {
@@ -271,13 +213,13 @@ ChannelField struct {
         @doc value "is the data type of the command channel."
         @ts type   "string"
     }
-    time_format TimeFormat?    {
+    time_format payload.TimeFormat? {
         @doc value """
             is the output encoding when the command channel holds timestamps. An unset
             format is ISO 8601.
         """
     }
-    enum_values EnumEntry[]    {
+    enum_values payload.EnumEntry[] {
         @doc value """
             maps numeric channel values to string labels. Only valid when json_type is
             'string'.
@@ -303,20 +245,20 @@ BaseWriteField struct {
 
 WriteField union on type extends BaseWriteField {
     static {
-        json_type JSONType = number {
+        json_type payload.JSONType = number {
             @doc value "is the JSON type the value is serialized as."
         }
-        value     any      {
+        value     any              {
             @doc value "is the fixed JSON value placed at the pointer."
         }
 
         @doc value "places a fixed value in the request body."
     }
     generated {
-        generator   GeneratorType = uuid {
+        generator   payload.GeneratorType = uuid {
             @doc value "is the generator that produces a fresh value per request."
         }
-        time_format TimeFormat?   {
+        time_format payload.TimeFormat?   {
             @doc value """
                 is the output encoding for timestamp generators. Defaults to iso8601.
             """

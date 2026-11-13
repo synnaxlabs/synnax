@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Check, type Context } from "@/util/checks/check";
-import { locate, navRefs, type Ref } from "@/util/checks/crawl";
+import { locate, locateSource, navRefs, type Ref } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
 import { normalizeRoute } from "@/util/route";
 
@@ -46,36 +46,48 @@ const externalURL = (url: URL): string => {
   return url.toString();
 };
 
+interface Failure {
+  reason: string;
+  // The link leaves the site, so the failure can come from its host, not the page.
+  external: boolean;
+}
+
 const checkRef = async (
   ctx: Context,
   ids: Map<string, Set<string>>,
   { base, href }: Ref,
-): Promise<string | null> => {
+): Promise<Failure | null> => {
   let url: URL;
   try {
     url = new URL(href, `${INTERNAL}${base}`);
   } catch {
-    return `unparseable href "${href}"`;
+    return { reason: `unparseable href "${href}"`, external: false };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
   if (url.host === SELF_HOST)
     url = new URL(`${url.pathname}${url.search}${url.hash}`, INTERNAL);
   if (url.host !== "internal.invalid") {
     if (IGNORED_HOSTS.includes(url.host)) return null;
-    return await ctx.fetchOk(externalURL(url));
+    const reason = await ctx.fetchOk(externalURL(url));
+    return reason == null ? null : { reason, external: true };
   }
   const route = normalizeRoute(url.pathname);
   const fragment = decodeURIComponent(url.hash).replace(/^#/, "");
   if (!ctx.routes.has(route)) {
     const reason = await ctx.fetchOk(`${ctx.baseURL}${url.pathname}${url.search}`);
-    return reason == null ? null : `dead internal link ${href} (${reason})`;
+    if (reason == null) return null;
+    return { reason: `dead internal link ${href} (${reason})`, external: false };
   }
   if (fragment !== "" && ids.get(route)?.has(fragment) !== true)
-    return `missing anchor ${href}`;
+    return { reason: `missing anchor ${href}`, external: false };
   return null;
 };
 
-export const links = (fullCrawl: boolean): Check => {
+/**
+ * Verifies every link of a page or a nav definition. A broken internal link always
+ * fails. A broken external link fails only when strict is true, and warns otherwise.
+ */
+export const links = (fullCrawl: boolean, strict: boolean): Check => {
   const refs: Ref[] = [];
   let anchors = 0;
   const seen = new Set<string>();
@@ -92,7 +104,7 @@ export const links = (fullCrawl: boolean): Check => {
       ids.set(normalizeRoute(route), new Set(idValues(html)));
       for (const href of attrValues(html, "a", "href")) {
         anchors += 1;
-        collect({ source: route, base: route, href });
+        collect({ source: route, base: route, href, at: null });
       }
       return [];
     },
@@ -103,14 +115,18 @@ export const links = (fullCrawl: boolean): Check => {
       let done = 0;
       await Promise.all(
         refs.map(async (ref) => {
-          const reason = await checkRef(ctx, ids, ref);
+          const failure = await checkRef(ctx, ids, ref);
           progress(++done, refs.length);
-          if (reason == null) return;
+          if (failure == null) return;
           // Page refs carry a route; nav refs already resolved a file:line.
-          const where = ref.source.startsWith("/")
-            ? locate(ref.source, ref.href)
-            : ref.source;
-          report(`${where} - ${reason}`);
+          const fromPage = ref.source.startsWith("/");
+          const where = fromPage ? locate(ref.source, ref.href) : ref.source;
+          const message = `${where} - ${failure.reason}`;
+          if (strict || !failure.external) {
+            report(message);
+            return;
+          }
+          ctx.warn(message, fromPage ? locateSource(ref.source, ref.href) : ref.at);
         }),
       );
     },

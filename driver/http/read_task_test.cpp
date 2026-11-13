@@ -18,6 +18,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/device/device.h"
@@ -271,6 +272,18 @@ TEST(HTTPReadTask, ParseConfigFillValueUnconvertibleErrors) {
          {"optional", true},
          {"fill_value", "OFF"}},
         "cannot convert"
+    );
+}
+
+/// @brief it should reject numeric enum values on a string channel.
+TEST(HTTPReadTask, ParseConfigStringEnumValuesErrors) {
+    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
+    expect_field_rejected(
+        client,
+        {{"pointer", "/value"},
+         {"channel", data.key},
+         {"enum_values", {{{"label", "ON"}, {"value", 1}}}}},
+        "string channel"
     );
 }
 
@@ -3105,7 +3118,7 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
     ReadField power_field;
     power_field.pointer = "/power";
     power_field.channel = 1;
-    power_field.enum_values = std::vector<::synnax::http::EnumEntry>{
+    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0}
     };
@@ -3113,7 +3126,7 @@ TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
     ReadField mode_field;
     mode_field.pointer = "/mode";
     mode_field.channel = 2;
-    mode_field.enum_values = std::vector<::synnax::http::EnumEntry>{
+    mode_field.enum_values = std::vector<::x::payload::EnumEntry>{
         {"AUTO", 0},
         {"MANUAL", 1},
         {"STANDBY", 2}
@@ -3186,7 +3199,7 @@ TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
     ReadField power_field;
     power_field.pointer = "/power";
     power_field.channel = 1;
-    power_field.enum_values = std::vector<::synnax::http::EnumEntry>{
+    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
         {"ON", 1.0},
         {"OFF", 0.0}
     };

@@ -21,7 +21,6 @@ import {
   type Where,
 } from "@/lineplot/types.gen";
 import { project } from "@/project";
-import { ranger } from "@/ranger";
 
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
@@ -32,7 +31,6 @@ export interface Lines {
   grouped: ((record: LinePlot, value: NonNullable<Where["grouped"]>) => boolean) | null;
   projects:
     ((record: LinePlot, value: NonNullable<Where["projects"]>) => boolean) | null;
-  ranges: ((record: LinePlot, value: NonNullable<Where["ranges"]>) => boolean) | null;
 }
 
 /**
@@ -59,10 +57,6 @@ export const matches = (lines: Lines, record: LinePlot, where?: Where): boolean 
     if (lines.projects == null) throw new Error("only the Core can check projects");
     if (!lines.projects(record, where.projects)) return false;
   }
-  if (where.ranges != null) {
-    if (lines.ranges == null) throw new Error("only the Core can check ranges");
-    if (!lines.ranges(record, where.ranges)) return false;
-  }
   return true;
 };
 
@@ -77,8 +71,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null) ||
-    (where.projects != null && lines.projects == null) ||
-    (where.ranges != null && lines.ranges == null));
+    (where.projects != null && lines.projects == null));
 
 const inputs = {
   /** key selects by key. */
@@ -89,8 +82,6 @@ const inputs = {
   grouped: z.boolean().exactOptional(),
   /** projects matches the line plots owned by any of the given projects. */
   projects: filter.listInputZ(project.keyZ).exactOptional(),
-  /** ranges matches the line plots owned by any of the given ranges. */
-  ranges: filter.listInputZ(ranger.keyZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -128,26 +119,11 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, [
-        "and",
-        "or",
-        "not",
-        "key",
-        "groups",
-        "grouped",
-        "projects",
-        "ranges",
-      ]),
+      filter.split(input, ["and", "or", "not", "key", "groups", "grouped", "projects"]),
     );
 
 /** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
-export const LIST_FIELDS: readonly string[] = [
-  "key",
-  "name",
-  "group",
-  "project",
-  "range",
-];
+export const LIST_FIELDS: readonly string[] = ["key", "name", "group", "project"];
 
 /** @returns the position of record in order, or in key order when order is absent. */
 export const cursor = (record: LinePlot, order?: Order): Cursor => {

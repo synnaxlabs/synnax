@@ -20,10 +20,6 @@ from typing import Any, Protocol
 import boto3
 import numpy as np
 import synnax as sy
-from pydantic import BaseModel
-from synnax import auth
-from x.codec import JSONCodec
-from x.exceptions.exceptions import REGISTRY, ExceptionPayload, _ExceptionProvider
 
 HEARTBEAT_INTERVAL = 5 * sy.TimeSpan.SECOND
 # How long stop() waits for the final false to land.
@@ -53,48 +49,10 @@ MISSING, OFFLINE, IDLE, BUSY = -1, 0, 1, 2
 # Measured values cannot be taken over and spoofed.
 PUBLISH_AUTHORITY = sy.Authority.ABSOLUTE
 # Command writes sit below the Console's absolute 255; writers hold 0 in between.
-COMMAND_AUTHORITY = 254
-RELEASED_AUTHORITY = 0
+COMMAND_AUTHORITY = sy.Authority(254)
+RELEASED_AUTHORITY = sy.Authority(0)
 # After commanding a runner, wait this long before commanding it again.
 RECOMMAND_DELAY = 1 * sy.TimeSpan.MINUTE
-
-
-def _encode(self: JSONCodec, payload: BaseModel) -> bytes:
-    return payload.model_dump_json(by_alias=True, exclude_none=True).encode()
-
-
-def _decode_token(p: ExceptionPayload) -> Exception | None:
-    for cls in (sy.ExpiredToken, sy.InvalidToken):
-        if p.type is not None and p.type.startswith(cls.TYPE):
-            return cls(p.data)
-    return None
-
-
-def _authenticate(self: auth.Client) -> None:
-    # Marked first, so the middleware does not log in again from inside the login.
-    self.token = getattr(self, "token", "")
-    self.authenticated = True
-    try:
-        res = auth.send_required(
-            self.client,
-            "/auth/login",
-            auth.Credentials(username=self.username, password=self.password),
-            auth.TokenResponse,
-        )
-    except Exception:
-        self.authenticated = False
-        raise
-    self.token = res.token
-    self.user = res.user
-
-
-def patch_client() -> None:
-    """Adapts the Synnax client to the Core the fleet runs against. Cores since
-    2026-09-23 reject the null fields the client sends, and the client decodes token
-    errors as plain AuthError, so it never logs in again. Call once, before connect."""
-    JSONCodec.encode = _encode  # type: ignore[method-assign]
-    REGISTRY.providers.insert(0, _ExceptionProvider(lambda e: None, _decode_token))
-    auth.Client.authenticate = _authenticate
 
 
 class Closeable(Protocol):
@@ -301,7 +259,7 @@ def parameter_store() -> ParameterStore:
 
 def secret(name: str, *, store: ParameterStore) -> str:
     """The environment variable name, else the SecureString parameter /runners/<name>
-    in store, lowercased with dashes (GH_TOKEN reads /runners/gh-token). Raises when
+    in store, lowercased with dashes (GH_APP_KEY reads /runners/gh-app-key). Raises when
     the parameter does not exist."""
     if value := os.environ.get(name):
         return value
@@ -317,6 +275,7 @@ def add_connection_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--username", default="synnax")
     p.add_argument("--password", help="defaults to the SYNNAX_PASSWORD secret")
     p.add_argument("--secure", action="store_true", help="connect over TLS")
+    p.add_argument("--ca-cert", help="PEM file that verifies the Core's certificate")
     p.add_argument(
         "--create-channels",
         action=argparse.BooleanOptionalAction,
@@ -333,4 +292,5 @@ def connect(args: argparse.Namespace, *, store: ParameterStore) -> sy.Synnax:
         username=args.username,
         password=args.password or secret("SYNNAX_PASSWORD", store=store),
         secure=args.secure,
+        ca_cert=args.ca_cert,
     )

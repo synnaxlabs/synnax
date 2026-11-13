@@ -12,6 +12,7 @@ package lsp_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -196,6 +197,21 @@ var _ = Describe("Server Diagnostics", func() {
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
 				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3001"))
+			},
+		)
+
+		It(
+			"Should include error code for an extra function argument",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func add() {x i64} i64 { return x }\nfunc test() { z := add(1, 2) }",
+				)
+
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3003"))
 			},
 		)
 
@@ -612,6 +628,77 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Wait()
 		},
 	)
+})
+
+var _ = Describe("Analysis Panics", func() {
+	It(
+		"Should publish an error diagnostic when analysis panics during a republish",
+		func(ctx SpecContext) {
+			var panicking atomic.Bool
+			observer := observe.New[struct{}]()
+			server, docURI, client := SetupTestServerWithClient(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					if panicking.Load() {
+						panic("analyzer failure")
+					}
+					return NewRoot(StaticResolver{})
+				},
+				OnExternalChange: observer,
+			})
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(server.Shutdown(ctx)).To(Succeed())
+			})
+			OpenArcDocument(server, ctx, docURI, "func test() {}")
+			Expect(client.Diagnostics()).To(BeEmpty())
+			panicking.Store(true)
+			observer.Notify(ctx, struct{}{})
+			Eventually(client.Diagnostics).Should(ConsistOf(
+				WithTransform(DiagnosticMessage, ContainSubstring("internal error")),
+			))
+		},
+	)
+
+	It("Should return an error when completion panics", func(ctx SpecContext) {
+		var panicking atomic.Bool
+		server, docURI := SetupTestServer(lsp.Config{
+			NewRoot: func() *symbol.Symbol {
+				if panicking.Load() {
+					panic("analyzer failure")
+				}
+				return NewRoot(StaticResolver{})
+			},
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
+		OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := \n}")
+		panicking.Store(true)
+		Expect(server.Completion(ctx, &protocol.CompletionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 1, Character: 6},
+		})).Error().To(MatchError(lsp.ErrAnalysisPanic))
+	})
+
+	It("Should return an error when hover panics", func(ctx SpecContext) {
+		var panicking atomic.Bool
+		server, docURI := SetupTestServer(lsp.Config{
+			NewRoot: func() *symbol.Symbol {
+				if panicking.Load() {
+					panic("analyzer failure")
+				}
+				return NewRoot(StaticResolver{})
+			},
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
+		OpenArcDocument(server, ctx, docURI, "func test( {\n\tmy_value\n}")
+		panicking.Store(true)
+		Expect(server.Hover(ctx, &protocol.HoverParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 1, Character: 3},
+		})).Error().To(MatchError(lsp.ErrAnalysisPanic))
+	})
 })
 
 var _ = Describe("Server Lifecycle", func() {

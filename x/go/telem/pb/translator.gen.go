@@ -12,6 +12,7 @@
 package pb
 
 import (
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -120,17 +121,22 @@ func LimitReductionToPB(r telem.LimitReduction) (*ReductionLimitPayload, error) 
 }
 
 // LimitReductionFromPB converts ReductionLimitPayload to LimitReduction.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func LimitReductionFromPB(pb *ReductionLimitPayload) (telem.LimitReduction, error) {
 	var r telem.LimitReduction
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Aggregation, err = AggregationFromPB(pb.Aggregation)
 	if err != nil {
 		return telem.LimitReduction{}, err
 	}
 	r.PointLimit = pb.PointLimit
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

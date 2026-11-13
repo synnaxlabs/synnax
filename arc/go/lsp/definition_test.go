@@ -221,4 +221,26 @@ func main() {
 			},
 		)
 	})
+
+	Describe("User modules", func() {
+		It(
+			"should not jump into the module's text for a member at the top level",
+			func(ctx SpecContext) {
+				// The flow sits on lines that f spans in the module's own text.
+				sources := map[string]string{
+					"lib.m": "\n\n\nexport func f() i64 {\n\n\n\n\n    return 1\n}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+					return NewModuleRoot(sources)
+				}}))
+				server.SetClient(&MockClient{})
+				content := "import lib.m\n\n\n\n\ninterval(period=100ms) -> m.f()"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Definition(server, ctx, uri, 5, 28)).To(BeNil()) // m.|f
+				locations := Definition(server, ctx, uri, 5, 26)        // |m.f
+				Expect(locations).To(HaveLen(1))
+				Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
+			},
+		)
+	})
 })

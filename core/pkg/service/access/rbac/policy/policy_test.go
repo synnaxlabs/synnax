@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -74,6 +75,22 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).To(Equal(key))
+		})
+
+		It("Should refuse a policy whose key exists", func(ctx SpecContext) {
+			p := &policy.Policy{
+				Role:    owner.Key,
+				Name:    "test-policy",
+				Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(w.Create(ctx, p)).To(Succeed())
+			again := *p
+			again.Name = "renamed"
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("policy %s already exists", p.Key)),
+			))
 		})
 
 		It("Should create a policy with multiple objects", func(ctx SpecContext) {
@@ -541,7 +558,7 @@ var _ = Describe("Resources", func() {
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should not overwrite a policy that moves to a built-in role at once",
+		"Should not let a user edit undo a concurrent move to a built-in role",
 		func(ctx SpecContext) {
 			custom := role.Role{Name: "custom"}
 			builtin := role.Role{Name: "built-in", Internal: true}
@@ -559,18 +576,18 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					return roleSvc.NewWriter(tx, true).Delete(ctx, builtin.Key)
 				})).To(Succeed())
 			})
+			setRole := func(r role.Key) policy.Action {
+				return policy.NewSetAction(
+					policy.SetPayload{Path: []string{"role"}, Value: r},
+				)
+			}
 			for range 30 {
-				key := uuid.New()
-				newPolicy := func(r role.Key) policy.Policy {
-					return policy.Policy{
-						Key:     key,
-						Role:    r,
-						Name:    "moving",
-						Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
-						Actions: []access.Action{access.ActionRetrieve},
-					}
+				p := policy.Policy{
+					Role:    custom.Key,
+					Name:    "moving",
+					Objects: []resource.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
 				}
-				p := newPolicy(custom.Key)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx, false).Create(ctx, &p)
 				})).To(Succeed())
@@ -580,15 +597,15 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				)
 				wg.Go(func() {
 					defer GinkgoRecover()
-					internal := newPolicy(builtin.Key)
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx, true).Create(ctx, &internal)
+						return svc.NewWriter(tx, true).
+							Apply(ctx, p.Key, setRole(builtin.Key))
 					})).To(Succeed())
 				})
 				wg.Go(func() {
-					user := newPolicy(custom.Key)
 					userErr = db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx, false).Create(ctx, &user)
+						return svc.NewWriter(tx, false).
+							Apply(ctx, p.Key, setRole(custom.Key))
 					})
 				})
 				wg.Wait()
@@ -600,7 +617,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				))
 				var stored policy.Policy
 				Expect(svc.NewRetrieve().
-					Where(policy.MatchKeys(key)).
+					Where(policy.MatchKeys(p.Key)).
 					Entry(&stored).
 					Exec(ctx, db)).To(Succeed())
 				Expect(stored.Role).To(Equal(builtin.Key))

@@ -25,7 +25,6 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { group } from "@/group";
 import { project } from "@/project";
-import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { symbol } from "@/schematic/symbol";
 
@@ -172,8 +171,8 @@ export const numericTelemConfigZ = z.object({
   channel: channel.keyZ.optional(),
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
+  /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
+  precision: zod.uint8.max(17).optional(),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
 });
@@ -255,11 +254,9 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
-  snapshot?: filter.Bool;
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
-  ranges?: ranger.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -276,16 +273,12 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
-  /** snapshot selects by snapshot. */
-  snapshot: filter.boolZ.optional(),
   /** groups matches the schematics in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the schematics in a group, or in no group when false. */
   grouped: z.boolean().optional(),
   /** projects matches the schematics owned by any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
-  /** ranges matches the schematics owned by any of the given ranges. */
-  ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
 /**
@@ -3334,8 +3327,6 @@ export const schematicZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the schematic. */
   name: z.string().min(1, "name is required"),
-  /** snapshot is true if this schematic is an immutable snapshot copy. */
-  snapshot: z.boolean().default(false),
   /** nodes contains all diagram nodes in the schematic. */
   nodes: nodeZ.array().default(() => []),
   /** edges contains all connections between nodes. */
@@ -3349,16 +3340,8 @@ export const schematicZ = z.object({
   ),
   /** group is the group the schematic sits in, if any. */
   group: group.keyZ.optional(),
-  /**
-   * project is the project that owns the schematic, if any. Exactly one of project and
-   * range is set.
-   */
+  /** project is the project that owns the schematic. */
   project: project.keyZ.optional(),
-  /**
-   * range is the range that owns the schematic, if any. Exactly one of project and
-   * range is set.
-   */
-  range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}

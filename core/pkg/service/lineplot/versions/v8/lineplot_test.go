@@ -78,12 +78,6 @@ var _ = Describe("LinePlot", func() {
 				To(MatchError(ContainSubstring("lines.0.stroke_width")))
 		})
 
-		It("Should reject an empty name", func() {
-			lp := v8.LinePlot{}
-			lp.ApplyDefaults()
-			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
-		})
-
 		It("Should path errors to the offending line and rule", func() {
 			lp := v8.LinePlot{
 				Name:  "valid",

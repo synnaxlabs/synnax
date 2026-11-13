@@ -879,6 +879,53 @@ Channel struct {
 		Expect(aliasHints(run(p))).To(BeEmpty())
 	})
 
+	It("Should pass a struct whose field types move to another resource", func() {
+		const state = `
+State enum {
+	idle = "idle"
+	running = "running"
+}
+`
+		write("schemas/synnax/versions/shared/v0.oracle", state)
+		write(
+			"schemas/synnax/shared.oracle",
+			"@go output \"core/pkg/service/shared\"\n"+
+				state,
+		)
+		write("schemas/synnax/versions/channel/v0.oracle", state+`
+Channel struct {
+	key uuid @key
+	state State
+	states State[]
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/synnax/versions/shared/v0"
+
+Channel struct {
+	key uuid @key
+	state shared.State
+	states shared.State[]
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+import "schemas/synnax/shared"
+
+@go output "core/pkg/service/channel"
+
+Channel struct {
+	key uuid @key
+	state shared.State
+	states shared.State[]
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
 	It("Should pass a union whose inline variant changes only a default", func() {
 		window := func(span int) string {
 			return fmt.Sprintf(`

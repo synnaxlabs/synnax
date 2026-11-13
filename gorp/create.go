@@ -22,6 +22,8 @@ type Create[K Key, E Entry[K]] struct {
 	// table is the Table the query writes through. Nil for a query that no Table
 	// built.
 	table *Table[K, E]
+	// exclusive is true when Exec refuses an entry whose key exists.
+	exclusive bool
 }
 
 // NewCreate opens a new Create query.
@@ -41,14 +43,24 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 	return c
 }
 
+// Exclusive makes Exec refuse an entry whose key exists in the transaction, including
+// one that an earlier write in the transaction created.
+func (c Create[K, E]) Exclusive() Create[K, E] {
+	c.exclusive = true
+	return c
+}
+
 // Exec executes the query against the provided transaction. It returns any errors
-// encountered during execution.
+// encountered during execution. An exclusive query returns an error wrapping
+// validate.ErrValidation that names the table and the key of an entry that exists.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
+	var w Writer[K, E]
 	if c.table != nil {
-		w := c.table.writer(tx, true)
-		return w.Set(ctx, c.entries.All()...)
+		w = c.table.writer(tx, true)
+	} else {
+		w = wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	}
-	w := wrapWriter[K, E](tx, "", c.keyPrefix, nil)
+	w.exclusive = c.exclusive
 	return w.Set(ctx, c.entries.All()...)
 }

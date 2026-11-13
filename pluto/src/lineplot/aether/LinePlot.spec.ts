@@ -9,10 +9,13 @@
 
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import {
+  type bounds,
   box,
   DataType,
   dynamicWindow,
   id,
+  MultiSeries,
+  Series,
   sleep,
   staticWindow,
   TimeRange,
@@ -27,7 +30,9 @@ import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
@@ -57,6 +62,15 @@ interface LoopEntry {
   key?: string;
   render?: () => render.Cleanup | undefined;
 }
+
+// Runs the render that the plot requested last.
+const renderPlot = (recorder: canvasTest.Recorder): void => {
+  const entry = recorder.loopCalls
+    .map((call) => call.args[0] as LoopEntry)
+    .reverse()
+    .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
+  entry?.render?.();
+};
 
 interface Mount {
   plot: LinePlot;
@@ -99,13 +113,6 @@ describe("LinePlot", () => {
         loading: lineLoading,
       });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    const pump = (): void => {
-      const entry = recorder.loopCalls
-        .map((call) => call.args[0] as LoopEntry)
-        .reverse()
-        .find((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
-      entry?.render?.();
-    };
     return {
       plot: stack.driver.find<LinePlot>(base),
       recorder,
@@ -116,7 +123,7 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
-      pump,
+      pump: () => renderPlot(recorder),
       hide: () =>
         stack.driver.update(base, LinePlot.TYPE, {
           container: box.DECIMAL,
@@ -196,6 +203,77 @@ describe("LinePlot", () => {
       m.recorder.restore();
       expect(m.recorder.loopCalls).toEqual([]);
     });
+  });
+});
+
+describe("LinePlot with a tooltip", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
+    const s = new Series({
+      data: new Float32Array(data),
+      timeRange: new TimeRange(0, 1),
+    });
+    const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
+      s.bounds,
+      new MultiSeries([s]),
+    ]);
+    return {
+      type: telemTest.TestSource.TYPE,
+      props: { testId: source.id },
+      variant: "source",
+      valueType: "series",
+    };
+  };
+
+  it("should list the drawn point nearest the cursor", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    // 4000 samples at zero in [0, 4), then 10 in [100, 1000] that reduce to their
+    // extremes: 10 at 300 and -10 at 800. The line draws no sample of 7.
+    const dense = Array.from({ length: 4000 }, (_, i) => i / 1000);
+    const sparse = Array.from({ length: 10 }, (_, i) => (i + 1) * 100);
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
+      x: seriesSpec([...dense, ...sparse]),
+      y: seriesSpec([...dense.map(() => 0), 7, 7, 10, 7, 7, 7, 7, -10, 7, 7]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    stack.driver.update([...base, "tooltip"], tooltip.Tooltip.TYPE, {
+      position: { x: 500, y: 250 },
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("10");
+    expect(texts).not.toContain("7");
   });
 });
 

@@ -67,9 +67,8 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const value = PForm.useFieldValue(entry);
   const device = useChannelDevice(entry);
   const { type, channel, disabled } = value;
-  const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
-  const hasTareButton = channel !== 0 && !isSnapshot;
+  const hasTareButton = channel !== 0;
   const canTare = !disabled && isRunning;
   const skipped = Task.useSkipped(root.config.channels, rest.itemKey, portOf);
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
@@ -118,9 +117,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
             }
       }
       type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : ANALOG_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />
@@ -221,6 +222,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   }
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
+    const before = deep.copy(dev.properties);
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
@@ -272,7 +274,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await client.devices.create(dev, SCHEMAS);
+      if (modified) await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

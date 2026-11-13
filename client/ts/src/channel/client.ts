@@ -23,6 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type batch } from "@/batch";
+import { type Action, dispatchReqZ, dispatchResZ, rename } from "@/channel/actions";
 import {
   analyzeParams,
   isCalculated,
@@ -58,9 +60,6 @@ import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type ranger } from "@/ranger";
-import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
-import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
 import { type resource } from "@/resource";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -108,11 +107,6 @@ export class Channel {
   /** This is set to true if the channel is an internal channel, and false otherwise. */
   readonly internal: boolean;
   /**
-   * An alias for the channel under a specific range. This parameter is unstable and
-   * should not be relied upon in the current version of Synnax.
-   */
-  alias: string | undefined;
-  /**
    * Whether the channel is virtual. Virtual channels do not store any data in the
    * database, but can still be used for streaming purposes.
    */
@@ -139,7 +133,6 @@ export class Channel {
     internal = false,
     virtual = false,
     frameClient,
-    alias,
     status: argsStatus,
     expression = "",
     operations = [],
@@ -153,7 +146,6 @@ export class Channel {
     this.index = zod.parse(keyZ, index, { label: "channel index" });
     this.isIndex = isIndex;
     this.internal = internal;
-    this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
     this.operations = zod.parse(operationZ.array(), operations, {
@@ -225,54 +217,31 @@ export class Channel {
   }
 }
 
-const retrieveMultipleParamsZ = retrieveRequestZ.extend({
-  rangeKey: rangerKeyZ.optional(),
-});
-/**
- * Selects the channels to retrieve. A rangeKey attaches each channel's alias in that
- * range, and a search term then also matches those aliases, ranked first.
- */
-export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
+/** Selects the channels to retrieve. */
+export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = filter.requestInputZ(
-  retrieveMultipleParamsZ,
-  retrieveInputZ(retrieveMultipleParamsZ.omit({ where: true }).shape),
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 );
-
-const aliasedRetrieveRequestZ = z.object({
-  request: retrieveRequestZ,
-  rangeKey: rangerKeyZ.optional(),
-});
-
-/** The options a retrieval by keys or names accepts. */
-export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
-/** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
-export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
+/** Names one channel. */
+export type RetrieveSingleParams = { key: Key };
 
 type OneParams = query.OneInput<typeof retrieveParamsZ>;
 
 const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
   query.addressesOne(params);
 
-/** Aliases and statuses are composed from their stores on read. */
-const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
-  rest;
+/** Statuses are composed from their store on read. */
+const stripComposed = ({ status: _status, ...rest }: Payload): Payload => rest;
 
-const normalizeSingle = ({
-  key,
-  rangeKey,
-}: RetrieveSingleParams): RetrieveSingleParams =>
-  rangeKey == null ? { key } : { key, rangeKey };
-
-const singleParamsZ = z
-  .union([
-    z.strictObject({ key: z.uint32(), rangeKey: rangerKeyZ.optional() }),
-    z.uint32().transform((key) => ({ key })),
-  ])
-  .transform(normalizeSingle);
+const singleParamsZ = z.union([
+  z.strictObject({ key: z.uint32() }),
+  z.uint32().transform((key) => ({ key })),
+]);
 
 /**
  * @returns the names of a request whose where selects one name or a list of names and
@@ -299,8 +268,8 @@ export interface ClientConfig {
   unary: UnaryClient;
   writer: Writer;
   statuses: status.Client;
-  ranges: ranger.Client;
   cache: query.Cache;
+  batch: batch.Client;
 }
 
 /**
@@ -324,11 +293,10 @@ export class Client extends query.Retriever<
   private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
-    const { writer, statuses, ranges, cache } = cfg;
+    const { writer, statuses, cache } = cfg;
     const statusStore = statuses.store;
     const affectedChannelKeys = (event: query.TableEvent<status.Key, status.Status>) =>
       statuses.ownerKeys(event, "channel")?.map(Number) ?? null;
-    const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
     const store = cache.createTable<Key, Channel>({
@@ -360,26 +328,11 @@ export class Client extends query.Retriever<
       name: "channel",
       table: composed,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
-      // Composed rows carry status; the read-time step only glues the alias.
-      compose: (records, query) =>
-        query.rangeKey == null
-          ? records[0]
-          : this.composeAlias(records[0].payload, query.rangeKey),
+      compose: (records) => records[0],
       keyOf: (query) => query.key,
       // Status-free fetches and the stream cache calculated channels with no status.
-      // No alias entry under the range means the alias may exist but was never fetched.
-      covers: (ch, { key, rangeKey }) =>
-        (!ch.isCalculated || ch.status != null) &&
-        (rangeKey == null ||
-          aliasStore.has(createKey({ range: rangeKey, channel: key }))),
+      covers: (ch) => !ch.isCalculated || ch.status != null,
       single: true,
-      triggers: [
-        query.trigger(aliasStore, (event, query: RetrieveSingleParams) => {
-          if (query.rangeKey == null) return null;
-          const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
-          return event.key === aliasKey ? [query.key] : null;
-        }),
-      ],
     });
     super(cache, {
       name: "channel",
@@ -391,36 +344,24 @@ export class Client extends query.Retriever<
         matches: (ch, query) => matches(LINES, ch, query.where),
         serverComputed: (query) => serverComputed(LINES, query.where),
         triggers: [
-          query.trigger(aliasStore, (event, query: RetrieveMultipleParams) => {
-            if (query.rangeKey == null) return null;
-            if (event.variant === "set")
-              return event.value.range === query.rangeKey
-                ? [event.value.channel]
-                : null;
-            const decoded = decodeDeleteChange(event.key);
-            return decoded.range === query.rangeKey ? [decoded.channel] : null;
-          }),
           query.trigger(
             statusStore,
-            (event, query: RetrieveMultipleParams) =>
+            (event, query: RetrieveRequest) =>
               query.includeStatus === true ? affectedChannelKeys(event) : null,
             { contentOnly: true },
           ),
         ],
       },
-      compose: (ch, query) => {
-        const { rangeKey, includeStatus } = query as RetrieveMultipleParams;
-        const composed = includeStatus === true ? this.compose(ch.payload) : ch;
-        return rangeKey == null
-          ? composed
-          : this.composeAlias(composed.payload, rangeKey);
-      },
+      compose: (ch, query) =>
+        (query as RetrieveRequest).includeStatus === true
+          ? this.compose(ch.payload)
+          : ch,
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/channel/set-group", (keys, to) => {
+    this.setGroupRequest = group.createMoveRequest("/channel/dispatch", (keys, to) => {
       const rollbacks = keys.map((key) => this.moveThrough(key, to));
       return () => rollbacks.forEach((rollback) => rollback());
     });
@@ -490,26 +431,16 @@ export class Client extends query.Retriever<
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = array.toArray(channels);
-    let created: Channel[] = [];
-    if (retrieveIfNameExists) {
-      const res = await this.execRetrieve({
-        where: { name: { in: toCreate.map((c) => c.name) } },
-      });
-      const existingNames = new Set(res.map((c) => c.name));
-      toCreate = toCreate.filter((c) => !existingNames.has(c.name));
-      created = this.sugar(res);
-    }
-    created = created.concat(this.sugar(await this.writer.create(toCreate)));
+    const created = this.sugar(
+      await this.writer.create(array.toArray(channels), retrieveIfNameExists),
+    );
     this.store.set(created.map((ch) => this.sugar(stripComposed(ch.payload))));
     return single ? created[0] : created;
   }
 
   /**
-   * Retrieves a channel from the database using the given key or name.
-   * @param params - The key or the name of the channel to retrieve.
-   * @param options - Optional parameters to control the retrieval process.
-   * @param options.rangeKey - Attaches the channel's alias in the range.
+   * Retrieves a channel from the database using the given key, name, or query.
+   * @param params - The key, the name, or a query that selects one channel.
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
    * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
@@ -522,27 +453,19 @@ export class Client extends query.Retriever<
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(params: Key | Name, options?: RetrieveOptions): Promise<Channel>;
+  async retrieve(
+    params: Key | Name | RetrieveSingleParams | OneParams,
+  ): Promise<Channel>;
 
   /**
-   * Retrieves multiple channels from the database using the provided keys or the
-   * provided names.
-   * @param params - The keys or the names of the channels to retrieve. Note that this
-   * method does not support mixing keys and names in the same call. A name matches
-   * exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
-   * @param options - Optional parameters to control the retrieval process.
-   * @param options.rangeKey - Attaches each channel's alias in the range.
+   * Retrieves multiple channels from the database using the provided keys, the
+   * provided names, or a request that selects them.
+   * @param params - The keys or the names of the channels to retrieve, or a request.
+   * Note that this method does not support mixing keys and names in the same call. A
+   * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
    */
   async retrieve(
-    params: PrimitiveParams | Payload[],
-    options?: RetrieveOptions,
-  ): Promise<Channel[]>;
-
-  async retrieve(params: RetrieveSingleParams | OneParams): Promise<Channel>;
-
-  /** Retrieves the channels that params selects. */
-  async retrieve(
-    params: query.RequestInput<typeof retrieveParamsZ>,
+    params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
   async retrieve(
@@ -552,7 +475,6 @@ export class Client extends query.Retriever<
       | RetrieveSingleParams
       | OneParams
       | query.RequestInput<typeof retrieveParamsZ>,
-    options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params)) {
       // The branches narrow params onto different base overloads.
@@ -573,15 +495,12 @@ export class Client extends query.Retriever<
         );
       return [];
     }
-    const rangeKey = options?.rangeKey;
     if (isSingle && variant === "keys")
-      return await super.retrieve({ key: normalized[0] as Key, rangeKey });
+      return await super.retrieve({ key: normalized[0] as Key });
     const where = isSingle
       ? singleWhere(normalized[0])
       : shortcutZ.parse(normalized).where;
-    const res = await super.retrieve(
-      rangeKey == null ? { where } : { where, rangeKey },
-    );
+    const res = await super.retrieve({ where });
     checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
@@ -606,6 +525,7 @@ export class Client extends query.Retriever<
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
+  /** Renames the channels in one transaction, giving each key the name at its index. */
   async rename(key: Key, name: string, opts?: query.WriteOptions): Promise<void>;
   async rename(keys: Key[], names: string[], opts?: query.WriteOptions): Promise<void>;
   async rename(
@@ -615,13 +535,49 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const keysArr = array.toArray(keys);
     const namesArr = array.toArray(names);
-    const rename = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const apply = () => keysArr.map((key, i) => this.renameThrough(key, namesArr[i]));
+    const requests = keysArr.map((key, i) => ({
+      endpoint: "/channel/dispatch",
+      payload: { key, actions: [rename({ name: namesArr[i] })] },
+    }));
     await query.optimistic({
-      rollbacks: rename(),
+      rollbacks: apply(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.writer.rename(keysArr, namesArr),
+      // A batch prefixes its errors with the request index, so one rename skips it.
+      commit: async () =>
+        requests.length === 1
+          ? await this.send(keysArr[0], requests[0].payload.actions)
+          : await this.cfg.batch.send(requests),
     });
-    rename();
+    apply();
+  }
+
+  /**
+   * Applies the actions to the channel in one transaction, then fetches the channel
+   * into the cache before it resolves. The fetch catches the fields that the Core sets
+   * itself, such as the data type of a calculated channel. A failed fetch goes to the
+   * cache's error handler, since the Core applied the actions.
+   * @throws {ValidationError} if the channel cannot hold an action.
+   * @throws {NotFoundError} if the channel does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.send(key, array.toArray(actions));
+    try {
+      await this.store.retrieve([key], { refresh: true });
+    } catch (exc) {
+      this.cfg.cache.onError(
+        new Error("failed to fetch a dispatched channel", { cause: exc }),
+      );
+    }
+  }
+
+  private async send(key: Key, actions: Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/channel/dispatch",
+      { key, dispatchKey: "", actions },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /**
@@ -656,7 +612,7 @@ export class Client extends query.Retriever<
 
   /** Rebuilds a cached channel with its cached status attached. */
   private compose(payload: Payload): Channel {
-    const next: Payload = { ...payload, status: undefined, alias: undefined };
+    const next: Payload = { ...payload, status: undefined };
     if (isCalculated(payload)) {
       const parsed = statusZ.safeParse(
         this.cfg.statuses.ownedBy(resourceID(payload.key)),
@@ -666,51 +622,18 @@ export class Client extends query.Retriever<
     return this.sugar(next);
   }
 
-  private composeAlias(payload: Payload, rangeKey: ranger.Key): Channel {
-    return this.sugar({
-      ...payload,
-      alias: this.cfg.ranges.aliases.get(
-        createKey({ range: rangeKey, channel: payload.key }),
-      )?.alias,
-    });
-  }
-
-  /** Fetches aliases under the range for keys the alias store has no entry for. */
-  private async ensureAliases(rangeKey: ranger.Key, keys: Key[]): Promise<void> {
-    const missing = keys.filter(
-      (key) =>
-        !this.cfg.ranges.aliases.has(createKey({ range: rangeKey, channel: key })),
-    );
-    if (missing.length === 0) return;
-    const { aliases } = this.cfg.ranges;
-    await aliases.track(async (since) => {
-      const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
-      Object.entries(fetched).forEach(([channel, alias]) => {
-        const entry: ranger.alias.Alias = {
-          range: rangeKey,
-          channel: Number(channel),
-          alias,
-        };
-        aliases.ingest(createKey(entry), entry, { since });
-      });
-    });
-  }
-
   /**
-   * Fetches channel payloads, with their aliases in the range when one is given.
-   * Missing channels are omitted, not thrown. Saves the statuses the Core returns.
+   * Fetches channel payloads. Missing channels are omitted, not thrown. Saves the
+   * statuses the Core returns.
    */
-  private async execRetrieve(
-    request: RetrieveRequest,
-    rangeKey?: ranger.Key,
-  ): Promise<Payload[]> {
+  private async execRetrieve(request: RetrieveRequest): Promise<Payload[]> {
     const { store } = this.cfg.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
     return await store.track(async (since) => {
       const res = await this.cfg.unary.send(
         "/channel/retrieve",
-        { request, rangeKey },
-        aliasedRetrieveRequestZ,
+        request,
+        retrieveRequestZ,
         retrieveResZ,
       );
       res.channels.forEach(({ status }) => {
@@ -720,8 +643,7 @@ export class Client extends query.Retriever<
     });
   }
 
-  private async fetchSingle(query: RetrieveSingleParams): Promise<Channel> {
-    const { key, rangeKey } = query;
+  private async fetchSingle({ key }: RetrieveSingleParams): Promise<Channel> {
     let ch = this.store.get(key);
     if (ch == null) {
       // Through the table, so concurrent misses coalesce into one request. A plot
@@ -739,7 +661,6 @@ export class Client extends query.Retriever<
     // status may not exist, or may simply never have been fetched.
     if (ch.isCalculated && this.cfg.statuses.ownedBy(resourceID(key)) == null)
       await this.cfg.statuses.retrieveOwned([resourceID(key)]);
-    if (rangeKey != null) await this.ensureAliases(rangeKey, [key]);
     return ch;
   }
 
@@ -757,25 +678,7 @@ export class Client extends query.Retriever<
     return resolved;
   }
 
-  private async fetchRequest({
-    rangeKey,
-    ...req
-  }: RetrieveMultipleParams): Promise<Channel[]> {
-    if (rangeKey == null) return await this.fetchChannels(req);
-    const { aliases } = this.cfg.ranges;
-    const payloads = await aliases.track(async (since) => {
-      const payloads = await this.execRetrieve(req, rangeKey);
-      payloads.forEach(({ key: channel, alias }) => {
-        if (alias == null) return;
-        const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
-        aliases.ingest(createKey(entry), entry, { since });
-      });
-      return payloads;
-    });
-    return payloads.map((p) => this.sugar(stripComposed(p)));
-  }
-
-  private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
+  private async fetchRequest(req: RetrieveRequest): Promise<Channel[]> {
     const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
