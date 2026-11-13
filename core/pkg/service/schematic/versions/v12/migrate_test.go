@@ -537,6 +537,8 @@ var _ = Describe("MigrateStalenessConfig", func() {
 	},
 		Entry("whole", 5.0, 5*telem.Second),
 		Entry("fraction", 1.5, 1500*telem.Millisecond),
+		Entry("one second", 1.0, telem.Second),
+		Entry("below a second", 0.999, 5*telem.Second),
 		Entry("zero", 0.0, 5*telem.Second),
 		Entry("negative", -2.0, 5*telem.Second),
 		Entry("below a nanosecond", 1e-10, 5*telem.Second),

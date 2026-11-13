@@ -321,7 +321,7 @@ func (s *StalenessConfig) SetDefaults() {
 // schema constraints.
 func (s StalenessConfig) Validate() error {
 	v := validate.New("StalenessConfig")
-	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1)
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
 	return v.Error()
 }
@@ -3882,7 +3882,7 @@ func (t TankNodeConfig) Validate() error {
 	if t.Precision != nil {
 		v.LessThanEq("precision", *t.Precision, 17)
 	}
-	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1)
+	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
 	return v.Error()

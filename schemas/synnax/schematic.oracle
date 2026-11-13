@@ -1221,7 +1221,7 @@ StalenessConfig struct {
         @doc value    "is the span after which the value is considered stale."
         @ts type      telem.NumericTimeSpan
         @validate max 9007199254740991
-        @validate min 1
+        @validate min 1000000000
     }
     staleness_color   color.Color?   {
         @doc value "is the color applied when the value is stale."

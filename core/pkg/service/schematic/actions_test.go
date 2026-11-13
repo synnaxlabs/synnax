@@ -1076,23 +1076,36 @@ var _ = Describe("Payload decoding", func() {
 		Entry("line above 20", "line", 21, invalidWidth),
 	)
 
+	invalidTimeout := MatchError(ContainSubstring("staleness_timeout"))
 	DescribeTable("Should validate a span against its bounds",
 		func(field string, span int64, matcher OmegaMatcher) {
 			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
 				"v1", "config": {"variant": "valve", %q: %d}}}`, field, span))
 			Expect(a.SetConfig.Config.Validate()).To(matcher)
 		},
-		Entry("staleness timeout at 0", "staleness_timeout", int64(0),
-			MatchError(ContainSubstring("staleness_timeout"))),
-		Entry("staleness timeout at 1 ns", "staleness_timeout", int64(1), Succeed()),
+		Entry("staleness timeout at 0", "staleness_timeout", int64(0), invalidTimeout),
+		Entry("staleness timeout below 1 s", "staleness_timeout", int64(999999999),
+			invalidTimeout),
+		Entry("staleness timeout at 1 s", "staleness_timeout", int64(1000000000),
+			Succeed()),
 		Entry("staleness timeout above 2^53 ns", "staleness_timeout", int64(1)<<53,
-			MatchError(ContainSubstring("staleness_timeout"))),
+			invalidTimeout),
 		Entry("click delay at the timer limit", "on_click_delay",
 			int64(2147483647000000), Succeed()),
 		Entry("click delay above the timer limit", "on_click_delay",
 			int64(2147483647000001), MatchError(ContainSubstring("on_click_delay"))),
 		Entry("negative click delay", "on_click_delay", int64(-1),
 			MatchError(ContainSubstring("on_click_delay"))),
+	)
+
+	DescribeTable("Should validate a tank staleness timeout against its bounds",
+		func(span int64, matcher OmegaMatcher) {
+			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
+				"t1", "config": {"variant": "tank", "staleness_timeout": %d}}}`, span))
+			Expect(a.SetConfig.Config.Validate()).To(matcher)
+		},
+		Entry("below 1 s", int64(999999999), invalidTimeout),
+		Entry("at 1 s", int64(1000000000), Succeed()),
 	)
 
 	DescribeTable("Should validate an edge stroke width against its bounds",
