@@ -425,7 +425,11 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
             skipped={field.disabled}
           />
           {hasFill(field) && (
-            <FillFields key={`${field.key}-${field.type}`} path={path} field={field} />
+            <FillFields
+              key={`${field.key}-${dataTypeOf(field).toString()}`}
+              path={path}
+              field={field}
+            />
           )}
         </PForm.Section>
         <EnumSection path={path} field={field} />

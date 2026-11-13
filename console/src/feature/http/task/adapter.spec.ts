@@ -185,6 +185,19 @@ describe("adapter", () => {
       expect(matchKind(field, DataType.FLOAT32)).toBe(field);
     });
 
+    it("should drop a fill that the channel's narrower data type cannot hold", () => {
+      const field = createField({ type: "integer", fill: "1000" });
+      const integer = matchKind(field, DataType.INT8);
+      expect(integer.type).toBe("integer");
+      expect("fill" in integer ? integer.fill : undefined).toBeUndefined();
+      expect("dataType" in integer ? integer.dataType : undefined).toBeUndefined();
+    });
+
+    it("should return the same field when the channel holds its values", () => {
+      const field = createField({ type: "float", fill: NaN });
+      expect(matchKind(field, DataType.FLOAT32)).toBe(field);
+    });
+
     it("should retype a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(matchKind(field, DataType.STRING)).toEqual({

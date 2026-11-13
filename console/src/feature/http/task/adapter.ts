@@ -86,6 +86,17 @@ const toBoolean = (v: number | string): boolean | undefined => {
   return Number.isNaN(f) ? undefined : f !== 0;
 };
 
+const convertValues = <V>(
+  field: NumericField,
+  convert: (v: number | string) => V | undefined,
+) => ({
+  fill: field.fill == null ? undefined : convert(field.fill),
+  enumValues: field.enumValues.flatMap(({ label, value }) => {
+    const v = convert(value);
+    return v == null ? [] : [{ label, value: v }];
+  }),
+});
+
 /**
  * @returns the field with the kind of the data type, converting the fill and enum
  * entries as the Core does. On float, integer, and unsigned kinds, they convert when a
@@ -96,22 +107,15 @@ export const retype = (field: ReadField, dataType: DataType): ReadField => {
   const type = kindOf(dataType);
   if (type === field.type && !isNumeric(field)) return field;
   const { key, name, disabled, channel, pointer } = field;
-  const convert =
+  const convert:
+    ((v: number | string) => number | string | boolean | undefined) | null =
     type === "boolean"
       ? toBoolean
       : isNumericKind(type)
         ? (v: number | string) => convertNumber(v, type, dataType)
         : null;
   const converted =
-    isNumeric(field) && convert != null
-      ? {
-          fill: field.fill == null ? undefined : convert(field.fill),
-          enumValues: field.enumValues.flatMap(({ label, value }) => {
-            const v = convert(value);
-            return v == null ? [] : [{ label, value: v }];
-          }),
-        }
-      : {};
+    isNumeric(field) && convert != null ? convertValues(field, convert) : {};
   return http.READ_FIELD_SCHEMAS[type].parse({
     key,
     name,
@@ -125,9 +129,25 @@ export const retype = (field: ReadField, dataType: DataType): ReadField => {
   });
 };
 
-/** @returns the field, retyped to the kind of the data type when they differ. */
-export const matchKind = (field: ReadField, dataType?: DataType): ReadField =>
-  dataType == null || kindOf(dataType) === field.type ? field : retype(field, dataType);
+/**
+ * @returns the field, retyped to the kind of its channel's data type when they differ.
+ * A numeric field of the same kind drops the fill and entries that the channel cannot
+ * hold, and keeps its own data type, which the Core clears on a bound field. It returns
+ * the same field when nothing changes.
+ */
+export const matchKind = (field: ReadField, dataType?: DataType): ReadField => {
+  if (dataType == null) return field;
+  if (kindOf(dataType) !== field.type) return retype(field, dataType);
+  if (!isNumeric(field)) return field;
+  const kind = field.type;
+  const converted = convertValues(field, (v) => convertNumber(v, kind, dataType));
+  if (
+    Object.is(converted.fill, field.fill) &&
+    converted.enumValues.length === field.enumValues.length
+  )
+    return field;
+  return http.READ_FIELD_SCHEMAS[kind].parse({ ...field, ...converted });
+};
 
 /** The fields that take a fill from the form. */
 export type FillField = Extract<
