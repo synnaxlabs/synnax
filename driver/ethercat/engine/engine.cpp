@@ -696,8 +696,10 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
         if (configs_err) return {{}, configs_err};
         for (const auto &[pos, params]: settings)
             configs[pos].add_startup_parameters(params);
-        if (auto err = this->start_locked(mhz, std::move(configs)); err)
-            return {{}, err};
+        this->opening_bus.store(true, std::memory_order_release);
+        const auto err = this->start_locked(mhz, std::move(configs));
+        this->opening_bus.store(false, std::memory_order_release);
+        if (err) return {{}, err};
     }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {

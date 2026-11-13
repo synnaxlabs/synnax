@@ -11,6 +11,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -1278,6 +1279,29 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskRunsTheBus) {
     EXPECT_EQ(
         status.description,
         "A task uses eth0. Stop the tasks that use it first."
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should refuse at once to switch a slave while a task starts its bus.
+TEST_F(EtherCATScanModeTest, SetStandaloneRefusesWhileATaskStartsTheBus) {
+    this->start(true);
+    this->master->set_activate_duration(x::telem::SECOND);
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
+    std::thread opener([&engine, &entry] {
+        auto [reader, err] = engine->open_reader({entry}, x::telem::Rate(100), 1);
+    });
+    ASSERT_EVENTUALLY_EQ(engine->opening(), true);
+    const auto status = this->set_standalone();
+    EXPECT_TRUE(engine->opening());
+    opener.join();
+    EXPECT_FALSE(engine->opening());
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "A task is starting on eth0. Try again when the start ends, or stop the task."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

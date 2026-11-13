@@ -494,6 +494,13 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         fail(engine_err.data);
         return;
     }
+    if (engine->opening()) {
+        fail(
+            "A task is starting on " + engine->name() +
+            ". Try again when the start ends, or stop the task."
+        );
+        return;
+    }
     const auto [slaves, err] = engine->rediscover();
     if (err) {
         fail(err.data);

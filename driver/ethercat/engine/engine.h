@@ -165,6 +165,8 @@ class Engine {
     /// @brief true while the slaves move to OP, when the working counter is expected to
     /// fall short.
     std::atomic<bool> starting{false};
+    /// @brief true while a task starts the bus, which holds mu for up to start_timeout.
+    std::atomic<bool> opening_bus{false};
     /// @brief the bus rate in millihertz, or zero when the bus is not running.
     std::atomic<uint64_t> cycle_mhz{0};
     std::thread cycle_thread;
@@ -398,6 +400,12 @@ public:
 
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }
+
+    /// @brief returns true while a task starts the bus. Calls that need the stopped bus
+    /// wait for the start to end. Thread-safe.
+    [[nodiscard]] bool opening() const {
+        return this->opening_bus.load(std::memory_order_acquire);
+    }
 
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
