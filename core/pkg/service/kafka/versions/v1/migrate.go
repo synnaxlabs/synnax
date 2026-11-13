@@ -41,9 +41,14 @@ func MigrateWriteChannel(_ context.Context, old v0.WriteChannel) (WriteChannel, 
 			EnumValues: lo.Map(
 				old.EnumValues,
 				func(e payload.EnumEntry, _ int) payload.StringEntry {
+					v := e.Value
+					// -0 would format as "-0", which no unsigned channel parses.
+					if v == 0 {
+						v = 0
+					}
 					return payload.StringEntry{
 						Label: e.Label,
-						Value: strconv.FormatFloat(e.Value, 'f', -1, 64),
+						Value: strconv.FormatFloat(v, 'f', -1, 64),
 					}
 				},
 			),

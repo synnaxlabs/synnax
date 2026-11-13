@@ -32,7 +32,7 @@ it records nothing in Synnax.
    can also run the "Create Kafka write task" command.
 2. Enter the **Topic**, such as `synnax-samples`.
 3. Click **Add channel**, then select a channel in **Channel**.
-4. In **Write as**, select how the value goes out: **Number**, **String**, or
+4. In **Output type**, select how the value goes out: **Number**, **String**, or
    **Boolean**. The list shows only what the data type of the channel allows.
 5. Click <Icon.Play /> (**Start**).
 
@@ -167,13 +167,13 @@ TypeScript uses the same fields in camel case, such as `recordKey`.
 | Setting                                   | Default | Notes                                                            |
 | ----------------------------------------- | ------- | ---------------------------------------------------------------- |
 | Channel <small>`channel`</small>          |         | The channel whose samples the task sends.                        |
-| Write as <small>`type`</small>            |         | How each sample goes out. See the table below.                   |
+| Output type <small>`type`</small>         |         | How each sample goes out. See the table below.                   |
 | Time format <small>`time_format`</small>  |         | Required with `timestamp`. The Console sets ISO 8601.            |
 | Enum mapping <small>`enum_values`</small> | None    | With a number, string, or boolean type, labels matching samples. |
 
 The data type of the channel sets which types it can be written as:
 
-| Channel data type | Write as (`type`)                                   |
+| Channel data type | Output type (`type`)                                |
 | ----------------- | --------------------------------------------------- |
 | Float             | **Number** (`float`), **String**, or **Boolean**    |
 | Signed integer    | **Number** (`integer`), **String**, or **Boolean**  |
@@ -273,7 +273,7 @@ Set **Time format** on the channel. In code, set `time_format`, such as `iso8601
 <Problem.Item message={"channel ...: a ... channel cannot be written as ..."}>
 <Problem.Cause>
 
-The data type of the channel does not allow the type in **Write as**.
+The data type of the channel does not allow the type in **Output type**.
 
 </Problem.Cause>
 <Problem.Fix>

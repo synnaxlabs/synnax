@@ -275,6 +275,34 @@ var _ = Describe("Write channels", func() {
 			))
 		}
 
+		It("Should lift a v0 config and reconcile it against its channels", func(
+			ctx SpecContext,
+		) {
+			data := MustSucceed(svc.Write.Normalize(ctx, db, v0.Version, config(
+				map[string]any{
+					"key":         "c1",
+					"channel":     create(ctx, telem.Int16T),
+					"json_type":   "string",
+					"enum_values": []any{map[string]any{"label": "ON", "value": 1}},
+				},
+				map[string]any{
+					"key":       "c2",
+					"channel":   create(ctx, telem.JSONT),
+					"json_type": "string",
+				},
+			)))
+			Expect(data["channels"]).To(HaveExactElements(
+				SatisfyAll(
+					HaveKeyWithValue("type", "string"),
+					HaveKeyWithValue("enum_values", HaveExactElements(SatisfyAll(
+						HaveKeyWithValue("label", "ON"),
+						HaveKeyWithValue("value", "1"),
+					))),
+				),
+				HaveKeyWithValue("type", "json"),
+			))
+		})
+
 		DescribeTable("Should keep a kind the channel's data type allows",
 			func(ctx SpecContext, dt telem.DataType, kind string) {
 				wc := normalize(ctx, writeChannel(kind, create(ctx, dt)))

@@ -59,6 +59,7 @@ var _ = Describe("Migrate", func() {
 			v0.WriteChannel{
 				JSONType: payload.JSONTypeString,
 				EnumValues: []payload.EnumEntry{
+					{Label: "OFF", Value: math.Copysign(0, -1)},
 					{Label: "HALF", Value: 0.5},
 					{Label: "BIG", Value: 1e21},
 					{Label: "HIGH", Value: math.Inf(1)},
@@ -67,6 +68,7 @@ var _ = Describe("Migrate", func() {
 			v1.StringWriteChannel{
 				BaseWriteChannel: base,
 				EnumValues: []payload.StringEntry{
+					{Label: "OFF", Value: "0"},
 					{Label: "HALF", Value: "0.5"},
 					{Label: "BIG", Value: "1000000000000000000000"},
 					{Label: "HIGH", Value: "+Inf"},
