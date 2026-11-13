@@ -107,9 +107,7 @@ and gives it a number. The commits are in this order:
 1. Change the code format and renumber the existing kinds.
 2. Add the kinds of each band, one commit for each band.
 3. Generate the errors page, with one Markdown file for each code.
-4. Change each place that names an old code or its anchor: the links in the docs,
-   `arc/docs/spec.md`, the doc comment of `ErrorCode` in `x/go/diagnostics`, and the
-   specs in `arc/go`, `site/docs`, and `pluto`.
+4. Change each place that names an old code or its anchor.
 
 | Phase | Scope                           | Touches                                            | Depends on |
 | ----- | ------------------------------- | -------------------------------------------------- | ---------- |
