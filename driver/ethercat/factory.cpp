@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <format>
 #include <map>
+#include <set>
 #include <string>
 
 #include "absl/log/log.h"
@@ -73,10 +74,11 @@ std::unique_ptr<master::Manager> default_manager() {
 }
 
 /// @brief returns the settings saved for each slave on the network, keyed by position.
-/// Its errors call the network name.
+/// Its errors call the network name. At a position that holds a connected device, the
+/// devices that are not connected give way to it.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
 /// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings.
+/// position have different settings and none of them is connected.
 std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
@@ -88,7 +90,8 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             .make = DEVICE_MAKE,
             .model = SLAVE_DEVICE_MODEL,
             .rack = rack,
-        }
+        },
+        {.include_status = true}
     );
     if (dev_err)
         return {
@@ -99,8 +102,13 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                     " from the Core: " + dev_err.data
             )
         };
+    const auto connected = [](const synnax::device::Device &dev) {
+        return dev.status.has_value() && dev.status->details.connected;
+    };
+    std::ranges::stable_partition(devices, connected);
     std::map<uint16_t, slave::Config> configs;
     std::map<uint16_t, std::string> labels;
+    std::set<uint16_t> held;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -123,9 +131,11 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
         const auto [it, added] = configs.emplace(props.position, config);
         if (added) {
             labels[props.position] = label;
+            if (connected(dev)) held.insert(props.position);
             continue;
         }
-        if (it->second == config) continue;
+        if (it->second == config || (held.contains(props.position) && !connected(dev)))
+            continue;
         const auto [first, second] = std::minmax(labels[props.position], label);
         return {
             {},
