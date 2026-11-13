@@ -90,18 +90,33 @@ jobs:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
 
-      # Idle runners stop themselves, so a job starts one stopped runner. Only one of
-      # two concurrent starts sees an instance's previous state as stopped, so the other
-      # tries again. The job waits for any runner when none is stopped.
+      # Idle runners stop themselves, so a job starts one stopped runner of its agent.
+      # Only one of two concurrent starts sees an instance's previous state as stopped,
+      # so the other tries again. An instance that is stopping cannot start, so the job
+      # waits for it to stop. The job waits for any runner when all instances run.
       - name: Start a stopped runner
+        env:
+          AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
         run: |
           for _ in 1 2 3; do
-            ids=$(aws ec2 describe-instances --output text \
+            seats=$(aws ec2 describe-instances --output text \
               --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=agent Name=instance-state-name,Values=stopped \
-              --query 'Reservations[].Instances[].InstanceId')
-            if [ -z "$ids" ]; then exit 0; fi
-            read -ra stopped <<< "$ids"
+              Name=tag:pool,Values=agent "Name=tag:agent,Values=$AGENT" \
+              Name=instance-state-name,Values=pending,running,stopping,stopped \
+              --query 'Reservations[].Instances[].[InstanceId,State.Name]')
+            if [ -z "$seats" ]; then
+              echo "::error::The agent pool has no seat for $AGENT"
+              exit 1
+            fi
+            mapfile -t stopped < <(awk '$2 == "stopped" { print $1 }' <<< "$seats")
+            mapfile -t stopping < <(awk '$2 == "stopping" { print $1 }' <<< "$seats")
+            if [ ${#stopped[@]} -eq 0 ]; then
+              if [ ${#stopping[@]} -eq 0 ]; then exit 0; fi
+              # The waiter fails when another job starts the instance first. The next
+              # pass reads the states again.
+              aws ec2 wait instance-stopped --instance-ids "${stopping[@]}" || true
+              continue
+            fi
             id=$(shuf -n 1 -e "${stopped[@]}")
             previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
               --query 'StartingInstances[0].PreviousState.Name')
@@ -111,7 +126,10 @@ jobs:
   run:
     needs: start
     name: Run (${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }})
-    runs-on: [self-hosted, ubuntu-agent-bot]
+    # A seat holds the login of one agent CLI, and its runners carry that agent's label.
+    runs-on:
+      - self-hosted
+      - agent-${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
       pr-url: ${{ steps.agent.outputs.pr-url }}
