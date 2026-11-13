@@ -24,9 +24,16 @@ const gone = async (read: () => Promise<unknown>): Promise<boolean> =>
     (e: unknown) => e instanceof NotFoundError,
   );
 
+const nameOf = async (key: string): Promise<string> =>
+  (await client.ni.chassis.retrieve({ key })).name;
+
+const chassisGone = async (key: string): Promise<boolean> =>
+  await gone(async () => await client.ni.chassis.retrieve({ key }));
+
 describe("NI chassis", async () => {
   await client.connect();
   await other.connect();
+  await waitForStreamLive(client.connection);
   const rack = await client.racks.create({ name: "ni-chassis-test" });
   const create = async (name = "PXI1"): Promise<ni.chassis.Chassis> =>
     await client.ni.chassis.create({
@@ -46,15 +53,22 @@ describe("NI chassis", async () => {
     it("should create a chassis again after deleting it", async () => {
       const c = await create();
       await client.ni.chassis.delete(c.key);
+      await expect.poll(async () => await chassisGone(c.key)).toBe(true);
       await client.ni.chassis.create(c);
-      expect((await client.ni.chassis.retrieve({ key: c.key })).name).toBe(c.name);
+      await expect.poll(async () => await nameOf(c.key)).toBe(c.name);
+    });
+
+    it("should put a created chassis in the cache through the stream", async () => {
+      const seen: string[] = [];
+      onTestFinished(client.ni.chassis.onSet((chassis) => seen.push(chassis.key)));
+      const c = await create();
+      await expect.poll(() => seen).toContain(c.key);
     });
 
     it("should replace a chassis whose key exists", async () => {
       const c = await create();
       await client.ni.chassis.create({ ...c, name: "Replaced" });
-      const retrieved = await client.ni.chassis.retrieve({ key: c.key });
-      expect(retrieved.name).toBe("Replaced");
+      await expect.poll(async () => await nameOf(c.key)).toBe("Replaced");
     });
 
     it("should create several chassis", async () => {
@@ -111,8 +125,8 @@ describe("NI chassis", async () => {
         group: "configuration",
         name: "Renamed",
       });
+      await expect.poll(async () => await nameOf(c.key)).toBe("Renamed");
       const retrieved = await client.ni.chassis.retrieve({ key: c.key });
-      expect(retrieved.name).toBe("Renamed");
       expect(retrieved.model).toBe(c.model);
     });
 
@@ -125,8 +139,10 @@ describe("NI chassis", async () => {
         resourceName: c.resourceName,
         model: "PXIe-1085",
       });
+      await expect
+        .poll(async () => (await client.ni.chassis.retrieve({ key: c.key })).serial)
+        .toBe("01ABCDEF");
       const retrieved = await client.ni.chassis.retrieve({ key: c.key });
-      expect(retrieved.serial).toBe("01ABCDEF");
       expect(retrieved.name).toBe("Kept");
     });
   });
@@ -145,7 +161,6 @@ describe("NI chassis", async () => {
   describe("delete", () => {
     it("should delete the chassis and the devices it holds", async () => {
       const c = await create();
-      await waitForStreamLive(client.connection);
       const module = await client.ni.devices.create({
         rack: rack.key,
         name: "Module",
@@ -154,10 +169,7 @@ describe("NI chassis", async () => {
         chassis: c.key,
       });
       await client.ni.chassis.delete(c.key);
-      await expect(client.ni.chassis.retrieve({ key: c.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await waitForStreamLive(client.connection);
+      await expect.poll(async () => await chassisGone(c.key)).toBe(true);
       await expect
         .poll(
           async () =>
