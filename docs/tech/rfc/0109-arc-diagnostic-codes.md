@@ -5,10 +5,10 @@
 
 ## 0 Summary
 
-The form of an Arc diagnostic code changes from `ARC####` to `ARC-E####` for an error
-and `ARC-W####` for a warning. This is a change of form only: no kind keeps its number.
-The codes move into five bands that cover the full language. Each diagnostic gets a
-code, each code has a diagnostic, and the docs page follows the bands.
+The form of an Arc diagnostic code changes from `ARC####` to `E####` for an error and
+`W####` for a warning. This is a change of form only: no kind keeps its number. The
+codes move into four bands that cover the full language. Each diagnostic gets a code,
+each code has a diagnostic, and the docs page follows the bands.
 
 ## 1 Motivation
 
@@ -25,14 +25,14 @@ code, each code has a diagnostic, and the docs page follows the bands.
 
 ### 2.0 Code format
 
-A code is `ARC-<letter><number>`.
+A code is `<letter><number>`, as in the Rust compiler (`E0308`).
 
 - **Letter**: `E` for an error, `W` for a warning. Arc reports no other severity, and a
   new one needs a new letter first.
 - **Number**: Four digits. The first digit is the band (§2.1).
 
 The letter and the number together identify a kind. Errors and warnings have separate
-numbers, so `ARC-E2001` and `ARC-W2001` are two kinds with no relation.
+numbers, so `E2001` and `W2001` are two kinds with no relation.
 
 A new kind takes the next free number in its band, for its letter. This work assigns the
 numbers in one pass, after a review of each diagnostic. An existing kind gets no
@@ -42,13 +42,14 @@ A kind that changes severity takes a new code. Its old code is not used again.
 
 ### 2.1 Bands
 
-| Band | Area                     | Examples                                            |
-| ---- | ------------------------ | --------------------------------------------------- |
-| 1xxx | Syntax                   | Mismatched input                                    |
-| 2xxx | Types and expressions    | Type mismatch, casts, units, constant overflow, NaN |
-| 3xxx | Functions and statements | Arguments, `return`, `break`, assignment            |
-| 4xxx | Names and modules        | Undefined name, deprecated name, imports, `export`  |
-| 5xxx | Flows and sequences      | Routing, channel writes, authority, stages, `next`  |
+| Band | Area                         | Examples                                              |
+| ---- | ---------------------------- | ----------------------------------------------------- |
+| 1xxx | Syntax and statements        | Mismatched input, `return` or `break` out of place    |
+| 2xxx | Types                        | Type mismatch, arguments, casts, units, overflow, NaN |
+| 3xxx | Names and modules            | Undefined name, deprecated name, imports, `export`    |
+| 4xxx | Flows, sequences, and stages | Routing, channel writes, authority, `next`            |
+
+A kind is broad. All type mismatches share one code, as in the Rust compiler (`E0308`).
 
 ### 2.2 Coverage
 
@@ -74,17 +75,35 @@ two plain errors, at `symbol/symbol.go:410` and `:780`, become typed errors.
 
 The errors page is generated from the kinds. `errors.mdx` has no item for each code.
 
+- **One JSON file declares each code**: `go generate` writes `codes.gen.json` from
+  `codes.go`. It holds the code, severity, message, problem text, and examples of each
+  kind. The docs site and any other tool read only this file.
 - **One Markdown file for each code**: It lives beside `codes.go`, as the Rust compiler
   does (`E0308.md`). It has three parts: the problem, an example that fails, and the
-  corrected example.
+  corrected example. The generator copies them into `codes.gen.json`.
 - **Real messages**: `go generate` compiles the failing example, checks that it reports
   the code, and writes the message to `codes.gen.json`. The page shows that message, so
   no person names the `%s` values.
 - **Layout**: One heading for each band.
-- **Anchors**: The anchor of a code is the code in lowercase, such as `#arc-e2001`.
+- **Anchors**: The anchor of a code is the code in lowercase, such as `#e2001`.
+
+### 2.4 Prior art
+
+| Tool        | Code form      | Bands                                   |
+| ----------- | -------------- | --------------------------------------- |
+| Rust        | `E0308`        | None. A lint has a name, not a number   |
+| TypeScript  | `TS2322`       | 1xxx syntax, 2xxx semantics             |
+| pycodestyle | `E501`, `W291` | `E` or `W`, then one digit for the area |
+| ShellCheck  | `SC2086`       | 1xxx parser, 2xxx analysis              |
+
+Arc takes the letter for severity from pycodestyle, the bands from TypeScript and
+ShellCheck, and broad kinds and one Markdown file for each code from Rust.
 
 ## 3 What this RFC does not cover
 
+- **Runtime errors**: A code is for a diagnostic of the compiler. A runtime error keeps
+  its typed error (`arc/cpp/runtime/wasm/module.h:177`) and shows in the status of the
+  task.
 - **Graph diagnostics**: `arc/go/graph` reports a malformed graph, and the graph editor
   is deprecated. Its diagnostics get no code.
 - **Oracle diagnostics**: Oracle uses the same Go diagnostics package and has no codes.
@@ -109,10 +128,19 @@ and gives it a number. The commits are in this order:
 
 ## 5 Resolved decisions
 
+1. **A lint command needs no new codes**: The code is the rule ID. A style rule takes a
+   `W` code, not a new letter.
+2. **Bands stay, but fewer**: The codes do not need bands, and a count from 1 also
+   works. Bands keep related codes together as the list grows, so a new code does not
+   land far from its relatives. The design went from eight bands to five, and then to
+   four.
+3. **The source is Go, and the JSON is generated**: A check reports through a Go value,
+   such as `codes.TypeMismatch`, so the kinds must be Go. A JSON source needs a
+   generator that writes Go, which is a second step for the same result. The prose of a
+   code stays in Markdown, because Arc examples in JSON strings are hard to review.
+
 ## 6 Open questions
 
-- **Type mismatch**: One code for all sites, or one code for each cause. The review of
-  the sites decides it.
 - **Check for a reported error**: The lint rule cannot see an error with no kind that
   `diagnostics.Error` reports. A different check must cover it.
 - **Page design**: Whether a new design for an item on the errors page is part of this
