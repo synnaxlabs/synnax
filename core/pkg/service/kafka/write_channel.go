@@ -84,8 +84,8 @@ func validateWriteConfig(cfg *WriteConfig) error {
 		return err
 	}
 	raw := cfg.Record.ValuePointer == ""
-	if rec := cfg.Record; raw && (rec.ChannelPointer != nil ||
-		rec.TimestampPointer != nil || len(rec.Fields) > 0) {
+	if rec := cfg.Record; raw && (lo.FromPtr(rec.ChannelPointer) != "" ||
+		lo.FromPtr(rec.TimestampPointer) != "" || len(rec.Fields) > 0) {
 		return errors.Wrap(
 			validate.ErrValidation,
 			"record.value_pointer: an empty pointer must be the only record field",

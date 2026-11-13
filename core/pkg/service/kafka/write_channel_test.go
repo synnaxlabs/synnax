@@ -10,6 +10,7 @@
 package kafka_test
 
 import (
+	"maps"
 	"math"
 	"uuid"
 
@@ -265,6 +266,44 @@ var _ = Describe("Write channels", func() {
 				"unsigned", 0, entry("ON", "1"), entry("ON", "2"),
 			)))).Error().ToNot(HaveOccurred())
 		})
+
+		// rawConfig returns a config with an empty value pointer, the record rest, and
+		// a channel of kind.
+		rawConfig := func(kind string, rest map[string]any) msgpack.EncodedJSON {
+			cfg := config(writeChannel(kind, 0))
+			rec := map[string]any{"value_pointer": ""}
+			maps.Copy(rec, rest)
+			cfg["record"] = rec
+			return cfg
+		}
+
+		It("Should keep an empty value pointer on a bytes channel", func(
+			ctx SpecContext,
+		) {
+			cfg := rawConfig("bytes", map[string]any{
+				"channel_pointer":   "",
+				"timestamp_pointer": "",
+			})
+			Expect(MustSucceed(prepare(ctx, cfg))["record"]).
+				To(HaveKeyWithValue("value_pointer", ""))
+			Expect(MustSucceed(
+				svc.Write.Normalize(ctx, db, svc.Write.Version(), cfg),
+			)["record"]).To(HaveKeyWithValue("value_pointer", ""))
+		})
+
+		DescribeTable("Should reject an empty value pointer",
+			func(ctx SpecContext, kind string, rest map[string]any, msg string) {
+				Expect(prepare(ctx, rawConfig(kind, rest))).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("on a float channel", "float", nil,
+				`channel "c1": an empty record.value_pointer requires the bytes kind`),
+			Entry("beside a channel pointer", "bytes",
+				map[string]any{"channel_pointer": "/channel"},
+				"record.value_pointer: an empty pointer must be the only record field"),
+		)
 	})
 
 	Describe("Normalize", func() {
