@@ -45,7 +45,10 @@ func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, erro
 			return MigrateReadField(ctx, f)
 		},
 	)
-	return rec, err
+	if err != nil {
+		return ReadRecord{}, err
+	}
+	return rec, nil
 }
 
 // MigrateReadField lifts a v0 read field to the v1 variant of the kind of its stored
@@ -157,6 +160,9 @@ func migrateReadField(old v0.ReadField) (ReadField, []string) {
 			EnumValues:    []payload.StringEntry{},
 		}}, changes
 	case payload.KindTimestamp:
+		for _, e := range old.EnumValues {
+			keep(e, false)
+		}
 		format := payload.TimeFormatISO8601
 		if old.TimeFormat != nil {
 			format = *old.TimeFormat
@@ -165,6 +171,11 @@ func migrateReadField(old v0.ReadField) (ReadField, []string) {
 			BaseReadField: base,
 			TimeFormat:    format,
 		}}, changes
+	}
+	for _, e := range old.EnumValues {
+		keep(e, false)
+	}
+	switch kind {
 	case payload.KindJSON:
 		return ReadField{Variant: JsonReadField{BaseReadField: base}}, changes
 	case payload.KindUUID:
