@@ -17,7 +17,6 @@ import (
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a task.
@@ -71,14 +70,6 @@ type Task struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Range is the range the task is a snapshot in, if any.
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Task) Validate() error {
-	v := validate.New("Task")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
 }
 
 // KeyedConfig is the base for every stored task configuration record.

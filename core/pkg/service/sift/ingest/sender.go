@@ -74,9 +74,10 @@ func (s *sender) confirm() error {
 	if s.stream == nil {
 		return nil
 	}
+	stream := s.stream
 	done := make(chan error, 1)
 	go func() {
-		_, err := s.stream.CloseAndRecv()
+		_, err := stream.CloseAndRecv()
 		done <- err
 	}()
 	var err error

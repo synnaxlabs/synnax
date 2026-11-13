@@ -199,7 +199,7 @@ var _ = Describe("Apply of a move", func() {
 			target.Key,
 			table.NewRemoveAction(table.RemovePayload{Key: "project"}),
 		)).Error().To(MatchError(ContainSubstring(
-			"project: must belong to exactly one of a project and a range",
+			"project: must belong to a project",
 		)))
 		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
 	})

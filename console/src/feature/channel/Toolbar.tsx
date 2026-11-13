@@ -17,20 +17,15 @@ import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
 import { Group } from "@/platform/group";
 import { type Nav } from "@/platform/nav";
-import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
 const toHit = (ch: channel.Channel) => Group.toHit("channel")(ch.payload);
 
-// Channels match by alias under the active range, as the tree shows them.
 const useChannelMatches: Tree.UseMatches = (query) => {
   const folders = Group.useMatches(query);
-  const activeRange = Range.useResolve();
   const channels = Channel.useResultList(
-    query == null
-      ? null
-      : { searchTerm: query.term, rangeKey: activeRange?.key, limit: query.limit },
+    query == null ? null : { searchTerm: query.term, limit: query.limit },
   );
   return [...folders, Tree.toMatches(channels, toHit)];
 };
