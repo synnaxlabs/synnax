@@ -100,8 +100,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # The runner's user cannot end other users' processes, so this leaves the
-      # station's own Core alone.
+      # The runner's user cannot end other users' processes, so this ends only what a
+      # past run left.
       - name: Force quit existing Synnax processes
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
@@ -121,10 +121,16 @@ jobs:
             try {
               Stop-Service -Name $name
             } catch {
-              Write-Output ("::error title=Cannot stop $name::The account $(whoami) " +
-                "cannot stop the service ${name}: $($_.Exception.Message) Give the " +
-                "account the right to stop and start the service, then run the " +
-                "workflow again.")
+              $cause = $_.Exception.GetBaseException()
+              $text = "The service $name is $((Get-Service $name).Status) and did " +
+                "not stop: $($cause.Message)"
+              # 5 is ERROR_ACCESS_DENIED.
+              if ($cause.NativeErrorCode -eq 5) {
+                $text = "The account $(whoami) does not have the right to stop the " +
+                  "service $name. Give the account the right to stop and start the " +
+                  "service, then run the workflow again."
+              }
+              Write-Output "::error title=Cannot stop ${name}::$text"
               exit 1
             }
           }
