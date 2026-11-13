@@ -101,7 +101,7 @@ var _ = Describe("ReadConfig", func() {
 	}
 
 	prepare := func(ctx context.Context, data msgpack.EncodedJSON) error {
-		_, err := svc.Read.Prepare(ctx, db, uuid.New(), data)
+		_, err := svc.Read.Prepare(ctx, db, uuid.New(), "", data)
 		return err
 	}
 
@@ -260,7 +260,7 @@ var _ = Describe("ReadConfig", func() {
 			ctx SpecContext,
 		) {
 			ch := createChannel(ctx, telem.Float32T)
-			rec := MustSucceed(svc.Read.Prepare(ctx, db, uuid.New(), configOf(
+			rec := MustSucceed(svc.Read.Prepare(ctx, db, uuid.New(), "", configOf(
 				map[string]any{
 					"key":       "f",
 					"type":      "float",
