@@ -53,9 +53,9 @@ std::string kind_of(const x::telem::DataType &dt) {
 }
 
 /// @brief returns the data type that x::json converts a value of the channel to. It
-/// converts no boolean, so a boolean reads as a uint8 that casts to 0 or 1.
+/// converts no boolean, so a boolean reads as a float64 that is true when not 0.
 x::telem::DataType conversion_type(const x::telem::DataType &dt) {
-    return dt == x::telem::BOOLEAN_T ? x::telem::UINT8_T : dt;
+    return dt == x::telem::BOOLEAN_T ? x::telem::FLOAT64_T : dt;
 }
 
 x::telem::SampleValue to_sample(const x::payload::Float &v) {
@@ -467,6 +467,10 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 if (conv_err)
                     warning = "Failed to convert " + field.pointer.to_string() +
                               " for channel " + ch.name + ": " + conv_err.data;
+                else if (dt == x::telem::BOOLEAN_T)
+                    sample_val = static_cast<uint8_t>(
+                        std::get<double>(x::telem::FLOAT64_T.cast(val)) != 0
+                    );
                 else
                     sample_val = dt.cast(val);
             }

@@ -144,6 +144,18 @@ describe("adapter", () => {
       expect("fill" in integer ? integer.fill : undefined).toBeUndefined();
     });
 
+    it.each(["1.0", "1e3", ""])(
+      "should drop an integer entry held as the text %j",
+      (value) => {
+        const field = {
+          ...createField({ type: "integer" }),
+          enumValues: [{ label: "ON", value }],
+        } as unknown as ReadField;
+        expect(retype(field, DataType.FLOAT64)).toMatchObject({ enumValues: [] });
+        expect(retype(field, DataType.INT8)).toMatchObject({ enumValues: [] });
+      },
+    );
+
     it("should keep only the base fields of a field of another kind", () => {
       const field = createField({ type: "float", fill: 2 });
       expect(retype(field, DataType.STRING)).toEqual({
