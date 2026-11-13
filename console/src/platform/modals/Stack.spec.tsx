@@ -113,15 +113,24 @@ describe("Stack", () => {
     const Noop: Modals.Content = () => null;
 
     interface ListenerProps {
-      onTrigger: () => void;
+      onTrigger?: () => void;
+      // Closes its modal on the trigger, ahead of every listener below it.
+      selfClosing?: boolean;
     }
 
-    const Listener: Modals.Content<ListenerProps, void> = ({ onTrigger }) => {
+    const Listener: Modals.Content<ListenerProps, void> = ({
+      onTrigger,
+      selfClosing = false,
+      close,
+    }) => {
       Triggers.use({
         triggers: [["Control", "Enter"]],
         loose: true,
+        priority: selfClosing ? 1 : 0,
         callback: ({ stage }) => {
-          if (stage === "start") onTrigger();
+          if (stage !== "start") return;
+          onTrigger?.();
+          if (selfClosing) close();
         },
       });
       return null;
@@ -182,6 +191,26 @@ describe("Stack", () => {
       act(() => modals.closeTop());
       press("ControlLeft", "Enter");
       expect(below).toHaveBeenCalledOnce();
+    });
+
+    it("should not pass a press to the modal below when the top one closes on it", () => {
+      const { modals } = renderPage(["Control", "T"]);
+      const below = vi.fn();
+      act(() => {
+        modals.push(Listener, { onTrigger: below }, () => {});
+        modals.push(Listener, { selfClosing: true }, () => {});
+      });
+      act(() => press("ControlLeft", "Enter"));
+      expect(modals.getState()).toHaveLength(1);
+      expect(below).not.toHaveBeenCalled();
+    });
+
+    it("should not pass a press to the page when the last modal closes on it", () => {
+      const { callback, modals } = renderPage(["Control", "Enter"]);
+      act(() => modals.push(Listener, { selfClosing: true }, () => {}));
+      act(() => press("ControlLeft", "Enter"));
+      expect(modals.isAnyOpen()).toBe(false);
+      expect(callback).not.toHaveBeenCalled();
     });
 
     it("should close the top modal on the close trigger, out of the page's hearing", () => {

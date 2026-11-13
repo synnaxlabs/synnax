@@ -18,8 +18,6 @@ const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
 
 interface LayerProps {
   entry: Session.Modals.Entry;
-  // From the rendered stack, so a modal that closes during a key press does not pass
-  // the rest of that press to the modal below.
   top: boolean;
 }
 
@@ -35,7 +33,8 @@ Layer.displayName = "Layer";
 
 /**
  * Renders the open modals over its children. Only the top modal hears triggers, and the
- * close trigger closes it.
+ * close trigger closes it. Each scope reads the rendered stack, so a modal that closes
+ * during a key press does not pass the rest of that press to what lies below it.
  */
 export const Stack = ({ children }: PropsWithChildren): ReactElement => {
   const stack = Session.Modals.useStack();
@@ -56,7 +55,7 @@ export const Stack = ({ children }: PropsWithChildren): ReactElement => {
       {stack.map((entry, i) => (
         <Layer key={entry.key} entry={entry} top={i === stack.length - 1} />
       ))}
-      <Triggers.Scope active={() => !store.isAnyOpen()}>{children}</Triggers.Scope>
+      <Triggers.Scope active={stack.length === 0}>{children}</Triggers.Scope>
     </>
   );
 };
