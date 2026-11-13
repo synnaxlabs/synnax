@@ -11,13 +11,13 @@ import { ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
@@ -41,6 +41,10 @@ const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
 );
 const item = Component.renderProp(RenderItem);
 
+const PROPERTIES: View.Filter.Properties<ranger.Where> = {
+  labels: Label.Filter.createProperty(),
+};
+
 const Inner = (): ReactElement => {
   const [where, setWhere] = useState(View.useContext().getInitialView().where);
   const listProps = Flux.useList((client) => client.ranges, {
@@ -50,9 +54,7 @@ const Inner = (): ReactElement => {
   return (
     <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar>
-        <View.FilterMenu>
-          <Menu.Item itemKey="only">Filter Option</Menu.Item>
-        </View.FilterMenu>
+        <View.Filter.Menu properties={PROPERTIES} />
         <View.Search />
       </View.Toolbar>
       <View.Items<ranger.Key>>{item}</View.Items>
@@ -311,7 +313,7 @@ describe("View", () => {
     await enableEditing();
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
-    await waitFor(() => expect(screen.getByText("Filter Option")).toBeTruthy());
+    await screen.findByRole("menuitem", { name: "Labels" });
   });
 });
 

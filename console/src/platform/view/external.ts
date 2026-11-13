@@ -9,8 +9,7 @@
 
 import { useContext as useCtx } from "@/platform/view/context";
 
-export * from "@/platform/view/FilterChip";
-export * from "@/platform/view/FilterMenu";
+export * from "@/platform/view/filter";
 export * from "@/platform/view/Form";
 export * from "@/platform/view/Frame";
 export * from "@/platform/view/Items";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { getBySelector, getIconButton } from "@/testutil";
 
@@ -29,3 +29,13 @@ export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonEle
   await waitFor(() =>
     getIconButton(getBySelector(document.body, ".console-view__toolbar"), icon),
   );
+
+/**
+ * Opens the filter menu of the mounted editable view, then the submenu of the property
+ * with the name, and returns the picker it opens.
+ */
+export const openFilterProperty = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await waitFor(() => getIconButton(document.body, "filter")));
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
+};
