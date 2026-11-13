@@ -53,26 +53,27 @@ func MigrateReadRecord(ctx context.Context, old v0.ReadRecord) (ReadRecord, erro
 }
 
 // MigrateReadField lifts a v0 read field that does not index its record. A field with
-// a time format and a float64 or unknown data type becomes a timestamp field, and any
-// other takes the kind of its stored data type, or float64 when that is unknown. A
-// numeric kind keeps each entry that is
-// whole where the kind needs it and fits the data type, a boolean entry becomes
-// value != 0, and a string field drops its entries.
+// a time format, no entries, and a float64 or unknown data type becomes a timestamp
+// field, and any other takes the kind of its stored data type, or float64 when that is
+// unknown. A numeric kind keeps each entry that is whole where the kind needs it and
+// fits the data type, a boolean entry becomes value != 0, and a string field drops its
+// entries.
 func MigrateReadField(_ context.Context, old v0.ReadField) (ReadField, error) {
 	fld, _ := migrateReadField(old, false)
 	return fld, nil
 }
 
 // migrateReadField also returns each change that the lift makes beyond the shape. An
-// index field becomes a timestamp field, and so does a field with a time format whose
-// data type is the float64 default or unknown, because v0 stored that default for
-// such a field. A time format on another data type is stale, and the field keeps it.
+// index field becomes a timestamp field, and so does a field with a time format, no
+// entries, and the float64 default or an unknown data type, because v0 stored that
+// default for such a field. Any other time format is stale, and the field keeps its
+// kind.
 func migrateReadField(old v0.ReadField, index bool) (ReadField, []string) {
 	var changes []string
 	dt := old.DataType
 	kind, ok := payload.KindOf(dt)
-	if kind != payload.KindTimestamp &&
-		(index || (old.TimeFormat != nil && (!ok || dt == telem.Float64T))) {
+	if kind != payload.KindTimestamp && (index || (old.TimeFormat != nil &&
+		len(old.EnumValues) == 0 && (!ok || dt == telem.Float64T))) {
 		changes = append(
 			changes,
 			fmt.Sprintf("data type %q became timestamp", dt),
