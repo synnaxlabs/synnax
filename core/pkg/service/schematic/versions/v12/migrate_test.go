@@ -212,6 +212,8 @@ var _ = Describe("MigrateSchematic", func() {
 		},
 		Entry("a button with no width", "button",
 			map[string]any{"label": "P1"}, uint16(65535)),
+		Entry("a button with a width of 0", "button",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
 		Entry("a button with the default", "button",
 			map[string]any{"label": "P1", "max_inline_size": 150.0}, uint16(65535)),
 		Entry("a button with a negative width", "button",

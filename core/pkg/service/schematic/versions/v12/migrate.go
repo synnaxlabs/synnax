@@ -120,7 +120,8 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
 // width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
 // button, input, select, setpoint, or state indicator keeps its rendered text size. A
-// button whose label did not wrap in v11 gets a wrap width of 65535.
+// button whose label did not wrap in v11 gets a wrap width of 65535. A button width of 0
+// becomes 1, since v11 wrapped that label at every word.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -252,7 +253,10 @@ func migrateMaxInlineSize(w float64) uint16 {
 }
 
 func migrateButtonMaxInlineSize(w float64) uint16 {
-	if math.IsNaN(w) || w <= 0 || w == defaultMaxInlineSize {
+	if w == 0 {
+		return 1
+	}
+	if math.IsNaN(w) || w < 0 || w == defaultMaxInlineSize {
 		return math.MaxUint16
 	}
 	return migrateMaxInlineSize(w)
