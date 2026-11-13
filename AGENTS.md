@@ -233,8 +233,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 ### Rule 2: Pull request conventions
 
 1. **Confirm the base branch.** Every PR targets `main`. A hotfix lands on `main` first,
-   then a cherry-pick PR targets `release/X.Y`. A PR based on another unmerged branch is
-   the exception, not the pattern (Rule 3).
+   then a cherry-pick PR targets `release/X.Y`, or `release/desktop-X.Y` for Desktop. A
+   PR based on another unmerged branch is the exception, not the pattern (Rule 3).
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
