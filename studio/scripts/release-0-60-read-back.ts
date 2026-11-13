@@ -137,8 +137,6 @@ const feed = (ch: Channels): schematic.New => ({
       bounds: { lower: 0, upper: 500 },
     },
     tank_pt: value("Tank pressure", ch.tank),
-    supply_to_reg: { variant: "pipe", segments: [] },
-    reg_to_tank: { variant: "pipe", segments: [] },
   },
 });
 
