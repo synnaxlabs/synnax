@@ -15,6 +15,7 @@ import "schemas/synnax/versions/symbol/v4"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v2"
 import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
 import "schemas/x/versions/text/v0"
 
 Key = v0.Key
@@ -41,7 +42,7 @@ LabeledConfig = v12.LabeledConfig
 
 ScaledConfig = v9.ScaledConfig
 
-StalenessConfig struct extends v9.StalenessConfig {}
+StalenessConfig struct extends v12.StalenessConfig {}
 
 NumericTelemConfig = v12.NumericTelemConfig
 

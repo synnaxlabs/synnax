@@ -6157,7 +6157,6 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for i := range s.Edges {
 		v.Exec(func() error { return validate.PathedError(s.Edges[i].Validate(), "edges", strconv.Itoa(i)) })
 	}
