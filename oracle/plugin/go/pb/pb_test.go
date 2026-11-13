@@ -92,6 +92,34 @@ var _ = Describe("Go PB Plugin", func() {
 		)
 
 		It(
+			"Should convert each element of a list that protobuf retypes",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Thing struct {
+						key   uuid
+						ports uint12[]
+						times timestamp[]
+					}
+				`, "thing", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"lo.Map(r.Ports, func(v types.Uint12, _ int) uint32 { "+
+							"return uint32(v) })",
+						"lo.Map(pb.Ports, func(v uint32, _ int) types.Uint12 { "+
+							"return types.Uint12(v) })",
+						"lo.Map(r.Times, func(v telem.TimeStamp, _ int) int64 { "+
+							"return int64(v) })",
+						"lo.Map(pb.Times, func(v int64, _ int) telem.TimeStamp { "+
+							"return telem.TimeStamp(v) })",
+					)
+			},
+		)
+
+		It(
 			"Should translate a type-parameter field as the array it defaults to",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `

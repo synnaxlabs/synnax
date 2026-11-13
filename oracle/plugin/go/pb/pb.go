@@ -1333,23 +1333,37 @@ func (p *Plugin) generateFieldConversion(
 	return goFieldName, pbFieldName, "", false, false
 }
 
+// primitiveCast is a primitive that converts to and from protobuf by a plain cast.
+type primitiveCast struct{ goType, pbType, pkg string }
+
+var primitiveCasts = map[string]primitiveCast{
+	"timestamp": {"telem.TimeStamp", "int64", "github.com/synnaxlabs/x/telem"},
+	"timespan":  {"telem.TimeSpan", "int64", "github.com/synnaxlabs/x/telem"},
+	"data_type": {"telem.DataType", "string", "github.com/synnaxlabs/x/telem"},
+	"uint12":    {"types.Uint12", "uint32", "github.com/synnaxlabs/x/types"},
+	"uint20":    {"types.Uint20", "uint32", "github.com/synnaxlabs/x/types"},
+	"int8":      {"int8", "int32", ""},
+	"int16":     {"int16", "int32", ""},
+	"uint8":     {"uint8", "uint32", ""},
+	"uint16":    {"uint16", "uint32", ""},
+}
+
 func (p *Plugin) generatePrimitiveConversion(
 	primitive, goField, pbField string,
 	data *templateData,
 ) (forward, backward string, hasError, hasBackwardError bool) {
+	if cast, ok := primitiveCasts[primitive]; ok {
+		if cast.pkg != "" {
+			data.AddExternal(cast.pkg)
+		}
+		return fmt.Sprintf("%s(%s)", cast.pbType, goField),
+			fmt.Sprintf("%s(%s)", cast.goType, pbField), false, false
+	}
 	switch primitive {
 	case "uuid":
 		data.AddExternal("uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
-	case "timestamp":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeStamp(%s)", pbField), false, false
-	case "timespan":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
 	case "time_range", "time_range_bounded":
 		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
@@ -1358,18 +1372,6 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			fmt.Sprintf("%s.AsMap()", pbField), true, false
-	case "uint12":
-		data.AddExternal("github.com/synnaxlabs/x/types")
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("types.Uint12(%s)", pbField), false, false
-	case "uint20":
-		data.AddExternal("github.com/synnaxlabs/x/types")
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("types.Uint20(%s)", pbField), false, false
-	case "data_type":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("string(%s)", goField),
-			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
 		data.AddExternal("encoding/json/v2")
 		return fmt.Sprintf("json.Marshal(%s)", goField),
@@ -1378,18 +1380,6 @@ func (p *Plugin) generatePrimitiveConversion(
 					"_ = json.Unmarshal(%s, &v); return v }()",
 				pbField,
 			), true, false
-	case "int8":
-		return fmt.Sprintf("int32(%s)", goField),
-			fmt.Sprintf("int8(%s)", pbField), false, false
-	case "int16":
-		return fmt.Sprintf("int32(%s)", goField),
-			fmt.Sprintf("int16(%s)", pbField), false, false
-	case "uint8":
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("uint8(%s)", pbField), false, false
-	case "uint16":
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("uint16(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -1888,20 +1878,19 @@ func (p *Plugin) generateArrayConversion(
 		}
 	}
 
-	// Protobuf widens a narrow integer to 32 bits, so each element converts.
-	if prim := dealiasPrimitive(elemType, data.table).Name; lo.Contains(
-		[]string{"uint8", "uint16", "int8", "int16"},
-		prim,
-	) {
+	// A primitive that protobuf retypes converts element by element.
+	if cast, ok := primitiveCasts[dealiasPrimitive(elemType, data.table).Name]; ok {
 		data.AddExternal("github.com/samber/lo")
-		protoType := primitiveToProtoType(prim)
+		if cast.pkg != "" {
+			data.AddExternal(cast.pkg)
+		}
 		return fmt.Sprintf(
 				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
-				goField, prim, protoType, protoType,
+				goField, cast.goType, cast.pbType, cast.pbType,
 			),
 			fmt.Sprintf(
 				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
-				pbField, protoType, prim, prim,
+				pbField, cast.pbType, cast.goType, cast.goType,
 			),
 			false, false
 	}

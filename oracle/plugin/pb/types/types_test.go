@@ -204,6 +204,38 @@ var _ = Describe("Plugin", func() {
 			},
 		)
 
+		It(
+			"Should judge a type-parameter map value by its default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Box struct<T extends uint8[]> {
+						m map<string, T>
+					}
+				`, "thing", loader, p)
+				ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+					"map<string, google.protobuf.Any> m = 1;",
+				)
+				req := MustGenerateRequest(ctx, `
+					@go output "core/pkg/service/thing"
+					@pb
+
+					Lines struct {
+						a string
+					}
+
+					Box struct<T extends Lines = uint8[]> {
+						m map<string, T>
+					}
+				`, "thing", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"protobuf map keys and values cannot be lists",
+				)))
+			},
+		)
+
 		It("Should fail on a list map value", func(ctx SpecContext) {
 			req := MustGenerateRequest(ctx, `
 				@go output "core/pkg/service/thing"
