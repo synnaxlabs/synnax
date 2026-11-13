@@ -1629,8 +1629,8 @@ func sizedIntBounds(
 }
 
 // boundedArgToPython returns the Python type of a map key, map value, or list element.
-// A sized integer carries its range in its type, since field bounds do not reach into
-// a collection.
+// A sized integer carries its range in its type, since field bounds do not reach into a
+// collection.
 func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
