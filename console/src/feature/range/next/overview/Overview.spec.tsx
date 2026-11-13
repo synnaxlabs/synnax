@@ -319,6 +319,21 @@ describe("range/next/overview", () => {
       await screen.findByText("Inherited");
     });
 
+    it("should set the range's own alias when its inherited alias is edited", async () => {
+      const parent = await createTestRange(client);
+      const child = await createChild(parent);
+      const ch = await createChannel();
+      await parent.setAlias(ch.key, "thrust");
+      await renderOverview(child.key);
+      const input = await screen.findByDisplayValue("thrust");
+      await screen.findByText("Inherited");
+      fireEvent.change(input, { target: { value: "force" } });
+      fireEvent.blur(input);
+      await waitFor(() => expect(screen.queryByText("Inherited")).toBeNull());
+      expect(await child.listAliases()).toEqual({ [ch.key]: "force" });
+      expect(await parent.listAliases()).toEqual({ [ch.key]: "thrust" });
+    });
+
     it("should let a range remove its own alias that equals the parent's", async () => {
       const parent = await createTestRange(client);
       const child = await createChild(parent);

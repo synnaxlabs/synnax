@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, NotFoundError, ranger } from "@synnaxlabs/client";
+import {
+  type label,
+  lineplot,
+  NotFoundError,
+  type project,
+  ranger,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -17,18 +23,30 @@ import { Explorer } from "@/feature/range/next/Explorer";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
+import { Session } from "@/session";
 import {
   createConsoleWrapper,
   openContextMenu,
   renderSuspended,
+  resolveFocusedTab,
+  type TestStore,
   uniqueName,
   uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const renderExplorer = async (): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+/** Renders the explorer. A document that the explorer creates lands in the project. */
+const renderExplorer = async (project?: project.Key): Promise<TestStore> => {
+  const { wrapper, store } = await createConsoleWrapper({
+    client,
+    preloadedState: {
+      [Session.Project.SLICE_NAME]: {
+        ...Session.Project.ZERO_SLICE_STATE,
+        selected: project,
+      },
+    },
+  });
   await renderSuspended(
     <>
       <Explorer />
@@ -37,6 +55,7 @@ const renderExplorer = async (): Promise<void> => {
     { wrapper },
   );
   await screen.findByText("All ranges");
+  return store;
 };
 
 const createRange = async (
@@ -403,6 +422,28 @@ describe("range/next/Explorer", () => {
         const { timeRange } = await client.ranges.retrieve(running.key);
         expect(timeRange.end.equals(TimeStamp.MAX)).toBe(false);
       });
+    });
+
+    it("should open a new line plot of the range on Plot", async () => {
+      const token = uniqueToken();
+      const rng = await createRange(`${token} plotted`);
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      const store = await renderExplorer(proj.key);
+      await search(token);
+      await findItem(rng.name);
+      await openMenu(rng.name);
+      fireEvent.click(await screen.findByText("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" &&
+          t.resource.type === lineplot.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+      expect(plot.name).toBe(`Plot for ${rng.name}`);
+      expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
     });
 
     it("should offer Unpin once a range is pinned", async () => {
