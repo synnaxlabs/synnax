@@ -22,8 +22,6 @@ import (
 
 var functionPattern = regexp.MustCompile(`^(rgba?|hsla?)\((.*)\)$`)
 
-var argSeparator = regexp.MustCompile(`[\s,/]+`)
-
 var numberPattern = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
 
 // Parse parses a color string. It accepts a CSS color name or the transparent keyword,
@@ -74,9 +72,13 @@ func parseHex(digits string) (Color, error) {
 }
 
 func parseFunction(name, body string) (Color, error) {
-	args := strings.Fields(argSeparator.ReplaceAllString(body, " "))
-	if len(args) != 3 && len(args) != 4 {
-		return Color{}, errors.Newf("%s() takes 3 or 4 values", name)
+	args, ok := splitArgs(body)
+	if !ok {
+		return Color{}, errors.Newf(
+			"%s() takes 3 or 4 comma-separated values, or 3 space-separated values "+
+				"and an optional / alpha",
+			name,
+		)
 	}
 	a := uint8(255)
 	if len(args) == 4 {
@@ -111,6 +113,31 @@ func parseFunction(name, body string) (Color, error) {
 	}
 	r, g, b := hslToRGB(h, sat/100, l/100)
 	return Color{R: r, G: g, B: b, A: a}, nil
+}
+
+// splitArgs splits the arguments of a color function in comma syntax, or in space
+// syntax with an optional slash before the alpha.
+func splitArgs(body string) ([]string, bool) {
+	if strings.Contains(body, ",") {
+		if strings.Contains(body, "/") {
+			return nil, false
+		}
+		args := strings.Split(body, ",")
+		for i := range args {
+			args[i] = strings.TrimSpace(args[i])
+		}
+		return args, len(args) == 3 || len(args) == 4
+	}
+	channels, alpha, hasAlpha := strings.Cut(body, "/")
+	args := strings.Fields(channels)
+	if len(args) != 3 {
+		return nil, false
+	}
+	if !hasAlpha {
+		return args, true
+	}
+	a := strings.Fields(alpha)
+	return append(args, a...), len(a) == 1
 }
 
 // parseNumber parses a number, reading a percentage as a fraction of scale.

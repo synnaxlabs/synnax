@@ -340,8 +340,8 @@ const parseHex = (digits: string): RGBA | undefined => {
 };
 
 const parseFunction = (name: string, body: string): RGBA | undefined => {
-  const args = body.split(/[\s,/]+/).filter((a) => a.length > 0);
-  if (args.length !== 3 && args.length !== 4) return undefined;
+  const args = splitArgs(body);
+  if (args == null) return undefined;
   const alpha = args.length === 4 ? parseNumber(args[3], 1) : 1;
   if (alpha == null || alpha < 0 || alpha > 1) return undefined;
   const a = Math.round(alpha * 255);
@@ -351,12 +351,37 @@ const parseFunction = (name: string, body: string): RGBA | undefined => {
     const [r, g, b] = channels.map((c) => Math.round(c ?? 0));
     return [r, g, b, a];
   }
-  const h = parseNumber(args[0].replace(/deg$/, ""), 1);
+  const hue = args[0].replace(/deg$/, "");
+  const h = hue.endsWith("%") ? undefined : parseNumber(hue, 1);
   const sat = parseNumber(args[1].replace(/%$/, ""), 100);
   const light = parseNumber(args[2].replace(/%$/, ""), 100);
   if (h == null || sat == null || light == null) return undefined;
   if (sat < 0 || sat > 100 || light < 0 || light > 100) return undefined;
   return hslToRGBA((((h % 360) + 360) % 360) / 360, sat / 100, light / 100, a);
+};
+
+/**
+ * Splits the arguments of a color function in comma syntax, or in space syntax with an
+ * optional slash before the alpha.
+ */
+const splitArgs = (body: string): string[] | undefined => {
+  if (body.includes(",")) {
+    if (body.includes("/")) return undefined;
+    const args = body.split(",").map((a) => a.trim());
+    return args.length === 3 || args.length === 4 ? args : undefined;
+  }
+  const [channels, ...rest] = body.split("/");
+  const args = channels
+    .trim()
+    .split(/\s+/)
+    .filter((a) => a.length > 0);
+  if (args.length !== 3 || rest.length > 1) return undefined;
+  if (rest.length === 0) return args;
+  const alpha = rest[0]
+    .trim()
+    .split(/\s+/)
+    .filter((a) => a.length > 0);
+  return alpha.length === 1 ? [...args, alpha[0]] : undefined;
 };
 
 /** Parses a number, reading a percentage as a fraction of scale. */

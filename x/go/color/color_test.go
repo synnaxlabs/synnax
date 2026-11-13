@@ -92,6 +92,11 @@ var _ = Describe("Color", func() {
 			Entry("a NaN channel", "rgb(NaN, 0, 0)"),
 			Entry("an infinite hue", "hsl(Inf, 0%, 0%)"),
 			Entry("an infinite alpha", "rgba(1, 2, 3, inf)"),
+			Entry("space syntax without a slash", "rgb(1 2 3 0.5)"),
+			Entry("two slashes", "rgb(1 2 / 3 / 4)"),
+			Entry("mixed commas and spaces", "rgb(1, 2 3)"),
+			Entry("a comma and a slash", "rgb(1, 2, 3 / 0.5)"),
+			Entry("an empty alpha", "rgb(1 2 3 /)"),
 			Entry("a saturation above 100", "hsl(0, 101%, 0%)"),
 			Entry("a lightness above 100", "hsl(0, 0%, 101%)"),
 		)
