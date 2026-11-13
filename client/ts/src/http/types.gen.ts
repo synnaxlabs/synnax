@@ -48,40 +48,6 @@ export const queryParamZ = z.object({
 });
 export interface QueryParam extends z.infer<typeof queryParamZ> {}
 
-/** ReadField is a single value extracted from an endpoint's JSON response. */
-export const readFieldZ = z.object({
-  /** key uniquely identifies the field within the endpoint. */
-  key: z.string().default(id.create),
-  /** name is the human-readable field name. */
-  name: z.string().default(""),
-  /** disabled is true when the field is excluded from polling. */
-  disabled: z.boolean().default(false),
-  /**
-   * optional is true when a missing value is normal for this field. The task writes
-   * fill_value, or NaN on a float channel, and sends no warning.
-   */
-  optional: z.boolean().default(false),
-  /**
-   * fillValue is the value written when an optional field is missing, typed by the
-   * channel. Unset writes NaN, which needs a float channel.
-   */
-  fillValue: z.unknown().optional(),
-  /** channel is the Synnax channel the extracted value is written to. */
-  channel: channel.keyZ.default(0),
-  /** pointer is the JSON Pointer to the value within the response body. */
-  pointer: z.string().default(""),
-  /** dataType is the data type of the extracted value. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the encoding of the JSON value when the target channel holds
-   * timestamps. Required for timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /** enumValues maps string labels in the response to numeric channel values. */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ReadField extends z.infer<typeof readFieldZ> {}
-
 /** ChannelField is the command channel value placed into a write endpoint's body. */
 export const channelFieldZ = z.object({
   /**
@@ -123,29 +89,20 @@ export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** ReadEndpoint is a single HTTP endpoint polled by a read task. */
-export const readEndpointZ = z.object({
-  /** key uniquely identifies the endpoint within the task. */
+/** BaseReadField carries the fields every read field shares. */
+export const baseReadFieldZ = z.object({
+  /** key uniquely identifies the field within the endpoint. */
   key: z.string().default(id.create),
-  /** method is the HTTP method used to poll the endpoint. */
-  method: methodZ.default("GET"),
-  /** path is the URL path appended to the device's base URL. */
-  path: z.string().default(""),
-  /** headers contains additional headers merged into the request. */
-  headers: headerZ.array().default(() => []),
-  /** queryParams contains query parameters appended to the request URL. */
-  queryParams: queryParamZ.array().default(() => []),
-  /** body is a static body sent with each request. Empty sends no body. */
-  body: z.string().default(""),
-  /** fields contains the values to extract from the response. */
-  fields: readFieldZ.array().default(() => []),
-  /**
-   * index is the key of the field whose channel indexes the others. Empty when the task
-   * stamps samples on arrival.
-   */
-  index: z.string().default(""),
+  /** name is the human-readable field name. */
+  name: z.string().default(""),
+  /** disabled is true when the field is excluded from polling. */
+  disabled: z.boolean().default(false),
+  /** channel is the Synnax channel the extracted value is written to. */
+  channel: channel.keyZ.default(0),
+  /** pointer is the JSON Pointer to the value within the response body. */
+  pointer: z.string().default(""),
 });
-export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
+export interface BaseReadField extends z.infer<typeof baseReadFieldZ> {}
 
 /** StaticWriteField places a fixed value in the request body. */
 export const staticWriteFieldZ = baseWriteFieldZ.extend({
@@ -190,13 +147,109 @@ export const WRITE_FIELD_SCHEMAS: {
   generated: generatedWriteFieldZ,
 };
 
-export const readConfigZ = task.persistConfigZ.extend({
-  device: device.keyZ.default(""),
-  rate: z.number().gt(0).default(1),
-  endpoints: readEndpointZ.array().default(() => []),
-  nanFillEnabled: z.boolean().default(false),
+/** FloatReadField reads a float. */
+export const floatReadFieldZ = baseReadFieldZ.extend(payload.floatReadZ.shape).extend({
+  type: z.literal("float"),
 });
-export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+export interface FloatReadField extends z.infer<typeof floatReadFieldZ> {}
+
+/** IntegerReadField reads a signed integer. */
+export const integerReadFieldZ = baseReadFieldZ
+  .extend(payload.integerReadZ.shape)
+  .extend({
+    type: z.literal("integer"),
+  });
+export interface IntegerReadField extends z.infer<typeof integerReadFieldZ> {}
+
+/** UnsignedReadField reads an unsigned integer. */
+export const unsignedReadFieldZ = baseReadFieldZ
+  .extend(payload.unsignedReadZ.shape)
+  .extend({
+    type: z.literal("unsigned"),
+  });
+export interface UnsignedReadField extends z.infer<typeof unsignedReadFieldZ> {}
+
+/** StringReadField reads a string. */
+export const stringReadFieldZ = baseReadFieldZ
+  .extend(payload.stringReadZ.shape)
+  .extend({
+    type: z.literal("string"),
+  });
+export interface StringReadField extends z.infer<typeof stringReadFieldZ> {}
+
+/** BooleanReadField reads a boolean. */
+export const booleanReadFieldZ = baseReadFieldZ
+  .extend(payload.booleanReadZ.shape)
+  .extend({
+    type: z.literal("boolean"),
+  });
+export interface BooleanReadField extends z.infer<typeof booleanReadFieldZ> {}
+
+/** TimestampReadField reads a timestamp. */
+export const timestampReadFieldZ = baseReadFieldZ
+  .extend(payload.timestampReadZ.shape)
+  .extend({
+    type: z.literal("timestamp"),
+  });
+export interface TimestampReadField extends z.infer<typeof timestampReadFieldZ> {}
+
+/** JsonReadField reads any JSON value. */
+export const jsonReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("json"),
+});
+export interface JsonReadField extends z.infer<typeof jsonReadFieldZ> {}
+
+/** UuidReadField reads a UUID. */
+export const uuidReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("uuid"),
+});
+export interface UuidReadField extends z.infer<typeof uuidReadFieldZ> {}
+
+/** BytesReadField reads bytes. */
+export const bytesReadFieldZ = baseReadFieldZ.extend({
+  type: z.literal("bytes"),
+});
+export interface BytesReadField extends z.infer<typeof bytesReadFieldZ> {}
+
+/**
+ * ReadField is a single value extracted from an endpoint's JSON response. The type
+ * field is the kind of the value, which matches the kind of the channel's data type.
+ */
+export const readFieldZ = z.discriminatedUnion("type", [
+  floatReadFieldZ,
+  integerReadFieldZ,
+  unsignedReadFieldZ,
+  stringReadFieldZ,
+  booleanReadFieldZ,
+  timestampReadFieldZ,
+  jsonReadFieldZ,
+  uuidReadFieldZ,
+  bytesReadFieldZ,
+]);
+export type ReadField =
+  | FloatReadField
+  | IntegerReadField
+  | UnsignedReadField
+  | StringReadField
+  | BooleanReadField
+  | TimestampReadField
+  | JsonReadField
+  | UuidReadField
+  | BytesReadField;
+
+export const READ_FIELD_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<ReadField, { type: K }>>;
+} = {
+  float: floatReadFieldZ,
+  integer: integerReadFieldZ,
+  unsigned: unsignedReadFieldZ,
+  string: stringReadFieldZ,
+  boolean: booleanReadFieldZ,
+  timestamp: timestampReadFieldZ,
+  json: jsonReadFieldZ,
+  uuid: uuidReadFieldZ,
+  bytes: bytesReadFieldZ,
+};
 
 /** WriteEndpoint is a single HTTP endpoint written to by a write task. */
 export const writeEndpointZ = z.object({
@@ -219,8 +272,40 @@ export const writeEndpointZ = z.object({
 });
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
+/** ReadEndpoint is a single HTTP endpoint polled by a read task. */
+export const readEndpointZ = z.object({
+  /** key uniquely identifies the endpoint within the task. */
+  key: z.string().default(id.create),
+  /** method is the HTTP method used to poll the endpoint. */
+  method: methodZ.default("GET"),
+  /** path is the URL path appended to the device's base URL. */
+  path: z.string().default(""),
+  /** headers contains additional headers merged into the request. */
+  headers: headerZ.array().default(() => []),
+  /** queryParams contains query parameters appended to the request URL. */
+  queryParams: queryParamZ.array().default(() => []),
+  /** body is a static body sent with each request. Empty sends no body. */
+  body: z.string().default(""),
+  /** fields contains the values to extract from the response. */
+  fields: readFieldZ.array().default(() => []),
+  /**
+   * index is the key of the field whose channel indexes the others. Empty when the task
+   * stamps samples on arrival.
+   */
+  index: z.string().default(""),
+});
+export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
+
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),
   endpoints: writeEndpointZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
+export const readConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  rate: z.number().gt(0).default(1),
+  endpoints: readEndpointZ.array().default(() => []),
+  nanFillEnabled: z.boolean().default(false),
+});
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
