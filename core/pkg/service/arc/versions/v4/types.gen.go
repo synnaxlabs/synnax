@@ -172,14 +172,16 @@ func (u Source) Mode() Mode {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Source) Validate() error {
+	v := validate.New("Source")
+	v.Ternary("mode", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case TextSource:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base carries the fields that every Arc shares.
@@ -288,6 +290,9 @@ func (a *AutomationArc) ApplyDefaults() {
 func (a AutomationArc) Validate() error {
 	v := validate.New("AutomationArc")
 	v.Exec(a.Base.Validate)
+	if a.Program != nil {
+		v.Exec(func() error { return validate.PathedError(a.Program.Validate(), "program") })
+	}
 	for i := range a.Changes {
 		v.Exec(func() error { return validate.PathedError(a.Changes[i].Validate(), "changes", strconv.Itoa(i)) })
 	}
@@ -421,16 +426,18 @@ func (u *Arc) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AutomationArc:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ModuleArc:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

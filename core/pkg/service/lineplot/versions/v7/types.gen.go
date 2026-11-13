@@ -313,6 +313,7 @@ func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Ranges.Validate(), "ranges") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

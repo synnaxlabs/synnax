@@ -818,7 +818,9 @@ const (
 	recurseValue   recurseKind = "value"
 	recursePointer recurseKind = "pointer"
 	recurseSlice   recurseKind = "slice"
-	recurseMap     recurseKind = "map"
+	// recurseNestedSlice reaches the elements of each slice in a slice of slices.
+	recurseNestedSlice recurseKind = "nested_slice"
+	recurseMap         recurseKind = "map"
 )
 
 // recurseStepData describes one nested call a generated method makes into a field (or
@@ -855,6 +857,27 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 // neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
 func neverSkip(resolution.Field, *templateData) bool { return false }
 
+// methodRule selects the types that emit a recursive method.
+type methodRule struct {
+	// hasOwn reports that a field is itself a reason for its struct to emit the method.
+	hasOwn fieldHasOwn
+	// skip reports that a field is out of the method and of any recursion into it.
+	skip fieldHasOwn
+	// everyUnion reports that every union emits the method.
+	everyUnion bool
+}
+
+var (
+	defaultsRule = methodRule{hasOwn: defaultsHasOwn, skip: neverSkip}
+	// validateRule makes every union emit Validate, which rejects a union with no
+	// variant.
+	validateRule = methodRule{
+		hasOwn:     validateHasOwn,
+		skip:       validateSkip,
+		everyUnion: true,
+	}
+)
+
 // validateSkip reports whether a field carries `@validate skip`, excluding it from
 // generated validation and any recursion into it. Used for reference fields (a parent
 // key, label keys) that hold a stub rather than embedded data.
@@ -866,14 +889,14 @@ func validateSkip(f resolution.Field, _ *templateData) bool {
 	return validation.Parse(domain).Skip
 }
 
-// resolvesToMethodType reports whether ref resolves directly to a struct or union — a
-// type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
-// builtin container (Array/Map), or a type parameter.
+// resolvesToMethodType reports whether ref resolves, through any aliases, to a struct
+// or union — a type that can carry an ApplyDefaults/Validate method — rather than a
+// primitive, a builtin container (Array/Map), or a type parameter.
 func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
 		return false
 	}
-	resolved, ok := ref.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}
@@ -896,18 +919,17 @@ func probeData(data *templateData) *templateData {
 	return &d
 }
 
-// typeNeedsMethod reports whether the type named by ref emits a recursive method: it
-// has a field satisfying hasOwn, or a nested struct field, slice/array element, map
-// value, or union variant payload that (transitively) does. Generic types and type
-// parameters never emit a method. visited guards against cycles in recursive types.
-// Probing must not leak imports into the emitted file, so hasOwn runs against a
-// scratch-import copy of data.
+// typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
+// a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
+// nested struct field, slice/array element, map value, or union variant payload that
+// (transitively) does. Generic types and type parameters never emit a method. visited
+// guards against cycles in recursive types. Probing must not leak imports into the
+// emitted file, so rule.hasOwn runs against a scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
 	visited set.Set[string],
-	hasOwn fieldHasOwn,
-	skip fieldHasOwn,
+	rule methodRule,
 ) bool {
 	if ref.IsTypeParam() {
 		return false
@@ -915,10 +937,10 @@ func typeNeedsMethod(
 	switch ref.Name {
 	case "Array":
 		return len(ref.TypeArgs) == 1 &&
-			typeNeedsMethod(ref.TypeArgs[0], data, visited, hasOwn, skip)
+			typeNeedsMethod(ref.TypeArgs[0], data, visited, rule)
 	case "Map":
 		return len(ref.TypeArgs) == 2 &&
-			typeNeedsMethod(ref.TypeArgs[1], data, visited, hasOwn, skip)
+			typeNeedsMethod(ref.TypeArgs[1], data, visited, rule)
 	}
 	if visited.Contains(ref.Name) {
 		return false
@@ -935,24 +957,27 @@ func typeNeedsMethod(
 		}
 		probe := probeData(data)
 		for _, field := range resolution.UnifiedFields(resolved, data.table) {
-			if skip(field, data) {
+			if rule.skip(field, data) {
 				continue
 			}
-			if hasOwn(field, probe) ||
-				typeNeedsMethod(field.Type, data, visited, hasOwn, skip) {
+			if rule.hasOwn(field, probe) ||
+				typeNeedsMethod(field.Type, data, visited, rule) {
 				return true
 			}
 		}
 	case resolution.UnionForm:
+		if rule.everyUnion {
+			return true
+		}
 		for _, variant := range form.Variants {
-			if typeNeedsMethod(variant.Type, data, visited, hasOwn, skip) {
+			if typeNeedsMethod(variant.Type, data, visited, rule) {
 				return true
 			}
 		}
 	case resolution.AliasForm:
-		return typeNeedsMethod(form.Target, data, visited, hasOwn, skip)
+		return typeNeedsMethod(form.Target, data, visited, rule)
 	case resolution.DistinctForm:
-		return typeNeedsMethod(form.Base, data, visited, hasOwn, skip)
+		return typeNeedsMethod(form.Base, data, visited, rule)
 	}
 	return false
 }
@@ -961,20 +986,40 @@ func typeNeedsMethod(
 // the strconv import for the index path segment in a generated Validate method.
 func hasSliceRecurse(steps []recurseStepData) bool {
 	for _, step := range steps {
-		if step.Kind == recurseSlice {
+		if step.Kind == recurseSlice || step.Kind == recurseNestedSlice {
 			return true
 		}
 	}
 	return false
 }
 
+// unaliasContainer returns the Array or Map that ref names through aliases, or ref
+// itself when it names neither.
+func unaliasContainer(ref resolution.TypeRef, data *templateData) resolution.TypeRef {
+	for visited := set.New[string](); !visited.Contains(ref.Name); {
+		visited.Add(ref.Name)
+		resolved, ok := ref.Resolve(data.table)
+		if !ok {
+			return ref
+		}
+		alias, ok := resolved.Form.(resolution.AliasForm)
+		if !ok {
+			return ref
+		}
+		if alias.Target.Name == "Array" || alias.Target.Name == "Map" {
+			return alias.Target
+		}
+		ref = alias.Target
+	}
+	return ref
+}
+
 // goRecurseStep returns the nested-method step for a field whose type (transitively)
-// needs the method identified by hasOwn, or ok=false when the field needs no recursion.
+// needs the method of rule, or ok=false when the field needs no recursion.
 func goRecurseStep(
 	field resolution.Field,
 	data *templateData,
-	hasOwn fieldHasOwn,
-	skip fieldHasOwn,
+	rule methodRule,
 ) (recurseStepData, bool) {
 	ref := field.Type
 	step := recurseStepData{
@@ -983,11 +1028,21 @@ func goRecurseStep(
 	}
 	needs := func(r resolution.TypeRef) bool {
 		return resolvesToMethodType(r, data) &&
-			typeNeedsMethod(r, data, set.New[string](), hasOwn, skip)
+			typeNeedsMethod(r, data, set.New[string](), rule)
 	}
+	ref = unaliasContainer(ref, data)
 	switch ref.Name {
 	case "Array":
-		if len(ref.TypeArgs) == 1 && needs(ref.TypeArgs[0]) {
+		if len(ref.TypeArgs) != 1 {
+			return recurseStepData{}, false
+		}
+		elem := unaliasContainer(ref.TypeArgs[0], data)
+		if elem.Name == "Array" && len(elem.TypeArgs) == 1 &&
+			needs(elem.TypeArgs[0]) {
+			step.Kind = recurseNestedSlice
+			return step, true
+		}
+		if needs(elem) {
 			step.Kind = recurseSlice
 			return step, true
 		}

@@ -238,6 +238,14 @@ func (u SASL) Mechanism() SASLType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u SASL) Validate() error {
+	v := validate.New("SASL")
+	v.Ternary("mechanism", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Properties configures the connection to a Kafka cluster device.
 type Properties struct {
 	// Brokers contains the bootstrap broker addresses, as host:port.
@@ -280,4 +288,12 @@ func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		p.SetDefaults()
 	}
 	return dec.Decode((*plain)(p))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Properties) Validate() error {
+	v := validate.New("Properties")
+	v.Exec(func() error { return validate.PathedError(p.Sasl.Validate(), "sasl") })
+	return v.Error()
 }

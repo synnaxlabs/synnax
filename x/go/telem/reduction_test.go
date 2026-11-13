@@ -121,8 +121,11 @@ var _ = Describe("Reduction", func() {
 			func(r telem.Reduction) { Expect(r.Validate()).To(Succeed()) },
 			Entry("stride", stride),
 			Entry("limit", limit),
-			Entry("none", telem.Reduction{}),
 		)
+
+		It("Should reject a reduction without a variant", func() {
+			Expect(telem.Reduction{}.Validate()).To(MatchError("variant: required"))
+		})
 
 		DescribeTable("Should reject an invalid limit",
 			func(l telem.LimitReduction, message string) {

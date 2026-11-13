@@ -436,3 +436,11 @@ func (u *Scale) ApplyDefaults() {
 		u.Variant = variant
 	}
 }
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}

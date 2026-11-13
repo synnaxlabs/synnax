@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -222,6 +223,14 @@ func (u Target) Type() TargetType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Target) Validate() error {
+	v := validate.New("Target")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit
 // from a parallel Scope.
 type Transition struct {
@@ -232,6 +241,14 @@ type Transition struct {
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
 	// Target is where the transition goes when it fires.
 	Target Target `json:"target" msgpack:"target"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Transition) Validate() error {
+	v := validate.New("Transition")
+	v.Exec(func() error { return validate.PathedError(t.Target.Validate(), "target") })
+	return v.Error()
 }
 
 // Activation is a handle that activates a gated Scope without leaving any scope.
@@ -252,6 +269,16 @@ type Member struct {
 	NodeKey *string `json:"node_key,omitzero" msgpack:"node_key,omitempty"`
 	// Scope is set when this member is a nested scope.
 	Scope *Scope `json:"scope,omitzero" msgpack:"scope,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (m Member) Validate() error {
+	v := validate.New("Member")
+	if m.Scope != nil {
+		v.Exec(func() error { return validate.PathedError(m.Scope.Validate(), "scope") })
+	}
+	return v.Error()
 }
 
 // Members is an ordered collection of Scope members, one per position.
@@ -279,6 +306,26 @@ type Scope struct {
 	// Transitions contains state-transition rules in source order. A parallel scope
 	// holds only exits.
 	Transitions []Transition `json:"transitions" msgpack:"transitions"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s Scope) Validate() error {
+	v := validate.New("Scope")
+	for i := range s.Strata {
+		for j := range s.Strata[i] {
+			v.Exec(func() error {
+				return validate.PathedError(s.Strata[i][j].Validate(), "strata", strconv.Itoa(i), strconv.Itoa(j))
+			})
+		}
+	}
+	for i := range s.Steps {
+		v.Exec(func() error { return validate.PathedError(s.Steps[i].Validate(), "steps", strconv.Itoa(i)) })
+	}
+	for i := range s.Transitions {
+		v.Exec(func() error { return validate.PathedError(s.Transitions[i].Validate(), "transitions", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Node is a concrete instantiation of a function with typed parameters and values.
@@ -324,4 +371,12 @@ type IR struct {
 	Symbols    *symbol.Symbol                         `json:"-"`
 	TypeMap    map[antlr.ParserRuleContext]types.Type `json:"-"`
 	FmtStrings parser.FmtStrings                      `json:"-"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IR) Validate() error {
+	v := validate.New("IR")
+	v.Exec(func() error { return validate.PathedError(i.Root.Validate(), "root") })
+	return v.Error()
 }
