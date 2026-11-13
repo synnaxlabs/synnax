@@ -407,6 +407,34 @@ TEST(HTTPWriteTask, ParseConfigFixedFieldMissingValueErrors) {
     EXPECT_NE(err.data.find("value"), std::string::npos);
 }
 
+/// @brief it should fail when a fixed value cannot go into a body.
+TEST(HTTPWriteTask, ParseConfigFixedFieldValueErrors) {
+    const std::vector<std::pair<x::json::json, std::string>> cases = {
+        {{{"type", "float"}, {"value", "Infinity"}}, "value must be finite"},
+        {{{"type", "json"}, {"value", R"({"a": [1e400]})"}}, "value is not JSON"},
+    };
+    for (const auto &[field, message]: cases) {
+        auto f = field;
+        f["pointer"] = "/extra";
+        synnax::task::Task task;
+        task.config = {
+            {"device", "dev-001"},
+            {"endpoints",
+             {{
+                 {"method", "POST"},
+                 {"path", "/api/data"},
+                 {"channel",
+                  {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+                 {"fields", {f}},
+             }}},
+        };
+        auto ctx = std::make_shared<task::MockContext>(nullptr);
+        auto [_, err] = WriteTaskConfig::parse(ctx, task);
+        ASSERT_TRUE(err.matches(x::errors::VALIDATION)) << field.dump();
+        EXPECT_NE(err.data.find(message), std::string::npos) << err.data;
+    }
+}
+
 /// @brief it should fail when a bytes field does not hold canonical base64 text.
 TEST(HTTPWriteTask, ParseConfigBytesFieldNotBase64Errors) {
     synnax::task::Task task;

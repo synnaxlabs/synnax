@@ -182,6 +182,37 @@ describe("Kafka Task Types", () => {
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe("Value pointer is required");
     });
+
+    it("should accept a valid record field", () => {
+      const result = Kafka.Task.deployWriteConfigZ.safeParse({
+        ...valid,
+        record: { fields: [{ key: "f", type: "json", pointer: "/f", value: "[1]" }] },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it.each<[string, object, string, string]>([
+      [
+        "an empty pointer",
+        { key: "f", type: "uuid", pointer: "" },
+        "pointer",
+        "Pointer cannot be empty",
+      ],
+      [
+        "json text that does not parse",
+        { key: "f", type: "json", pointer: "/f", value: "{" },
+        "value",
+        "Value is not JSON",
+      ],
+    ])("should reject a record field with %s", (_, field, path, message) => {
+      const result = Kafka.Task.deployWriteConfigZ.safeParse({
+        ...valid,
+        record: { fields: [field] },
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0].message).toBe(message);
+      expect(result.error?.issues[0].path).toEqual(["record", "fields", 0, path]);
+    });
   });
 
   describe("isString", () => {

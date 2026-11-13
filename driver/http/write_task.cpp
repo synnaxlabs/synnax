@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cmath>
 #include <optional>
 #include <set>
 #include <type_traits>
@@ -40,6 +42,15 @@ std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &st
     };
 }
 
+/// @brief reports whether every number in value is finite. The parser reads a number
+/// past float64 range as an infinity.
+bool finite(const x::json::json &value) {
+    if (value.is_number_float()) return std::isfinite(value.get<double>());
+    if (value.is_structured())
+        return std::ranges::all_of(value, [](const auto &v) { return finite(v); });
+    return true;
+}
+
 /// @brief returns the JSON value that a fixed write field places in every body, or
 /// nullopt for a field that generates its value.
 std::pair<std::optional<x::json::json>, x::errors::Error>
@@ -48,15 +59,21 @@ fixed_value(const ::x::payload::WriteField &field) {
     return std::visit(
         [](const auto &f) -> R {
             using F = std::decay_t<decltype(f)>;
-            if constexpr (
-                std::is_same_v<F, ::x::payload::FloatWriteField> ||
+            if constexpr (std::is_same_v<F, ::x::payload::FloatWriteField>) {
+                if (!std::isfinite(f.value.value))
+                    return {
+                        std::nullopt,
+                        x::errors::Error(x::errors::VALIDATION, "value must be finite"),
+                    };
+                return {x::json::json(f.value.value), x::errors::NIL};
+            } else if constexpr (
                 std::is_same_v<F, ::x::payload::IntegerWriteField> ||
                 std::is_same_v<F, ::x::payload::UnsignedWriteField>
             )
                 return {x::json::json(f.value.value), x::errors::NIL};
             else if constexpr (std::is_same_v<F, ::x::payload::JsonWriteField>) {
                 auto value = x::json::json::parse(f.value, nullptr, false);
-                if (value.is_discarded())
+                if (value.is_discarded() || !finite(value))
                     return {
                         std::nullopt,
                         x::errors::Error(x::errors::VALIDATION, "value is not JSON"),
