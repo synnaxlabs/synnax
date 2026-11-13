@@ -20,7 +20,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Synnax, User } from "@synnaxlabs/pluto";
+import { Access, Flux, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -44,9 +44,6 @@ const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
   },
 });
 
-// The client knows its subject once it connects, so no row waits for a retrieve.
-const useSelfKey = (): user.Key | undefined => Synnax.use()?.auth.subject?.key;
-
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Role", width: "30rem", field: true },
@@ -55,14 +52,16 @@ const COLUMNS: List.Column[] = [
 const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
-  const selfKey = useSelfKey();
+  const { data: selfKey } = User.useResultKey({});
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const { update: rename } = User.useRename();
   const { update: setRole } = useSetRole();
   if (item == null) return null;
   const self = item.key === selfKey;
-  const renamable = canUpdate && !self;
+  // Until the current user is known, any line could be theirs, so every line locks.
+  const locked = self || selfKey == null;
+  const renamable = canUpdate && !locked;
   return (
     <Select.Item<user.Key>
       {...props}
@@ -90,7 +89,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
             onChange={(role: access.role.Key) => setRole({ key: item.key, role })}
             variant="floating"
             triggerProps={{ variant: "shadow" }}
-            disabled={!canUpdate || !canSetRole || self || item.rootUser}
+            disabled={!canUpdate || !canSetRole || locked || item.rootUser}
           />
         </List.Cell>
       </List.Cells>
@@ -101,7 +100,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
 const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const { getItem } = List.useUtilContext<user.Key, user.User>();
   const users = getItem?.(keys) ?? [];
-  const selfKey = useSelfKey();
+  const { data: selfKey } = User.useResultKey({});
   const ids = user.resourceID(keys);
   const canUpdate = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
@@ -112,11 +111,12 @@ const MembersMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   });
   const single = users.length === 1 ? users[0] : undefined;
   const self = single?.key === selfKey;
+  const locked = selfKey == null || users.some((u) => u.key === selfKey);
   // The Core refuses to delete the root user.
-  const deletable = users.every((u) => u.key !== selfKey && !u.rootUser);
+  const deletable = !locked && users.every((u) => !u.rootUser);
   return (
     <ContextMenu.Menu>
-      {single != null && canUpdate && !self && (
+      {single != null && canUpdate && !locked && (
         <ContextMenu.RenameItem
           onClick={() => Text.edit(List.itemNameID(single.key))}
         />

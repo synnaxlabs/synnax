@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
+import { Access, Credential, Synnax, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Token } from "@/platform/credential/Token";
@@ -101,8 +101,9 @@ export interface KeysProps {
  */
 export const Keys = ({ subject }: KeysProps): ReactElement => {
   const client = Synnax.use();
+  const { data: currentKey } = User.useResultKey({});
   // The Core checks permissions only for another subject's keys.
-  const own = client?.auth.subject?.key === subject.key;
+  const own = currentKey === subject.key;
   const canCreate = Access.useUpdateGranted(subject) || own;
   const canDelete = Access.useDeleteGranted(subject) || own;
   const query = { subject };
