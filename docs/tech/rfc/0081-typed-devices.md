@@ -127,7 +127,8 @@ one shared behavior, and it stays in the status service (§4.2).
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
 5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group.
+   the configuration group. Neither write path touches the other group. A LabJack device
+   has no groups, so its scanner writes only `rack` and `connection` (§4.3).
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -394,9 +395,10 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 ### 4.10 Testing
 
 Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
-including one that quarantines. Driver specs build devices from generated structs.
-Console specs for each make's forms and tree items run against the typed client.
+refused delete, and cascade; LabJack gets a whole-device update in place of the two
+group updates. The migration suite seeds 0.59-shaped rows for every make, including one
+that quarantines. Driver specs build devices from generated structs. Console specs for
+each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
