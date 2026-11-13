@@ -17,6 +17,8 @@ import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { Sift } from "@/feature/sift";
+import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Task } from "@/platform/task";
 
@@ -51,6 +53,9 @@ export const NETWORK: Network[] = [
   { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
   { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
   { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.Device.ContextMenuItems },
+  ...(FLAGS.sift
+    ? [{ ...Sift.Device.NETWORK, ContextMenuItems: Sift.Device.ContextMenuItems }]
+    : []),
 ];
 
 export const HARDWARE: Hardware[] = [
