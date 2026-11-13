@@ -190,11 +190,13 @@ jobs:
         if:
           inputs.test && (inputs.coverage_module == '' || matrix.python == 'oldest') &&
           (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
+        timeout-minutes: 15
         run: uv run pytest
 
       - name: Test with coverage
         if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
         shell: bash
+        timeout-minutes: 15
         env:
           COVERAGE_MODULE: ${{ inputs.coverage_module }}
         run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml

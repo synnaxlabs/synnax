@@ -184,10 +184,13 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
+      # A hung test run once held a release for 52 minutes. The slowest caller, a
+      # Console shard, takes 8 minutes.
       - name: Test
         if: inputs.test
         # The reporters feed the coverage upload, which only vitest packages have.
         shell: bash
+        timeout-minutes: 20
         env:
           PACKAGE: ${{ inputs.package }}
           TEST_ARGS: ${{ inputs.test_args }}
@@ -204,6 +207,7 @@ jobs:
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
+        timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
         run: pnpm test:"$PACKAGE" -- --run --project webkit
