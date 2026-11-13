@@ -41,6 +41,7 @@ interface AliasProps extends RangeKeyProps {
   alias: string;
   /** An inherited alias cannot be removed here. Changing it sets the range's own. */
   inherited: boolean;
+  preview: boolean;
 }
 
 const Alias = ({
@@ -49,6 +50,7 @@ const Alias = ({
   name,
   alias,
   inherited,
+  preview,
 }: AliasProps): ReactElement => {
   const { update } = Channel.useUpdateAlias();
   const { update: remove } = Channel.useDeleteAlias();
@@ -59,6 +61,7 @@ const Alias = ({
       placeholder="Alias"
       onlyChangeOnBlur
       resetOnBlurIfEmpty
+      preview={preview}
       className={CSS.BE("range-overview", "field-value")}
       onChange={(next) => update({ range: rangeKey, channel, alias: next })}
     />
@@ -84,7 +87,11 @@ const Alias = ({
     <Field
       name={<FieldName>{name}</FieldName>}
       actions={
-        <RemoveButton onClick={() => remove({ range: rangeKey, channels: channel })} />
+        preview ? undefined : (
+          <RemoveButton
+            onClick={() => remove({ range: rangeKey, channels: channel })}
+          />
+        )
       }
     >
       {input}
@@ -151,6 +158,8 @@ interface AliasesProps extends RangeKeyProps {
   aliases: ranger.ResolvedAliases;
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
+  /** Shows the aliases without the controls that change them. */
+  preview: boolean;
 }
 
 export const Aliases = ({
@@ -158,6 +167,7 @@ export const Aliases = ({
   aliases: { aliases, own },
   adding,
   onAddingChange,
+  preview,
 }: AliasesProps): ReactElement => {
   const keys = Object.keys(aliases).map(Number);
   const channels = Channel.useResultMultiple(
@@ -168,7 +178,11 @@ export const Aliases = ({
     <Section
       title="Channel aliases"
       icon={<Icon.Channel />}
-      actions={<AddButton tooltip="Add alias" onClick={() => onAddingChange(true)} />}
+      actions={
+        preview ? undefined : (
+          <AddButton tooltip="Add alias" onClick={() => onAddingChange(true)} />
+        )
+      }
     >
       <Flex.Box y empty className={CSS.BE("range-overview", "fields")}>
         {Object.entries(aliases)
@@ -181,6 +195,7 @@ export const Aliases = ({
               name={names.get(Number(key))}
               alias={alias}
               inherited={!own.includes(Number(key))}
+              preview={preview}
             />
           ))}
         {adding && (

@@ -37,6 +37,7 @@ export const Overview: Panel.Content = () => {
   const [adding, setAdding] = useState<Adding>(null);
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(key));
   const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
   const showMetaData = pairs.length > 0 || adding === "metadata";
   const aliasCount = aliases == null ? 0 : Object.keys(aliases.aliases).length;
@@ -57,9 +58,10 @@ export const Overview: Panel.Content = () => {
             pairs={pairs}
             adding={adding === "metadata"}
             onAddingChange={setAddingTo("metadata")}
+            preview={!canEdit}
           />
         ) : (
-          <AddLine onClick={() => setAdding("metadata")}>Metadata</AddLine>
+          canEdit && <AddLine onClick={() => setAdding("metadata")}>Metadata</AddLine>
         )}
         {aliases != null &&
           (showAliases ? (
@@ -68,9 +70,12 @@ export const Overview: Panel.Content = () => {
               aliases={aliases}
               adding={adding === "alias"}
               onAddingChange={setAddingTo("alias")}
+              preview={!canEdit}
             />
           ) : (
-            <AddLine onClick={() => setAdding("alias")}>Channel alias</AddLine>
+            canEdit && (
+              <AddLine onClick={() => setAdding("alias")}>Channel alias</AddLine>
+            )
           ))}
         {documents.documents.length > 0 && <Documents {...documents} />}
       </Flex.Box>

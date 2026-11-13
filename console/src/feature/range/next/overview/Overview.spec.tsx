@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type channel,
+  channel,
   label,
   lineplot,
   NotFoundError,
@@ -37,6 +37,7 @@ import {
   createTestClientWithGrants,
   type Grants,
   openContextMenu,
+  queryIconButton,
   renderSuspended,
   resolveFocusedTab,
   type TestStore,
@@ -439,6 +440,26 @@ describe("range/next/overview", () => {
       await renderAs({ create: [ranger.TYPE_RESOURCE_ID] });
       await screen.findByRole("button", { name: "Child range" });
       expect(screen.queryByRole("button", { name: "Plot" })).toBeNull();
+    });
+
+    it("should show metadata and aliases without edit controls to a subject who may not update the range", async () => {
+      const rng = await createTestRange(client);
+      const ch = await createChannel();
+      await rng.kv.set("operator", "ada");
+      await rng.setAlias(ch.key, "thrust");
+      const as = await createTestClientWithGrants(client, {
+        create: [lineplot.TYPE_RESOURCE_ID],
+        retrieve: [...READS, channel.TYPE_RESOURCE_ID, ranger.alias.TYPE_RESOURCE_ID],
+      });
+      await renderOverview(rng.key, as);
+      // Both grants answer from one policy read, so this button shows that it landed.
+      await screen.findByRole("button", { name: "Plot" });
+      await screen.findByText("ada");
+      await screen.findByText("thrust");
+      expect(screen.queryByDisplayValue("ada")).toBeNull();
+      expect(screen.queryByDisplayValue("thrust")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+      expect(queryIconButton(document.body, "add")).toBeNull();
     });
 
     it("should offer a plot but no child range to a subject who may create only line plots", async () => {
