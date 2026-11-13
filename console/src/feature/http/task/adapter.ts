@@ -88,13 +88,13 @@ const toBoolean = (v: number | string): boolean | undefined => {
 
 /**
  * @returns the field with the kind of the data type, converting the fill and enum
- * entries as the Core does. Between float, integer, and unsigned kinds, they convert
- * when a channel of the data type holds them exactly, and on a boolean kind a number
- * is true when it is not 0. A field of another kind keeps only its base fields.
+ * entries as the Core does. On float, integer, and unsigned kinds, they convert when a
+ * channel of the data type holds them exactly, and on a boolean kind a number is true
+ * when it is not 0. A field of another kind keeps only its base fields.
  */
 export const retype = (field: ReadField, dataType: DataType): ReadField => {
   const type = kindOf(dataType);
-  if (type === field.type) return isNumeric(field) ? { ...field, dataType } : field;
+  if (type === field.type && !isNumeric(field)) return field;
   const { key, name, disabled, channel, pointer } = field;
   const convert =
     type === "boolean"
