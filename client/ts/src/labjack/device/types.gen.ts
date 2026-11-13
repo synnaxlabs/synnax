@@ -12,17 +12,18 @@
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const MODELS = ["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"] as const;
-export const modelZ = z.enum(MODELS);
-export type Model = z.infer<typeof modelZ>;
-
 export const CONNECTIONS = ["LJM_ctUSB", "LJM_ctTCP"] as const;
 export const connectionZ = z.enum(CONNECTIONS);
 export type Connection = z.infer<typeof connectionZ>;
+
+export const MODELS = ["t4", "t7", "t8"] as const;
+export const modelZ = z.enum(MODELS);
+export type Model = z.infer<typeof modelZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -39,8 +40,8 @@ export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
-/** Device is a LabJack T-series device. */
-export const deviceZ = z.object({
+/** Base carries the fields that every LabJack device shares. */
+export const baseZ = z.object({
   /** key uniquely identifies the device. */
   key: keyZ.default(uuid.create),
   /** rack is the key of the rack the device is connected to. */
@@ -49,8 +50,6 @@ export const deviceZ = z.object({
   name: z.string().min(1, "name is required"),
   /** serial is the serial number of the device. */
   serial: z.uint32().refine((v) => v !== 0, "serial is required"),
-  /** model is the model of the device. */
-  model: modelZ,
   /** connection is the connection the scanner last found the device on. */
   connection: connectionZ,
   /**
@@ -58,11 +57,47 @@ export const deviceZ = z.object({
    * while it is empty.
    */
   identifier: z.string().default(""),
+  /** readIndex is the index channel of the channels that the device reads into. */
+  readIndex: channel.keyZ.default(0),
+  /**
+   * writeStateIndex is the index channel of the state channels of the device's outputs.
+   */
+  writeStateIndex: channel.keyZ.default(0),
   /** status is the current operational status of the device. */
   status: statusZ.optional(),
 });
-export interface Device extends z.infer<typeof deviceZ> {}
-export interface New extends z.input<typeof deviceZ> {}
+export interface Base extends z.infer<typeof baseZ> {}
+
+/** T4Device is a T4. */
+export const t4DeviceZ = baseZ.extend({
+  model: z.literal("t4"),
+});
+export interface T4Device extends z.infer<typeof t4DeviceZ> {}
+
+/** T7Device is a T7. */
+export const t7DeviceZ = baseZ.extend({
+  model: z.literal("t7"),
+});
+export interface T7Device extends z.infer<typeof t7DeviceZ> {}
+
+/** T8Device is a T8. */
+export const t8DeviceZ = baseZ.extend({
+  model: z.literal("t8"),
+});
+export interface T8Device extends z.infer<typeof t8DeviceZ> {}
+
+/** Device is a LabJack T-series device. Its model selects the ports it has. */
+export const deviceZ = z.discriminatedUnion("model", [t4DeviceZ, t7DeviceZ, t8DeviceZ]);
+export type Device = T4Device | T7Device | T8Device;
+
+export const DEVICE_SCHEMAS: {
+  [K in Model]: z.ZodType<Extract<Device, { model: K }>>;
+} = {
+  t4: t4DeviceZ,
+  t7: t7DeviceZ,
+  t8: t8DeviceZ,
+};
+export type NewDevice = z.input<typeof deviceZ>;
 
 export const resourceID = resource.createIDFactory<Key>("labjack_device");
 export const TYPE_RESOURCE_ID = resourceID("");

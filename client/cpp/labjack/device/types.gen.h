@@ -14,7 +14,9 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
@@ -24,14 +26,14 @@
 namespace synnax::labjack::device {
 
 struct StatusDetails;
-struct Device;
-
-constexpr const char *MODEL_T_4 = "LJM_dtT4";
-constexpr const char *MODEL_T_7 = "LJM_dtT7";
-constexpr const char *MODEL_T_8 = "LJM_dtT8";
+struct Base;
 
 constexpr const char *CONNECTION_USB = "LJM_ctUSB";
 constexpr const char *CONNECTION_TCP = "LJM_ctTCP";
+
+constexpr const char *MODEL_T_4 = "t4";
+constexpr const char *MODEL_T_7 = "t7";
+constexpr const char *MODEL_T_8 = "t8";
 
 using Key = x::uuid::UUID;
 
@@ -48,8 +50,8 @@ struct StatusDetails {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
-/// @brief Device is a LabJack T-series device.
-struct Device {
+/// @brief Base carries the fields that every LabJack device shares.
+struct Base {
     /// @brief key uniquely identifies the device.
     Key key;
     /// @brief rack is the key of the rack the device is connected to.
@@ -58,19 +60,58 @@ struct Device {
     std::string name;
     /// @brief serial is the serial number of the device.
     std::uint32_t serial = 0;
-    /// @brief model is the model of the device.
-    std::string model;
     /// @brief connection is the connection the scanner last found the device on.
     std::string connection;
     /// @brief identifier is the prefix of the device's channel names. The device is
     /// unconfigured while it is empty.
     std::string identifier = "";
+    /// @brief read_index is the index channel of the channels that the device reads
+    /// into.
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    /// @brief write_state_index is the index channel of the state channels of the
+    /// device's outputs.
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
 
-    static Device parse(x::json::Parser parser);
+    static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief T4Device is a T4.
+struct T4Device : public Base {
+    std::string model = MODEL_T_4;
+
+    static T4Device parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T7Device is a T7.
+struct T7Device : public Base {
+    std::string model = MODEL_T_7;
+
+    static T7Device parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T8Device is a T8.
+struct T8Device : public Base {
+    std::string model = MODEL_T_8;
+
+    static T8Device parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Device is a LabJack T-series device. Its model selects the ports it has.
+using Device = std::variant<T4Device, T7Device, T8Device>;
+
+Device parse_device(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Device &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const Base &base(const Device &value) {
+    return std::visit([](const auto &v) -> const Base & { return v; }, value);
+}
 
 const synnax::resource::ID TYPE_RESOURCE_ID("labjack_device", "");
 

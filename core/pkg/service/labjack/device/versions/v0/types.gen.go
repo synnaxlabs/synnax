@@ -12,26 +12,30 @@
 package v0
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"uuid"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key uniquely identifies a LabJack device.
 type Key = uuid.UUID
 
-// Model is the model of a LabJack device, named by its LJM device type.
+// Model is the model of a LabJack device.
 type Model string
 
 const (
 	// ModelT4 is a T4.
-	ModelT4 Model = "LJM_dtT4"
+	ModelT4 Model = "t4"
 	// ModelT7 is a T7.
-	ModelT7 Model = "LJM_dtT7"
+	ModelT7 Model = "t7"
 	// ModelT8 is a T8.
-	ModelT8 Model = "LJM_dtT8"
+	ModelT8 Model = "t8"
 )
 
 // IsValid reports whether m is one of the defined Model
@@ -77,8 +81,8 @@ type StatusDetails struct {
 // Status is the operational status of a device.
 type Status = status.Status[StatusDetails]
 
-// Device is a LabJack T-series device.
-type Device struct {
+// Base carries the fields that every LabJack device shares.
+type Base struct {
 	// Key uniquely identifies the device.
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack the device is connected to.
@@ -87,24 +91,220 @@ type Device struct {
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the device.
 	Serial uint32 `json:"serial" msgpack:"serial"`
-	// Model is the model of the device.
-	Model Model `json:"model" msgpack:"model"`
 	// Connection is the connection the scanner last found the device on.
 	Connection Connection `json:"connection" msgpack:"connection"`
 	// Identifier is the prefix of the device's channel names. The device is
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
+	// ReadIndex is the index channel of the channels that the device reads into.
+	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	// WriteStateIndex is the index channel of the state channels of the device's
+	// outputs.
+	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (d Device) Validate() error {
-	v := validate.New("Device")
-	v.Ternaryf("model", !d.Model.IsValid(), "invalid model: %v", d.Model)
-	v.Ternaryf("connection", !d.Connection.IsValid(), "invalid connection: %v", d.Connection)
-	v.NotEmptyString("name", d.Name)
-	v.NonZero("serial", d.Serial)
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.Ternaryf("connection", !b.Connection.IsValid(), "invalid connection: %v", b.Connection)
+	v.NotEmptyString("name", b.Name)
+	v.NonZero("serial", b.Serial)
 	return v.Error()
+}
+
+// DeviceVariant is implemented by every Device variant.
+type DeviceVariant interface {
+	isDeviceVariant()
+}
+
+// T4Device is a T4.
+type T4Device struct {
+	Base
+}
+
+func (T4Device) isDeviceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T4Device) Validate() error {
+	v := validate.New("T4Device")
+	v.Exec(t.Base.Validate)
+	return v.Error()
+}
+
+// T7Device is a T7.
+type T7Device struct {
+	Base
+}
+
+func (T7Device) isDeviceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T7Device) Validate() error {
+	v := validate.New("T7Device")
+	v.Exec(t.Base.Validate)
+	return v.Error()
+}
+
+// T8Device is a T8.
+type T8Device struct {
+	Base
+}
+
+func (T8Device) isDeviceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T8Device) Validate() error {
+	v := validate.New("T8Device")
+	v.Exec(t.Base.Validate)
+	return v.Error()
+}
+
+// Device is a LabJack T-series device. Its model selects the ports it has.
+type Device struct {
+	Variant DeviceVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "model" tag injected.
+func (u Device) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case T4Device:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T4Device
+		}{Type: ModelT4, T4Device: v})
+	case T7Device:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T7Device
+		}{Type: ModelT7, T7Device: v})
+	case T8Device:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T8Device
+		}{Type: ModelT8, T8Device: v})
+	default:
+		return errors.Newf("Device: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "model" field.
+func (u *Device) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Model `json:"model"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ModelT4:
+		var v struct {
+			Type Model `json:"model"`
+			T4Device
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T4Device
+	case ModelT7:
+		var v struct {
+			Type Model `json:"model"`
+			T7Device
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T7Device
+	case ModelT8:
+		var v struct {
+			Type Model `json:"model"`
+			T8Device
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T8Device
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Device: unknown model %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Model returns the model of the active variant, or an empty model when there is none.
+func (u Device) Model() Model {
+	switch u.Variant.(type) {
+	case T4Device:
+		return ModelT4
+	case T7Device:
+		return ModelT7
+	case T8Device:
+		return ModelT8
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Device) Validate() error {
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		return variant.Validate()
+	case T7Device:
+		return variant.Validate()
+	case T8Device:
+		return variant.Validate()
+	}
+	return nil
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Device) Base() Base {
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		return variant.Base
+	case T7Device:
+		return variant.Base
+	case T8Device:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Device) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		variant.Base = base
+		u.Variant = variant
+	case T7Device:
+		variant.Base = base
+		u.Variant = variant
+	case T8Device:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Device: cannot set the base of variant %T", variant))
+	}
 }

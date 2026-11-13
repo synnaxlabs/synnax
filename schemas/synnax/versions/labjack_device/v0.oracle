@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v1"
 import "schemas/synnax/versions/rack/v3"
 import "schemas/synnax/versions/status/v2"
 
@@ -15,17 +16,17 @@ Key = uuid {
 }
 
 Model enum {
-    t4 = "LJM_dtT4" {
+    t4 = "t4" {
         @doc value "is a T4."
     }
-    t7 = "LJM_dtT7" {
+    t7 = "t7" {
         @doc value "is a T7."
     }
-    t8 = "LJM_dtT8" {
+    t8 = "t8" {
         @doc value "is a T8."
     }
 
-    @doc value "is the model of a LabJack device, named by its LJM device type."
+    @doc value "is the model of a LabJack device."
 }
 
 Connection enum {
@@ -56,38 +57,56 @@ Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a device."
 }
 
-Device struct {
-    key        Key = create {
+Base struct {
+    key               Key = create {
         @doc value "uniquely identifies the device."
         @key
     }
-    rack       rack.Key   {
+    rack              rack.Key    {
         @doc value "is the key of the rack the device is connected to."
     }
-    name       string     {
+    name              string      {
         @doc value "is a human-readable name for the device."
     }
-    serial     uint32     {
+    serial            uint32      {
         @doc value "is the serial number of the device."
     }
-    model      Model      {
-        @doc value "is the model of the device."
-    }
-    connection Connection {
+    connection        Connection  {
         @doc value "is the connection the scanner last found the device on."
     }
-    identifier string = "" {
+    identifier        string = "" {
         @doc value """
             is the prefix of the device's channel names. The device is unconfigured
             while it is empty.
         """
     }
-    status     Status?    {
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    status            Status?     {
         @doc value  "is the current operational status of the device."
         @go marshal omit
     }
 
-    @doc value  "is a LabJack T-series device."
+    @doc value  "carries the fields that every LabJack device shares."
+    @go marshal
+}
+
+Device union on model Model extends Base {
+    t4 {
+        @doc value "is a T4."
+    }
+    t7 {
+        @doc value "is a T7."
+    }
+    t8 {
+        @doc value "is a T8."
+    }
+
+    @doc value  "is a LabJack T-series device. Its model selects the ports it has."
     @go marshal
     @go migrate
 }
