@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -118,16 +119,21 @@ TEST(Color, ParsesJSONStrings) {
 
 /// @brief it should reject JSON that is not a color string.
 TEST(Color, RejectsNonStringJSON) {
-    for (const auto &j:
-         {x::json::json(nullptr),
-          x::json::json(""),
-          x::json::json::object(),
-          x::json::json::array({122, 44, 38, 0.5}),
-          x::json::json({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}})}) {
+    const std::vector<std::pair<x::json::json, std::string>> cases = {
+        {x::json::json(nullptr), "color must be a string: null"},
+        {x::json::json(""), "invalid color \"\": the string is empty"},
+        {x::json::json::object(), "color must be a string: {}"},
+        {x::json::json::array({122, 44, 38, 0.5}),
+         "color must be a string: [122,44,38"},
+        {x::json::json({{"r", 255}, {"a", 0.5}}), "color must be a string: {\"a\""},
+    };
+    for (const auto &[j, want]: cases) {
         SCOPED_TRACE(j.dump());
         x::json::Parser parser(j);
         Color::parse(parser);
-        EXPECT_FALSE(parser.ok());
+        ASSERT_FALSE(parser.ok());
+        const auto msg = parser.errors->at(0)["message"].get<std::string>();
+        EXPECT_NE(msg.find(want), std::string::npos) << msg;
     }
 }
 
