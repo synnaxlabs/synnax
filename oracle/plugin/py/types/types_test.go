@@ -521,11 +521,16 @@ var _ = Describe("Python Types Plugin", func() {
 					@validate max 1
 				}
 
+				Name = string {
+					@validate max_length 10
+				}
+
 				Range struct {
-					rate Rate
-					fast Rate @validate gt 5
-					size Decimal
-					half Decimal @validate max 0.5
+					rate  Rate
+					fast  Rate @validate gt 5
+					size  Decimal
+					half  Decimal @validate max 0.5
+					label Name @validate min_length 2
 				}
 			`
 				table, diag := Analyze(ctx, source, "range", loader)
@@ -545,6 +550,9 @@ var _ = Describe("Python Types Plugin", func() {
 				))
 				Expect(content).To(ContainSubstring(
 					`half: Decimal = Field(ge=0, le=0.500000, allow_inf_nan=False)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`label: Name = Field(min_length=2, max_length=10)`,
 				))
 			},
 		)

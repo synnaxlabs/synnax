@@ -1153,9 +1153,8 @@ func collectValidation(
 		return nil
 	}
 	var constraints []string
-	isString := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsStringPrimitive(typeRef.Name)
 	primitive := key.ResolvePrimitive(typeRef, table)
+	isString := resolution.IsStringPrimitive(primitive)
 	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
