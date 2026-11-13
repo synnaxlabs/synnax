@@ -89,7 +89,6 @@ export default manifest.define([
   { id: "client/channels/toolbar", script: "scripts/channels-toolbar.ts" },
   { id: "client/channels/rename", script: "scripts/channels-rename.ts" },
   { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
-  { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
     id: "client/calculated-channels/create",
     script: "scripts/calculated-channels-create.ts",

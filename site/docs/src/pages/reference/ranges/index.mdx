@@ -95,21 +95,7 @@ Child ranges divide a range into smaller intervals. For example, a campaign rang
 cover all the tests on one component, and a child range can mark each test in the
 campaign.
 
-A child range uses the channel aliases of its parent. It can set its own alias for a
-channel to replace the alias of the parent. When you delete a range, Synnax also deletes
-its child ranges.
-
-<Divider.Divider x />
-
-## Channel aliases
-
-An alias is a different name for a channel inside one range. For example, a device has
-three analog inputs: `ai_0`, `ai_1`, and `ai_2`. In one test, `ai_0` measures tank
-pressure, so you give it the alias `tank_pressure`. In a different test, `ai_0` measures
-temperature, so you give it the alias `temperature`.
-
-When you search for a channel in a range, you can use its name or its alias. To set an
-alias, see [channel aliases](/reference/ranges/aliases).
+When you delete a range, Synnax also deletes its child ranges.
 
 <Divider.Divider x />
 

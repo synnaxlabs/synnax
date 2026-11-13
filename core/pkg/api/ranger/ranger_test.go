@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"slices"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,14 +24,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -602,29 +598,6 @@ var _ = Describe("Delete cascades", func() {
 			},
 		}
 	}
-	createAlias := func(ctx SpecContext) held {
-		GinkgoHelper()
-		ch := channel.Channel{
-			Name:     "aliased_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
-			DataType: telem.Float64T,
-			Virtual:  true,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "alias")
-		})).To(Succeed())
-		return held{
-			id: alias.ResourceID(r.Key, ch.Key()),
-			exists: func(ctx SpecContext) bool {
-				GinkgoHelper()
-				_, err := svc.Alias.NewReader(db).Resolve(ctx, r.Key, "alias")
-				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
-				return err == nil
-			},
-		}
-	}
 	DescribeTable(
 		"Should need delete on each record that the range holds",
 		func(ctx SpecContext, create func(ctx SpecContext) held) {
@@ -641,7 +614,6 @@ var _ = Describe("Delete cascades", func() {
 			Expect(h.exists(ctx)).To(BeFalse())
 		},
 		Entry("a nested range", createChild),
-		Entry("an alias", createAlias),
 	)
 })
 

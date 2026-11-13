@@ -16,7 +16,6 @@
   "client/resources/build-device-driver/console-setup": "a7c593320a78",
   "client/resources/build-device-driver/line-plot": "a4781d2d399b",
   "client/resources/build-device-driver/schematic": "192a2bdc9bb2",
-  "console/channels/alias": "4f60051aa8f1",
   "console/clusters/connect": "39dba891a6c6",
   "console/line-plots/create": "4f6b240a2128",
   "console/line-plots/range-zoom": "84b021bfaa75",

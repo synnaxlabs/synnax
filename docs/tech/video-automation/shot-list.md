@@ -18,18 +18,17 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
   `device-drivers/*/read-task/*` and `device-drivers/task/task-basic`.
 - **Pre-seeded ranges**: `console/ui-overview/palette-search`,
   `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
-  `console/ranges/add-meta-data`, `console/ranges/add-label`, `console/channels/alias`.
+  `console/ranges/add-meta-data`, `console/ranges/add-label`.
 - **Pre-seeded users**: `console/users/modal-change-role`.
 - **Pre-seeded channels** (index + data channels already created, with or without data):
-  `console/channels/alias`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/logs/example`,
-  `console/schematics/value`, `console/schematics/valve`,
+  `console/calculated-channels/create`, `console/calculated-channels/edit`,
+  `console/logs/example`, `console/schematics/value`, `console/schematics/valve`,
   `control/arc/get-started/create-automation`.
 - **Pre-seeded workspaces/visualizations**: `console/workspaces/load`.
 - **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
   `console/schematics/edit-several-elements` (drag select box), symbol placement in any
   schematic shot.
-- **Context menus**: `console/channels/alias`, `console/calculated-channels/edit`,
+- **Context menus**: `console/calculated-channels/edit`,
   `console/users/modal-change-role`, `device-drivers/task/toolbar`,
   `device-drivers/ni/configure-device/ni-configure-device`,
   `device-drivers/labjack/configure-device/lj-configure`,
@@ -111,11 +110,6 @@ All on reference/get-started/sample-project.mdx.
 - `console/channels/create_new` (reference/channels/create.mdx) -> click the "+" action
   in the Channels Toolbar -> fill name, data type, and index channel in the dialog ->
   submit -> the channel appears in the Channels Toolbar.
-- `console/channels/alias` (reference/ranges/aliases.mdx) -> with a range active, open
-  the Channels Toolbar -> right-click a channel -> choose the alias option and type a
-  range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show the alias
-  displayed while that range is active -> requires a pre-seeded channel and an active
-  range.
 
 ## console/calculated-channels
 
