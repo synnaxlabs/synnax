@@ -36,11 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
   await page.getByText("Open range explorer", { exact: true }).first().click();
-  const explorer = page.locator(".console-range-tree__list").first();
-  await session.waitFor(explorer);
-  const parent = explorer
-    .locator(`.console-range-item[aria-label="${PARENT}"]`)
-    .first();
+  const parent = page.getByRole("listitem", { name: PARENT, exact: true }).first();
   await session.waitFor(parent);
   await session.settle(500);
   await session.moveTo({ x: 800, y: 450 });
@@ -81,10 +77,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.clickButton(session, "Save to Core");
   session.endZoom();
   await session.waitForHidden(name);
-  // The tree shows a child once its parent opens.
+  // The child lands under its parent, which stays closed.
   await session.click(parent.getByRole("button", { name: "Expand" }));
   await session.waitFor(
-    explorer.locator(`.console-range-item[aria-label="${CHILD}"]`).first(),
+    page.getByRole("listitem", { name: CHILD, exact: true }).first(),
   );
   await session.hold(3000);
 };

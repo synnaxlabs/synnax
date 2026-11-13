@@ -153,11 +153,12 @@ export const useSearchTree = ({
             ),
           },
         };
-  // A new search shows the last answer until the ranges above its matches land.
+  // A new search shows the last answer until the ranges above its matches land, and
+  // nothing once that read fails, so the error shows.
   const [last, setLast] = useState<Answer | null>(null);
   if (matches == null ? last != null : current != null && !deep.equal(current, last))
     setLast(current);
-  const shown = current ?? last;
+  const shown = above.variant === "error" ? null : (current ?? last);
   const [toggled, setToggled] = useState(() => ({
     scope,
     open: new Map<ranger.Key, boolean>(),

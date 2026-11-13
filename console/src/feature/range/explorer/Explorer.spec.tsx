@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
   view,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -194,6 +194,27 @@ describe("range/explorer/Explorer", () => {
       expect(screen.getByRole("button", { name: "Remove Stage filter" })).toBeTruthy();
     });
 
+    it("should drop a range from its stage filter once the range ends", async () => {
+      const token = uniqueToken();
+      const start = TimeStamp.now();
+      const ending = await createRange(`${token} ending`, {
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(3))),
+      });
+      const running = await createRange(`${token} running`, {
+        timeRange: new TimeRange(start, TimeStamp.MAX),
+      });
+      await renderExplorer();
+      await search(token);
+      const stage = await openFilterProperty("Stage");
+      fireEvent.click(within(stage).getByRole("option", { name: /In progress$/ }));
+      await findItem(ending.name);
+      await waitFor(
+        () => expect(screen.queryByRole("listitem", { name: ending.name })).toBeNull(),
+        { timeout: 10_000 },
+      );
+      expect(itemOf(running.name)).toBeTruthy();
+    });
+
     it("should keep the ranges in a time preset and name the preset in its chip", async () => {
       const token = uniqueToken();
       const recent = await createRange(`${token} recent`);
@@ -316,6 +337,31 @@ describe("range/explorer/Explorer", () => {
         within(itemOf(parent.name)).getByRole("button", { name: "Expand" }),
       );
       await findItem(match.name);
+    });
+
+    it("should show the error of a search whose ranges above fail to read, not the last matches", async () => {
+      const [first, second] = [uniqueToken(), uniqueToken()];
+      const holder = await createRange(uniqueRangeName("holder"));
+      const shown = await createRange(`${first} shown`, { parent: holder.key });
+      const top = await createRange(uniqueRangeName("top"));
+      const parent = await createRange(uniqueRangeName("parent"), { parent: top.key });
+      await createRange(`${second} match`, { parent: parent.key });
+      const as = createTestClient();
+      // Only the read of the range above the second match fails. The tree lists the top
+      // range, so the range under it is not cached.
+      const spy = rejectRequests(
+        as,
+        (target, req) =>
+          target === "/range/retrieve" && JSON.stringify(req).includes(parent.key),
+        new Error("parent read failed"),
+      );
+      onTestFinished(() => spy.mockRestore());
+      await renderExplorer(as);
+      await search(first);
+      await findItem(shown.name);
+      await search(second);
+      await screen.findByText("Failed to search ranges");
+      expect(screen.queryByRole("listitem", { name: shown.name })).toBeNull();
     });
 
     it("should drop a deleted range that holds matches", async () => {

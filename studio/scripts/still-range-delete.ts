@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
   await capture.openToolbar(session, "range");
   await page.getByText("Open range explorer", { exact: true }).first().click();
-  const item = page.locator(`.console-range-item[aria-label="${RANGE}"]`).first();
+  const item = page.getByRole("listitem", { name: RANGE, exact: true }).first();
   await session.waitFor(item);
   await capture.closeToolbar(session);
   await capture.contextMenu(session, item, "Delete");

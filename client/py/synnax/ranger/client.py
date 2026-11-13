@@ -401,6 +401,7 @@ class Range(Payload):
             color=self.color,
             labels=self.labels,
             parent=self.parent,
+            has_children=self.has_children,
         )
 
     @overload

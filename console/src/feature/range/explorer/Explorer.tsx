@@ -12,17 +12,18 @@ import "@/feature/range/explorer/Explorer.css";
 import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { useDebouncedCallback, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { binary, location, TimeSpan } from "@synnaxlabs/x";
+import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { PROPERTIES } from "@/feature/range/explorer/Filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
+import { nextCrossing, pin } from "@/feature/range/explorer/time";
 import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -119,6 +120,10 @@ const useViewField = <F extends "sort" | "layout">(
 const Internal = (): ReactElement => {
   const { getInitialView, searchTerm, editable } = View.useContext();
   const [where, setWhere] = useState(() => getInitialView().where);
+  // The Core reads stages and recent spans at the time of a read, so the list reads at
+  // a held instant and reads again when a range it holds could cross the filter.
+  const [at, setAt] = useState(() => TimeStamp.now());
+  const pinned = where == null ? undefined : pin(where, at);
   // The term that the list reads. The query follows it, so the list never reads a
   // search page without the term, or the term without a search page.
   const [term, setTerm] = useState("");
@@ -128,10 +133,10 @@ const Internal = (): ReactElement => {
   const searching = isCapped(term, where, flat);
   const scoped: ranger.Where | undefined =
     flat || searching
-      ? where
-      : where == null
+      ? pinned
+      : pinned == null
         ? { nested: false }
-        : { and: [where, { nested: false }] };
+        : { and: [pinned, { nested: false }] };
   const root = Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: { where: scoped, order: Tree.ORDERS[sort] },
@@ -139,6 +144,9 @@ const Internal = (): ReactElement => {
     eager: searching,
     searchDebounce: 0,
   });
+  const crossing = nextCrossing(where, root.getItem(root.data), at);
+  const now = useNow(() => crossing);
+  if (crossing != null && !now.before(crossing)) setAt(now);
   const handleSearch = useDebouncedCallback(
     (next: string) => {
       setTerm(next);
@@ -202,7 +210,10 @@ const Internal = (): ReactElement => {
       // A search in a tree reads its first page only.
       more={searching ? NO_MORE : root.more}
       search={handleSearch}
-      onWhereChange={setWhere}
+      onWhereChange={(next) => {
+        setWhere(next);
+        setAt(TimeStamp.now());
+      }}
       itemHeight={Tree.itemHeight(layout)}
     >
       <View.Toolbar>

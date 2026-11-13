@@ -20,6 +20,15 @@ import {
 
 import { UNSET } from "@/ranger/move";
 
+/** @returns the filter that matches the ranges `getStage` puts in `stage` at `now`. */
+export const stageWhere = (stage: ranger.Stage, now: TimeStamp): ranger.Where => {
+  const next = now.add(TimeSpan.nanoseconds(1));
+  if (stage === "to_do")
+    return { not: { overlaps: new TimeRange(TimeStamp.MIN, next) } };
+  if (stage === "in_progress") return { overlaps: new TimeRange(now, next) };
+  return { not: { overlaps: new TimeRange(now, TimeStamp.MAX) } };
+};
+
 /** @returns the stage `timeRange` is in at `now`. */
 export const getStage = (
   timeRange: CrudeTimeRange,
