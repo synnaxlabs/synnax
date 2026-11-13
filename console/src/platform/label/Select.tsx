@@ -9,7 +9,6 @@
 
 import { label } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
@@ -23,13 +22,11 @@ interface CreateButtonProps {
 const CreateButton = ({ onCreate }: CreateButtonProps): ReactElement => {
   const create = useCreateModal();
   const { close } = Dialog.useContext();
-  const handleError = Status.useErrorHandler();
   const handleClick = (): void => {
     close();
-    handleError(async () => {
-      const key = await create();
+    void create().then((key) => {
       if (key != null) onCreate(key);
-    }, "Failed to create label");
+    });
   };
   return (
     <Button.CreateListItem size="small" onClick={handleClick}>

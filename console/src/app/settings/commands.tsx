@@ -28,10 +28,7 @@ const useLabelsVisible = (): boolean => {
   return Access.useUpdateGranted(label.TYPE_RESOURCE_ID) && canOpen;
 };
 
-const useOpenLabels = (): (() => void) => {
-  const open = useOpen();
-  return () => open(LABELS_SECTION);
-};
+const useOpenLabels = (): (() => void) => useOpen(LABELS_SECTION);
 
 const EditLabelsCommand = Command.create({
   key: "edit_labels",

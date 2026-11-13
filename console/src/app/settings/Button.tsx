@@ -23,7 +23,7 @@ export const Button = (): ReactElement | null => {
     <Base.Button
       size="small"
       variant="text"
-      onClick={() => open()}
+      onClick={open}
       tooltip="Settings"
       aria-label="Settings"
     >
