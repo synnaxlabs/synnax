@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Panel } from "@/platform/panel";
+import { Session } from "@/session";
 
 const TAB_TYPE = "settings";
 
@@ -21,8 +22,18 @@ const TAB: Panel.Tab = {
 
 export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
 
-/** Returns a function that opens the Settings tab, or selects it when it is open. */
-export const useOpen = (): (() => void) => {
+/** The key of the Labels section. */
+export const LABELS_SECTION = "labels";
+
+/**
+ * Returns a function that opens the Settings tab, or selects it when it is open. The
+ * function shows the given section, else the section the window showed last.
+ */
+export const useOpen = (): ((section?: string) => void) => {
   const openTab = Panel.useOpenTab();
-  return () => openTab({ variant: "view", type: TAB_TYPE }, { singleton: true });
+  const dispatch = Session.useDispatch();
+  return (section) => {
+    if (section != null) dispatch(Session.Nav.selectSettingsSection({ section }));
+    openTab({ variant: "view", type: TAB_TYPE }, { singleton: true });
+  };
 };
