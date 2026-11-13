@@ -177,7 +177,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the tables in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the tables owned by any of the given projects. */
+  /** projects matches the tables in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -227,7 +227,7 @@ export const tableZ = z.object({
   cells: caseconv.preserveKeys(z.record(z.string(), cellConfigZ).default(() => ({}))),
   /** group is the group the table sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the table. */
+  /** project is the project that holds the table. */
   project: project.keyZ.optional(),
 });
 export interface Table extends z.infer<typeof tableZ> {}

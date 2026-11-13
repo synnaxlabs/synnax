@@ -53,7 +53,7 @@ type Log struct {
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 	// Group is the group the log sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the log.
+	// Project is the project that holds the log.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 

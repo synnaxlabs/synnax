@@ -11460,7 +11460,7 @@ type Schematic struct {
 	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 	// Group is the group the schematic sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the schematic.
+	// Project is the project that holds the schematic.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 

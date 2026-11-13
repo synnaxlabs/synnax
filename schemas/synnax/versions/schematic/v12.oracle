@@ -80,6 +80,6 @@ Schematic struct extends v11.Schematic {
     -snapshot
     -range
     project project.Key? {
-        @doc value "is the project that owns the schematic."
+        @doc value "is the project that holds the schematic."
     }
 }

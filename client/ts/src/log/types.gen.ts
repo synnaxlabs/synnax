@@ -97,7 +97,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the logs in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the logs owned by any of the given projects. */
+  /** projects matches the logs in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
 });
 
@@ -131,7 +131,7 @@ export const logZ = z.object({
   timeZone: telem.timeZoneZ.default("local"),
   /** group is the group the log sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the log. */
+  /** project is the project that holds the log. */
   project: project.keyZ.optional(),
 });
 export interface Log extends z.infer<typeof logZ> {}
