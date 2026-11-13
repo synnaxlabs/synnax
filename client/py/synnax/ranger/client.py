@@ -29,6 +29,7 @@ from synnax.ranger.types_gen import (
     Order,
     Payload,
     RetrieveRequest,
+    Stage,
     Where,
     WhereInput,
     resource_id,
@@ -44,6 +45,7 @@ from synnax.telem import (
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeSpan,
     TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
@@ -309,7 +311,7 @@ class Range(Payload):
         :param color: An optional display color. None means the range has no color.
         :param labels: The keys of the labels to attach to the range.
         :param parent: The parent range, or its key. None means the range has no parent.
-        :param has_children: Whether other ranges are nested in the range. The cluster
+        :param has_children: Whether other ranges are nested in the range. The Core
             sets it on each retrieve, and it is never stored.
         :param _frame_client: The backing client for reading and writing data to
             and from the cluster. This is provided by Synnax during calls to
@@ -687,6 +689,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -704,6 +710,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -721,6 +731,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -742,6 +756,10 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        nested: bool = ...,
+        labeled: bool = ...,
+        stages: Stage | list[Stage] = ...,
+        recent: TimeSpan = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -784,6 +802,13 @@ class Client:
         :param labels: Keeps ranges that have this label, or any label in the list.
         :param parents: Keeps the ranges nested in this range, or in any range in the
             list.
+        :param nested: Keeps the ranges nested in a range, or top-level ranges when
+            false.
+        :param labeled: Keeps ranges that have a label, or ranges with none when false.
+        :param stages: Keeps ranges in this stage, or in any stage in the list, at the
+            Core's clock.
+        :param recent: Keeps ranges that overlap the span ending now, or starting now if
+            negative.
         :param and_: Keeps ranges that match every filter in the list.
         :param or_: Keeps ranges that match any filter in the list.
         :param not_: Keeps ranges that do not match the filter.

@@ -36,13 +36,15 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given range, assigning a new key when it has none, and stores the
-// labels r carries. The parent and labels must exist. It returns an error wrapping
-// validate.ErrValidation when a range with the key exists. After the transaction
-// commits, Create broadcasts a create action that carries the stored range.
+// labels r carries. It sets HasChildren to false, since a new range has no children.
+// The parent and labels must exist. It returns an error wrapping validate.ErrValidation
+// when a range with the key exists. After the transaction commits, Create broadcasts a
+// create action that carries the stored range.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
 	}
+	r.HasChildren = false
 	if err := r.Validate(); err != nil {
 		return err
 	}
