@@ -28,7 +28,7 @@ import { ContextMenu } from "@/feature/range/next/ContextMenu";
 import { PROPERTIES } from "@/feature/range/next/Filter";
 import { FlatItem, HighlightContext, TreeItem } from "@/feature/range/next/Item";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/next/searchTree";
-import { nextCrossing, pin } from "@/feature/range/next/time";
+import { pin, useCrossing } from "@/feature/range/next/time";
 import { Timeline } from "@/feature/range/next/Timeline";
 import {
   type Node,
@@ -264,7 +264,7 @@ const Internal = (): ReactElement => {
     eager: searching,
     searchDebounce: 0,
   });
-  const crossing = nextCrossing(where, root.getItem(root.data), at);
+  const crossing = useCrossing(where, root.getItem(root.data), at);
   const now = useNow(() => crossing);
   if (crossing != null && !now.before(crossing)) setAt(now);
   const handleSearch = useDebouncedCallback(

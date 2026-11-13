@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Store } from "@synnaxlabs/lyra/store";
+import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 const hasFields = (where: ranger.Where): boolean =>
@@ -49,8 +50,8 @@ const timeSpans = (where: ranger.Where): TimeSpan[] | null => {
 };
 
 /**
- * @returns the first instant after `at` when one of the ranges could enter or leave
- * the filter, or null when the filter reads no time.
+ * @returns the first instant after `at` when one of the ranges starts, ends, or moves
+ * past a recent span of the filter, or null when the filter reads no time.
  */
 export const nextCrossing = (
   where: ranger.Where | undefined,
@@ -67,4 +68,38 @@ export const nextCrossing = (
         if (instant.after(at) && (next == null || instant.before(next))) next = instant;
     }
   return next;
+};
+
+const STARTS: ranger.Order = { field: "time_range_start", descending: false };
+const ENDS: ranger.Order = { field: "time_range_end", descending: false };
+
+const useFirst = (where: ranger.Where | null, order: ranger.Order): ranger.Range[] => {
+  const list = Flux.useList((client) => client.ranges, {
+    name: "ranges",
+    query: where == null ? null : { where, order },
+    pageSize: 1,
+    eager: true,
+  });
+  return Store.useItems({
+    keys: list.data,
+    subscribe: list.subscribe,
+    getItem: list.getItem,
+  });
+};
+
+/**
+ * @returns the first instant after `at` when a range could enter or leave the filter
+ * read at `at`, or null when the filter reads no time. It reads the held ranges, the
+ * next range to start, and the next range to end, so a created or changed range
+ * moves the instant too.
+ */
+export const useCrossing = (
+  where: ranger.Where | undefined,
+  held: ranger.Range[],
+  at: TimeStamp,
+): TimeStamp | null => {
+  const timed = where != null && timeSpans(where) != null;
+  const starting = useFirst(timed ? Ranger.stageWhere("to_do", at) : null, STARTS);
+  const ending = useFirst(timed ? Ranger.stageWhere("in_progress", at) : null, ENDS);
+  return nextCrossing(where, [...held, ...starting, ...ending], at);
 };
