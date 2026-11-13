@@ -382,6 +382,20 @@ describe("caseconv", () => {
       expect(convert([1, 2])).toEqual("1:2");
     });
 
+    it("Should encode the marked values of a lazy record", () => {
+      const docZ = z.object({ pairs: z.lazy(() => z.record(z.string(), pairZ)) });
+      expect(caseconv.camelToSnake({ pairs: { a: [1, 2] } }, { schema: docZ })).toEqual(
+        { pairs: { a: "1:2" } },
+      );
+    });
+
+    it("Should encode the marked values of a lazy array", () => {
+      const docZ = z.object({ pairList: z.lazy(() => z.array(pairZ)) });
+      expect(caseconv.camelToSnake({ pairList: [[1, 2]] }, { schema: docZ })).toEqual({
+        pair_list: ["1:2"],
+      });
+    });
+
     it("Should encode a marked value inside a lazy union option", () => {
       const docZ = z.object({
         shape: z.discriminatedUnion("variant", [
