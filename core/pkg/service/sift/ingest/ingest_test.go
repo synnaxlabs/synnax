@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -88,6 +89,31 @@ func at(s int) telem.TimeStamp { return telem.TimeStamp(s) * telem.SecondTS }
 // point returns the point Sift stores for a value written at ts.
 func point(ts telem.TimeStamp, v any) fake.Point {
 	return fake.Point{Time: time.Unix(0, int64(ts)).UTC(), Value: v}
+}
+
+// racingConn creates each run on its own just before the engine does, as a second
+// engine for the same asset would.
+type racingConn struct{ grpc.ClientConnInterface }
+
+func (c racingConn) Invoke(
+	ctx context.Context,
+	method string,
+	args, reply any,
+	opts ...grpc.CallOption,
+) error {
+	if method == "/sift.runs.v2.RunService/CreateAdhocRun" {
+		var first runsv2.CreateAdhocRunResponse
+		if err := c.ClientConnInterface.Invoke(
+			ctx,
+			method,
+			args,
+			&first,
+			opts...,
+		); err != nil {
+			return err
+		}
+	}
+	return c.ClientConnInterface.Invoke(ctx, method, args, reply, opts...)
 }
 
 var _ = Describe("Engine", func() {
@@ -645,6 +671,36 @@ var _ = Describe("Engine", func() {
 			Expect(e.SetRun(ctx, run)).To(Equal(id))
 			Expect(server.Runs()[0]).To(BeIdenticalTo(before))
 		})
+
+		It(
+			"Should update a run that another engine created first",
+			func(ctx SpecContext) {
+				e := open(
+					ctx,
+					channel.Keys{ch.Key()},
+					ingest.Config{Conn: racingConn{conn}},
+				)
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.retryErrors()).To(BeEmpty())
+				Expect(server.Runs()).To(HaveExactElements(SatisfyAll(
+					HaveField("RunId", id),
+					HaveField("Name", "hotfire 1"),
+				)))
+			},
+		)
+
+		It(
+			"Should retry when Sift reports a run that it does not list",
+			func(ctx SpecContext) {
+				server.FailRuns(status.Error(codes.AlreadyExists, "run exists"))
+				e := open(ctx, channel.Keys{ch.Key()})
+				id := MustSucceed(e.SetRun(ctx, run))
+				Expect(rec.retryErrors()).To(HaveExactElements(
+					MatchError("Sift reported a run that it does not list"),
+				))
+				Expect(server.Runs()).To(HaveExactElements(HaveField("RunId", id)))
+			},
+		)
 
 		It("Should retry a temporary failure", func(ctx SpecContext) {
 			server.FailRuns(status.Error(codes.Unavailable, "sift is down"))
