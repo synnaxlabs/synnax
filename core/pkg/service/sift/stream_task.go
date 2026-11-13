@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 
@@ -136,8 +137,9 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		Keys:               t.cfg.Channels,
 		CheckpointInterval: t.factoryCfg.CheckpointInterval,
 		OnCheckpoint: func(ctx context.Context, cp ingest.Checkpoint) error {
-			t.Report(ctx, "", nil)
-			p.advance(ctx, cp)
+			if p.advance(ctx, cp) {
+				t.Report(ctx, "", nil)
+			}
 			runs.signal()
 			return nil
 		},
@@ -150,10 +152,12 @@ func (t *streamTask) open(ctx context.Context) (func(context.Context) error, err
 		return nil, err
 	}
 	runs.engine = e
-	from, behind := p.from()
+	saved, behind := p.from()
+	from := make(ingest.Positions)
 	for _, index := range e.Indexes() {
-		if _, ok := from[index]; !ok {
-			from[index] = start
+		from[index] = start
+		if pos, ok := saved[index]; ok {
+			from[index] = pos
 		}
 	}
 	p.begin(ctx, from)
@@ -199,13 +203,6 @@ func (t *streamTask) loadProgress(
 	case err != nil:
 		return nil, err
 	}
-	p.sent = p.status.Details.RunsThrough
-	if len(p.status.Details.Positions) > 0 {
-		p.sent = telem.TimeStampMax
-		for _, pos := range p.status.Details.Positions {
-			p.sent = min(p.sent, pos.Time)
-		}
-	}
 	return p, nil
 }
 
@@ -246,17 +243,24 @@ func (p *progress) begin(ctx context.Context, from ingest.Positions) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.status.Details.Positions = toPositions(from)
+	p.sent = slices.Min(slices.Collect(maps.Values(from)))
 	p.write(ctx)
 }
 
-func (p *progress) advance(ctx context.Context, cp ingest.Checkpoint) {
+// advance saves cp, and reports whether Sift confirmed more of the task than the saved
+// progress showed.
+func (p *progress) advance(ctx context.Context, cp ingest.Checkpoint) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.status.Details.Positions = toPositions(cp.Positions)
+	positions := toPositions(cp.Positions)
+	confirmed := cp.Samples > 0 || cp.Through > p.sent ||
+		!slices.Equal(positions, p.status.Details.Positions)
+	p.status.Details.Positions = positions
 	p.status.Details.Behind = toChannelPositions(cp.Behind)
 	p.sent = cp.Through
 	p.samples += cp.Samples
 	p.write(ctx)
+	return confirmed
 }
 
 func (p *progress) setRunsThrough(ctx context.Context, ts telem.TimeStamp) {

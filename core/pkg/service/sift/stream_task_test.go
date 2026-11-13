@@ -524,6 +524,76 @@ var _ = Describe("Stream task", func() {
 			Expect(values()).To(ConsistOf(1.0, 2.0))
 		})
 
+	It("Should keep the warning when a channel without its index arrives",
+		func(ctx SpecContext) {
+			cfg := factoryConfig()
+			// The writes below must arrive before the engine waits for Sift to confirm.
+			cfg.CheckpointInterval = 500 * telem.Millisecond
+			f = MustSucceed(sift.NewFactory(cfg))
+			other := createData(ctx, idx)
+			taskCfg := streamConfig()
+			taskCfg["channels"] = []channel.Key{ch.Key(), other.Key()}
+			start(ctx, taskCfg)
+			first := telem.Now()
+			write(ctx, idx, ch, []telem.TimeStamp{first}, telem.NewSeriesV(1.0))
+			Eventually(values).WithTimeout(2 * time.Second).
+				Should(HaveExactElements(1.0))
+			server.Fail(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			send(ctx, 2)
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(2 * time.Second).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			server.Pause()
+			DeferCleanup(server.Resume)
+			streams := server.Streams()
+			Eventually(server.Streams).WithTimeout(3 * time.Second).
+				Should(BeNumerically(">", streams))
+			keys := channel.Keys{other.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  keys,
+				Start: first,
+			}))
+			Expect(MustSucceed(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{telem.NewSeriesV(10.0)},
+			)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			sent := []any{1.0, 2.0}
+			Eventually(func(g Gomega) {
+				v := float64(len(sent) + 1)
+				send(ctx, v)
+				sent = append(sent, v)
+				g.Expect(progressOf(ctx)).To(HaveField(
+					"Details.Behind",
+					ContainElement(HaveField("Channel", other.Key())),
+				))
+			}).Should(Succeed())
+			Expect(taskStatus(ctx, t)).To(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Failed to send data to Sift"),
+			))
+			server.Resume()
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(2 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Eventually(values).WithTimeout(2 * time.Second).
+				Should(HaveExactElements(sent...))
+		})
+
+	It("Should clear the warning once Sift answers a task with nothing to send",
+		func(ctx SpecContext) {
+			server.FailConfigs(grpcstatus.Error(codes.Unavailable, "Sift is down"))
+			t.Config = toJSON(streamConfig())
+			dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				Should(HaveField("Message", "Failed to send data to Sift"))
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(5 * time.Second).
+				Should(HaveField("Variant", status.VariantSuccess))
+			Expect(server.Streams()).To(BeZero())
+		})
+
 	It("Should fail when Sift rejects the API key", func(ctx SpecContext) {
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
