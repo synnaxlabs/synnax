@@ -103,7 +103,7 @@ var permanentCodes = map[codes.Code]string{
 	codes.Unauthenticated:    "Sift rejected the API key",
 	codes.PermissionDenied:   "the API key has no permission for this",
 	codes.InvalidArgument:    "Sift rejected the request",
-	codes.NotFound:           "Sift could not find the ingestion config",
+	codes.NotFound:           "Sift could not find what the request names",
 	codes.FailedPrecondition: "Sift rejected the request",
 	codes.Unimplemented:      "the Sift server does not support this API",
 }

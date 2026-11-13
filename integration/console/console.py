@@ -62,7 +62,7 @@ class Console:
         self.layout = LayoutClient(page=page, results_dir=results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
-        self.labels = LabelClient(self.layout)
+        self.labels = LabelClient(layout=self.layout, client=self.client)
         self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
