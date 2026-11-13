@@ -25,7 +25,7 @@ tag when the train needs one. The TypeScript and Python packages share the Core'
 from `main` they release only with the Core, at the next patch on its minor. Candidates
 (`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
 shapes, wire quirks, migrations — is owed only to what a stable release shipped;
-candidate-era formats may be dropped freely. See RFC 0058 and RFC 0111.
+candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 

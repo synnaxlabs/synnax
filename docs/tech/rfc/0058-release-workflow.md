@@ -3,8 +3,7 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-09-21
 - **Related**:
-  [RFC 0020 - Engineering process standardization](0020-engineering-workflow.md),
-  [RFC 0111 - Fast releases](0111-fast-releases.md)
+  [RFC 0020 - Engineering process standardization](0020-engineering-workflow.md)
 
 ## 0 Summary
 
@@ -48,13 +47,13 @@ template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main`
 `release/**` build and test only.
 
 Every release, candidates included, runs only from `main` or a release branch,
-`release/X.Y`, one per train; Desktop also allows `release/desktop-X.Y`. RFC 0111 §3.0
-changed the name from `release/<console|core|driver>-X.Y`, which now fails. Desktop
-takes a minor or major bump from `main` and only a patch bump from its release branch,
-once `X.Y` has a stable tag. Any other branch fails. The Console, Core, and Driver fail
-when any stable tag of the product names `HEAD`, so no commit ships twice. A release
-branch fails when it does not hold the newest tag of the product on `X.Y`, so no patch
-drops an earlier fix.
+`release/X.Y`, one per train; Desktop also allows `release/desktop-X.Y`. The name was
+`release/<console|core|driver>-X.Y` before, which now fails. Desktop takes a minor or
+major bump from `main` and only a patch bump from its release branch, once `X.Y` has a
+stable tag. Any other branch fails. The Console, Core, and Driver fail when any stable
+tag of the product names `HEAD`, so no commit ships twice. A release branch fails when
+it does not hold the newest tag of the product on `X.Y`, so no patch drops an earlier
+fix.
 
 The branch sets the version of the Console, Core, Driver, and packages. A release of the
 Console, Core, or Driver from `main` is always the next minor: when the newest stable
@@ -284,9 +283,8 @@ flag and workflow file.
    tagged next-minor code on the old train once that train had moved to its release
    branch. release-please rejected because it writes version files; typed versions
    rejected because they invite skipped numbers. Desktop keeps a `bump`, since its
-   version line is apart from the train. RFC 0111 changed the release branch name from
-   one per product, `release/<console|core|driver>-X.Y`, to one per train,
-   `release/X.Y`.
+   version line is apart from the train. The release branch name changed from one per
+   product, `release/<console|core|driver>-X.Y`, to one per train, `release/X.Y`.
 6. **Updater endpoint on the docs site**: `releases/latest/download` is repo-wide and
    breaks under per-product tags; a rolling `console/latest` release abuses tags.
 7. **Request-time docs versions**: The site is already SSR; a deploy hook fixes a race
