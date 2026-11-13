@@ -332,7 +332,8 @@ jobs:
     name: Build (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
-    timeout-minutes: 75
+    # The upload attempts of one artifact can take 45 minutes.
+    timeout-minutes: 120
     permissions: &build_permissions
       actions: read
       contents: write
@@ -618,7 +619,7 @@ jobs:
         id: upload-driver
         if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: &driver_artifact
           name:
@@ -637,13 +638,13 @@ jobs:
         id: upload-driver-again
         if: steps.upload-driver.outcome == 'failure'
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *driver_artifact
 
       - name: Upload Driver as artifact, third attempt
         if: steps.upload-driver-again.outcome == 'failure'
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *driver_artifact
 
@@ -757,7 +758,7 @@ jobs:
         id: upload-console
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: &console_artifact
           name:
@@ -773,13 +774,13 @@ jobs:
         id: upload-console-again
         if: steps.upload-console.outcome == 'failure'
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *console_artifact
 
       - name: Upload Console assets as artifact, third attempt
         if: steps.upload-console-again.outcome == 'failure'
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *console_artifact
 
@@ -870,7 +871,7 @@ jobs:
         id: upload-core
         if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: &core_artifact
           name:
@@ -887,13 +888,13 @@ jobs:
         id: upload-core-again
         if: steps.upload-core.outcome == 'failure'
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *core_artifact
 
       - name: Upload Core binary as artifact, third attempt
         if: steps.upload-core-again.outcome == 'failure'
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with: *core_artifact
 
@@ -996,8 +997,8 @@ jobs:
     name: Build Core (${{ matrix.os }})
     needs: [setup, sign-macos-driver]
     if: inputs.sign_binaries && inputs.macos && inputs.driver && inputs.core
-    # Three attempts to upload the Core can take 30 minutes.
-    timeout-minutes: 45
+    # Three attempts to upload the Core can take 45 minutes.
+    timeout-minutes: 60
     permissions: *build_permissions
     env:
       GH_TOKEN: ${{ github.token }}
