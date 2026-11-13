@@ -82,6 +82,10 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
   the version the branch sets (§2.0). A candidate run never publishes them. An npm
   publish on an older train takes the `train-X.Y` dist-tag, so `latest` never moves
   back.
+- **`desktop`, `desktop_bump`**: Release Synnax Desktop, off by default, with a `minor`,
+  `major`, or `patch` bump. Desktop joins the other products only on `main`. A Desktop
+  patch is a dispatch from `release/desktop-X.Y` with every other product off (RFC 0111
+  §3.0).
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
   this run releases, else the newest on the resolved minor (candidates included when
