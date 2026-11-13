@@ -35,9 +35,10 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
 const isPlainObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** @returns the channel keys that binding the patch to the entry would set. */
-// The keys the patch binds. unchanged also takes a key the entry already holds, for a
-// match that reads every bound channel.
+/**
+ * @returns the channel keys that binding the patch to the entry would set. When
+ * unchanged is true, it also returns each key the entry already holds.
+ */
 const boundKeys = (entry: object, patch: object, unchanged: boolean): channel.Key[] =>
   Object.entries(patch).flatMap(([k, value]) => {
     const current: unknown = (entry as Record<string, unknown>)[k];
