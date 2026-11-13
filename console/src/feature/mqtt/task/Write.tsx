@@ -9,14 +9,23 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt } from "@synnaxlabs/client";
+import { channel, DisconnectedError, mqtt, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type DataType, deep, id, type payload, primitive } from "@synnaxlabs/x";
+import { Synnax } from "@synnaxlabs/pluto";
+import {
+  type DataType,
+  deep,
+  errors,
+  id,
+  type payload,
+  primitive,
+} from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { use, useFromConfig } from "@/feature/mqtt/device/queries";
@@ -312,6 +321,45 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const isPreview = Task.useIsPreview();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const discover = useDiscoverModal();
+  const client = Synnax.use();
+  const { get, set } = PForm.useContext();
+  const handleError = Status.useErrorHandler();
+
+  // The Core clears the data type of a target with a channel, so a copy, which gets a
+  // new channel, reads the data type of the channel it copies. A copy of a target whose
+  // channel is gone keeps no data type. The read sets the data type only while the copy
+  // still holds the one it started with, so it does not replace a type the user picked.
+  const handleDuplicate = (all: WriteTarget[], keys: string[]): WriteTarget[] => {
+    const copies = duplicateTargets(all, keys);
+    const sources = all.filter(({ key }) => keys.includes(key));
+    copies.forEach((copy, i) => {
+      const source = sources[i];
+      if (copy.type !== "plain" || source.type !== "plain") return;
+      if (source.channel.channel === 0) return;
+      const key = source.channel.channel;
+      const initial = copy.channel.dataType;
+      const path = deep.variant(root.config.targets[copy.key], "type", "plain");
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        let ch: channel.Channel;
+        try {
+          ch = await client.channels.retrieve(key);
+        } catch (e) {
+          if (NotFoundError.matches(e)) return;
+          throw errors.fromUnknown(e);
+        }
+        const current = get(root.config.targets[copy.key], { optional: true })?.value;
+        if (
+          current?.type !== "plain" ||
+          current.channel.channel !== 0 ||
+          current.channel.dataType !== initial
+        )
+          return;
+        set(path.channel.dataType, ch.dataType.toString());
+      }, "Failed to copy the data type of the command channel");
+    });
+    return copies;
+  };
 
   const handleAdd = async () => {
     const added = await discover({ device, entries: targets.value() });
@@ -348,7 +396,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
               </PlatformButton.CreateListItem>
             )
           }
-          createChannels={duplicateTargets}
+          createChannels={handleDuplicate}
           listItem={targetItem}
           contextMenuItems={Task.readChannelContextMenuItem}
           resolve={resolve}
