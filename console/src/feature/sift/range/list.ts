@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, sift, status, type Synnax, TimeSpan } from "@synnaxlabs/client";
-import { Flux, Status as PStatus } from "@synnaxlabs/pluto";
+import { Flux, Status } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { INTEGRATION } from "@/feature/sift/device/types";
@@ -67,11 +67,11 @@ export const useList = (range: ranger.Key): Flux.Result<status.Key[]> => {
   const res = useResult({ range });
   const keys = res.data ?? [];
   const refresh = useRefresh();
-  PStatus.useSetSynchronizer((s) => {
+  Status.useSetSynchronizer((s) => {
     if (!s.key.startsWith(KEY_PREFIX) || keys.includes(s.key)) return;
     if (rangeOf(s) === range) refresh({ range });
   });
-  PStatus.useDeleteSynchronizer((key) => {
+  Status.useDeleteSynchronizer((key) => {
     if (keys.includes(key)) refresh({ range });
   });
   return res;

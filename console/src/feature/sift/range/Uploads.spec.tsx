@@ -33,6 +33,7 @@ const createUpload = async (
   rng: ranger.Range,
   variant: status.Variant,
   reached: TimeSpan[] = [TimeSpan.seconds(5)],
+  description?: string,
 ) => {
   const dev = await createSiftDevice(client);
   return await client.statuses.set<typeof sift.uploadDetailsZ>({
@@ -40,6 +41,7 @@ const createUpload = async (
     name: rng.name,
     variant,
     message: "Uploading to Sift",
+    description,
     time: TimeStamp.now(),
     details: {
       device: dev.key,
@@ -123,6 +125,23 @@ describe("Sift.Range.Uploads", () => {
     await waitFor(async () =>
       expect(await client.statuses.retrieve({ key: [upload.key] })).toHaveLength(0),
     );
+  });
+
+  it("should delete a finished upload by deleting its status", async () => {
+    const rng = await createRange();
+    const upload = await createUpload(rng, "success");
+    await renderUploads(rng.key);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete upload" }));
+    await waitFor(async () =>
+      expect(await client.statuses.retrieve({ key: [upload.key] })).toHaveLength(0),
+    );
+  });
+
+  it("should show the description of an upload under it", async () => {
+    const rng = await createRange();
+    await createUpload(rng, "error", [], "Sift rejected the request.");
+    await renderUploads(rng.key);
+    expect(await screen.findByText("Sift rejected the request.")).toBeTruthy();
   });
 
   it("should show an upload that starts while the section is open", async () => {

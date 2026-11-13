@@ -123,8 +123,9 @@ The Core queues the upload and sends it in the background:
   of the range, its progress, and its result or error. An upload of a time span shows
   only in the [status](/reference/alarms/statuses) list.
 - **Runs** -> an upload of a range makes a Sift run with the name and span of the range.
-  The labels of the range become the tags of the run. When you upload the range again,
-  the same run gets the new name, span, and tags. An upload of a time span makes no run.
+  The labels of the range become the tags of the run. When you upload the range again to
+  the same asset, the same run gets the new name, span, and tags. An upload of a time
+  span makes no run.
 - **Failures** -> when Sift is not available, the upload shows **Retrying upload to
   Sift** and tries again. It continues from the data that Sift confirmed. After a
   restart of the Core, the upload continues in the same way.
@@ -202,8 +203,9 @@ channels.
 - **Data types** -> Sift stores floats, integers, booleans, strings, and bytes. Synnax
   sends `timestamp` values as `int64`, and `json` and `uuid` values as `string`.
 - **Channels written later than their index** -> when a channel is written alone, at
-  timestamps that its index channel already has, the stream task sends the new values.
-  It does not send values written this way while the task is stopped or the Core is off.
+  timestamps that its index channel already has, the stream task sends the values that
+  are later than the last value of the channel that Sift has. It does not send earlier
+  values, or values written this way while the task is stopped or the Core is off.
   Upload the range again to send them.
 
 <Divider.Divider x />

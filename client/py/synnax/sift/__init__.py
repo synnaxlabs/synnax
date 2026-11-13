@@ -18,6 +18,7 @@ from synnax.sift.types import (
     upload,
 )
 from synnax.sift.types_gen import (
+    ChannelPosition,
     Position,
     Properties,
     ScanConfig,
@@ -32,6 +33,7 @@ __all__ = [
     "MODEL",
     "SCAN_TYPE",
     "UPLOAD_COMMAND_TYPE",
+    "ChannelPosition",
     "Device",
     "Position",
     "Properties",
