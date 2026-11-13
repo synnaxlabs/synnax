@@ -173,7 +173,7 @@ export const startConfigZ = keyedConfigZ.extend({
 export interface StartConfig extends z.infer<typeof startConfigZ> {}
 
 export const scanConfigZ = keyedConfigZ.extend({
-  rate: z.number().default(0.2),
+  rate: z.number().gt(0).default(0.2),
   disabled: z.boolean().default(false),
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
@@ -328,7 +328,7 @@ export const retrieveResponseZ = z.object({
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
 export const readConfigZ = persistConfigZ.extend({
-  sampleRate: z.number().default(10),
+  sampleRate: z.number().gt(0).default(10),
   streamRate: z.number().default(5),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
