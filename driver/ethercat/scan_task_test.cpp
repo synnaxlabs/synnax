@@ -343,12 +343,13 @@ protected:
     std::unique_ptr<Scanner> scanner;
     /// @brief the master of the adapter with the filter.
     std::shared_ptr<testutil::Master> filtered = std::make_shared<testutil::Master>();
+    /// @brief the master of the adapter with one device.
+    std::shared_ptr<testutil::Master> bus = std::make_shared<testutil::Master>();
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
         this->filtered->inject_scan_error(this->blocked);
-        auto bus = std::make_shared<testutil::Master>();
-        bus->add_slave(
+        this->bus->add_slave(
             slave::Properties{
                 .position = 1,
                 .vendor_id = 0x2,
@@ -358,7 +359,7 @@ protected:
         );
         auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->filtered);
-        manager->configure("eth1", bus);
+        manager->configure("eth1", this->bus);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             synnax::task::Task{
@@ -468,6 +469,20 @@ TEST_F(EtherCATScanFilterTest, ReportsNoFilterUntilTheProbeAfterATurnOff) {
         common::PARTIAL_SCAN_ERROR
     );
     EXPECT_NE(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should report no filter on an interface that a command started to turn
+/// off during the scan.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterTurnedOffDuringAScan) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    this->bus->on_scan([this] {
+        EXPECT_EQ(this->disable_filter().variant, synnax::status::VARIANT_SUCCESS);
+    });
+    ASSERT_NIL_P(this->scanner->scan({.count = 1, .devices = &this->saved}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
 }
 
 /// @brief it should report why the filter is still on.

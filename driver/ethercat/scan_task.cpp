@@ -277,13 +277,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     // A filter on an adapter with no devices can hide a bus only when no adapter shows
     // a device, or when the Core holds devices from the adapter.
     std::vector<std::string> filtered;
-    for (const auto &[key, failure]: blocked)
-        if (devices.empty() || holds_devices_on(scan_ctx, key)) {
-            failures.insert(failure);
-            filtered.push_back(key);
-        }
     {
         std::lock_guard lock(this->mu);
+        for (const auto &[key, failure]: blocked) {
+            // A command during this scan started to turn the filter off.
+            if (std::ranges::find(this->turned_off, key) != this->turned_off.end())
+                continue;
+            if (devices.empty() || holds_devices_on(scan_ctx, key)) {
+                failures.insert(failure);
+                filtered.push_back(key);
+            }
+        }
         this->filtered = std::move(filtered);
     }
     if (failures.empty()) return {devices, x::errors::NIL};
