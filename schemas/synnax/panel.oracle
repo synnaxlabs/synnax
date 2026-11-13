@@ -157,7 +157,7 @@ Panel struct {
     }
     owner   user.Key?    {
         @doc value     "is the user whose draft the panel is. Nil for a shared panel."
-        @ref kind      place
+        @ref kind      use
         @ref on_delete cascade
     }
 

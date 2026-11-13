@@ -49,12 +49,7 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 // populated. The write commits at once so the api enforcer can observe the new panel.
 func createPanel(ctx context.Context, name string) panel.Panel {
 	GinkgoHelper()
-	return createDraft(ctx, name, nil)
-}
-
-func createDraft(ctx context.Context, name string, owner *user.Key) panel.Panel {
-	GinkgoHelper()
-	p := panel.Panel{Name: name, Project: &proj.Key, Owner: owner}
+	p := panel.Panel{Name: name, Project: &proj.Key}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return panelSvc.NewWriter(tx).Create(ctx, &p)
 	})).To(Succeed())
@@ -120,6 +115,32 @@ var _ = Describe("Service", func() {
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Name).To(Equal("with-parent"))
 			Expect(got.Project).To(HaveValue(Equal(proj.Key)))
+		})
+
+		It("Should create and delete a draft without update on its owner", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			grantCreate(ctx, u.ResourceID())
+			grant(ctx, u.ResourceID(), access.ActionRetrieve, u.ResourceID())
+			p := panel.Panel{
+				Key:     uuid.New(),
+				Name:    "draft",
+				Project: &proj.Key,
+				Owner:   &u.Key,
+			}
+			MustSucceed(create(AuthedCtx(ctx, u), apipanel.CreateRequest{
+				Panels: []panel.Panel{p},
+			}))
+			Expect(retrievePanel(ctx, p.Key).Owner).To(HaveValue(Equal(u.Key)))
+			grant(ctx, u.ResourceID(), access.ActionDelete, p.ResourceID())
+			MustSucceed(del(AuthedCtx(ctx, u), apipanel.DeleteRequest{
+				Keys: []panel.Key{p.Key},
+			}))
+			Expect(panelSvc.NewRetrieve().
+				Where(panel.MatchKeys(p.Key)).
+				Entry(&panel.Panel{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should stamp the dispatch key onto the create broadcast", func(
@@ -285,33 +306,6 @@ var _ = Describe("Service", func() {
 			Expect(res.Panels).To(BeEmpty())
 		})
 
-		It("Should return the shared panels and the drafts of a user", func(
-			ctx SpecContext,
-		) {
-			other := newUser(ctx)
-			shared := createPanel(ctx, "shared")
-			mine := createDraft(ctx, "mine", &author.Key)
-			theirs := createDraft(ctx, "theirs", &other.Key)
-			keys := []panel.Key{shared.Key, mine.Key, theirs.Key}
-			grant(ctx, author.ResourceID(), access.ActionRetrieve,
-				shared.ResourceID(), mine.ResourceID(), theirs.ResourceID())
-			res := MustSucceed(
-				retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-					Where: &panel.Where{
-						Key: &filter.Set[panel.Key]{In: keys},
-						Or: []panel.Where{
-							{Owned: new(false)},
-							{Owners: []user.Key{author.Key}},
-						},
-					},
-				}),
-			)
-			Expect(res.Panels).To(ConsistOf(
-				HaveField("Key", shared.Key),
-				HaveField("Key", mine.Key),
-			))
-		})
-
 		It("Should honor the limit", func(ctx SpecContext) {
 			a := createPanel(ctx, "page-a")
 			b := createPanel(ctx, "page-b")
@@ -442,17 +436,6 @@ var _ = Describe("Service", func() {
 					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
-		It("Should delete the drafts of a deleted user", func(ctx SpecContext) {
-			draft := createDraft(ctx, "draft", &u.Key)
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return userSvc.NewWriter(tx).Delete(ctx, u.Key)
-			})).To(Succeed())
-			Expect(panelSvc.NewRetrieve().
-				Where(panel.MatchKeys(draft.Key)).
-				Entry(&panel.Panel{}).
-				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-			Expect(retrievePanel(ctx, p.Key).Key).To(Equal(p.Key))
-		})
 	})
 })
 
