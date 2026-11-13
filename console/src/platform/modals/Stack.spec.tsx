@@ -193,7 +193,7 @@ describe("Stack", () => {
       expect(below).toHaveBeenCalledOnce();
     });
 
-    it("should not pass a press to the modal below when the top one closes on it", () => {
+    it("should not pass a press below when the top modal closes on it", () => {
       const { modals } = renderPage(["Control", "T"]);
       const below = vi.fn();
       act(() => {
