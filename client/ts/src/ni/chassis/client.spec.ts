@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -34,6 +34,14 @@ describe("NI chassis", async () => {
       expect(c.key).not.toBe("");
       expect(await client.ni.chassis.retrieve({ key: c.key })).toEqual(c);
     });
+
+    it("should create several chassis", async () => {
+      const chassis = await client.ni.chassis.create([
+        { rack: rack.key, name: "A", resourceName: id.create(), model: "cDAQ-9178" },
+        { rack: rack.key, name: "B", resourceName: id.create(), model: "cDAQ-9178" },
+      ]);
+      expect(chassis.map((c) => c.name)).toEqual(["A", "B"]);
+    });
   });
 
   describe("retrieve", () => {
@@ -44,6 +52,12 @@ describe("NI chassis", async () => {
         includeStatus: true,
       });
       expect(retrieved.status?.owner).toEqual(ni.chassis.resourceID(c.key));
+    });
+
+    it("should throw a NotFoundError for a missing chassis", async () => {
+      await expect(client.ni.chassis.retrieve({ key: uuid.create() })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should filter chassis by rack", async () => {
@@ -115,6 +129,17 @@ describe("NI chassis", async () => {
         name: "Streamed",
       });
       await expect.poll(() => seen).toContain("Streamed");
+      stop();
+    });
+
+    it("should drop a chassis another client deletes", async () => {
+      const c = await create();
+      await other.ni.chassis.retrieve({ key: c.key });
+      await waitForStreamLive(other.connection);
+      const deleted: string[] = [];
+      const stop = other.ni.chassis.onDelete((key) => deleted.push(key));
+      await client.ni.chassis.delete(c.key);
+      await expect.poll(() => deleted).toContain(c.key);
       stop();
     });
   });
