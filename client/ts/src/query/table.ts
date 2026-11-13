@@ -163,7 +163,7 @@ export interface TableParams<
   indexes?: Array<LookupIndex<Key, Value>>;
   /**
    * Lets a fetch that started after a delete restore the key. For tables whose deleted
-   * keys fall back to another record, such as a range alias inheriting from its parent.
+   * keys can come back, such as a record deleted and created again.
    */
   revivable?: boolean;
 }

@@ -46,7 +46,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,
-		Alias:   svc.Alias,
 	}))
 })
 

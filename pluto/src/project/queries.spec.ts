@@ -9,7 +9,7 @@
 
 import { group, NotFoundError, project, schematic } from "@synnaxlabs/client";
 import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeRange } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -272,27 +272,6 @@ describe("queries", () => {
       const keys = siblings.map((p) => p.key);
       expect(keys).not.toContain(s1.key);
       expect(keys).toContain(s2.key);
-    });
-
-    it("should return empty for a snapshot that belongs to a range", async () => {
-      const proj = await client.projects.create({ name: "snapshot_ws" });
-      const s1 = await client.schematics.create({ project: proj.key, name: "Source" });
-      await client.schematics.create({ project: proj.key, name: "Sibling" });
-      const rng = await client.ranges.create({
-        name: "Snapshot Range",
-        timeRange: new TimeRange(1n, 1000n),
-      });
-      const snap = await client.schematics.copy({
-        key: s1.key,
-        name: "Snapshot",
-        snapshot: true,
-        range: rng.key,
-      });
-      const siblings = await Project.retrieveSiblings(client, {
-        resourceID: schematic.resourceID(snap.key),
-        types: ["schematic"],
-      });
-      expect(siblings).toEqual([]);
     });
 
     it("should return empty when resourceID is not provided", async () =>

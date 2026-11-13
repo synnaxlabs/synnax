@@ -47,7 +47,7 @@ const (
 	TypeRack Type = v0.TypeRack
 	// TypeRange identifies a range.
 	TypeRange Type = v0.TypeRange
-	// TypeRangeAlias identifies an alias of a channel on a range.
+	// TypeRangeAlias identifies a range alias. The Core no longer stores range aliases.
 	TypeRangeAlias Type = v0.TypeRangeAlias
 	// TypeRole identifies an access control role.
 	TypeRole Type = v0.TypeRole
