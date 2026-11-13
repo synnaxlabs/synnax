@@ -321,11 +321,13 @@ entries, as no conversion read them. `timestamp` with no `time_format` takes `is
 `Reconcile` sets the kind from §4, against the channel of a bound field or the
 `data_type` of an unbound field. A bound field holds no `data_type`, so nothing is left
 to clear. Between numeric kinds it converts entries and fills by the same rules, so a
-non-finite fill becomes no fill, and it drops them on other kinds. It logs each change,
-naming a foreign key that matched an unrelated local channel. Migration and `Reconcile`
-apply only each side's rule. A read field keeps the first entry of a repeated label, so
-a stored `{ON: 1, HIGH: 1}` keeps both. A channel field keeps the first entry of a set
-whose values collide, on the stored value or after narrowing. Each drop is logged.
+non-finite fill becomes no fill, and it drops them on other kinds. On a boolean channel
+a numeric entry or fill becomes `value != 0`, as the migration reads one. It logs each
+change, naming a foreign key that matched an unrelated local channel. Migration and
+`Reconcile` apply only each side's rule. A read field keeps the first entry of a
+repeated label, so a stored `{ON: 1, HIGH: 1}` keeps both. A channel field keeps the
+first entry of a set whose values collide, on the stored value or after narrowing. Each
+drop is logged.
 
 - **Boot**: `versions.ReadMigrations` becomes `NewReadMigrations(channels)`, as
   `ethercat/versions/v2/resolve.go` does. The Channel service opens first
