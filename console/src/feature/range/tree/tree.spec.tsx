@@ -18,11 +18,14 @@ import { type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
+import { createItemCounter } from "@/feature/range/tree/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
 const noop = () => {};
+
+const { Items, counts, reset } = createItemCounter();
 
 type Layout = "tree" | "list" | "timeline";
 
@@ -49,13 +52,23 @@ const Harness = ({ label, layout }: HarnessProps): ReactElement => {
       value={[]}
       onChange={noop}
     >
-      <Tree.Layout
-        layout={layout}
-        nodes={tree.nodes}
-        expanded={expanded}
-        onExpand={toggle}
-        more={tree.more}
-      />
+      {layout === "timeline" ? (
+        <Tree.Layout
+          layout="timeline"
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        />
+      ) : (
+        <Items
+          layout={layout}
+          nodes={tree.nodes}
+          expanded={expanded}
+          onExpand={toggle}
+          more={tree.more}
+        />
+      )}
     </Select.Frame>
   );
 };
@@ -77,7 +90,7 @@ const createRanges = async (): Promise<{
   return { label: key, ranges };
 };
 
-/** Shows the tree and waits for its items to settle. */
+/** Shows the tree and waits for its items to settle, then resets the count. */
 const renderTree = async (
   label: label.Key,
   ranges: ranger.Range[],
@@ -89,46 +102,24 @@ const renderTree = async (
     ranges.forEach((r) => expect(countEditableText(List.itemNameID(r.key))).toBe(1)),
   );
   await act(async () => {});
-};
-
-const OBSERVED: MutationObserverInit = {
-  attributes: true,
-  childList: true,
-  characterData: true,
-  subtree: true,
-};
-
-/** Records the DOM changes in each range item except the named ones. */
-const watchItems = (...except: string[]): (() => MutationRecord[]) => {
-  const skipped = except.map((name) => screen.getByRole("listitem", { name }));
-  const changes: MutationRecord[] = [];
-  const observer = new MutationObserver((records) => changes.push(...records));
-  screen
-    .getAllByRole("listitem")
-    .filter((item) => !skipped.includes(item))
-    .forEach((item) => observer.observe(item, OBSERVED));
-  return () => {
-    observer.disconnect();
-    return changes;
-  };
+  reset();
 };
 
 describe("range tree", () => {
   it.each<Layout>(["tree", "list"])(
-    "should change only the item of a renamed range in the %s layout",
+    "should render only the item of a renamed range in the %s layout",
     async (layout) => {
       const { label, ranges } = await createRanges();
       await renderTree(label, ranges, layout);
       const [, b] = ranges;
-      const stop = watchItems("b");
       await client.ranges.rename(b.key, "b2");
       await screen.findByText("b2");
       await act(async () => {});
-      expect(stop()).toEqual([]);
+      expect(Object.fromEntries(counts)).toEqual({ [b.key]: 1 });
     },
   );
 
-  it("should mount each child once on expand and change no other item", async () => {
+  it("should mount each child once on expand and render no other item", async () => {
     const { label, ranges } = await createRanges();
     // The ranges below an expanded range move, so the last range keeps all still.
     const c = ranges[2];
@@ -141,7 +132,6 @@ describe("range tree", () => {
       })),
     );
     await renderTree(label, ranges);
-    const stop = watchItems("c");
     const item = screen.getByRole("listitem", { name: "c" });
     fireEvent.click(within(item).getByRole("button", { name: "Expand" }));
     await waitFor(() =>
@@ -150,23 +140,32 @@ describe("range tree", () => {
       ),
     );
     await act(async () => {});
-    expect(stop()).toEqual([]);
+    expect(Object.fromEntries(counts)).toEqual({ [c.key]: 1 });
   });
 
   it("should change no lane when the timeline zooms", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges, "timeline");
-    const stop = watchItems();
+    const changes: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => changes.push(...records));
+    screen.getAllByRole("listitem").forEach((lane) =>
+      observer.observe(lane, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true,
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     await screen.findByRole("button", { name: "Fit all" });
     await act(async () => {});
-    expect(stop()).toEqual([]);
+    observer.disconnect();
+    expect(changes).toEqual([]);
   });
 
-  it("should mount an added range and change no other item", async () => {
+  it("should mount an added range once and render no other item", async () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
-    const stop = watchItems();
     const end = TimeStamp.now().sub(TimeSpan.days(1));
     await client.ranges.create({
       name: "d",
@@ -175,6 +174,6 @@ describe("range tree", () => {
     });
     await screen.findByText("d");
     await act(async () => {});
-    expect(stop()).toEqual([]);
+    expect(Object.fromEntries(counts)).toEqual({});
   });
 });
