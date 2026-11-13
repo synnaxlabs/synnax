@@ -538,7 +538,7 @@ var _ = Describe("Python Types Plugin", func() {
 					`rate: Rate = Field(ge=0, allow_inf_nan=False)`,
 				))
 				Expect(content).To(ContainSubstring(
-					`fast: Rate = Field(ge=0, gt=5, allow_inf_nan=False)`,
+					`fast: Rate = Field(gt=5, allow_inf_nan=False)`,
 				))
 				Expect(content).To(ContainSubstring(
 					`size: Decimal = Field(ge=0, le=1, allow_inf_nan=False)`,
