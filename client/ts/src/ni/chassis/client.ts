@@ -169,7 +169,9 @@ export class Client extends query.Retriever<
 
   /**
    * Creates the chassis, or replaces the chassis whose keys exist. The Core gives each
-   * new chassis an unknown status.
+   * new chassis an unknown status. A chassis that the cache holds as deleted comes
+   * back when the stream delivers its create, because only the stream knows the order
+   * of the Core's writes.
    * @throws {ValidationError} if a chassis is invalid or its rack does not exist.
    */
   async create(chassis: New): Promise<Chassis>;
@@ -187,16 +189,11 @@ export class Client extends query.Retriever<
             createReqZ,
             createResZ,
           );
-          const stored = res.chassis.map(stripStatus);
-          // Only a set revives a key this client deleted.
-          const revived = stored.filter(
-            ({ key }) => this.store.getTombstone(key) != null,
-          );
-          this.store.set(revived);
-          this.store.ingest(
-            stored.filter((c) => !revived.includes(c)),
-            { since, mode: "set", changed: true },
-          );
+          this.store.ingest(res.chassis.map(stripStatus), {
+            since,
+            mode: "set",
+            changed: true,
+          });
           res.chassis.forEach(({ status: st }) => {
             if (st != null) statuses.ingest(st, { since: statusSince });
           });
