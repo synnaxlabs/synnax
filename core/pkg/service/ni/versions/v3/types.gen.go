@@ -20,7 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -4765,7 +4765,6 @@ func (a *AOFuncGenChannel) ApplyDefaults() {
 func (a AOFuncGenChannel) Validate() error {
 	v := validate.New("AOFuncGenChannel")
 	v.Ternaryf("wave_type", !a.WaveType.IsValid(), "invalid wave_type: %v", a.WaveType)
-	v.GreaterThan("frequency", a.Frequency, 0)
 	return v.Error()
 }
 
