@@ -119,10 +119,11 @@ var _ = Describe("Signals", Ordered, func() {
 		sets := openStreamer(ctx, "sy_labjack_device_set")
 		deletes := openStreamer(ctx, "sy_labjack_device_delete")
 		d := device.Device{
-			Rack:   rackSvc.EmbeddedKey,
-			Name:   "T7-0001",
-			Serial: "470010001",
-			Model:  device.ModelT7,
+			Rack:       rackSvc.EmbeddedKey,
+			Name:       "T7-0001",
+			Serial:     470010001,
+			Model:      device.ModelT7,
+			Connection: device.ConnectionUsb,
 		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &d)
