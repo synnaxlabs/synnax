@@ -9,7 +9,7 @@
 
 import { type Mock, vi } from "vitest";
 
-import { type GLBufferController } from "@/telem/gl";
+import { type GLBufferController } from "@/telem";
 
 // WebGL copies data whether it is a buffer or a view.
 const bytes = (data: AllowSharedBufferSource): Uint8Array =>
