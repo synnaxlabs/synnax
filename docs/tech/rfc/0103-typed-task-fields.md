@@ -202,14 +202,15 @@ rejected channel 0. The Kafka and MQTT tasks in the Core do the same.
 
 **Console**: The data type select sets the kind, and `DataTypeField` shows every type.
 On HTTP and MQTT, `onConfigure` binds each enabled unbound field to the channel that the
-device stores for it: the index channel for an index field, the pointer's channel for a
-read field, and the target's channel for a channel field. It binds only when that
-channel exists and holds the field's `data_type`. Otherwise, and always on Kafka, whose
-devices store no channels, it creates one, and its key replaces the stored one. A name
-that a channel already holds fails configure, and the message tells the user to rename
-the field. An unbound index field first takes the index of the bound channels next to
-it, as today, and creates an index only when none has one. It then saves the field as
-bound. An adapter keeps the atomic Phase 13 near 400 lines, and Phase 15 deletes it.
+device stores for it: the pointer's channel for a read field and the target's channel
+for a channel field. It binds only when that channel exists and holds the field's
+`data_type`. Otherwise, and always on Kafka, whose devices store no channels, it creates
+one, and its key replaces the stored one. A name that a channel already holds fails
+configure, and the message tells the user to rename the field. An unbound index field
+takes the index of the bound channels next to it. When none has one, it takes the stored
+index, and only then creates one. This stops one source from writing against two
+indexes. It then saves the field as bound. An adapter keeps the atomic Phase 13 near 400
+lines, and Phase 15 deletes it.
 
 ## 6 Field types
 
@@ -310,8 +311,9 @@ channel. A released Core keeps reading v2, v3, and v0.58 to v0.59 envelopes.
 
 ## 8 Implementation phases
 
-#4594 merges before Phase 2. Each phase is one PR. Phase 14 removes `EnumEntry`,
-`JSONType`, and `GeneratorType`.
+#4594 merges before Phase 2. Each phase is one PR. A phase that edits a version in place
+mints the next version if a release shipped that version first. Phase 14 removes
+`EnumEntry`, `JSONType`, and `GeneratorType`.
 
 No schema or test uses a qualified variant `extends` or borrowed discriminator. Phase 1
 tests both, with `integer payload.IntegerRead` and one `Kind` per integration as
