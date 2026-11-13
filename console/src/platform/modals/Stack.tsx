@@ -9,7 +9,7 @@
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { memo, type PropsWithChildren, type ReactElement } from "react";
 
 import { Modal } from "@/platform/modals/Modal";
 import { Session } from "@/session";
@@ -18,18 +18,20 @@ const CLOSE_TRIGGERS: Triggers.Trigger[] = [Panel.CLOSE_TRIGGER];
 
 interface LayerProps {
   entry: Session.Modals.Entry;
-  store: Session.Modals.Store;
+  // From the rendered stack, so a modal that closes during a key press does not pass
+  // the rest of that press to the modal below.
+  top: boolean;
 }
 
-const Layer = ({ entry, store }: LayerProps): ReactElement => {
+const Layer = memo(({ entry, top }: LayerProps): ReactElement => {
   const { key, ...rest } = entry;
-  const top = () => store.getState().at(-1)?.key === key;
   return (
     <Triggers.Scope active={top}>
       <Modal key={key} {...rest} />
     </Triggers.Scope>
   );
-};
+});
+Layer.displayName = "Layer";
 
 /**
  * Renders the open modals over its children. Only the top modal hears triggers, and the
@@ -51,8 +53,8 @@ export const Stack = ({ children }: PropsWithChildren): ReactElement => {
   });
   return (
     <>
-      {stack.map((entry) => (
-        <Layer key={entry.key} entry={entry} store={store} />
+      {stack.map((entry, i) => (
+        <Layer key={entry.key} entry={entry} top={i === stack.length - 1} />
       ))}
       <Triggers.Scope active={() => !store.isAnyOpen()}>{children}</Triggers.Scope>
     </>
