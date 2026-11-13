@@ -32,8 +32,9 @@ on:
         type: boolean
         default: false
 
+# release.yaml also releases Desktop, so both workflows share one group.
 concurrency:
-  group: release-desktop
+  group: release
   cancel-in-progress: false
 
 permissions:

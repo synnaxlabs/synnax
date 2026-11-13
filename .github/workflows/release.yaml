@@ -973,17 +973,14 @@ jobs:
           prerelease: ${{ inputs.prerelease }}
 
   # Desktop bundles its own Core, built at the commit of the run with the Driver and no
-  # Console. The Driver comes from the draft of the run when the run releases the Driver
-  # and the Core. If not, the build compiles it. The Core and the Driver exist only
-  # inside Desktop: no release_tag reaches the build, and its artifacts carry their
-  # version, so their names differ from those of the Core and Driver builds of the run.
+  # Console. The Core and the Driver exist only inside Desktop: no release_tag reaches
+  # the build, and its artifacts carry their version, so their names differ from those
+  # of the Core and Driver builds of the run. This job compiles the Driver, so it needs
+  # no other build.
   build-desktop:
     name: Build Desktop
-    needs: [resolve, build-driver]
-    if: >-
-      !cancelled() && inputs.desktop && needs.resolve.result == 'success' &&
-      (needs.resolve.outputs.desktop_driver_release == '' || needs.build-driver.result
-      == 'success')
+    needs: resolve
+    if: inputs.desktop && needs.resolve.outputs.desktop_driver_release == ''
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -992,15 +989,14 @@ jobs:
     with:
       windows: true
       macos: true
-      driver: ${{ needs.resolve.outputs.desktop_driver_release == '' }}
+      driver: true
       core: true
       desktop: true
       sign_binaries: true
       version: ${{ needs.resolve.outputs.desktop_build_version }}
       desktop_version: ${{ needs.resolve.outputs.desktop_version }}
-      driver_release: ${{ needs.resolve.outputs.desktop_driver_release }}
       updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
-    secrets:
+    secrets: &desktop_secrets
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -1017,14 +1013,41 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  # When the run releases the Driver and the Core on one minor, Desktop takes the Driver
+  # from the draft of the run, which holds it after the Driver build passes. A run
+  # starts only one of the two Desktop builds.
+  build-desktop-with-driver:
+    name: Build Desktop with the Driver of the run
+    needs: [resolve, build-driver]
+    if: >-
+      !cancelled() && inputs.desktop && needs.resolve.outputs.desktop_driver_release !=
+      '' && needs.build-driver.result == 'success'
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      core: true
+      desktop: true
+      sign_binaries: true
+      version: ${{ needs.resolve.outputs.desktop_build_version }}
+      desktop_version: ${{ needs.resolve.outputs.desktop_version }}
+      driver_release: ${{ needs.resolve.outputs.desktop_driver_release }}
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: *desktop_secrets
+
   # The bundles and the updater manifest go into the draft, so the publish only makes
   # the draft public.
   upload-desktop:
     name: Upload Desktop bundles
-    needs: [resolve, draft-desktop, build-desktop]
+    needs: [resolve, draft-desktop, build-desktop, build-desktop-with-driver]
     if: >-
       !cancelled() && needs.draft-desktop.result == 'success' &&
-      needs.build-desktop.result == 'success'
+      (needs.build-desktop.result == 'success' || needs.build-desktop-with-driver.result
+      == 'success')
     permissions:
       actions: read
       contents: write
