@@ -12,3 +12,7 @@ package v4
 // CustomTypeName gives ReadConfig records a table prefix that cannot collide with the
 // identically named config types of other integrations.
 func (ReadConfig) CustomTypeName() string { return "http_read_config" }
+
+// CustomTypeName gives WriteConfig records a table prefix that cannot collide with the
+// identically named config types of other integrations.
+func (WriteConfig) CustomTypeName() string { return "http_write_config" }

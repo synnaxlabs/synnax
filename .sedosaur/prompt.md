@@ -42,10 +42,27 @@ step, and read the code it names:
    pages.
 5. After you find a defect, look for other inputs that reach the same mechanism. Report
    each one, or widen the finding.
+6. For a changed document, such as an RFC, a plan, or a docs page, check each statement
+   about the repository against the code, and read each file that it cites. For each
+   step of a design, read the code that the step changes, and trace the step as the
+   document states it.
 
 Report a bug when you can name the input or the interleaving that breaks it. Leave out
 what you cannot trace. Before you call a check redundant or suggest that it go, trace
 what it guards.
+
+## One review reports every finding
+
+The author fixes what you report, pushes, and asks for a new review. A finding that
+waits for that review costs a push and a CI run. So the number of findings has no limit,
+and the bar for a finding stays the same.
+
+- Do not stop at the first findings. Do each step for each changed file and each section
+  of a changed document before you write the review.
+- When a correct fix must meet more than one condition, name each condition that you
+  traced in the one finding, so that the fix does not start the next finding.
+- When the pull request has commits since your last review, review them first. Then do
+  each step again for the full diff, and report what an earlier review missed.
 
 ## Severity
 
